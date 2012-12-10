@@ -3,14 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Net;
+using System.Diagnostics;
 
 namespace Media.Rtsp
 {
+
     /// <summary>
     /// Each source stream the RtspServer encapsulates and can be played by clients
-    /// </summary>
+    /// </summary>    
     public class RtspStream
     {
+        #region Enumerated Stream State
+
+        public enum StreamState
+        {
+            Stopped,
+            Started
+        }
+
+        #endregion
+
         #region Fields
 
         internal Guid m_Id = Guid.NewGuid();
@@ -18,7 +30,6 @@ namespace Media.Rtsp
         internal Uri m_Source;
         internal NetworkCredential m_Cred;
         internal NetworkCredential m_RtspCred;
-        internal RtspArchiver m_Archiver;
         internal List<string> m_Aliases = new List<string>();
 
         #endregion
@@ -28,12 +39,17 @@ namespace Media.Rtsp
         /// <summary>
         /// The unique Id of the RtspStream
         /// </summary>
-        public Guid Id { get { return m_Id; } }
+        public Guid Id { get { return m_Id; } set { m_Id = value; } }
 
         /// <summary>
         /// The name of this stream, also used as the location on the server
         /// </summary>
         public string Name { get { return m_Name; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("Name", "Cannot consist of only null or whitespace"); m_Aliases.Add(m_Name); m_Name = value; } }
+
+        /// <summary>
+        /// Any Aliases the stream is known by
+        /// </summary>
+        public string[] Aliases { get { return m_Aliases.ToArray(); } }
 
         /// <summary>
         /// The credential the source requires
@@ -45,7 +61,7 @@ namespace Media.Rtsp
             {
                 m_Cred = value;
 
-                bool wasConnected = Listener.Connected;
+                bool wasConnected = Client.Connected;
 
                 if (wasConnected)
                 {
@@ -54,7 +70,7 @@ namespace Media.Rtsp
                 }
 
                 //Set the new creds
-                Listener.Credential = value;
+                Client.Credential = value;
 
                 if (wasConnected)
                 {
@@ -69,59 +85,33 @@ namespace Media.Rtsp
         /// </summary>
         public NetworkCredential RtspCredential
         {
-            get { return m_Cred; }
+            get { return m_RtspCred; }
             set { m_RtspCred = value; }
         }
 
         //Will need to have supported methods also.. and a handler dictionary to get the handler for each request server will use its by default..
-        //Will need to adjust or subclass for Archived Streams
-        public RtspListener Listener { get; set; }
+        //Will need to adjust or subclass for Archived Streams        
+        public RtspClient Client { get; set; }
 
         /// <summary>
         /// Indicates if the sources listener is connected
         /// </summary>
-        public bool Connected { get { return Listener.Connected; } }
+        public bool Connected { get { return Client.Connected; } }
 
         /// <summary>
         /// Indicates if the sources listener is listening
         /// </summary>
-        public bool Listening { get { return Listener.Listening; } }
+        public virtual bool Listening { get { return Client.Listening; } }
 
         /// <summary>
-        /// Indicates if the stream is being archived
+        /// Sdp of the Stream
         /// </summary>
-        public bool Archiving
-        {
-            get { return m_Archiver != null; }
-            set
-            {
-                if (value == false && Archiving)
-                {
-                    m_Archiver.Stop();
-                    m_Archiver = null;
-                }
-                else if (value == true && !Archiving)
-                {
-                    m_Archiver = new RtspArchiver(Id, Listener);
-                    m_Archiver.Start();
-                }
-            }
-        }
+        public virtual Sdp.SessionDescription SessionDescription { get { return Client.SessionDescription; } }
 
         /// <summary>
-        /// Gets or sets the archiver used with this stream.
+        /// State of the stream 
         /// </summary>
-        public RtspArchiver Archiver
-        {
-            get { return m_Archiver; }
-            set
-            {
-                bool wasArchiving = Archiving;
-                Archiving = false;
-                m_Archiver = value;
-                Archiving = wasArchiving;
-            }
-        }
+        public StreamState State { get; set; }
 
         /// <summary>
         /// The Uri to the source media
@@ -132,17 +122,35 @@ namespace Media.Rtsp
             set
             {
 
-                if (value.Scheme != "rtsp://") throw new ArgumentException("value", "Must have the rtsp:// scheme.");
+                if (value.Scheme != RtspMessage.ReliableTransport ) throw new ArgumentException("value", "Must have the rtsp scheme.");
+                
+                m_Source = value;
 
-                bool wasConnected = Listener.Connected;
+                if (Client != null)
+                {
+                    bool wasConnected = Client.Connected;
 
-                if (wasConnected) Stop();
+                    if (wasConnected) Stop();
 
-                Listener.Location = m_Source = value;
+                    Client.Location = m_Source;
 
-                if (wasConnected) Start();
+                    if (wasConnected) Start();
+                }
 
             }
+        }
+
+        #endregion
+
+        #region Events
+
+        public delegate void FrameDecodedHandler(RtspStream stream, System.Drawing.Image decoded);
+
+        public event FrameDecodedHandler FrameDecoded;
+
+        internal void OnFrameDecoded(System.Drawing.Image decoded)
+        {
+            if (FrameDecoded != null) FrameDecoded(this, decoded);
         }
 
         #endregion
@@ -166,7 +174,7 @@ namespace Media.Rtsp
             Source = sourceLocation;
 
             //Create the listener
-            Listener = new RtspListener(m_Source);
+            Client = new RtspClient(m_Source);
         }
 
         /// <summary>
@@ -186,7 +194,7 @@ namespace Media.Rtsp
             : this(name, sourceLocation)
         {
             //Set the creds
-            Listener.Credential = m_Cred = credential;
+            Client.Credential = m_Cred = credential;
         }
 
         /// <summary>
@@ -199,7 +207,7 @@ namespace Media.Rtsp
             : this(name, sourceLocation)
         {
             //Set the creds
-            Listener.Credential = m_Cred = credential;
+            Client.Credential = m_Cred = credential;
         }
 
         #endregion
@@ -209,20 +217,16 @@ namespace Media.Rtsp
         /// <summary>
         /// Beings streaming from the source
         /// </summary>
-        internal void Start()
-        {
-            if (!Listener.Connected)
+        public virtual void Start()
+        {            
+            if (!Client.Connected && State == StreamState.Started)
             {
                 try
                 {
-                    Listener.Connect();
-                    Listener.SendOptions();
-                    Listener.SendDescribe();
-                    Listener.SendSetup();
-                    Listener.SendPlay();
-                    Listener.StartListening();
+                    Client.StartListening();
+                    Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
                 }
-                catch (RtspListener.RtspListenerException)
+                catch (RtspClient.RtspListenerException)
                 {
                     //Wrong Credentails etc...
                 }
@@ -230,24 +234,67 @@ namespace Media.Rtsp
                 {
                     throw;
                 }
+                State = StreamState.Started;
+            }
+        }
+
+        internal virtual void Client_RtpFrameCompleted(Rtp.RtpClient sender, Rtp.RtpFrame frame)
+        {
+            if (Client.Client != sender) return;
+            DecodeFrame(frame);
+        }
+
+        internal void DecodeFrame(Rtp.RtpFrame frame)
+        {
+            try
+            {
+                Media.Sdp.SessionDescription.SessionMediaDescription mediaDescription = this.Client.SessionDescription.MediaDesciptions[0];
+                if (mediaDescription.MediaType.ToLower() == "audio") return;
+                else if (mediaDescription.MediaFormat == "26")
+                {
+                    m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
+                    OnFrameDecoded(m_lastFrame);
+                }
+                else if (mediaDescription.MediaFormat == "96")
+                {
+                    //Dynamic..
+                }
+            }
+            catch
+            {
+                return;
             }
         }
 
         /// <summary>
         /// Stops streaming from the source
         /// </summary>
-        internal void Stop()
+        public virtual void Stop()
         {
-            if (Listener.Connected)
+            if (Client.Listening)
             {
-                Listener.Disconnect();
+                Client.StopListening();
             }
+            State = StreamState.Stopped;
         }
 
         public void AddAlias(string name)
         {
             if (m_Aliases.Contains(name)) return;
             m_Aliases.Add(name);
+        }
+
+        public void RemoveAlias(string alias)
+        {
+            m_Aliases.Remove(alias);
+        }
+
+        //The last frame decoded
+        internal System.Drawing.Image m_lastFrame;
+
+        public System.Drawing.Image GetFrame()
+        {
+            return m_lastFrame;
         }
 
         #endregion
