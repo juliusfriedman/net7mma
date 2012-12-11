@@ -6,9 +6,11 @@ using System.Text;
 namespace Media.Sdp
 {
     /// <summary>
+    /// Provides facilities for parsing and creating SessionDescription data
     /// http://en.wikipedia.org/wiki/Session_Description_Protocol
+    /// http://tools.ietf.org/html/rfc4566
     /// </summary>
-    public class SessionDescription
+    public sealed class SessionDescription
     {
         #region Statics
 
@@ -22,9 +24,39 @@ namespace Media.Sdp
             return value.Replace(CR, string.Empty).Replace(LF, string.Empty);
         }
 
+        static string DictionaryToString(Dictionary<string, List<SessionDescriptionDescriptor>> dictionary, string prepend, string join)
+        {
+            string result = string.Empty;
+            foreach (KeyValuePair<string, List<SessionDescriptionDescriptor>> place in dictionary)
+            {
+                foreach (SessionDescriptionDescriptor attribute in place.Value)
+                {
+                    result += prepend + attribute.Key + join + attribute.Value + CRLF;
+                }
+            }
+            return result;
+        }
+
         #endregion
 
         #region Nested Types
+
+        /// <summary>
+        /// Represents a property, attribute or bandwidth information line in a SessionDescription.
+        /// </summary>
+        public struct SessionDescriptionDescriptor
+        {
+            public string Key;
+            public string Value;
+
+            public SessionDescriptionDescriptor(string key, string value)
+            {
+                if (string.IsNullOrWhiteSpace(key)) throw new ArgumentNullException("Cannot be null or whitespace", "key");
+                if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("Cannot be null or whitespace", "value");
+                Key = CleanValue(key);
+                Value = CleanValue(value);
+            }
+        }
 
         /// <summary>
         /// Thrown when a SessionDescription does not conform to the RFC 4566 outline
@@ -38,6 +70,7 @@ namespace Media.Sdp
 
         /// <summary>
         /// Represents the TimeDescription in a Session Description
+        /// Parses and Creates.
         /// </summary>
         public class SessionTimeDescription
         {
@@ -49,8 +82,8 @@ namespace Media.Sdp
 
                 sdpLine = CleanValue(sdpLine.Replace("t=", string.Empty));
                 string[] parts = sdpLine.Split(' ');
-                SessionStartTime = Convert.ToInt32(parts[0]);
-                SessionStopTime = Convert.ToInt32(parts[1]);
+                SessionStartTime = Convert.ToInt32(CleanValue(parts[0]));
+                SessionStopTime = Convert.ToInt32(CleanValue(parts[1]));
 
                 //Iterate remaining lines
                 for (; index < sdpLines.Length; ++index)
@@ -64,7 +97,7 @@ namespace Media.Sdp
                     try
                     {
                         sdpLine = sdpLine.Replace("r=", string.Empty);
-                        RepeatTimes.Add(Convert.ToInt32(sdpLines));
+                        RepeatTimes.Add(Convert.ToInt32(CleanValue(sdpLine)));
                     }
                     catch (Exception ex)
                     {
@@ -83,16 +116,20 @@ namespace Media.Sdp
             public int SessionStartTime;
             public int SessionStopTime;
 
-            List<int> RepeatTimes = new List<int>();
+            public List<int> RepeatTimes = new List<int>();
 
             public override string ToString()
             {
-                return "t=" + SessionStartTime.ToString() + " " + SessionStopTime.ToString() + CRLF;
+                string result =  "t=" + SessionStartTime.ToString() + " " + SessionStopTime.ToString() + CRLF;
+                foreach (int repeatTime in RepeatTimes)
+                    result += "r=" + repeatTime + CRLF;
+                return result;
             }
         }
 
         /// <summary>
-        /// Represents the MediaDescription in a Session Description
+        /// Represents the MediaDescription in a Session Description.
+        /// Parses and Creates.
         /// </summary>
         public class SessionMediaDescription
         {
@@ -103,19 +140,25 @@ namespace Media.Sdp
             public string MediaProtocol;
             public string MediaFormat;
 
-            Dictionary<string, string> m_Properties = new Dictionary<string, string>();
+            Dictionary<string, List<SessionDescriptionDescriptor>> m_Properties = new Dictionary<string, List<SessionDescriptionDescriptor>>();
 
-            Dictionary<string, string> m_BandwidthInformation = new Dictionary<string, string>();
+            Dictionary<string, List<SessionDescriptionDescriptor>> m_BandwidthInformation = new Dictionary<string, List<SessionDescriptionDescriptor>>();
 
-            Dictionary<string, string> m_Attributes = new Dictionary<string, string>();
+            Dictionary<string, List<SessionDescriptionDescriptor>> m_Attributes = new Dictionary<string, List<SessionDescriptionDescriptor>>();
 
             #endregion
 
-            //#region Properties
+            #region Propeties
 
-            //#endregion
+            public string[] Properties { get { return m_Properties.Keys.ToArray(); } }
 
-            #region Methods
+            public string[] Attributes { get { return m_Attributes.Keys.ToArray(); } }
+
+            public string[] BandwidthInformation { get { return m_BandwidthInformation.Keys.ToArray(); } }
+
+            #endregion
+
+            #region Constructor
 
             public SessionMediaDescription(string[] sdpLines, ref int index)
             {
@@ -126,7 +169,7 @@ namespace Media.Sdp
 
                 string[] parts = sdpLine.Split(' ');
 
-                if(parts.Length != 4) throw new SessionDescriptionException("Invalid Media Name and Address");
+                if (parts.Length != 4) throw new SessionDescriptionException("Invalid Media Name and Address");
 
                 MediaType = parts[0];
 
@@ -146,81 +189,101 @@ namespace Media.Sdp
                         //Found the start of another MediaDescription
                         break;
                     }
-                    else if (line.StartsWith("a"))
+                    else if (line.StartsWith("a="))
                     {
                         //Parse the attribute
                         line = line.Replace("a=", string.Empty);
                         parts = line.Split(':');
-                        m_Attributes.Add(parts[0], CleanValue(parts[1]));
+                        SetAttribute(new SessionDescriptionDescriptor(parts[0], parts[1]));
                     }
-                    else if (line.StartsWith("b"))
+                    else if (line.StartsWith("b="))
                     {
                         //Parse the attribute
                         line = line.Replace("b=", string.Empty);
                         parts = line.Split(':');
-                        m_BandwidthInformation.Add(parts[0], CleanValue(parts[1]));
+                        SetBandwithInformation(new SessionDescriptionDescriptor(parts[0], parts[1]));
                     }
                     else
                     {
                         //Parse the property
                         parts = line.Split('=');
-                        if (parts.Length > 1) m_Properties.Add(parts[0], CleanValue(parts[1]));
+                        if (parts.Length > 1)
+                        {
+                            SetProperty(new SessionDescriptionDescriptor(parts[0], parts[1]));
+                        }
                     }
-                }            
+                }
             }
 
-            public string GetProperty(string name)
+            #endregion
+
+            #region Methods
+
+            public List<SessionDescriptionDescriptor> GetProperty(string name)
             {
                 if (m_Properties.ContainsKey(name)) return m_Properties[name];
                 return null;
             }
-            
-            public void SetProperty(string name, string value)
+
+            public void SetProperty(SessionDescriptionDescriptor attribute)
             {
-                if (m_Properties.ContainsKey(name)) m_Properties[name] = value;
-                else m_Properties.Add(name, value);
+                if (m_Properties.ContainsKey(attribute.Key))
+                {
+                    m_Properties[attribute.Key].Add(attribute);
+                }
+                else
+                {
+                    m_Properties.Add(attribute.Key, new List<SessionDescriptionDescriptor>() { attribute });
+                }
             }
 
-            public string GetAtttribute(string name)
+            public List<SessionDescriptionDescriptor> GetAttribute(string name)
             {
                 if (m_Attributes.ContainsKey(name)) return m_Attributes[name];
                 return null;
             }
 
-            public void SetAttribute(string name, string value)
+            public void SetAttribute(SessionDescriptionDescriptor attribute)
             {
-                if (m_Attributes.ContainsKey(name)) m_Attributes[name] = value;
-                else m_Attributes.Add(name, value);
+                if (m_Attributes.ContainsKey(attribute.Key))
+                {
+                    m_Attributes[attribute.Key].Add(attribute);
+                }
+                else
+                {
+                    m_Attributes.Add(attribute.Key, new List<SessionDescriptionDescriptor>() { attribute });
+                }
             }
 
-            public string GetBandwithInformation(string name)
+            public List<SessionDescriptionDescriptor> GetBandwithInformation(string name)
             {
-                if (m_BandwidthInformation.ContainsKey(name)) return m_BandwidthInformation[name];
+                if (m_Attributes.ContainsKey(name)) return m_Properties[name];
                 return null;
             }
 
-            public void SetBandwithInformation(string name, string value)
+            public void SetBandwithInformation(SessionDescriptionDescriptor attribute)
             {
-                if (m_BandwidthInformation.ContainsKey(name)) m_BandwidthInformation[name] = value;
-                else m_BandwidthInformation.Add(name, value);
+                if (m_BandwidthInformation.ContainsKey(attribute.Key))
+                {
+                    m_BandwidthInformation[attribute.Key].Add(attribute);
+                }
+                else
+                {
+                    m_BandwidthInformation.Add(attribute.Key, new List<SessionDescriptionDescriptor>() { attribute });
+                }
             }
 
             public override string ToString()
             {
                 StringBuilder buffer = new StringBuilder();
+
                 buffer.Append("m=" + MediaType + " " + MediaPort.ToString() + " " + MediaProtocol + " " + MediaFormat + CRLF);
-                
-                foreach (KeyValuePair<string, string> pair in m_Properties)
-                    buffer.Append(pair.Key + '=' + pair.Value + CRLF);
-             
-                foreach (KeyValuePair<string, string> pair in m_BandwidthInformation)
-                    buffer.Append("b=" + pair.Key + ':' + pair.Value + CRLF);
 
-                foreach (KeyValuePair<string, string> pair in m_Attributes)
-                    buffer.Append("a=" + pair.Key + ':' + pair.Value + CRLF);
+                buffer.Append(SessionDescription.DictionaryToString(m_Properties, string.Empty, "="));
 
-                //End of Media Desc
-                //buffer.Append(CRFL);                
+                buffer.Append(SessionDescription.DictionaryToString(m_BandwidthInformation, "b=", ":"));
+
+                buffer.Append(SessionDescription.DictionaryToString(m_Attributes, "a=", ":"));
 
                 return buffer.ToString();
             }
@@ -232,11 +295,11 @@ namespace Media.Sdp
 
         #region Fields
 
-        Dictionary<string, string> m_BandwidthInformation = new Dictionary<string, string>();
+        Dictionary<string, List<SessionDescriptionDescriptor>> m_Properties = new Dictionary<string, List<SessionDescriptionDescriptor>>();
 
-        Dictionary<string, string> m_Properties = new Dictionary<string, string>();
+        Dictionary<string, List<SessionDescriptionDescriptor>> m_BandwidthInformation = new Dictionary<string, List<SessionDescriptionDescriptor>>();
 
-        Dictionary<string, string> m_Attributes = new Dictionary<string, string>();
+        Dictionary<string, List<SessionDescriptionDescriptor>> m_Attributes = new Dictionary<string, List<SessionDescriptionDescriptor>>();
 
         #endregion
 
@@ -246,15 +309,23 @@ namespace Media.Sdp
 
         public List<SessionMediaDescription> MediaDesciptions = new List<SessionMediaDescription>();
 
-        public int Version { get { return Convert.ToInt32(GetProperty("v")); } set { SetProperty("v", value.ToString()); } }
+        public int Version { get { return Convert.ToInt32(GetProperty("v")[0].Value); } set { SetProperty(new SessionDescriptionDescriptor("v", value.ToString())); } }
 
-        public string OriginatorAndSessionIdentifier { get { return GetProperty("o"); } set { SetProperty("o", value); } }
+        public string OriginatorAndSessionIdentifier { get { return GetProperty("o")[0].Value; } set { SetProperty(new SessionDescriptionDescriptor("o", value)); } }
 
-        public string SessionName { get { return GetProperty("s"); } set { SetProperty("s", value); } }
+        public string SessionName { get { return GetProperty("s")[0].Value; } set { SetProperty(new SessionDescriptionDescriptor("s", value)); } }
+
+        public string[] Properties { get { return m_Properties.Keys.ToArray(); } }
+
+        public string[] Attributes { get { return m_Attributes.Keys.ToArray(); } }
+
+        public string[] BandwidthInformation { get { return m_BandwidthInformation.Keys.ToArray(); } }
 
         #endregion
 
         #region Constructor
+
+        static SessionDescription() { }
 
         public SessionDescription(int version)
         {
@@ -297,17 +368,18 @@ namespace Media.Sdp
             string[] parts = lines[lineIndex++].Split('=');
 
             if (parts[0] != "v") throw new SessionDescriptionException("Expected Protocol Version");
-            else m_Properties.Add(parts[0], CleanValue(parts[1]));
+            else SetProperty(new SessionDescriptionDescriptor(parts[0], parts[1]));
 
             parts = lines[lineIndex++].Split('=');
 
             if (parts[0] != "o") throw new SessionDescriptionException("Expected Originator and Session Identifier");
-            else m_Properties.Add(parts[0], CleanValue(parts[1]));
+            else SetProperty(new SessionDescriptionDescriptor(parts[0], parts[1]));
 
             parts = lines[lineIndex++].Split('=');
 
-            if (parts[0] != "s") throw new SessionDescriptionException("Expected Session Name");
-            else m_Properties.Add(parts[0], CleanValue(parts[1]));
+            if (parts[0] != "s") SetProperty(new SessionDescriptionDescriptor("s", "Archive Session Name"));
+            else SetProperty(new SessionDescriptionDescriptor(parts[0], parts[1]));
+
 
             //Parse remaining optional entries
             for (int e = lines.Length; lineIndex < e; ++lineIndex)
@@ -333,21 +405,20 @@ namespace Media.Sdp
                     //Parse the attribute
                     line = line.Replace("a=", string.Empty);
                     parts = line.Split(':');
-                    m_Attributes.Add(parts[0], CleanValue(parts[1]));
+                    SetAttribute(new SessionDescriptionDescriptor(parts[0], parts[1]));
                 }
                 else if (line.StartsWith("b="))
                 {
                     //Parse the attribute
                     line = line.Replace("b=", string.Empty);
                     parts = line.Split(':');
-                    SetBandwithInformation(parts[0], CleanValue(parts[1]));
-                    //m_BandwidthInformation.Add(parts[0], CleanValue(parts[1]));
+                    SetBandwithInformation(new SessionDescriptionDescriptor(parts[0], parts[1]));
                 }
                 else
                 {
                     //Parse the property
                     parts = line.Split('=');
-                    if (parts.Length > 1) m_Properties.Add(parts[0], CleanValue(parts[1]));
+                    if (parts.Length > 1) SetProperty(new SessionDescriptionDescriptor(parts[0], parts[1]));
                 }
             }            
 
@@ -357,40 +428,66 @@ namespace Media.Sdp
 
         #region Methods
 
-        public string GetProperty(string name)
+        public List<SessionDescriptionDescriptor> GetProperty(string name)
         {
             if (m_Properties.ContainsKey(name)) return m_Properties[name];
             return null;
         }
 
-        public void SetProperty(string name, string value)
-        {
-            if (m_Properties.ContainsKey(name)) m_Properties[name] = value;
-            else m_Properties.Add(name, value);
+        public void SetProperty(SessionDescriptionDescriptor attribute)
+        {           
+            if (m_Properties.ContainsKey(attribute.Key))
+            {
+                //There can only be one version, originator and session identifier
+                if (attribute.Key == "v" || attribute.Key == "o" || attribute.Key == "s")
+                {
+                    m_Properties[attribute.Key][0] = attribute;
+                }
+                else
+                {
+                    m_Properties[attribute.Key].Add(attribute);
+                }                
+            }
+            else
+            {
+                m_Properties.Add(attribute.Key, new List<SessionDescriptionDescriptor>() { attribute });
+            }
         }
 
-        public string GetAtttribute(string name)
+        public List<SessionDescriptionDescriptor> GetAttribute(string name)
         {
-            if (m_Attributes.ContainsKey(name)) return m_Attributes[name];
+            if (m_Attributes.ContainsKey(name)) return m_Properties[name];
             return null;
         }
 
-        public void SetAttribute(string name, string value)
+        public void SetAttribute(SessionDescriptionDescriptor attribute)
         {
-            if (m_Attributes.ContainsKey(name)) m_Attributes[name] = value;
-            else m_Attributes.Add(name, value);
+            if (m_Attributes.ContainsKey(attribute.Key))
+            {
+                m_Attributes[attribute.Key].Add(attribute);
+            }
+            else
+            {
+                m_Attributes.Add(attribute.Key, new List<SessionDescriptionDescriptor>() { attribute });
+            }
         }
 
-        public string GetBandwithInformation(string name)
+        public List<SessionDescriptionDescriptor> GetBandwithInformation(string name)
         {
-            if (m_BandwidthInformation.ContainsKey(name)) return m_BandwidthInformation[name];
+            if (m_Attributes.ContainsKey(name)) return m_Properties[name];
             return null;
         }
 
-        public void SetBandwithInformation(string name, string value)
+        public void SetBandwithInformation(SessionDescriptionDescriptor attribute)
         {
-            if (m_BandwidthInformation.ContainsKey(name)) m_BandwidthInformation[name] = value;
-            else m_BandwidthInformation.Add(name, value);
+            if (m_BandwidthInformation.ContainsKey(attribute.Key))
+            {
+                m_BandwidthInformation[attribute.Key].Add(attribute);
+            }
+            else
+            {
+                m_BandwidthInformation.Add(attribute.Key, new List<SessionDescriptionDescriptor>() { attribute });
+            }
         }
 
         /// <summary>
@@ -402,16 +499,22 @@ namespace Media.Sdp
         {
             if (Version != other.Version) throw new ArgumentException("Must be the same version", "other");
 
-            foreach (KeyValuePair<string, string> pair in m_Properties)
+            foreach (KeyValuePair<string, List<SessionDescriptionDescriptor>> place in m_Properties/*.Where(a=> a.Key != "v" && a.Key != "o" && a.Key != "s")*/)
             {
-                //Dont copy all
-                if (pair.Key == "v" || pair.Key == "o" || pair.Key == "s") continue;
-                other.SetProperty(pair.Key, pair.Value);
+                foreach (SessionDescriptionDescriptor attribute in place.Value)
+                {
+                    //Dont copy all
+                    if (attribute.Key == "v" || attribute.Key == "o" || attribute.Key == "s") continue;
+                    other.SetProperty(attribute);
+                }
             }
 
-            foreach (KeyValuePair<string, string> pair in m_BandwidthInformation)
+            foreach (KeyValuePair<string, List<SessionDescriptionDescriptor>> place in m_BandwidthInformation)
             {
-                other.SetBandwithInformation(pair.Key, pair.Value);
+                foreach (SessionDescriptionDescriptor attribute in place.Value)
+                {
+                    other.SetBandwithInformation(attribute);
+                }
             }
 
             if (TimeDescriptions.Count > 0)
@@ -420,9 +523,12 @@ namespace Media.Sdp
                     other.TimeDescriptions.Add(timeDescription);
             }
 
-            foreach (KeyValuePair<string, string> pair in m_Attributes)
+            foreach (KeyValuePair<string, List<SessionDescriptionDescriptor>> place in m_Attributes)
             {
-                other.SetAttribute(pair.Key, pair.Value);
+                foreach (SessionDescriptionDescriptor attribute in place.Value)
+                {
+                    other.SetAttribute(attribute);
+                }
             }          
 
             if (MediaDesciptions.Count > 0)
@@ -435,11 +541,10 @@ namespace Media.Sdp
         public override string ToString()
         {
             StringBuilder buffer = new StringBuilder();
-            foreach (KeyValuePair<string, string> pair in m_Properties)
-                buffer.Append(pair.Key + '=' + pair.Value + CRLF);
 
-            foreach (KeyValuePair<string, string> pair in m_BandwidthInformation)
-                buffer.Append("b=" + pair.Key + ':' + pair.Value + CRLF);
+            buffer.Append(SessionDescription.DictionaryToString(m_Properties, string.Empty, "="));
+
+            buffer.Append(SessionDescription.DictionaryToString(m_BandwidthInformation, "b=", ":"));
 
             if (TimeDescriptions.Count > 0)
             {
@@ -447,8 +552,7 @@ namespace Media.Sdp
                     buffer.Append(timeDescription.ToString());
             }
 
-            foreach (KeyValuePair<string, string> pair in m_Attributes)
-                buffer.Append("a=" + pair.Key + ':' + pair.Value + CRLF);
+            buffer.Append(SessionDescription.DictionaryToString(m_Attributes, "a=", ":"));
 
             if (MediaDesciptions.Count > 0)
             {
@@ -463,6 +567,5 @@ namespace Media.Sdp
         }
 
         #endregion
-
     }
 }
