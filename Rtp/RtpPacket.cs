@@ -5,11 +5,16 @@ using System.Text;
 
 namespace Media.Rtp
 {
+    /// <summary>
+    /// http://www.ietf.org/rfc/rfc3550.txt
+    /// </summary>
     public class RtpPacket
     {
         internal const int HeaderLength = 12;
 
         internal const int MaxSize = 1500;
+
+        internal const int MaxPayloadSize = MaxSize - HeaderLength;
 
         #region Fields
 
@@ -86,11 +91,18 @@ namespace Media.Rtp
         /// <summary>
         /// The binary payload of the RTPPacket
         /// </summary>
-        public byte[] Payload { get { return m_Payload; } }
+        public byte[] Payload { get { return m_Payload; } set { m_Payload = value; } }
+
+        /// <summary>
+        /// The length of the packet in bytes
+        /// </summary>
+        public int Length { get { return HeaderLength + (ContributingSources.Count * 4) + (Payload != null ? Payload.Length : 0); } }
 
         #endregion
 
         #region Constructor
+
+        public RtpPacket() { }
 
         public RtpPacket(ArraySegment<byte> packetReference)
         {
@@ -115,23 +127,23 @@ namespace Media.Rtp
             m_PayloadType = (byte)(compound & 0x7f);
 
             //Extract Sequence Number
-            SequenceNumber = HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, 2));
+            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, 2));
 
             //Extract Time Stamp
-            m_TimeStamp = SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, 4));
+            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, 4));
 
-            m_Ssrc = SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, 8));
+            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, 8));
 
             int position = 12;
 
             //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, position)));
+            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, position)));
 
             //Extract Extensions
             if (Extensions)
             {
-                m_ExtensionFlags = HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, position));
-                m_ExtensionLength = HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, position + 2));
+                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, position));
+                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, position + 2));
                 m_ExtensionData = new byte[m_ExtensionLength];
                 Array.Copy(packetReference.Array, position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;
@@ -163,23 +175,23 @@ namespace Media.Rtp
             m_PayloadType = (byte)(packet[offset + 1] & 0x7f);
 
             //Extract Sequence Number
-            SequenceNumber = HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, offset + 2));
+            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, offset + 2));
 
             //Extract Time Stamp
-            m_TimeStamp = SwapUnsignedInt(System.BitConverter.ToUInt32(packet, offset + 4));
+            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet, offset + 4));
 
-            m_Ssrc = SwapUnsignedInt(System.BitConverter.ToUInt32(packet, offset + 8));
+            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet, offset + 8));
 
             int position = offset + 12;
 
             //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(SwapUnsignedInt(System.BitConverter.ToUInt32(packet, position)));
+            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet, position)));
 
             //Extract Extensions
             if (Extensions)
             {
-                m_ExtensionFlags = HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, position));
-                m_ExtensionLength = HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, position + 2));
+                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, position));
+                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, position + 2));
                 m_ExtensionData = new byte[m_ExtensionLength];
                 Array.Copy(packet, position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;
@@ -200,7 +212,7 @@ namespace Media.Rtp
         /// Encodes the RTPHeader and Payload into a RTPPacket
         /// </summary>
         /// <returns></returns>
-        public byte[] ToBytes(bool headerOnly = false)
+        public byte[] ToBytes(bool headerOnly = false, uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
 
@@ -226,7 +238,7 @@ namespace Media.Rtp
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_TimeStamp)));
 
             //Add the SynchonrizationSourceIdentifier
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_Ssrc)));
+            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? m_Ssrc))));
 
             if (ContributingSourceCount > 0)
             {
@@ -250,14 +262,6 @@ namespace Media.Rtp
             //Return the array
             return result.ToArray();
         }
-
-        #region Utility Methods
-
-        internal static ushort HostToNetworkOrderShort(ushort host) { return (ushort)(((host & 0xFF) << 8) | ((host >> 8) & 0xFF)); }
-
-        internal static uint SwapUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
-
-        #endregion
 
         #endregion
 
