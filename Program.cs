@@ -10,22 +10,35 @@ namespace Media
         [STAThread]
         public static void Main(string[] args)
         {
+            TestServer();
+            TestEncoderDecoder();
+        }
 
-            Rtsp.RtspServer server = new Rtsp.RtspServer();
+        /// <summary>
+        /// Tests the RtspServer by creating a server, loading/exposing a stream and waiting for a keypress to terminate
+        /// </summary>
+        public static void TestServer()
+        {
+            //Create the server optionally specifying the port to listen on
+            Rtsp.RtspServer server = new Rtsp.RtspServer(/*555*/);
 
-            Rtsp.RtspStream source = new Rtsp.RtspStream("nh7", "rtsp://asti-video.nesl.com/live/p_NH7_CAM_1");
+            //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
+            //From the RtspSource rtsp://1.2.3.4/mpeg4/media.amp
+            Rtsp.RtspStream source = new Rtsp.RtspStream("RtspSourceTest", "rtsp://1.2.3.4/mpeg4/media.amp");
+
+            //If the stream had a username and password
+            //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
+
+            //If you wanted to password protect the stream
+            //source.RtspCredential = new System.Net.NetworkCredential("username", "password");
+
+            //Add the stream to the server
             server.AddStream(source);
 
-            //Handle multiple AS params in the SDP
-            //Also handle bad reqeust to setup
-
-            //source = new Rtsp.RtspStream("youtube", "rtsp://v4.cache3.c.youtube.com/CjgLENy73wIaLwmuxcpmJBuHhRMYDSANFEIJbXYtZ29vZ2xlSARSB3JlbGF0ZWRg7I3t9PCLl6xQDA==/0/0/0/video.3gp");
-            //server.AddStream(source);
-
-            //source = new Rtsp.RtspServer.RtspStream("c7", "rtsp://asti-video.nesl.com/live/p_C7");
-            //server.AddStream(source);
-
+            //Start the server
             server.Start();
+
+            //If you add more streams they will be started
 
             Console.WriteLine("Listening on: " + server.LocalEndPoint);
 
@@ -33,7 +46,21 @@ namespace Media
 
             Console.WriteLine("Waiting for input................");
 
-            Console.ReadKey();
+            while (true)
+            {
+
+                var key = Console.ReadKey();
+
+                if (key.KeyChar == 'q') break;
+                else
+                {
+                    if (System.Diagnostics.Debugger.IsAttached)
+                    {
+                        System.Diagnostics.Debugger.Break();
+                    }
+                }
+
+            }
 
             Console.WriteLine("Stopping Server");
 
@@ -52,5 +79,19 @@ namespace Media
             Console.ReadKey();
 
         }
+
+        public static void TestEncoderDecoder()
+        {
+            //Create a JpegFrame from a source... we will have to setup a RtspServer
+
+            //Make a list of a few jpegs..
+
+            //Create a RTPFrame from each Jpeg
+
+            //Subclass RtspStream to provide the source as the RTPFrames
+
+            //Send the Frames to each client that connects
+        }
+
     }
 }

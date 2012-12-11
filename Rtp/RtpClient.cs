@@ -414,7 +414,7 @@ namespace Media.Rtp
             //think this is right..
             SendersReport result = new SendersReport(m_LastRecieversReport.SynchronizationSourceIdentifier);
 
-            result.NtpTimestamp = DateTimeToNtp32(DateTime.UtcNow);
+            result.NtpTimestamp = Utility.DateTimeToNtp32(DateTime.UtcNow);
 
             result.RtpTimestamp = m_LastRtpPacket.TimeStamp;//From the last rtpPacket
 
@@ -452,7 +452,7 @@ namespace Media.Rtp
                 CumulativePacketsLost = (uint)lost,
                 FractionLost = (uint)fraction,
                 InterArrivalJitter = m_RtpJitter,
-                LastSendersReport = (uint)(m_LastSendersReport != null ? DateTimeToNtp32(m_LastSendersReportSent) : 0),
+                LastSendersReport = (uint)(m_LastSendersReport != null ? Utility.DateTimeToNtp32(m_LastSendersReportSent) : 0),
                 DelaySinceLastSendersReport = (uint)(m_LastSendersReport != null ? ((DateTime.UtcNow - m_LastSendersReportSent).Milliseconds / 65535) * 1000 : 0),
                 ExtendedHigestSequenceNumber = (uint)(m_LastRtpPacket != null ? m_LastRtpPacket.SequenceNumber : 0)
             });
@@ -514,7 +514,7 @@ namespace Media.Rtp
         internal void CalculateJitter(RtpPacket packet)
         {
             // RFC 3550 A.8.
-            int transit = (int)(DateTimeToNtp32(DateTime.Now) - packet.TimeStamp);
+            int transit = (int)(Utility.DateTimeToNtp32(DateTime.Now) - packet.TimeStamp);
             int d = (int)(transit - m_RtpTransit);
             m_RtpTransit = (uint)transit;
             if (d < 0) d = -d;
@@ -943,87 +943,6 @@ namespace Media.Rtp
 
         #endregion
 
-        #region Npt
-
-        /// <summary>
-        /// Converts specified DateTime value to short NTP time. Note: NTP time is in UTC.
-        /// </summary>
-        /// <param name="value">DateTime value to convert. This value must be in local time.</param>
-        /// <returns>Returns NTP value.</returns>
-        public static uint DateTimeToNtp32(DateTime value)
-        {
-            /*
-                In some fields where a more compact representation is
-                appropriate, only the middle 32 bits are used; that is, the low 16
-                bits of the integer part and the high 16 bits of the fractional part.
-                The high 16 bits of the integer part must be determined
-                independently.
-            */
-
-            return (uint)((DateTimeToNtp64(value) >> 16) & 0xFFFFFFFF);
-        }
-
-        /// <summary>
-        /// Converts specified DateTime value to long NTP time. Note: NTP time is in UTC.
-        /// </summary>
-        /// <param name="value">DateTime value to convert. This value must be in local time.</param>
-        /// <returns>Returns NTP value.</returns>
-        public static ulong DateTimeToNtp64(DateTime value)
-        {
-            /*
-                Wallclock time (absolute date and time) is represented using the
-                timestamp format of the Network Time Protocol (NTP), which is in
-                seconds relative to 0h UTC on 1 January 1900 [4].  The full
-                resolution NTP timestamp is a 64-bit unsigned fixed-point number with
-                the integer part in the first 32 bits and the fractional part in the
-                last 32 bits. In some fields where a more compact representation is
-                appropriate, only the middle 32 bits are used; that is, the low 16
-                bits of the integer part and the high 16 bits of the fractional part.
-                The high 16 bits of the integer part must be determined
-                independently.
-            */
-
-            DateTime baseDate;
-
-            if (value >= Epoch1) baseDate = Epoch1;
-            else baseDate = Epoch;
-
-            TimeSpan ts = ((TimeSpan)(value.ToUniversalTime() - baseDate));
-
-            return ((ulong)(ts.TotalMilliseconds % 1000) << 32) | (uint)(ts.Milliseconds << 22);
-        }
-
-        internal static DateTime NptTimestampToDateTime(UInt64 seconds, UInt64 fractions)
-        {
-            UInt64 ticks = (seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L);
-            if ((seconds & 0x80000000L) == 0)
-            {
-                return Epoch1 + TimeSpan.FromTicks((Int64)ticks);
-            }
-            else
-            {
-                return Epoch + TimeSpan.FromTicks((Int64)ticks);
-            }
-        }
-
-        internal static UInt64[] DateTimeToNptTimestamp(DateTime dateTime)
-        {
-            DateTime baseDate;
-
-            if (dateTime >= Epoch1) baseDate = Epoch1;
-            else baseDate = Epoch;
-
-            UInt64 ticks = (UInt64)(dateTime - baseDate).Ticks;
-            UInt64 seconds = ticks / TimeSpan.TicksPerSecond;
-            UInt64 fractions = ((ticks % TimeSpan.TicksPerSecond) * 0x100000000L) / TimeSpan.TicksPerSecond;
-
-            return new UInt64[] { seconds, fractions };
-        }
-
-        static DateTime Epoch1 = new DateTime(2036, 2, 7, 6, 28, 16).ToUniversalTime();
-
-        static DateTime Epoch = new DateTime(1900, 1, 1, 1, 0, 0).ToUniversalTime();       
-
-        #endregion
+        
     }
 }

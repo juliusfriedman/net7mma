@@ -13,9 +13,10 @@ namespace Media.Rtp
 
         #region Statics
 
-        readonly static byte[] StartOfInformation = new byte[] { 0xff, 0xd8 };
+        static byte[] StartOfInformation = new byte[] { 0xff, 0xd8 };
+
+        static byte[] EndOfInformation = new byte[] { 0xff, 0xd9 };
         
-        readonly static byte[] EndOfInformation = new byte[] { 0xff, 0xd9 };
 
         static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, uint dri)
         {
@@ -294,54 +295,150 @@ namespace Media.Rtp
         public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != 26) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
 
         /// <summary>
+        /// Incomplete...
+        /// </summary>
+        /// <param name="source">The Image to create a JpegFrame from</param>
+        public JpegFrame(System.Drawing.Image source) : this()
+        {
+            using(System.IO.MemoryStream temp = new System.IO.MemoryStream())
+            {
+                source.Save(temp, System.Drawing.Imaging.ImageFormat.Jpeg);
+
+                temp.Seek(0, System.IO.SeekOrigin.Begin);
+
+                //Get the Jpeg Ready
+                Image = System.Drawing.Image.FromStream(temp);
+
+                //Ensure at the beginning
+                temp.Seek(0, System.IO.SeekOrigin.Begin);
+
+                int tbyte;
+
+                //Some help from http://massapi.com/source/fmj/src/net/sf/fmj/media/codec/video/jpeg/JpegStripper.java.html
+
+                //Needs to actually create the RtpPackets in this loop
+                while ((tbyte = temp.ReadByte()) != -1)
+                {
+                    byte input = (byte)tbyte;
+
+                    if (input == 0xFF)
+                    {
+                        tbyte = (byte)temp.ReadByte();
+                        
+                        if (tbyte == -1) return;
+                        
+                        input = (byte)tbyte;
+
+                        switch (input)
+                        {    //strip following markers: (to add new it is usually enough to add the second byte of the marker header
+                            //     and it will strip it - provided that it has the usual format with length stored in following 2 bytes)
+                            case 0xE0:         //JFIF
+                            case 0xDB:         //Quantization tables
+                            case 0xC4:         //Huffmann tables
+                            case 0xC0:         //Start of Frame
+                            case 0xDA:         //Start of Scan
+                            case 0xDD:         //Reset header
+                                //Read length and write data to Buffer
+                                Buffer.WriteByte(0xff);
+                                Buffer.WriteByte(input);
+                                int size = Buffer.ReadByte() * 256 * Buffer.ReadByte();
+                                byte[] data = new byte[size];
+                                Buffer.Write(data, 0, size);
+                                
+                                break;
+                            default:
+                                break;
+                        }
+                        if (input == 0xD8)
+                        {
+                            //Read length and write data to Buffer
+                            Buffer.WriteByte(0xff);
+                            Buffer.WriteByte(input);
+                        }
+                    }
+                }
+
+            }
+            
+            //Create RTP Frames from Buffer and then dispose buffer (Should occur in above while loop)
+            
+            Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+
+            //Must calculate correctly the Type, Quality, FragmentOffset and Dri
+            uint TypeSpecific = 0, FragmentOffset = 8, Type = 0, Quality = 0, Width = (uint)Image.Width, Height = (uint)Image.Height, DataRestartInterval = 0;
+            DateTime ts = DateTime.Now;
+            int packetNumber = 0, sequenceNumber = 0;            
+
+            while (Buffer.Position < Buffer.Length)
+            {
+                RtpPacket packet = new RtpPacket();
+                packet.SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier;
+                packet.TimeStamp = Utility.DateTimeToNtp32(ts);
+                packet.SequenceNumber = ++sequenceNumber;
+                byte[] payload = new byte[RtpPacket.MaxPayloadSize];
+
+                //First packet has the RtpValues including qtables
+                if (packetNumber == 0)
+                {
+                    byte[] RtpJpegHeader = new byte[] { (byte)(TypeSpecific), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(Type), (byte)(Quality), (byte)(Width / 8), (byte)(Height / 8) };
+                    packet.Payload = payload;    
+                    RtpJpegHeader.CopyTo(packet.Payload, 0);
+                    Buffer.Read(packet.Payload, 8/*RtpJpegHeader.Length*/, RtpPacket.MaxPayloadSize - 8 /*RtpJpegHeader.Length*/);
+                    //Need to also include Qtables and DRI
+                }
+                else//Just has the payload data
+                {
+                    Buffer.Read(payload, 0, RtpPacket.MaxPayloadSize);
+                    packet.Payload = payload;
+                }
+                Packets.Add(packet);
+            }
+
+            Packets.Last().Marker = Complete = true;
+        }
+
+        /// <summary>
         /// //Writes the packets to a memory stream and created the default header and quantization tables if necessary.
         /// </summary>
         internal void ProcessPackets()
         {
-            ArraySegment<byte> tables = default(ArraySegment<byte>);            
-            uint FragmentOffset, TypeSpecific, Type, Quality, Width, Height, DataRestartInterval = 0;
-            for (int i = 0, e = this.Packets.Count, last = e - 1; i < e; ++i)
-            {
-                int offset = 0;
+            ArraySegment<byte> tables = default(ArraySegment<byte>);
+            int offset = 0;
 
+            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, DataRestartInterval = 0;
+
+            for (int i = 0, e = this.Packets.Count; i < e; ++i)
+            {
                 RtpPacket packet = this.Packets[i];
 
-                TypeSpecific = (uint)(packet.Payload[offset++]);
-
-                //FragmentOffset = (uint)(packet.Payload[offset++] | packet.Payload[offset++] << 8 | packet.Payload[offset++] << 16);
-                FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-
-                //Ensure start packet
-                if (i == 0 && FragmentOffset != 0) continue;
-
-                Type = (uint)(packet.Payload[offset++]);
-                Quality = (uint)packet.Payload[offset++];
-                Width = (uint)(packet.Payload[offset++] * 8);
-                Height = (uint)(packet.Payload[offset++] * 8);                
+                TypeSpecific = (uint)(packet.Payload[0]);
+                FragmentOffset = (uint)(packet.Payload[1] << 16 | packet.Payload[2] << 8 | packet.Payload[3]);
+                Type = (uint)(packet.Payload[4]); //&1 for type
+                Quality = (uint)packet.Payload[5];
+                Width = (uint)(packet.Payload[6] * 8);
+                Height = (uint)(packet.Payload[7] * 8);
+                offset = 8;
 
                 //Only occur in the first packet
                 if (FragmentOffset == 0)
                 {
-                    //If There is already a StartOfInformation present just copy
-                    if (packet.Payload[offset] == StartOfInformation[0] && packet.Payload[offset + 1] == StartOfInformation[1])
+                    //If There is already a StartOfInformation header present just copy it
+                    if (packet.Payload[offset] == StartOfInformation[0] && packet.Payload[offset] == StartOfInformation[1])
                     {
-                        //Could just call ToBytes and use offset...
                         goto WritePacket;
                     }
 
-                    //Get the restart interval is present
                     if (Type > 63)
                     {
                         DataRestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
                     }
 
-                    //Get the Q Tables if present
                     if (Quality > 127)
                     {
-                        uint MBZ = (uint)(packet.Payload[offset++]);//Should only proceed if MBZ > 0?
-                        uint Precision = (uint)(packet.Payload[offset++]);//Wasted read
+                        uint MBZ = (uint)(packet.Payload[offset++]);
+                        uint Precision = (uint)(packet.Payload[offset++]);
                         uint Length = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                        if (Length > 0)
+                        if(Length > 0)
                         {
                             tables = new ArraySegment<byte>(packet.Payload, offset, (int)Length);
                             offset += (int)Length;
@@ -353,24 +450,24 @@ namespace Media.Rtp
                     }
 
                     //Write the header to the buffer
-                    {
-                        byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
-                        Buffer.Write(header, 0, header.Length);
-                    }
+                    byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
+                    Buffer.Write(header, 0, header.Length);
 
                 }
                 
             WritePacket:    //Copy rest of data to buffer
                 Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
 
-                //Check to see if EOI is present or needs to be added on the last packet
-                if (i == last && (packet.Payload[packet.Payload.Length - 2] != EndOfInformation[0] && packet.Payload[packet.Payload.Length - 1] != EndOfInformation[1]))
-                {
-                    Buffer.Write(EndOfInformation, 0, EndOfInformation.Length);
-                }
-
             }
-            
+
+            //Check for EOI Marker
+            Buffer.Seek(Buffer.Length - 2, System.IO.SeekOrigin.Begin);
+
+            if(Buffer.ReadByte() != EndOfInformation[0] && Buffer.ReadByte() != EndOfInformation[1])
+            {
+                Buffer.Write(EndOfInformation, 0, EndOfInformation.Length);
+            }
+
             //Go back to the beginning
             Buffer.Seek(0, System.IO.SeekOrigin.Begin);            
         }
@@ -379,7 +476,7 @@ namespace Media.Rtp
         /// Creates a image from the processed packets in the memory stream
         /// </summary>
         /// <returns>The image created from the packets</returns>
-        public System.Drawing.Image ToImage()
+        internal System.Drawing.Image ToImage()
         {
             try
             {
@@ -387,13 +484,10 @@ namespace Media.Rtp
                 ProcessPackets();
                 return Image = System.Drawing.Image.FromStream(Buffer, false, true);
             }
-            catch { throw; }
-            finally
+            catch
             {
-                Buffer.Dispose();
-                Buffer = null;
+                throw;
             }
-
         }
     }
 }
