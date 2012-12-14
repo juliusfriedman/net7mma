@@ -13,7 +13,7 @@ Global
 		SccLocalPath0 = .
 		SccProjectUniqueName1 = Media.csproj
 		SccLocalPath1 = .
-		SccProjectUniqueName2 = Tests\\Tests.csproj
+		SccProjectUniqueName2 = Tests.csproj
 		SccProjectName2 = Tests/Tests
 		SccLocalPath2 = Tests
 	EndGlobalSection

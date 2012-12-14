@@ -334,10 +334,12 @@ namespace Media.Rtp
                             //     and it will strip it - provided that it has the usual format with length stored in following 2 bytes)
                             case 0xE0:         //JFIF
                             case 0xDB:         //Quantization tables
+                                //GET Quality
                             case 0xC4:         //Huffmann tables
                             case 0xC0:         //Start of Frame
                             case 0xDA:         //Start of Scan
                             case 0xDD:         //Reset header
+                                //Get DataRestartInterval
                                 //Read length and write data to Buffer
                                 Buffer.WriteByte(0xff);
                                 Buffer.WriteByte(input);
@@ -349,6 +351,7 @@ namespace Media.Rtp
                             default:
                                 break;
                         }
+                        //EOI
                         if (input == 0xD8)
                         {
                             //Read length and write data to Buffer
