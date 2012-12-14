@@ -177,14 +177,11 @@ namespace Media.Rtp
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription)
             {
                 SourceDescription sd = new SourceDescription(packet);
-                foreach (SourceDescription.SourceDescriptionChunk chunk in sd.Chunks)
+                foreach (SourceDescription.SourceDescriptionItem sdi in sd.Items)
                 {
-                    foreach (SourceDescription.SourceDescriptionItem sdi in chunk.Items)
+                    if (sdi.DescriptionType == SourceDescription.SourceDescriptionType.CName)
                     {
-                        if (sdi.DescriptionType == SourceDescription.SourceDescriptionType.CName)
-                        {
-                            m_CName = sdi.Text;
-                        }
+                        m_CName = sdi.Text;
                     }
                 }
             }

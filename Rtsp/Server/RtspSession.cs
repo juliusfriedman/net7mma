@@ -155,7 +155,7 @@ namespace Media.Rtsp
             //Might choose to move this stuff to the SessionDescription Constructor
 
             //Should be 2 NTP Timestamps
-            ulong[] parts = RtpClient.DateTimeToNptTimestamp(DateTime.Now.ToUniversalTime());
+            ulong[] parts = Utility.DateTimeToNptTimestamp(DateTime.Now.ToUniversalTime());
             string sessionId = parts[0].ToString(),
                 sessionVersion = parts[1].ToString();
 
