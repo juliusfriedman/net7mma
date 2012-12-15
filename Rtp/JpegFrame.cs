@@ -26,7 +26,7 @@ namespace Media.Rtp
             result.Add(0xff);
             result.Add(0xe0);//AppFirst
             result.Add(0x00);
-            result.Add(0x10);//length
+            result.Add((byte)(dri > 0 ? 0x10 : 0x09));//length
             result.Add((byte)'J');
             result.Add((byte)'F');
             result.Add((byte)'I');
@@ -300,6 +300,13 @@ namespace Media.Rtp
         /// <param name="source">The Image to create a JpegFrame from</param>
         public JpegFrame(System.Drawing.Image source) : this()
         {
+            //Some help from http://massapi.com/source/fmj/src/net/sf/fmj/media/codec/video/jpeg/JpegStripper.java.html
+            //Although this might just be easier to do with PropertyItems..
+            //http://msdn.microsoft.com/en-us/library/windows/desktop/ms534416(v=vs.85).aspx
+
+            //Must calculate correctly the Type, Quality, FragmentOffset and Dri
+            uint TypeSpecific = 0, FragmentOffset = 8, Type = 0, Quality = 0, Width = (uint)Image.Width, Height = (uint)Image.Height, DataRestartInterval = 0;
+
             using(System.IO.MemoryStream temp = new System.IO.MemoryStream())
             {
                 source.Save(temp, System.Drawing.Imaging.ImageFormat.Jpeg);
@@ -312,91 +319,115 @@ namespace Media.Rtp
                 //Ensure at the beginning
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
-                int tbyte;
+                DataRestartInterval = BitConverter.ToUInt16(Image.GetPropertyItem(0x0203).Value, 0);
 
-                //Some help from http://massapi.com/source/fmj/src/net/sf/fmj/media/codec/video/jpeg/JpegStripper.java.html
+                if (DataRestartInterval > 0) Type = 64;
+                else Type = 63;
+
+                Quality = BitConverter.ToUInt16(Image.GetPropertyItem(0x5010).Value, 0);
+
+                //if (Quality > 128)
+                //{
+                //    byte[] LTable = Image.GetPropertyItem(0x5090).Value;
+                //    byte[] CTable = Image.GetPropertyItem(0x5091).Value;
+                //}
+
+
+                int Tag;
+
+                DateTime ts = DateTime.Now;
+                int sequenceNumber = 0;
+
+                RtpPacket packet = new RtpPacket();
+                packet.SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier;
+                packet.TimeStamp = Utility.DateTimeToNtp32(ts);
+                packet.SequenceNumber = ++sequenceNumber;
+
+                byte[] payload = new byte[RtpPacket.MaxPayloadSize];
+                packet.Payload = payload;
+
+                byte[] RtpJpegHeader = new byte[] { (byte)(TypeSpecific), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(Type), (byte)(Quality), (byte)(Width / 8), (byte)(Height / 8) };
+
+                int at = 0;
+
+                RtpJpegHeader.CopyTo(packet.Payload, at);
+                at = 8;
+
+                //Only the first packet has FragmentOffset = 0
+                RtpJpegHeader[3] = 8;
 
                 //Needs to actually create the RtpPackets in this loop
-                while ((tbyte = temp.ReadByte()) != -1)
+                while ((Tag = temp.ReadByte()) != -1)
                 {
-                    byte input = (byte)tbyte;
+                    byte input = (byte)Tag;
 
                     if (input == 0xFF)
                     {
-                        tbyte = (byte)temp.ReadByte();
+                        Tag = (byte)temp.ReadByte();
                         
-                        if (tbyte == -1) return;
+                        if (Tag == -1) return;
                         
-                        input = (byte)tbyte;
+                        input = (byte)Tag;
 
                         switch (input)
                         {    //strip following markers: (to add new it is usually enough to add the second byte of the marker header
                             //     and it will strip it - provided that it has the usual format with length stored in following 2 bytes)
                             case 0xE0:         //JFIF
                             case 0xDB:         //Quantization tables
-                                //GET Quality
                             case 0xC4:         //Huffmann tables
                             case 0xC0:         //Start of Frame
                             case 0xDA:         //Start of Scan
-                            case 0xDD:         //Reset header
-                                //Get DataRestartInterval
-                                //Read length and write data to Buffer
-                                Buffer.WriteByte(0xff);
-                                Buffer.WriteByte(input);
-                                int size = Buffer.ReadByte() * 256 * Buffer.ReadByte();
-                                byte[] data = new byte[size];
-                                Buffer.Write(data, 0, size);
+                            case 0xDD:         //Reset header 
+
+                                //Write tag
+                                packet.Payload[at++] = 0xff;
+                                packet.Payload[at++] = input;
                                 
+                                //Write Length
+                                packet.Payload[at++] = (byte)Buffer.ReadByte();
+                                packet.Payload[at++] = (byte)Buffer.ReadByte();
+
+                                //Get size
+                                int TagSize = packet.Payload[at - 2] * 256 * packet.Payload[at - 1];
+                                
+                                //Write tag data
+                                Buffer.Write(packet.Payload, at, TagSize);
+                                at += TagSize;
+
+                                //Ensure packet boundaries
+                                if (at + 16 >= Rtp.RtpPacket.MaxPayloadSize)
+                                {
+                                    //Add current packet
+                                    Packets.Add(packet);
+                                    //Make next packet
+                                    packet = new RtpPacket()
+                                    {
+                                        TimeStamp = packet.TimeStamp,
+                                        SequenceNumber = ++sequenceNumber,
+                                        SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier
+
+                                    };
+                                    //Copy header
+                                    RtpJpegHeader.CopyTo(packet.Payload, 0);
+                                    at = 8;
+                                }
+                               
+
                                 break;
                             default:
+                                    //Seek past gardabge?
                                 break;
                         }
                         //EOI
                         if (input == 0xD8)
                         {
                             //Read length and write data to Buffer
-                            Buffer.WriteByte(0xff);
-                            Buffer.WriteByte(input);
+                            packet.Payload[at++] = 0xff;
+                            packet.Payload[at++] = 0xd8;
                         }
                     }
                 }
-
             }
-            
-            //Create RTP Frames from Buffer and then dispose buffer (Should occur in above while loop)
-            
-            Buffer.Seek(0, System.IO.SeekOrigin.Begin);
-
-            //Must calculate correctly the Type, Quality, FragmentOffset and Dri
-            uint TypeSpecific = 0, FragmentOffset = 8, Type = 0, Quality = 0, Width = (uint)Image.Width, Height = (uint)Image.Height, DataRestartInterval = 0;
-            DateTime ts = DateTime.Now;
-            int packetNumber = 0, sequenceNumber = 0;            
-
-            while (Buffer.Position < Buffer.Length)
-            {
-                RtpPacket packet = new RtpPacket();
-                packet.SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier;
-                packet.TimeStamp = Utility.DateTimeToNtp32(ts);
-                packet.SequenceNumber = ++sequenceNumber;
-                byte[] payload = new byte[RtpPacket.MaxPayloadSize];
-
-                //First packet has the RtpValues including qtables
-                if (packetNumber == 0)
-                {
-                    byte[] RtpJpegHeader = new byte[] { (byte)(TypeSpecific), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(Type), (byte)(Quality), (byte)(Width / 8), (byte)(Height / 8) };
-                    packet.Payload = payload;    
-                    RtpJpegHeader.CopyTo(packet.Payload, 0);
-                    Buffer.Read(packet.Payload, 8/*RtpJpegHeader.Length*/, RtpPacket.MaxPayloadSize - 8 /*RtpJpegHeader.Length*/);
-                    //Need to also include Qtables and DRI
-                }
-                else//Just has the payload data
-                {
-                    Buffer.Read(payload, 0, RtpPacket.MaxPayloadSize);
-                    packet.Payload = payload;
-                }
-                Packets.Add(packet);
-            }
-
             Packets.Last().Marker = Complete = true;
         }
 

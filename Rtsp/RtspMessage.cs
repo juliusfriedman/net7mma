@@ -7,6 +7,39 @@ using System.Text.RegularExpressions;
 
 namespace Media.Rtsp
 {
+
+    /// <summary>
+    /// Enumeration to indicate the type of RtspMessage
+    /// </summary>
+    public enum RtspMessageType
+    {
+        Invalid = 0,
+        Request = 1,
+        Response = 2,
+    }
+
+    /// <summary>
+    /// Enumeration to describe the available Rtsp Methods
+    /// </summary>
+    public enum RtspMethod
+    {
+        UNKNOWN = 0,
+        ANNOUNCE = 1,
+        DESCRIBE = 2,
+        GET_PARAMETER = 3,
+        OPTIONS = 4,
+        PAUSE = 5,
+        PLAY = 6,
+        RECORD = 7,
+        REDIRECT = 8,
+        SETUP = 9,
+        SET_PARAMETER = 10,
+        TEARDOWN = 11,
+    }
+
+    /// <summary>
+    /// Base class of RtspRequest and RtspResponse
+    /// </summary>
     public class RtspMessage
     {
 
@@ -48,35 +81,7 @@ namespace Media.Rtsp
             private RtspHeaders() { }
 
         }
-
-        /// <summary>
-        /// Enumeration to indicate the type of RtspMessage
-        /// </summary>
-        public enum RtspMessageType
-        {
-            Invalid = 0,
-            Request = 1,
-            Response = 2,
-        }
-
-        /// <summary>
-        /// Enumeration to describe the available Rtsp Methods
-        /// </summary>
-        public enum RtspMethod
-        {
-            UNKNOWN = 0,
-            ANNOUNCE = 1,
-            DESCRIBE = 2,
-            GET_PARAMETER = 3,
-            OPTIONS = 4,
-            PAUSE = 5,
-            PLAY = 6,
-            RECORD = 7,
-            REDIRECT = 8,
-            SETUP = 9,
-            SET_PARAMETER = 10,
-            TEARDOWN = 11,
-        }
+       
 
         /// <summary>
         /// Thrown when parsing a RtpMessage fails
@@ -90,7 +95,6 @@ namespace Media.Rtsp
             public RtspMessageException(string message, Exception innerException)
                 : base(message, innerException) { }
         }
-        
 
         #endregion
 
@@ -192,7 +196,7 @@ namespace Media.Rtsp
             m_FirstLine = message.Substring(0, endFistLinePosn);
 
             //Get the message type
-            MessageType = m_FirstLine.Substring(0, MessageIdentifier.Length) == MessageIdentifier ? RtspMessage.RtspMessageType.Response : RtspMessage.RtspMessageType.Request;
+            MessageType = m_FirstLine.Substring(0, MessageIdentifier.Length) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
 
             //Could assign version
 

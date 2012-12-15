@@ -27,10 +27,10 @@ namespace Media.Rtsp
         #endregion
 
         public RtspRequest()
-            : base(Rtsp.RtspMessage.RtspMessageType.Request) { }
+            : base(Rtsp.RtspMessageType.Request) { }
 
         public RtspRequest(RtspMethod method)
-            :base(Rtsp.RtspMessage.RtspMessageType.Request)        
+            :base(Rtsp.RtspMessageType.Request)        
         {
             Method = method;
         }
