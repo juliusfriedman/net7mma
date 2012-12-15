@@ -612,11 +612,22 @@ namespace Media.Rtsp
         /// <param name="session">The client information</param>
         internal void ProcessRtspRequest(RtspRequest request, RtspSession session)
         {
+
+            if (Logger != null) Logger.LogRequest(request, session);
+
             //All requests need the CSeq
-            if (!request.ContainsHeader(RtspMessage.RtspHeaders.CSeq)) ProcessInvalidRtspRequest(session);
+            if (!request.ContainsHeader(RtspMessage.RtspHeaders.CSeq))
+            {
+                ProcessInvalidRtspRequest(session);
+                return;
+            }
 
             //If there is a body and no content-length
-            if (string.IsNullOrWhiteSpace(request.Body) && !request.ContainsHeader(RtspMessage.RtspHeaders.ContentLength)) ProcessInvalidRtspRequest(session);
+            if (string.IsNullOrWhiteSpace(request.Body) && !request.ContainsHeader(RtspMessage.RtspHeaders.ContentLength))
+            {
+                ProcessInvalidRtspRequest(session);
+                return;
+            }
 
             //Optional
             //if (!request.ContainsHeader(RtspMessage.RtspHeaders.UserAgent)) ProcessInvalidRtspRequest(session, RtspResponse.ResponseStatusCode.InternalServerError);
@@ -628,45 +639,47 @@ namespace Media.Rtsp
             session.LastRequest = request;
             session.m_LastRtspRequestRecieved = DateTime.UtcNow;
 
+            
+
             //Determine the handler for the request and process it
             switch (request.Method)
             {
-                case RtspMessage.RtspMethod.OPTIONS:
+                case RtspMethod.OPTIONS:
                     {
                         ProcessRtspOptions(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.DESCRIBE:
+                case RtspMethod.DESCRIBE:
                     {
                         ProcessRtspDescribe(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.SETUP:
+                case RtspMethod.SETUP:
                     {
                         ProcessRtspSetup(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.PLAY:
+                case RtspMethod.PLAY:
                     {
                         ProcessRtspPlay(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.PAUSE:
+                case RtspMethod.PAUSE:
                     {
                         ProcessRtspPause(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.TEARDOWN:
+                case RtspMethod.TEARDOWN:
                     {
                         ProcessRtspTeardown(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.GET_PARAMETER:
+                case RtspMethod.GET_PARAMETER:
                     {
                         ProcessGetParameter(request, session);
                         break;
                     }
-                case RtspMessage.RtspMethod.UNKNOWN:
+                case RtspMethod.UNKNOWN:
                 default:                
                     {
                         ProcessInvalidRtspRequest(session, RtspResponse.ResponseStatusCode.MethodNotAllowed);

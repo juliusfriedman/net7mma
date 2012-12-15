@@ -67,7 +67,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The last method used in a request to the RtspServer
         /// </summary>
-        RtspMessage.RtspMethod m_LastMethod;
+        RtspMethod m_LastMethod;
 
         /// <summary>
         /// The session description associated with the media at Location
@@ -81,7 +81,7 @@ namespace Media.Rtsp
             m_RtspTimeout, m_RtspPort, m_Ssrc, m_Seq, m_CSeq,
             m_ClientRtpPort, m_ClientRtcpPort;
 
-        List<RtspMessage.RtspMethod> m_SupportedMethods = new List<RtspMessage.RtspMethod>();
+        List<RtspMethod> m_SupportedMethods = new List<RtspMethod>();
 
         string m_UserAgent = "ASTI RTP Client", m_SessionId, m_TransportMode, m_Range;
 
@@ -173,7 +173,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Gets the methods supported by the server recieved in the options request.
         /// </summary>
-        public Rtsp.RtspMessage.RtspMethod[] SupportedMethods { get { return m_SupportedMethods.ToArray(); } }
+        public Rtsp.RtspMethod[] SupportedMethods { get { return m_SupportedMethods.ToArray(); } }
 
         /// <summary>
         /// The RtpClient associated with this RtspClient
@@ -292,7 +292,7 @@ namespace Media.Rtsp
             try
             {
                 //Determine if we need to do anything
-                if (Listening && m_LastMethod != RtspMessage.RtspMethod.UNKNOWN && m_LastMethod != RtspMessage.RtspMethod.TEARDOWN && m_LastMethod > RtspMessage.RtspMethod.OPTIONS)
+                if (Listening && m_LastMethod != RtspMethod.UNKNOWN && m_LastMethod != RtspMethod.TEARDOWN && m_LastMethod > RtspMethod.OPTIONS)
                 {
                     StopListening();                    
                 }
@@ -403,7 +403,7 @@ namespace Media.Rtsp
 
         public RtspResponse SendOptions()
         {
-            RtspRequest options = new RtspRequest(RtspMessage.RtspMethod.OPTIONS, Location);
+            RtspRequest options = new RtspRequest(RtspMethod.OPTIONS, Location);
             RtspResponse response = SendRtspRequest(options);
 
             if (response == null || response.StatusCode != RtspResponse.ResponseStatusCode.OK) throw new RtspListenerException("Unable to get options");
@@ -416,7 +416,7 @@ namespace Media.Rtsp
 
             foreach (string method in publicMethods.Split(','))
             {
-                m_SupportedMethods.Add((RtspMessage.RtspMethod)Enum.Parse(typeof(Rtsp.RtspMessage.RtspMethod), method));
+                m_SupportedMethods.Add((RtspMethod)Enum.Parse(typeof(RtspMethod), method));
             }
 
             return response;
@@ -428,7 +428,7 @@ namespace Media.Rtsp
         /// <returns></returns>
         public RtspResponse SendDescribe()
         {
-            RtspRequest describe = new RtspRequest(RtspMessage.RtspMethod.DESCRIBE, Location);
+            RtspRequest describe = new RtspRequest(RtspMethod.DESCRIBE, Location);
             describe.SetHeader(RtspMessage.RtspHeaders.Accept, "application/sdp");
 
             RtspResponse response = SendRtspRequest(describe);
@@ -455,7 +455,7 @@ namespace Media.Rtsp
             RtspResponse response = null;
             try
             {
-                RtspRequest teardown = new RtspRequest(RtspMessage.RtspMethod.TEARDOWN, Location);
+                RtspRequest teardown = new RtspRequest(RtspMethod.TEARDOWN, Location);
                 response = SendRtspRequest(teardown);
                 return response;
             }
@@ -481,7 +481,7 @@ namespace Media.Rtsp
         {
             try
             {
-                RtspRequest setup = new RtspRequest(RtspMessage.RtspMethod.SETUP, Location);
+                RtspRequest setup = new RtspRequest(RtspMethod.SETUP, Location);
 
                 if (m_RtpProtocol == ProtocolType.Tcp) //m_SessionDescription.MediaDesciptions[0].MediaProtocol.Contains("TCP")
                 {
@@ -618,7 +618,7 @@ namespace Media.Rtsp
 
             try
             {
-                RtspRequest play = new RtspRequest(RtspMessage.RtspMethod.PLAY, Location);
+                RtspRequest play = new RtspRequest(RtspMethod.PLAY, Location);
 
                 play.SetHeader(RtspMessage.RtspHeaders.Range, "npt=" + m_Range + '-');
 
@@ -689,7 +689,7 @@ namespace Media.Rtsp
         {
             try
             {
-                RtspRequest get = new RtspRequest(RtspMessage.RtspMethod.GET_PARAMETER, Location);                
+                RtspRequest get = new RtspRequest(RtspMethod.GET_PARAMETER, Location);                
                 if (string.IsNullOrWhiteSpace(body)) get.Body = body;
                 RtspResponse response = SendRtspRequest(get);
                 if (response == null)
