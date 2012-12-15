@@ -324,14 +324,7 @@ namespace Media.Rtp
                 if (DataRestartInterval > 0) Type = 64;
                 else Type = 63;
 
-                Quality = BitConverter.ToUInt16(Image.GetPropertyItem(0x5010).Value, 0);
-
-                //if (Quality > 128)
-                //{
-                //    byte[] LTable = Image.GetPropertyItem(0x5090).Value;
-                //    byte[] CTable = Image.GetPropertyItem(0x5091).Value;
-                //}
-
+                Quality = BitConverter.ToUInt16(Image.GetPropertyItem(0x5010).Value, 0);                
 
                 int Tag;
 
@@ -370,18 +363,35 @@ namespace Media.Rtp
                         input = (byte)Tag;
 
                         switch (input)
-                        {    //strip following markers: (to add new it is usually enough to add the second byte of the marker header
-                            //     and it will strip it - provided that it has the usual format with length stored in following 2 bytes)
-                            case 0xE0:         //JFIF
-                            case 0xDB:         //Quantization tables
-                            case 0xC4:         //Huffmann tables
+                        {                                
+                            //First Packet
+                            case 0xE0:         //*JFIF
+                            case 0xDB:         //*Quantization tables ? Skip or write per RFC
+                            case 0xC4:         //*Huffmann tables ? Skip or write per RFC
+                            case 0xDD:         //*Reset header
+                            case 0xD8:         //*SOI
+                                {
+                                    //The first packet is usually different in the sense it has the Q Tables, Precision, MBZ etc...
+                                    //IT also has the DRI if the Type is > 63
+                                    //
+                                    //if (Quality > 128)
+                                    //{
+                                    //    byte[] LTable = Image.GetPropertyItem(0x5090).Value;
+                                    //    byte[] CTable = Image.GetPropertyItem(0x5091).Value;
+                                    //}
+                                    //
+                                    //For now just go to the normal handling
+                                    goto case 0xc0;
+                                }
+                            //Normal Packets
                             case 0xC0:         //Start of Frame
                             case 0xDA:         //Start of Scan
-                            case 0xDD:         //Reset header 
 
                                 //Write tag
                                 packet.Payload[at++] = 0xff;
                                 packet.Payload[at++] = input;
+
+                                if (input == 0xd8) continue;
                                 
                                 //Write Length
                                 packet.Payload[at++] = (byte)Buffer.ReadByte();
@@ -400,31 +410,23 @@ namespace Media.Rtp
                                     //Add current packet
                                     Packets.Add(packet);
                                     //Make next packet
+                                    payload = new byte[RtpPacket.MaxPayloadSize];
                                     packet = new RtpPacket()
                                     {
                                         TimeStamp = packet.TimeStamp,
                                         SequenceNumber = ++sequenceNumber,
-                                        SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier
+                                        SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier,
+                                        Payload = payload
 
                                     };
                                     //Copy header
                                     RtpJpegHeader.CopyTo(packet.Payload, 0);
                                     at = 8;
                                 }
-                               
-
                                 break;
                             default:
-                                    //Seek past gardabge?
-                                break;
-                        }
-                        //EOI
-                        if (input == 0xD8)
-                        {
-                            //Read length and write data to Buffer
-                            packet.Payload[at++] = 0xff;
-                            packet.Payload[at++] = 0xd8;
-                        }
+                                break;//Seek past gardabge?
+                        }                       
                     }
                 }
             }
