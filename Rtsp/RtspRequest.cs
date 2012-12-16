@@ -8,7 +8,6 @@ namespace Media.Rtsp
 {
     /// <summary>
     /// RFC2326 6.1:
-    /// Request-Line = Method SP Request-URI SP RTSP-Version CRLF
     /// </summary>
     public class RtspRequest : RtspMessage
     {
@@ -22,7 +21,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates the UserAgent of this RtspRquest
         /// </summary>
-        public String UserAgent { get { return base[RtspHeaders.UserAgent]; } set { SetHeader(RtspHeaders.UserAgent, value); } }
+        public String UserAgent { get { return base[RtspHeaders.UserAgent]; } set { if(string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException();  SetHeader(RtspHeaders.UserAgent, value); } }
 
         #endregion
 
@@ -47,6 +46,7 @@ namespace Media.Rtsp
             //Assign method from parts
             Method = (RtspMethod)Enum.Parse(typeof(RtspMethod), parts[0], true);
             Location = new Uri(parts[1]);
+            //Version = float.Parse(parts[2].Replace(MessageIdentifier + '/', string.Empty));
         }
 
         public override byte[] ToBytes()

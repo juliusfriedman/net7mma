@@ -5,10 +5,9 @@ using System.Text;
 
 namespace Media.Rtsp
 {
-    public sealed class RtspServerLogger
+    public abstract class RtspServerLogger
     {
-        static RtspServerLogger() { }
-        internal void LogRequest(RtspRequest request, RtspSession session) { }
-        internal void LogResponse(RtspResponse response, RtspSession session) { }
+        internal abstract void LogRequest(RtspRequest request, RtspSession session);
+        internal abstract void LogResponse(RtspResponse response, RtspSession session);
     }
 }

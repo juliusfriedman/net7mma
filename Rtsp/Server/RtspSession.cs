@@ -132,14 +132,14 @@ namespace Media.Rtsp
         /// <param name="request">The request to utilize the SequenceNumber from, if null the current SequenceNumber is used</param>
         /// <param name="statusCode">The StatusCode of the generated response</param>
         /// <returns>The RtspResponse created</returns>
-        internal RtspResponse CreateRtspResponse(RtspRequest request = null, RtspResponse.ResponseStatusCode statusCode = RtspResponse.ResponseStatusCode.OK)
+        internal RtspResponse CreateRtspResponse(RtspRequest request = null, RtspStatusCode statusCode = RtspStatusCode.OK)
         {
             RtspResponse response = new RtspResponse();
             response.StatusCode = statusCode;
             response.CSeq = request != null ? request.CSeq : m_LastRequest.CSeq;
             if (!string.IsNullOrWhiteSpace(m_SessionId))
             {
-                response.SetHeader(Rtsp.RtspMessage.RtspHeaders.Session, m_SessionId);
+                response.SetHeader(RtspHeaders.Session, m_SessionId);
             }
             return response;
         }

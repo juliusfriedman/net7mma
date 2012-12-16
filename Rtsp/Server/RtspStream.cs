@@ -13,15 +13,11 @@ namespace Media.Rtsp
     /// </summary>    
     public class RtspStream
     {
-        #region Enumerated Stream State
-
         public enum StreamState
         {
             Stopped,
             Started
         }
-
-        #endregion
 
         #region Fields
 
@@ -122,7 +118,7 @@ namespace Media.Rtsp
             set
             {
 
-                if (value.Scheme != RtspMessage.ReliableTransport ) throw new ArgumentException("value", "Must have the rtsp scheme.");
+                if (value.Scheme != RtspMessage.ReliableTransport) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransport + "\"");
                 
                 m_Source = value;
 
@@ -224,9 +220,9 @@ namespace Media.Rtsp
                 try
                 {
                     Client.StartListening();
-                    Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
+                    Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);                    
                 }
-                catch (RtspClient.RtspListenerException)
+                catch (RtspClient.RtspClientException)
                 {
                     //Wrong Credentails etc...
                 }
@@ -242,6 +238,7 @@ namespace Media.Rtsp
         {
             if (Client.Client != sender) return;
             DecodeFrame(frame);
+            //System.Threading.ThreadPool.QueueUserWorkItem(new System.Threading.WaitCallback((o) => DecodeFrame(frame)));
         }
 
         internal void DecodeFrame(Rtp.RtpFrame frame)
