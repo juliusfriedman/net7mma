@@ -26,8 +26,8 @@ namespace Media.Rtp
             result.Add(0xff);
             result.Add(0xe0);//AppFirst
             result.Add(0x00);
-            result.Add((byte)(dri > 0 ? 0x10 : 0x09));//length
-            result.Add((byte)'J');
+            result.Add(0x10);//length
+            result.Add((byte)'J'); //Always equals "JFXX" (with zero following) (0x4A46585800)
             result.Add((byte)'F');
             result.Add((byte)'I');
             result.Add((byte)'F');
@@ -45,7 +45,7 @@ namespace Media.Rtp
             result.Add(0x01);
 
             result.Add(0x00);//No thumb
-            result.Add(0x00);
+            result.Add(0x00);//Thumb Data
 
             if (dri > 0)
             {
@@ -66,7 +66,7 @@ namespace Media.Rtp
             
             result.Add(0x03);
             result.Add(0x01);
-            result.Add((byte)(type > 0 ? 0x22 : 0x21));
+            result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Is Dri Present?
             result.Add(0x00);
 
             result.Add(0x02);
@@ -148,10 +148,11 @@ namespace Media.Rtp
             byte[] resultTables = new byte[128];
             for (int i = 0; i < 128; ++i)
             {
-                int newVal = (defaultQuantizers[i] * q + 50) / 100;
-                if (newVal < 1) newVal = 1;
-                else if (newVal > 255) newVal = 255;
-                resultTables[i] = (byte)newVal;
+                //int newVal = (defaultQuantizers[i] * q + 50) / 100;
+                //if (newVal < 1) newVal = 1;
+                //else if (newVal > 255) newVal = 255;
+                //resultTables[i] = (byte)newVal;
+                resultTables[i] = (byte)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), 255);
             }
             return resultTables;
         }
@@ -443,27 +444,41 @@ namespace Media.Rtp
 
             uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, DataRestartInterval = 0;
 
+            bool createHeader = true;
+
             for (int i = 0, e = this.Packets.Count; i < e; ++i)
             {
                 RtpPacket packet = this.Packets[i];
 
-                TypeSpecific = (uint)(packet.Payload[0]);
-                FragmentOffset = (uint)(packet.Payload[1] << 16 | packet.Payload[2] << 8 | packet.Payload[3]);
-                Type = (uint)(packet.Payload[4]); //&1 for type
-                Quality = (uint)packet.Payload[5];
-                Width = (uint)(packet.Payload[6] * 8);
-                Height = (uint)(packet.Payload[7] * 8);
-                offset = 8;
+                //If There is already a StartOfInformation header present just copy it
+                if (i == 0 && packet.Extensions && packet.Payload[offset] == StartOfInformation[0] && (packet.Payload[offset + 1] == StartOfInformation[1] || packet.Payload[offset + 1] == 0xFF))
+                {
+                    //This could be OnVif extension
+                    //http://www.scribd.com/doc/50850591/225/JPEG-over-RTP
+                    //Length in next two bytes
+                    int len = packet.Payload[offset + 2] * 256 * packet.Payload[offset + 3];
+                    //Then write to buffer
+                    //Then continue from offset decoding RtpJpeg Header
+                    //offset += 4 + len;
+                    Buffer.Write(packet.Payload, offset, 2);
+                    Buffer.WriteByte(packet.Payload[offset + 2]);
+                    Buffer.WriteByte(packet.Payload[offset + 3]);
+                    Buffer.Write(packet.Payload, offset + 4, len);
+                    createHeader = false;                    
+                }
+
+                //RtpJpeg Header
+
+                TypeSpecific = (uint)(packet.Payload[offset++]);
+                FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                Type = (uint)(packet.Payload[offset++]); //&1 for type
+                Quality = (uint)packet.Payload[offset++];
+                Width = (uint)(packet.Payload[offset++] * 8); // This should have been 256 and the standard would have worked for all resolutions
+                Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
 
                 //Only occur in the first packet
                 if (FragmentOffset == 0)
                 {
-                    //If There is already a StartOfInformation header present just copy it
-                    if (packet.Payload[offset] == StartOfInformation[0] && packet.Payload[offset] == StartOfInformation[1])
-                    {
-                        goto WritePacket;
-                    }
-
                     if (Type > 63)
                     {
                         DataRestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
@@ -485,13 +500,15 @@ namespace Media.Rtp
                         }
                     }
 
-                    //Write the header to the buffer
-                    byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
-                    Buffer.Write(header, 0, header.Length);
+                    if (createHeader)
+                    {
+                        //Write the header to the buffer
+                        byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
+                        Buffer.Write(header, 0, header.Length);
+                    }
 
                 }
                 
-            WritePacket:    //Copy rest of data to buffer
                 Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
 
             }

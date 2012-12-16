@@ -58,25 +58,6 @@ namespace Media.Rtsp
     }
 
     /// <summary>
-    /// Enumeration to describe the available Rtsp Methods
-    /// </summary>
-    public enum RtspMethod
-    {
-        UNKNOWN,
-        ANNOUNCE, 
-        DESCRIBE, 
-        REDIRECT, 
-        OPTIONS,
-        SETUP,
-        GET_PARAMETER,
-        SET_PARAMETER,
-        PLAY,
-        PAUSE,
-        RECORD,
-        TEARDOWN
-    }
-
-    /// <summary>
     /// Base class of RtspRequest and RtspResponse
     /// </summary>
     public class RtspMessage
@@ -90,11 +71,16 @@ namespace Media.Rtsp
         public class RtspMessageException
             : Exception
         {
+            public RtspMessage RtspMessage { get; protected set; }
+
             public RtspMessageException(string message)
                 : base(message) { }
 
             public RtspMessageException(string message, Exception innerException)
                 : base(message, innerException) { }
+
+            public RtspMessageException(string message, Exception innerException, RtspMessage rtspMessage)
+                : base(message, innerException) { RtspMessage = rtspMessage; }
         }
 
         #endregion
@@ -119,7 +105,7 @@ namespace Media.Rtsp
         #region Fields
 
         /// <summary>
-        /// The firstline of the RtspMessage
+        /// The firstline of the RtspMessage and the Body
         /// </summary>
         internal string m_FirstLine, m_Body;
 
@@ -163,9 +149,6 @@ namespace Media.Rtsp
         /// </summary>
         public int CSeq { get { return Convert.ToInt32(GetHeader(RtspHeaders.CSeq)); } set { SetHeader(RtspHeaders.CSeq, value.ToString()); } }
 
-        //Add support for parsing out of the message like cseq if present??
-        //public NetworkCredential Credential;
-
         /// <summary>
         /// Accesses the header value 
         /// </summary>
@@ -173,14 +156,8 @@ namespace Media.Rtsp
         /// <returns>The header value</returns>
         public string this[string header]
         {
-            get
-            {
-
-                if (m_Headers.ContainsKey(header))
-                    return m_Headers[header];
-                return null;
-            }
-            set { m_Headers[header] = value; }
+            get { return GetHeader(header); }
+            set { SetHeader(header, value); }
         }
 
         /// <summary>
@@ -202,23 +179,24 @@ namespace Media.Rtsp
 
         public RtspMessage(byte[] packet, int offset = 0)
         {
+            //Should determine encoding...
             Encoding = Encoding.UTF8;
 
-            //Encoding should probalby be a property
-            string message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : offset);
+            string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : offset);
 
-            int endFistLinePosn = message.IndexOf(CRLF, offset);
+            int endFistLinePosn = Message.IndexOf(CRLF, offset);
 
             if (endFistLinePosn == -1) throw new RtspMessageException("Could not find first line");
 
             //Store the first line for derived types since this is the only thing they need
-            m_FirstLine = message.Substring(offset, endFistLinePosn);
+            m_FirstLine = Message.Substring(offset, endFistLinePosn);
 
             int miLen = MessageIdentifier.Length;
 
             //Get the message type
             MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
 
+            #region FirstLine
             //Could assign version, then assign Method and Location
             //if (MessageType == RtspMessageType.Request)
             //{
@@ -230,22 +208,22 @@ namespace Media.Rtsp
             //    //S->C[0]RTSP/1.0[1]200[2]OK
             //    Version = float.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
             //}
-            
+            #endregion
 
             //Determine if we should decode more
             if (packet.Length - endFistLinePosn > miLen)
             {
-                int endHeaderPosn = message.IndexOf(CRLF + CRLF);
+                int endHeaderPosn = Message.IndexOf(CRLF + CRLF);
 
-                int len = 0, crlfLen = CRLF.Length;
+                int headerLength = 0, crlfLen = CRLF.Length;
 
                 //If there is no end of the header then
                 //Assume flakey implementation if message does not contain the required CRLFCRLF sequence and treat the message as having no body.
-                if (endHeaderPosn == -1) len = message.Length - endFistLinePosn - crlfLen;
-                else len = endHeaderPosn - endFistLinePosn - crlfLen;
+                if (endHeaderPosn == -1) headerLength = Message.Length - endFistLinePosn - crlfLen;
+                else headerLength = endHeaderPosn - endFistLinePosn - crlfLen;
 
                 // Get the headers 
-                foreach (string raw in message.Substring(endFistLinePosn + crlfLen, len).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
+                foreach (string raw in Message.Substring(endFistLinePosn + crlfLen, headerLength).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
                 {
                     string[] parts = raw.Split(':');
                     SetHeader(parts[0], parts[1]);
@@ -254,7 +232,7 @@ namespace Media.Rtsp
                 //Get the body
                 if (endHeaderPosn != -1)
                 {
-                    Body = message.Substring(endHeaderPosn + 4); //crlfLen * 2
+                    Body = Message.Substring(endHeaderPosn + 4); //crlfLen * 2
                     //Should verify content - length header?
                     //if(!ContainsHeader(ContentLength) && Body.Length == int.Parse(GetHeader(ContentLength))){
                     // throw new RtspMessageException("Invalid Content-Length Header");
@@ -330,14 +308,17 @@ namespace Media.Rtsp
         {
             List<byte> result = new List<byte>();
 
+            byte[] encodedCRLF = Encoding.GetBytes(CRLF);
+
             //Write headers
             foreach (KeyValuePair<string, string> header in m_Headers)
             {
-                result.AddRange(Encoding.GetBytes(header.Key + ": " + header.Value + CRLF));
+                result.AddRange(Encoding.GetBytes(header.Key + ": " + header.Value));
+                result.AddRange(encodedCRLF);
             }
 
             //End Header
-            result.AddRange(Encoding.GetBytes(CRLF));
+            result.AddRange(encodedCRLF);
 
             //Write body if required
             if (ContainsHeader(RtspHeaders.ContentLength))

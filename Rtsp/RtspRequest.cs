@@ -6,6 +6,26 @@ using System.Net;
 
 namespace Media.Rtsp
 {
+
+    /// <summary>
+    /// Enumeration to describe the available Rtsp Methods
+    /// </summary>
+    public enum RtspMethod
+    {
+        UNKNOWN,
+        ANNOUNCE,
+        DESCRIBE,
+        REDIRECT,
+        OPTIONS,
+        SETUP,
+        GET_PARAMETER,
+        SET_PARAMETER,
+        PLAY,
+        PAUSE,
+        RECORD,
+        TEARDOWN
+    }
+
     /// <summary>
     /// RFC2326 6.1:
     /// </summary>
@@ -21,15 +41,14 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates the UserAgent of this RtspRquest
         /// </summary>
-        public String UserAgent { get { return base[RtspHeaders.UserAgent]; } set { if(string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException();  SetHeader(RtspHeaders.UserAgent, value); } }
+        public String UserAgent { get { return GetHeader(RtspHeaders.UserAgent); } set { if(string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException();  SetHeader(RtspHeaders.UserAgent, value); } }
 
         #endregion
 
-        public RtspRequest()
-            : base(Rtsp.RtspMessageType.Request) { }
+        public RtspRequest() : base(Rtsp.RtspMessageType.Request) { }
 
         public RtspRequest(RtspMethod method)
-            :base(Rtsp.RtspMessageType.Request)        
+            : base(Rtsp.RtspMessageType.Request)        
         {
             Method = method;
         }
@@ -40,7 +59,7 @@ namespace Media.Rtsp
             Location = location;
         }
 
-        public RtspRequest(byte[] packet) : base(packet)
+        public RtspRequest(byte[] packet, int offset = 0) : base(packet, offset)
         {
             string[] parts = m_FirstLine.Split(' ');
             //Assign method from parts

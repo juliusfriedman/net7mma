@@ -65,7 +65,7 @@ namespace Media.Rtsp
 
         public RtspResponse() : base(RtspMessageType.Response) { }
 
-        public RtspResponse(byte[] packet) : base(packet)
+        public RtspResponse(byte[] packet, int offset = 0) : base(packet, offset)
         {
             if (m_FirstLine == null) StatusCode = RtspStatusCode.Unknown;
             else
