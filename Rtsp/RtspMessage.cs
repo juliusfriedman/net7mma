@@ -7,6 +7,45 @@ using System.Text.RegularExpressions;
 
 namespace Media.Rtsp
 {
+    /// <summary>
+    /// RFC2326
+    /// </summary>
+    public sealed class RtspHeaders
+    {
+        public const string Allow = "Allow";
+        public const string Accept = "Accept";
+        public const string AcceptEncoding = "Accept-Encoding";
+        public const string AcceptLanguage = "Accept-Language";
+        public const string Authroization = "Authorization";
+        public const string Connection = "Connection";
+        public const string ContentBase = "Content-Base";
+        public const string ContentEncoding = "Content-Encoding";
+        public const string ContentLanguage = "Content-Language";
+        public const string ContentLength = "Content-Length";
+        public const string ContentLocation = "Content-Location";
+        public const string ContentType = "Content-Type";
+        public const string CSeq = "CSeq";
+        public const string From = "From";
+        public const string Expires = "Expires";
+        public const string LastModified = "Last-Modified";
+        public const string IfModifiedSince = "If-Modified-Since";
+        public const string Location = "Location";
+        public const string ProxyAuthenticate = "Proxy-Authenticate";
+        public const string Public = "Public";
+        public const string Range = "Range";
+        public const string Referer = "Referer";
+        public const string RetryAfter = "Retry-After";
+        public const string Server = "Server";
+        public const string Session = "Session";
+        public const string Transport = "Transport";
+        public const string RtpInfo = "RTP-Info";
+        public const string UserAgent = "User-Agent";
+        public const string Vary = "Vary";
+        public const string WWWAuthenticate = "WWW-Authenticate";
+
+        private RtspHeaders() { }
+
+    }
 
     /// <summary>
     /// Enumeration to indicate the type of RtspMessage
@@ -23,18 +62,18 @@ namespace Media.Rtsp
     /// </summary>
     public enum RtspMethod
     {
-        UNKNOWN = 0,
-        ANNOUNCE = 1,
-        DESCRIBE = 2,
-        GET_PARAMETER = 3,
-        OPTIONS = 4,
-        PAUSE = 5,
-        PLAY = 6,
-        RECORD = 7,
-        REDIRECT = 8,
-        SETUP = 9,
-        SET_PARAMETER = 10,
-        TEARDOWN = 11,
+        UNKNOWN,
+        ANNOUNCE, 
+        DESCRIBE, 
+        REDIRECT, 
+        OPTIONS,
+        SETUP,
+        GET_PARAMETER,
+        SET_PARAMETER,
+        PLAY,
+        PAUSE,
+        RECORD,
+        TEARDOWN
     }
 
     /// <summary>
@@ -44,44 +83,6 @@ namespace Media.Rtsp
     {
 
         #region Nested Types
-
-        public sealed class RtspHeaders
-        {
-            public const string Allow = "Allow";
-            public const string Accept = "Accept";
-            public const string AcceptEncoding = "Accept-Encoding";
-            public const string AcceptLanguage = "Accept-Language";
-            public const string Authroization = "Authorization";
-            public const string Connection = "Connection";
-            public const string ContentBase = "Content-Base";
-            public const string ContentEncoding = "Content-Encoding";
-            public const string ContentLanguage = "Content-Language";
-            public const string ContentLength = "Content-Length";
-            public const string ContentLocation = "Content-Location";
-            public const string ContentType = "Content-Type";
-            public const string CSeq = "CSeq";
-            public const string From = "From";
-            public const string Expires = "Expires";
-            public const string LastModified = "Last-Modified";
-            public const string IfModifiedSince = "If-Modified-Since";
-            public const string Location = "Location";
-            public const string ProxyAuthenticate = "Proxy-Authenticate";
-            public const string Public = "Public";
-            public const string Range = "Range";
-            public const string Referer = "Referer";
-            public const string RetryAfter = "Retry-After";
-            public const string Server = "Server";
-            public const string Session = "Session";
-            public const string Transport = "Transport";
-            public const string RtpInfo = "RTP-Info";
-            public const string UserAgent = "User-Agent";
-            public const string Vary = "Vary";
-            public const string WWWAuthenticate = "WWW-Authenticate";
-
-            private RtspHeaders() { }
-
-        }
-       
 
         /// <summary>
         /// Thrown when parsing a RtpMessage fails
@@ -120,12 +121,13 @@ namespace Media.Rtsp
         /// <summary>
         /// The firstline of the RtspMessage
         /// </summary>
-        internal string m_FirstLine;
+        internal string m_FirstLine, m_Body;
 
         /// <summary>
         /// Dictionary containing the headers of the RtspMessage
         /// </summary>
         Dictionary<string, string> m_Headers = new Dictionary<string, string>();
+       
 
         #endregion
 
@@ -134,7 +136,22 @@ namespace Media.Rtsp
         /// <summary>
         /// The body of the RtspMessage
         /// </summary>
-        public string Body { get; set; }
+        public string Body
+        {
+            get { return m_Body; }
+            set
+            {
+                m_Body = value;
+                if (string.IsNullOrWhiteSpace(m_Body))
+                {
+                    RemoveHeader(RtspHeaders.ContentLength);
+                }
+                else
+                {
+                    SetHeader(RtspHeaders.ContentLength, this.Encoding.GetByteCount(m_Body).ToString());
+                }
+            }
+        }
 
         /// <summary>
         /// Indicates if this RtspMessage is a request or a response
@@ -171,6 +188,8 @@ namespace Media.Rtsp
         /// </summary>
         public Encoding Encoding { get; set; }
 
+        //public float Version { get; set; }
+
         #endregion
 
         #region Constructor        
@@ -179,41 +198,54 @@ namespace Media.Rtsp
         /// Constructs a RtspMessage
         /// </summary>
         /// <param name="messageType"></param>
-        public RtspMessage(RtspMessageType messageType) { MessageType = messageType; Encoding = Encoding.UTF8; }
+        public RtspMessage(RtspMessageType messageType) { MessageType = messageType; Encoding = Encoding.UTF8; /* Version = 1.0F; */ }
 
-        public RtspMessage(byte[] packet)
+        public RtspMessage(byte[] packet, int offset = 0)
         {
             Encoding = Encoding.UTF8;
 
             //Encoding should probalby be a property
-            string message = Encoding.GetString(packet);
+            string message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : offset);
 
-            int endFistLinePosn = message.IndexOf(CRLF);
+            int endFistLinePosn = message.IndexOf(CRLF, offset);
 
             if (endFistLinePosn == -1) throw new RtspMessageException("Could not find first line");
 
             //Store the first line for derived types since this is the only thing they need
-            m_FirstLine = message.Substring(0, endFistLinePosn);
+            m_FirstLine = message.Substring(offset, endFistLinePosn);
+
+            int miLen = MessageIdentifier.Length;
 
             //Get the message type
-            MessageType = m_FirstLine.Substring(0, MessageIdentifier.Length) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
+            MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
 
-            //Could assign version
+            //Could assign version, then assign Method and Location
+            //if (MessageType == RtspMessageType.Request)
+            //{
+            //    //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
+            //    Version = float.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty));
+            //}
+            //else
+            //{
+            //    //S->C[0]RTSP/1.0[1]200[2]OK
+            //    Version = float.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
+            //}
+            
 
             //Determine if we should decode more
-            if (packet.Length - endFistLinePosn > 4)
+            if (packet.Length - endFistLinePosn > miLen)
             {
                 int endHeaderPosn = message.IndexOf(CRLF + CRLF);
 
-                int len;
+                int len = 0, crlfLen = CRLF.Length;
 
                 //If there is no end of the header then
                 //Assume flakey implementation if message does not contain the required CRLFCRLF sequence and treat the message as having no body.
-                if (endHeaderPosn == -1) len = message.Length - endFistLinePosn - 2;
-                else len = endHeaderPosn - endFistLinePosn - 2;
+                if (endHeaderPosn == -1) len = message.Length - endFistLinePosn - crlfLen;
+                else len = endHeaderPosn - endFistLinePosn - crlfLen;
 
                 // Get the headers 
-                foreach (string raw in message.Substring(endFistLinePosn + 2, len).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
+                foreach (string raw in message.Substring(endFistLinePosn + crlfLen, len).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
                 {
                     string[] parts = raw.Split(':');
                     SetHeader(parts[0], parts[1]);
@@ -222,8 +254,11 @@ namespace Media.Rtsp
                 //Get the body
                 if (endHeaderPosn != -1)
                 {
-                    Body = message.Substring(endHeaderPosn + 4);
+                    Body = message.Substring(endHeaderPosn + 4); //crlfLen * 2
                     //Should verify content - length header?
+                    //if(!ContainsHeader(ContentLength) && Body.Length == int.Parse(GetHeader(ContentLength))){
+                    // throw new RtspMessageException("Invalid Content-Length Header");
+                    //}
                 }
             }
         }
@@ -295,29 +330,17 @@ namespace Media.Rtsp
         {
             List<byte> result = new List<byte>();
 
-            //Write CSeq
-            result.AddRange(Encoding.GetBytes(RtspHeaders.CSeq + ": " + CSeq + CRLF));
-
-            //Determine if a body is present
-            bool hasBody = !string.IsNullOrWhiteSpace(Body);
-
             //Write headers
-            foreach (KeyValuePair<string, string> header in m_Headers.Where(kvp => kvp.Key != RtspHeaders.CSeq))
+            foreach (KeyValuePair<string, string> header in m_Headers)
             {
                 result.AddRange(Encoding.GetBytes(header.Key + ": " + header.Value + CRLF));
             }
 
-            //Add the contentLength header
-            if (hasBody)
-            {
-                result.AddRange(Encoding.GetBytes(RtspHeaders.ContentLength + ": " + Encoding.GetByteCount(Body) + CRLF));
-            }
-            
             //End Header
             result.AddRange(Encoding.GetBytes(CRLF));
 
             //Write body if required
-            if (hasBody)
+            if (ContainsHeader(RtspHeaders.ContentLength))
             {
                 result.AddRange(Encoding.GetBytes(Body));
             }
