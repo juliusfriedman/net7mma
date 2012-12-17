@@ -68,7 +68,7 @@
     <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
     <Compile Include="Rtsp\Server\RtspSession.cs" />
     <Compile Include="Rtsp\Server\RtspStream.cs" />
-    <Compile Include="Sdp\SessionDescription.cs" />
+    <Compile Include="Sdp\SessionDescriptionProtocol.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>

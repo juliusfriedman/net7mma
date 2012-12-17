@@ -132,11 +132,13 @@ namespace Media.Rtcp
 
         public SourceDescription(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
 
-        public SourceDescription(RtcpPacket packet) : this(packet.Data, 0) { }
+        public SourceDescription(RtcpPacket packet)
+            : this(packet.Data, 0)
+        {
+            if (packet.PacketType != RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception("Invalid Packet Type");
+        }
 
         #endregion
-
-        #region Methods
 
         public RtcpPacket ToPacket()
         {
@@ -171,6 +173,8 @@ namespace Media.Rtcp
             return result.ToArray();
         }
 
-        #endregion
+        public static implicit operator RtcpPacket(SourceDescription description) { return description.ToPacket(); }
+
+        public static implicit operator SourceDescription(RtcpPacket packet) { return new SourceDescription(packet); }
     }
 }
