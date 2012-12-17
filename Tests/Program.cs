@@ -66,9 +66,9 @@ namespace Media
 
             Console.WriteLine("Stream Sent : " + server.TotalStreamBytesSent);
 
-            Console.WriteLine("Rtsp Recieved : " + server.TotalRtspBytesRecieved);
-
             Console.WriteLine("Rtsp Sent : " + server.TotalRtspBytesSent);
+
+            Console.WriteLine("Rtsp Recieved : " + server.TotalRtspBytesRecieved);
 
             Console.WriteLine("Waiting for input to Exit................");
 

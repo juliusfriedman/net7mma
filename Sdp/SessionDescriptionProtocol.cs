@@ -395,6 +395,10 @@ namespace Media.Sdp
 
             Type = char.ToLower(line[0]);
 
+            //Two types 
+            //a=<flag>
+            //a=<name>:<value> where value = {...,...,...;x;y;z}
+
             Parts = new List<string>(line.Remove(0, 2)/*.Replace("\"", string.Empty)*/.Split(new char[] { ';' }));
         }
 
@@ -415,6 +419,7 @@ namespace Media.Sdp
                 case 'o': return new SessionOwnerLine(sdpLines, ref index);
                 case 's': return new SessionNameLine(sdpLines, ref index);
                 case 'c': return new MediaConnectionLine(sdpLines, ref index);
+                case 'u': return new SessionUriLine(sdpLines, ref index);
                 case 'a': //Attribute
                 case 'b': //Bandwidth
                 case 'e': //Email
@@ -558,6 +563,51 @@ namespace Media.Sdp
         {
             return "s=" + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.CRLF;
         }
+    }
+
+    internal class SessionUriLine : SessionDescriptionLine
+    {
+
+        public Uri Location { get { return Parts.Count > 0 ? (new Uri(Parts[0])) : null; } set { Parts.Clear(); Parts.Add(value.ToString()); } }
+
+        public SessionUriLine()
+            : base(null, 'u')
+        {
+        }
+
+        public SessionUriLine(string uri)
+            : this()
+        {
+            Location = new Uri(uri);
+        }
+
+        public SessionUriLine(Uri uri)
+            : this()
+        {
+            Location = uri;
+        }
+
+        public SessionUriLine(string[] sdpLines, ref int index)
+            : this()
+        {
+            try
+            {
+                string sdpLine = sdpLines[index++].Trim();
+
+                if (!sdpLine.StartsWith("u=")) throw new SessionDescriptionException("Invalid Version");
+
+                sdpLine = SessionDescription.CleanValue(sdpLine.Replace("u=", string.Empty));
+
+                Parts.Add(sdpLine);
+
+                Location = new Uri(sdpLine);
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
     }
 
     internal class MediaConnectionLine : SessionDescriptionLine

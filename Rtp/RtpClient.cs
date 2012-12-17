@@ -55,6 +55,8 @@ namespace Media.Rtp
 
         #region Fields
 
+        ///SHOULD KEEP A ReportBlock rather then seperately allocated fields and counters :P
+
         //Recieved times
         internal DateTime m_LastSendersReportSent,
                           m_LastRecieversReportSent,
@@ -220,8 +222,10 @@ namespace Media.Rtp
             {
                 //Store the last complted frame
                 m_LastFrame = m_CurrentFrame;
+                
                 //Make a new frame
                 m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+                
                 //Fire the event
                 RtpFrameCompleted(this, m_LastFrame);
             }
@@ -939,7 +943,5 @@ namespace Media.Rtp
         #endregion
 
         #endregion
-
-        
     }
 }

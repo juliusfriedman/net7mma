@@ -61,8 +61,6 @@ namespace Media.Rtcp
 
         #endregion
 
-        #region Methods
-
         public virtual RtcpPacket ToPacket()
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SendersReport);
@@ -90,6 +88,8 @@ namespace Media.Rtcp
             return result.ToArray();
         }
 
-        #endregion
+        public static implicit operator RtcpPacket(SendersReport report) { return report.ToPacket(); }
+
+        public static implicit operator SendersReport(RtcpPacket packet) { return new SendersReport(packet); }
     }
 }

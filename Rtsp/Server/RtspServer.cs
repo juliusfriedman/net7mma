@@ -550,17 +550,17 @@ namespace Media.Rtsp
                 //If we are in TcpTransport this could be a RtpPacket or a RtcpPacket... we will need to check for the $ then the channel and raise the event if necessary                
                 if (rec > 0)
                 {
-                    //We have a Rtp Frame in the buffer
+                    //We have a Rtp Packet in the buffer
                     if (ci.m_Buffer[0] == 36)
                     {
-                        //Need to create packets and raise events 
-                        //Keep in mind the thread of the client is also caling this all the time
-                        //And there could be rtspData in the buffer if rec is differnt from the value returned by recieveData
-                        int xrec = ci.m_RtpClient.RecieveData(ci.m_Buffer[1]);
-                        //We may have a RtspMessage after... or we may have another RtpMessage
-                        if (xrec < rec)
+                        //To ensure that we actaully read the packet and raised an event
+                        if ( ci.m_RtpClient.RecieveData(ci.m_Buffer[1]) < rec)
                         {
-                            System.Diagnostics.Debugger.Break();
+                            if (System.Diagnostics.Debugger.IsAttached)
+                            {
+                                System.Diagnostics.Debugger.Break();
+                            }
+                            else throw new Exception("Recieved Less then the RtpPacket Size");
                         }
                     }
                     else
@@ -704,7 +704,6 @@ namespace Media.Rtsp
         {
             try
             {
-                if (Logger != null) Logger.LogResponse(response, ci);
                 byte[] buffer = response.ToBytes();
                 ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
             }

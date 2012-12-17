@@ -151,9 +151,6 @@ namespace Media.Rtsp
             //Get the original so we can rewrite it
             Media.Sdp.SessionDescription origional = stream.SessionDescription;
 
-            //http://www.ietf.org/rfc/rfc2327.txt - Page 8 the "o=" field.
-            //Might choose to move this stuff to the SessionDescription Constructor
-
             //Should be 2 NTP Timestamps
             ulong[] parts = Utility.DateTimeToNptTimestamp(DateTime.Now.ToUniversalTime());
             string sessionId = parts[0].ToString(),

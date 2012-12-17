@@ -34,8 +34,6 @@ namespace Media.Rtcp
 
         #endregion
 
-        #region Methods
-
         public virtual RtcpPacket ToPacket()
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport);
@@ -47,6 +45,7 @@ namespace Media.Rtcp
         public virtual byte[] ToBytes()
         {
             List<byte> result = new List<byte>();
+            
             // SSRC
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
             
@@ -56,6 +55,9 @@ namespace Media.Rtcp
             return result.ToArray();
         }
 
-        #endregion
+        public static implicit operator RtcpPacket(ReceiversReport report) { return report.ToPacket(); }
+
+        public static implicit operator ReceiversReport(RtcpPacket packet) { return new ReceiversReport(packet); }
+
     }
 }
