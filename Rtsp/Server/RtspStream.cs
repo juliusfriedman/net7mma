@@ -13,6 +13,8 @@ namespace Media.Rtsp
     /// </summary>    
     public class RtspStream
     {
+        public static RtspStream CreateChild(RtspStream source) { return new ChildStream(source); }
+
         public enum StreamState
         {
             Stopped,
@@ -27,6 +29,7 @@ namespace Media.Rtsp
         internal NetworkCredential m_Cred;
         internal NetworkCredential m_RtspCred;
         internal List<string> m_Aliases = new List<string>();
+        internal bool m_Child = false;
 
         #endregion
 
@@ -35,22 +38,22 @@ namespace Media.Rtsp
         /// <summary>
         /// The unique Id of the RtspStream
         /// </summary>
-        public Guid Id { get { return m_Id; } set { m_Id = value; } }
+        public virtual Guid Id { get { return m_Id; } set { m_Id = value; } }
 
         /// <summary>
         /// The name of this stream, also used as the location on the server
         /// </summary>
-        public string Name { get { return m_Name; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("Name", "Cannot consist of only null or whitespace"); m_Aliases.Add(m_Name); m_Name = value; } }
+        public virtual string Name { get { return m_Name; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("Name", "Cannot consist of only null or whitespace"); m_Aliases.Add(m_Name); m_Name = value; } }
 
         /// <summary>
         /// Any Aliases the stream is known by
         /// </summary>
-        public string[] Aliases { get { return m_Aliases.ToArray(); } }
+        public virtual string[] Aliases { get { return m_Aliases.ToArray(); } }
 
         /// <summary>
         /// The credential the source requires
         /// </summary>
-        public NetworkCredential SourceCredential
+        public virtual NetworkCredential SourceCredential
         {
             get { return m_Cred; }
             set
@@ -79,7 +82,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The credential of the stream which will be exposed to clients
         /// </summary>
-        public NetworkCredential RtspCredential
+        public virtual NetworkCredential RtspCredential
         {
             get { return m_RtspCred; }
             set { m_RtspCred = value; }
@@ -87,12 +90,12 @@ namespace Media.Rtsp
 
         //Will need to have supported methods also.. and a handler dictionary to get the handler for each request server will use its by default..
         //Will need to adjust or subclass for Archived Streams        
-        public RtspClient Client { get; set; }
+        public virtual RtspClient Client { get; set; }
 
         /// <summary>
         /// Indicates if the sources listener is connected
         /// </summary>
-        public bool Connected { get { return Client.Connected; } }
+        public virtual bool Connected { get { return Client.Connected; } }
 
         /// <summary>
         /// Indicates if the sources listener is listening
@@ -107,12 +110,17 @@ namespace Media.Rtsp
         /// <summary>
         /// State of the stream 
         /// </summary>
-        public StreamState State { get; set; }
+        public virtual StreamState State { get; set; }
+
+        /// <summary>
+        /// Is this RtspStream dependent on another
+        /// </summary>
+        public bool Parent { get { return !m_Child; } }
 
         /// <summary>
         /// The Uri to the source media
         /// </summary>
-        public Uri Source
+        public virtual Uri Source
         {
             get { return m_Source; }
             set
@@ -142,9 +150,9 @@ namespace Media.Rtsp
 
         public delegate void FrameDecodedHandler(RtspStream stream, System.Drawing.Image decoded);
 
-        public event FrameDecodedHandler FrameDecoded;
+        public virtual event FrameDecodedHandler FrameDecoded;
 
-        internal void OnFrameDecoded(System.Drawing.Image decoded)
+        internal virtual void OnFrameDecoded(System.Drawing.Image decoded)
         {
             if (FrameDecoded != null) FrameDecoded(this, decoded);
         }
@@ -153,25 +161,30 @@ namespace Media.Rtsp
 
         #region Constructor
 
+        internal RtspStream(string name, Uri sourceLocation, bool child)
+        {
+            //The stream name cannot be null or consist only of whitespace
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
+
+            //Set the name
+            m_Name = name;
+
+            //Set the source
+            m_Source = sourceLocation;
+
+            //Create the listener
+            if (!(m_Child = child))
+            {
+                Client = new RtspClient(m_Source);
+            }
+        }
+
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspStream(string name, Uri sourceLocation)
-        {
-            //The stream name cannot be null or consist only of whitespace
-            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
-            
-            //Set the name
-            m_Name = name;
-
-            //Set the source
-            Source = sourceLocation;
-
-            //Create the listener
-            Client = new RtspClient(m_Source);
-        }
+        public RtspStream(string name, Uri sourceLocation) : this(name, sourceLocation, false) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -219,8 +232,7 @@ namespace Media.Rtsp
             {
                 try
                 {
-                    Client.StartListening();
-                    Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);                    
+                    Client.StartListening();                    
                 }
                 catch (RtspClient.RtspClientException)
                 {
@@ -230,6 +242,7 @@ namespace Media.Rtsp
                 {
                     throw;
                 }
+                Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);                    
                 State = StreamState.Started;
             }
         }
@@ -245,8 +258,8 @@ namespace Media.Rtsp
         {
             try
             {
-                Media.Sdp.SessionDescription.SessionMediaDescription mediaDescription = this.Client.SessionDescription.MediaDesciptions[0];
-                if (mediaDescription.MediaType.ToLower() == "audio") return;
+                Media.Sdp.MediaDescription mediaDescription = this.Client.SessionDescription.MediaDescriptions[0];
+                if (mediaDescription.MediaType == Sdp.MediaType.audio) return;
                 else if (mediaDescription.MediaFormat == "26")
                 {
                     m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
@@ -271,17 +284,18 @@ namespace Media.Rtsp
             if (Client.Listening)
             {
                 Client.StopListening();
+                Client.Client.RtpFrameCompleted -= Client_RtpFrameCompleted;
             }
             State = StreamState.Stopped;
         }
 
-        public void AddAlias(string name)
+        public virtual void AddAlias(string name)
         {
             if (m_Aliases.Contains(name)) return;
             m_Aliases.Add(name);
         }
 
-        public void RemoveAlias(string alias)
+        public virtual void RemoveAlias(string alias)
         {
             m_Aliases.Remove(alias);
         }
@@ -289,11 +303,101 @@ namespace Media.Rtsp
         //The last frame decoded
         internal System.Drawing.Image m_lastFrame;
 
-        public System.Drawing.Image GetFrame()
+        public virtual System.Drawing.Image GetFrame()
         {
             return m_lastFrame;
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Encapsulates RtspStreams which are dependent on Parent RtspStreams
+    /// </summary>
+    internal class ChildStream : RtspStream
+    {
+        internal RtspStream m_Parent;
+
+        public ChildStream(RtspStream source) 
+            : base(source.Name + "Child", source.Client.Location, true)
+        {
+            m_Parent = source;
+        }
+
+        public override RtspClient Client
+        {
+            get
+            {
+                return m_Parent.Client;
+            }
+            set
+            {
+                m_Parent.Client = value;
+            }
+        }
+
+        public override bool Connected
+        {
+            get
+            {
+                return m_Parent.Connected;
+            }
+        }
+
+        public override Uri Source
+        {
+            get
+            {
+                return m_Parent.Source;
+            }
+            set
+            {
+                m_Parent.Source = value;
+            }
+        }
+
+        public override bool Listening
+        {
+            get
+            {
+                return m_Parent.Listening;
+            }
+        }
+
+        public override void Start()
+        {
+            //Add Events
+        }
+
+        public override void Stop()
+        {
+            //Remove Events
+        }
+
+        public override NetworkCredential SourceCredential
+        {
+            get
+            {
+                return m_Parent.SourceCredential;
+            }
+            set
+            {
+                m_Parent.SourceCredential = value;
+            }
+        }
+
+        public override Sdp.SessionDescription SessionDescription
+        {
+            get
+            {
+                return m_Parent.SessionDescription;
+            }
+        }
+
+        public override System.Drawing.Image GetFrame()
+        {
+            return m_Parent.GetFrame();
+        }
+
     }
 }

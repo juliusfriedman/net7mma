@@ -274,9 +274,9 @@ namespace Media.Rtsp
             else m_Headers.Add(name, value);
         }
 
-        public void AppendHeader(string name, string value)
+        public void AppendOrSetHeader(string name, string value)
         {
-            if (!m_Headers.ContainsKey(name)) SetHeader(name, value);
+            if (!ContainsHeader(name)) SetHeader(name, value);
             else m_Headers[name] += ';' + value;
         }
 
