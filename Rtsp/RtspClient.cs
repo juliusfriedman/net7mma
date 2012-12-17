@@ -478,7 +478,7 @@ namespace Media.Rtsp
             {
                 m_SessionDescription = new Sdp.SessionDescription(response.Body);
             }            
-            catch (SessionDescription.SessionDescriptionException ex)
+            catch (SessionDescriptionException ex)
             {
                 throw new RtspClientException("Invalid Session Description", ex);
             }
@@ -531,7 +531,7 @@ namespace Media.Rtsp
                     m_ClientRtpPort = Utility.FindOpenUDPPort(15000);
                     m_ClientRtcpPort = m_ClientRtpPort + 1;
                     m_RtpClient = RtpClient.Receiever(m_RemoteIP, m_ClientRtpPort, m_ClientRtcpPort);//SHould share the buffer?
-                    setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDesciptions[0].MediaProtocol + ";unicast;client_port=" + m_ClientRtpPort + '-' + m_ClientRtcpPort);
+                    setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";unicast;client_port=" + m_ClientRtpPort + '-' + m_ClientRtcpPort);
                 }
 
                 RtspResponse response = SendRtspRequest(setup);

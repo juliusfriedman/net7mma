@@ -909,7 +909,7 @@ namespace Media.Rtsp
 
             //Create the response
             RtspResponse resp = ci.CreateRtspResponse(request);
-            resp.AppendHeader(RtspHeaders.Session, "timeout=60");
+            resp.AppendOrSetHeader(RtspHeaders.Session, "timeout=60");
             resp.SetHeader(RtspHeaders.Transport, returnTransportHeader);
 
             //Send the response
