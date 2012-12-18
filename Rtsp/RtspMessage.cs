@@ -60,7 +60,7 @@ namespace Media.Rtsp
     /// <summary>
     /// Base class of RtspRequest and RtspResponse
     /// </summary>
-    public class RtspMessage
+    public abstract class RtspMessage
     {
 
         #region Nested Types

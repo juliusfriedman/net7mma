@@ -45,6 +45,8 @@ namespace Media.Rtsp
 
         internal HttpListenerContext m_Http;
 
+        internal RtspResponse m_LastResponse;
+
         //RtpClient
         internal RtpClient m_RtpClient;
 
@@ -130,6 +132,8 @@ namespace Media.Rtsp
         internal void Disconnect()
         {
             if (m_RtpClient != null) m_RtpClient.Disconnect();
+            if (m_Udp != null) m_Udp.Close();
+            m_Http = null;
         }
 
         /// <summary>
@@ -150,12 +154,23 @@ namespace Media.Rtsp
             return response;
         }
 
-        //Coudl move this logic here and encapsulate Http also
-        //internal void ProcessSendRtspResponse(RtspResponse response)
-        //{
-        //}
+        internal List<RtspSourceStream> m_Attached = new List<RtspSourceStream>();
 
-        internal void CreateSessionDescription(RtspStream stream)
+        internal void Attach(RtspSourceStream stream)
+        {
+            stream.Client.Client.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+            stream.Client.Client.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+            m_Attached.Add(stream);
+        }
+
+        internal void Detach(RtspSourceStream stream)
+        {
+            stream.Client.Client.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
+            stream.Client.Client.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+            m_Attached.Remove(stream);
+        }
+
+        internal void CreateSessionDescription(RtspSourceStream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
