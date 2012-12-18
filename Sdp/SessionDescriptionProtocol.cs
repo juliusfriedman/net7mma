@@ -42,8 +42,8 @@ namespace Media.Sdp
         #region Fields
 
         SessionVersionLine m_Version = new SessionVersionLine(0);
+        SessionOriginatorLine m_Originator = new SessionOriginatorLine("Owner");
         SessionNameLine m_SessionName = new SessionNameLine("Session Name");
-        SessionOwnerLine m_Owner = new SessionOwnerLine("Owner");
 
         List<MediaDescription> m_MediaDescriptions = new List<MediaDescription>();
         List<TimeDescription> m_TimeDescriptions = new List<TimeDescription>();
@@ -53,17 +53,17 @@ namespace Media.Sdp
 
         #region Properties
 
-        public int Version { get { return m_Version.Version; } set { m_Version.Version = value; } }
+        public int Version { get { return m_Version.Version; } set { m_Version.Version = value; ++m_Originator.Version; } }
 
-        public string OriginatorAndSessionIdentifier { get { return m_Owner.ToString(); } set { m_Owner = new SessionOwnerLine(value.ToString()); } }
+        public string OriginatorAndSessionIdentifier { get { return m_Originator.ToString(); } set { m_Originator = new SessionOriginatorLine(value.ToString()); ++m_Originator.Version; } }
 
-        public string SessionName { get { return m_SessionName.SessionName; } set { m_SessionName.SessionName = value; } }
+        public string SessionName { get { return m_SessionName.SessionName; } set { m_SessionName.SessionName = value; ++m_Originator.Version; } }
 
-        public List<TimeDescription> TimeDescriptions { get { return m_TimeDescriptions; } set { m_TimeDescriptions = value; } }
+        public System.Collections.ObjectModel.ReadOnlyCollection<TimeDescription> TimeDescriptions { get { return m_TimeDescriptions.AsReadOnly(); } set { m_TimeDescriptions = value.ToList(); ++m_Originator.Version; } }
 
-        public List<MediaDescription> MediaDescriptions { get { return m_MediaDescriptions; } set { m_MediaDescriptions = value; } }
+        public System.Collections.ObjectModel.ReadOnlyCollection<MediaDescription> MediaDescriptions { get { return m_MediaDescriptions.AsReadOnly(); } set { m_MediaDescriptions = value.ToList(); ++m_Originator.Version; } }
 
-        public List<SessionDescriptionLine> Lines { get { return m_Lines; } }
+        public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } set { m_Lines = value.ToList(); ++m_Originator.Version; } }
 
         #endregion
 
@@ -118,7 +118,7 @@ namespace Media.Sdp
                 }
                 else if (line.StartsWith("o="))
                 {
-                    m_Owner = new SessionOwnerLine(lines, ref lineIndex);
+                    m_Originator = new SessionOriginatorLine(lines, ref lineIndex);
                     continue;
                 }
                 else if (line.StartsWith("s="))
@@ -133,7 +133,7 @@ namespace Media.Sdp
                 }
                 else if (line.StartsWith("m="))//Check for MediaDescription
                 {
-                    MediaDescriptions.Add(new MediaDescription(lines, ref lineIndex));
+                    m_MediaDescriptions.Add(new MediaDescription(lines, ref lineIndex));
                     continue;
                 }
                 else
@@ -143,31 +143,20 @@ namespace Media.Sdp
             }            
         }
 
+        public SessionDescription(SessionDescription other)
+        {
+            Version = other.Version;
+
+            TimeDescriptions = other.TimeDescriptions;
+
+            MediaDescriptions = other.MediaDescriptions;
+
+            Lines = other.Lines;
+        }
+
         #endregion
 
-        #region Methods
-
-        /// <summary>
-        /// Copies all Attributes, Properties and Bandwidth inforamation to another SessionDescription.
-        /// Will not copy the version, originator or session name.
-        /// </summary>
-        /// <param name="other">The SessionDescription to copy to</param>
-        public void CopyTo(SessionDescription other)
-        {
-            if (Version != other.Version) throw new ArgumentException("Must be the same version", "other");
-
-            if (m_TimeDescriptions.Count > 0)
-            {
-                other.TimeDescriptions.AddRange(m_TimeDescriptions);
-            }
-
-            if (m_MediaDescriptions.Count > 0)
-            {
-                other.MediaDescriptions.AddRange(MediaDescriptions);
-            }
-
-            other.m_Lines.AddRange(m_Lines);
-        }
+        #region Methods        
 
         public override string ToString()
         {
@@ -175,7 +164,7 @@ namespace Media.Sdp
 
             buffer.Append(m_Version.ToString());
 
-            buffer.Append(m_Owner.ToString());
+            buffer.Append(m_Originator.ToString());
 
             buffer.Append(m_SessionName.ToString());
 
@@ -185,11 +174,11 @@ namespace Media.Sdp
 
             m_Lines.Where(l => l.Type == 'a').ToList().ForEach(l => buffer.Append(l));
 
-            TimeDescriptions.ToList().ForEach(l => buffer.Append(l));
+            m_TimeDescriptions.ForEach(l => buffer.Append(l));
 
             if (m_MediaDescriptions.Count > 0)
             {
-                foreach (MediaDescription mediaDescription in MediaDescriptions)
+                foreach (MediaDescription mediaDescription in m_MediaDescriptions)
                     buffer.Append(mediaDescription.ToString());
             }
 
@@ -210,16 +199,16 @@ namespace Media.Sdp
     {
         #region Fields
 
-        public MediaType MediaType;
-        public int MediaPort;
-        public string MediaProtocol;
-        public string MediaFormat;
+        public MediaType MediaType { get; private set; }
+        public int MediaPort { get; private set; }
+        public string MediaProtocol { get; private set; }
+        public string MediaFormat { get; private set; }
 
         List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
         #endregion
 
-        public List<SessionDescriptionLine> Lines { get { return m_Lines; } }
+        public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } }
 
         #region Constructor
 
@@ -293,15 +282,16 @@ namespace Media.Sdp
     public class TimeDescription
     {
 
-        public long SessionStartTime;
-        public long SessionStopTime;
+        public long SessionStartTime { get; private set; }
+        public long SessionStopTime { get; private set; }
 
-        public List<long> RepeatTimes = new List<long>();
+        public List<long> RepeatTimes { get; private set; }
 
         public TimeDescription(int startTime, int stopTime)            
         {
             SessionStartTime = startTime;
             SessionStopTime = stopTime;
+            RepeatTimes = new List<long>();
         }
 
         public TimeDescription(string[] sdpLines, ref int index)
@@ -407,7 +397,7 @@ namespace Media.Sdp
             return new String(Type, 1) + '=' + string.Join(";", Parts.ToArray()) + SessionDescription.CRLF;
         }
 
-        public static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
+        internal static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
         {
             string sdpLine = sdpLines[index] = sdpLines[index].Trim();
 
@@ -416,14 +406,15 @@ namespace Media.Sdp
             switch (type)
             {
                 case 'v': return new SessionVersionLine(sdpLines, ref index);
-                case 'o': return new SessionOwnerLine(sdpLines, ref index);
+                case 'o': return new SessionOriginatorLine(sdpLines, ref index);
                 case 's': return new SessionNameLine(sdpLines, ref index);
-                case 'c': return new MediaConnectionLine(sdpLines, ref index);
+                case 'c': return new SessionConnectionLine(sdpLines, ref index);
                 case 'u': return new SessionUriLine(sdpLines, ref index);
+                case 'e': return new SessionEmailLine(sdpLines, ref index);
+                case 'p': return new SessionPhoneLine(sdpLines, ref index);
+                case 'z': //Zone Information
                 case 'a': //Attribute
                 case 'b': //Bandwidth
-                case 'e': //Email
-                case 'p': //PhoneNumber
                 default:
                     {
                         ++index;
@@ -468,28 +459,28 @@ namespace Media.Sdp
 
     }
 
-    internal class SessionOwnerLine : SessionDescriptionLine
+    internal class SessionOriginatorLine : SessionDescriptionLine
     {
-        public string Owner;
+        public string Username;
         public string SessionId;
         public int Version;
         public string NetworkType;
         public string AddressType;
         public string Address;
 
-        public SessionOwnerLine()
+        public SessionOriginatorLine()
             : base(null, 'o')
         {
             Version = 1;
         }
 
-        public SessionOwnerLine(string owner)
+        public SessionOriginatorLine(string owner)
             : this()
         {
-            Owner = owner;
+            Username = owner;
         }
 
-        public SessionOwnerLine(string[] sdpLines, ref int index)
+        public SessionOriginatorLine(string[] sdpLines, ref int index)
             : this()
         {
             try
@@ -503,7 +494,7 @@ namespace Media.Sdp
                 Parts.Add(sdpLine);
 
                 string[] ownerFields = sdpLine.Split(' ');
-                Owner = ownerFields[0];
+                Username = ownerFields[0];
                 SessionId = ownerFields[1];
                 Int32.TryParse(ownerFields[2], out Version);
                 NetworkType = ownerFields[3];
@@ -519,7 +510,7 @@ namespace Media.Sdp
 
         public override string ToString()
         {
-            return "o=" + string.Join(" ", Owner, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
+            return "o=" + string.Join(" ", Username, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
         }
 
     }
@@ -565,6 +556,88 @@ namespace Media.Sdp
         }
     }
 
+    internal class SessionPhoneLine : SessionDescriptionLine
+    {
+        public string PhoneNumber { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts.Clear(); Parts.Add(value); } }
+
+        public SessionPhoneLine()
+            : base(null, 'p')
+        {
+
+        }
+
+        public SessionPhoneLine(string sessionName)
+            : this()
+        {
+            PhoneNumber = sessionName;
+        }
+
+        public SessionPhoneLine(string[] sdpLines, ref int index)
+            : this()
+        {
+            try
+            {
+                string sdpLine = sdpLines[index++].Trim();
+
+                if (!sdpLine.StartsWith("p=")) throw new SessionDescriptionException("Invalid PhoneNumber");
+
+                sdpLine = SessionDescription.CleanValue(sdpLine.Replace("p=", string.Empty));
+
+                Parts.Add(sdpLine);
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        public override string ToString()
+        {
+            return "p=" + (string.IsNullOrEmpty(PhoneNumber) ? string.Empty : PhoneNumber) + SessionDescription.CRLF;
+        }
+    }
+
+    internal class SessionEmailLine : SessionDescriptionLine
+    {
+        public string Email { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts.Clear(); Parts.Add(value); } }
+
+        public SessionEmailLine()
+            : base(null, 'e')
+        {
+
+        }
+
+        public SessionEmailLine(string sessionName)
+            : this()
+        {
+            Email = sessionName;
+        }
+
+        public SessionEmailLine(string[] sdpLines, ref int index)
+            : this()
+        {
+            try
+            {
+                string sdpLine = sdpLines[index++].Trim();
+
+                if (!sdpLine.StartsWith("e=")) throw new SessionDescriptionException("Invalid Email");
+
+                sdpLine = SessionDescription.CleanValue(sdpLine.Replace("e=", string.Empty));
+
+                Parts.Add(sdpLine);
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        public override string ToString()
+        {
+            return "e=" + (string.IsNullOrEmpty(Email) ? string.Empty : Email) + SessionDescription.CRLF;
+        }
+    }
+
     internal class SessionUriLine : SessionDescriptionLine
     {
 
@@ -594,7 +667,7 @@ namespace Media.Sdp
             {
                 string sdpLine = sdpLines[index++].Trim();
 
-                if (!sdpLine.StartsWith("u=")) throw new SessionDescriptionException("Invalid Version");
+                if (!sdpLine.StartsWith("u=")) throw new SessionDescriptionException("Invalid Uri");
 
                 sdpLine = SessionDescription.CleanValue(sdpLine.Replace("u=", string.Empty));
 
@@ -610,18 +683,18 @@ namespace Media.Sdp
 
     }
 
-    internal class MediaConnectionLine : SessionDescriptionLine
+    internal class SessionConnectionLine : SessionDescriptionLine
     {
         string NetworkType;
         string AddressType;
         string Address;
 
-        public MediaConnectionLine()
+        public SessionConnectionLine()
             : base(null, 'c')
         {
         }
 
-        public MediaConnectionLine(string[] sdpLines, ref int index)
+        public SessionConnectionLine(string[] sdpLines, ref int index)
             : this()
         {
             try
@@ -654,4 +727,11 @@ namespace Media.Sdp
 
     #endregion
 
+    public static class Extensions
+    {
+        public static IEnumerable<SessionDescriptionLine> Where(this List<SessionDescriptionLine> list, char type, string value)
+        {
+            return list.Where(l => l.Type == type && l.Parts.Contains(value));
+        }
+    }
 }

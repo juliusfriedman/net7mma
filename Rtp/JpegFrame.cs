@@ -17,7 +17,6 @@ namespace Media.Rtp
 
         static byte[] EndOfInformation = new byte[] { 0xff, 0xd9 };
         
-
         static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, uint dri)
         {
             List<byte> result = new List<byte>();
@@ -450,11 +449,13 @@ namespace Media.Rtp
             {
                 RtpPacket packet = this.Packets[i];
 
-                //If There is already a StartOfInformation header present just copy it
-                if (i == 0 && packet.Extensions && packet.Payload[offset] == StartOfInformation[0] && (packet.Payload[offset + 1] == StartOfInformation[1] || packet.Payload[offset + 1] == 0xFF))
+                //Handle Extension Headers
+                if (packet.Extensions/* && packet.Payload[offset] == StartOfInformation[0] && (packet.Payload[offset + 1] == StartOfInformation[1] || packet.Payload[offset + 1] == 0xFF)*/)
                 {
                     //This could be OnVif extension
                     //http://www.scribd.com/doc/50850591/225/JPEG-over-RTP
+                    //Check in packet.m_ExtensionData
+
                     //Length in next two bytes
                     int len = packet.Payload[offset + 2] * 256 * packet.Payload[offset + 3];
                     //Then write to buffer

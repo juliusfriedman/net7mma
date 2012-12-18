@@ -23,6 +23,7 @@ namespace Media.Rtsp
 
         #region Fields
 
+        internal DateTime? m_Started;
         internal Guid m_Id = Guid.NewGuid();
         internal string m_Name;
         internal Uri m_Source;
@@ -34,6 +35,8 @@ namespace Media.Rtsp
         #endregion
 
         #region Properties
+
+        public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.Now - m_Started.Value; return TimeSpan.MinValue; } }
 
         /// <summary>
         /// The unique Id of the RtspStream
@@ -244,6 +247,7 @@ namespace Media.Rtsp
                 }
                 Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);                    
                 State = StreamState.Started;
+                m_Started = DateTime.Now;
             }
         }
 
@@ -286,6 +290,7 @@ namespace Media.Rtsp
                 Client.StopListening();
                 Client.Client.RtpFrameCompleted -= Client_RtpFrameCompleted;
             }
+            m_Started = null;
             State = StreamState.Stopped;
         }
 
