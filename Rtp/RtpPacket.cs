@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Media.Rtp
 {
@@ -25,6 +24,7 @@ namespace Media.Rtp
         int m_Version, m_Padding, m_Extensions, m_Csc, m_Marker, m_SequenceNumber;
 
         uint m_TimeStamp, m_Ssrc;
+
         List<uint> m_ContributingSources = new List<uint>();
 
         #region Extensions
@@ -112,7 +112,8 @@ namespace Media.Rtp
             //Could get $, RtpChannel, Len here for Tcp to make reciving better
 
             //Extract fields
-            byte compound = packetReference.Array[0];
+            byte compound = packetReference.Array[packetReference.Offset];
+            
 
             //Version, Padding flag, Extension flag, and Contribuing Source Count
             m_Version = compound >> 6; ;
@@ -121,31 +122,32 @@ namespace Media.Rtp
             m_Csc = 0x1F & compound;
 
             //Extract Marker flag and payload type
-            compound = packetReference.Array[1];
+            compound = packetReference.Array[packetReference.Offset + 1];
 
             Marker = ((compound >> 7) == 1);
             m_PayloadType = (byte)(compound & 0x7f);
 
             //Extract Sequence Number
-            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, 2));
+            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, packetReference.Offset + 2));
 
             //Extract Time Stamp
-            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, 4));
+            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, packetReference.Offset + 4));
 
-            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, 8));
+            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, packetReference.Offset + 8));
 
             int position = 12;
 
             //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, position)));
+            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, packetReference.Offset + position)));
 
             //Extract Extensions
+            //This might not be needed
             if (Extensions)
             {
-                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, position));
-                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, position + 2));
+                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, packetReference.Offset + position));
+                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, packetReference.Offset + position + 2));
                 m_ExtensionData = new byte[m_ExtensionLength];
-                Array.Copy(packetReference.Array, position + 4, m_ExtensionData, 0, m_ExtensionLength);
+                Array.Copy(packetReference.Array, packetReference.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;
             }
 
@@ -153,55 +155,13 @@ namespace Media.Rtp
             int payloadSize = packetReference.Count - position;
             m_Payload = new byte[payloadSize];
 
-            Array.Copy(packetReference.Array, position, m_Payload, 0, payloadSize);
+            Array.Copy(packetReference.Array, packetReference.Offset + position, m_Payload, 0, payloadSize);
         }
 
         public RtpPacket(byte[] packet, int offset = 0)
+            : this (new ArraySegment<byte>(packet, offset, packet.Length - offset))
         {
-            //Ensure correct length
-            if (packet.Length <= HeaderLength) throw new ArgumentException("The packet does not conform to the RTP Protocol. Packets must exceed 12 Bytes.", "packet");
-
-            //Could get $, RtpChannel, Len here for Tcp to make reciving better
-
-            //Extract fields
-            //Version, Padding flag, Extension flag, and Contribuing Source Count
-            m_Version = packet[offset + 0] >> 6; ;
-            m_Padding = (0x1 & (packet[offset + 0] >> 5));
-            m_Extensions = (0x1 & (packet[offset + 0] >> 4));
-            m_Csc = 0x1F & (packet[offset + 0]);
-
-            //Extract Marker flag and payload type
-            Marker = ((packet[offset + 1] >> 7) == 1);
-            m_PayloadType = (byte)(packet[offset + 1] & 0x7f);
-
-            //Extract Sequence Number
-            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, offset + 2));
-
-            //Extract Time Stamp
-            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet, offset + 4));
-
-            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet, offset + 8));
-
-            int position = offset + 12;
-
-            //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet, position)));
-
-            //Extract Extensions
-            if (Extensions)
-            {
-                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, position));
-                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet, position + 2));
-                m_ExtensionData = new byte[m_ExtensionLength];
-                Array.Copy(packet, position + 4, m_ExtensionData, 0, m_ExtensionLength);
-                position += 4 + m_ExtensionLength;
-            }
-
-            //Extract payload
-            int payloadSize = packet.Length - position;
-            m_Payload = new byte[payloadSize];
-
-            Array.Copy(packet, position, m_Payload, 0, payloadSize);
+            
         }
 
         #endregion
@@ -243,10 +203,14 @@ namespace Media.Rtp
             if (ContributingSourceCount > 0)
             {
                 //Loop the sources and add them to the header
-                foreach (uint src in m_ContributingSources) result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)src)));
+                foreach (uint src in m_ContributingSources)
+                {
+                    result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)src)));
+                }
             }
 
             //If extensions were flagged then include the extensions
+            //Might not be required
             if (Extensions)
             {
                 result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionFlags)));
@@ -257,7 +221,10 @@ namespace Media.Rtp
             }
 
             //Include the payload if required
-            if (!headerOnly) result.AddRange(m_Payload);
+            if (!headerOnly)
+            {
+                result.AddRange(m_Payload);
+            }
 
             //Return the array
             return result.ToArray();

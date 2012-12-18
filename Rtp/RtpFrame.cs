@@ -1,20 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Media.Rtp
 {
-
     /// <summary>
-    /// A collection of packets representing a frame
-    /// 
-    /// From the sending side, "frame" is submitted and "packetized"
-    /// From the receiving side, packets are read and "framed" when complete
+    /// A collection of RtpPackets
     /// </summary>
     public class RtpFrame
     {
-
         #region Fields
 
         uint m_TimeStamp, m_Ssrc;
@@ -49,8 +43,9 @@ namespace Media.Rtp
 
         public virtual List<RtpPacket> Packets { get { return m_Packets.Values.ToList(); } }
 
-        //Should technically be the last... frames which start on a marker should be dropped..
         public virtual bool Complete { get; protected set; }
+
+        public virtual bool HasSequenceGaps { get { return !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
 
         #endregion
 

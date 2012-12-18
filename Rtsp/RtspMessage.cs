@@ -91,9 +91,9 @@ namespace Media.Rtsp
         public const string CRLF = "\r\n";
 
         // RFC2326 9.2, default port for both TCP and UDP.
-        public const int DefaultPort = 554;
         public const string ReliableTransport = "rtsp";
         public const string UnreliableTransport = "rtspu";
+        
         // RFC2326 9.2, initial round trip time used for retransmits on unreliable transports.
         public const int MaximumLength = 4096;
 

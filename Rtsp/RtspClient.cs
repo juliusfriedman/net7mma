@@ -13,6 +13,7 @@ namespace Media.Rtsp
 {
 
     /// <summary>
+    /// Implements RFC 2326
     /// Communicates with an RtspServer to setup a RtpClient.    
     /// </summary>
     public class RtspClient
@@ -115,7 +116,7 @@ namespace Media.Rtsp
 
                     m_RtspPort = m_Location.Port;
 
-                    if (m_RtspPort == -1) m_RtspPort = RtspMessage.DefaultPort;
+                    if (m_RtspPort == -1) m_RtspPort = RtspServer.DefaultPort;
 
                     m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
 
@@ -253,6 +254,7 @@ namespace Media.Rtsp
 
         //public event ConnectHandler OnConnect;
 
+        //or OnConnected
         //internal void raise__OnConnect() { if (OnConnect != null) OnConnect(this); }
 
         //public event RequestHandler OnRequest;
@@ -285,6 +287,7 @@ namespace Media.Rtsp
                 SendPlay();
 
                 //It appears the RtspClient may need a worker thread / timer to monitor the bytes recieved... if things stop coming in then StopListening must be called.
+                //Could be done in m_Timer after connect..
             }
             catch
             {
@@ -397,10 +400,6 @@ namespace Media.Rtsp
 
                 //raise__OnRequest(request);
 
-                //m_Sent += m_RtspSocket.Send(request.ToBytes());
-
-                //int rec = m_RtspSocket.Receive(m_Buffer);
-
                 int rec;
             Rece:
                 rec = 0;
@@ -455,7 +454,7 @@ namespace Media.Rtsp
 
             foreach (string method in publicMethods.Split(','))
             {
-                m_SupportedMethods.Add((RtspMethod)Enum.Parse(typeof(RtspMethod), method));
+                m_SupportedMethods.Add((RtspMethod)Enum.Parse(typeof(RtspMethod), method.Trim()));
             }
 
             return response;
@@ -483,7 +482,8 @@ namespace Media.Rtsp
                 throw new RtspClientException("Invalid Session Description", ex);
             }
 
-            //The media Uri is combined with the media description of the track to control ?
+            //The media Uri is combined with the media description of the track to control for multiple media streams...
+            //m_SessionDescription.MediaDescriptions[0].Lines.Where(l => l.Type == 'a' && l.Parts.Contains("control")).FirstOrDefault();
             //Location = new Uri(Location.ToString() + '/' + m_SessionDescription.MediaDesciptions[0].GetAtttribute("control"));            
 
             return response;
@@ -693,7 +693,7 @@ namespace Media.Rtsp
                 //If there is a timeout ensure it gets utilized
                 if (m_RtspTimeout != 0)
                 {
-                    m_Timer = new Timer(new TimerCallback(SendGetParameter), this, m_RtspTimeout * 1000 / 2, m_RtspTimeout);
+                    m_Timer = new Timer(new TimerCallback(SendGetParameter), null, m_RtspTimeout * 1000 / 2, m_RtspTimeout);
                 }
 
                 return response;

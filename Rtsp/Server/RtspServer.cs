@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Net.Sockets;
 using System.Threading;
 using System.Net;
@@ -13,9 +12,12 @@ namespace Media.Rtsp
     /// <summary>
     /// Implementation of Rfc 2326 server 
     /// http://tools.ietf.org/html/rfc2326
+    /// Needs Udp socket for RtspUnreliable
     /// </summary>
     public class RtspServer
     {
+        public const int DefaultPort = 554;
+
         #region Nested Types
 
         /// <summary>
@@ -32,7 +34,7 @@ namespace Media.Rtsp
 
         #region Fields
 
-        DateTime m_Started = DateTime.Now;
+        DateTime? m_Started;
 
         /// <summary>
         /// The port the RtspServer is listening on, defaults to 554
@@ -44,7 +46,12 @@ namespace Media.Rtsp
         /// <summary>
         /// The socket used for recieving RtspRequests
         /// </summary>
-        Socket m_ServerSocket;
+        Socket m_TcpServerSocket, m_UdpServerSocket;
+
+        /// <summary>
+        /// The HttpListner used for handling Rtsp over Http
+        /// </summary>
+        HttpListener m_HttpListner;
 
         /// <summary>
         /// The endpoint the server is listening on
@@ -80,7 +87,7 @@ namespace Media.Rtsp
 
         #region Propeties
 
-        public TimeSpan Uptime { get { return DateTime.Now - m_Started; } }
+        public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.Now - m_Started.Value; return TimeSpan.MinValue; } }
 
         /// <summary>
         /// Indicates if the RtspServer is listening for requests on the ServerPort
@@ -95,7 +102,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The local endpoint for this RtspServer (The endpoint on which requests are recieved)
         /// </summary>
-        public IPEndPoint LocalEndPoint { get { return m_ServerSocket.LocalEndPoint as IPEndPoint; } }
+        public IPEndPoint LocalEndPoint { get { return m_TcpServerSocket.LocalEndPoint as IPEndPoint; } }
 
         /// <summary>
         /// Accesses a contained stream by id of the stream
@@ -173,7 +180,7 @@ namespace Media.Rtsp
 
         #region Constructor
 
-        public RtspServer(int listenPort = 554)
+        public RtspServer(int listenPort = DefaultPort)
         {
             m_ServerPort = listenPort;
         }
@@ -181,6 +188,47 @@ namespace Media.Rtsp
         #endregion
 
         #region Methods
+
+        public void EnableHttp(int port) 
+        {
+            if (m_HttpListner == null)
+            {
+                m_HttpListner.Prefixes.Add("http://*:" + port + "//");
+                m_HttpListner.Start();
+                m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
+            }
+        }
+
+        public void EnableUdp(int port) 
+        {
+            if (m_UdpServerSocket != null)
+            {
+                m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), 554));
+                RtspSession temp = new RtspSession(this, null);
+                m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+            }
+        }
+
+        public void DisableHttp()
+        {
+            if (m_HttpListner != null)
+            {
+                m_HttpListner.Stop();
+                m_HttpListner.Close();
+                m_HttpListner = null;
+            }
+        }
+
+        public void DisableUdp()
+        {
+            if (m_UdpServerSocket != null)
+            {
+                m_UdpServerSocket.Shutdown(SocketShutdown.Both);
+                m_UdpServerSocket.Dispose();
+                m_UdpServerSocket = null;
+            }
+        }
 
         #region Session Collection
 
@@ -217,7 +265,7 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(rtspSessionId)) return null;
             rtspSessionId = rtspSessionId.Trim();
             return m_Clients.Values.Where(c => c.SessionId != null && c.SessionId.Equals(rtspSessionId)).FirstOrDefault();
-        }       
+        }               
 
         #endregion
 
@@ -248,10 +296,7 @@ namespace Media.Rtsp
         /// <returns>True if the stream is contained, otherwise false</returns>
         public bool ContainsStream(Guid streamId)
         {
-            lock (m_Streams)
-            {
-                return m_Streams.ContainsKey(streamId);
-            }
+            return m_Streams.ContainsKey(streamId);
         }
 
         /// <summary>
@@ -401,13 +446,13 @@ namespace Media.Rtsp
             m_ServerEndPoint = new IPEndPoint(IPAddress.Any, m_ServerPort);
 
             //Create the server Socket
-            m_ServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            m_TcpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             //Bind the server Socket to the server EndPoint
-            m_ServerSocket.Bind(m_ServerEndPoint);
+            m_TcpServerSocket.Bind(m_ServerEndPoint);
 
             //Set the backlog
-            m_ServerSocket.Listen(1024);
+            m_TcpServerSocket.Listen(1024);
 
             //Create a thread to handle client connections
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
@@ -423,6 +468,9 @@ namespace Media.Rtsp
                 RestartFaultedStreams();
 
             }), null, 10000, 10000);
+
+            m_Started = DateTime.Now;
+
         }
 
         /// <summary>
@@ -455,7 +503,13 @@ namespace Media.Rtsp
             //m_ServerSocket.Shutdown(SocketShutdown.Both);
 
             //Dispose the socket
-            m_ServerSocket.Dispose();            
+            m_TcpServerSocket.Dispose();
+
+            m_Started = null;
+
+            DisableHttp();
+            DisableUdp();
+
         }
 
         /// <summary>
@@ -482,6 +536,7 @@ namespace Media.Rtsp
 
         internal Timer m_Maintainer;
 
+        //MIght need another for Udp
         /// <summary>
         /// The loop where Rtsp Requests are recieved
         /// </summary>
@@ -491,9 +546,9 @@ namespace Media.Rtsp
             {
                 allDone.Reset();
 
-                m_ServerSocket.BeginAccept(new AsyncCallback(ProcessAccept), m_ServerSocket);
-
-                while (!allDone.WaitOne(100))
+                m_TcpServerSocket.BeginAccept(new AsyncCallback(ProcessAccept), m_TcpServerSocket);                
+                
+                while (!allDone.WaitOne())
                 {
                     System.Threading.Thread.Yield();
                 }
@@ -523,7 +578,7 @@ namespace Media.Rtsp
 
                 AddSession(ci);
 
-                clientSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessRecieve), ci);
+                clientSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
             }
             catch (Exception ex)
             {
@@ -535,17 +590,39 @@ namespace Media.Rtsp
         /// Handles the recieving of sockets data from a rtspClient
         /// </summary>
         /// <param name="ar">The asynch result</param>
-        internal void ProcessRecieve(IAsyncResult ar)
+        internal void ProcessReceive(IAsyncResult ar)
         {
             //Get the client information
             RtspSession ci = (RtspSession)ar.AsyncState;
 
-            if (null == ci) return;
-
             try
             {
+
+                int rec;
+
+                if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                {
+                    rec = ci.m_RtspSocket.EndReceive(ar);
+                    
+                }
+                else
+                {
+                    EndPoint endPoint = null;
+                    rec = m_UdpServerSocket.EndReceiveFrom(ar, ref endPoint);
+                    
+                    RtspSession temp = new RtspSession(this, null);
+                    m_UdpServerSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+
+                    IPEndPoint remote = (IPEndPoint) endPoint;
+                    ci.m_Udp = new UdpClient();
+                    ci.m_Udp.Connect(remote);
+                    ci.m_RtspSocket = ci.m_Udp.Client;
+
+                    AddSession(ci);
+                }
+
                 //Data is now in client buffer
-                int rec = ci.m_RtspSocket.EndReceive(ar);
+                
 
                 //If we are in TcpTransport this could be a RtpPacket or a RtcpPacket... we will need to check for the $ then the channel and raise the event if necessary                
                 if (rec > 0)
@@ -556,18 +633,14 @@ namespace Media.Rtsp
                         //To ensure that we actaully read the packet and raised an event
                         if ( ci.m_RtpClient.RecieveData(ci.m_Buffer[1]) < rec)
                         {
-                            if (System.Diagnostics.Debugger.IsAttached)
-                            {
-                                System.Diagnostics.Debugger.Break();
-                            }
+                            if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
                             else throw new Exception("Recieved Less then the RtpPacket Size");
                         }
                     }
                     else
                     {
-                        RtspRequest request = new RtspRequest(ci.m_Buffer);
-                        if (Logger != null) Logger.LogRequest(request, ci);
-                        ProcessRtspRequest(request, ci);
+                        ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);
+                        return;
                     }
 
                     m_Recieved += rec;
@@ -597,8 +670,8 @@ namespace Media.Rtsp
 
                 m_Sent += sent;
 
-                //Start recieve again (Might need to have a flag for the client because in Tcp this will not work so well 
-                ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessRecieve), ci);
+                //Start recieve again (Interleaved Rtp over Rtsp might have problems with this sharing)
+                ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
             }
             catch (SocketException ex)
             {
@@ -607,9 +680,32 @@ namespace Media.Rtsp
             }
         }
 
+        //Might Need ProcessUnreliableSend and Receive for UDp
+
         #endregion
 
         #region Rtsp Request Handling Methods
+
+        internal void ProcessHttpRtspRequest(IAsyncResult state)
+        {
+            HttpListenerContext context = m_HttpListner.EndGetContext(state);
+                
+            m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
+
+            RtspSession ci = new RtspSession(this, null);
+            ci.m_Http = context;
+
+            //Get RtspRequest from Body and base64 decode as request
+
+            //ci.m_Http.Request;
+
+            context.Response.AddHeader("name", "rtsp/x-tunneled");
+
+            RtspRequest request = new RtspRequest(System.Convert.FromBase64CharArray(null, 0, 0));
+
+            //Create RtspSession from HttpWebRequest as ci
+            ProcessRtspRequest (request, ci);
+        }
 
         /// <summary>
         /// Processes a RtspRequest based on the contents
@@ -645,8 +741,6 @@ namespace Media.Rtsp
             session.LastRequest = request;
             session.m_LastRtspRequestRecieved = DateTime.UtcNow;
 
-            
-
             //Determine the handler for the request and process it
             switch (request.Method)
             {
@@ -669,6 +763,11 @@ namespace Media.Rtsp
                     {
                         ProcessRtspPlay(request, session);
                         break;
+                    }
+                case RtspMethod.RECORD:
+                    {
+                        //Not yet implimented
+                        goto default;
                     }
                 case RtspMethod.PAUSE:
                     {
@@ -697,15 +796,21 @@ namespace Media.Rtsp
 
         /// <summary>
         /// Sends a Rtsp Response on the given client session
+        /// May need to be modified for Http and Udp to use SentTo
         /// </summary>
-        /// <param name="response">The RtspResponse to send</param>
+        /// <param name="response">The RtspResponse to send</param> If this was byte[] then it could handle http
         /// <param name="ci">The session to send the response on</param>
         internal void ProcessSendRtspResponse(RtspResponse response, RtspSession ci)
         {
             try
             {
                 byte[] buffer = response.ToBytes();
-                ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
+                //How to modify for Http?? might need ci flag or revamp process
+
+                if(ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                    ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
+                else
+                    ci.m_RtspSocket.BeginSendTo(buffer, 0, buffer.Length,  SocketFlags.None, ci.m_RtspSocket.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);
             }
             catch (SocketException)
             {
@@ -744,12 +849,10 @@ namespace Media.Rtsp
             ProcessInvalidRtspRequest(ci, RtspStatusCode.NotFound);
         }
 
-        //internal void ProcessAuthorizationRequired(RtspSession ci)
-        //{
-        //    //Add Digest if required
-        //    ProcessInvalidRtspRequest(ci, RtspStatusCode.Unauthorized);
-        //    //If Digest is present Forbidden
-        //}
+        internal void ProcessAuthorizationRequired(RtspSession ci)
+        {
+            ProcessInvalidRtspRequest(ci, ci.LastRequest.ContainsHeader(RtspHeaders.Authroization) ? RtspStatusCode.Forbidden : RtspStatusCode.Unauthorized);
+        }
 
         internal void ProcessRtspOptions(RtspRequest request, RtspSession ci)
         {
@@ -765,8 +868,10 @@ namespace Media.Rtsp
             }
 
             RtspResponse resp = ci.CreateRtspResponse(request);
-            //resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN, GET_PARAMETER");
-            resp.SetHeader(RtspHeaders.Public, " DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER"/*, OPTIONS"*/);
+            
+            //resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN, GET_PARAMETER"); //Causes VLC to try options again and again
+            resp.SetHeader(RtspHeaders.Public, " DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER"/*, OPTIONS"*/); //Options is really not needed anyway
+
             ProcessSendRtspResponse(resp, ci);
         }
 
@@ -793,7 +898,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessInvalidRtspRequest(ci, RtspStatusCode.Forbidden);
+                ProcessAuthorizationRequired(ci);
                 return;
             }
 
@@ -840,7 +945,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessInvalidRtspRequest(ci, RtspStatusCode.Unauthorized);
+                ProcessAuthorizationRequired(ci);
                 return;
             }
 
@@ -933,9 +1038,10 @@ namespace Media.Rtsp
                 ProcessLocationNotFoundRtspRequest(ci);
                 return;
             }
+
             if (!AuthenticateRequest(request, found))
             {
-                ProcessInvalidRtspRequest(ci, RtspStatusCode.Unauthorized);
+                ProcessAuthorizationRequired(ci);
                 return;
             }
 
@@ -963,11 +1069,8 @@ namespace Media.Rtsp
             //Create a response
             RtspResponse response = ci.CreateRtspResponse(request);
 
-            //Wait to ensure sequence number is correct... stupid but... the only other wait is to hand the request off or use a manual event. Since we are on a thread I dont think this is that bad
-            //while (ci.m_RtpClient.m_FirstRtpPacket == null) Thread.Sleep(100);
-            
             //Might should be Id and not name
-            response.SetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(ci.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Name + "/video");//;seqno=" + ci.m_RtpClient.m_FirstRtpPacket.SequenceNumber);// + ";rtptime=" + ci.m_LastRtpPacket.TimeStamp);
+            response.SetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(ci.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Name + "/video");
             response.SetHeader(RtspHeaders.Range, "npt=0.000-0.000");
 
             ProcessSendRtspResponse(response, ci);
@@ -993,7 +1096,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessInvalidRtspRequest(ci, RtspStatusCode.Unauthorized);
+                ProcessAuthorizationRequired(ci);
                 return;
             }
 
@@ -1030,7 +1133,7 @@ namespace Media.Rtsp
 
                 if (!AuthenticateRequest(request, found))
                 {
-                    ProcessInvalidRtspRequest(ci, RtspStatusCode.Unauthorized);
+                    ProcessAuthorizationRequired(ci);
                     return;
                 }
 
@@ -1143,6 +1246,11 @@ namespace Media.Rtsp
                 //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
                 //ResponseHash = MD5( HA1 + ':' + nonce + ':' + nc + ':' + cnonce + ':' + "qop=auth" + ':' + HA2);
             }
+
+            //If invalid just end here with proper code? AuthRequired if the Request has no header
+            //More likley modify to return a StatusCOde
+            //or Forbidden if it didn't match
+            //200 instead of TRUE?
 
             return false;
         }

@@ -41,6 +41,10 @@ namespace Media.Rtsp
         //Sockets
         internal Socket m_RtspSocket;
 
+        internal UdpClient m_Udp;
+
+        internal HttpListenerContext m_Http;
+
         //RtpClient
         internal RtpClient m_RtpClient;
 
@@ -59,6 +63,8 @@ namespace Media.Rtsp
         #endregion
 
         #region Constructor
+
+        //might need a constructor for the HttpListner
 
         public RtspSession(RtspServer server, Socket rtspSocket)
         {
@@ -144,37 +150,34 @@ namespace Media.Rtsp
             return response;
         }
 
+        //Coudl move this logic here and encapsulate Http also
+        //internal void ProcessSendRtspResponse(RtspResponse response)
+        //{
+        //}
+
         internal void CreateSessionDescription(RtspStream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
-            //Get the original so we can rewrite it
-            Media.Sdp.SessionDescription origional = stream.SessionDescription;
+            if (m_SessionDescription != null) return;
 
             //Should be 2 NTP Timestamps
             ulong[] parts = Utility.DateTimeToNptTimestamp(DateTime.Now.ToUniversalTime());
-            string sessionId = parts[0].ToString(),
-                sessionVersion = parts[1].ToString();
-
-            //((IPEndPoint)stream.Client.Client.m_RtcpSocket.LocalEndPoint).Address
-
-            //string originatorString = "- " + sessionId + " " + sessionVersion + " IN IP4 " + Utility.GetV4IPAddress().ToString();
-
-            // stream.Client.Client.m_RtcpSocket should be the stream.Client.m_RtspSocket
-            string originatorString = "- " + sessionId + " " + sessionVersion + " IN IP4 " + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
+            
+            string sessionId = parts[0].ToString(), sessionVersion = parts[1].ToString();
+                                        
+            string originatorString = "ASTI-RtspServer " + sessionId + " " + sessionVersion + " IN IP4 " + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 
             string sessionName = "ASTI Streaming Session"; // + stream.Name 
 
             //Make the new SessionDescription
-            Media.Sdp.SessionDescription result = new Sdp.SessionDescription(origional.Version, originatorString, sessionName);
+            m_SessionDescription = new Sdp.SessionDescription(stream.SessionDescription);
 
-            //Copy the old one
-            origional.CopyTo(result);
+            m_SessionDescription.SessionName = sessionName;
+            m_SessionDescription.OriginatorAndSessionIdentifier = originatorString;
 
-            //If we were given a session than update it with the id, version and SessionDescription
             SessionId = sessionId;
-            m_SDPVersion = sessionVersion;
-            m_SessionDescription = result;
+            m_SDPVersion = sessionVersion; //SHould be retrieved from  OriginatorAndSessionIdentifier after setting?
         }
 
         #endregion        
