@@ -9,11 +9,12 @@ namespace Media.Rtsp
 {
 
     /// <summary>
+    /// Should possibly have a lower class SourceStream which has the Uptime, Id Name semantics etc... and this would subclass for Rtsp
     /// Each source stream the RtspServer encapsulates and can be played by clients
     /// </summary>    
-    public class RtspStream
+    public class RtspSourceStream
     {
-        public static RtspStream CreateChild(RtspStream source) { return new ChildStream(source); }
+        public static RtspSourceStream CreateChild(RtspSourceStream source) { return new ChildStream(source); }
 
         public enum StreamState
         {
@@ -129,7 +130,8 @@ namespace Media.Rtsp
             set
             {
 
-                if (value.Scheme != RtspMessage.ReliableTransport) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransport + "\"");
+                //Experimental support for Unreliable and Http enabled with this line commented out
+                //if (value.Scheme != RtspMessage.ReliableTransport) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransport + "\"");
                 
                 m_Source = value;
 
@@ -151,7 +153,7 @@ namespace Media.Rtsp
 
         #region Events
 
-        public delegate void FrameDecodedHandler(RtspStream stream, System.Drawing.Image decoded);
+        public delegate void FrameDecodedHandler(RtspSourceStream stream, System.Drawing.Image decoded);
 
         public virtual event FrameDecodedHandler FrameDecoded;
 
@@ -164,7 +166,7 @@ namespace Media.Rtsp
 
         #region Constructor
 
-        internal RtspStream(string name, Uri sourceLocation, bool child)
+        internal RtspSourceStream(string name, Uri sourceLocation, bool child)
         {
             //The stream name cannot be null or consist only of whitespace
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
@@ -187,14 +189,14 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspStream(string name, Uri sourceLocation) : this(name, sourceLocation, false) { }
+        public RtspSourceStream(string name, Uri sourceLocation) : this(name, sourceLocation, false) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspStream(string name, string sourceLocation) : this(name, new Uri(sourceLocation)) { }
+        public RtspSourceStream(string name, string sourceLocation) : this(name, new Uri(sourceLocation)) { }
         
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -202,7 +204,7 @@ namespace Media.Rtsp
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
-        public RtspStream(string name, Uri sourceLocation, NetworkCredential credential)
+        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential)
             : this(name, sourceLocation)
         {
             //Set the creds
@@ -215,7 +217,7 @@ namespace Media.Rtsp
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
-        public RtspStream(string name, string sourceLocation, NetworkCredential credential)
+        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential)
             : this(name, sourceLocation)
         {
             //Set the creds
@@ -264,12 +266,12 @@ namespace Media.Rtsp
             {
                 Media.Sdp.MediaDescription mediaDescription = this.Client.SessionDescription.MediaDescriptions[0];
                 if (mediaDescription.MediaType == Sdp.MediaType.audio) return;
-                else if (mediaDescription.MediaFormat == "26")
+                else if (mediaDescription.MediaFormat == 26)
                 {
                     m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
                     OnFrameDecoded(m_lastFrame);
                 }
-                else if (mediaDescription.MediaFormat == "96")
+                else if (mediaDescription.MediaFormat == 96)
                 {
                     //Dynamic..
                 }
@@ -319,11 +321,11 @@ namespace Media.Rtsp
     /// <summary>
     /// Encapsulates RtspStreams which are dependent on Parent RtspStreams
     /// </summary>
-    internal class ChildStream : RtspStream
+    internal class ChildStream : RtspSourceStream
     {
-        internal RtspStream m_Parent;
+        internal RtspSourceStream m_Parent;
 
-        public ChildStream(RtspStream source) 
+        public ChildStream(RtspSourceStream source) 
             : base(source.Name + "Child", source.Client.Location, true)
         {
             m_Parent = source;

@@ -60,7 +60,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all streams the server is aggregrating
         /// </summary>
-        Dictionary<Guid, RtspStream> m_Streams = new Dictionary<Guid, RtspStream>();
+        Dictionary<Guid, RtspSourceStream> m_Streams = new Dictionary<Guid, RtspSourceStream>();
 
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
@@ -108,9 +108,9 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="streamId">The unique identifer</param>
         /// <returns>The RtspClient assocaited with the given id if found, otherwise null</returns>
-        public RtspStream this[Guid streamId] { get { return GetStream(streamId); } }
+        public RtspSourceStream this[Guid streamId] { get { return GetStream(streamId); } }
 
-        public List<RtspStream> Streams { get { return m_Streams.Values.ToList(); } }
+        public List<RtspSourceStream> Streams { get { return m_Streams.Values.ToList(); } }
 
         /// <summary>
         /// The amount of streams the server is prepared to listen to
@@ -147,7 +147,7 @@ namespace Media.Rtsp
             get
             {
                 int total = 0;
-                foreach (RtspStream client in m_Streams.Values)
+                foreach (RtspSourceStream client in m_Streams.Values)
                 {
                     total += client.Client.BytesRecieved;
                 }
@@ -163,7 +163,7 @@ namespace Media.Rtsp
             get
             {
                 int total = 0;
-                foreach (RtspStream stream in m_Streams.Values)
+                foreach (RtspSourceStream stream in m_Streams.Values)
                 {
                     total += stream.Client.BytesSent;
                 }
@@ -274,7 +274,7 @@ namespace Media.Rtsp
         /// Adds a stream to the server. If the server is already started then the stream will also be started
         /// </summary>
         /// <param name="location">The uri of the stream</param>
-        public void AddStream(RtspStream stream)
+        public void AddStream(RtspSourceStream stream)
         {
             if (ContainsStream(stream.Id)) throw new RtspServerException("Cannot add the given stream because it is already contained in the RtspServer");
             else
@@ -307,7 +307,7 @@ namespace Media.Rtsp
         {
             try
             {
-                RtspStream client = m_Streams[streamId];
+                RtspSourceStream client = m_Streams[streamId];
                 client.Stop();
                 //client.Client.Disconnect();
                 lock (m_Streams)
@@ -321,9 +321,9 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspStream GetStream(Guid streamId)
+        public RtspSourceStream GetStream(Guid streamId)
         {
-            RtspStream result;
+            RtspSourceStream result;
             m_Streams.TryGetValue(streamId, out result);
             return result;
         }
@@ -333,18 +333,18 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal RtspStream FindStreamByLocation(Uri mediaLocation, RtspSession ci = null)
+        internal RtspSourceStream FindStreamByLocation(Uri mediaLocation, RtspSession ci = null)
         {
             string val = mediaLocation.ToString();
 
-            RtspStream found = null;
+            RtspSourceStream found = null;
 
             //mediaLocation.Segments
 
             if (val.Contains("live"))
             {
 
-                foreach (RtspStream stream in m_Streams.Values.ToList())
+                foreach (RtspSourceStream stream in m_Streams.Values.ToList())
                     if (val.Contains(stream.Name))
                     {
                         found = stream;
@@ -410,7 +410,7 @@ namespace Media.Rtsp
         {
             lock (m_Streams)
             {
-                foreach (RtspStream stream in m_Streams.Values.Where(s => s.State == RtspStream.StreamState.Started && s.Listening == false))
+                foreach (RtspSourceStream stream in m_Streams.Values.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false))
                 {
                     try
                     {
@@ -516,7 +516,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (RtspStream stream in m_Streams.Values.ToList())
+            foreach (RtspSourceStream stream in m_Streams.Values.ToList())
             {                
                 stream.Start();
             }
@@ -527,7 +527,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (RtspStream stream in m_Streams.Values.ToList())
+            foreach (RtspSourceStream stream in m_Streams.Values.ToList())
             {                
                 stream.Stop();
             }
@@ -597,7 +597,7 @@ namespace Media.Rtsp
             try
             {
 
-                int rec;
+                int rec = 0;
 
                 if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                 {
@@ -605,20 +605,29 @@ namespace Media.Rtsp
                 }
                 else
                 {
-                    rec = m_UdpServerSocket.EndReceive(ar);
-                    
-                    RtspSession temp = new RtspSession(this, null);
-                    m_UdpServerSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+                    if (m_UdpServerSocket == ci.m_RtspSocket)
+                    {
+                        rec = m_UdpServerSocket.EndReceive(ar);
 
-                    //Might need plumbing to store endpoints for sessions
-                    IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
-                    ci.m_Udp = new UdpClient();
-                    ci.m_Udp.Connect(remote);
-                    ci.m_RtspSocket = ci.m_Udp.Client;
+                        RtspSession temp = new RtspSession(this, null);
+                        m_UdpServerSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
-                    //I think I will have to parse the Request and if its valid and contains a session header then find the session otherwise create a new one and add it
+                        //Might need plumbing to store endpoints for sessions
+                        IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
+                        ci.m_Udp = new UdpClient();
+                        ci.m_Udp.Connect(remote);
+                        ci.m_RtspSocket = ci.m_Udp.Client;
 
-                    AddSession(ci);
+                        //I think I will have to parse the Request and if its valid and contains a session header then find the session otherwise create a new one and add it
+
+                        AddSession(ci);
+                    }
+                    else
+                    {
+                        IPEndPoint remote = null;
+                        ci.m_Buffer = ci.m_Udp.EndReceive(ar, ref remote);
+                        rec = ci.m_Buffer.Length;
+                    }
                 }
 
                 //Data is now in client buffer
@@ -639,8 +648,7 @@ namespace Media.Rtsp
                     }
                     else
                     {
-                        ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);
-                        return;
+                        ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);                        
                     }
 
                     m_Recieved += rec;
@@ -671,7 +679,10 @@ namespace Media.Rtsp
                 m_Sent += sent;
 
                 //Start recieve again (Interleaved Rtp over Rtsp might have problems with this sharing)
-                ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
+                if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                    ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
+                else
+                    ci.m_Udp.BeginReceive(new AsyncCallback(ProcessReceive), ci);
             }
             catch (SocketException ex)
             {
@@ -690,19 +701,28 @@ namespace Media.Rtsp
                 
             m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
 
+            if (string.IsNullOrWhiteSpace(context.Request.Headers.Get("rtsp/x-tunneled"))) return;
+
+            //Should provide buffer and use that until we determine if there is a session
+            //Might not be in Http headers
+
+            //TODO DETERMINE PROPER HANDLING OF CREATING AND ADDING SESSIONS
+
             RtspSession ci = new RtspSession(this, null);
             ci.m_Http = context;
 
             //Get RtspRequest from Body and base64 decode as request
-
-            //ci.m_Http.Request;
+            int rec = ci.m_Http.Request.InputStream.Read(ci.m_Buffer, 0, ci.m_Buffer.Length);
 
             context.Response.AddHeader("name", "rtsp/x-tunneled");
 
-            RtspRequest request = new RtspRequest(System.Convert.FromBase64CharArray(null, 0, 0));
+            RtspRequest request = new RtspRequest(System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(ci.m_Buffer, 0, rec)));
 
             //Create RtspSession from HttpWebRequest as ci
             ProcessRtspRequest (request, ci);
+
+            //Use ci.LastResponse to send response
+            RtspResponse response = ci.m_LastResponse;
         }
 
         /// <summary>
@@ -803,12 +823,18 @@ namespace Media.Rtsp
             try
             {
                 byte[] buffer = response.ToBytes();
-                //How to modify for Http?? might need ci flag or revamp process
+
+                if (ci.m_Http != null)
+                {
+                    ci.m_LastResponse = response;
+                    //Don't http handle
+                    return;
+                }
 
                 if(ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                     ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
                 else
-                    ci.m_RtspSocket.BeginSendTo(buffer, 0, buffer.Length,  SocketFlags.None, ci.m_RtspSocket.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);
+                    ci.m_RtspSocket.BeginSendTo(buffer, 0, buffer.Length,  SocketFlags.None, ci.m_RtspSocket.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);                
             }
             catch (SocketException)
             {
@@ -856,7 +882,7 @@ namespace Media.Rtsp
         {
             System.Diagnostics.Debug.WriteLine("OPTIONS " + request.Location);
 
-            RtspStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
 
             //No stream with name
             if (found == null)
@@ -886,7 +912,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
 
             if (found == null)
             {
@@ -934,7 +960,7 @@ namespace Media.Rtsp
 
             System.Diagnostics.Debug.WriteLine("SETUP " + request.Location);
 
-            RtspStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(ci);
@@ -1030,7 +1056,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(ci);
@@ -1051,9 +1077,7 @@ namespace Media.Rtsp
             else
             {
 
-                //Hook events on found stream to send data to appropriate sockets on RtspSession                          
-                found.Client.Client.RtpPacketReceieved += ci.OnSourceRtpPacketRecieved;
-                found.Client.Client.RtcpPacketReceieved += ci.OnSourceRtcpPacketRecieved;
+                ci.Attach(found);
             }
 
             string rangeHeader = request[RtspHeaders.Range];
@@ -1085,7 +1109,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(ci);
@@ -1098,9 +1122,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            //unhook events, will be re hooked in play
-            found.Client.Client.RtpPacketReceieved -= ci.OnSourceRtpPacketRecieved;
-            found.Client.Client.RtcpPacketReceieved -= ci.OnSourceRtcpPacketRecieved;
+            ci.Detach(found);
 
             //Might need to add some headers
             ProcessSendRtspResponse(ci.CreateRtspResponse(request), ci);
@@ -1121,7 +1143,7 @@ namespace Media.Rtsp
                     return;
                 }
 
-                RtspStream found = FindStreamByLocation(request.Location, ci);
+                RtspSourceStream found = FindStreamByLocation(request.Location, ci);
 
                 if (found == null)
                 {
@@ -1141,10 +1163,7 @@ namespace Media.Rtsp
                 }
                 else
                 {
-
-                    //unhook events on found stream to send data to appropriate sockets on RtspSession              
-                    found.Client.Client.RtpPacketReceieved -= ci.OnSourceRtpPacketRecieved;
-                    found.Client.Client.RtcpPacketReceieved -= ci.OnSourceRtcpPacketRecieved;
+                    ci.Detach(found);
                 }
 
                 //Send Goodbye
@@ -1159,7 +1178,7 @@ namespace Media.Rtsp
             }
             finally
             {
-                RemoveSession(ci);
+                if (ci.m_Attached.Count == 0) RemoveSession(ci);
             }
         }
 
@@ -1194,7 +1213,7 @@ namespace Media.Rtsp
         /// <param name="request">The RtspRequest to authenticate</param>
         /// <param name="source">The RtspStream to authenticate against</param>
         /// <returns>True if authroized, otherwise false</returns>
-        internal bool AuthenticateRequest(RtspRequest request, RtspStream source)
+        internal bool AuthenticateRequest(RtspRequest request, RtspSourceStream source)
         {
             if (request == null) throw new ArgumentNullException("request");
             if (source == null) throw new ArgumentNullException("source");
