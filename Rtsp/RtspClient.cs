@@ -15,6 +15,7 @@ namespace Media.Rtsp
     /// <summary>
     /// Implements RFC 2326
     /// Communicates with an RtspServer to setup a RtpClient.    
+    /// Needs Rtspu Support
     /// </summary>
     public class RtspClient
     {
@@ -27,9 +28,22 @@ namespace Media.Rtsp
             public RtspClientException(string message, Exception inner) : base(message, inner) { }
         }
 
+        public enum ClientProtocol
+        {
+            Reliable = 0,
+            Tcp = Reliable,
+            Unreliable = 1,
+            Udp = Unreliable,
+            Http = 2
+        }
+
         #endregion
 
         #region Fields
+
+        ClientProtocol m_Protcol;
+
+        HttpWebRequest m_Http;
 
         /// <summary>
         /// The location the media
@@ -305,10 +319,25 @@ namespace Media.Rtsp
         {
             try
             {
-                m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                m_RtspSocket.Connect(m_RemoteRtsp);
-                m_RtspStream = new NetworkStream(m_RtspSocket);
-                ReadTimeout = 2000;
+                if (m_Protcol == ClientProtocol.Reliable)
+                {
+                    m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    m_RtspSocket.Connect(m_RemoteRtsp);
+                    m_RtspStream = new NetworkStream(m_RtspSocket);
+                    ReadTimeout = 2000;
+                }
+                else if (m_Protcol == ClientProtocol.Unreliable)
+                {
+                    m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                    m_RtspSocket.Connect(m_RemoteRtsp);
+                    ReadTimeout = 2000;
+                }
+                else
+                {                    
+                    //HttpWebRequest or WebClient or HttpClient
+                    m_Http = (HttpWebRequest)WebRequest.Create(Location);
+                    m_Http.ReadWriteTimeout = 2000;
+                }
                 //raise__OnConnect();
             }
             catch(Exception ex)
@@ -388,12 +417,31 @@ namespace Media.Rtsp
 
                 byte[] buffer = request.ToBytes();
 
-                lock (m_RtspStream)
+                if (m_Protcol == ClientProtocol.Tcp)
                 {
+                    lock (m_RtspStream)
+                    {
 
-                    m_RtspStream.Write(buffer, 0, buffer.Length);
+                        m_RtspStream.Write(buffer, 0, buffer.Length);
 
-                    m_RtspStream.Flush();
+                        m_RtspStream.Flush();
+                    }
+                }
+                else if (m_Protcol == ClientProtocol.Udp)
+                {
+                    m_RtspSocket.Send(buffer);
+                }
+                else if( m_Protcol == ClientProtocol.Http)
+                {
+                    m_Http.Method = "GET";
+                    m_Http.ContentType = "rtsp/x-tunneled";
+                    m_Http.ContentLength = buffer.Length;
+                    using (var requestStream = m_Http.GetRequestStream())
+                    {
+                        buffer = request.Encoding.GetBytes(System.Convert.ToBase64String(buffer));
+                        requestStream.Write(buffer, 0, buffer.Length);
+                        //m_Sent += httpOverhead;
+                    }
                 }
                 
                 m_Sent += buffer.Length;
@@ -402,10 +450,29 @@ namespace Media.Rtsp
 
                 int rec;
             Rece:
+
+                
                 rec = 0;
-                lock (m_RtspStream)
+                if (m_Protcol == ClientProtocol.Tcp)
                 {
-                    rec = m_RtspStream.Read(m_Buffer, 0, m_Buffer.Length);
+                    lock (m_RtspStream)
+                    {
+                        rec = m_RtspStream.Read(m_Buffer, 0, m_Buffer.Length);
+                    }
+                }
+                else if (m_Protcol == ClientProtocol.Udp)
+                {
+                    rec = m_RtspSocket.Receive(buffer);
+                }
+                else if (m_Protcol == ClientProtocol.Http)
+                {
+                    using (var str = m_Http.GetResponse().GetResponseStream())
+                    {
+                        rec = str.Read(m_Buffer, 0, m_Buffer.Length);
+                        //Base64 decode in buffer
+                        RtspResponse resp = new RtspResponse(System.Convert.FromBase64String(request.Encoding.GetString(m_Buffer, 0, rec)));
+                        return resp;
+                    }
                 }
 
                 if (rec > 0)

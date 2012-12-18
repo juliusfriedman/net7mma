@@ -12,7 +12,6 @@ namespace Media.Rtsp
     /// <summary>
     /// Implementation of Rfc 2326 server 
     /// http://tools.ietf.org/html/rfc2326
-    /// Needs Udp socket for RtspUnreliable
     /// </summary>
     public class RtspServer
     {
@@ -603,20 +602,21 @@ namespace Media.Rtsp
                 if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                 {
                     rec = ci.m_RtspSocket.EndReceive(ar);
-                    
                 }
                 else
                 {
-                    EndPoint endPoint = null;
-                    rec = m_UdpServerSocket.EndReceiveFrom(ar, ref endPoint);
+                    rec = m_UdpServerSocket.EndReceive(ar);
                     
                     RtspSession temp = new RtspSession(this, null);
                     m_UdpServerSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
-                    IPEndPoint remote = (IPEndPoint) endPoint;
+                    //Might need plumbing to store endpoints for sessions
+                    IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
                     ci.m_Udp = new UdpClient();
                     ci.m_Udp.Connect(remote);
                     ci.m_RtspSocket = ci.m_Udp.Client;
+
+                    //I think I will have to parse the Request and if its valid and contains a session header then find the session otherwise create a new one and add it
 
                     AddSession(ci);
                 }
@@ -679,8 +679,6 @@ namespace Media.Rtsp
                 System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
             }
         }
-
-        //Might Need ProcessUnreliableSend and Receive for UDp
 
         #endregion
 
