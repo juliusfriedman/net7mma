@@ -1277,7 +1277,7 @@ namespace Media.Rtsp
             if (source == null) throw new ArgumentNullException("source");
 
             //If the source has no password then there is nothing to determine
-            if (source.RtspCredential == null) return true;
+            if (source.RemoteCredential == null) return true;
             //If the request does not have the authorization header then there is nothing else to determine
             if (!request.ContainsHeader(RtspHeaders.Authroization)) return false;
 
@@ -1294,7 +1294,7 @@ namespace Media.Rtsp
                 //If not enough parts nothing to compare
                 if (parts.Length < 1) return false;
                 //Return the determination by comparison
-                return parts[0].Equals(source.m_RtspCred.UserName) && parts[2].Equals(source.m_RtspCred.Password);
+                return parts[0].Equals(source.RemoteCredential.UserName) && parts[2].Equals(source.RemoteCredential.Password);
             }
             else if (header.Contains("digest"))
             {

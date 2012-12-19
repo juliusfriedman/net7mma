@@ -7,15 +7,11 @@ using System.Diagnostics;
 
 namespace Media.Rtsp
 {
-
     /// <summary>
-    /// Should possibly have a lower class SourceStream which has the Uptime, Id Name semantics etc... and this would subclass for Rtsp
-    /// Each source stream the RtspServer encapsulates and can be played by clients
-    /// </summary>    
-    public class RtspSourceStream
+    /// The base class of all SourceStreams, Should be exposed on RtspServer not RtspStream
+    /// </summary>
+    public abstract class SourceStream
     {
-        public static RtspSourceStream CreateChild(RtspSourceStream source) { return new ChildStream(source); }
-
         public enum StreamState
         {
             Stopped,
@@ -29,7 +25,7 @@ namespace Media.Rtsp
         internal string m_Name;
         internal Uri m_Source;
         internal NetworkCredential m_Cred;
-        internal NetworkCredential m_RtspCred;
+        internal NetworkCredential m_RemoteCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
 
@@ -57,59 +53,15 @@ namespace Media.Rtsp
         /// <summary>
         /// The credential the source requires
         /// </summary>
-        public virtual NetworkCredential SourceCredential
-        {
-            get { return m_Cred; }
-            set
-            {
-                m_Cred = value;
-
-                bool wasConnected = Client.Connected;
-
-                if (wasConnected)
-                {
-                    //Disconnect with the old password
-                    Stop();
-                }
-
-                //Set the new creds
-                Client.Credential = value;
-
-                if (wasConnected)
-                {
-                    //Connect again if we need to
-                    Start();
-                }
-            }
-        }
-
+        public virtual NetworkCredential SourceCredential { get { return m_Cred; } set { m_Cred = value; } }
         /// <summary>
         /// The credential of the stream which will be exposed to clients
         /// </summary>
-        public virtual NetworkCredential RtspCredential
+        public virtual NetworkCredential RemoteCredential
         {
-            get { return m_RtspCred; }
-            set { m_RtspCred = value; }
+            get { return m_RemoteCred; }
+            set { m_RemoteCred = value; }
         }
-
-        //Will need to have supported/allowed methods and possibly a handler dictionary to get the handler for each request server will use its by default..
-        //Will need to adjust or subclass for Archived Streams        
-        public virtual RtspClient Client { get; set; }
-
-        /// <summary>
-        /// Indicates if the sources listener is connected
-        /// </summary>
-        public virtual bool Connected { get { return Client.Connected; } }
-
-        /// <summary>
-        /// Indicates if the sources listener is listening
-        /// </summary>
-        public virtual bool Listening { get { return Client.Listening; } }
-
-        /// <summary>
-        /// Sdp of the Stream
-        /// </summary>
-        public virtual Sdp.SessionDescription SessionDescription { get { return Client.SessionDescription; } }
 
         /// <summary>
         /// State of the stream 
@@ -130,10 +82,183 @@ namespace Media.Rtsp
             set
             {
 
+                m_Source = value;
+
+            }
+        }
+
+        #endregion
+
+        //Needs Packet and Frame Events abstraction
+
+        public delegate void FrameDecodedHandler(SourceStream stream, System.Drawing.Image decoded);
+
+        public virtual event FrameDecodedHandler FrameDecoded;
+
+        internal void OnFrameDecoded(System.Drawing.Image decoded)
+        {
+            if (FrameDecoded != null) FrameDecoded(this, decoded);
+        }
+
+        public abstract void Start();
+
+        public abstract void Stop();
+
+        public abstract bool Connected { get; }
+
+        public abstract bool Listening { get; }
+
+        public abstract Sdp.SessionDescription SessionDescription { get; }
+
+        public virtual void AddAlias(string name)
+        {
+            if (m_Aliases.Contains(name)) return;
+            m_Aliases.Add(name);
+        }
+
+        public virtual void RemoveAlias(string alias)
+        {
+            m_Aliases.Remove(alias);
+        }
+
+        //The last frame decoded
+        internal System.Drawing.Image m_lastFrame;
+
+        public virtual System.Drawing.Image GetFrame()
+        {
+            return m_lastFrame;
+        }
+    }
+
+    /// <summary>
+    /// Adds an abstract RtpClient To SourceStream
+    /// </summary>
+    public abstract class RtpSourceStream : SourceStream
+    {
+        public abstract Rtp.RtpClient RtpClient {get;}
+    }
+    
+    /// <summary>
+    /// A Source Stream which is a facade` to another
+    /// </summary>
+    public class ChildStream : SourceStream
+    {
+
+        //public static ChildStream CreateChild(SourceStream source) { return new ChildStream(source); }
+
+        internal SourceStream m_Parent;
+
+        public ChildStream(SourceStream source, Uri location)
+        {
+            m_Parent = source;
+        }
+
+
+        public override bool Connected
+        {
+            get
+            {
+                return m_Parent.Connected;
+            }
+        }
+
+        public override Uri Source
+        {
+            get
+            {
+                return m_Parent.Source;
+            }
+            set
+            {
+                m_Parent.Source = value;
+            }
+        }
+
+        public override bool Listening
+        {
+            get
+            {
+                return m_Parent.Listening;
+            }
+        }
+
+        public override void Start()
+        {
+            //Add Events
+        }
+
+        public override void Stop()
+        {
+            //Remove Events
+        }
+
+        public override NetworkCredential SourceCredential
+        {
+            get
+            {
+                return m_Parent.SourceCredential;
+            }
+            set
+            {
+                m_Parent.SourceCredential = value;
+            }
+        }
+
+        public override Sdp.SessionDescription SessionDescription
+        {
+            get
+            {
+                return m_Parent.SessionDescription;
+            }
+        }
+
+        public override System.Drawing.Image GetFrame()
+        {
+            return m_Parent.GetFrame();
+        }
+
+    }
+
+    /// <summary>
+    /// Each source stream the RtspServer encapsulates and can be played by clients
+    /// </summary>    
+    public class RtspSourceStream : RtpSourceStream
+    {
+        public static ChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
+
+        #region Properties
+
+        public virtual RtspClient Client { get; set; }
+
+        public override Rtp.RtpClient RtpClient { get { return Client.Client; } }
+
+        /// <summary>
+        /// Indicates if the sources listener is connected
+        /// </summary>
+        public override bool Connected { get { return Client.Connected; } }
+
+        /// <summary>
+        /// Indicates if the sources listener is listening
+        /// </summary>
+        public override bool Listening { get { return Client.Listening; } }
+
+        /// <summary>
+        /// Sdp of the Stream
+        /// </summary>
+        public override Sdp.SessionDescription SessionDescription { get { return Client.SessionDescription; } }
+
+        public override Uri Source
+        {
+            get
+            {
+                return base.Source;
+            }
+            set
+            {
                 //Experimental support for Unreliable and Http enabled with this line commented out
                 //if (value.Scheme != RtspMessage.ReliableTransport) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransport + "\"");
-                
-                m_Source = value;
+
+                base.Source = value;
 
                 if (Client != null)
                 {
@@ -145,21 +270,7 @@ namespace Media.Rtsp
 
                     if (wasConnected) Start();
                 }
-
             }
-        }
-
-        #endregion
-
-        #region Events
-
-        public delegate void FrameDecodedHandler(RtspSourceStream stream, System.Drawing.Image decoded);
-
-        public virtual event FrameDecodedHandler FrameDecoded;
-
-        internal virtual void OnFrameDecoded(System.Drawing.Image decoded)
-        {
-            if (FrameDecoded != null) FrameDecoded(this, decoded);
         }
 
         #endregion
@@ -226,12 +337,10 @@ namespace Media.Rtsp
 
         #endregion
 
-        #region Methods
-
         /// <summary>
         /// Beings streaming from the source
         /// </summary>
-        public virtual void Start()
+        public override void Start()
         {            
             if (!Client.Connected && State == StreamState.Started)
             {
@@ -285,7 +394,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Stops streaming from the source
         /// </summary>
-        public virtual void Stop()
+        public override void Stop()
         {
             if (Client.Listening)
             {
@@ -294,117 +403,29 @@ namespace Media.Rtsp
             }
             m_Started = null;
             State = StreamState.Stopped;
-        }
-
-        public virtual void AddAlias(string name)
-        {
-            if (m_Aliases.Contains(name)) return;
-            m_Aliases.Add(name);
-        }
-
-        public virtual void RemoveAlias(string alias)
-        {
-            m_Aliases.Remove(alias);
-        }
-
-        //The last frame decoded
-        internal System.Drawing.Image m_lastFrame;
-
-        public virtual System.Drawing.Image GetFrame()
-        {
-            return m_lastFrame;
-        }
-
-        #endregion
+        }       
     }
 
     /// <summary>
     /// Encapsulates RtspStreams which are dependent on Parent RtspStreams
     /// </summary>
-    internal class ChildStream : RtspSourceStream
+    internal class RtspChildStream : ChildStream
     {
-        internal RtspSourceStream m_Parent;
-
-        public ChildStream(RtspSourceStream source) 
-            : base(source.Name + "Child", source.Client.Location, true)
+        public RtspChildStream(RtspSourceStream source)
+            : base(source, source.Client.Location)
         {
-            m_Parent = source;
         }
 
-        public override RtspClient Client
+        public RtspClient Client
         {
             get
             {
-                return m_Parent.Client;
+                return ((RtspSourceStream)m_Parent).Client;
             }
             set
             {
-                m_Parent.Client = value;
+                ((RtspSourceStream)m_Parent).Client = value;
             }
         }
-
-        public override bool Connected
-        {
-            get
-            {
-                return m_Parent.Connected;
-            }
-        }
-
-        public override Uri Source
-        {
-            get
-            {
-                return m_Parent.Source;
-            }
-            set
-            {
-                m_Parent.Source = value;
-            }
-        }
-
-        public override bool Listening
-        {
-            get
-            {
-                return m_Parent.Listening;
-            }
-        }
-
-        public override void Start()
-        {
-            //Add Events
-        }
-
-        public override void Stop()
-        {
-            //Remove Events
-        }
-
-        public override NetworkCredential SourceCredential
-        {
-            get
-            {
-                return m_Parent.SourceCredential;
-            }
-            set
-            {
-                m_Parent.SourceCredential = value;
-            }
-        }
-
-        public override Sdp.SessionDescription SessionDescription
-        {
-            get
-            {
-                return m_Parent.SessionDescription;
-            }
-        }
-
-        public override System.Drawing.Image GetFrame()
-        {
-            return m_Parent.GetFrame();
-        }
-
     }
 }

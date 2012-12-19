@@ -25,7 +25,7 @@ namespace Media.Rtsp
         internal DateTime m_LastRtspRequestRecieved;
 
         //Sdp
-        internal string m_SessionId, m_SDPVersion;
+        internal string m_SessionId, m_SDPVersion; //Version should be returned from the SDP
 
         internal Media.Sdp.SessionDescription m_SessionDescription;
 
@@ -65,8 +65,6 @@ namespace Media.Rtsp
         #endregion
 
         #region Constructor
-
-        //might need a constructor for the HttpListner
 
         public RtspSession(RtspServer server, Socket rtspSocket)
         {
