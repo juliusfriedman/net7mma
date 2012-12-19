@@ -82,6 +82,9 @@ namespace Media.Rtsp
         /// </summary>
         ManualResetEvent allDone = new ManualResetEvent(false);
 
+        //Handles the Restarting of streams which needs to be and disconnects clients which are inactive.
+        internal Timer m_Maintainer;
+
         #endregion
 
         #region Propeties
@@ -188,20 +191,24 @@ namespace Media.Rtsp
 
         #region Methods
 
+        int m_HttpPort = -1;
         public void EnableHttp(int port) 
         {
             if (m_HttpListner == null)
             {
+                m_HttpPort = port;
                 m_HttpListner.Prefixes.Add("http://*:" + port + "//");
-                m_HttpListner.Start();
+                m_HttpListner.Start();                
                 m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
             }
         }
 
+        int m_UdpPort = -1;
         public void EnableUdp(int port = 554) 
         {
             if (m_UdpServerSocket != null)
             {
+                m_UdpPort = port;
                 m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
                 RtspSession temp = new RtspSession(this, null);
@@ -377,8 +384,8 @@ namespace Media.Rtsp
         /// Finds and removes inactive clients.
         /// Determined by the time of the sessions last RecieversReport or the last RtspRequestRecieved (get parameter must be sent to keep from timing out)
         /// </summary>
-        internal void PollClients(object o) { PollClients(); }
-        internal void PollClients()
+        internal void DisconnectAndRemoveInactiveSessions(object o) { DisconnectAndRemoveInactiveSessions(); }
+        internal void DisconnectAndRemoveInactiveSessions()
         {
             //Find inactive clients and remove..
 
@@ -409,19 +416,21 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(Object o) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
+            var toStart = default(List<RtspSourceStream>);
             lock (m_Streams)
             {
-                foreach (RtspSourceStream stream in m_Streams.Values.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false))
+                toStart = m_Streams.Values.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false).ToList();
+            }
+            foreach (RtspSourceStream stream in toStart)
+            {
+                try
                 {
-                    try
-                    {
-                        stream.Client.Disconnect();
-                        stream.Start();
-                    }
-                    catch
-                    {
+                    stream.Client.Disconnect();
+                    stream.Start();
+                }
+                catch
+                {
 
-                    }
                 }
             }
         }
@@ -464,12 +473,15 @@ namespace Media.Rtsp
             m_Maintainer = new Timer(new TimerCallback((object o) =>
             {
 
-                PollClients();
+                DisconnectAndRemoveInactiveSessions();
                 RestartFaultedStreams();
 
             }), null, 10000, 10000);
 
             m_Started = DateTime.Now;
+
+            if (m_UdpPort != -1) EnableUdp(m_UdpPort);
+            if (m_HttpPort != -1) EnableHttp(m_HttpPort);
 
         }
 
@@ -526,9 +538,7 @@ namespace Media.Rtsp
             {                
                 stream.Stop();
             }
-        }
-
-        internal Timer m_Maintainer;
+        }        
 
         //MIght need another for Udp
         /// <summary>
@@ -587,73 +597,88 @@ namespace Media.Rtsp
         internal void ProcessReceive(IAsyncResult ar)
         {
             //Get the client information
-            RtspSession ci = (RtspSession)ar.AsyncState;
-
+            RtspSession session = (RtspSession)ar.AsyncState;
+            int received = 0;
+            RtspRequest req = null;
             try
             {
-
-                int rec = 0;
-
-                if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                if (session.m_RtspSocket.ProtocolType == ProtocolType.Udp)                
                 {
-                    rec = ci.m_RtspSocket.EndReceive(ar);
-                }
-                else
-                {
-                    if (m_UdpServerSocket == ci.m_RtspSocket)
+                    //If this is the inital receive
+                    if (m_UdpServerSocket == session.m_RtspSocket)
                     {
-                        rec = m_UdpServerSocket.EndReceive(ar);
+                        received = m_UdpServerSocket.EndReceive(ar);
 
                         RtspSession temp = new RtspSession(this, null);
                         m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
                         //Might need plumbing to store endpoints for sessions
                         IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
-                        ci.m_Udp = new UdpClient();
-                        ci.m_Udp.Connect(remote);
-                        ci.m_RtspSocket = ci.m_Udp.Client;
+                        session.m_Udp = new UdpClient();
+                        session.m_Udp.Connect(remote);
+                        session.m_RtspSocket = session.m_Udp.Client;
 
-                        //I think I will have to parse the Request and if its valid and contains a session header then find the session otherwise create a new one and add it
+                        //Parse the reqeut to determine if there is actually an existing session
 
-                        AddSession(ci);
+                        req = new RtspRequest(session.m_Buffer);
+                        if (req.ContainsHeader(RtspHeaders.Session))
+                        {
+                            var existing = FindSessionByRtspSessionId(req.GetHeader(RtspHeaders.Session));
+                            if (existing == null) throw new RtspServerException("Session Not Found");
+                            else
+                            {
+                                //Might be incorrect... e.g. we might want to keep the new session and not update the existing...
+                                //E.g if they connect with Tcp then Udp or the other way around
+                                session.m_Udp = existing.m_Udp;
+                                session = existing;
+                            }
+                        }
+                        else
+                        {
+                            AddSession(session);
+                        }
+
                     }
-                    else
+                    else //This is a repeated recieve
                     {
                         IPEndPoint remote = null;
-                        ci.m_Buffer = ci.m_Udp.EndReceive(ar, ref remote);
-                        rec = ci.m_Buffer.Length;
+                        session.m_Buffer = session.m_Udp.EndReceive(ar, ref remote);
+                        received = session.m_Buffer.Length;
                     }
                 }
-
-                //Data is now in client buffer
-                
-
-                //If we are in TcpTransport this could be a RtpPacket or a RtcpPacket... we will need to check for the $ then the channel and raise the event if necessary                
-                if (rec > 0)
+                else if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                 {
-                    //We have a Rtp Packet in the buffer
-                    if (ci.m_Buffer[0] == 36)
+                    received = session.m_RtspSocket.EndReceive(ar);
+                }
+
+                //If we received anything
+                if (received > 0)
+                {
+                    //If we are in TcpTransport this could be a RtpPacket or a RtcpPacket... we will need to check for the $ then the channel and raise the event if necessary                
+                    if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.m_Buffer[0] == 36)//We have a Rtp Packet in the buffer
                     {
                         //To ensure that we actaully read the packet and raised an event
-                        if ( ci.m_RtpClient.RecieveData(ci.m_Buffer[1]) < rec)
+                        if (session.m_RtpClient.RecieveData(session.m_Buffer[1]) < received)
                         {
                             if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
                             else throw new Exception("Recieved Less then the RtpPacket Size");
                         }
                     }
-                    else
+                    else //Just process the request
                     {
-                        ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);                        
+                        ProcessRtspRequest(req != null ? req : req = new RtspRequest(session.m_Buffer), session);
                     }
-
-                    m_Recieved += rec;
-                    ci.m_Receieved += rec;
-
                 }
             }
             catch
             {
-                ProcessInvalidRtspRequest(ci);
+                ProcessInvalidRtspRequest(session);
+            }
+            finally
+            {
+                req = null;
+                m_Recieved += received;
+                session.m_Receieved += received;
             }
         }
 

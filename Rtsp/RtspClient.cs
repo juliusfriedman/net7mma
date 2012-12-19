@@ -157,7 +157,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient has started listening for RtpData
         /// </summary>
-        public bool Listening { get { return m_RtpClient != null; /*  && m_RtpClient.m_RtpSocket.Connected */} }
+        public bool Listening { get { return Connected && m_RtpClient != null; /*  && m_RtpClient.m_RtpSocket.Connected */} }
 
         /// <summary>
         /// The amount of bytes sent by the RtspClient
