@@ -107,7 +107,7 @@ a=mpeg4-esid:101");
 
             //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
             //From the RtspSource rtsp://1.2.3.4/mpeg4/media.amp
-            Rtsp.RtspSourceStream source = new Rtsp.RtspSourceStream("RtspSourceTest", "rtsp://1.2.3.4/mpeg4/media.amp");
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://1.2.3.4/mpeg4/media.amp");
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             
