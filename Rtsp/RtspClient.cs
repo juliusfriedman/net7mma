@@ -429,7 +429,9 @@ namespace Media.Rtsp
                     try
                     {
                         http.Method = "GET";
-                        http.ContentType = "rtsp/x-tunneled";
+                        http.Headers.Add("Accept:application/x-rtsp-tunnelled");
+                        http.Headers.Add("Pragma:no-cache");
+                        http.Headers.Add("Cache-Control:no-cache");
                         http.ContentLength = buffer.Length;
                         using (var requestStream = http.GetRequestStream())
                         {
@@ -437,6 +439,7 @@ namespace Media.Rtsp
                             requestStream.Write(buffer, 0, buffer.Length);
                             m_Sent += buffer.Length;
                             //m_Sent += httpOverhead;
+                            Requested(request);
                             using (var str = http.GetResponse().GetResponseStream())
                             {
                                 rec = str.Read(m_Buffer, 0, m_Buffer.Length);

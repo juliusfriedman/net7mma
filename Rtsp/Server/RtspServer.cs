@@ -198,13 +198,14 @@ namespace Media.Rtsp
             }
         }
 
-        public void EnableUdp(int port) 
+        public void EnableUdp(int port = 554) 
         {
             if (m_UdpServerSocket != null)
             {
                 m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), 554));
+                m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
                 RtspSession temp = new RtspSession(this, null);
+                temp.m_RtspSocket = m_UdpServerSocket;
                 m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
             }
         }
@@ -495,12 +496,6 @@ namespace Media.Rtsp
 
             m_Maintainer.Dispose();
 
-            //Disconnect the server
-            //m_ServerSocket.Disconnect(true);
-
-            //Shutdown the socket
-            //m_ServerSocket.Shutdown(SocketShutdown.Both);
-
             //Dispose the socket
             m_TcpServerSocket.Dispose();
 
@@ -610,7 +605,7 @@ namespace Media.Rtsp
                         rec = m_UdpServerSocket.EndReceive(ar);
 
                         RtspSession temp = new RtspSession(this, null);
-                        m_UdpServerSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+                        m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
                         //Might need plumbing to store endpoints for sessions
                         IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
@@ -701,28 +696,63 @@ namespace Media.Rtsp
                 
             m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
 
-            if (string.IsNullOrWhiteSpace(context.Request.Headers.Get("rtsp/x-tunneled"))) return;
+            //Ignore invalid request or return 500? TransportInvalid?
+            if (context.Request.Headers.Get("Accept") != "application/x-rtsp-tunnelled")
+            {
+                context.Response.Close();                
+                return;
+            }
 
-            //Should provide buffer and use that until we determine if there is a session
-            //Might not be in Http headers
+            
+            //http://comments.gmane.org/gmane.comp.multimedia.live555.devel/5896
+            //http://cgit.freedesktop.org/gstreamer/gst-plugins-base/tree/gst-libs/gst/rtsp/gstrtspconnection.c?id=88110ea67e7d5240a7262dbb9c4e5d8db565cccf
+            //Can't find anythingin RFC
+            //MAY ALSO NEED ICE AND STUN?
 
-            //TODO DETERMINE PROPER HANDLING OF CREATING AND ADDING SESSIONS
-
-            RtspSession ci = new RtspSession(this, null);
-            ci.m_Http = context;
-
+            int len = int.Parse(context.Request.Headers.Get("Content-Length"));
+            byte[] buffer = new byte[len];
             //Get RtspRequest from Body and base64 decode as request
-            int rec = ci.m_Http.Request.InputStream.Read(ci.m_Buffer, 0, ci.m_Buffer.Length);
+            int rec = context.Request.InputStream.Read(buffer, 0, len);
+            RtspRequest request = new RtspRequest(System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(buffer, 0, len)));
+            
+            RtspSession ci;
+            if (request.ContainsHeader(RtspHeaders.Session)) // Attempt to find existing session
+            {
+                ci = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
+                if (ci == null) goto Response;
+            }
+            else // Create a new session
+            {
+                ci = new RtspSession(this, null);
+                ci.m_Http = context;
+            }
 
-            context.Response.AddHeader("name", "rtsp/x-tunneled");
-
-            RtspRequest request = new RtspRequest(System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(ci.m_Buffer, 0, rec)));
-
-            //Create RtspSession from HttpWebRequest as ci
-            ProcessRtspRequest (request, ci);
-
+            //Process request
+            ProcessRtspRequest(request, ci);
+        
+        Response:
             //Use ci.LastResponse to send response
-            RtspResponse response = ci.m_LastResponse;
+            RtspResponse response = ci != null && ci.m_LastResponse != null ? ci.m_LastResponse : new RtspResponse()
+            {
+                CSeq = request.CSeq,
+                StatusCode = RtspStatusCode.SessionNotFound
+            };
+
+            context.Response.AddHeader("Accept", "application/x-rtsp-tunnelled");
+            context.Response.AddHeader("Pragma", "no-cache");
+            context.Response.AddHeader("Cache-Control", "no-cache");
+
+            buffer = response.ToBytes();
+
+            buffer = response.Encoding.GetBytes(Convert.ToBase64String(buffer));
+
+            context.Response.AddHeader("Content-Length", buffer.Length.ToString());
+
+            context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+
+            context.Response.OutputStream.Close();
+
+            context.Response.Close();
         }
 
         /// <summary>

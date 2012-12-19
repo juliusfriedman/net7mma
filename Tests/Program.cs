@@ -13,7 +13,6 @@ namespace Media
             TestRtspMessage();
             TestSdp();
             TestServer();
-            TestClients();
             TestEncoderDecoder();
         }
 
@@ -139,7 +138,9 @@ a=mpeg4-esid:101");
                         System.Diagnostics.Debugger.Break();
                     }
                 }
-                
+
+                TestClients();
+
             }
 
             Console.WriteLine("Stopping Server");
@@ -165,7 +166,7 @@ a=mpeg4-esid:101");
         /// </summary>
         static void TestClients()
         {
-
+            //Call to the server in Tcp, Udp, and Http
         }
 
         static void TestEncoderDecoder()

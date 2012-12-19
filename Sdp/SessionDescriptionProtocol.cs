@@ -211,13 +211,16 @@ namespace Media.Sdp
 
             buffer.Append(m_SessionName.ToString());
 
-            m_Lines.Where(l => l.Type != 'b' && l.Type != 'a'/* && l.Type != 'v' && l.Type != 'o' && l.Type != 's'*/).ToList().ForEach(l => buffer.Append(l));
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != 'b' && l.Type != 'a'))
+                buffer.Append(l.ToString());
 
-            m_Lines.Where(l => l.Type == 'b').ToList().ForEach(l => buffer.Append(l));
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == 'b'))
+                buffer.Append(l.ToString());
 
-            m_Lines.Where(l => l.Type == 'a').ToList().ForEach(l => buffer.Append(l));
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == 'a'))
+                buffer.Append(l.ToString());
 
-            m_TimeDescriptions.ForEach(l => buffer.Append(l));
+            m_TimeDescriptions.ForEach(l => buffer.Append(l.ToString()));
 
             if (m_MediaDescriptions.Count > 0)
             {
@@ -307,11 +310,14 @@ namespace Media.Sdp
 
             buffer.Append("m=" + string.Join(" ", MediaType , MediaPort.ToString() , MediaProtocol , MediaFormat) + SessionDescription.CRLF);
 
-            m_Lines.Where(l => l.Type != 'b' && l.Type != 'a').ToList().ForEach(l => buffer.Append(l));
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != 'b' && l.Type != 'a'))
+                buffer.Append(l.ToString());
 
-            m_Lines.Where(l => l.Type == 'b').ToList().ForEach(l => buffer.Append(l));
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == 'b'))
+                buffer.Append(l.ToString());
 
-            m_Lines.Where(l => l.Type == 'a').ToList().ForEach(l => buffer.Append(l));
+            foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == 'a'))
+                buffer.Append(l.ToString());
 
             return buffer.ToString();
         }
@@ -455,7 +461,7 @@ namespace Media.Sdp
                 case 'u': return new Media.Sdp.Lines.SessionUriLine(sdpLines, ref index);
                 case 'e': return new Media.Sdp.Lines.SessionEmailLine(sdpLines, ref index);
                 case 'p': return new Media.Sdp.Lines.SessionPhoneLine(sdpLines, ref index);
-                case 'z': //Zone Information
+                case 'z': //TimeZone Information
                 case 'a': //Attribute
                 case 'b': //Bandwidth
                 default:
@@ -465,7 +471,6 @@ namespace Media.Sdp
                     }
             }
         }
-
     }
 
     #region Internal Line Types
@@ -531,7 +536,6 @@ namespace Media.Sdp
                     while (Parts.Count < 6)
                     {
                         Parts.Add(string.Empty);
-
                     }
                     Version++;
                 }
