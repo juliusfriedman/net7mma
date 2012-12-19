@@ -765,6 +765,8 @@ namespace Media.Rtsp
             //Log Request
             if (Logger != null) Logger.LogRequest(request, session);
 
+            session.m_LastRequest = request;
+
             //All requests need the CSeq
             if (!request.ContainsHeader(RtspHeaders.CSeq))
             {
@@ -852,11 +854,12 @@ namespace Media.Rtsp
         {
             try
             {
+                ci.m_LastResponse = response;
+
                 byte[] buffer = response.ToBytes();
 
                 if (ci.m_Http != null)
                 {
-                    ci.m_LastResponse = response;
                     //Don't http handle
                     return;
                 }
