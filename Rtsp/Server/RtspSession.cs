@@ -134,6 +134,7 @@ namespace Media.Rtsp
             if (m_RtpClient != null) m_RtpClient.Disconnect();
             if (m_Udp != null) m_Udp.Close();
             m_Http = null;
+            m_Attached.ToList().ForEach(Detach);
         }
 
         /// <summary>
@@ -146,7 +147,7 @@ namespace Media.Rtsp
         {
             RtspResponse response = new RtspResponse();
             response.StatusCode = statusCode;
-            response.CSeq = request != null ? request.CSeq : m_LastRequest.CSeq;
+            response.CSeq = request != null ? request.CSeq : m_LastRequest != null ? m_LastRequest.CSeq : 0;
             if (!string.IsNullOrWhiteSpace(m_SessionId))
             {
                 response.SetHeader(RtspHeaders.Session, m_SessionId);
@@ -158,6 +159,7 @@ namespace Media.Rtsp
 
         internal void Attach(RtspSourceStream stream)
         {
+            if (m_Attached.Contains(stream)) return;
             stream.Client.Client.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
             stream.Client.Client.RtpPacketReceieved += OnSourceRtpPacketRecieved;
             m_Attached.Add(stream);
@@ -165,6 +167,7 @@ namespace Media.Rtsp
 
         internal void Detach(RtspSourceStream stream)
         {
+            if (!m_Attached.Contains(stream)) return;
             stream.Client.Client.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
             stream.Client.Client.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
             m_Attached.Remove(stream);

@@ -47,7 +47,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The name of this stream, also used as the location on the server
         /// </summary>
-        public virtual string Name { get { return m_Name; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("Name", "Cannot consist of only null or whitespace"); m_Aliases.Add(m_Name); m_Name = value; } }
+        public virtual string Name { get { return m_Name; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Name", "Cannot be null or consist only of whitespace"); m_Aliases.Add(m_Name); m_Name = value; } }
 
         /// <summary>
         /// Any Aliases the stream is known by
@@ -92,7 +92,7 @@ namespace Media.Rtsp
             set { m_RtspCred = value; }
         }
 
-        //Will need to have supported methods also.. and a handler dictionary to get the handler for each request server will use its by default..
+        //Will need to have supported/allowed methods and possibly a handler dictionary to get the handler for each request server will use its by default..
         //Will need to adjust or subclass for Archived Streams        
         public virtual RtspClient Client { get; set; }
 
