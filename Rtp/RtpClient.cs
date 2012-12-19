@@ -72,7 +72,7 @@ namespace Media.Rtp
         internal int m_ClientRtpPort, m_ClientRtcpPort,
                      m_ServerRtpPort, m_ServerRtcpPort;
 
-        //These need to be indiviudal for rtp and rtcp and rtsp bytes and packet counters
+        //bytes and packet counters
         internal int m_RtpSent, m_RtpRecieved,
                      m_RtcpSent, m_RtcpRecieved,
                      m_RtpPacketsSent, m_RtcpPacketsSent,
@@ -382,10 +382,10 @@ namespace Media.Rtp
         //Calls disconnect and removes listeners
         ~RtpClient()
         {
-            Disconnect();
             RtpPacketReceieved -= new RtpPacketHandler(RtpClient_RtpPacketReceieved);
             RtcpPacketReceieved -= new RtcpPacketHandler(RtpClient_RtcpPacketReceieved);
-            RtpFrameCompleted -= new RtpFrameHandler(RtpClient_RtpFrameCompleted);            
+            RtpFrameCompleted -= new RtpFrameHandler(RtpClient_RtpFrameCompleted);
+            Disconnect();
         }
 
         #endregion
@@ -905,10 +905,10 @@ namespace Media.Rtp
                         m_RtcpRecieved += rec;
                     }
 
-                    if ((DateTime.Now - lastRecieve).TotalSeconds > 5)
-                    {
-                        //Disconnect();
-                    }
+                    //if ((DateTime.Now - lastRecieve).TotalSeconds > 5)
+                    //{
+                    //    //Disconnect();
+                    //}
 
                     #endregion
 
@@ -918,7 +918,7 @@ namespace Media.Rtp
 
                     if (m_RtcpPackets.Count > 0)
                     {
-                        lock (m_RtpPackets)
+                        lock (m_RtcpPackets)
                         {
                             toSend = m_RtcpPackets.ToArray();
                             m_RtcpPackets.Clear();

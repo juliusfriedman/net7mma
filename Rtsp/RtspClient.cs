@@ -147,7 +147,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspListener is connected to the remote host
         /// </summary>
-        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Http; } }
+        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Http && m_LastMethod >= RtspMethod.OPTIONS && m_LastMethod <= RtspMethod.TEARDOWN; } }
 
         /// <summary>
         /// The network credential to utilize in RtspRequests
@@ -157,7 +157,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient has started listening for RtpData
         /// </summary>
-        public bool Listening { get { return m_RtspSocket != null && m_RtspSocket.Connected && m_RtpClient != null; /*  && m_RtpClient.m_RtpSocket.Connected */} }
+        public bool Listening { get { return m_RtpClient != null; /*  && m_RtpClient.m_RtpSocket.Connected */} }
 
         /// <summary>
         /// The amount of bytes sent by the RtspClient

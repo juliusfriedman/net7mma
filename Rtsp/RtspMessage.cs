@@ -182,7 +182,7 @@ namespace Media.Rtsp
             //Should determine encoding...
             Encoding = Encoding.UTF8;
 
-            string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : offset);
+            string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);
 
             int endFistLinePosn = Message.IndexOf(CRLF, offset);
 
@@ -226,7 +226,7 @@ namespace Media.Rtsp
                 foreach (string raw in Message.Substring(endFistLinePosn + crlfLen, headerLength).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
                 {
                     string[] parts = raw.Split(':');
-                    SetHeader(parts[0], parts[1]);
+                    if (parts.Length > 1) SetHeader(parts[0], parts[1]);                    
                 }
 
                 //Get the body
