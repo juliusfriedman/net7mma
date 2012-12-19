@@ -35,6 +35,10 @@ namespace Media.Rtp
         #region Statics
 
         static uint RTP_SEQ_MOD = (1 << 16);
+        //const
+        static int MAX_DROPOUT = 3000;
+        static int MAX_MISORDER = 100;
+        static int MIN_SEQUENTIAL = 2;
 
         public static RtpClient Interleaved(Socket existing)
         {
@@ -123,8 +127,7 @@ namespace Media.Rtp
         internal Thread m_WorkerThread;
 
         //Storage
-        //Packets first and last recieved
-        internal RtpPacket m_FirstRtpPacket, m_LastRtpPacket;
+        internal RtpPacket m_LastRtpPacket;
         //Outgoing RtpPackets
         internal List<RtpPacket> m_RtpPackets = new List<RtpPacket>();
         //Incoming Rtcp Packing, Outgoing RtcpPackets
@@ -133,10 +136,15 @@ namespace Media.Rtp
         volatile internal RtpFrame m_LastFrame, m_CurrentFrame;
 
         //Created from an existing socket we should not close?
-        bool existingSocket;
+        bool m_SocketOwner;
 
         //Recieved from SourceDescription...
         internal string m_CName;
+
+        //Only Udp needs them and for multicasting or for other applications besides this
+        //internal List<IPEndPoint> m_Participants;
+
+        //Would also need events ParticipantAdded etc
 
         #endregion
 
@@ -201,7 +209,7 @@ namespace Media.Rtp
             if (this != sender) return;
             
             //Set the first packet if required
-            if (m_FirstRtpPacket == null) m_FirstRtpPacket = packet;
+            //if (m_FirstRtpPacket == null) m_FirstRtpPacket = packet;
 
             //If a duplicate packet we don't need it
             //if (!UpdateSequenceNumber(packet)) return;
@@ -209,7 +217,7 @@ namespace Media.Rtp
             //Set the last packet
             m_LastRtpPacket = packet;
 
-            CalculateJitter(packet);
+            UpdateJitter(packet);
 
             //If we have not allocatd a frame allocte it
             if (m_CurrentFrame == null) m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
@@ -369,7 +377,7 @@ namespace Media.Rtp
         /// <param name="existing">The existing Tcp Socket</param>
         RtpClient(Socket existing) : this()
         {
-            existingSocket = true;
+            m_SocketOwner = false;
             m_RemoteRtcp = m_RemoteRtp = ((IPEndPoint)existing.RemoteEndPoint);
             m_ClientRtpPort = m_ClientRtcpPort = m_RemoteRtp.Port;
             m_RemoteAddress = m_RemoteRtp.Address;
@@ -493,7 +501,7 @@ namespace Media.Rtp
         /// Might need a SendCompund method to take an array and calculate the compound size and send for more then 1
         /// </summary>
         /// <param name="packet">The RtcpPacket to send</param>
-        internal void SendRtcpPacket(RtcpPacket packet)
+        public void SendRtcpPacket(RtcpPacket packet)
         {
             int sent = SendData(packet.ToBytes(), m_RtcpChannel);
             if (sent > 0)
@@ -512,14 +520,23 @@ namespace Media.Rtp
         /// Calculates RTP Interarrival Jitter as specified in RFC 3550 6.4.1.
         /// </summary>
         /// <param name="packet">RTP packet.</param>
-        internal void CalculateJitter(RtpPacket packet)
+        internal void UpdateJitter(RtpPacket packet)
         {
             // RFC 3550 A.8.
-            int transit = (int)(Utility.DateTimeToNtp32(DateTime.Now) - packet.TimeStamp);
+            uint transit = (Utility.DateTimeToNtp32(DateTime.Now) - packet.TimeStamp);
             int d = (int)(transit - m_RtpTransit);
             m_RtpTransit = (uint)transit;
             if (d < 0) d = -d;
             m_RtpJitter += (uint)((1d / 16d) * ((double)d - m_RtpJitter));
+        }
+
+        internal void ResetCounters(uint sequenceNumber)
+        {
+            m_RtpBaseSeq = m_RtpMaxSeq = (uint)sequenceNumber;
+            m_RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
+            m_RtpSeqCycles = 0;
+            m_RtpPacketsReceieved = 0;
+            m_RtpReceivedPrior = 0;
         }
 
         internal bool UpdateSequenceNumber(RtpPacket packet)
@@ -527,10 +544,6 @@ namespace Media.Rtp
             // RFC 3550 A.1.
 
             ushort udelta = (ushort)(packet.SequenceNumber - m_RtpMaxSeq);
-            //const
-            int MAX_DROPOUT = 3000;
-            int MAX_MISORDER = 100;
-            int MIN_SEQUENTIAL = 2;
 
             /*
             * Source is not valid until MIN_SEQUENTIAL packets with
@@ -545,13 +558,7 @@ namespace Media.Rtp
                     m_RtpMaxSeq = (uint)packet.SequenceNumber;
                     if (m_RtpProbation == 0)
                     {
-                        m_RtpBaseSeq = (uint)packet.SequenceNumber;
-                        m_RtpMaxSeq = (uint)packet.SequenceNumber;
-                        m_RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
-                        m_RtpSeqCycles = 0;
-                        m_RtpPacketsReceieved = 1;
-                        m_RtpReceivedPrior = 0;
-                        m_RtpReceivedPrior = 0;
+                        ResetCounters((uint)packet.SequenceNumber);
                         return true;
                     }
                 }
@@ -585,19 +592,11 @@ namespace Media.Rtp
                      * restarted without telling us so just re-sync
                      * (i.e., pretend this was the first packet).
                     */
-                    m_RtpBaseSeq = (uint)packet.SequenceNumber;
-                    m_RtpMaxSeq = (uint)packet.SequenceNumber;
-                    m_RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
-                    m_RtpSeqCycles = 0;
-                    m_RtpPacketsReceieved = 0;
-                    m_RtpReceivedPrior = 0;
-                    m_RtpReceivedPrior = 0;
-
+                    ResetCounters((uint)packet.SequenceNumber);
                 }
                 else
                 {
                     m_RtpBadSeq = (uint)((packet.SequenceNumber + 1) & (RTP_SEQ_MOD - 1));
-
                     return false;
                 }
             }
@@ -614,7 +613,7 @@ namespace Media.Rtp
         /// Adds a packet to the queue of outgoing RtpPackets
         /// </summary>
         /// <param name="packet">The packet to enqueue</param> (used to take the RtpCLient too but we can just check the packet payload type
-        internal void EnquePacket(RtpPacket packet)
+        public void EnquePacket(RtpPacket packet)
         {
             lock (m_RtpPackets)
             {
@@ -626,7 +625,7 @@ namespace Media.Rtp
         /// Sends a RtpPacket to the connected client.
         /// </summary>
         /// <param name="packet">The RtpPacket to send</param>
-        internal void SendRtpPacket(RtpPacket packet)
+        public void SendRtpPacket(RtpPacket packet)
         {
             int sent = SendData(packet.ToBytes(false, m_RtpSSRC), m_RtpChannel);
             if (sent > 0)
@@ -648,7 +647,7 @@ namespace Media.Rtp
 
             if (m_WorkerThread != null) return;
 
-            if (!existingSocket)
+            if (m_SocketOwner)
             {
                 if (m_TransportProtocol == ProtocolType.Udp)
                 {
@@ -684,7 +683,7 @@ namespace Media.Rtp
                 if (!m_RtcpGoodbyeRecieved) SendGoodbye();
 
                 //If we are using Udp transport we can dispose our Sockets
-                if (!existingSocket && m_TransportProtocol != ProtocolType.Tcp)
+                if (m_SocketOwner && m_TransportProtocol != ProtocolType.Tcp)
                 {
                     if (m_RtcpSocket != null)
                     {
@@ -810,7 +809,7 @@ namespace Media.Rtp
         /// <param name="channel">The channel to send on</param>
         /// <returns>The amount of bytes sent</returns>
         /// //Here we might need a way to send to all participants rather than just one Socket
-        internal int SendData(byte[] data, byte channel)
+        public int SendData(byte[] data, byte channel)
         {
             int sent = 0;
             if (data == null) return sent;
