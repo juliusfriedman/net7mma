@@ -214,15 +214,11 @@ a=mpeg4-esid:101");
 
         static void TestEncoderDecoder()
         {
-            //Create a JpegFrame from a source... we will have to setup a RtspServer
 
-            //Make a list of a few jpegs..
+            Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile(""));
 
-            //Create a RTPFrame from each Jpeg
+            System.Drawing.Image jpeg = f.ToImage();
 
-            //Subclass RtspStream to provide the source as the RTPFrames
-
-            //Send the Frames to each client that connects
         }
     }
 }
