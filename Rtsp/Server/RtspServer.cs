@@ -193,12 +193,13 @@ namespace Media.Rtsp
         #region Methods
 
         int m_HttpPort = -1;
-        public void EnableHttp(int port) 
+        public void EnableHttp(int port = 80) 
         {
             if (m_HttpListner == null)
             {
+                m_HttpListner = new HttpListener();
                 m_HttpPort = port;
-                m_HttpListner.Prefixes.Add("http://*:" + port + "//");
+                m_HttpListner.Prefixes.Add("http://*:"+port+"/");
                 m_HttpListner.Start();                
                 m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
             }

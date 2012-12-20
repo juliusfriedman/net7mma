@@ -11,7 +11,7 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>    
     public class RtspSourceStream : RtpSourceStream
     {
-        public static ChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
+        public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
 
         #region Properties
 
@@ -64,30 +64,14 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        internal RtspSourceStream(string name, Uri sourceLocation, bool child) : base(name, sourceLocation)
+        internal RtspSourceStream(string name, Uri sourceLocation) : base(name, sourceLocation)
         {
-            //The stream name cannot be null or consist only of whitespace
-            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
-
-            //Set the name
-            m_Name = name;
-
-            //Set the source
-            m_Source = sourceLocation;
-
             //Create the listener
-            if (!(m_Child = child))
+            if (Parent)
             {
                 Client = new RtspClient(m_Source);
             }
         }
-
-        /// <summary>
-        /// Constructs a RtspStream for use in a RtspServer
-        /// </summary>
-        /// <param name="name">The name given to the stream on the RtspServer</param>
-        /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspSourceStream(string name, Uri sourceLocation) : this(name, sourceLocation, false) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -143,7 +127,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     throw;
                 }
-                Client.Client.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
+                RtpClient.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
                 State = StreamState.Started;
                 m_Started = DateTime.Now;
             }
@@ -186,7 +170,7 @@ namespace Media.Rtsp.Server.Streams
             if (Client.Listening)
             {
                 Client.StopListening();
-                Client.Client.RtpFrameCompleted -= Client_RtpFrameCompleted;
+                RtpClient.RtpFrameCompleted -= Client_RtpFrameCompleted;
             }
             m_Started = null;
             State = StreamState.Stopped;
@@ -213,6 +197,6 @@ namespace Media.Rtsp.Server.Streams
             {
                 ((RtspSourceStream)m_Parent).Client = value;
             }
-        }
+        }        
     }
 }

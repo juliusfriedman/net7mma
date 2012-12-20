@@ -30,6 +30,8 @@ namespace Media.Rtsp.Server.Streams
         internal NetworkCredential m_RemoteCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
+        //The last frame decoded
+        volatile internal System.Drawing.Image m_lastFrame;
 
         #endregion
 
@@ -93,6 +95,8 @@ namespace Media.Rtsp.Server.Streams
 
         public SourceStream(string name, Uri source)
         {
+            //The stream name cannot be null or consist only of whitespace
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
             m_Name = name;
             m_Source = source;
         }
@@ -126,9 +130,6 @@ namespace Media.Rtsp.Server.Streams
         {
             m_Aliases.Remove(alias);
         }
-
-        //The last frame decoded
-        internal System.Drawing.Image m_lastFrame;
 
         public virtual System.Drawing.Image GetFrame()
         {

@@ -124,7 +124,7 @@ namespace Media.Rtsp
                 {
                     m_Location = value;
 
-                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.Host)[0];
+                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.Host).Where(ip => ip.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
 
                     m_RtspPort = m_Location.Port;
 
@@ -147,7 +147,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspListener is connected to the remote host
         /// </summary>
-        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Http && m_LastMethod >= RtspMethod.OPTIONS && m_LastMethod <= RtspMethod.TEARDOWN; } }
+        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Udp || m_RtspProtocol == ClientProtocol.Http; } }
 
         /// <summary>
         /// The network credential to utilize in RtspRequests
@@ -202,12 +202,12 @@ namespace Media.Rtsp
         /// <summary>
         /// Gets or Sets the ReadTimeout of the underlying NetworkStream / Socket
         /// </summary>
-        public int ReadTimeout { get { return m_RtspStream.ReadTimeout; } set { m_RtspStream.ReadTimeout = value; } }
+        public int ReadTimeout { get { return m_RtspSocket.ReceiveTimeout; } set { m_RtspSocket.ReceiveTimeout = value; } }
 
         /// <summary>
         /// Gets or Sets the WriteTimeout of the underlying NetworkStream / Socket
         /// </summary>
-        public int WriteTimeout { get { return m_RtspStream.WriteTimeout; } set { m_RtspStream.WriteTimeout = value; } }
+        public int WriteTimeout { get { return m_RtspSocket.SendTimeout; } set { m_RtspSocket.SendTimeout = value; } }
 
         /// <summary>
         /// The UserAgent sent with every RtspRequest
@@ -235,7 +235,7 @@ namespace Media.Rtsp
         public RtspClient(Uri location)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
-            if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme != System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
+            if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme == System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
 
             Location = location;
 
@@ -329,7 +329,8 @@ namespace Media.Rtsp
         {
             try
             {
-                if (m_RtspProtocol == ClientProtocol.Reliable)
+                if (m_RtspProtocol == ClientProtocol.Http) return;
+                else if (m_RtspProtocol == ClientProtocol.Reliable)
                 {
                     m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                     m_RtspSocket.Connect(m_RemoteRtsp);
