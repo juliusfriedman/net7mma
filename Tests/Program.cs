@@ -19,9 +19,18 @@ namespace Media
         static void TestRtspMessage()
         {
             Rtsp.RtspRequest request = new Rtsp.RtspRequest();
+            request.CSeq = 2;
+            request.Location = new Uri("rtsp://aol.com");
             Rtsp.RtspResponse response = new Rtsp.RtspResponse();
 
-            Rtsp.RtspMessage message;
+            Rtsp.RtspMessage message = request;
+
+            byte[] bytes = message.ToBytes();
+
+            if (!(new Rtsp.RtspRequest(bytes).Location == request.Location))
+            {
+                throw new Exception();
+            }
 
             //Do some testing make them to bytes, reparse. Parse temples ... etc
 
@@ -139,7 +148,13 @@ a=mpeg4-esid:101");
                     }
                 }
 
+                //server.EnableHttp();
+                //server.EnableUdp();
+
                 TestClients();
+
+                //server.DisableHttp();
+                //server.DisableUdp();
 
             }
 
@@ -167,6 +182,34 @@ a=mpeg4-esid:101");
         static void TestClients()
         {
             //Call to the server in Tcp, Udp, and Http
+
+            Rtsp.RtspClient tcp = new Rtsp.RtspClient("rtsp://localhost/live/RtspSourceTest");
+
+            //Rtsp.RtspClient udp = new Rtsp.RtspClient("rtspu://localhost/live/RtspSourceTest");
+
+            //Required Admin Priv
+            //Rtsp.RtspClient http = new Rtsp.RtspClient("http://localhost/live/RtspSourceTest");
+
+            Enumerable.Range(0, 100).All((i) =>
+            {
+                try
+                {
+                    tcp.Connect();
+                    tcp.SendOptions();
+
+                    //udp.Connect();
+                    //udp.SendOptions();
+
+                    //http.Connect();
+                    //http.SendOptions();
+
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            });
         }
 
         static void TestEncoderDecoder()
