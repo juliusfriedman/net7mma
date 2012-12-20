@@ -28,7 +28,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 return m_Parent.Connected;
             }
-        }
+        }        
 
         public override Uri Source
         {

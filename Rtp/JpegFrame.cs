@@ -324,9 +324,9 @@ namespace Media.Rtp
                 if (DataRestartInterval > 0) Type = 64;
                 else Type = 63;
 
-                Quality = BitConverter.ToUInt16(Image.GetPropertyItem(0x5010).Value, 0);                
+                Quality = BitConverter.ToUInt16(Image.GetPropertyItem(0x5010).Value, 0);
 
-                int Tag;
+                int Tag, TagSize;
 
                 DateTime ts = DateTime.Now;
                 int sequenceNumber = 0;
@@ -339,8 +339,9 @@ namespace Media.Rtp
                 byte[] payload = new byte[RtpPacket.MaxPayloadSize];
                 packet.Payload = payload;
 
+                //Again 8 for divisors was too small... 4096 and larger can be supported just by changing that
                 byte[] RtpJpegHeader = new byte[] { (byte)(TypeSpecific), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(Type), (byte)(Quality), (byte)(Width / 8), (byte)(Height / 8) };
-
+                
                 int at = 0;
 
                 RtpJpegHeader.CopyTo(packet.Payload, at);
@@ -348,6 +349,31 @@ namespace Media.Rtp
 
                 //Only the first packet has FragmentOffset = 0
                 RtpJpegHeader[3] = 8;
+
+                List<byte> FirstPacketData = new List<byte>();
+                
+                if(Type > 63) 
+                {
+                    FirstPacketData.AddRange(Image.GetPropertyItem(0x0203).Value);
+                }
+
+                FirstPacketData.Add(0x00);//MBZ
+                FirstPacketData.Add(0x00);//Precision
+                FirstPacketData.Add(0x00);//Length LSB
+                FirstPacketData.Add(0x80);//Length MSB
+
+                if (Quality > 127)
+                {
+                    FirstPacketData.AddRange(Image.GetPropertyItem(0x5090).Value);//LTable
+                    FirstPacketData.AddRange(Image.GetPropertyItem(0x5091).Value);//CTable
+                }
+                else
+                {
+                    FirstPacketData.AddRange(CreateQuantizationTables(Quality));
+                }
+
+                FirstPacketData.ToArray().CopyTo(packet.Payload, at);
+                at += FirstPacketData.Count;
 
                 //Needs to actually create the RtpPackets in this loop
                 while ((Tag = temp.ReadByte()) != -1)
@@ -365,23 +391,20 @@ namespace Media.Rtp
                         switch (input)
                         {                                
                             //First Packet
-                            case 0xE0:         //*JFIF
-                            case 0xDB:         //*Quantization tables ? Skip or write per RFC
-                            case 0xC4:         //*Huffmann tables ? Skip or write per RFC
+                            case 0xE0:         //*AppFirst - 16
+                            case 0xDB:         //*Quantization tables ? 128
+                            case 0xC4:         //*Huffmann tables ?
                             case 0xDD:         //*Reset header
-                            case 0xD8:         //*SOI
                                 {
-                                    //The first packet is usually different in the sense it has the Q Tables, Precision, MBZ etc...
-                                    //IT also has the DRI if the Type is > 63
-                                    //
-                                    //if (Quality > 128)
-                                    //{
-                                    //    byte[] LTable = Image.GetPropertyItem(0x5090).Value;
-                                    //    byte[] CTable = Image.GetPropertyItem(0x5091).Value;
-                                    //}
-                                    //
-                                    //For now just go to the normal handling
-                                    goto case 0xc0;
+                                    //Strip
+                                    TagSize = (byte)Buffer.ReadByte() * 256 * (byte)Buffer.ReadByte();
+                                    temp.Seek(TagSize, System.IO.SeekOrigin.Current);
+                                    continue;
+                                }
+                            case 0xD8://SOI
+                            case 0xD9://EOI
+                                {
+                                    continue;
                                 }
                             //Normal Packets
                             case 0xC0:         //Start of Frame
@@ -390,22 +413,20 @@ namespace Media.Rtp
                                 //Write tag
                                 packet.Payload[at++] = 0xff;
                                 packet.Payload[at++] = input;
-
-                                if (input == 0xd8) continue;
                                 
                                 //Write Length
                                 packet.Payload[at++] = (byte)Buffer.ReadByte();
                                 packet.Payload[at++] = (byte)Buffer.ReadByte();
 
                                 //Get size
-                                int TagSize = packet.Payload[at - 2] * 256 * packet.Payload[at - 1];
+                                TagSize = packet.Payload[at - 2] * 256 * packet.Payload[at - 1];
                                 
                                 //Write tag data
                                 Buffer.Write(packet.Payload, at, TagSize);
                                 at += TagSize;
 
                                 //Ensure packet boundaries
-                                if (at + 16 >= Rtp.RtpPacket.MaxPayloadSize)
+                                if (at + TagSize >= Rtp.RtpPacket.MaxPayloadSize)
                                 {
                                     //Add current packet
                                     Packets.Add(packet);
@@ -474,7 +495,7 @@ namespace Media.Rtp
                 FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
                 Type = (uint)(packet.Payload[offset++]); //&1 for type
                 Quality = (uint)packet.Payload[offset++];
-                Width = (uint)(packet.Payload[offset++] * 8); // This should have been 256 and the standard would have worked for all resolutions
+                Width = (uint)(packet.Payload[offset++] * 8); // This should have been 128 or > and the standard would have worked for all resolutions
                 Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
 
                 //Only occur in the first packet
@@ -500,6 +521,10 @@ namespace Media.Rtp
                             tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
                         }
                     }
+                    else
+                    {
+                        tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
+                    }
 
                     if (createHeader)
                     {
@@ -523,7 +548,11 @@ namespace Media.Rtp
             }
 
             //Go back to the beginning
-            Buffer.Seek(0, System.IO.SeekOrigin.Begin);            
+            Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+
+            Image = System.Drawing.Image.FromStream(Buffer, false, true);
+            //Should verify tables, dri or quality etc?
+
         }
 
         /// <summary>
@@ -536,7 +565,7 @@ namespace Media.Rtp
             {
                 if (Image != null) return Image;
                 ProcessPackets();
-                return Image = System.Drawing.Image.FromStream(Buffer, false, true);
+                return Image;
             }
             catch
             {

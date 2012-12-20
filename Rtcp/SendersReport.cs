@@ -69,11 +69,11 @@ namespace Media.Rtcp
             return output;
         }
 
-        public virtual byte[] ToBytes()
+        public virtual byte[] ToBytes(uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
             // SSRC
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
             // NTP timestamp
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((long)NtpTimestamp)));
             // RTP timestamp

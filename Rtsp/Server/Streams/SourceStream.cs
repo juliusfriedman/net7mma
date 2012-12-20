@@ -8,7 +8,7 @@ namespace Media.Rtsp.Server.Streams
     //Might need a lower level class Stream with no events and just the basic info
 
     /// <summary>
-    /// The base class of all SourceStreams, Should be exposed on RtspServer not RtspStream
+    /// The base class of all Streams, Should eventually be exposed on RtspServer not RtspStream
     /// </summary>
     public abstract class SourceStream
     {
@@ -26,17 +26,20 @@ namespace Media.Rtsp.Server.Streams
         internal Guid m_Id = Guid.NewGuid();
         internal string m_Name;
         internal Uri m_Source;
-        internal NetworkCredential m_Cred;
+        internal NetworkCredential m_SourceCred;
+        //internal CredentialCache m_CredentalCache = new CredentialCache();
         internal NetworkCredential m_RemoteCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
-        //The last frame decoded
         volatile internal System.Drawing.Image m_lastFrame;
 
         #endregion
 
         #region Properties
 
+        /// <summary>
+        /// The amount of time the Stream has been Started
+        /// </summary>
         public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.Now - m_Started.Value; return TimeSpan.MinValue; } }
 
         /// <summary>
@@ -57,7 +60,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// The credential the source requires
         /// </summary>
-        public virtual NetworkCredential SourceCredential { get { return m_Cred; } set { m_Cred = value; } }
+        public virtual NetworkCredential SourceCredential { get { return m_SourceCred; } set { m_SourceCred = value; } }
         /// <summary>
         /// The credential of the stream which will be exposed to clients
         /// </summary>
@@ -98,7 +101,21 @@ namespace Media.Rtsp.Server.Streams
             //The stream name cannot be null or consist only of whitespace
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
             m_Name = name;
+
             m_Source = source;
+        }
+
+        public SourceStream(string name, Uri source, NetworkCredential sourceCredential)
+            :this(name, source)
+        {
+            m_SourceCred = sourceCredential;
+        }
+
+        public SourceStream(string name, Uri source, NetworkCredential sourceCredential, NetworkCredential remoteCredential)
+            :this(name, source, sourceCredential)
+        {
+            m_RemoteCred = remoteCredential;
+            //m_CredentalCache.Add(source, "Basic", remoteCredential);
         }
 
         public delegate void FrameDecodedHandler(SourceStream stream, System.Drawing.Image decoded);
@@ -120,13 +137,13 @@ namespace Media.Rtsp.Server.Streams
 
         public abstract Sdp.SessionDescription SessionDescription { get; }
 
-        public virtual void AddAlias(string name)
+        public void AddAlias(string name)
         {
             if (m_Aliases.Contains(name)) return;
             m_Aliases.Add(name);
         }
 
-        public virtual void RemoveAlias(string alias)
+        public void RemoveAlias(string alias)
         {
             m_Aliases.Remove(alias);
         }

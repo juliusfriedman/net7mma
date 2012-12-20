@@ -40,17 +40,16 @@ namespace Media.Rtcp
             index += 4;
         }
 
-        public byte[] ToBytes()
+        public byte[] ToBytes(uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
-            
 
             //result.Add((byte)((SynchronizationSourceIdentifier >> 24) | 0xFF));
             //result.Add((byte)((SynchronizationSourceIdentifier >> 16) | 0xFF));
             //result.Add((byte)((SynchronizationSourceIdentifier >> 8) | 0xFF));
             //result.Add((byte)((SynchronizationSourceIdentifier) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder(SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
 
             //FractionsLost
             result.Add((byte)FractionLost);
