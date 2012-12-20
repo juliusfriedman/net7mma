@@ -13,14 +13,19 @@ namespace Media.Rtp
 
         #region Statics
 
-        static byte[] StartOfInformation = new byte[] { 0xff, 0xd8 };
+        new public const byte PayloadType = 26;
 
-        static byte[] EndOfInformation = new byte[] { 0xff, 0xd9 };
+        static byte Prefix = 0xff;
+
+        const byte StartOfInformation = 0xd8;
+
+        const byte EndOfInformation = 0xd9;
         
         static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, uint dri)
         {
             List<byte> result = new List<byte>();
-            result.AddRange(StartOfInformation);
+            result.Add(Prefix);
+            result.Add(StartOfInformation);
 
             result.Add(0xff);
             result.Add(0xe0);//AppFirst
@@ -130,29 +135,20 @@ namespace Media.Rtp
         /// <returns>64 luma bytes and 64 chroma</returns>
         static byte[] CreateQuantizationTables(uint Q)
         {
-            int factor = (int)Q;
-            int q;
+            //Factor in integer space
+            int factor = (int)Math.Max(Math.Min(1, Q), 99);
+            
+            //Seed
+            int q = (Q < 50 ? q = 5000 / factor : 200 - factor * 2);
 
-            if (Q < 1) factor = 1;
-            else if (Q > 99) factor = 99;
-
-            if (Q < 50)
-            {
-                q = 5000 / factor;
-            }
-            else
-            {
-                q = 200 - factor * 2;
-            }
             byte[] resultTables = new byte[128];
+
+            //Scale as we assign to position
             for (int i = 0; i < 128; ++i)
             {
-                //int newVal = (defaultQuantizers[i] * q + 50) / 100;
-                //if (newVal < 1) newVal = 1;
-                //else if (newVal > 255) newVal = 255;
-                //resultTables[i] = (byte)newVal;
                 resultTables[i] = (byte)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), 255);
             }
+
             return resultTables;
         }
 
@@ -160,7 +156,7 @@ namespace Media.Rtp
         {
             List<byte> result = new List<byte>();
 
-            int tableSize = tables.Count / 2;
+            int tableSize = tables.Count / 2; //2 tables same length
 
             //Luma
 
@@ -286,27 +282,21 @@ namespace Media.Rtp
 
         #endregion
 
-        internal System.IO.MemoryStream Buffer = new System.IO.MemoryStream();
+        #region Constructor
 
-        internal System.Drawing.Image Image;
+        public JpegFrame() : base(JpegFrame.PayloadType) { }
 
-        public JpegFrame() : base(26) { }
-
-        public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != 26) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
+        public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != JpegFrame.PayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
 
         /// <summary>
-        /// Incomplete...
+        /// Creates a JpegFrame from a System.Drawing.Image
         /// </summary>
         /// <param name="source">The Image to create a JpegFrame from</param>
-        public JpegFrame(System.Drawing.Image source) : this()
+        public JpegFrame(System.Drawing.Image source, uint? ssrc = null, uint? sequenceNo = null) : this()
         {
-            //Some help from http://massapi.com/source/fmj/src/net/sf/fmj/media/codec/video/jpeg/JpegStripper.java.html
-            //Although this might just be easier to do with PropertyItems..
-            //http://msdn.microsoft.com/en-us/library/windows/desktop/ms534416(v=vs.85).aspx
-
             //Must calculate correctly the Type, Quality, FragmentOffset and Dri
             uint TypeSpecific = 0, FragmentOffset = 8, Type = 0, Quality = 0, Width = (uint)Image.Width, Height = (uint)Image.Height, DataRestartInterval = 0;
-
+            //To do say we will save the image in Jpeg format and request the PropertyItems from the Jpeg format of the Image
             using(System.IO.MemoryStream temp = new System.IO.MemoryStream())
             {
                 source.Save(temp, System.Drawing.Imaging.ImageFormat.Jpeg);
@@ -326,13 +316,13 @@ namespace Media.Rtp
 
                 Quality = BitConverter.ToUInt16(Image.GetPropertyItem(0x5010).Value, 0);
 
-                int Tag, TagSize;
+                int inputByte, TagSize;
 
                 DateTime ts = DateTime.Now;
-                int sequenceNumber = 0;
+                int sequenceNumber = (int)(sequenceNo ?? DateTime.Now.Ticks);
 
                 RtpPacket packet = new RtpPacket();
-                packet.SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier;
+                packet.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
                 packet.TimeStamp = Utility.DateTimeToNtp32(ts);
                 packet.SequenceNumber = ++sequenceNumber;
 
@@ -375,54 +365,59 @@ namespace Media.Rtp
                 FirstPacketData.ToArray().CopyTo(packet.Payload, at);
                 at += FirstPacketData.Count;
 
-                //Needs to actually create the RtpPackets in this loop
-                while ((Tag = temp.ReadByte()) != -1)
+                //While we are not at the end of the jpeg data
+                while ((inputByte = temp.ReadByte()) != -1)
                 {
-                    byte input = (byte)Tag;
+                    //Read a byte as the Tag
+                    byte Tag = (byte)inputByte;
 
-                    if (input == 0xFF)
+                    //If the prefix is a tag prefix then read another byte as the Tag
+                    if (Tag == Prefix)
                     {
-                        Tag = (byte)temp.ReadByte();
+                        inputByte = (byte)temp.ReadByte();
                         
-                        if (Tag == -1) return;
+                        //If we are at the end return
+                        if (inputByte == -1) return;
                         
-                        input = (byte)Tag;
+                        //We have a real Tag
+                        Tag = (byte)inputByte;
 
-                        switch (input)
+                        //Determine what to do
+                        switch (Tag)
                         {                                
-                            //First Packet
+                            //Unused Tags
                             case 0xE0:         //*AppFirst - 16
                             case 0xDB:         //*Quantization tables ? 128
                             case 0xC4:         //*Huffmann tables ?
                             case 0xDD:         //*Reset header
                                 {
                                     //Strip
-                                    TagSize = (byte)Buffer.ReadByte() * 256 * (byte)Buffer.ReadByte();
+                                    TagSize = (byte)temp.ReadByte() * 256 * (byte)temp.ReadByte();
                                     temp.Seek(TagSize, System.IO.SeekOrigin.Current);
                                     continue;
                                 }
-                            case 0xD8://SOI
-                            case 0xD9://EOI
+                            case StartOfInformation:
+                            case EndOfInformation:
                                 {
                                     continue;
                                 }
-                            //Normal Packets
+                            //Used Tags
                             case 0xC0:         //Start of Frame
                             case 0xDA:         //Start of Scan
 
                                 //Write tag
-                                packet.Payload[at++] = 0xff;
-                                packet.Payload[at++] = input;
+                                packet.Payload[at++] = Prefix;
+                                packet.Payload[at++] = Tag;
                                 
                                 //Write Length
-                                packet.Payload[at++] = (byte)Buffer.ReadByte();
-                                packet.Payload[at++] = (byte)Buffer.ReadByte();
+                                packet.Payload[at++] = (byte)temp.ReadByte();
+                                packet.Payload[at++] = (byte)temp.ReadByte();
 
                                 //Get size
                                 TagSize = packet.Payload[at - 2] * 256 * packet.Payload[at - 1];
                                 
                                 //Write tag data
-                                Buffer.Write(packet.Payload, at, TagSize);
+                                temp.Read(packet.Payload, at, TagSize);
                                 at += TagSize;
 
                                 //Ensure packet boundaries
@@ -445,14 +440,20 @@ namespace Media.Rtp
                                     at = 8;
                                 }
                                 break;
-                            default:
-                                break;//Seek past gardabge?
+                            default: //Not a recognized Marker
+                                continue;
                         }                       
                     }
                 }
             }
             Packets.Last().Marker = Complete = true;
         }
+
+        ~JpegFrame() { if (Image != null) { Image.Dispose(); Image = null; } }
+
+        #endregion
+
+        internal System.Drawing.Image Image;
 
         /// <summary>
         /// //Writes the packets to a memory stream and created the default header and quantization tables if necessary.
@@ -466,100 +467,103 @@ namespace Media.Rtp
 
             bool createHeader = true;
 
-            for (int i = 0, e = this.Packets.Count; i < e; ++i)
+            using (System.IO.MemoryStream Buffer = new System.IO.MemoryStream())
             {
-                RtpPacket packet = this.Packets[i];
-
-                //Handle Extension Headers
-                if (packet.Extensions/* && packet.Payload[offset] == StartOfInformation[0] && (packet.Payload[offset + 1] == StartOfInformation[1] || packet.Payload[offset + 1] == 0xFF)*/)
+                for (int i = 0, e = this.Packets.Count; i < e; ++i)
                 {
-                    //This could be OnVif extension
-                    //http://www.scribd.com/doc/50850591/225/JPEG-over-RTP
-                    //Check in packet.m_ExtensionData
+                    RtpPacket packet = this.Packets[i];
 
-                    //Length in next two bytes
-                    int len = packet.Payload[offset + 2] * 256 * packet.Payload[offset + 3];
-                    //Then write to buffer
-                    //Then continue from offset decoding RtpJpeg Header
-                    //offset += 4 + len;
-                    Buffer.Write(packet.Payload, offset, 2);
-                    Buffer.WriteByte(packet.Payload[offset + 2]);
-                    Buffer.WriteByte(packet.Payload[offset + 3]);
-                    Buffer.Write(packet.Payload, offset + 4, len);
-                    createHeader = false;                    
-                }
-
-                //RtpJpeg Header
-
-                TypeSpecific = (uint)(packet.Payload[offset++]);
-                FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                Type = (uint)(packet.Payload[offset++]); //&1 for type
-                Quality = (uint)packet.Payload[offset++];
-                Width = (uint)(packet.Payload[offset++] * 8); // This should have been 128 or > and the standard would have worked for all resolutions
-                Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
-
-                //Only occur in the first packet
-                if (FragmentOffset == 0)
-                {
-                    if (Type > 63)
+                    //Handle Extension Headers
+                    if (packet.Extensions/* && packet.Payload[offset] == StartOfInformation[0] && ((packet.Payload[offset + 1] == StartOfInformation[1] || packet.Payload[offset + 1] == 0xFF))*/)
                     {
-                        DataRestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                        //This could be OnVif extension
+                        //http://www.scribd.com/doc/50850591/225/JPEG-over-RTP
+                        //Check in packet.m_ExtensionData
+
+                        //Length in next two bytes
+                        int len = packet.Payload[offset + 2] * 256 * packet.Payload[offset + 3];
+                        //Then write to buffer
+                        //Then continue from offset decoding RtpJpeg Header
+                        //offset += 4 + len;
+                        Buffer.Write(packet.Payload, offset, 2);
+                        Buffer.WriteByte(packet.Payload[offset + 2]);
+                        Buffer.WriteByte(packet.Payload[offset + 3]);
+                        Buffer.Write(packet.Payload, offset + 4, len);
+                        createHeader = false;
                     }
 
-                    if (Quality > 127)
+                    //RtpJpeg Header
+
+                    TypeSpecific = (uint)(packet.Payload[offset++]);
+                    FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                    Type = (uint)(packet.Payload[offset++]); //&1 for type
+                    Quality = (uint)packet.Payload[offset++];
+                    Width = (uint)(packet.Payload[offset++] * 8); // This should have been 128 or > and the standard would have worked for all resolutions
+                    Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
+
+                    //Only occur in the first packet
+                    if (FragmentOffset == 0)
                     {
-                        uint MBZ = (uint)(packet.Payload[offset++]);
-                        uint Precision = (uint)(packet.Payload[offset++]);
-                        uint Length = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                        if(Length > 0)
+                        if (Type > 63)
                         {
-                            tables = new ArraySegment<byte>(packet.Payload, offset, (int)Length);
-                            offset += (int)Length;
+                            DataRestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                        }
+
+                        if (Quality > 127)
+                        {
+                            uint MBZ = (uint)(packet.Payload[offset++]);
+                            uint Precision = (uint)(packet.Payload[offset++]);
+                            uint Length = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                            if (Length > 0)
+                            {
+                                tables = new ArraySegment<byte>(packet.Payload, offset, (int)Length);
+                                offset += (int)Length;
+                            }
+                            else
+                            {
+                                tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
+                            }
                         }
                         else
                         {
                             tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
                         }
-                    }
-                    else
-                    {
-                        tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
+
+                        if (createHeader)
+                        {
+                            //Write the header to the buffer
+                            byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
+                            Buffer.Write(header, 0, header.Length);
+                        }
+
                     }
 
-                    if (createHeader)
-                    {
-                        //Write the header to the buffer
-                        byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
-                        Buffer.Write(header, 0, header.Length);
-                    }
+                    Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
 
                 }
-                
-                Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
 
+                //Check for EOI Marker
+                Buffer.Seek(Buffer.Length - 2, System.IO.SeekOrigin.Begin);
+
+                if (Buffer.ReadByte() != Prefix && Buffer.ReadByte() != EndOfInformation)
+                {
+                    Buffer.WriteByte(Prefix);
+                    Buffer.WriteByte(EndOfInformation);
+                }
+
+                //Go back to the beginning
+                Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+
+                Image = System.Drawing.Image.FromStream(Buffer, false, true);
+                //Should verify tables, dri or quality etc?
             }
-
-            //Check for EOI Marker
-            Buffer.Seek(Buffer.Length - 2, System.IO.SeekOrigin.Begin);
-
-            if(Buffer.ReadByte() != EndOfInformation[0] && Buffer.ReadByte() != EndOfInformation[1])
-            {
-                Buffer.Write(EndOfInformation, 0, EndOfInformation.Length);
-            }
-
-            //Go back to the beginning
-            Buffer.Seek(0, System.IO.SeekOrigin.Begin);
-
-            Image = System.Drawing.Image.FromStream(Buffer, false, true);
-            //Should verify tables, dri or quality etc?
-
         }
 
         /// <summary>
         /// Creates a image from the processed packets in the memory stream
         /// </summary>
         /// <returns>The image created from the packets</returns>
-        internal System.Drawing.Image ToImage()
+        public System.Drawing.Image ToImage()
         {
             try
             {
@@ -572,5 +576,9 @@ namespace Media.Rtp
                 throw;
             }
         }
+
+        public static implicit operator System.Drawing.Image(JpegFrame f) { return f.ToImage(); }
+        public static implicit operator JpegFrame(System.Drawing.Image f) { return new JpegFrame(f); }
+
     }
 }
