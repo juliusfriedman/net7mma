@@ -43,7 +43,7 @@ namespace Media.Rtsp.Server.Streams
             set
             {
                 //Experimental support for Unreliable and Http enabled with this line commented out
-                //if (value.Scheme != RtspMessage.ReliableTransport) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransport + "\"");
+                if (value.Scheme != RtspMessage.ReliableTransport) throw new ArgumentException("value", "Must have the Reliable Transport scheme \"" + RtspMessage.ReliableTransport + "\"");
 
                 base.Source = value;
 
@@ -53,7 +53,7 @@ namespace Media.Rtsp.Server.Streams
 
                     if (wasConnected) Stop();
 
-                    Client.Location = m_Source;
+                    Client.Location = base.Source;
 
                     if (wasConnected) Start();
                 }
@@ -64,7 +64,8 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        internal RtspSourceStream(string name, Uri sourceLocation) : base(name, sourceLocation)
+        internal RtspSourceStream(string name, Uri sourceLocation) 
+            : base(name, sourceLocation)
         {
             //Create the listener
             if (Parent)
@@ -78,7 +79,8 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspSourceStream(string name, string sourceLocation) : this(name, new Uri(sourceLocation)) { }
+        public RtspSourceStream(string name, string sourceLocation) 
+            : this(name, new Uri(sourceLocation)) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -90,7 +92,7 @@ namespace Media.Rtsp.Server.Streams
             : this(name, sourceLocation)
         {
             //Set the creds
-            Client.Credential = m_Cred = credential;
+            Client.Credential = SourceCredential = credential;
         }
 
         /// <summary>
@@ -103,7 +105,7 @@ namespace Media.Rtsp.Server.Streams
             : this(name, sourceLocation)
         {
             //Set the creds
-            Client.Credential = m_Cred = credential;
+            Client.Credential = SourceCredential = credential;
         }
 
         #endregion
@@ -133,35 +135,6 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
-        internal virtual void Client_RtpFrameCompleted(Rtp.RtpClient sender, Rtp.RtpFrame frame)
-        {
-            if (Client.Client != sender) return;
-            DecodeFrame(frame);
-            //System.Threading.ThreadPool.QueueUserWorkItem(new System.Threading.WaitCallback((o) => DecodeFrame(frame)));
-        }
-
-        internal void DecodeFrame(Rtp.RtpFrame frame)
-        {
-            try
-            {
-                Media.Sdp.MediaDescription mediaDescription = this.Client.SessionDescription.MediaDescriptions[0];
-                if (mediaDescription.MediaType == Sdp.MediaType.audio) return;
-                else if (mediaDescription.MediaFormat == 26)
-                {
-                    m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
-                    OnFrameDecoded(m_lastFrame);
-                }
-                else if (mediaDescription.MediaFormat == 96)
-                {
-                    //Dynamic..
-                }
-            }
-            catch
-            {
-                return;
-            }
-        }
-
         /// <summary>
         /// Stops streaming from the source
         /// </summary>
@@ -175,6 +148,39 @@ namespace Media.Rtsp.Server.Streams
             m_Started = null;
             State = StreamState.Stopped;
         }
+
+        internal virtual void Client_RtpFrameCompleted(Rtp.RtpClient sender, Rtp.RtpFrame frame)
+        {
+            if (Client.Client != sender) return;
+            DecodeFrame(frame);
+        }
+
+        internal void DecodeFrame(Rtp.RtpFrame frame)
+        {
+            try
+            {
+                Media.Sdp.MediaDescription mediaDescription = this.Client.SessionDescription.MediaDescriptions[0];
+                if (mediaDescription.MediaType == Sdp.MediaType.audio)
+                {
+                    //Could have generic byte[] handlers OnAudioData OnVideoData
+                    return;
+                }
+                else if (mediaDescription.MediaFormat == 26)
+                {
+                    m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
+                    OnFrameDecoded(m_lastFrame);
+                }
+                else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat <= 128)
+                {
+                    //Dynamic..
+                }
+            }
+            catch
+            {
+                return;
+            }
+        }
+
     }
 
     /// <summary>

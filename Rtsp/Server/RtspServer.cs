@@ -66,7 +66,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
         /// </summary>
-        Dictionary<Guid, RtspSession> m_Clients = new Dictionary<Guid, RtspSession>();
+        Dictionary<Guid, ClientSession> m_Clients = new Dictionary<Guid, ClientSession>();
 
         /// <summary>
         /// The thread allocated to handle socket communication
@@ -213,7 +213,7 @@ namespace Media.Rtsp
                 m_UdpPort = port;
                 m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
-                RtspSession temp = new RtspSession(this, null);
+                ClientSession temp = new ClientSession(this, null);
                 temp.m_RtspSocket = m_UdpServerSocket;
                 m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
             }
@@ -241,7 +241,7 @@ namespace Media.Rtsp
 
         #region Session Collection
 
-        internal void AddSession(RtspSession session)
+        internal void AddSession(ClientSession session)
         {
             lock (m_Clients)
             {
@@ -249,7 +249,7 @@ namespace Media.Rtsp
             }
         }
 
-        internal bool RemoveSession(RtspSession session)
+        internal bool RemoveSession(ClientSession session)
         {
             lock (m_Clients)
             {
@@ -257,19 +257,19 @@ namespace Media.Rtsp
             }
         }
 
-        internal bool ContainsSession(RtspSession session)
+        internal bool ContainsSession(ClientSession session)
         {
             return m_Clients.ContainsKey(session.Id);
         }
 
-        internal RtspSession GetSession(Guid id)
+        internal ClientSession GetSession(Guid id)
         {
-            RtspSession result;
+            ClientSession result;
             m_Clients.TryGetValue(id, out result);
             return result;
         }
 
-        internal RtspSession FindSessionByRtspSessionId(string rtspSessionId)
+        internal ClientSession FindSessionByRtspSessionId(string rtspSessionId)
         {
             if (string.IsNullOrWhiteSpace(rtspSessionId)) return null;
             rtspSessionId = rtspSessionId.Trim();
@@ -343,7 +343,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal RtspSourceStream FindStreamByLocation(Uri mediaLocation, RtspSession ci = null)
+        internal RtspSourceStream FindStreamByLocation(Uri mediaLocation, ClientSession ci = null)
         {
             string val = mediaLocation.ToString();
 
@@ -391,13 +391,13 @@ namespace Media.Rtsp
         {
             //Find inactive clients and remove..
 
-            RtspSession[] clients;
+            ClientSession[] clients;
             lock (m_Clients)
             {
                  clients = m_Clients.Values.ToArray();
             }
             //Iterate and find inactive sessions
-            foreach (RtspSession session in clients)
+            foreach (ClientSession session in clients)
             {
                 if ((DateTime.UtcNow - session.m_LastRtspRequestRecieved).TotalMinutes > 2 || session.m_RtpClient != null && session.m_RtpClient.m_LastRecieversReport != null && (DateTime.UtcNow - session.m_RtpClient.m_LastRecieversReportRecieved).TotalMinutes > 2)
                 {
@@ -580,7 +580,7 @@ namespace Media.Rtsp
 
                 System.Diagnostics.Debug.WriteLine("Accepted connection from: {0}", clientSocket.RemoteEndPoint);
 
-                RtspSession ci = new RtspSession(this, clientSocket);
+                ClientSession ci = new ClientSession(this, clientSocket);
 
                 AddSession(ci);
 
@@ -599,7 +599,7 @@ namespace Media.Rtsp
         internal void ProcessReceive(IAsyncResult ar)
         {
             //Get the client information
-            RtspSession session = (RtspSession)ar.AsyncState;
+            ClientSession session = (ClientSession)ar.AsyncState;
             int received = 0;
             RtspRequest req = null;
             try
@@ -611,7 +611,7 @@ namespace Media.Rtsp
                     {
                         received = m_UdpServerSocket.EndReceive(ar);
 
-                        RtspSession temp = new RtspSession(this, null);
+                        ClientSession temp = new ClientSession(this, null);
                         m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
                         //Might need plumbing to store endpoints for sessions
@@ -692,7 +692,7 @@ namespace Media.Rtsp
         {
             try
             {
-                RtspSession ci = (RtspSession)ar.AsyncState;
+                ClientSession ci = (ClientSession)ar.AsyncState;
 
                 int sent = ci.m_RtspSocket.EndSend(ar);
 
@@ -742,7 +742,7 @@ namespace Media.Rtsp
             int rec = context.Request.InputStream.Read(buffer, 0, len);
             RtspRequest request = new RtspRequest(System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(buffer, 0, len)));
             
-            RtspSession ci;
+            ClientSession ci;
             if (request.ContainsHeader(RtspHeaders.Session)) // Attempt to find existing session
             {
                 ci = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
@@ -750,7 +750,7 @@ namespace Media.Rtsp
             }
             else // Create a new session
             {
-                ci = new RtspSession(this, null);
+                ci = new ClientSession(this, null);
                 ci.m_Http = context;
             }
 
@@ -787,7 +787,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="request">The rtsp Request</param>
         /// <param name="session">The client information</param>
-        internal void ProcessRtspRequest(RtspRequest request, RtspSession session)
+        internal void ProcessRtspRequest(RtspRequest request, ClientSession session)
         {
             //Log Request
             if (Logger != null) Logger.LogRequest(request, session);
@@ -877,7 +877,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="response">The RtspResponse to send</param> If this was byte[] then it could handle http
         /// <param name="ci">The session to send the response on</param>
-        internal void ProcessSendRtspResponse(RtspResponse response, RtspSession ci)
+        internal void ProcessSendRtspResponse(RtspResponse response, ClientSession ci)
         {
             try
             {
@@ -918,7 +918,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="ci">The client session to send the response on</param>
         /// <param name="code">The status code of the response if other than BadRequest</param>
-        internal void ProcessInvalidRtspRequest(RtspSession ci, RtspStatusCode code = RtspStatusCode.BadRequest)
+        internal void ProcessInvalidRtspRequest(ClientSession ci, RtspStatusCode code = RtspStatusCode.BadRequest)
         {            
             //Should allow a reason to be put into the response somehow
             ProcessSendRtspResponse(ci.CreateRtspResponse(null, code), ci);
@@ -928,17 +928,17 @@ namespace Media.Rtsp
         /// Sends a Rtsp LocationNotFound Response
         /// </summary>
         /// <param name="ci">The session to send the response on</param>
-        internal void ProcessLocationNotFoundRtspRequest(RtspSession ci)
+        internal void ProcessLocationNotFoundRtspRequest(ClientSession ci)
         {
             ProcessInvalidRtspRequest(ci, RtspStatusCode.NotFound);
         }
 
-        internal void ProcessAuthorizationRequired(RtspSession ci)
+        internal void ProcessAuthorizationRequired(ClientSession ci)
         {
             ProcessInvalidRtspRequest(ci, ci.LastRequest.ContainsHeader(RtspHeaders.Authroization) ? RtspStatusCode.Forbidden : RtspStatusCode.Unauthorized);
         }
 
-        internal void ProcessRtspOptions(RtspRequest request, RtspSession ci)
+        internal void ProcessRtspOptions(RtspRequest request, ClientSession ci)
         {
             System.Diagnostics.Debug.WriteLine("OPTIONS " + request.Location);
 
@@ -959,7 +959,7 @@ namespace Media.Rtsp
             ProcessSendRtspResponse(resp, ci);
         }
 
-        internal void ProcessRtspDescribe(RtspRequest request, RtspSession ci)
+        internal void ProcessRtspDescribe(RtspRequest request, ClientSession ci)
         {
 
             System.Diagnostics.Debug.WriteLine("DESCRIBE " + request.Location);
@@ -1015,7 +1015,7 @@ namespace Media.Rtsp
             ProcessSendRtspResponse(resp, ci);
         }
 
-        internal void ProcessRtspSetup(RtspRequest request, RtspSession ci)
+        internal void ProcessRtspSetup(RtspRequest request, ClientSession ci)
         {
 
             System.Diagnostics.Debug.WriteLine("SETUP " + request.Location);
@@ -1104,12 +1104,12 @@ namespace Media.Rtsp
             ProcessSendRtspResponse(resp, ci);
         }
 
-        internal void ProcessRtspPlay(RtspRequest request, RtspSession ci)
+        internal void ProcessRtspPlay(RtspRequest request, ClientSession ci)
         {
 
             System.Diagnostics.Debug.WriteLine("PLAY " + request.Location);
 
-            RtspSession session = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
+            ClientSession session = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
             if (session == null)
             {
                 ProcessInvalidRtspRequest(ci, RtspStatusCode.SessionNotFound);
@@ -1159,10 +1159,10 @@ namespace Media.Rtsp
             
         }
 
-        internal void ProcessRtspPause(RtspRequest request, RtspSession ci)
+        internal void ProcessRtspPause(RtspRequest request, ClientSession ci)
         {
 
-            RtspSession session = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
+            ClientSession session = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
             if (session == null)
             {
                 ProcessInvalidRtspRequest(ci, RtspStatusCode.SessionNotFound);
@@ -1189,13 +1189,13 @@ namespace Media.Rtsp
 
         }
 
-        internal void ProcessRtspTeardown(RtspRequest request, RtspSession ci)
+        internal void ProcessRtspTeardown(RtspRequest request, ClientSession ci)
         {
             System.Diagnostics.Debug.WriteLine("TEARDOWN " + request.Location);
 
             try
             {
-                RtspSession session = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
+                ClientSession session = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
 
                 if (session == null)
                 {
@@ -1247,7 +1247,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="request">The GET_PARAMETER RtspRequest to handle</param>
         /// <param name="ci">The RtspSession from which the request was receieved</param>
-        internal void ProcessGetParameter(RtspRequest request, RtspSession ci)
+        internal void ProcessGetParameter(RtspRequest request, ClientSession ci)
         {
             System.Diagnostics.Debug.WriteLine("GET_PARAMETER " + request.Location);
             ProcessSendRtspResponse(ci.CreateRtspResponse(request), ci);
@@ -1258,7 +1258,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="request">The GET_PARAMETER RtspRequest to handle</param>
         /// <param name="ci">The RtspSession from which the request was receieved</param>
-        internal void ProcessSetParameter(RtspRequest request, RtspSession ci)
+        internal void ProcessSetParameter(RtspRequest request, ClientSession ci)
         {
             System.Diagnostics.Debug.WriteLine("SET_PARAMETER " + request.Location);
             //Could be used for PTZ or other stuff

@@ -42,12 +42,12 @@ namespace Media.Rtcp
             return output;
         }
 
-        public virtual byte[] ToBytes()
+        public virtual byte[] ToBytes(uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
             
             // SSRC
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
             
             //Report Blocks
             foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());

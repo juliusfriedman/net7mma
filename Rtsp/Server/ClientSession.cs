@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Net.Sockets;
 using System.Net;
+using System.Net.Sockets;
 using Media.Rtp;
 using Media.Rtcp;
 using System.Threading;
@@ -12,9 +10,9 @@ using Media.Rtsp.Server.Streams;
 namespace Media.Rtsp
 {
     /// <summary>
-    /// Sends packets from a source RtspStream to a remote RtspClient
+    /// Sends packets from a SourceStream to a remote client
     /// </summary>
-    internal class RtspSession
+    internal class ClientSession
     {
         #region Fields
 
@@ -26,7 +24,7 @@ namespace Media.Rtsp
         internal DateTime m_LastRtspRequestRecieved;
 
         //Sdp
-        internal string m_SessionId, m_SDPVersion; //Version should be returned from the SDP
+        internal string m_SessionId, m_SDPVersion; //Version should be returned from the SDP but when changged should send announce in certain cases?
 
         internal Media.Sdp.SessionDescription m_SessionDescription;
 
@@ -67,13 +65,13 @@ namespace Media.Rtsp
 
         #region Constructor
 
-        public RtspSession(RtspServer server, Socket rtspSocket)
+        public ClientSession(RtspServer server, Socket rtspSocket)
         {
             m_Server = server;
             m_RtspSocket = rtspSocket;
         }
 
-        ~RtspSession()
+        ~ClientSession()
         {
             Disconnect();
         }
@@ -115,11 +113,12 @@ namespace Media.Rtsp
         /// <param name="stream">The listener from which the packet arrived</param>
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(RtpClient stream, RtcpPacket packet)
-        {
-            //SendRtcpPacket(packet);
-            
+        {            
             //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
-            if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye) Disconnect();
+            if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
+            {
+                Disconnect();
+            }
 
             //maybe their recievers reports shoudl trigger us sending one to our client?
             //Maybe handle these but we dont need them we only need to be aware of packets from the client, not the source.
@@ -133,7 +132,7 @@ namespace Media.Rtsp
             if (m_RtpClient != null) m_RtpClient.Disconnect();
             if (m_Udp != null) m_Udp.Close();
             m_Http = null;
-            m_Attached.ToList().ForEach(Detach);
+            m_Attached.ForEach(Detach);
         }
 
         /// <summary>
