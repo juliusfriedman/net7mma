@@ -10,10 +10,10 @@ namespace Media
         [STAThread]
         public static void Main(string[] args)
         {
+            TestJpegFrame();
             TestRtspMessage();
             TestSdp();
             TestServer();
-            TestEncoderDecoder();
         }
 
         static void TestRtspMessage()
@@ -34,6 +34,11 @@ namespace Media
 
             //Do some testing make them to bytes, reparse. Parse temples ... etc
 
+        }
+
+        static void TestRtpPackets()
+        {
+            //Make and serialize some RtpPackets
         }
 
         static void TestSdp()
@@ -212,13 +217,17 @@ a=mpeg4-esid:101");
             });
         }
 
-        static void TestEncoderDecoder()
-        {
+        static void TestJpegFrame()
+        {            
 
-            Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile(""));
+            Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
 
-            System.Drawing.Image jpeg = f.ToImage();
+            Rtp.JpegFrame t = new Rtp.JpegFrame(f);
 
+            using (System.Drawing.Image jpeg = t)
+            {
+                jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            }
         }
     }
 }

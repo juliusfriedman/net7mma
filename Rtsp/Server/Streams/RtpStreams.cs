@@ -6,9 +6,9 @@ using System.Text;
 namespace Media.Rtsp.Server.Streams
 {
     /// <summary>
-    /// Adds an abstract RtpClient To SourceStream,
-    /// Might not need a class for every type if the SourceStream has its own concept of packets etc. Or if it's event model was good enough    
+    /// Adds an abstract RtpClient To SourceStream,   
     /// This could also just be an interface
+    /// This could also be a class which has the events for RtpPackets etc
     /// </summary>
     public abstract class RtpSourceStream : SourceStream
     {
@@ -19,4 +19,9 @@ namespace Media.Rtsp.Server.Streams
 
         public abstract Rtp.RtpClient RtpClient { get; }
     }
+
+    //public abstract class RtpChildStream
+    //{
+    //}
+
 }
