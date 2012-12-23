@@ -23,9 +23,9 @@ namespace Media.Rtp
 
         public RtpPacket this[int SequenceNumber] { get { return m_Packets[SequenceNumber]; } set { m_Packets[SequenceNumber] = value; } }
 
-        public virtual int SynchronizationSourceIdentifier
+        public virtual uint SynchronizationSourceIdentifier
         {
-            get { return (int)m_Ssrc; }
+            get { return m_Ssrc; }
             set
             {
                 m_Ssrc = (uint)value;
@@ -63,7 +63,7 @@ namespace Media.Rtp
             m_TimeStamp = timeStamp;    
         }
 
-        public RtpFrame(RtpFrame f) : this(f.PayloadType) { SynchronizationSourceIdentifier = f.SynchronizationSourceIdentifier; TimeStamp = f.TimeStamp; foreach (RtpPacket p in f) AddPacket(p); }
+        public RtpFrame(RtpFrame f) : this(f.PayloadType) { m_Ssrc = f.m_Ssrc; m_TimeStamp = f.m_TimeStamp; m_Packets = f.m_Packets; }
 
         #endregion
 
@@ -86,6 +86,7 @@ namespace Media.Rtp
             if (Complete) return;
             if (packet.PayloadType != m_PayloadType) return;// Could probably use a RtpFrameException
             if (packet.SynchronizationSourceIdentifier != m_Ssrc) return;
+            if (ContainsPacket(packet)) return;
             lock (m_Packets)
             {                
                 m_Packets.Add(packet.SequenceNumber, packet);

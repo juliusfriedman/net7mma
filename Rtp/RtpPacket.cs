@@ -102,7 +102,7 @@ namespace Media.Rtp
 
         #region Constructor
 
-        public RtpPacket() { }
+        public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; }
 
         public RtpPacket(ArraySegment<byte> packetReference)
         {
