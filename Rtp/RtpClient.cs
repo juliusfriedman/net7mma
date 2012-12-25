@@ -627,7 +627,7 @@ namespace Media.Rtp
         /// <param name="packet">The RtpPacket to send</param>
         public void SendRtpPacket(RtpPacket packet)
         {
-            int sent = SendData(packet.ToBytes(false, m_RtpSSRC), m_RtpChannel);
+            int sent = SendData(packet.ToBytes(m_RtpSSRC), m_RtpChannel);
             if (sent > 0)
             {
                 m_RtpSent += sent;

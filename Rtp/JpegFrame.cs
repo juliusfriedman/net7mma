@@ -1,18 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Media.Rtp
 {
     /// <summary>
     /// Implements RFC2435
-    /// http://www.w3.org/Graphics/JPEG/itu-t81.pdf - Spec
-    //  http://en.wikipedia.org/wiki/JPEG - Info
+    /// Encodes from a System.Drawing.Image to a RFC2435 Jpeg.
+    /// Decodes a RFC2435 Jpeg to a System.Drawing.Image.
+    ///  <see cref="http://tools.ietf.org/rfc/rfc2435.txt">RFC 2435</see>
+    ///  <see cref="http://www.w3.org/Graphics/JPEG/itu-t81.pdf">Jpeg ITU Spec</see>
+    ///  <see cref="http://en.wikipedia.org/wiki/JPEG">Wikipedia Jpeg Info</see>    
     /// </summary>
     public class JpegFrame : RtpFrame
     {
-
         #region Statics
 
         new public const byte PayloadType = 26;
@@ -41,13 +42,18 @@ namespace Media.Rtp
 
         const byte EntroypEncodedScan = 0;
 
+        public static RtpFrame CreateFrames(System.Drawing.Image source, uint startingSequenceNo, uint ssrc)
+        {
+            return new JpegFrame(source, null, ssrc, startingSequenceNo);
+        }
+
         /// <summary>
         /// Creates RST header for JPEG/RTP packet.
         /// </summary>
         /// <param name="dri">dri Restart interval - number of MCUs between restart markers</param>
-        /// <param name="f">f first bit (should be set to 1)</param>
-        /// <param name="l">l last bit (should be set to 1)</param>
-        /// <param name="count">count number of restart markers (should be set to 3FFF)</param>
+        /// <param name="f">optional first bit (defaults to 1)</param>
+        /// <param name="l">optional last bit (defaults to 1)</param>
+        /// <param name="count">optional number of restart markers (defaults to 0x3FFF)</param>
         /// <returns>Rst Marker</returns>
         static byte[] CreateRtpDataRestartIntervalMarker(int dri, int f = 1, int l = 1, int count = 0x3FFF)
         {
@@ -66,6 +72,18 @@ namespace Media.Rtp
             return data;
         }
 
+        /// <summary>
+        /// Utility function to create RtpJpegHeader either for initial packet or template for further packets
+        /// </summary>
+        /// <param name="typeSpecific"></param>
+        /// <param name="fragmentOffset"></param>
+        /// <param name="type"></param>
+        /// <param name="quality"></param>
+        /// <param name="width"></param>
+        /// <param name="height"></param>
+        /// <param name="dri"></param>
+        /// <param name="qTables"></param>
+        /// <returns></returns>
         static byte[] CreateRtpJpegHeader(uint typeSpecific, uint fragmentOffset, uint type, uint quality, uint width, uint height, byte[] dri, List<byte> qTables)
         {
             List<byte> RtpJpegHeader = new List<byte>();
@@ -308,17 +326,13 @@ namespace Media.Rtp
 
         }
 
-        static byte[] lum_dc_codelens = {
-        0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
-        };
+        static byte[] lum_dc_codelens = { 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
 
-        static byte[] lum_dc_symbols = {
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-        };
+        static byte[] lum_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
-        static byte[] lum_ac_codelens = {
-        0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d,
-        };
+
+
+        static byte[] lum_ac_codelens = {0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
 
         static byte[] lum_ac_symbols = {
         0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12,
@@ -344,17 +358,11 @@ namespace Media.Rtp
         0xf9, 0xfa,
         };
 
-        static byte[] chm_dc_codelens = {
-        0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-        };
+        static byte[] chm_dc_codelens = { 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };
 
-        static byte[] chm_dc_symbols = {
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 
-        };
+        static byte[] chm_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
-        static byte[] chm_ac_codelens = {
-        0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77,
-        };
+        static byte[] chm_ac_codelens = { 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77 };
 
         static byte[] chm_ac_symbols = {
         0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21,
@@ -402,13 +410,19 @@ namespace Media.Rtp
 
         #region Constructor
 
-        public JpegFrame() : base(JpegFrame.PayloadType) { }
+        /// <summary>
+        /// Creates an empty JpegFrame
+        /// </summary>
+        internal JpegFrame() : base(JpegFrame.PayloadType) { }
 
+        /// <summary>
+        /// Creates a new JpegFrame from an existing RtpFrame which has the JpegFrame PayloadType
+        /// </summary>
+        /// <param name="f">The existing frame</param>
         public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != JpegFrame.PayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
 
         /// <summary>
         /// Creates a JpegFrame from a System.Drawing.Image
-        /// System.Drawing.Imaging.ImageCodecInfo For System.Drawing.Imaging.ImageFormat.Jpeg is saving in 1.2 format with 16 bit q table which requires a different decoder and encoder
         /// </summary>
         /// <param name="source">The Image to create a JpegFrame from</param>
         public JpegFrame(System.Drawing.Image source, uint? quality = null, uint? ssrc = null, uint? sequenceNo = null) : this()
@@ -462,7 +476,6 @@ namespace Media.Rtp
                 }
                 else
                 {
-                    //DataRestartInterval = CreateRtpDataRestartIntervalMarker((int)temp.Length, 1, 1, 0x3fff);
                     Type = 63;
                 }
 
@@ -481,7 +494,7 @@ namespace Media.Rtp
                 //Where we are in the current packet
                 int currentPacketOffset = 0;
 
-                //A RtpJpegHeader which must be in the Payload of each Packet
+                //A RtpJpegHeader which must be in the Payload of each Packet (8 Bytes without QTables and RestartInterval)
                 byte[] RtpJpegHeader = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, null);
 
                 //Determine if we need to write OnVif Extension?
@@ -549,7 +562,7 @@ namespace Media.Rtp
                         }
 
                         //Last Marker in Header before EntroypEncodedScan
-                        if (Tag == StartOfScan)  //Learned you can piggyback another scan right here if you wanted 
+                        if (Tag == StartOfScan)
                         {
                             temp.ReadByte();//Discard Byte
                             //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
@@ -618,22 +631,33 @@ namespace Media.Rtp
                     currentPacket.Payload = tempPayload;
                 }
 
+                //Final packet marks the end
+                currentPacket.Marker = true;    
+
                 //Add the final packet
                 AddPacket(currentPacket);
-            }
 
-            //Set the complete marker on the last packet
-            Packets.Last().Marker = Complete = true;
+                //To allow the stream to be closed
+                Image = new System.Drawing.Bitmap(Image);
+            }
         }
 
         ~JpegFrame() { if (Image != null) { Image.Dispose(); Image = null; } }
 
         #endregion
 
+        #region Fields
+
+        //Cache for the result Image
         internal System.Drawing.Image Image;
 
+        #endregion
+
+        #region Methods
+
         /// <summary>
-        /// //Writes the packets to a memory stream and created the default header and quantization tables if necessary.
+        /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
+        /// Assigns Image from the result
         /// </summary>
         internal void ProcessPackets()
         {
@@ -785,9 +809,14 @@ namespace Media.Rtp
             }
         }
 
+        #endregion
+
+        #region Operators
+
         public static implicit operator System.Drawing.Image(JpegFrame f) { return f.ToImage(); }
 
         public static implicit operator JpegFrame(System.Drawing.Image f) { return new JpegFrame(f); }
 
+        #endregion
     }
 }

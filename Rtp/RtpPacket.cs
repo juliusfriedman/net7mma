@@ -19,6 +19,7 @@ namespace Media.Rtp
 
         byte m_PayloadType;
 
+        //Make list for easier writing?
         byte[] m_Payload;
 
         int m_Version, m_Padding, m_Extensions, m_Csc, m_Marker, m_SequenceNumber;
@@ -74,7 +75,7 @@ namespace Media.Rtp
         public byte PayloadType { get { return m_PayloadType; } set { m_PayloadType = value; } }
 
         /// <summary>
-        /// The sequence number of the RTPPacket
+        /// The sequence number of the RtpPacket
         /// </summary>
         public int SequenceNumber { get { return m_SequenceNumber; } set { m_SequenceNumber = value; } }
 
@@ -84,19 +85,24 @@ namespace Media.Rtp
         public uint TimeStamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
 
         /// <summary>
-        /// Identifies the synchronization source for this RTPPacket (SSrc)
+        /// Identifies the synchronization source for this RtpPacket (SSrc)
         /// </summary>
         public uint SynchronizationSourceIdentifier { get { return m_Ssrc; } set { m_Ssrc = value; } }
 
         /// <summary>
-        /// The binary payload of the RTPPacket
+        /// The binary payload of the RtpPacket
         /// </summary>
         public byte[] Payload { get { return m_Payload; } set { m_Payload = value; } }
 
         /// <summary>
+        /// The Extension Data of the RtpPacket
+        /// </summary>
+        public byte[] ExtensionData { get { return m_ExtensionData; } set { m_ExtensionData = value; } }
+
+        /// <summary>
         /// The length of the packet in bytes
         /// </summary>
-        public int Length { get { return HeaderLength + (ContributingSources.Count * 4) + (Payload != null ? Payload.Length : 0); } }
+        public int Length { get { return HeaderLength + (ContributingSources.Count * 4) + (ExtensionData != null ? ExtensionData.Length : 0) + (Payload != null ? Payload.Length : 0); } }
 
         #endregion
 
@@ -113,7 +119,6 @@ namespace Media.Rtp
 
             //Extract fields
             byte compound = packetReference.Array[packetReference.Offset];
-            
 
             //Version, Padding flag, Extension flag, and Contribuing Source Count
             m_Version = compound >> 6; ;
@@ -172,7 +177,7 @@ namespace Media.Rtp
         /// Encodes the RTPHeader and Payload into a RTPPacket
         /// </summary>
         /// <returns></returns>
-        public byte[] ToBytes(bool headerOnly = false, uint? ssrc = null)
+        public byte[] ToBytes(uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
 
@@ -203,10 +208,7 @@ namespace Media.Rtp
             if (ContributingSourceCount > 0)
             {
                 //Loop the sources and add them to the header
-                foreach (uint src in m_ContributingSources)
-                {
-                    result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)src)));
-                }
+                m_ContributingSources.ForEach(cs => result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)cs))));
             }
 
             //If extensions were flagged then include the extensions
@@ -220,11 +222,8 @@ namespace Media.Rtp
                 result.AddRange(m_ExtensionData);
             }
 
-            //Include the payload if required
-            if (!headerOnly)
-            {
-                result.AddRange(m_Payload);
-            }
+            //Include the payload
+            result.AddRange(m_Payload);
 
             //Return the array
             return result.ToArray();

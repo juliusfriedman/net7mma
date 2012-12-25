@@ -84,8 +84,8 @@ namespace Media.Rtp
         public virtual void AddPacket(RtpPacket packet)
         {
             if (Complete) return;
-            if (packet.PayloadType != m_PayloadType) return;// Could probably use a RtpFrameException
-            if (packet.SynchronizationSourceIdentifier != m_Ssrc) return;
+            if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
+            if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
             if (ContainsPacket(packet)) return;
             lock (m_Packets)
             {                
@@ -143,6 +143,7 @@ namespace Media.Rtp
             {
                 foreach (RtpPacket packet in m_Packets.Values)
                 {
+                    if(packet.Extensions) result.AddRange(packet.ExtensionData);
                     result.AddRange(packet.Payload);
                 }
             }
