@@ -640,7 +640,7 @@ namespace Media.Rtp
             ArraySegment<byte> tables = default(ArraySegment<byte>);
             int offset = 0;
 
-            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, DataRestartInterval = 0;
+            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, RestartInterval = 0;
 
             using (System.IO.MemoryStream Buffer = new System.IO.MemoryStream())
             {
@@ -694,7 +694,7 @@ namespace Media.Rtp
                                |       Restart Interval        |F|L|       Restart Count       |
                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                              */
-                            DataRestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                            RestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
                             //offset++;
                             //offset++;
                         }
@@ -710,8 +710,8 @@ namespace Media.Rtp
                             //If Precision == 1 then this is a 16 bit table...
                             //Also each bit should be checked to determine the number of tables?
                             uint Precision = (uint)(packet.Payload[offset++]);
-                            //Might be more then 1 table...
-
+                            //Might be more then 1 table...                            
+                            //Determine by looking at each bit in Precision?
                             if (Precision > 0)
                             {
                                 //Not Supported
@@ -739,7 +739,7 @@ namespace Media.Rtp
                         //Write the header to the buffer if there are no Extensions
                         if (!packet.Extensions)
                         {                            
-                            byte[] header = CreateJFIFHeader(Type, Width, Height, tables, DataRestartInterval);
+                            byte[] header = CreateJFIFHeader(Type, Width, Height, tables, RestartInterval);
                             Buffer.Write(header, 0, header.Length);
                         }
 
@@ -762,8 +762,9 @@ namespace Media.Rtp
                 //Go back to the beginning
                 Buffer.Seek(0, System.IO.SeekOrigin.Begin);
 
-                //Needs a New Bitmap wrapped around the RFC Jpeg to allow the System To Export it (Something to do with the density and pixel stuff)
-                Image = System.Drawing.Image.FromStream(Buffer, false, true);
+                //This article explains in detail what exactly happens: Bitmap and Image constructor dependencies
+                //In short, for a lifetime of an Image constructed from a stream, the stream must not be destroyed.
+                Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, false, true));
             }
         }
 
@@ -775,8 +776,8 @@ namespace Media.Rtp
         {
             try
             {
-                if (Image == null) ProcessPackets();                
-                return new System.Drawing.Bitmap(Image);
+                if (Image == null) ProcessPackets();
+                return Image;
             }
             catch
             {
