@@ -7,6 +7,8 @@ namespace Media.Rtp
 {
     /// <summary>
     /// Implements RFC2435
+    /// http://www.w3.org/Graphics/JPEG/itu-t81.pdf - Spec
+    //  http://en.wikipedia.org/wiki/JPEG - Info
     /// </summary>
     public class JpegFrame : RtpFrame
     {
@@ -15,20 +17,132 @@ namespace Media.Rtp
 
         new public const byte PayloadType = 26;
 
-        static byte Prefix = 0xff;
+        const byte Prefix = 0xff;
+
+        const byte TextComment = 0xfe;
+
+        const byte StartOfFrame = 0xc0;
+
+        const byte HuffmanTable = 0xc4;
 
         const byte StartOfInformation = 0xd8;
 
+        const byte AppFirst = 0xe0;
+
+        const byte AppLast = 0xee;
+
         const byte EndOfInformation = 0xd9;
-        
+
+        const byte QuantizationTable = 0xdb;
+
+        const byte DataRestartInterval = 0xdd;
+
+        const byte StartOfScan = 0xda;
+
+        const byte EntroypEncodedScan = 0;
+
+        /// <summary>
+        /// Creates RST header for JPEG/RTP packet.
+        /// </summary>
+        /// <param name="dri">dri Restart interval - number of MCUs between restart markers</param>
+        /// <param name="f">f first bit (should be set to 1)</param>
+        /// <param name="l">l last bit (should be set to 1)</param>
+        /// <param name="count">count number of restart markers (should be set to 3FFF)</param>
+        /// <returns>Rst Marker</returns>
+        static byte[] CreateRtpDataRestartIntervalMarker(int dri, int f = 1, int l = 1, int count = 0x3FFF)
+        {
+            //     0                   1                   2                   3
+            //0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+            //+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            //|       Restart Interval        |F|L|       Restart Count       |
+            //+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+            byte[] data = new byte[4];
+            data[0] = (byte)((dri >> 8) & 0xFF);
+            data[1] = (byte)dri;
+            data[2] = (byte)((f & 1) << 7);
+            data[2] |= (byte)((l & 1) << 6);
+            data[2] |= (byte)((count >> 8 & 0xFF) & 0x3F);
+            data[3] = (byte)count;
+            return data;
+        }
+
+        static byte[] CreateRtpJpegHeader(uint typeSpecific, uint fragmentOffset, uint type, uint quality, uint width, uint height, byte[] dri, List<byte> qTables)
+        {
+            List<byte> RtpJpegHeader = new List<byte>();
+            RtpJpegHeader.Add((byte)typeSpecific);
+            
+            //Three bytes
+            RtpJpegHeader.Add(0);
+            RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)fragmentOffset)));
+
+            RtpJpegHeader.Add((byte)type);
+            RtpJpegHeader.Add((byte)quality);
+            RtpJpegHeader.Add((byte)(width / 8));
+            RtpJpegHeader.Add((byte)(height / 8));
+
+            //If this is the first packet and we have provided QTables then prepare them
+            if (fragmentOffset == 0 && qTables != null)
+            {
+                //First packet gets the RtpDataRestartIntervalMarker
+                if (dri != null)
+                {
+                    //RtpJpegHeader.AddRange(CreateRtpDataRestartIntervalMarker(dri));
+                    RtpJpegHeader.AddRange(dri);
+                }
+
+                //If the tables have been provided use them
+                if (qTables.Count > 0)
+                {
+                    RtpJpegHeader.Add(0); //Must Be Zero
+                    RtpJpegHeader.Add(0x00);//Precision (Only 8 Bit Supported)
+                    RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)qTables.Count)));
+                    RtpJpegHeader.AddRange(qTables);
+                }
+                else //Otherwise create new tables from the quality
+                {
+                    RtpJpegHeader.Add(0); //Must Be Zero
+                    RtpJpegHeader.Add(0x00);//Precision (ISO/IEC 10918-1 -> Shall be 0 for 8-Bit Samples)
+                    RtpJpegHeader.Add(0x00);//Length
+                    RtpJpegHeader.Add(0x80);//Length
+                    RtpJpegHeader.AddRange(CreateQuantizationTables(quality));
+                }
+            }
+
+            return RtpJpegHeader.ToArray();
+        }
+
+        //static void AddPacketToFrame(JpegFrame frame, ref RtpPacket packet, byte[] header, ushort fragmentOffset, ref int offset)
+        //{
+        //    //Add current packet
+        //    frame.AddPacket(packet);
+            
+        //    //Make next packet                                    
+        //    packet = new RtpPacket()
+        //    {
+        //        TimeStamp = packet.TimeStamp,
+        //        SequenceNumber = packet.SequenceNumber + 1,
+        //        SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier,
+        //        PayloadType = JpegFrame.PayloadType
+        //    };
+
+        //    //Correct FragmentOffset should be someting like (fragmentOffset - offset + header.Length) with respect to packets so far
+        //    BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)fragmentOffset)).CopyTo(header, 2);
+
+        //    //Copy header
+        //    header.CopyTo(packet.Payload, 0);
+
+        //    //Set offset in packet.Payload
+        //    offset = 8;
+        //}      
+
         static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, uint dri)
         {
             List<byte> result = new List<byte>();
             result.Add(Prefix);
             result.Add(StartOfInformation);
 
-            result.Add(0xff);
-            result.Add(0xe0);//AppFirst
+            result.Add(Prefix);
+            result.Add(AppFirst);//AppFirst
             result.Add(0x00);
             result.Add(0x10);//length
             result.Add((byte)'J'); //Always equals "JFXX" (with zero following) (0x4A46585800)
@@ -38,7 +152,7 @@ namespace Media.Rtp
             result.Add(0x00);
 
             result.Add(0x01);//Version Major
-            result.Add(0x01);//Version Minor
+            result.Add(0x02);//Version Minor
 
             result.Add(0x00);//Units
 
@@ -56,39 +170,41 @@ namespace Media.Rtp
                 result.AddRange(CreateDataRestartIntervalMarker(dri));
             }
 
+            //Quantization Tables
             result.AddRange(CreateQuantizationTablesMarker(tables));
-
-            result.Add(0xff);
-            result.Add(0xc0);//SOF
-            result.Add(0x00);
-            result.Add(0x11);
-            result.Add(0x08);
-            result.Add((byte)(height >> 8));
-            result.Add((byte)height);
-            result.Add((byte)(width >> 8));
-            result.Add((byte)width);
-            
-            result.Add(0x03);
-            result.Add(0x01);
-            result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Is Dri Present?
-            result.Add(0x00);
-
-            result.Add(0x02);
-            result.Add(0x11);
-            result.Add(0x01);
-
-            result.Add(0x03);
-            result.Add(0x11);
-            result.Add(0x01);
 
             //Huffman Tables
             result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
             result.AddRange(CreateHuffmanTableMarker(lum_ac_codelens, lum_ac_symbols, 0, 1));
             result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
             result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
+
+            //Start Of Frame
+            result.Add(Prefix);
+            result.Add(StartOfFrame);//SOF
+            result.Add(0x00); //Length
+            result.Add(0x11); // 17
+            result.Add(0x08); //Bits Per Component
+            result.Add((byte)(height >> 8)); //Height
+            result.Add((byte)height);
+            result.Add((byte)(width >> 8)); //Width
+            result.Add((byte)width);
             
-            result.Add(0xff);
-            result.Add(0xda);//Marker SOS
+            result.Add(0x03);//Number of components
+            result.Add(0x01);//Component Number
+            result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Horizontal or Vertical Sample
+            result.Add(0x00);//Matrix Number
+            result.Add(0x02);//Component Number
+            result.Add(0x11);//Horizontal or Vertical Sample
+            result.Add((byte)(tables.Count > 64 ? 1 : 0));//Matrix Number
+
+            result.Add(0x03);//Component Number
+            result.Add(0x11);//Horizontal or Vertical Sample
+            result.Add((byte)(tables.Count > 64 ? 1 : 0));//Matrix Number            
+            
+            //Start Of Scan
+            result.Add(Prefix);
+            result.Add(StartOfScan);//Marker SOS
             result.Add(0x00);
             result.Add(0x0c);
             result.Add(0x03);
@@ -160,12 +276,13 @@ namespace Media.Rtp
 
             //Luma
 
-            result.Add(0xff);
-            result.Add(0xdb);
+            result.Add(Prefix);
+            result.Add(QuantizationTable);
 
-            result.Add(0x00);
+            result.Add(0x00);//Length
             result.Add((byte)(tableSize + 3));
-            result.Add(0x00);
+
+            result.Add(0x00);//Type - Lumiance
 
             for (int i = 0, e = tableSize; i < e; ++i)
             {
@@ -174,12 +291,13 @@ namespace Media.Rtp
 
             //Chroma
 
-            result.Add(0xff);
-            result.Add(0xdb);
+            result.Add(Prefix);
+            result.Add(QuantizationTable);
 
-            result.Add(0x00);
+            result.Add(0x00);//Length
             result.Add((byte)(tableSize + 3));
-            result.Add(0x01);
+
+            result.Add(0x01);//Type - Chromiance
 
             for (int i = tableSize, e = tables.Count; i < e; ++i)
             {
@@ -265,20 +383,20 @@ namespace Media.Rtp
         static byte[] CreateHuffmanTableMarker(byte[] codeLens, byte[] symbols, int tableNo, int tableClass)
         {
             List<byte> result = new List<byte>();
-            result.Add(0xff);
-            result.Add(0xc4);
-            result.Add(0x00);
+            result.Add(Prefix);
+            result.Add(HuffmanTable);
+            result.Add(0x00); //Legnth
             result.Add((byte)(3 + codeLens.Length + symbols.Length));
-            result.Add((byte)((tableClass << 4) | tableNo));
-            result.AddRange(codeLens);
+            result.Add((byte)((tableClass << 4) | tableNo)); //Id
+            result.AddRange(codeLens);//Data
             result.AddRange(symbols);
             return result.ToArray();
         }
 
         static byte[] CreateDataRestartIntervalMarker(uint dri)
         {
-            return new byte[] { 0xff, 0xdd, 0x00, 0x04, (byte)(dri >> 8), (byte)(dri) };
-        }
+            return new byte[] { Prefix, DataRestartInterval, 0x00, 0x04, (byte)(dri >> 8), (byte)(dri) };
+        }        
 
         #endregion
 
@@ -290,281 +408,218 @@ namespace Media.Rtp
 
         /// <summary>
         /// Creates a JpegFrame from a System.Drawing.Image
-        /// Not Working. Still has some problems stripping tags.
+        /// System.Drawing.Imaging.ImageCodecInfo For System.Drawing.Imaging.ImageFormat.Jpeg is saving in 1.2 format with 16 bit q table which requires a different decoder and encoder
         /// </summary>
         /// <param name="source">The Image to create a JpegFrame from</param>
         public JpegFrame(System.Drawing.Image source, uint? quality = null, uint? ssrc = null, uint? sequenceNo = null) : this()
         {
             //Must calculate correctly the Type, Quality, FragmentOffset and Dri
-            uint TypeSpecific = 0, FragmentOffset = 0, Type = 0, Quality = quality ?? 25, Width = (uint)source.Width, Height = (uint)source.Height;
+            uint TypeSpecific = 0, Type = 0, Quality = quality ?? 25, Width = (uint)source.Width, Height = (uint)source.Height;
 
-            byte[] DataRestartInterval = null; List<byte> QTables = new List<byte>();
-            
+            byte[] RestartInterval = null; List<byte> QTables = new List<byte>();
+
+            //Get the Jpeg Codec Info
+            System.Drawing.Imaging.ImageCodecInfo codecInfo = System.Drawing.Imaging.ImageCodecInfo.GetImageDecoders().Where(d => d.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid).Single();
+
             //Save the image in Jpeg format and request the PropertyItems from the Jpeg format of the Image
             using(System.IO.MemoryStream temp = new System.IO.MemoryStream())
             {
-
-                System.Drawing.Imaging.ImageCodecInfo codecInfo = System.Drawing.Imaging.ImageCodecInfo.GetImageDecoders().Where(d => d.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid).Single();
-
-                //  Set the quality
-                System.Drawing.Imaging.EncoderParameters parameters = new System.Drawing.Imaging.EncoderParameters(4);                
+                //Create Encoder Parameters for the Jpeg Encoder
+                System.Drawing.Imaging.EncoderParameters parameters = new System.Drawing.Imaging.EncoderParameters(3);
+                // Set the quality
                 parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, Quality);
-                parameters.Param[1] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.ColorDepth, 8);
-                parameters.Param[2] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.RenderMethod, (int)System.Drawing.Imaging.EncoderValue.RenderNonProgressive);
-                parameters.Param[3] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.ScanMethod, (int)System.Drawing.Imaging.EncoderValue.ScanMethodInterlaced);
+                // Set the render method
+                parameters.Param[1] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.RenderMethod, (int)System.Drawing.Imaging.EncoderValue.RenderProgressive);
+                // Set the scan method
+                parameters.Param[2] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.ScanMethod, (int)System.Drawing.Imaging.EncoderValue.ScanMethodNonInterlaced);
                 
-                //Save the source to the temp stream
+                //Save the source to the temp stream using the jpeg coded and given encoder params
                 source.Save(temp, codecInfo, parameters);
 
                 //Enure at the beginning
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
-                //Get the Jpeg Ready
+                //Read the JPEG Back from the stream so it's pixel format is JPEG
                 Image = System.Drawing.Image.FromStream(temp);
 
-                //Determine if there are QTables and attemp to read them
+                //Determine if there are Quantization Tables which must be sent
                 if (Image.PropertyIdList.Contains(0x5090) && Image.PropertyIdList.Contains(0x5091))
                 {
-                    int f = 0;
-                    Quality = 128;
-                    try
-                    {
-                        temp.Seek(0, System.IO.SeekOrigin.Begin);
-
-                        Find:
-                        //Find the Quantization Tables Tag
-                        while (temp.ReadByte() != 0xDB)
-                        {
-
-                        }
-                        //Try to read the QTables                        
-                        byte m = (byte)temp.ReadByte(), l = (byte)temp.ReadByte();
-                        int len = m * 256 + l;
-                        
-                        temp.ReadByte(); //Table type
-
-                        byte[] table = new byte[len - 3];
-                        temp.Read(table, 0, len - 3);
-                        QTables.AddRange(table);
-                        f++;
-                        if (f < 2) goto Find;
-                    }
-                    catch
-                    {
-                        temp.Seek(0, System.IO.SeekOrigin.Begin);                        
-                    }
+                    //This is causing the QTables to be read on the reciever side
+                    Quality |= 128;
                 }
                 else
                 {
+                    //Values less than 128 cause QTables to be generated on reciever side
                     Quality = 127;
                 }
- 
+
+                //Determine if there is a DataRestartInterval
                 if (Image.PropertyIdList.Contains(0x0203))
                 {
-                    DataRestartInterval = Image.GetPropertyItem(0x0203).Value;
+                    RestartInterval = Image.GetPropertyItem(0x0203).Value;
+                    Type = 64;
                 }
-                
-                if (DataRestartInterval != null) Type = 64;
-                else Type = 63;                
+                else
+                {
+                    //DataRestartInterval = CreateRtpDataRestartIntervalMarker((int)temp.Length, 1, 1, 0x3fff);
+                    Type = 63;
+                }
 
                 int Tag, TagSize;
 
                 DateTime ts = DateTime.Now;
                 int sequenceNumber = (int)(sequenceNo ?? DateTime.Now.Ticks);
 
-                RtpPacket packet = new RtpPacket();
-                SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
-                packet.TimeStamp = (uint)Utility.DateTimeToNtp64(ts);
-                packet.SequenceNumber = sequenceNumber;
-                packet.PayloadType = JpegFrame.PayloadType;
+                //The current packet
+                RtpPacket currentPacket = new RtpPacket();
+                SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
+                currentPacket.TimeStamp = (uint)Utility.DateTimeToNtp64(ts);
+                currentPacket.SequenceNumber = sequenceNumber;
+                currentPacket.PayloadType = JpegFrame.PayloadType;
 
-                //Again 8 for divisors was too small... 4096 and larger can be supported just by changing that
-                byte[] RtpJpegHeader = new byte[] { (byte)(TypeSpecific), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(FragmentOffset), (byte)(Type), (byte)(Quality), (byte)(Width / 8), (byte)(Height / 8) };
+                //Where we are in the current packet
+                int currentPacketOffset = 0;
+
+                //A RtpJpegHeader which must be in the Payload of each Packet
+                byte[] RtpJpegHeader = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, null);
 
                 //Determine if we need to write OnVif Extension?
                 //if (Width > 2048 || Height > 4096)
                 //{
-                //packet.Extensions = true;
+                    //packet.Extensions = true;
                 //}
 
-                int at = 0;
-
-                RtpJpegHeader.CopyTo(packet.Payload, at);
-                FragmentOffset = (uint)(at = 8);
-
-                //Only the first packet has FragmentOffset = 0
-                RtpJpegHeader[3] = 8;
-
-                //Write the First Packets Data
-                {
-                    List<byte> FirstPacketData = new List<byte>();
-
-                    //Write the DataRestartInterval
-                    if (DataRestartInterval != null)
-                    {
-                        FirstPacketData.AddRange(DataRestartInterval);
-                    }
-
-                    FirstPacketData.Add(0x00);//MBZ (Must Be Zero)
-
-                    if (QTables != null)
-                    {
-                        //byte[] LTable = Image.GetPropertyItem(0x5090).Value;
-                        //byte[] CTable = Image.GetPropertyItem(0x5091).Value;
-                        //short length = (short)(LTable.Length + CTable.Length);
-                        FirstPacketData.Add(0x00);//Precision (should be read from QTables Tag)
-                        //FirstPacketData.AddRange(BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)length)));
-                        //FirstPacketData.AddRange(LTable); //(should be copied while reading QTables Tag)
-                        //FirstPacketData.AddRange(CTable);
-                        FirstPacketData.AddRange(BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)QTables.Count)));
-                        FirstPacketData.AddRange(QTables);
-                    }
-                    else
-                    {
-                        FirstPacketData.Add(0x00);//Precision (ISO/IEC 10918-1 -> Shall be 0 for 8-Bit Samples)
-                        FirstPacketData.Add(0x00);//Length
-                        FirstPacketData.Add(0x80);//Length
-                        FirstPacketData.AddRange(CreateQuantizationTables(Quality));
-                    }
-
-                    FirstPacketData.ToArray().CopyTo(packet.Payload, at);
-                    at += FirstPacketData.Count;
-                }
-
-                //Ensure at the begining (Might not need to since data was consumed to determine RtpJpegHeader)
+                //Ensure at the begining
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
-                //While we are not at the end of the jpeg data
+                //Find a Jpeg Tag
                 while ((Tag = temp.ReadByte()) != -1)
-                {
+                {                    
                     //If the prefix is a tag prefix then read another byte as the Tag
                     if (Tag == Prefix)
-                    {
-                        //We Found the Prefix
-                    PrefixFound:
+                    {                    
                         //Get the Tag
                         Tag = temp.ReadByte();
 
                         //If we are at the end break
                         if (Tag == -1) break;
-
-                        //http://www.w3.org/Graphics/JPEG/itu-t81.pdf
-                        //http://en.wikipedia.org/wiki/JPEG
+                        
                         //Determine What to do for each Tag
 
                         //Start and End Tag (No Length)
-                        if (Tag == StartOfInformation || Tag == EndOfInformation) continue;
-                        //Entropy Encoded Scan (No Length)
-                        else if (Tag == 0) 
+                        if (Tag == StartOfInformation || Tag == EndOfInformation)
                         {
-                            packet.Payload[at++] = Prefix;
-                            packet.Payload[at++] = (byte)Tag;
-                            
-                            //Write a value at a time until a Prefix Tag is found
-                            while ((Tag = temp.ReadByte()) != -1)
-                            {                                
-                                if (Tag == Prefix) goto PrefixFound;
-                                else packet.Payload[at++] = (byte)Tag;
-
-                                if (at >= Rtp.RtpPacket.MaxPayloadSize)
-                                {
-                                    //Add current packet
-                                    AddPacket(packet);
-
-                                    //Make next packet                                    
-                                    packet = new RtpPacket()
-                                    {
-                                        TimeStamp = packet.TimeStamp,
-                                        SequenceNumber = ++sequenceNumber,
-                                        SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier,
-                                        PayloadType = JpegFrame.PayloadType
-                                    };
-
-                                    //Correct FragmentOffset
-                                    BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)temp.Position)).CopyTo(RtpJpegHeader, 1);
-
-                                    //Copy header
-                                    RtpJpegHeader.CopyTo(packet.Payload, 0);
-
-                                    //Set offset in packet.Payload
-                                    at = 8;
-                                }
-                            }
-                        }
-                        // Removed Tags: APPFirst, Quantization Tables, Huffman Tables and Data Restart Interval, Text Comment, Start of Frame, Start of Scan and RST
-                        else if (Tag == 0xE0 || Tag == 0xDB || Tag == 0xC4 || Tag == 0xDD || Tag == 0xFE || Tag == 0xC0 || Tag == 0xDA || (Tag >= 0xD0 && Tag <= 0xD7))
-                        {
-                            //Read Length         
-                            TagSize = (byte)temp.ReadByte() * 256 + (byte)temp.ReadByte();
-
-                            //Seek past Tag contents
-                            temp.Seek(TagSize, System.IO.SeekOrigin.Current);
-
                             continue;
                         }
-                        // A Tag which is not Removed
+
+                        //Read Length Bytes
+                        byte h = (byte)temp.ReadByte(), l = (byte)temp.ReadByte();
+                        
+                        //Calculate Length   
+                        TagSize = h * 256 + l;
+
+                        //Correct Length
+                        TagSize -= 3;
+
+                        System.Diagnostics.Debug.WriteLine("Encountered Tag " + Tag.ToString("X2"));
+
+                        System.Diagnostics.Debug.WriteLine("Size " + TagSize.ToString());
+
+                        //QTables are copied
+                        if (Tag == QuantizationTable)
+                        {
+                            //byte Precision = (byte)temp.ReadByte();//Discard Precision
+                            //if (Precision != 0) throw new Exception("Only 8 Bit Precision is Supported");
+                            
+                            temp.ReadByte();//Discard Table Id
+                            byte[] table = new byte[TagSize];
+                            temp.Read(table, 0, TagSize);
+                            QTables.AddRange(table);
+                        }
+                        else if (Tag == DataRestartInterval) //RestartInterval is copied
+                        {
+                            //Make DRI?      
+                            //Type = 64;
+                            //RestartInterval = CreateRtpDataRestartIntervalMarker((int)temp.Length, 1, 1, 0x3fff);
+                        }
                         else
                         {
-                            //Write tag
-                            packet.Payload[at++] = Prefix;
-                            packet.Payload[at++] = (byte)Tag;
-
-                            //Read and Write Length
-                            TagSize = 256 * (packet.Payload[at++] = (byte)temp.ReadByte());
-                            TagSize += packet.Payload[at++] = (byte)temp.ReadByte();
-
-                            //Packet cannot fit the entire data of the tag
-                            //Should probably set Frament Offset correctly
-                            if (at + TagSize >= Rtp.RtpPacket.MaxPayloadSize)
-                            {
-                                int written = 0;
-                                while (written < TagSize)
-                                {
-                                    //Determine how much is left
-                                    int remaining = Rtp.RtpPacket.MaxPayloadSize - at;
-
-                                    //Write what we can fit
-                                    at += temp.Read(packet.Payload, at, remaining);
-
-                                    //Indicate how much was written
-                                    written += remaining;
-
-                                    //Add current packet
-                                    AddPacket(packet);
-
-                                    //Make next packet                                    
-                                    packet = new RtpPacket()
-                                    {
-                                        TimeStamp = packet.TimeStamp,
-                                        SequenceNumber = ++sequenceNumber,
-                                        SynchronizationSourceIdentifier = (uint)SynchronizationSourceIdentifier,
-                                        PayloadType = JpegFrame.PayloadType
-                                    };
-
-                                    //Correct FragmentOffset
-                                    BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)written)).CopyTo(RtpJpegHeader, 1);
-
-                                    //Copy header
-                                    RtpJpegHeader.CopyTo(packet.Payload, 0);
-
-                                    //Set offset in packet.Payload
-                                    at = 8;
-                                }
-                            }
-                            else
-                            {
-                                //Write tag data
-                                temp.Read(packet.Payload, at, TagSize);
-
-                                //Advance ofset in packet.Payload
-                                at += TagSize;
-                            }
+                            temp.Seek(TagSize, System.IO.SeekOrigin.Current);                            
                         }
+
+                        //Last Marker in Header before EntroypEncodedScan
+                        if (Tag == StartOfScan)  //Learned you can piggyback another scan right here if you wanted 
+                        {
+                            temp.ReadByte();//Discard Byte
+                            //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
+                            byte[] data = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, QTables);
+                            data.CopyTo(currentPacket.Payload, currentPacketOffset);
+                            currentPacketOffset += data.Length;
+                            goto EntroypEncodedScan;
+                        }
+
+                        continue;
+
+                    EntroypEncodedScan:
+                        System.Diagnostics.Debug.WriteLine("Writing EntroypEncodedScan Data");
+
+                        //Write a value at a time to the payload
+                        while (Tag != -1)
+                        {
+                            Tag = temp.ReadByte();
+
+                            //Look for EndOfInformation
+                            if (Tag == EndOfInformation && currentPacket.Payload[currentPacketOffset - 1] == Prefix)
+                            {
+                                //Erase last byte
+                                currentPacketOffset--;
+                                goto Done;
+                            }
+
+                            //Ensure it will fit
+                            if (currentPacketOffset >= Rtp.RtpPacket.MaxPayloadSize)
+                            {
+                                //Add current packet
+                                AddPacket(currentPacket);
+
+                                //Make next packet                                    
+                                currentPacket = new RtpPacket()
+                                {
+                                    TimeStamp = currentPacket.TimeStamp,
+                                    SequenceNumber = currentPacket.SequenceNumber + 1,
+                                    SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
+                                    PayloadType = JpegFrame.PayloadType
+                                };
+
+                                //Correct FragmentOffset should be someting like
+                                BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
+
+                                //Copy header
+                                RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
+
+                                //Set offset in packet.Payload
+                                currentPacketOffset = 8;
+                            }
+
+                            //Write next byte advancing currentPacketOffset
+                            currentPacket.Payload[currentPacketOffset++] = (byte)Tag;                            
+                        }
+                        
                     }
                 }
 
+            Done:
+
+                //Resize final packet if we have not used all available bytes
+                if (currentPacketOffset != Rtp.RtpPacket.MaxPayloadSize) {
+                    byte[] tempPayload = currentPacket.Payload;
+                    Array.Resize<byte>(ref tempPayload, currentPacketOffset);
+                    currentPacket.Payload = tempPayload;
+                }
+
                 //Add the final packet
-                AddPacket(packet);
+                AddPacket(currentPacket);
             }
 
             //Set the complete marker on the last packet
@@ -591,13 +646,16 @@ namespace Media.Rtp
             {
                 for (int i = 0, e = this.Packets.Count; i < e; ++i)
                 {
+                    //Get the packet
                     RtpPacket packet = this.Packets[i];
+                    //Payload starts at offset 0
+                    offset = 0;
 
                     //Handle Extension Headers
                     if (packet.Extensions)
                     {
                         //This could be OnVif extension
-                        //http://www.scribd.com/doc/50850591/225/JPEG-over-RTP
+                        //http://www.onvif.org/specs/stream/ONVIF-Streaming-Spec-v220.pdf
                         //Check in packet.m_ExtensionData
 
                         //Length in next two bytes
@@ -623,31 +681,57 @@ namespace Media.Rtp
                     //Only occur in the first packet
                     if (FragmentOffset == 0)
                     {
-                        if (Type > 63)
+                        if (Type >= 64 && Type <= 127)
                         {
+                            /*
+                               This header MUST be present immediately after the main JPEG header
+                               when using types 64-127.  It provides the additional information
+                               required to properly decode a data stream containing restart markers.
+
+                                0                   1                   2                   3
+                                0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                               |       Restart Interval        |F|L|       Restart Count       |
+                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                             */
                             DataRestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                            //offset++;
+                            //offset++;
                         }
 
+                        //If the quality > 127 there are usually Quantization Tables
                         if (Quality > 127)
                         {
                             if ((packet.Payload[offset++]) != 0)
                             {
                                 //Must be Zero is Not Zero
                             }
+
+                            //If Precision == 1 then this is a 16 bit table...
+                            //Also each bit should be checked to determine the number of tables?
                             uint Precision = (uint)(packet.Payload[offset++]);
                             //Might be more then 1 table...
+
+                            if (Precision > 0)
+                            {
+                                //Not Supported
+                            }
+
+                            //Length of all tables
                             uint Length = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+
+                            //If there is Table Data Read it
                             if (Length > 0)
                             {
                                 tables = new ArraySegment<byte>(packet.Payload, offset, (int)Length);
                                 offset += (int)Length;
                             }
-                            else
+                            else // Create it from the Quality
                             {
-                                tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
+                                tables = new ArraySegment<byte>(CreateQuantizationTables(Quality & 128));
                             }
                         }
-                        else
+                        else // Create from the Quality
                         {
                             tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
                         }
@@ -661,6 +745,7 @@ namespace Media.Rtp
 
                     }
 
+                    //Write the Payload data from the offset
                     Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
 
                 }
@@ -677,8 +762,8 @@ namespace Media.Rtp
                 //Go back to the beginning
                 Buffer.Seek(0, System.IO.SeekOrigin.Begin);
 
+                //Needs a New Bitmap wrapped around the RFC Jpeg to allow the System To Export it (Something to do with the density and pixel stuff)
                 Image = System.Drawing.Image.FromStream(Buffer, false, true);
-                //Should verify tables, dri or quality etc?
             }
         }
 
@@ -690,9 +775,8 @@ namespace Media.Rtp
         {
             try
             {
-                if (Image != null) return Image;
-                ProcessPackets();
-                return Image;
+                if (Image == null) ProcessPackets();                
+                return new System.Drawing.Bitmap(Image);
             }
             catch
             {
@@ -701,6 +785,7 @@ namespace Media.Rtp
         }
 
         public static implicit operator System.Drawing.Image(JpegFrame f) { return f.ToImage(); }
+
         public static implicit operator JpegFrame(System.Drawing.Image f) { return new JpegFrame(f); }
 
     }
