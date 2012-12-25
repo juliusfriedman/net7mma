@@ -221,9 +221,13 @@ a=mpeg4-esid:101");
         {            
 
             Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
+            using (System.Drawing.Image jpeg = f)
+            {
+                jpeg.Save("source.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            }
+
 
             Rtp.JpegFrame t = new Rtp.JpegFrame(f);
-
             using (System.Drawing.Image jpeg = t)
             {
                 jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
