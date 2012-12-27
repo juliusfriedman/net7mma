@@ -140,6 +140,7 @@ namespace Media.Sdp
                 {
                     SessionDescriptionLine parsed = SessionDescriptionLine.Parse(lines, ref lineIndex);
                     if (parsed != null) m_Lines.Add(parsed);
+                    else lineIndex++;
                 }
             }            
         }
@@ -300,6 +301,7 @@ namespace Media.Sdp
                 {
                     SessionDescriptionLine parsed = SessionDescriptionLine.Parse(sdpLines, ref index);
                     if (parsed != null) m_Lines.Add(parsed);
+                    else index++;
                 }
             }
         }

@@ -13,6 +13,7 @@ namespace Media
             TestJpegFrame();
             TestRtspMessage();
             TestSdp();
+            TestRtspClient();
             TestServer();
         }
 
@@ -34,6 +35,17 @@ namespace Media
 
             //Do some testing make them to bytes, reparse. Parse temples ... etc
 
+        }
+
+        static void TestRtspClient()
+        {
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
+            client.StartListening();
+            int frames = 0;
+            client.Client.RtpFrameCompleted += (sender, rtpFrame) => { Console.WriteLine("Got a Frame"); ++frames; };
+            Console.WriteLine("Waiting for frames...");
+            while (Console.ReadKey().Key != ConsoleKey.Q && frames < 30) { System.Threading.Thread.Yield(); }
+            Console.WriteLine("Exiting RtspClient Test");
         }
 
         static void TestRtpPackets()
