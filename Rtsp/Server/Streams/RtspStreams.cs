@@ -115,7 +115,8 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public override void Start()
         {
-            if (!Client.Connected && State == StreamState.Started)
+            State = StreamState.Started;
+            if (!Client.Connected)
             {
                 try
                 {
@@ -130,7 +131,6 @@ namespace Media.Rtsp.Server.Streams
                     throw;
                 }
                 RtpClient.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
-                State = StreamState.Started;
                 m_Started = DateTime.Now;
             }
         }

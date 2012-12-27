@@ -9,11 +9,11 @@ namespace Media.Rtp
     /// </summary>
     public class RtpPacket
     {
-        internal const int HeaderLength = 12;
+        internal const int RtpHeaderLength = 12;
 
-        internal const int MaxSize = 1500;
+        internal const int MaxPacketSize = 1500;
 
-        internal const int MaxPayloadSize = MaxSize - HeaderLength;
+        internal const int MaxPayloadSize = MaxPacketSize - RtpHeaderLength;
 
         #region Fields
 
@@ -97,12 +97,39 @@ namespace Media.Rtp
         /// <summary>
         /// The Extension Data of the RtpPacket
         /// </summary>
-        public byte[] ExtensionData { get { return m_ExtensionData; } set { m_ExtensionData = value; } }
+        public byte[] ExtensionData { get { return m_ExtensionData; } set { Extensions = value != null; m_ExtensionData = value; m_ExtensionLength = (ushort)value.Length; } }
+
+        /// <summary>
+        /// The Extension flags of the RtpPacket
+        /// </summary>
+        public ushort ExtensionFlags { get { return m_ExtensionFlags; } set { m_ExtensionFlags = value; } }
+
+        /// <summary>
+        /// Gets the ExtensionData of the RtpPacket including Flags and Length
+        /// </summary>
+        public byte[] ExtensionBytes
+        {
+            get
+            {
+
+                if (!Extensions) return null;
+
+                List<byte> result = new List<byte>();
+
+                result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionFlags)));
+
+                result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionLength)));
+
+                result.AddRange(m_ExtensionData);
+
+                return result.ToArray();
+            }
+        }
 
         /// <summary>
         /// The length of the packet in bytes
         /// </summary>
-        public int Length { get { return HeaderLength + (ContributingSources.Count * 4) + (ExtensionData != null ? ExtensionData.Length : 0) + (Payload != null ? Payload.Length : 0); } }
+        public int Length { get { return RtpHeaderLength + (ContributingSources.Count * 4) + (Extensions ? ExtensionBytes.Length : 0) + (Payload != null ? Payload.Length : 0); } }
 
         #endregion
 
@@ -113,7 +140,7 @@ namespace Media.Rtp
         public RtpPacket(ArraySegment<byte> packetReference)
         {
             //Ensure correct length
-            if (packetReference.Count <= HeaderLength) throw new ArgumentException("The packet does not conform to the RTP Protocol. Packets must exceed 12 Bytes.", "packet");
+            if (packetReference.Count <= RtpHeaderLength) throw new ArgumentException("The packet does not conform to the RTP Protocol. Packets must exceed 12 bytes in length.", "packetReference");
 
             //Could get $, RtpChannel, Len here for Tcp to make reciving better
 
@@ -171,7 +198,7 @@ namespace Media.Rtp
 
         #endregion
 
-        #region Methods
+        #region Methods        
 
         /// <summary>
         /// Encodes the RTPHeader and Payload into a RTPPacket

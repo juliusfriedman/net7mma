@@ -21,8 +21,16 @@ namespace Media.Rtp
 
         #region Properties
 
+        /// <summary>
+        /// Accesses a packet by SequenceNumber (should be uint to also allow for index?)
+        /// </summary>
+        /// <param name="SequenceNumber"></param>
+        /// <returns></returns>
         public RtpPacket this[int SequenceNumber] { get { return m_Packets[SequenceNumber]; } set { m_Packets[SequenceNumber] = value; } }
 
+        /// <summary>
+        /// The SynchronizationSourceIdentifier of All Packets Contained
+        /// </summary>
         public virtual uint SynchronizationSourceIdentifier
         {
             get { return m_Ssrc; }
@@ -37,15 +45,30 @@ namespace Media.Rtp
             }
         }
 
+        /// <summary>
+        /// The PayloadType of All Packets Contained
+        /// </summary>
         public virtual byte PayloadType { get { return m_PayloadType; } }
 
+        /// <summary>
+        /// The Timestamp of All Packets Contained
+        /// </summary>
         public virtual uint TimeStamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
 
+        /// <summary>
+        /// A List of All Packets Contained Sorted by SequenceNumber
+        /// </summary>
         public virtual List<RtpPacket> Packets { get { return m_Packets.Values.ToList(); } }
 
+        /// <summary>
+        /// Indicated if a Contained Packet has the Marker Bit Set
+        /// </summary>
         public virtual bool Complete { get; protected set; }
 
-        public virtual bool HasSequenceGaps { get { return !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
+        /// <summary>
+        /// Indicates if All Contained Packets are sequential
+        /// </summary>
+        public virtual bool IsMissingPackets { get { return !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
 
         #endregion
 
@@ -69,11 +92,15 @@ namespace Media.Rtp
 
         #region Methods
 
+        /// <summary>
+        /// Gets an enumerator of All Contained Packets at the time of the call
+        /// </summary>
+        /// <returns>A Yield around Packets</returns>
         public IEnumerator<RtpPacket> GetEnumerator()
-        {
-            foreach (var p in m_Packets)
+        {            
+            foreach (var p in Packets)
             {
-                yield return p.Value;
+                yield return p;
             }
         }
 
@@ -133,17 +160,20 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Combines the payload of all RtpPackets into a single byte array
+        /// Assembles the Frame by combining the ExtensionBytes and Payload of all RtpPackets into a single byte array (excluding the RtpHeader)
         /// </summary>
-        /// <returns>The byte array containing the payload of all packets in the frame</returns>
-        public virtual byte[] ToBytes()
+        /// <returns>The byte array containing the assembled frame</returns>
+        public virtual byte[] Assemble()
         {
             List<byte> result = new List<byte>();
             lock (m_Packets)
             {
                 foreach (RtpPacket packet in m_Packets.Values)
                 {
-                    if(packet.Extensions) result.AddRange(packet.ExtensionData);
+                    if (packet.Extensions)
+                    {
+                        result.AddRange(packet.ExtensionBytes);
+                    }
                     result.AddRange(packet.Payload);
                 }
             }

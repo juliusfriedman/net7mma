@@ -108,7 +108,7 @@ namespace Media.Rtp
                      m_RtcpChannel = 1;
 
         //Buffer for data
-        internal byte[] m_Buffer = new byte[RtpPacket.MaxSize];
+        internal byte[] m_Buffer = new byte[RtpPacket.MaxPacketSize];
 
         //How RtpTransport is taking place
         internal ProtocolType m_TransportProtocol;

@@ -661,19 +661,17 @@ namespace Media.Rtp
         /// </summary>
         internal void ProcessPackets()
         {
-            ArraySegment<byte> tables = default(ArraySegment<byte>);
-            int offset = 0;
-
             uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, RestartInterval = 0;
+            ArraySegment<byte> tables = default(ArraySegment<byte>);
 
+            //Using a new MemoryStream for a Buffer
             using (System.IO.MemoryStream Buffer = new System.IO.MemoryStream())
             {
-                for (int i = 0, e = this.Packets.Count; i < e; ++i)
+                //Loop each packet
+                this.Packets.ForEach(packet =>
                 {
-                    //Get the packet
-                    RtpPacket packet = this.Packets[i];
                     //Payload starts at offset 0
-                    offset = 0;
+                    int offset = 0;
 
                     //Handle Extension Headers
                     if (packet.Extensions)
@@ -693,8 +691,7 @@ namespace Media.Rtp
                         Buffer.Write(packet.Payload, offset + 4, len);
                     }
 
-                    //RtpJpeg Header
-
+                    //Decode RtpJpeg Header
                     TypeSpecific = (uint)(packet.Payload[offset++]);
                     FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
                     Type = (uint)(packet.Payload[offset++]); //&1 for type
@@ -762,7 +759,7 @@ namespace Media.Rtp
 
                         //Write the header to the buffer if there are no Extensions
                         if (!packet.Extensions)
-                        {                            
+                        {
                             byte[] header = CreateJFIFHeader(Type, Width, Height, tables, RestartInterval);
                             Buffer.Write(header, 0, header.Length);
                         }
@@ -771,8 +768,7 @@ namespace Media.Rtp
 
                     //Write the Payload data from the offset
                     Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
-
-                }
+                });
 
                 //Check for EOI Marker
                 Buffer.Seek(Buffer.Length - 2, System.IO.SeekOrigin.Begin);
