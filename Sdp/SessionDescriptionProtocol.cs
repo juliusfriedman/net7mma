@@ -138,7 +138,8 @@ namespace Media.Sdp
                 }
                 else
                 {
-                    m_Lines.Add(SessionDescriptionLine.Parse(lines, ref lineIndex));
+                    SessionDescriptionLine parsed = SessionDescriptionLine.Parse(lines, ref lineIndex);
+                    if (parsed != null) m_Lines.Add(parsed);
                 }
             }            
         }
@@ -297,7 +298,8 @@ namespace Media.Sdp
                 }
                 else
                 {
-                    m_Lines.Add(SessionDescriptionLine.Parse(sdpLines, ref index));
+                    SessionDescriptionLine parsed = SessionDescriptionLine.Parse(sdpLines, ref index);
+                    if (parsed != null) m_Lines.Add(parsed);
                 }
             }
         }
@@ -451,6 +453,9 @@ namespace Media.Sdp
             string sdpLine = sdpLines[index] = sdpLines[index].Trim();
 
             char type = sdpLine[0];
+
+            //Invalid Line
+            if (type == default(char)) return null;
 
             switch (type)
             {
