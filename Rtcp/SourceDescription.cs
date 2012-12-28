@@ -136,6 +136,15 @@ namespace Media.Rtcp
             : this(packet.Data, 0)
         {
             if (packet.PacketType != RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception("Invalid Packet Type");
+
+            //Read each Item...
+            int offset = 0;
+            while (offset < packet.Data.Length)
+            {
+                SourceDescriptionItem item = new SourceDescriptionItem(packet.Data, offset);
+                Items.Add(item);
+                offset += 2 + item.Length;
+            }
         }
 
         #endregion
@@ -143,6 +152,7 @@ namespace Media.Rtcp
         public RtcpPacket ToPacket()
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SourceDescription);
+            output.BlockCount = Items.Count;
             output.Data = ToBytes();
             return output;
         }

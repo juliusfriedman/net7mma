@@ -57,7 +57,7 @@ namespace Media.Rtsp
 
         public string SessionId { get { return m_SessionId; } internal set { m_SessionId = value; } }
 
-        public RtspRequest LastRequest { get { return m_LastRequest; } internal set { m_LastRequest = value; } }
+        public RtspRequest LastRequest { get { return m_LastRequest; } internal set { m_LastRequest = value; m_LastRtspRequestRecieved = DateTime.UtcNow; } }
 
         public Media.Sdp.SessionDescription SessionDescription { get { return m_SessionDescription; } internal set { m_SessionDescription = value; } }
 

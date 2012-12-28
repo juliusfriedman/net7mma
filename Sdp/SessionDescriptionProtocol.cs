@@ -426,6 +426,11 @@ namespace Media.Sdp
 
         internal void SetPart(int index, string value) { if(Parts.Count > index) Parts[index] = value; }
 
+        internal void EnsureParts(int count)
+        {
+            while (Parts.Count < count) Parts.Add(string.Empty);
+        }
+
         public SessionDescriptionLine(string key, char type)
         {
             Parts = new List<string>();
@@ -540,10 +545,7 @@ namespace Media.Sdp
                 Parts = new List<string>(owner.Replace("o=", string.Empty).Replace(SessionDescription.CRLF, string.Empty).Split(' '));
                 if (Parts.Count < 6)
                 {
-                    while (Parts.Count < 6)
-                    {
-                        Parts.Add(string.Empty);
-                    }
+                    EnsureParts(6);
                     Version++;
                 }
             }

@@ -746,7 +746,7 @@ namespace Media.Rtsp
             if (request.ContainsHeader(RtspHeaders.Session)) // Attempt to find existing session
             {
                 ci = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
-                if (ci == null) goto Response;
+                if (ci == null) goto HttpResponse;
             }
             else // Create a new session
             {
@@ -757,7 +757,7 @@ namespace Media.Rtsp
             //Process request
             ProcessRtspRequest(request, ci);
         
-        Response:
+        HttpResponse:
             //Use ci.LastResponse to send response
             RtspResponse response = ci != null && ci.m_LastResponse != null ? ci.m_LastResponse : new RtspResponse()
             {
@@ -774,6 +774,8 @@ namespace Media.Rtsp
             buffer = response.Encoding.GetBytes(Convert.ToBase64String(buffer));
 
             context.Response.AddHeader("Content-Length", buffer.Length.ToString());
+
+            context.Response.StatusCode = 200;
 
             context.Response.OutputStream.Write(buffer, 0, buffer.Length);
 
@@ -816,7 +818,6 @@ namespace Media.Rtsp
 
             //Synchronize the server and client
             session.LastRequest = request;
-            session.m_LastRtspRequestRecieved = DateTime.UtcNow;
 
             //Determine the handler for the request and process it
             switch (request.Method)
@@ -1061,6 +1062,7 @@ namespace Media.Rtsp
                     string [] channels = part.Split('-');
                     if (channels.Length > 1)
                     {
+                        //Might need to make the channels a list to support multiple streams in a single interleaved session
                         ci.m_RtpClient.m_RtpChannel = (byte)Convert.ToInt32(channels[0]);
                         ci.m_RtpClient.m_RtpChannel = (byte)Convert.ToInt32(channels[1]);
                     }
@@ -1090,7 +1092,7 @@ namespace Media.Rtsp
             else
             {
                 //The client requests Tcp
-                ci.InitializeRtp(Convert.ToInt32(ports[0]), Convert.ToInt32(ports[0]));
+                ci.InitializeRtp(Convert.ToInt32(ports[0]), Convert.ToInt32(ports[0])); //Port should be the same as the rtsp port?
                 returnTransportHeader = "RTP/AVP/TCP;unicast;client_port=" + clientPortDirective + ";server_port=" + ci.m_RtpClient.m_ServerRtpPort + ";mode=\"PLAY\";ssrc=" + ci.m_RtpClient.m_RtpSSRC;
             }
 
