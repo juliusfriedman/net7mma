@@ -31,6 +31,23 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspRequest : RtspMessage
     {
+        public static byte[] ToHttpBytes(RtspRequest request, int minorVersion = 0) 
+        {
+            byte[] messageBytes = messageBytes = request.Encoding.GetBytes(System.Convert.ToBase64String(request.ToBytes()));
+            
+            List<byte> result = new List<byte>();
+            
+            result.AddRange(System.Text.Encoding.UTF8.GetBytes("HTTP 1." + minorVersion.ToString() + "\r\n GET " + request.Location + "\r\n"));
+            result.AddRange(System.Text.Encoding.UTF8.GetBytes("Accept:application/x-rtsp-tunnelled \r\n"));
+            result.AddRange(System.Text.Encoding.UTF8.GetBytes("Pragma:no-cache \r\n"));
+            result.AddRange(System.Text.Encoding.UTF8.GetBytes("Cache-Control:no-cache \r\n"));
+            result.AddRange(System.Text.Encoding.UTF8.GetBytes("Content-Length:" + messageBytes.Length + "\r\n"));
+            result.AddRange(System.Text.Encoding.UTF8.GetBytes("\r\n\r\n"));
+            
+            result.AddRange(messageBytes);
+            
+            return result.ToArray();
+        }
 
         #region Propeties
 

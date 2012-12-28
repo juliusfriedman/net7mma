@@ -40,8 +40,10 @@ namespace Media.Rtp
         static int MAX_MISORDER = 100;
         static int MIN_SEQUENTIAL = 2;
 
+        //Rtsp over Http might require an new Socket, in that case existing would be null
         public static RtpClient Interleaved(Socket existing)
         {
+            //Should verify socket type is TCP
             return new RtpClient(existing);
         }
 

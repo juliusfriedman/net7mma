@@ -52,6 +52,19 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspResponse : RtspMessage
     {
+
+        public static RtspResponse FromHttpBytes(byte[] message)
+        {
+            //Get as string
+            string messageString = System.Text.Encoding.UTF8.GetString(message);
+            //SHOULD READ CONTENT LENGTH
+            //Find end of body
+            int indexOfBody = messageString.IndexOf("\r\n\r\n");
+            //Base64 Decode
+            byte[] base64decoded = System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(message, 0, message.Length - indexOfBody));
+            return new RtspResponse(base64decoded);
+        }
+
         #region Properties
 
         /// <summary>

@@ -105,6 +105,8 @@ namespace Media.Rtsp
 
         #region Properties
 
+        public RtspMethod LastMethod { get { return m_LastMethod; } }
+
         public ClientProtocol RtspProtocol { get { return m_RtspProtocol; } }
 
         /// <summary>
@@ -145,7 +147,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Indicates if the RtspListener is connected to the remote host
+        /// Indicates if the RtspClient is connected to the remote host
         /// </summary>
         public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Udp || m_RtspProtocol == ClientProtocol.Http; } }
 
@@ -177,12 +179,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The "seqno=" recieved with the play request.
         /// </summary>
-        //public int StreamStartSequenceNumber { get { return m_Seq; } }
-
-        /// <summary>
-        /// Increments and returns the current SequenceNumber
-        /// </summary>
-        internal int NextClientSequenceNumber { get { return ++m_CSeq; } }
+        //public int StreamStartSequenceNumber { get { return m_Seq; } }        
 
         /// <summary>
         /// Gets the SessionDescription provided by the server for the media at <see cref="Location"/>
@@ -292,13 +289,18 @@ namespace Media.Rtsp
 
         void NewRtspClient_OnResponse(RtspClient sender, RtspResponse response)
         {
-            m_Recieved += response.ToBytes().Length;
+            //m_Recieved += response.ToBytes().Length;
         }
 
         void NewRtspClient_OnRequest(RtspClient sender, RtspRequest request)
         {
-            m_Sent += request.ToBytes().Length;
+            //m_Sent += request.ToBytes().Length;
         }
+
+        /// <summary>
+        /// Increments and returns the current SequenceNumber
+        /// </summary>
+        internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
         public void StartListening()
         {
@@ -416,48 +418,15 @@ namespace Media.Rtsp
                     request.SetHeader(RtspHeaders.Session, m_SessionId);
                 }
 
-                request.CSeq = NextClientSequenceNumber;
+                request.CSeq = NextClientSequenceNumber();
 
                 m_LastMethod = request.Method;
 
-                byte[] buffer = request.ToBytes();
+                byte[] buffer = m_RtspProtocol == ClientProtocol.Http ? RtspRequest.ToHttpBytes(request) : request.ToBytes();
 
                 int rec;
 
-                if (m_RtspProtocol == ClientProtocol.Http)
-                {
-                    HttpWebRequest http = (HttpWebRequest)WebRequest.Create(Location);
-                    try
-                    {
-                        http.Method = "GET";
-                        http.Headers.Add("Accept:application/x-rtsp-tunnelled");
-                        http.Headers.Add("Pragma:no-cache");
-                        http.Headers.Add("Cache-Control:no-cache");
-                        http.ContentLength = buffer.Length;
-                        using (var requestStream = http.GetRequestStream())
-                        {
-                            buffer = request.Encoding.GetBytes(System.Convert.ToBase64String(buffer));
-                            requestStream.Write(buffer, 0, buffer.Length);
-                            m_Sent += buffer.Length;
-                            //m_Sent += httpOverhead;
-                            Requested(request);
-                            using (var str = http.GetResponse().GetResponseStream())
-                            {
-                                rec = str.Read(m_Buffer, 0, m_Buffer.Length);
-                                //Base64 decode in buffer
-                                RtspResponse resp = new RtspResponse(System.Convert.FromBase64String(request.Encoding.GetString(m_Buffer, 0, rec)));
-                                Received(resp);
-                                return resp;
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        ((IDisposable)http).Dispose();
-                        http = null;
-                    }
-                }
-                else if (m_RtspProtocol == ClientProtocol.Tcp)
+                if (m_RtspProtocol == ClientProtocol.Tcp || m_RtspProtocol == ClientProtocol.Http)
                 {
                     lock (m_RtspStream)
                     {
@@ -473,12 +442,14 @@ namespace Media.Rtsp
                     }
                 }
 
+                m_Sent += buffer.Length;
+
                 Requested(request);
 
 
             Rece:
                 rec = 0;
-                if (m_RtspProtocol == ClientProtocol.Tcp)
+                if (m_RtspProtocol == ClientProtocol.Tcp || m_RtspProtocol == ClientProtocol.Http )
                 {
                     lock (m_RtspStream)
                     {
@@ -497,8 +468,11 @@ namespace Media.Rtsp
                 {
                     try
                     {
-                        RtspResponse response = new RtspResponse(m_Buffer);
+                        RtspResponse response;
+                        if (m_RtspProtocol == ClientProtocol.Http) response = RtspResponse.FromHttpBytes(m_Buffer);
+                        else  response = new RtspResponse(m_Buffer);
                         Received(response);
+                        m_Recieved += rec;
                         return response;
                     }
                     catch (Rtsp.RtspMessage.RtspMessageException)
@@ -711,6 +685,7 @@ namespace Media.Rtsp
                     }
                 }
 
+                //THIS IS ALSO NOT IN ANY RFC
                 //Apparently some sources indicate TCP by not providing a SSRC.. this is usually provided in a later setup request on a control url provided but this is a shortcut
                 if (m_Ssrc == 0 && m_RtpProtocol != ProtocolType.Tcp)
                 {
@@ -729,8 +704,12 @@ namespace Media.Rtsp
 
                 //SSRC should not be 0, it has not been assigned we cannot recieve packets if this is happening
                 if (m_Ssrc != 0)
-                {                    
+                {
                     m_RtpClient.m_RtpSSRC = (uint)m_Ssrc;
+                }
+                else
+                {
+                    System.Diagnostics.Debugger.Break();
                 }
 
                 return response;
@@ -789,7 +768,7 @@ namespace Media.Rtsp
                 }
 
                 //Connect the RtpClient (should not call again...)
-                m_RtpClient.Connect();
+                //m_RtpClient.Connect();
 
                 //If there is a timeout ensure it gets utilized
                 if (m_RtspTimeout != 0 && m_Timer == null)
