@@ -711,9 +711,27 @@ namespace Media.Rtsp
                     }
                 }
 
-                m_RtpClient.Connect();
+                //Apparently some sources indicate TCP by not providing a SSRC.. this is usually provided in a later setup request on a control url provided but this is a shortcut
+                if (m_Ssrc == 0 && m_RtpProtocol != ProtocolType.Tcp)
+                {
+                    //THIS IS INDICATING A TCP Transport
+                    m_RtpProtocol = ProtocolType.Tcp;
 
-                m_RtpClient.m_RtpSSRC = (uint)m_Ssrc;
+                    m_RtpClient = RtpClient.Interleaved(m_RtspSocket);
+
+                    //Recurse call to ensure propper setup
+                    return SendSetup();
+                }
+                else
+                {
+                    m_RtpClient.Connect();
+                }
+
+                //SSRC should not be 0, it has not been assigned we cannot recieve packets if this is happening
+                if (m_Ssrc != 0)
+                {                    
+                    m_RtpClient.m_RtpSSRC = (uint)m_Ssrc;
+                }
 
                 return response;
             }
@@ -732,8 +750,8 @@ namespace Media.Rtsp
         public RtspResponse SendPlay(Uri location = null)
         {
             //SHould check if already listenign
-
-            //if(location != null && location.Scheme != Location.Scheme)
+            //Should send play for each MediaDescription control?
+            //Should verify scheme?
             try
             {
                 RtspRequest play = new RtspRequest(RtspMethod.PLAY, location ?? Location);
@@ -750,13 +768,13 @@ namespace Media.Rtsp
                 {
                     string[] pieces = rtpInfo.Split(',');
                     foreach (string piece in pieces)
-                    {
-                        if (piece.StartsWith("url="))
+                    {                        
+                        if (piece.Trim().StartsWith("url="))
                         {
                             //Location = new Uri(piece.Replace("url=", string.Empty));
                             m_RtspLocation = new Uri(piece.Replace("url=", string.Empty).Trim());
                         }
-                        else if (piece.StartsWith("seqno="))
+                        else if (piece.Trim().StartsWith("seqno="))
                         {
                             m_Seq = Convert.ToInt32(piece.Replace("seqno=", string.Empty).Trim());
                         }

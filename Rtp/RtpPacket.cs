@@ -221,7 +221,7 @@ namespace Media.Rtp
             result[0] = (byte)(result[0] | m_Csc & 0xff);
 
             //Add the PayloadType
-            result.Add((byte)( ((Marker ? 1 : 0) << 7) | PayloadType));
+            result.Add((byte)( ((Marker ? 1 : 0) << 7) | m_PayloadType));
 
             //Add the SequenceNumber
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_SequenceNumber)));
@@ -242,11 +242,7 @@ namespace Media.Rtp
             //Might not be required
             if (Extensions)
             {
-                result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionFlags)));
-
-                result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionLength)));
-
-                result.AddRange(m_ExtensionData);
+                result.AddRange(ExtensionBytes);
             }
 
             //Include the payload

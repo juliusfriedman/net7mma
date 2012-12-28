@@ -224,11 +224,7 @@ namespace Media.Sdp
 
             m_TimeDescriptions.ForEach(l => buffer.Append(l.ToString()));
 
-            if (m_MediaDescriptions.Count > 0)
-            {
-                foreach (MediaDescription mediaDescription in m_MediaDescriptions)
-                    buffer.Append(mediaDescription.ToString());
-            }
+            m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString()));
 
             //End of SDP
             buffer.Append(CRLF); 
@@ -423,9 +419,13 @@ namespace Media.Sdp
     /// </summary>
     public class SessionDescriptionLine
     {
-        public List<string> Parts;
-        public char Type;
-        
+        protected List<string> Parts;
+        public readonly char Type;
+
+        internal string GetPart(int index) { return Parts.Count > index ? Parts[index] : string.Empty; }
+
+        internal void SetPart(int index, string value) { if(Parts.Count > index) Parts[index] = value; }
+
         public SessionDescriptionLine(string key, char type)
         {
             Parts = new List<string>();
@@ -519,12 +519,12 @@ namespace Media.Sdp
         internal class SessionOriginatorLine : SessionDescriptionLine
         {
 
-            public string Username { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts[0] = value; } }
-            public string SessionId { get { return Parts.Count > 1 ? Parts[1] : string.Empty; } set { Parts[1] = value; } }
-            public long Version { get { return Parts.Count > 2 && Parts[2] != string.Empty ? long.Parse(Parts[2]) : 0; } set { Parts[2] = value.ToString(); } }
-            public string NetworkType { get { return Parts.Count > 3 ? Parts[3] : string.Empty; } set { Parts[3] = value; } }
-            public string AddressType { get { return Parts.Count > 4 ? Parts[4] : string.Empty; } set { Parts[4] = value; } }
-            public string Address { get { return Parts.Count > 5 ? Parts[5] : string.Empty; } set { Parts[5] = value; } }
+            public string Username { get { return GetPart(0); } set { SetPart(0, value); } }
+            public string SessionId { get { return GetPart(1); } set { SetPart(1, value); } }
+            public long Version { get { string part = GetPart(2); return part != string.Empty ? long.Parse(part) : 0; } set { SetPart(2, value.ToString()); } }
+            public string NetworkType { get { return GetPart(3); } set { SetPart(3, value); } }
+            public string AddressType { get { return GetPart(4); } set { SetPart(4, value); } }
+            public string Address { get { return GetPart(5); } set { SetPart(5, value); } }
 
             public SessionOriginatorLine()
                 : base(null, 'o')
@@ -746,9 +746,9 @@ namespace Media.Sdp
 
         internal class SessionConnectionLine : SessionDescriptionLine
         {
-            string NetworkType { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts[0] = value; } }
-            string AddressType { get { return Parts.Count > 1 ? Parts[1] : string.Empty; } set { Parts[1] = value; } }
-            string Address { get { return Parts.Count > 2 ? Parts[2] : string.Empty; } set { Parts[2] = value; } }
+            string NetworkType { get { return GetPart(0); } set { SetPart(0, value); } }
+            string AddressType { get { return GetPart(1); } set { SetPart(1, value); } }
+            string Address { get { return GetPart(2); } set { SetPart(2, value); } }
 
             public SessionConnectionLine()
                 : base(null, 'c')
