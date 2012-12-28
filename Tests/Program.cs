@@ -41,11 +41,13 @@ namespace Media
         {
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
             client.StartListening();
-            int frames = 0;
-            client.Client.RtpFrameCompleted += (sender, rtpFrame) => { Console.WriteLine("Got a Frame"); ++frames; };
-            Console.WriteLine("Waiting for frames...");
-            while (Console.ReadKey().Key != ConsoleKey.Q && frames < 30) { System.Threading.Thread.Yield(); }
+            int packets = 0;
+            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet"); ++packets; };
+            client.Client.RtcpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTCP packet"); };
+            Console.WriteLine("Waiting for packets...");
+            while (packets < 30) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
+            client.SendTeardown();
         }
 
         static void TestRtpPackets()
