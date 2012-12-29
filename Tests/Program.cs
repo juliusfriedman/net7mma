@@ -43,6 +43,7 @@ namespace Media
             client.StartListening();
             int packets = 0;
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet"); ++packets; };
+            client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame Complete = " + rtpFrame.Complete); };
             client.Client.RtcpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTCP packet"); };
             Console.WriteLine("Waiting for packets...");
             while (packets < 30) { System.Threading.Thread.Yield(); }
@@ -97,7 +98,7 @@ a=mpeg4-esid:101");
 
             //Get a few attributes
 
-            Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.ToString().Contains("mpeg4-iod")).FirstOrDefault();
+            Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p=>p.Contains("mpeg4-iod"))).FirstOrDefault();
 
             Sdp.SessionDescriptionLine connectionLine = sd.Lines.Where(l => l.Type == 'c').FirstOrDefault();
 

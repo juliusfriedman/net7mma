@@ -15,9 +15,9 @@ namespace Media.Rtcp
 
         public ReceiversReport(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
         
+        //Packet would have created property?
         public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { }
 
-        //Evidence suggests that there is differences is the values so this cannot inherit from senders reprot
         public ReceiversReport(byte[] packet, int offset) 
         {
             SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 0));

@@ -619,7 +619,7 @@ namespace Media.Rtsp
                     }
                     else
                     {
-                        m_SessionId = response[RtspHeaders.Session];
+                        m_SessionId = sessionHeader;
                         m_RtspTimeout = 60000;
                     }
 
@@ -647,12 +647,10 @@ namespace Media.Rtsp
                     }
                     else if(part.StartsWith("interleaved"))
                     {
+                        //Should only be for Tcp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
-                        m_RtpClient.m_RtpChannel = byte.Parse(channels[0]);
-                        m_RtpClient.RtpChannels.Add(m_RtpClient.m_RtpChannel);
-
-                        m_RtpClient.m_RtcpChannel = byte.Parse(channels[1]);
-                        m_RtpClient.RtcpChannels.Add(m_RtpClient.m_RtcpChannel);
+                        m_RtpClient.m_RtpChannels.Add(byte.Parse(channels[0]));
+                        m_RtpClient.m_RtcpChannels.Add(byte.Parse(channels[1]));
                     }
                     else if (part.StartsWith("server_port="))
                     {
@@ -695,7 +693,7 @@ namespace Media.Rtsp
                 }
 
                 //THIS IS ALSO NOT IN ANY RFC
-                //Apparently some sources indicate TCP by not providing a SSRC.. this is usually provided in a later setup request on a control url provided but this is a shortcut
+                //Apparently some sources indicate TCP by not providing a SSRC.. this is usually provided in a later setup request on a control url provided in a transport header but this is a shortcut
                 if (m_Ssrc == 0 && m_RtpProtocol != ProtocolType.Tcp)
                 {
                     //THIS IS INDICATING A TCP Transport
@@ -718,7 +716,7 @@ namespace Media.Rtsp
                 }
                 else
                 {
-                    System.Diagnostics.Debugger.Break();
+                    m_Ssrc = (int)m_RtpClient.m_RtpSSRC;
                 }
 
                 return response;

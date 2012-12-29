@@ -145,6 +145,10 @@ namespace Media.Sdp
             }            
         }
 
+        /// <summary>
+        /// Creates a copy of another SessionDescription
+        /// </summary>
+        /// <param name="other">The SessionDescription to copy</param>
         public SessionDescription(SessionDescription other)
         {
             Version = other.Version;
@@ -214,20 +218,26 @@ namespace Media.Sdp
             buffer.Append(m_SessionName.ToString());
 
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != 'b' && l.Type != 'a'))
+            {
                 buffer.Append(l.ToString());
+            }
 
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == 'b'))
+            {
                 buffer.Append(l.ToString());
+            }
 
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type == 'a'))
+            {
                 buffer.Append(l.ToString());
+            }
 
-            m_TimeDescriptions.ForEach(l => buffer.Append(l.ToString()));
+            m_TimeDescriptions.ForEach(td => buffer.Append(td.ToString()));
 
             m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString()));
 
             //End of SDP
-            buffer.Append(CRLF); 
+            buffer.Append(default(char) + CRLF); 
 
             return buffer.ToString();
         }
@@ -248,7 +258,12 @@ namespace Media.Sdp
         public string MediaProtocol { get; private set; }
         public int MediaFormat { get; private set; }
 
-        List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
+        //Maybe add a few Computed properties such as SampleRate
+        //OR
+        //Maybe add methods for Get rtpmap, fmtp etc
+
+        //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
+        internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
         #endregion
 
@@ -415,28 +430,38 @@ namespace Media.Sdp
     }
 
     /// <summary>
-    /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'
+    /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
     /// </summary>
     public class SessionDescriptionLine
     {
-        protected List<string> Parts;
         public readonly char Type;
+        
+        protected List<string> m_Parts;
 
-        internal string GetPart(int index) { return Parts.Count > index ? Parts[index] : string.Empty; }
+        public System.Collections.ObjectModel.ReadOnlyCollection<string> Parts { get { return m_Parts.AsReadOnly(); } }
 
-        internal void SetPart(int index, string value) { if(Parts.Count > index) Parts[index] = value; }
+        internal string GetPart(int index) { return m_Parts.Count > index ? m_Parts[index] : string.Empty; }
+
+        internal void SetPart(int index, string value) { if(m_Parts.Count > index) m_Parts[index] = value; }
 
         internal void EnsureParts(int count)
         {
-            while (Parts.Count < count) Parts.Add(string.Empty);
+            while (m_Parts.Count < count) m_Parts.Add(string.Empty);
         }
 
-        public SessionDescriptionLine(string key, char type)
+        /// <summary>
+        /// Constructs a new SessionDescriptionLine with the given type
+        /// <param name="type">The type of the line</param>
+        public SessionDescriptionLine(char type)
         {
-            Parts = new List<string>();
+            m_Parts = new List<string>();
             Type = type;
         }
 
+        /// <summary>
+        /// Parses and creates a SessionDescriptionLine from the given line
+        /// </summary>
+        /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
             if (line[1] != '=') throw new SessionDescriptionException("Invalid SessionDescriptionLine: \"" + line + "\"");
@@ -447,12 +472,16 @@ namespace Media.Sdp
             //a=<flag>
             //a=<name>:<value> where value = {...,...,...;x;y;z}
 
-            Parts = new List<string>(line.Remove(0, 2)/*.Replace("\"", string.Empty)*/.Split(new char[] { ';' }));
+            m_Parts = new List<string>(line.Remove(0, 2)/*.Replace("\"", string.Empty)*/.Split(new char[] { ';' }));
         }
 
+        /// <summary>
+        /// See returns
+        /// </summary>
+        /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
         public override string ToString()
         {
-            return new String(Type, 1) + '=' + string.Join(";", Parts.ToArray()) + SessionDescription.CRLF;
+            return new String(Type, 1) + '=' + string.Join(";", m_Parts.ToArray()) + SessionDescription.CRLF;
         }
 
         internal static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
@@ -487,21 +516,21 @@ namespace Media.Sdp
 
     #region Internal Line Types
    
-    namespace Lines
+    namespace /*Media.Sdp.*/Lines
     {
         internal class SessionVersionLine : SessionDescriptionLine
         {
 
-            public int Version { get { return Parts.Count > 0 ? int.Parse(Parts[0]) : 0; } set { Parts.Clear(); Parts.Add(value.ToString()); } }
+            public int Version { get { return m_Parts.Count > 0 ? int.Parse(m_Parts[0]) : 0; } set { m_Parts.Clear(); m_Parts.Add(value.ToString()); } }
 
             public SessionVersionLine(int version)
-                : base(null, 'v')
+                : base('v')
             {
                 Version = version;
             }
 
             public SessionVersionLine(string[] sdpLines, ref int index)
-                : base(null, 'v')
+                : base('v')
             {
                 try
                 {
@@ -511,7 +540,7 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("v=", string.Empty));
 
-                    Parts.Add(sdpLine);
+                    m_Parts.Add(sdpLine);
                 }
                 catch
                 {
@@ -526,15 +555,15 @@ namespace Media.Sdp
 
             public string Username { get { return GetPart(0); } set { SetPart(0, value); } }
             public string SessionId { get { return GetPart(1); } set { SetPart(1, value); } }
-            public long Version { get { string part = GetPart(2); return part != string.Empty ? long.Parse(part) : 0; } set { SetPart(2, value.ToString()); } }
+            public long Version { get { string part = GetPart(2); return !string.IsNullOrWhiteSpace(part) ? long.Parse(part) : 0; } set { SetPart(2, value.ToString()); } }
             public string NetworkType { get { return GetPart(3); } set { SetPart(3, value); } }
             public string AddressType { get { return GetPart(4); } set { SetPart(4, value); } }
             public string Address { get { return GetPart(5); } set { SetPart(5, value); } }
 
             public SessionOriginatorLine()
-                : base(null, 'o')
+                : base('o')
             {
-                while (Parts.Count < 6) Parts.Add(string.Empty);
+                while (m_Parts.Count < 6) m_Parts.Add(string.Empty);
                 Username = string.Empty;
                 Version = 1;
             }
@@ -542,8 +571,8 @@ namespace Media.Sdp
             public SessionOriginatorLine(string owner)
                 : this()
             {
-                Parts = new List<string>(owner.Replace("o=", string.Empty).Replace(SessionDescription.CRLF, string.Empty).Split(' '));
-                if (Parts.Count < 6)
+                m_Parts = new List<string>(owner.Replace("o=", string.Empty).Replace(SessionDescription.CRLF, string.Empty).Split(' '));
+                if (m_Parts.Count < 6)
                 {
                     EnsureParts(6);
                     Version++;
@@ -561,9 +590,9 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("o=", string.Empty));
 
-                    Parts = new List<string>(sdpLine.Split(' '));
+                    m_Parts = new List<string>(sdpLine.Split(' '));
 
-                    while (Parts.Count < 6) Parts.Add(string.Empty);
+                    while (m_Parts.Count < 6) m_Parts.Add(string.Empty);
                 }
                 catch
                 {
@@ -580,10 +609,10 @@ namespace Media.Sdp
 
         internal class SessionNameLine : SessionDescriptionLine
         {
-            public string SessionName { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts.Clear(); Parts.Add(value); } }
+            public string SessionName { get { return m_Parts.Count > 0 ? m_Parts[0] : string.Empty; } set { m_Parts.Clear(); m_Parts.Add(value); } }
 
             public SessionNameLine()
-                : base(null, 's')
+                : base('s')
             {
 
             }
@@ -605,7 +634,7 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("s=", string.Empty));
 
-                    Parts.Add(sdpLine);
+                    m_Parts.Add(sdpLine);
                 }
                 catch
                 {
@@ -621,10 +650,10 @@ namespace Media.Sdp
 
         internal class SessionPhoneLine : SessionDescriptionLine
         {
-            public string PhoneNumber { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts.Clear(); Parts.Add(value); } }
+            public string PhoneNumber { get { return m_Parts.Count > 0 ? m_Parts[0] : string.Empty; } set { m_Parts.Clear(); m_Parts.Add(value); } }
 
             public SessionPhoneLine()
-                : base(null, 'p')
+                : base('p')
             {
 
             }
@@ -646,7 +675,7 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("p=", string.Empty));
 
-                    Parts.Add(sdpLine);
+                    m_Parts.Add(sdpLine);
                 }
                 catch
                 {
@@ -662,10 +691,10 @@ namespace Media.Sdp
 
         internal class SessionEmailLine : SessionDescriptionLine
         {
-            public string Email { get { return Parts.Count > 0 ? Parts[0] : string.Empty; } set { Parts.Clear(); Parts.Add(value); } }
+            public string Email { get { return m_Parts.Count > 0 ? m_Parts[0] : string.Empty; } set { m_Parts.Clear(); m_Parts.Add(value); } }
 
             public SessionEmailLine()
-                : base(null, 'e')
+                : base('e')
             {
 
             }
@@ -687,7 +716,7 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("e=", string.Empty));
 
-                    Parts.Add(sdpLine);
+                    m_Parts.Add(sdpLine);
                 }
                 catch
                 {
@@ -704,10 +733,10 @@ namespace Media.Sdp
         internal class SessionUriLine : SessionDescriptionLine
         {
 
-            public Uri Location { get { return Parts.Count > 0 ? (new Uri(Parts[0])) : null; } set { Parts.Clear(); Parts.Add(value.ToString()); } }
+            public Uri Location { get { return m_Parts.Count > 0 ? (new Uri(m_Parts[0])) : null; } set { m_Parts.Clear(); m_Parts.Add(value.ToString()); } }
 
             public SessionUriLine()
-                : base(null, 'u')
+                : base('u')
             {
             }
 
@@ -734,7 +763,7 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("u=", string.Empty));
 
-                    Parts.Add(sdpLine);
+                    m_Parts.Add(sdpLine);
 
                     Location = new Uri(sdpLine);
                 }
@@ -753,7 +782,7 @@ namespace Media.Sdp
             string Address { get { return GetPart(2); } set { SetPart(2, value); } }
 
             public SessionConnectionLine()
-                : base(null, 'c')
+                : base('c')
             {
             }
 
@@ -768,9 +797,9 @@ namespace Media.Sdp
 
                     sdpLine = SessionDescription.CleanValue(sdpLine.Replace("c=", string.Empty));
 
-                    Parts.Add(sdpLine);
+                    m_Parts.Add(sdpLine);
 
-                    Parts = new List<string>(sdpLine.Split(' '));
+                    m_Parts = new List<string>(sdpLine.Split(' '));
                 }
                 catch
                 {
