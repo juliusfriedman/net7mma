@@ -130,7 +130,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     throw;
                 }
-                RtpClient.RtpFrameCompleted += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
+                RtpClient.RtpFrameChanged += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
                 m_Started = DateTime.Now;
             }
         }
@@ -143,7 +143,7 @@ namespace Media.Rtsp.Server.Streams
             if (Client.Listening)
             {
                 Client.StopListening();
-                RtpClient.RtpFrameCompleted -= Client_RtpFrameCompleted;
+                RtpClient.RtpFrameChanged -= Client_RtpFrameCompleted;
             }
             m_Started = null;
             State = StreamState.Stopped;

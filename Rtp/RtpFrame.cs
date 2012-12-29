@@ -159,9 +159,9 @@ namespace Media.Rtp
                 }
             }
             return removed;
-        }        
+        }
 
-        public virtual void RemoveAllPackets() { m_Packets.Clear(); }
+        public virtual void RemoveAllPackets() { lock (m_Packets) { m_Packets.Clear(); } }
 
         /// <summary>
         /// Assembles the Frame by combining the ExtensionBytes and Payload of all RtpPackets into a single byte array (excluding the RtpHeader)

@@ -84,7 +84,7 @@ namespace Media.Rtp
                      m_RtpPacketsSent, m_RtcpPacketsSent,
                      m_RtpPacketsReceieved, m_RtcpPacketsReceieved;
 
-        //Used for Rtp and Rtcp Transport Calculations
+        //Used for Rtp and Rtcp Transport Calculations (Could make into a nice little class called Statistics? and do incremeting etc there)
         internal uint m_RtpTransit,
             //Count of bytes recieved prior to the reception of a report
             m_RtpReceivedPrior,
@@ -104,10 +104,6 @@ namespace Media.Rtp
             m_RtpSSRC,
             //Jitter value
             m_RtpJitter;
-
-        //Channels for sending and recieving data
-        internal byte m_RtpChannel = 0,
-                     m_RtcpChannel = 1;
 
         //Buffer for data
         internal byte[] m_Buffer = new byte[RtpPacket.MaxPacketSize];
@@ -143,16 +139,18 @@ namespace Media.Rtp
         //Recieved from SourceDescription...
         internal string m_CName;
 
+        //Channels for sending and receiving
+        internal List<byte> m_RtpChannels = new List<byte>(), m_RtcpChannels = new List<byte>();
+
         //Only Udp needs them and for multicasting or for other applications besides this
         //internal List<IPEndPoint> m_Participants;
+        //Would need to loop and perform a SendTo and RecieveFrom in Udp and ensure EndPoints match
 
-        //Would also need events ParticipantAdded etc
+        //Would also probably need events ParticipantAdded etc
 
         #endregion
 
         #region Events
-
-        //Might need channel based events
 
         public delegate void RtpPacketHandler(RtpClient sender, RtpPacket packet);
         public delegate void RtcpPacketHandler(RtpClient sender, RtcpPacket packet);
@@ -160,9 +158,9 @@ namespace Media.Rtp
 
         public event RtpPacketHandler RtpPacketReceieved;
         public event RtcpPacketHandler RtcpPacketReceieved;
-        public event RtpFrameHandler RtpFrameCompleted;
+        public event RtpFrameHandler RtpFrameChanged;
 
-        internal virtual void RtpClient_RtpFrameCompleted(RtpClient sender, RtpFrame frame)
+        internal virtual void RtpClient_RtpFrameChanged(RtpClient sender, RtpFrame frame)
         {
             //No Op
             //Here events are to be hooked to get new frames
@@ -177,7 +175,7 @@ namespace Media.Rtp
             {
                 if (m_LastRtpPacket == null) return;
                 //http://www.freesoft.org/CIE/RFC/1889/19.htm
-                m_LastRecieversReportRecieved = DateTime.UtcNow;
+                m_LastRecieversReportRecieved = DateTime.UtcNow; //Packet has Created Property
                 m_LastRecieversReport = new ReceiversReport(packet);
                 SendSendersReport();
             }
@@ -186,7 +184,7 @@ namespace Media.Rtp
                 //Ensure source streams recieve Rtcp
                 m_LastSendersReportRecieved = DateTime.UtcNow;
                 //m_LastSendersReport = new SendersReport(packet);
-                //SendReceiverssReport();//Should be scheduled...
+                //SendReceiverssReport();//Should be scheduled... (Timer to be precise or use Timespan and calulate in SendReceive)
             }
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription)
             {
@@ -203,7 +201,7 @@ namespace Media.Rtp
             {
                 //Maybe the server should be aware when this happens?
                 m_RtcpGoodbyeRecieved = true;
-                Disconnect();
+                Disconnect(); //Should take channel?
             }
         }
 
@@ -228,11 +226,14 @@ namespace Media.Rtp
             {
                 m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
             }
-            else if (m_CurrentFrame.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier) // New Frame without Marker?
+            else if (m_CurrentFrame.TimeStamp != packet.TimeStamp) // New Frame without Marker?
             {
                 m_LastFrame = m_CurrentFrame;
-                //Might require an OnFrameChanged (which might supercede RtpFrameCompleted)
+                
                 m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+
+                //Fire the event
+                RtpFrameChanged(this, m_LastFrame);
             }
 
             //Add the packet to the current frame
@@ -248,7 +249,7 @@ namespace Media.Rtp
                 m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
                 
                 //Fire the event
-                RtpFrameCompleted(this, m_LastFrame);
+                RtpFrameChanged(this, m_LastFrame);
             }
             else if (m_CurrentFrame.Count > 60)
             {
@@ -279,9 +280,9 @@ namespace Media.Rtp
         /// Raises the RtpFrameHandler for the given frame
         /// </summary>
         /// <param name="frame">The frame to raise the RtpFrameHandler with</param>
-        internal void OnRtpFrameCompleted(RtpFrame frame)
+        internal void OnRtpFrameChanged(RtpFrame frame)
         {
-            RtpFrameCompleted(this, frame);
+            RtpFrameChanged(this, frame);
         }
 
         #endregion
@@ -295,14 +296,6 @@ namespace Media.Rtp
         public int RtpBytesReceieved { get { return m_RtpRecieved; } }
 
         public List<RtcpPacket> SentRtcpPackets  {get { return m_RtcpPacketSendLog;} }
-
-        //Might need to be lists
-        public List<byte> RtpChannels = new List<byte>();
-        public List<byte> RtcpChannels = new List<byte>();
-
-        public byte RtpChannel { get { return m_RtpChannel; } set { m_RtpChannel = value; } }
-
-        public byte RtcpChannel { get { return m_RtcpChannel; } set { m_RtcpChannel = value; } }
 
         public int RtcpPacketsSent { get { return m_RtcpPacketsSent; } }
 
@@ -331,7 +324,7 @@ namespace Media.Rtp
         {
             RtpPacketReceieved += new RtpPacketHandler(RtpClient_RtpPacketReceieved);
             RtcpPacketReceieved += new RtcpPacketHandler(RtpClient_RtcpPacketReceieved);
-            RtpFrameCompleted += new RtpFrameHandler(RtpClient_RtpFrameCompleted);
+            RtpFrameChanged += new RtpFrameHandler(RtpClient_RtpFrameChanged);
         }
 
         /// <summary>
@@ -377,9 +370,9 @@ namespace Media.Rtp
             m_TransportProtocol = ProtocolType.Udp;
 
             //Create a ssrc
-            m_RtpSSRC = (uint)rtpPort;// Guaranteed to be unique per session
+            m_RtpSSRC = (uint)(DateTime.Now.Ticks ^ rtpPort);// Guaranteed to be unique per session
 
-            //Non interleaved over udp required two sockets ...... could do with just one
+            //Non interleaved over udp required two sockets for ease ...... could do with just one
             m_RtpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             
@@ -406,7 +399,7 @@ namespace Media.Rtp
             m_TransportProtocol = existing.ProtocolType;
             m_RtpSocket = m_RtcpSocket = existing;
             //Create a ssrc
-            m_RtpSSRC = (uint)existing.Handle << 32;// Guaranteed to be unique per session
+            m_RtpSSRC = (uint)(DateTime.Now.Ticks ^ existing.Handle.ToInt64());// Guaranteed to be unique per session
         }
 
         //Calls disconnect and removes listeners
@@ -414,7 +407,7 @@ namespace Media.Rtp
         {
             RtpPacketReceieved -= new RtpPacketHandler(RtpClient_RtpPacketReceieved);
             RtcpPacketReceieved -= new RtcpPacketHandler(RtpClient_RtcpPacketReceieved);
-            RtpFrameCompleted -= new RtpFrameHandler(RtpClient_RtpFrameCompleted);
+            RtpFrameChanged -= new RtpFrameHandler(RtpClient_RtpFrameChanged);
             Disconnect();
         }
 
@@ -423,6 +416,8 @@ namespace Media.Rtp
         #region Methods
 
         #region Rtcp
+
+        internal void AddRtcpChannel(byte channel) { if (m_RtcpChannels.Contains(channel)) return; m_RtcpChannels.Add(channel); }
 
         /// <summary>
         /// Sends a bye to the Rtcp port of the connected client
@@ -525,7 +520,7 @@ namespace Media.Rtp
         /// <param name="packet">The RtcpPacket to send</param>
         public void SendRtcpPacket(RtcpPacket packet, byte? channel = null)
         {
-            int sent = SendData(packet.ToBytes(), channel ?? RtcpChannels.First());
+            int sent = SendData(packet.ToBytes(), channel ?? m_RtcpChannels.First());
             if (sent > 0)
             {
                 m_RtcpSent += sent;
@@ -537,6 +532,8 @@ namespace Media.Rtp
         #endregion
 
         #region Rtp
+
+        internal void AddRtpChannel(byte channel) { if (m_RtpChannels.Contains(channel)) return; m_RtpChannels.Add(channel); }
 
         /// <summary>
         /// Calculates RTP Interarrival Jitter as specified in RFC 3550 6.4.1.
@@ -649,7 +646,7 @@ namespace Media.Rtp
         /// <param name="packet">The RtpPacket to send</param>
         public void SendRtpPacket(RtpPacket packet, byte? channel = null)
         {
-            int sent = SendData(packet.ToBytes(m_RtpSSRC), channel ?? RtpChannels.First());
+            int sent = SendData(packet.ToBytes(m_RtpSSRC), channel ?? m_RtpChannels.First());
             if (sent > 0)
             {
                 m_RtpSent += sent;
@@ -687,6 +684,10 @@ namespace Media.Rtp
                 }
             }
 
+            //Add default channels
+            if (m_RtpChannels.Count == 0) m_RtpChannels.Add(0);
+            if (m_RtcpChannels.Count == 0) m_RtpChannels.Add(1);
+
             //Create the workers thread and start it.
             m_WorkerThread = new Thread(new ThreadStart(SendRecieve));
             m_WorkerThread.Name = "RtpClient-" + m_RtpSSRC;
@@ -721,13 +722,16 @@ namespace Media.Rtp
                 }
 
                 //Attempt to join and if not abort the worker
-                if (!m_WorkerThread.Join(1000)) m_WorkerThread.Abort();
+                if (!m_WorkerThread.Join(1000))
+                {
+                    m_WorkerThread.Abort();
+                }
                 m_WorkerThread = null;
             }            
             //Empty buffers
             m_RtpPackets.Clear();
             m_RtcpPackets.Clear();
-            
+
             //Reset Counters
             m_RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
             m_RtpSeqCycles = 0;
@@ -748,7 +752,7 @@ namespace Media.Rtp
                 Socket socket;
                 int rec = 0;
                 //if (channel == m_RtpChannel) socket = m_RtpSocket;
-                if (RtpChannels.Contains(channel)) socket = m_RtpSocket;
+                if (m_RtpChannels.Contains(channel)) socket = m_RtpSocket;
                 else socket = m_RtcpSocket;
                 //If there are bytes to recieved
                 if (socket == null || socket.Available <= 0) return rec;
@@ -758,14 +762,14 @@ namespace Media.Rtp
                     rec += socket.Receive(m_Buffer);
 
                     //if (channel == m_RtpChannel)
-                    if(RtpChannels.Contains(channel))
+                    if(m_RtpChannels.Contains(channel))
                     {
                         RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, rec));
                         packet.Channel = channel;
                         OnRtpPacketReceieved(packet);
                         return rec;
                     }
-                    else if (RtcpChannels.Contains(channel))
+                    else if (m_RtcpChannels.Contains(channel))
                     {
                         foreach (RtcpPacket p in RtcpPacket.GetPackets(m_Buffer))
                         {
@@ -780,7 +784,7 @@ namespace Media.Rtp
                 {
                     if (socket.Available > 0)
                     {
-                        //For Tcp we must recieve the frame
+                        //For Tcp we must recieve the frame header
                         rec = socket.Receive(m_Buffer, 4, SocketFlags.None);
                     }
 
@@ -791,13 +795,13 @@ namespace Media.Rtp
                         return rec;
                     }
 
-                    byte rtpChannel = m_Buffer[1];
+                    byte rtpChannel = m_Buffer[1]; // Should equal channel?
 
                     //If the channel is not recognized
                     //if (rtpChannel != m_RtcpChannel && rtpChannel != m_RtpChannel)
-                    if (!(RtpChannels.Contains(rtpChannel) || RtcpChannels.Contains(rtpChannel)))
+                    if (!(m_RtpChannels.Contains(rtpChannel) || m_RtcpChannels.Contains(rtpChannel)))
                     {
-                        //This is probably a RtspMessage indicate we read 4 bytes
+                        //This is probably a RtspMessage indicate we read 4 bytes (should be Rtsp ...)
                         return rec;
                     }
 
@@ -811,14 +815,14 @@ namespace Media.Rtp
                     }
 
                     //if (rtpChannel == m_RtpChannel)
-                    if(RtpChannels.Contains(rtpChannel))
+                    if(m_RtpChannels.Contains(rtpChannel))
                     {
                         RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, length));
                         packet.Channel = rtpChannel;
                         OnRtpPacketReceieved(packet);
                         return rec;
                     }
-                    else if (RtcpChannels.Contains(rtpChannel))
+                    else if (m_RtcpChannels.Contains(rtpChannel))
                     {
                         //Add all packs in the m_Buffer to the storage
                         foreach (RtcpPacket p in RtcpPacket.GetPackets(m_Buffer))
@@ -857,7 +861,7 @@ namespace Media.Rtp
                 //Under Udp we can send the packet verbatim
                 if (m_TransportProtocol == ProtocolType.Udp)
                 {
-                    if (channel == m_RtcpChannel)
+                    if (m_RtcpChannels.Contains(channel))
                     {
                         sent = m_RtcpSocket.SendTo(data, m_RemoteRtcp);
                     }
@@ -913,7 +917,7 @@ namespace Media.Rtp
                         foreach (RtpPacket p in toSend)
                         {
                             ++m_RtpPacketsSent;
-                            SendRtpPacket(p, p.Channel ?? RtpChannels.First());
+                            SendRtpPacket(p, p.Channel ?? m_RtpChannels.First());
                         }
                         toSend = null;
                     }
@@ -925,7 +929,7 @@ namespace Media.Rtp
                     int rec = 0;
 
                     //Recieve any incoming RtpPackets
-                    RtpChannels.ForEach(c => rec += RecieveData(c));
+                    m_RtpChannels.ForEach(c => rec += RecieveData(c));
                     //rec = RecieveData(m_RtpChannel);
 
                     if (rec > 0)
@@ -937,7 +941,7 @@ namespace Media.Rtp
 
                     //Recieve any incoming RtcpPackets
 
-                    RtcpChannels.ForEach(c => rec += RecieveData(c));
+                    m_RtcpChannels.ForEach(c => rec += RecieveData(c));
                     //rec = RecieveData(m_RtcpChannel);
                     
                     if (rec > 0)

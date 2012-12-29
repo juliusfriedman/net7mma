@@ -66,12 +66,16 @@ namespace Media.Rtcp
         /// </summary>
         public byte? Channel { get; set; }
 
+        public DateTime? Created {get; set;}
+
         #endregion
 
         #region Constructor
 
         public RtcpPacket(ArraySegment<byte> packetReference, int offset = 0)
         {
+            Created = DateTime.UtcNow;
+
             //Get version
             m_Version = packetReference.Array[offset + 0] >> 6; ;
             m_Padding = (0x1 & (packetReference.Array[offset + 0] >> 5));
@@ -91,29 +95,7 @@ namespace Media.Rtcp
 
         }
 
-        public RtcpPacket(byte[] packet, int offset = 0)
-        {
-            if (offset < 0 || offset > packet.Length) throw new ArgumentOutOfRangeException("offset", "Must be greater than 0 and less than the length of the packet");
-
-            //Get version
-            m_Version = packet[offset + 0] >> 6; ;
-            m_Padding = (0x1 & (packet[offset + 0] >> 5));
-
-            //Count
-            m_Count = packet[offset + 0] & 0x1F;
-
-            //Type
-            m_Type = packet[offset + 1];
-
-            //Length
-            m_Length = (short)(packet[offset + 2] << 8 | packet[offset + 3]);
-
-            //Extract Data
-            m_Data = new byte[Length];
-
-            Array.Copy(packet, offset + 4, m_Data, 0, Length);
-
-        }
+        public RtcpPacket(byte[] packet, int offset = 0) : this(new ArraySegment<byte>(packet, offset, packet.Length - offset)) { }
 
         public RtcpPacket(RtcpPacketType type)
         {

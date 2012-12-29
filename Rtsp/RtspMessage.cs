@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Net;
-using System.Text.RegularExpressions;
 
 namespace Media.Rtsp
 {
@@ -45,6 +43,14 @@ namespace Media.Rtsp
 
         private RtspHeaders() { }
 
+        //Add other helpers
+
+        //Ensure this format is correct
+        public static string NptRange(TimeSpan start, TimeSpan end)
+        {
+            return "npt=" + start.TotalSeconds + '.' + start.TotalMilliseconds + '-' + end.TotalSeconds + '.' + end.TotalMilliseconds;
+        }
+
     }
 
     /// <summary>
@@ -62,7 +68,6 @@ namespace Media.Rtsp
     /// </summary>
     public abstract class RtspMessage
     {
-
         #region Nested Types
 
         /// <summary>
