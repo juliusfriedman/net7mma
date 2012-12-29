@@ -222,7 +222,16 @@ namespace Media.Rtp
             UpdateJitter(packet);
 
             //If we have not allocatd a frame allocte it
-            if (m_CurrentFrame == null) m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+            if (m_CurrentFrame == null)
+            {
+                m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+            }
+            else if (m_CurrentFrame.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier) // New Frame without Marker?
+            {
+                m_LastFrame = m_CurrentFrame;
+                //Might require an OnFrameChanged (which might supercede RtpFrameCompleted)
+                m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+            }
 
             //Add the packet to the current frame
             m_CurrentFrame.AddPacket(packet);
@@ -238,6 +247,11 @@ namespace Media.Rtp
                 
                 //Fire the event
                 RtpFrameCompleted(this, m_LastFrame);
+            }
+            else if (m_CurrentFrame.Count > 60)
+            {
+                //Backup of frames
+                m_CurrentFrame.RemoveAllPackets();
             }
         }
 
