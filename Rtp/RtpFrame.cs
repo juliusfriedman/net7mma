@@ -70,6 +70,8 @@ namespace Media.Rtp
         /// </summary>
         public virtual bool IsMissingPackets { get { return !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
 
+        public int Count { get { return m_Packets.Count; } }
+
         #endregion
 
         #region Constructor
@@ -157,7 +159,9 @@ namespace Media.Rtp
                 }
             }
             return removed;
-        }
+        }        
+
+        public virtual void RemoveAllPackets() { m_Packets.Clear(); }
 
         /// <summary>
         /// Assembles the Frame by combining the ExtensionBytes and Payload of all RtpPackets into a single byte array (excluding the RtpHeader)
