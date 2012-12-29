@@ -1064,7 +1064,10 @@ namespace Media.Rtsp
                     {
                         //Might need to make the channels a list to support multiple streams in a single interleaved session
                         ci.m_RtpClient.m_RtpChannel = (byte)Convert.ToInt32(channels[0]);
-                        ci.m_RtpClient.m_RtpChannel = (byte)Convert.ToInt32(channels[1]);
+                        ci.m_RtpClient.RtpChannels.Add(ci.m_RtpClient.m_RtpChannel);
+
+                        ci.m_RtpClient.m_RtcpChannel = (byte)Convert.ToInt32(channels[1]);
+                        ci.m_RtpClient.RtcpChannels.Add(ci.m_RtpClient.m_RtcpChannel);
                     }
                 }
                 else if (part.StartsWith("client_port="))

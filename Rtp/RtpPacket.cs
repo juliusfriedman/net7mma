@@ -131,16 +131,28 @@ namespace Media.Rtp
         /// </summary>
         public int Length { get { return RtpHeaderLength + (ContributingSources.Count * 4) + (Extensions ? ExtensionBytes.Length : 0) + (Payload != null ? Payload.Length : 0); } }
 
+        /// <summary>
+        /// The channel to send the RtpPacket on or the channel it was received from
+        /// </summary>
+        public byte? Channel { get; set;}
+
+        /// <summary>
+        /// The time the packet instance was created
+        /// </summary>
+        public DateTime? Created { get; set; }
+
         #endregion
 
         #region Constructor
 
-        public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; }
+        public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; Created = DateTime.UtcNow; }
 
         public RtpPacket(ArraySegment<byte> packetReference)
         {
             //Ensure correct length
             if (packetReference.Count <= RtpHeaderLength) throw new ArgumentException("The packet does not conform to the RTP Protocol. Packets must exceed 12 bytes in length.", "packetReference");
+
+            Created = DateTime.UtcNow;
 
             //Could get $, RtpChannel, Len here for Tcp to make reciving better
 
