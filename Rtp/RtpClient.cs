@@ -152,6 +152,8 @@ namespace Media.Rtp
 
         #region Events
 
+        //Might need channel based events
+
         public delegate void RtpPacketHandler(RtpClient sender, RtpPacket packet);
         public delegate void RtcpPacketHandler(RtpClient sender, RtcpPacket packet);
         public delegate void RtpFrameHandler(RtpClient sender, RtpFrame frame);
@@ -239,7 +241,7 @@ namespace Media.Rtp
             //If the frame is compelted then fire an event and make a new frame
             if (m_CurrentFrame.Complete)
             {
-                //Store the last complted frame
+                //Store the last completed frame
                 m_LastFrame = m_CurrentFrame;
                 
                 //Make a new frame
@@ -277,7 +279,7 @@ namespace Media.Rtp
         /// Raises the RtpFrameHandler for the given frame
         /// </summary>
         /// <param name="frame">The frame to raise the RtpFrameHandler with</param>
-        internal void OnRtpFrameReceived(RtpFrame frame)
+        internal void OnRtpFrameCompleted(RtpFrame frame)
         {
             RtpFrameCompleted(this, frame);
         }
@@ -293,6 +295,10 @@ namespace Media.Rtp
         public int RtpBytesReceieved { get { return m_RtpRecieved; } }
 
         public List<RtcpPacket> SentRtcpPackets  {get { return m_RtcpPacketSendLog;} }
+
+        //Might need to be lists
+        public List<byte> RtpChannels = new List<byte>();
+        public List<byte> RtcpChannels = new List<byte>();
 
         public byte RtpChannel { get { return m_RtpChannel; } set { m_RtpChannel = value; } }
 
@@ -373,7 +379,7 @@ namespace Media.Rtp
             //Create a ssrc
             m_RtpSSRC = (uint)rtpPort;// Guaranteed to be unique per session
 
-            //Non interleaved over udp required two sockets
+            //Non interleaved over udp required two sockets ...... could do with just one
             m_RtpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             
@@ -517,9 +523,9 @@ namespace Media.Rtp
         /// Might need a SendCompund method to take an array and calculate the compound size and send for more then 1
         /// </summary>
         /// <param name="packet">The RtcpPacket to send</param>
-        public void SendRtcpPacket(RtcpPacket packet)
+        public void SendRtcpPacket(RtcpPacket packet, byte? channel = null)
         {
-            int sent = SendData(packet.ToBytes(), m_RtcpChannel);
+            int sent = SendData(packet.ToBytes(), channel ?? RtcpChannels.First());
             if (sent > 0)
             {
                 m_RtcpSent += sent;
@@ -641,9 +647,9 @@ namespace Media.Rtp
         /// Sends a RtpPacket to the connected client.
         /// </summary>
         /// <param name="packet">The RtpPacket to send</param>
-        public void SendRtpPacket(RtpPacket packet)
+        public void SendRtpPacket(RtpPacket packet, byte? channel = null)
         {
-            int sent = SendData(packet.ToBytes(m_RtpSSRC), m_RtpChannel);
+            int sent = SendData(packet.ToBytes(m_RtpSSRC), channel ?? RtpChannels.First());
             if (sent > 0)
             {
                 m_RtpSent += sent;
@@ -741,7 +747,8 @@ namespace Media.Rtp
             {
                 Socket socket;
                 int rec = 0;
-                if (channel == m_RtpChannel) socket = m_RtpSocket;
+                //if (channel == m_RtpChannel) socket = m_RtpSocket;
+                if (RtpChannels.Contains(channel)) socket = m_RtpSocket;
                 else socket = m_RtcpSocket;
                 //If there are bytes to recieved
                 if (socket == null || socket.Available <= 0) return rec;
@@ -750,9 +757,21 @@ namespace Media.Rtp
                     //For Udp we can just recieve and incrmement
                     rec += socket.Receive(m_Buffer);
 
-                    if (channel == m_RtpChannel)
+                    //if (channel == m_RtpChannel)
+                    if(RtpChannels.Contains(channel))
                     {
-                        OnRtpPacketReceieved(new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, rec)));
+                        RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, rec));
+                        packet.Channel = channel;
+                        OnRtpPacketReceieved(packet);
+                        return rec;
+                    }
+                    else if (RtcpChannels.Contains(channel))
+                    {
+                        foreach (RtcpPacket p in RtcpPacket.GetPackets(m_Buffer))
+                        {
+                            p.Channel = channel;
+                            RtcpPacketReceieved(this, p);
+                        }
                         return rec;
                     }
 
@@ -775,9 +794,10 @@ namespace Media.Rtp
                     byte rtpChannel = m_Buffer[1];
 
                     //If the channel is not recognized
-                    if (rtpChannel != m_RtcpChannel && rtpChannel != m_RtpChannel)
+                    //if (rtpChannel != m_RtcpChannel && rtpChannel != m_RtpChannel)
+                    if (!(RtpChannels.Contains(rtpChannel) || RtcpChannels.Contains(rtpChannel)))
                     {
-                        //This is probably a RtspMessage
+                        //This is probably a RtspMessage indicate we read 4 bytes
                         return rec;
                     }
 
@@ -790,26 +810,29 @@ namespace Media.Rtp
                         rec += socket.Receive(m_Buffer, Math.Min(length, m_Buffer.Length), SocketFlags.None);
                     }
 
-                    if (rtpChannel == m_RtpChannel)
+                    //if (rtpChannel == m_RtpChannel)
+                    if(RtpChannels.Contains(rtpChannel))
                     {
-                        OnRtpPacketReceieved(new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, length)));
+                        RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, length));
+                        packet.Channel = rtpChannel;
+                        OnRtpPacketReceieved(packet);
+                        return rec;
+                    }
+                    else if (RtcpChannels.Contains(rtpChannel))
+                    {
+                        //Add all packs in the m_Buffer to the storage
+                        foreach (RtcpPacket p in RtcpPacket.GetPackets(m_Buffer))
+                        {
+                            p.Channel = rtpChannel;
+                            //++m_RtcpPacketsReceieved;
+                            RtcpPacketReceieved(this, p);
+                        }
                         return rec;
                     }
 
                 }
 
-                if (rec > 0 && channel == m_RtcpChannel)
-                {
-                    //Add all packs in the m_Buffer to the storage
-                    foreach (RtcpPacket p in RtcpPacket.GetPackets(m_Buffer))
-                    {
-                        //++m_RtcpPacketsReceieved;
-                        RtcpPacketReceieved(this, p);
-                    }
-                    return rec;
-                }
-
-                return 0;
+                return rec;
             }
             catch
             {
@@ -890,7 +913,7 @@ namespace Media.Rtp
                         foreach (RtpPacket p in toSend)
                         {
                             ++m_RtpPacketsSent;
-                            SendRtpPacket(p);
+                            SendRtpPacket(p, p.Channel ?? RtpChannels.First());
                         }
                         toSend = null;
                     }
@@ -902,7 +925,8 @@ namespace Media.Rtp
                     int rec = 0;
 
                     //Recieve any incoming RtpPackets
-                    rec = RecieveData(m_RtpChannel);
+                    RtpChannels.ForEach(c => rec += RecieveData(c));
+                    //rec = RecieveData(m_RtpChannel);
 
                     if (rec > 0)
                     {
@@ -912,7 +936,9 @@ namespace Media.Rtp
                         
 
                     //Recieve any incoming RtcpPackets
-                    rec = RecieveData(m_RtcpChannel);
+
+                    RtcpChannels.ForEach(c => rec += RecieveData(c));
+                    //rec = RecieveData(m_RtcpChannel);
                     
                     if (rec > 0)
                     {

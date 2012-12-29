@@ -61,6 +61,11 @@ namespace Media.Rtcp
 
         public int BlockCount { get { return m_Count; } set { m_Count = value; } }
 
+        /// <summary>
+        /// The optional channel to send the RtcpPacket on or the channel the RtcpPacket was received on
+        /// </summary>
+        public byte? Channel { get; set; }
+
         #endregion
 
         #region Constructor

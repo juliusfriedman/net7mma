@@ -645,6 +645,15 @@ namespace Media.Rtsp
                         //m_ClientPort = Convert.ToInt32(part.Replace("client_port=", string.Empty));  
                         //Maybe should ensure they match what we sent to the server
                     }
+                    else if(part.StartsWith("interleaved"))
+                    {
+                        string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
+                        m_RtpClient.m_RtpChannel = byte.Parse(channels[0]);
+                        m_RtpClient.RtpChannels.Add(m_RtpClient.m_RtpChannel);
+
+                        m_RtpClient.m_RtcpChannel = byte.Parse(channels[1]);
+                        m_RtpClient.RtcpChannels.Add(m_RtpClient.m_RtcpChannel);
+                    }
                     else if (part.StartsWith("server_port="))
                     {
                         //m_ServerPort = Convert.ToInt32(part.Replace("Server_port=", string.Empty));
