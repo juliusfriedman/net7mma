@@ -310,8 +310,29 @@ namespace Media.Rtsp
                 Connect();
                 SendOptions();
                 SendDescribe();
-                SendSetup();
-                SendPlay();
+
+                //Plays all...
+                int mdi = 0;
+                //List<Uri> locations = new List<Uri>();
+                foreach (var md in SessionDescription.MediaDescriptions)
+                {
+                    if (m_RtpClient != null)
+                    {
+                        m_RtpClient.AddRtpChannel((byte)mdi);
+                        m_RtpClient.AddRtcpChannel((byte)(mdi + 1));
+                    }
+                    mdi += 2;
+                    foreach(var cl in md.Lines.Where(l=> l.Type == 'a' && l.Parts.Any(p=> p.Contains("control"))))
+                    {
+                        //should store these to send tear down
+                        Uri location = new Uri(Location.OriginalString + '?' + cl.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
+                        SendSetup(location);
+                        SendPlay(location);
+                    }
+                    
+                }
+                //SendSetup();
+                //SendPlay();
 
                 //Needs a way to determine end of stream and if the bytes stop coming for a period of time.
             }
@@ -451,9 +472,30 @@ namespace Media.Rtsp
                 rec = 0;
                 if (m_RtspProtocol == ClientProtocol.Tcp || m_RtspProtocol == ClientProtocol.Http )
                 {
+                    //Ensure existing interleave is not interrupted
+                    if (m_RtpClient != null)
+                    {
+                        foreach (byte channel in m_RtpClient.m_RtpChannels)
+                        {
+                            if (m_RtpClient.RecieveData(channel) == 4)
+                            {
+                                rec = 4;
+                                goto InnerRec;
+                            }
+                        }
+                        foreach (byte channel in m_RtpClient.m_RtcpChannels)
+                        {
+                            if (m_RtpClient.RecieveData(channel) == 4)
+                            {
+                                rec = 4;
+                                goto InnerRec;
+                            }
+                        }
+                    }           
+                InnerRec:
                     lock (m_RtspStream)
                     {
-                        rec = m_RtspStream.Read(m_Buffer, 0, m_Buffer.Length);
+                        rec += m_RtspStream.Read(m_Buffer, 0, m_Buffer.Length);
                     }
                 }
                 else if (m_RtspProtocol == ClientProtocol.Udp)
@@ -468,6 +510,7 @@ namespace Media.Rtsp
                 {
                     try
                     {
+                        if (m_Buffer[0] == 36) goto Rece;
                         RtspResponse response;
                         if (m_RtspProtocol == ClientProtocol.Http) response = RtspResponse.FromHttpBytes(m_Buffer);
                         else  response = new RtspResponse(m_Buffer);
@@ -572,15 +615,17 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspResponse SendSetup()
+        public RtspResponse SendSetup(Uri location = null)
         {
             try
             {
-                RtspRequest setup = new RtspRequest(RtspMethod.SETUP, Location);
+                RtspRequest setup = new RtspRequest(RtspMethod.SETUP, location ?? Location);
 
                 if (m_RtpProtocol == ProtocolType.Tcp) //m_SessionDescription.MediaDesciptions[0].MediaProtocol.Contains("TCP")
                 {
-                    setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=0-1");
+                    //Should ensure this channel is not already being used
+                    setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + m_RtpClient.m_RtpChannels.Last() + '-' + m_RtpClient.m_RtcpChannels.Last());
+                    //setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=0-1");
                 }
                 else
                 {
@@ -649,8 +694,8 @@ namespace Media.Rtsp
                     {
                         //Should only be for Tcp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
-                        m_RtpClient.m_RtpChannels.Add(byte.Parse(channels[0]));
-                        m_RtpClient.m_RtcpChannels.Add(byte.Parse(channels[1]));
+                        m_RtpClient.AddRtpChannel(byte.Parse(channels[0]));
+                        m_RtpClient.AddRtcpChannel(byte.Parse(channels[1]));
                     }
                     else if (part.StartsWith("server_port="))
                     {
@@ -664,10 +709,19 @@ namespace Media.Rtsp
                             //THIS IS INDICATING A TCP Transport
                             m_RtpProtocol = ProtocolType.Tcp;
 
-                            m_RtpClient = RtpClient.Interleaved(m_RtspSocket);
+                            var newClient = RtpClient.Interleaved(m_RtspSocket);
+
+                            m_RtpClient.m_RtpChannels.ForEach(newClient.AddRtpChannel);
+                            m_RtpClient.m_RtcpChannels.ForEach(newClient.AddRtcpChannel);
+
+                            //Add default channels
+                            if (m_RtpClient.m_RtpChannels.Count == 0) newClient.AddRtpChannel(0);
+                            if (m_RtpClient.m_RtcpChannels.Count == 0) newClient.AddRtcpChannel(1);
+
+                            m_RtpClient = newClient;
 
                             //Recurse call to ensure propper setup
-                            return SendSetup();
+                            return SendSetup(location);
                         }
                         else
                         {
@@ -699,10 +753,19 @@ namespace Media.Rtsp
                     //THIS IS INDICATING A TCP Transport
                     m_RtpProtocol = ProtocolType.Tcp;
 
-                    m_RtpClient = RtpClient.Interleaved(m_RtspSocket);
+                    var newClient = RtpClient.Interleaved(m_RtspSocket);
+
+                    m_RtpClient.m_RtpChannels.ForEach(newClient.AddRtpChannel);
+                    m_RtpClient.m_RtcpChannels.ForEach(newClient.AddRtcpChannel);
+
+                    //Add default channels
+                    if (m_RtpClient.m_RtpChannels.Count == 0) newClient.AddRtpChannel(0);
+                    if (m_RtpClient.m_RtcpChannels.Count == 0) newClient.AddRtcpChannel(1);
+
+                    m_RtpClient = newClient;
 
                     //Recurse call to ensure propper setup
-                    return SendSetup();
+                    return SendSetup(location);
                 }
                 else
                 {
@@ -744,6 +807,8 @@ namespace Media.Rtsp
 
                 play.SetHeader(RtspHeaders.Range, "npt=" + m_Range + '-');
 
+                //Might need to include channels?
+
                 RtspResponse response = SendRtspRequest(play);
 
                 if (response.StatusCode != RtspStatusCode.OK) throw new RtspClientException("Unable to play media: " + response.m_FirstLine);
@@ -758,12 +823,13 @@ namespace Media.Rtsp
                         if (piece.Trim().StartsWith("url="))
                         {
                             //Location = new Uri(piece.Replace("url=", string.Empty));
-                            m_RtspLocation = new Uri(piece.Replace("url=", string.Empty).Trim());
+                            //m_RtspLocation = new Uri(piece.Replace("url=", string.Empty).Trim());
                         }
                         else if (piece.Trim().StartsWith("seqno="))
                         {
                             m_Seq = Convert.ToInt32(piece.Replace("seqno=", string.Empty).Trim());
                         }
+                        //interleaved?
                     }
                 }
 

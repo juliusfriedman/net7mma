@@ -42,13 +42,13 @@ namespace Media
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
             client.StartListening();
             int packets = 0;
-            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet"); ++packets; };
-            client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame Complete = " + rtpFrame.Complete); };
-            client.Client.RtcpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTCP packet"); };
+            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel); ++packets; };
+            client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
+            //client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel); };
             Console.WriteLine("Waiting for packets...");
-            while (packets < 30) { System.Threading.Thread.Yield(); }
+            while (packets < 1024) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
-            client.SendTeardown();
+            client.Disconnect();
         }
 
         static void TestRtpPackets()

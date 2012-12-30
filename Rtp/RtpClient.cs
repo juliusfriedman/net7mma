@@ -131,7 +131,9 @@ namespace Media.Rtp
         //Incoming Rtcp Packing, Outgoing RtcpPackets
         internal List<RtcpPacket> m_RtcpPackets = new List<RtcpPacket>(), m_RtcpPacketSendLog = new List<RtcpPacket>();
         //Incoming RtpFrames last completed and current working
-        volatile internal RtpFrame m_LastFrame, m_CurrentFrame;
+        //volatile internal RtpFrame m_LastFrame, m_CurrentFrame;
+        //Holds the current frame for each channel
+        volatile internal Dictionary<byte, RtpFrame> m_ChannelData = new Dictionary<byte, RtpFrame>();
 
         //Created from an existing socket we should not close?
         bool m_SocketOwner;
@@ -221,40 +223,46 @@ namespace Media.Rtp
 
             UpdateJitter(packet);
 
-            //If we have not allocatd a frame allocte it
-            if (m_CurrentFrame == null)
+            //Needs dictionary for currentFrames... because of multiple channels
+            //E.g. an audio packet may be coming on next to a video packet            
+
+            RtpFrame currentFrame = null;
+
+            if (m_ChannelData.ContainsKey(packet.Channel.Value))
             {
-                m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+                currentFrame = m_ChannelData[packet.Channel.Value];
             }
-            else if (m_CurrentFrame.TimeStamp != packet.TimeStamp) // New Frame without Marker?
+            else
             {
-                m_LastFrame = m_CurrentFrame;
-                
-                m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+                m_ChannelData.Add(packet.Channel.Value, new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier));                
+            }
+         
+            if (currentFrame.TimeStamp != packet.TimeStamp) // New Frame without Marker?
+            {
 
                 //Fire the event
-                RtpFrameChanged(this, m_LastFrame);
+                RtpFrameChanged(this, currentFrame);
+
+                //Make a new frame in the storage
+                currentFrame = m_ChannelData[packet.Channel.Value] = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
             }
 
             //Add the packet to the current frame
-            m_CurrentFrame.AddPacket(packet);
+            currentFrame.AddPacket(packet);
 
             //If the frame is compelted then fire an event and make a new frame
-            if (m_CurrentFrame.Complete)
+            if (currentFrame.Complete)
             {
-                //Store the last completed frame
-                m_LastFrame = m_CurrentFrame;
+                //Fire the event
+                RtpFrameChanged(this, currentFrame);
                 
                 //Make a new frame
-                m_CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
-                
-                //Fire the event
-                RtpFrameChanged(this, m_LastFrame);
+                m_ChannelData[packet.Channel.Value] = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
             }
-            else if (m_CurrentFrame.Count > 60)
+            else if (currentFrame.Count > 60)
             {
                 //Backup of frames
-                m_CurrentFrame.RemoveAllPackets();
+                currentFrame.RemoveAllPackets();
             }
         }
 

@@ -130,7 +130,10 @@ namespace Media.Rtsp.Server.Streams
                 {
                     throw;
                 }
-                RtpClient.RtpFrameChanged += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
+                if (RtpClient != null)
+                {
+                    RtpClient.RtpFrameChanged += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
+                }
                 m_Started = DateTime.Now;
             }
         }
