@@ -146,7 +146,10 @@ namespace Media.Rtsp.Server.Streams
             if (Client.Listening)
             {
                 Client.StopListening();
-                RtpClient.RtpFrameChanged -= Client_RtpFrameCompleted;
+                if (RtpClient != null)
+                {
+                    RtpClient.RtpFrameChanged -= Client_RtpFrameCompleted;
+                }
             }
             m_Started = null;
             State = StreamState.Stopped;

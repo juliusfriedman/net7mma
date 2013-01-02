@@ -11,12 +11,16 @@ namespace Media.Rtcp
 
         public uint SynchronizationSourceIdentifier { get; set; }
 
+        public DateTime? Sent { get; set; }
+
+        public DateTime? Created { get; set; }
+
         #region Constructor
 
         public ReceiversReport(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
         
         //Packet would have created property?
-        public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { }
+        public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { Created = packet.Created; }
 
         public ReceiversReport(byte[] packet, int offset) 
         {

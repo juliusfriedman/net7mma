@@ -488,6 +488,8 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index] = sdpLines[index].Trim();
 
+            if (sdpLine[1] != '=') return null;
+
             char type = sdpLine[0];
 
             //Invalid Line

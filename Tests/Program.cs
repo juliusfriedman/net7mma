@@ -11,9 +11,13 @@ namespace Media
         public static void Main(string[] args)
         {
             TestJpegFrame();
+            System.Console.Clear();
             TestRtspMessage();
+            System.Console.Clear();
             TestSdp();
+            System.Console.Clear();
             TestRtspClient();
+            System.Console.Clear();
             TestServer();
         }
 
@@ -42,13 +46,19 @@ namespace Media
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
             client.StartListening();
             int packets = 0;
-            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel); ++packets; };
-            client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
-            //client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel); };
+            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType); packets++; };
+            //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
+            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.PacketType + " Type=" + rtcpPacket.Created); };
             Console.WriteLine("Waiting for packets...");
-            while (packets < 1024) { System.Threading.Thread.Yield(); }
+            while (packets < 100) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
+            var one = client.SendOptions();
+            var two = client.SendOptions();
+            Console.WriteLine(string.Join(" ",one.GetHeaders()));
+            Console.WriteLine(string.Join(" ", two.GetHeaders()));
             client.Disconnect();
+            Console.WriteLine("Press a Key to Start Next Test");
+            System.Console.ReadKey();
         }
 
         static void TestRtpPackets()
@@ -135,8 +145,10 @@ a=mpeg4-esid:101");
             Rtsp.RtspServer server = new Rtsp.RtspServer();
 
             //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
-            //From the RtspSource rtsp://1.2.3.4/mpeg4/media.amp
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://1.2.3.4/mpeg4/media.amp");
+            //Here are some example Rtsp Sources
+            //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov
+            //rtsp://178.218.212.102:1935/live/Stream1
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://fms.zulu.mk/zulu/a2_1");
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             

@@ -68,9 +68,22 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if All Contained Packets are sequential
         /// </summary>
-        public virtual bool IsMissingPackets { get { return !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
+        public virtual bool IsMissingPackets { get { return m_Packets.Count == 0 || !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
 
+        /// <summary>
+        /// The amount of Packets in the RtpFrame
+        /// </summary>
         public int Count { get { return m_Packets.Count; } }
+
+        /// <summary>
+        /// Indicated if there are packets in the RtpFrame
+        /// </summary>
+        public bool Empty { get { return m_Packets.Count == 0; } }
+
+        /// <summary>
+        /// The HighestSequenceNumber in the contained Packets or -1 if no Packets are contained
+        /// </summary>
+        public int HighestSequenceNumber { get { return Count > 0 ? m_Packets.Values.Last().SequenceNumber : -1; } }
 
         #endregion
 
