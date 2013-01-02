@@ -76,8 +76,15 @@ namespace Media.Rtcp
         {
             Created = DateTime.UtcNow;
 
+            //Frame Header {$,/0x,/0x,/0x}
+            if (packetReference.Array[offset] == 36) offset += 4;
+
             //Get version
             m_Version = packetReference.Array[offset + 0] >> 6; ;
+            
+            //Invalid Version
+            if (m_Version == 0) return;
+
             m_Padding = (0x1 & (packetReference.Array[offset + 0] >> 5));
 
             //Count - FOR SS and RR this is exact size
@@ -118,12 +125,10 @@ namespace Media.Rtcp
 
             while (index < bufferReference.Count)
             {
-                //Frame Header {$,/0x,/0x,/0x}
-                //if (bufferReference.Array[index] == 36) index += 4;
-                //Should verify packets types...
                 Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, index);
+                if(packet.Length == 0) break;
                 packets.Add(packet);
-                index += packet.Length + 4;
+                index += packet.Length;
             }
 
             return packets.ToArray();
