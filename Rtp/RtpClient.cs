@@ -445,6 +445,10 @@ namespace Media.Rtp
                     }
                 }
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine(System.Text.Encoding.ASCII.GetString(slice.Array));
+            }
         }
 
         internal void OnInterleavedData(ArraySegment<byte> slice)
@@ -571,13 +575,13 @@ namespace Media.Rtp
             m_RtpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             
-            m_RtpSocket.Blocking = false;
+            //m_RtpSocket.Blocking = false;
             m_RtpSocket.DontFragment = true;
 
             m_RtcpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             
-            m_RtcpSocket.Blocking = false;
+            //m_RtcpSocket.Blocking = false;
             m_RtpSocket.DontFragment = true;         
         }
 
@@ -979,7 +983,9 @@ namespace Media.Rtp
                         {
                             //Recive 1 byte
                             socket.Receive(m_Buffer, 0, 1, SocketFlags.None);
-                            
+
+                            if (m_Buffer[0] == MAGIC) break;
+
                             //Add the byte to the signal data
                             signalData.Add(m_Buffer[0]);
                         } while (m_Buffer[0] != MAGIC);
