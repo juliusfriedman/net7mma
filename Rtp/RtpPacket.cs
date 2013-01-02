@@ -20,7 +20,7 @@ namespace Media.Rtp
         byte m_PayloadType;
 
         //Make list for easier writing?
-        byte[] m_Payload;
+        internal byte[] m_Payload;
 
         int m_Version, m_Padding, m_Extensions, m_Csc, m_Marker, m_SequenceNumber;
 
@@ -147,17 +147,19 @@ namespace Media.Rtp
 
         public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; Created = DateTime.UtcNow; }
 
-        public RtpPacket(ArraySegment<byte> packetReference)
+        public RtpPacket(ArraySegment<byte> packetReference, byte? channel = null)
         {
             //Ensure correct length
             if (packetReference.Count <= RtpHeaderLength) throw new ArgumentException("The packet does not conform to the RTP Protocol. Packets must exceed 12 bytes in length.", "packetReference");
 
             Created = DateTime.UtcNow;
 
+            Channel = channel;
+
             int localOffset = 0;
 
             //Could get $, RtpChannel, Len here for Tcp to make reciving better
-            if (packetReference.Array[packetReference.Offset] == 36)
+            if (packetReference.Array[packetReference.Offset] == RtpClient.MAGIC)
             {
                 localOffset = 4;
             }

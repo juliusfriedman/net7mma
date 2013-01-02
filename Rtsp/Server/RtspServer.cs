@@ -1130,11 +1130,10 @@ namespace Media.Rtsp
 
                     //i.InterleaveSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                     //IPEndPoint local = new IPEndPoint(IPAddress.Any, i.ServerRtpPort);
+                    //i.InterleaveSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     //i.InterleaveSocket.Bind(local);
                     //IPEndPoint remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtpPort);
                     //i.InterleaveSocket.Connect(remote);
-                    //i.InterleaveSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    //i.InterleaveSocket.Blocking = false;
                     //i.InterleaveSocket.DontFragment = true;
 
                     returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + ci.m_RtpClient.m_ServerRtpPort + "-" + ci.m_RtpClient.m_ServerRtcpPort;//;ssrc=" + found.RtpClient.m_Interleaves[ci.m_RtpClient.m_Interleaves.Count - 1].Ssrc;
@@ -1144,12 +1143,13 @@ namespace Media.Rtsp
                     var last = ci.m_RtpClient.m_Interleaves.Last();
                     var i  = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), 0, mediaDescription);
                     
-                    i.ServerRtpPort = ci.m_RtpClient.m_ServerRtpPort + 1;
-                    i.ServerRtcpPort = ci.m_RtpClient.m_ServerRtcpPort + 1;
+                    i.ServerRtpPort = ci.m_RtpClient.m_ServerRtpPort;
+                    i.ServerRtcpPort = ci.m_RtpClient.m_ServerRtcpPort;
                     i.ClientRtpPort = int.Parse(clientPorts[0]);
                     i.ClientRtcpPort = int.Parse(clientPorts[1]);
                     i.RemoteRtp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtpPort);
                     i.RemoteRtcp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtcpPort);
+                    ci.m_RtpClient.AddInterleave(i);
 
                     //i.InterleaveSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                     //IPEndPoint local = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ServerRtpPort);
@@ -1157,11 +1157,7 @@ namespace Media.Rtsp
                     //i.InterleaveSocket.Bind(local);
                     //IPEndPoint remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtpPort);
                     //i.InterleaveSocket.Connect(remote);
-                    
-                    //i.InterleaveSocket.Blocking = false;
                     //i.InterleaveSocket.DontFragment = true;
-
-                    ci.m_RtpClient.AddInterleave(i);
 
                     returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + i.ServerRtpPort + "-" + i.ServerRtcpPort;//ssrc=" + found.RtpClient.m_Interleaves[ci.m_RtpClient.m_Interleaves.Count - 1].Ssrc;
                 }
