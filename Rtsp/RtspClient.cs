@@ -306,6 +306,7 @@ namespace Media.Rtsp
         {
             if (slice.Array[0] == 'R')
             {
+                System.Diagnostics.Debug.WriteLine(System.Text.Encoding.ASCII.GetString(slice.Array));
                 mResponses.Add(new RtspResponse(slice.Array));
             }
         }
