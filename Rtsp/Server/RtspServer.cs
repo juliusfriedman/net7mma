@@ -559,7 +559,7 @@ namespace Media.Rtsp
                 
                 while (!allDone.WaitOne())
                 {
-                    System.Threading.Thread.Yield();
+                    System.Threading.Thread.SpinWait(m_Clients.Count * 100);
                 }
             }
         }
@@ -1128,39 +1128,54 @@ namespace Media.Rtsp
                     i.RemoteRtcp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtcpPort);
                     ci.m_RtpClient.AddInterleave(i);
 
-                    //i.InterleaveSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                    //IPEndPoint local = new IPEndPoint(IPAddress.Any, i.ServerRtpPort);
-                    //i.InterleaveSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    //i.InterleaveSocket.Bind(local);
-                    //IPEndPoint remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtpPort);
-                    //i.InterleaveSocket.Connect(remote);
-                    //i.InterleaveSocket.DontFragment = true;
+                    i.RtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    IPEndPoint local = new IPEndPoint(IPAddress.Any, i.ServerRtpPort);
+                    i.RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    i.RtpSocket.Bind(local);
+                    IPEndPoint remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtpPort);
+                    i.RtpSocket.Connect(remote);
+                    i.RtpSocket.DontFragment = true;
 
-                    returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + ci.m_RtpClient.m_ServerRtpPort + "-" + ci.m_RtpClient.m_ServerRtcpPort;//;ssrc=" + found.RtpClient.m_Interleaves[ci.m_RtpClient.m_Interleaves.Count - 1].Ssrc;
+                    i.RtcpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    local = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ServerRtcpPort);
+                    i.RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    i.RtcpSocket.Bind(local);
+                    remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtcpPort);
+                    i.RtcpSocket.Connect(remote);
+                    i.RtcpSocket.DontFragment = true;
+
                 }                    
                 else
                 {
                     var last = ci.m_RtpClient.m_Interleaves.Last();
                     var i  = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), 0, mediaDescription);
                     
-                    i.ServerRtpPort = ci.m_RtpClient.m_ServerRtpPort;
-                    i.ServerRtcpPort = ci.m_RtpClient.m_ServerRtcpPort;
+                    i.ServerRtpPort = ci.m_RtpClient.m_ServerRtpPort + 2;
+                    i.ServerRtcpPort = ci.m_RtpClient.m_ServerRtcpPort + 2;
                     i.ClientRtpPort = int.Parse(clientPorts[0]);
                     i.ClientRtcpPort = int.Parse(clientPorts[1]);
                     i.RemoteRtp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtpPort);
                     i.RemoteRtcp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtcpPort);
                     ci.m_RtpClient.AddInterleave(i);
 
-                    //i.InterleaveSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                    //IPEndPoint local = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ServerRtpPort);
-                    //i.InterleaveSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    //i.InterleaveSocket.Bind(local);
-                    //IPEndPoint remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtpPort);
-                    //i.InterleaveSocket.Connect(remote);
-                    //i.InterleaveSocket.DontFragment = true;
+                    i.RtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    IPEndPoint local = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ServerRtpPort);
+                    i.RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    i.RtpSocket.Bind(local);
+                    IPEndPoint remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtpPort);
+                    i.RtpSocket.Connect(remote);
+                    i.RtpSocket.DontFragment = true;
 
-                    returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + i.ServerRtpPort + "-" + i.ServerRtcpPort;//ssrc=" + found.RtpClient.m_Interleaves[ci.m_RtpClient.m_Interleaves.Count - 1].Ssrc;
+                    i.RtcpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    local = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ServerRtcpPort);
+                    i.RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    i.RtcpSocket.Bind(local);
+                    remote = new IPEndPoint(((IPEndPoint)(ci.m_RtspSocket.RemoteEndPoint)).Address, i.ClientRtcpPort);
+                    i.RtcpSocket.Connect(remote);
+                    i.RtcpSocket.DontFragment = true;
                 }
+                var current = ci.m_RtpClient.m_Interleaves.Last();
+                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + current.ServerRtpPort + "-" + current.ServerRtcpPort;//ssrc=" + found.RtpClient.m_Interleaves[ci.m_RtpClient.m_Interleaves.Count - 1].Ssrc;
                 
             }
             else

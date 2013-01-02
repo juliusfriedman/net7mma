@@ -74,7 +74,7 @@ namespace Media.Rtp
 
             ////I THINK THE PORTS ARE THE REASON FOR THE VIDEO / AUDIO NOT COMING OUT RIGHT
             //I am using this to test if that is the case
-            //internal Socket InterleaveSocket;
+            internal Socket RtpSocket, RtcpSocket;
             
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;
             internal IPEndPoint RemoteRtp, RemoteRtcp;
@@ -483,7 +483,9 @@ namespace Media.Rtp
                 }
                 else
                 {
-                    
+                    offsetStart++;
+                    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                    goto ParseSlice;
                 }
             }                     
         }
@@ -1047,7 +1049,7 @@ namespace Media.Rtp
                     byte frameChannel = m_Buffer[1];
 
                     //If the channel is not recognized
-                    if (!(m_Interleaves.Any(i => i.DataChannel == frameChannel || i.ControlChannel == frameChannel)))
+                    if (!(m_Interleaves.ToList().Any(i => i.DataChannel == frameChannel || i.ControlChannel == frameChannel)))
                     {
                         //This is data for a channel we do not interleave on could be an injection or something else
                         return recieved;
@@ -1100,16 +1102,25 @@ namespace Media.Rtp
                 //Under Udp we can send the packet verbatim
                 if (m_TransportProtocol == ProtocolType.Udp)
                 {
-                    if (m_Interleaves.Any(i => i.ControlChannel == channel))
+                    if (m_Interleaves.ToList().Any(i => i.ControlChannel == channel))
                     {
-                        sent = m_RtcpSocket.SendTo(data, point ?? m_RemoteRtcp);
+                        //sent = m_RtcpSocket.SendTo(data, point ?? m_RemoteRtcp);
+                        var il = m_Interleaves.Where(i => i.ControlChannel == channel).FirstOrDefault();
+                        sent += il.RtpSocket.SendTo(data, point);
+                        //This is messed up when sending on UDP.. InterleaveSocket should be seperate for Rtp and Rtcp
+                        System.Diagnostics.Debug.WriteLine("Sending RTCP");
+                        System.Diagnostics.Debug.WriteLine("Sending From" + il.RtcpSocket.LocalEndPoint.ToString());
+                        System.Diagnostics.Debug.WriteLine("Sending To" + point);
                     }
                     else
                     {
-                        sent = m_RtpSocket.SendTo(data, point ?? m_RemoteRtp);
+                        //sent = m_RtpSocket.SendTo(data, point ?? m_RemoteRtp);
                         //If we have to have a seperate socket per Interleave ....
-                        //var il = m_Interleaves.Where(i => i.DataChannel == channel).FirstOrDefault();
-                        //sent += il.InterleaveSocket.SendTo(data, point);
+                        var il = m_Interleaves.Where(i => i.DataChannel == channel).FirstOrDefault();
+                        sent += il.RtpSocket.SendTo(data, point);
+                        System.Diagnostics.Debug.WriteLine("Sending RTP");
+                        System.Diagnostics.Debug.WriteLine("Sending From" + il.RtpSocket.LocalEndPoint.ToString());
+                        System.Diagnostics.Debug.WriteLine("Sending To" + point);
                     }
                 }
                 else

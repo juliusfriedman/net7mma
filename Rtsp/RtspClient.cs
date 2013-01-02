@@ -41,10 +41,12 @@ namespace Media.Rtsp
 
         ClientProtocol m_RtspProtocol;
 
+        ManualResetEvent m_InterleaveEvent = new ManualResetEvent(false);
+
         /// <summary>
         /// The location the media
         /// </summary>
-        Uri m_RtspLocation, m_Location;
+        Uri m_Location;
 
         /// <summary>
         /// The buffer this client uses for all requests 4MB
@@ -308,6 +310,8 @@ namespace Media.Rtsp
             {
                 System.Diagnostics.Debug.WriteLine(System.Text.Encoding.ASCII.GetString(slice.Array));
                 mResponses.Add(new RtspResponse(slice.Array));
+                //Clear the event so whoever is waiting can get the response
+                m_InterleaveEvent.Set();
             }
         }
 
@@ -433,6 +437,7 @@ namespace Media.Rtsp
 
         #region Rtsp
 
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal RtspResponse SendRtspRequest(RtspRequest request)
         {
             try
@@ -491,8 +496,11 @@ namespace Media.Rtsp
                 //If we are in Tcp we must recieve with respect with data which is being interleaved
                 else if (m_RtpClient != null && m_RtpClient.m_WorkerThread != null && request.Method != RtspMethod.SETUP && request.Method != RtspMethod.TEARDOWN)
                 {
+                    //Reset the interleave event
+                    m_InterleaveEvent.Reset();
+
                     //Assign an event for interleaved data before we write
-                    m_RtpClient.InterleavedData += new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);
+                    m_RtpClient.InterleavedData += new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);                    
 
                     //Write the message on the interleaved socket
                     lock (m_RtspSocket)
@@ -503,12 +511,8 @@ namespace Media.Rtsp
                     //Raise the event
                     Requested(request);
 
-                    //While we have not recieved a response within the timeout
-                    while (mResponses.Count == 0)
-                    {
-                        //Yield to other threads
-                        System.Threading.Thread.Yield();
-                    }
+                    //Wait for the event
+                    m_InterleaveEvent.WaitOne();
 
                     //Remove the event
                     m_RtpClient.InterleavedData -= new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);
@@ -524,9 +528,9 @@ namespace Media.Rtsp
                     lock (m_RtspSocket)
                     {
                         m_SentBytes += m_RtspSocket.Send(buffer);
+                        m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
                         //Fire the event
                         Requested(request);
-                        m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);                        
                         response = new RtspResponse(m_Buffer);                        
                     }
                 }
