@@ -20,22 +20,22 @@ namespace Media.Rtcp
         {
             if (packet.Length - index < Size) throw new ArgumentOutOfRangeException("index", "Must allow 24 bytes in buffer");
 
-            //SynchronizationSourceIdentifier = (uint)(packet[index] << 24 | packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
             SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
             index += 4;
 
             FractionLost = packet[++index];
+
             CumulativePacketsLost = (uint)(packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
-            //ExtendedHigestSequenceNumber = (uint)(packet[++index] << 24 | packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
+            
             ExtendedHigestSequenceNumber = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
             index += 4;
-            //InterArrivalJitter = (uint)(packet[++index] << 24 | packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
+            
             InterArrivalJitter = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
             index += 4;
-            //LastSendersReport = (uint)(packet[++index] << 24 | packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
+            
             LastSendersReport = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
             index += 4;
-            //DelaySinceLastSendersReport = (uint)(packet[++index] << 24 | packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
+            
             DelaySinceLastSendersReport = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
             index += 4;
         }

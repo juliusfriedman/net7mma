@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
@@ -90,6 +91,7 @@ namespace Media.Rtsp
             if (m_RtpClient != null) return;
             m_RtpClient = RtpClient.Sender(((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, rtpPort, rtcpPort);
             m_RtpClient.Connect();
+            //m_RtpClient.SendRtcpPacket(m_RtpClient.CreateSendersReport());
         }
 
         /// <summary>
@@ -99,8 +101,6 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-            //Not required since this is a sender
-            //Raise the event to allow Rtcp to be calulcated properly
             m_RtpClient.OnRtpPacketReceieved(packet);            
 
             //Enque the recieved packet
@@ -113,11 +113,23 @@ namespace Media.Rtsp
         /// <param name="stream">The listener from which the packet arrived</param>
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(RtpClient stream, RtcpPacket packet)
-        {            
+        {
+
+            //Raise the event on the RtpClient so the SSRC is assigned correctly
+            //m_RtpClient.OnRtcpPacketReceieved(packet);
+
             //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
             if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
             {
                 Disconnect();
+            }
+            else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
+            {
+                //The source stream send a senders report
+            }
+            else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
+            {
+                //The source stream send a recievers report
             }
 
             //maybe their recievers reports shoudl trigger us sending one to our client?
@@ -197,5 +209,55 @@ namespace Media.Rtsp
         }
 
         #endregion        
+    
+        internal void SendSendersReports()
+        {
+            m_RtpClient.m_Interleaves.ToList().ForEach(i =>
+            {
+                //Assign the ssrc if it has not been yet
+                if (i.Ssrc == 0)
+                {
+                    i.Ssrc = (uint)(DateTime.Now.Ticks ^ i.DataChannel);// Guaranteed to be unique per session
+                }
+                //Create a Senders Report
+                SendersReport sr = new SendersReport(i.Ssrc);
+                
+                //Set the timestamp
+                sr.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+
+                //Wait for the first RtpPacket if needed
+                //while (i.LastRtpPacket == null) System.Threading.Thread.Yield();
+
+                //If the LastRtpPacket is null we didn't send anything yet
+                if (i.LastRtpPacket == null)
+                {
+                    //Set the timestamp
+                    sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 32);
+
+                    //Set the senders octet count
+                    sr.SendersPacketCount = sr.SendersOctetCount = 0;
+                }
+                else
+                {
+                    //Set the timestamp
+                    sr.RtpTimestamp = i.LastRtpPacket.TimeStamp;
+
+                    //Set the senders octet count
+                    sr.SendersOctetCount = (uint)i.RtpBytesRecieved;
+
+                    //Set the senders packet count
+                    sr.SendersPacketCount = (uint)i.RtpPacketsReceieved; 
+                }
+                
+                //Send the packet on the correct channel
+                m_RtpClient.SendRtcpPacket(sr.ToPacket(i.ControlChannel));
+
+                //The packet was sent now
+                sr.Sent = DateTime.Now;
+
+                //Update the senders report on the interleave
+                i.SendersReport = sr;
+            });
+        }
     }
 }

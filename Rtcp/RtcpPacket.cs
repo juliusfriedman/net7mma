@@ -80,50 +80,58 @@ namespace Media.Rtcp
             m_Version = packetReference.Array[offset + 0] >> 6; ;
             m_Padding = (0x1 & (packetReference.Array[offset + 0] >> 5));
 
-            //Count
+            //Count - FOR SS and RR this is exact size
             m_Count = packetReference.Array[offset + 0] & 0x1F;
 
             //Type
             m_Type = packetReference.Array[offset + 1];
 
-            //Length
+            //Length Should be Block Count?
             m_Length = (short)(packetReference.Array[offset + 2] << 8 | packetReference.Array[offset + 3]);
+
+
+            if (m_Length < 0 || m_Length > 1500) m_Length = (short)m_Count;
 
             //Extract Data
             m_Data = new byte[Length];
             Array.Copy(packetReference.Array, offset + 4, m_Data, 0, Length);
-
         }
 
         public RtcpPacket(byte[] packet, int offset = 0) : this(new ArraySegment<byte>(packet, offset, packet.Length - offset)) { }
 
-        public RtcpPacket(RtcpPacketType type)
+        public RtcpPacket(RtcpPacketType type, byte? channel = null)
         {
+            Created = DateTime.Now;
             m_Type = (byte)type;
+            Channel = channel;
         }
 
         #endregion
 
         #region Methods
 
-        public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0)
+        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, int offset = 0)
         {
             List<RtcpPacket> packets = new List<RtcpPacket>();
+            
+            int index = offset;
 
-            RtcpPacket packet = new RtcpPacket(buffer, offset);
-
-            packets.Add(packet);
-
-            int index = offset + packet.Length + 4;
-
-            if (index < buffer.Length)
+            while (index < bufferReference.Count)
             {
-                packet = new Rtcp.RtcpPacket(buffer, index);
+                //Frame Header {$,/0x,/0x,/0x}
+                //if (bufferReference.Array[index] == 36) index += 4;
+                //Should verify packets types...
+                Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, index);
                 packets.Add(packet);
                 index += packet.Length + 4;
             }
 
             return packets.ToArray();
+        }
+
+        public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0)
+        {
+            return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), offset);
         }
 
         public virtual byte[] ToBytes()

@@ -154,10 +154,16 @@ namespace Media.Rtp
 
             Created = DateTime.UtcNow;
 
+            int localOffset = 0;
+
             //Could get $, RtpChannel, Len here for Tcp to make reciving better
+            if (packetReference.Array[packetReference.Offset] == 36)
+            {
+                localOffset = 4;
+            }
 
             //Extract fields
-            byte compound = packetReference.Array[packetReference.Offset];
+            byte compound = packetReference.Array[localOffset + packetReference.Offset];
 
             //Version, Padding flag, Extension flag, and Contribuing Source Count
             m_Version = compound >> 6; ;
@@ -166,32 +172,32 @@ namespace Media.Rtp
             m_Csc = 0x1F & compound;
 
             //Extract Marker flag and payload type
-            compound = packetReference.Array[packetReference.Offset + 1];
+            compound = packetReference.Array[localOffset + packetReference.Offset + 1];
 
             Marker = ((compound >> 7) == 1);
             m_PayloadType = (byte)(compound & 0x7f);
 
             //Extract Sequence Number
-            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, packetReference.Offset + 2));
+            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + 2));
 
             //Extract Time Stamp
-            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, packetReference.Offset + 4));
+            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + 4));
 
-            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, packetReference.Offset + 8));
+            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + 8));
 
-            int position = 12;
+            int position = localOffset + 12;
 
             //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, packetReference.Offset + position)));
+            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + position)));
 
             //Extract Extensions
             //This might not be needed
             if (Extensions)
             {
-                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, packetReference.Offset + position));
-                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, packetReference.Offset + position + 2));
+                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position));
+                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position + 2));
                 m_ExtensionData = new byte[m_ExtensionLength];
-                Array.Copy(packetReference.Array, packetReference.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
+                Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;
             }
 
@@ -199,7 +205,7 @@ namespace Media.Rtp
             int payloadSize = packetReference.Count - position;
             m_Payload = new byte[payloadSize];
 
-            Array.Copy(packetReference.Array, packetReference.Offset + position, m_Payload, 0, payloadSize);
+            Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position, m_Payload, 0, payloadSize);
         }
 
         public RtpPacket(byte[] packet, int offset = 0)
