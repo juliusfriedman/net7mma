@@ -50,7 +50,7 @@ namespace Media
             //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
             client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.PacketType + " Type=" + rtcpPacket.Created); };
             Console.WriteLine("Waiting for packets...");
-            while (packets < 100) { System.Threading.Thread.Yield(); }
+            while (packets < 500) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
             var one = client.SendOptions();
             var two = client.SendOptions();
@@ -147,7 +147,7 @@ a=mpeg4-esid:101");
             //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
             //Here are some example Rtsp Sources
             //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov
-            //rtsp://178.218.212.102:1935/live/Stream1
+            //rtsp://178.218.212.102:1935/live/Stream1            
             Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://fms.zulu.mk/zulu/a2_1");
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
@@ -183,7 +183,7 @@ a=mpeg4-esid:101");
                 //server.EnableHttp();
                 //server.EnableUdp();
 
-                TestClients();
+                //TestClients();
 
                 //server.DisableHttp();
                 //server.DisableUdp();

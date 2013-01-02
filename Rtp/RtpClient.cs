@@ -420,35 +420,62 @@ namespace Media.Rtp
 
         internal virtual void RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
         {
-            if (slice.Array[0] == MAGIC)
+            int offsetStart = 0;
+            ParseSlice:
+            if (offsetStart < slice.Array.Length && slice.Array[offsetStart] == MAGIC)
             {
                 //Slice should be $ channel, len ->
-                byte frameChannel = slice.Array[1];
+                byte frameChannel = slice.Array[offsetStart + 1];
+
+                //ushort alength = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
 
                 //The type to check for RTP or RTCP
-                byte payload = slice.Array[5];
+                byte payload = slice.Array[offsetStart + 5];
 
                 if (m_Interleaves.Any(i => i.MediaDescription.MediaFormat == (byte)(payload & 0x7f) && i.DataChannel == frameChannel))
                 {
-                    RtpPacket packet = new RtpPacket(slice);
+                    RtpPacket packet = new RtpPacket(slice.Array, offsetStart);
                     packet.Channel = frameChannel;
+                    offsetStart += packet.Length;
                     OnRtpPacketReceieved(packet);
+                    if (offsetStart < slice.Array.Length)
+                    {
+                        while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                        goto ParseSlice;
+                    }
                 }
                 else if ((payload == (byte)RtcpPacket.RtcpPacketType.SendersReport || payload == (byte)RtcpPacket.RtcpPacketType.ReceiversReport || payload == (byte)RtcpPacket.RtcpPacketType.Goodbye || payload == (byte)RtcpPacket.RtcpPacketType.SourceDescription) && m_Interleaves.Any(i => i.ControlChannel == frameChannel))
                 {
+                    ushort length = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
                     //Add all packs in the m_Buffer to the storage
                     foreach (RtcpPacket p in RtcpPacket.GetPackets(slice))
                     {
                         p.Channel = frameChannel;
                         //++m_RtcpPacketsReceieved;
                         RtcpPacketReceieved(this, p);
+                        offsetStart += p.Length;
                     }
+                    if (offsetStart < slice.Array.Length)
+                    {
+                        while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                        goto ParseSlice;
+                    }
+                }
+                else
+                {
+                    //Cannot determine the packet type
+                    //Move the offset
+                    offsetStart++;
+                    //If there is other data in the array attempt to parse it
+                    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                    //If we finally found it parse again
+                    if (offsetStart < slice.Array.Length && slice.Array[offsetStart] == MAGIC) goto ParseSlice;
                 }
             }
             else
-            {
+            {                
                 System.Diagnostics.Debug.WriteLine(System.Text.Encoding.ASCII.GetString(slice.Array));
-            }
+            }            
         }
 
         internal void OnInterleavedData(ArraySegment<byte> slice)
@@ -797,6 +824,8 @@ namespace Media.Rtp
         public void SendRtpPacket(RtpPacket packet)
         {
             Interleave interleave = GetInterleaveForPacket(packet);
+            //If Enable Mixing
+            //packet.ContributingSources.Add(packet.SynchronizationSourceIdentifier);
             int sent = SendData(packet.ToBytes(interleave.Ssrc), interleave.DataChannel, interleave.RemoteRtp);
             if (sent > 0)
             {
@@ -1007,12 +1036,12 @@ namespace Media.Rtp
                     //Since we are interleaving the channel may not match the channel we are recieving on but we have to handle the message
                     byte frameChannel = m_Buffer[1];
 
-                    //If the channel is not recognized
-                    if (!(m_Interleaves.Any(i => i.DataChannel == frameChannel || i.ControlChannel == frameChannel)))
-                    {
-                        //This is data for a channel we do not interleave on
-                        return recieved;
-                    }
+                    ////If the channel is not recognized
+                    //if (!(m_Interleaves.Any(i => i.DataChannel == frameChannel || i.ControlChannel == frameChannel)))
+                    //{
+                    //    //This is data for a channel we do not interleave on
+                    //    return recieved;
+                    //}
 
                     //Decode the length since the channel is known
                     ushort supposedLength = (ushort)IPAddress.NetworkToHostOrder(BitConverter.ToInt16(m_Buffer, 2));

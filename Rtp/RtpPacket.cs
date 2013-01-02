@@ -202,10 +202,21 @@ namespace Media.Rtp
             }
 
             //Extract payload
-            int payloadSize = packetReference.Count - position;
+            int payloadSize = packetReference.Count - localOffset - position;
+            
+            //If the data was recieved late on a Tcp socket then the size at the beginning may be invalid.. 
+            //System.Diagnostics.Debug.WriteLine((ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(packetReference.Array, 2)));
+            if (payloadSize == -1)
+            {
+                //The real size is the size of the slice in total
+                payloadSize = packetReference.Array.Length - localOffset - position;
+            }
+            
+            //Create the payload
             m_Payload = new byte[payloadSize];
 
-            Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position, m_Payload, 0, payloadSize);
+            //Copy the data to the payload
+            Array.Copy(packetReference.Array, packetReference.Offset + position, m_Payload, 0, payloadSize);
         }
 
         public RtpPacket(byte[] packet, int offset = 0)

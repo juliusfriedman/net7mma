@@ -345,6 +345,9 @@ namespace Media.Rtsp
         /// <returns></returns>
         internal RtspSourceStream FindStreamByLocation(Uri mediaLocation, ClientSession ci = null)
         {
+
+            ///ALL THE SUDDEN QuickTime is setting up on the wrong url..
+
             string val = mediaLocation.ToString();
 
             RtspSourceStream found = null;
@@ -375,7 +378,7 @@ namespace Media.Rtsp
                 //Needs the ci who requests this media to attached the archives stream to... 
             }
 
-            return found;
+            return found;// ?? m_Streams.Values.Last();
         }
 
         #endregion
@@ -1107,20 +1110,20 @@ namespace Media.Rtsp
                 return;
             }
 
-            string[] ports = clientPortDirective.Split('-');
+            string[] clientPorts = clientPortDirective.Split('-');
 
-            if (ports.Length > 1 && found.m_ForceTCP == false)
+            if (clientPorts.Length > 1 && found.m_ForceTCP == false)
             {                
                 //The client requests Udp
-                ci.InitializeRtp(Convert.ToInt32(ports[0]), Convert.ToInt32(ports[1]));
+                ci.InitializeRtp(Convert.ToInt32(clientPorts[0]), Convert.ToInt32(clientPorts[1]));
                 if (ci.m_RtpClient.m_Interleaves.Count == 0)
                 {
                     var i = new RtpClient.Interleave(0, 1, 0, mediaDescription);
 
                     i.ServerRtpPort = ci.m_RtpClient.m_ServerRtpPort;
                     i.ServerRtcpPort = ci.m_RtpClient.m_ServerRtcpPort;
-                    i.ClientRtpPort = int.Parse(ports[0]);
-                    i.ClientRtcpPort = int.Parse(ports[1]);
+                    i.ClientRtpPort = int.Parse(clientPorts[0]);
+                    i.ClientRtcpPort = int.Parse(clientPorts[1]);
                     i.RemoteRtp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtpPort);
                     i.RemoteRtcp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtcpPort);
                     ci.m_RtpClient.AddInterleave(i);
@@ -1143,8 +1146,8 @@ namespace Media.Rtsp
                     
                     i.ServerRtpPort = ci.m_RtpClient.m_ServerRtpPort + 1;
                     i.ServerRtcpPort = ci.m_RtpClient.m_ServerRtcpPort + 1;
-                    i.ClientRtpPort = int.Parse(ports[0]);
-                    i.ClientRtcpPort = int.Parse(ports[1]);
+                    i.ClientRtpPort = int.Parse(clientPorts[0]);
+                    i.ClientRtcpPort = int.Parse(clientPorts[1]);
                     i.RemoteRtp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtpPort);
                     i.RemoteRtcp = new IPEndPoint(((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, i.ClientRtcpPort);
 
