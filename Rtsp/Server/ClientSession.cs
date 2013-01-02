@@ -250,7 +250,7 @@ namespace Media.Rtsp
                 }
                 
                 //Send the packet on the correct channel
-                m_RtpClient.SendRtcpPacket(sr.ToPacket(i.ControlChannel));
+                m_RtpClient.EnquePacket(sr.ToPacket(i.ControlChannel));
 
                 //The packet was sent now
                 sr.Sent = DateTime.Now;

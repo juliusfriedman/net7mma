@@ -14,11 +14,27 @@ namespace Media
             System.Console.Clear();
             TestRtspMessage();
             System.Console.Clear();
+            TestRtpPacket();
+            System.Console.Clear();
             TestSdp();
             System.Console.Clear();
             TestRtspClient();
             System.Console.Clear();
             TestServer();
+        }
+
+        private static void TestRtpPacket()
+        {
+            Console.WriteLine("RtpTest");
+            Rtp.RtpPacket p = new Rtp.RtpPacket();
+            p.TimeStamp = 987654321;
+            p.SequenceNumber = 7;
+            p.Marker = true;
+            p = new Rtp.RtpPacket(p.ToBytes());
+            Console.WriteLine(p.TimeStamp);
+            Console.WriteLine(p.SequenceNumber);
+            Console.WriteLine("Press a Key to Start Next Test");
+            System.Console.ReadKey();
         }
 
         static void TestRtspMessage()
@@ -50,7 +66,7 @@ namespace Media
             //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
             client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length); };
             Console.WriteLine("Waiting for packets...");
-            while (packets < 100) { System.Threading.Thread.Yield(); }
+            while (packets < 50) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
             var one = client.SendOptions();
             var two = client.SendOptions();
@@ -149,7 +165,7 @@ a=mpeg4-esid:101");
             //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov
             //rtsp://178.218.212.102:1935/live/Stream1        
             //rtsp://fms.zulu.mk/zulu/a2_1
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://178.218.212.102:1935/live/Stream1");
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://fms.zulu.mk/zulu/a2_1");
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             
