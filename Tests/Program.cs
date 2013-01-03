@@ -58,7 +58,7 @@ namespace Media
         }
 
         static void TestRtspClient()
-        {
+        {            
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
             client.StartListening();
             int packets = 0;
@@ -162,15 +162,18 @@ a=mpeg4-esid:101");
 
             //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
             //Here are some example Rtsp Sources
-            //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov
-            //rtsp://178.218.212.102:1935/live/Stream1        
-            //rtsp://fms.zulu.mk/zulu/a2_1
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("RtspSourceTest", "rtsp://fms.zulu.mk/zulu/a2_1");
+            //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov - Known Not Working
+            //rtsp://178.218.212.102:1935/live/Stream1 - Working Video no audio
+            //rtsp://fms.zulu.mk/zulu/a2_1 - Working Video, Audio Working intermittently 
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://178.218.212.102:1935/live/Stream1");
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             
             //Add the stream to the server
             server.AddStream(source);
+
+            //Create another and add it
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://fms.zulu.mk/zulu/a2_1"));
 
             //Start the server
             server.Start();
