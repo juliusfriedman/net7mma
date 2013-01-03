@@ -38,11 +38,12 @@ namespace Media.Rtcp
 
         #endregion
 
-        public virtual RtcpPacket ToPacket()
+        public virtual RtcpPacket ToPacket(byte? channel = null)
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport);
             output.Data = ToBytes();
             output.BlockCount = Blocks.Count;
+            output.Channel = channel;
             return output;
         }
 

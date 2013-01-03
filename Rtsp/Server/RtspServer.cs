@@ -704,8 +704,11 @@ namespace Media.Rtsp
             {
                 //User bailed
                 System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
-                //Start recieve again (Interleaved Rtp over Rtsp might have problems with this sharing)
-                ci.m_RtspSocket.Disconnect(true);
+                
+                //Close the socket and remove the client
+                ci.m_RtspSocket.Close();
+                ci.Disconnect();
+                m_Clients.Remove(ci.Id);
             }
         }
 

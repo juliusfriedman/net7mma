@@ -125,11 +125,11 @@ namespace Media.Rtsp
             }
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
             {
-                //The source stream send a senders report
+                //The source stream send a senders report                
             }
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
             {
-                //The source stream send a recievers report
+                //The source stream send a recievers report                
             }
 
             //maybe their recievers reports shoudl trigger us sending one to our client?
@@ -250,8 +250,8 @@ namespace Media.Rtsp
                 }
                 
                 //Send the packet on the correct channel
-                m_RtpClient.EnquePacket(sr.ToPacket(i.ControlChannel));
-
+                m_RtpClient.SendRtcpPacket(sr.ToPacket(i.ControlChannel));
+                
                 //The packet was sent now
                 sr.Sent = DateTime.Now;
 
