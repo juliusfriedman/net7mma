@@ -114,10 +114,6 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(RtpClient stream, RtcpPacket packet)
         {
-
-            //Raise the event on the RtpClient so the SSRC is assigned correctly
-            //m_RtpClient.OnRtcpPacketReceieved(packet);
-
             //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
             if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
             {
@@ -125,15 +121,12 @@ namespace Media.Rtsp
             }
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
             {
-                //The source stream send a senders report                
+                //The source stream recieved a senders report                
             }
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
             {
-                //The source stream send a recievers report                
+                //The source stream recieved a recievers report                
             }
-
-            //maybe their recievers reports shoudl trigger us sending one to our client?
-            //Maybe handle these but we dont need them we only need to be aware of packets from the client, not the source.
         }
 
         /// <summary>
