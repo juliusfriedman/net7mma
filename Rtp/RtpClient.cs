@@ -1049,16 +1049,15 @@ namespace Media.Rtp
                 //For Udp we can just recieve and incrmement
                 if (m_TransportProtocol == ProtocolType.Udp)
                 {
-                    //Increment and recieve
-                    recieved += socket.Receive(m_Buffer);
+                    //Recieve as many bytes as are available on the socket
+                    recieved += socket.Receive(m_Buffer, recieved, socket.Available, SocketFlags.None);
 
-                    //Use the channel again to determine how to handle the response
-                    if (m_Interleaves.Any(i => i.DataChannel == channel))
+                    //Use the channel again to determine how to handle the response if it is a valid RtpPacket or RtcpPacket
+                    if (recieved > RtpPacket.RtpHeaderLength && m_Interleaves.Any(i => i.DataChannel == channel))
                     {
                         RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, 0, recieved));
                         packet.Channel = channel;
                         OnRtpPacketReceieved(packet);
-                        return recieved;
                     }
                     else if (m_Interleaves.Any(i => i.DataChannel == channel))
                     {
@@ -1067,9 +1066,7 @@ namespace Media.Rtp
                             p.Channel = channel;
                             RtcpPacketReceieved(this, p);
                         }
-                        return recieved;
                     }
-
                 }
                 else
                 {
