@@ -61,8 +61,8 @@ namespace Media.Rtcp
 
                 while (offset /*+ ReportBlock.Size*/ < packet.Length)
                 {
-                    Blocks.Add(new ReportBlock(packet, offset));
-                    offset += ReportBlock.Size;
+                    Blocks.Add(new ReportBlock(packet, ref offset));
+                    //offset += ReportBlock.Size;
                 }
             }
 

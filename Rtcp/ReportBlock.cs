@@ -16,7 +16,7 @@ namespace Media.Rtcp
             SynchronizationSourceIdentifier = ssrc;
         }
 
-        public ReportBlock(byte[] packet, int index)
+        public ReportBlock(byte[] packet, ref int index)
         {
             if (packet.Length - index < Size) throw new ArgumentOutOfRangeException("index", "Must allow 24 bytes in buffer");
 
