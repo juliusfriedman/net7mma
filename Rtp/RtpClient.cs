@@ -488,12 +488,12 @@ namespace Media.Rtp
                     ////}
 
                 }
-                else
-                {
-                    ////offsetStart++;
-                    ////while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                    ////goto ParseSlice;
-                }
+                //else
+                //{
+                //    ////offsetStart++;
+                //    ////while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                //    ////goto ParseSlice;
+                //}
             }                     
         }
 

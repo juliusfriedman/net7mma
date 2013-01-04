@@ -66,7 +66,7 @@ namespace Media
             //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
             client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length); };
             Console.WriteLine("Waiting for packets...");
-            while (packets < 50) { System.Threading.Thread.Yield(); }
+            while (packets < 1024) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
             var one = client.SendOptions();
             var two = client.SendOptions();
