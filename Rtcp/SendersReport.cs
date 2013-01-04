@@ -50,7 +50,6 @@ namespace Media.Rtcp
                 if (packetLength > 12) RtpTimestamp = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 12));
                 else return;
 
-
                 if (packetLength > 16) SendersPacketCount = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 16));
                 else return;
                 

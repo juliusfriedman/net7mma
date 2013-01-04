@@ -13,16 +13,18 @@ Global
 		SccLocalPath0 = .
 		SccProjectUniqueName1 = Media.csproj
 		SccLocalPath1 = .
-		SccProjectUniqueName2 = Tests.csproj
-		SccProjectName2 = Tests/Tests
+		SccProjectUniqueName2 = Tests\\Tests.csproj
+		SccProjectName2 = Tests
 		SccLocalPath2 = Tests
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
 		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
@@ -30,20 +32,27 @@ Global
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Debug|x64.ActiveCfg = Debug|x64
+		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Debug|x64.Build.0 = Debug|x64
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|x64.ActiveCfg = Release|x64
+		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|x64.Build.0 = Release|x64
 		{3F19C035-AD27-4C88-817D-E2ABC550767D}.Release|x86.ActiveCfg = Release|Any CPU
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|Any CPU.ActiveCfg = Debug|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|Mixed Platforms.Build.0 = Debug|x86
+		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|x64.ActiveCfg = Debug|x64
+		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|x64.Build.0 = Debug|x64
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|x86.ActiveCfg = Debug|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Debug|x86.Build.0 = Debug|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Release|Any CPU.ActiveCfg = Release|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Release|Mixed Platforms.ActiveCfg = Release|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Release|Mixed Platforms.Build.0 = Release|x86
+		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Release|x64.ActiveCfg = Release|x64
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Release|x86.ActiveCfg = Release|x86
 		{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection

@@ -256,7 +256,7 @@ namespace Media.Sdp
         public MediaType MediaType { get; private set; }
         public int MediaPort { get; private set; }
         public string MediaProtocol { get; private set; }
-        public int MediaFormat { get; private set; }
+        public byte MediaFormat { get; private set; }
 
         //Maybe add a few Computed properties such as SampleRate
         //OR
@@ -271,7 +271,7 @@ namespace Media.Sdp
 
         #region Constructor
 
-        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, int mediaFormat)
+        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, byte mediaFormat)
         {
             MediaType = mediaType;
             MediaPort = mediaPort;
@@ -296,7 +296,7 @@ namespace Media.Sdp
 
             MediaProtocol = parts[2]; //Listener should probably be using this to decide port
 
-            MediaFormat = int.Parse(SessionDescription.CleanValue(parts[3]));
+            MediaFormat = byte.Parse(SessionDescription.CleanValue(parts[3]));
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e;)
@@ -318,6 +318,17 @@ namespace Media.Sdp
         }
 
         #endregion
+
+        internal void Add(SessionDescriptionLine line)
+        {
+            if (line == null) return;
+            m_Lines.Add(line);
+        }
+
+        internal void RemoveLine(int index)
+        {
+            m_Lines.RemoveAt(index);
+        }
 
         public override string ToString()
         {

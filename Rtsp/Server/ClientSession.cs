@@ -17,6 +17,8 @@ namespace Media.Rtsp
     {
         #region Fields
 
+        internal List<RtpClient.Interleave> m_SourceInterleaves = new List<RtpClient.Interleave>();
+
         internal RtspServer m_Server;
         
         internal Guid m_Id = Guid.NewGuid();
@@ -91,7 +93,6 @@ namespace Media.Rtsp
             if (m_RtpClient != null) return;
             m_RtpClient = RtpClient.Sender(((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, rtpPort, rtcpPort);
             m_RtpClient.Connect();
-            //m_RtpClient.SendRtcpPacket(m_RtpClient.CreateSendersReport());
         }
 
         /// <summary>
@@ -101,10 +102,32 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-            m_RtpClient.OnRtpPacketReceieved(packet);            
 
-            //Enque the recieved packet
-            m_RtpClient.EnquePacket(packet);     
+            //Raise an event
+            m_RtpClient.OnRtpPacketReceieved(packet);
+
+            //Enque the recieved packet for sending
+            m_RtpClient.EnquePacket(packet); 
+
+            //Trying to experiment with VLC... If it keeps having to get hacked up like this then we will just use quicktime for testing
+
+            //////var il = client.GetInterleaveForPacket(packet);
+            //////if (il.MediaDescription.MediaType == Sdp.MediaType.audio)
+            //////{
+            //////    //Raise an event
+            //////    m_RtpClient.OnRtpPacketReceieved(packet);
+
+            //////    //Enque the recieved packet
+            //////    m_RtpClient.EnquePacket(packet);
+            //////}
+            //////else
+            //////{
+            //////    //Send the packet right away....
+            //////    m_RtpClient.SendRtpPacket(packet);
+
+            //////    //Raise as event
+            //////    m_RtpClient.OnRtpPacketReceieved(packet);
+            //////}
         }
 
         /// <summary>
@@ -130,7 +153,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Sends the Rtcp Goodbye and disposes the Rtp and Rtcp Sockets if we are not in Tcp Transport
+        /// Sends the Rtcp Goodbye and detaches all sources
         /// </summary>
         internal void Disconnect()
         {
@@ -208,12 +231,14 @@ namespace Media.Rtsp
             m_RtpClient.m_Interleaves.ToList().ForEach(i =>
             {
                 //Assign the ssrc if it has not been yet
-                if (i.Ssrc == 0)
+                if (i.SynchronizationSourceIdentifier == 0)
                 {
-                    i.Ssrc = (uint)(DateTime.Now.Ticks ^ i.DataChannel);// Guaranteed to be unique per session
+                    //Might need a way to only send a 24 byte report (ShortForm)
+                    i.SynchronizationSourceIdentifier = (uint)(DateTime.Now.Ticks ^ i.DataChannel);// Guaranteed to be unique per session
                 }
+
                 //Create a Senders Report
-                SendersReport sr = new SendersReport(i.Ssrc);
+                SendersReport sr = new SendersReport(i.SynchronizationSourceIdentifier);
                 
                 //Set the timestamp
                 sr.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
@@ -224,11 +249,11 @@ namespace Media.Rtsp
                 //If the LastRtpPacket is null we didn't send anything yet
                 if (i.LastRtpPacket == null)
                 {
-                    //Set the timestamp
-                    sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 32);
+                    //Middle bits
+                    sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 16);
 
                     //Set the senders octet count
-                    sr.SendersPacketCount = sr.SendersOctetCount = 0;
+                    sr.RtpTimestamp = sr.SendersPacketCount = sr.SendersOctetCount = 0;
                 }
                 else
                 {
