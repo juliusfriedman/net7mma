@@ -248,8 +248,8 @@ namespace Media.Rtp
         internal Socket m_RtpSocket, m_RtcpSocket;
 
         //EndPoints
-        IPAddress m_RemoteAddress;
-        IPEndPoint m_LocalRtp, m_LocalRtcp, m_RemoteRtp, m_RemoteRtcp;
+        internal IPAddress m_RemoteAddress;
+        internal IPEndPoint m_LocalRtp, m_LocalRtcp, m_RemoteRtp, m_RemoteRtcp;
 
         //Each session gets its own thread to send and recieve
         internal Thread m_WorkerThread;
@@ -259,7 +259,7 @@ namespace Media.Rtp
         internal List<RtcpPacket> m_OutgoingRtcpPackets = new List<RtcpPacket>();
         
         //Created from an existing socket we should not close?
-        bool m_SocketOwner;        
+        internal bool m_SocketOwner = true;    
 
         //Channels for sending and receiving (Should be DataChannel)
         internal List<Interleave> m_Interleaves = new List<Interleave>();      
@@ -583,7 +583,7 @@ namespace Media.Rtp
         /// <param name="address">The remote address</param>
         /// <param name="rtpPort">The rtp port</param>
         /// <param name="rtcpPort">The rtcp port</param>
-        RtpClient(IPAddress address, int rtpPort, int rtcpPort, bool recevier = false)
+        internal RtpClient(IPAddress address, int rtpPort, int rtcpPort, bool recevier = false, int serverRtp = 0, int serverRtcp = 1)
             :this()
         {
 
@@ -592,8 +592,13 @@ namespace Media.Rtp
             //Handle the role reversal
             if (recevier)
             {
-                m_ClientRtpPort = Utility.FindOpenUDPPort(30000);
-                m_ClientRtcpPort = m_ClientRtpPort + 1;
+                //m_ClientRtpPort = Utility.FindOpenUDPPort(60000); //Make sure this port number start matches, should be passes or set
+                //m_ClientRtcpPort = m_ClientRtpPort + 1;
+
+                m_ClientRtpPort = serverRtp;
+
+                m_ClientRtcpPort = serverRtcp;
+
                 //Store the client ports
                 m_ServerRtpPort = rtpPort;
                 m_ServerRtcpPort = rtcpPort;
@@ -604,14 +609,19 @@ namespace Media.Rtp
                 //m_RtcpSocket.Bind(m_LocalRtcp);
                 //m_RtcpSocket.Connect(address, m_ClientRtcpPort);
 
-                m_ServerRtpPort = Utility.FindOpenUDPPort(30000);
-                m_ServerRtcpPort = m_ServerRtpPort + 1;
+                //m_ServerRtpPort = Utility.FindOpenUDPPort(30000);
+                //m_ServerRtcpPort = m_ServerRtpPort + 1;
+
+                m_ServerRtpPort = serverRtp;
+                m_ServerRtcpPort = serverRtcp;
+                
                 //Store the client ports
                 m_ClientRtpPort = rtpPort;
                 m_ClientRtcpPort = rtcpPort;
             }
 
             //Might need to swap  these above to ensurce rtcp is recieved when we are a recevier
+            var v4Ip = Utility.GetV4IPAddress();
             m_LocalRtp = new IPEndPoint(IPAddress.Any, m_ServerRtpPort);
             m_LocalRtcp = new IPEndPoint(IPAddress.Any, m_ServerRtcpPort);
             m_RemoteRtp = new IPEndPoint(m_RemoteAddress, m_ClientRtpPort);
@@ -629,13 +639,15 @@ namespace Media.Rtp
             
             //m_RtpSocket.Blocking = false;
             m_RtpSocket.DontFragment = true;
+            m_RtpSocket.Blocking = false;   
 
             m_RtcpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             m_RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
 
             //m_RtcpSocket.Blocking = false;
-            m_RtpSocket.DontFragment = true;         
+            m_RtcpSocket.DontFragment = true;
+            
         }
 
         /// <summary>
@@ -935,6 +947,17 @@ namespace Media.Rtp
 
         #region Socket
 
+        internal void InitializeFrom(ref Socket socket)
+        {
+            m_SocketOwner = false;
+            m_RemoteRtcp = m_RemoteRtp = ((IPEndPoint)socket.RemoteEndPoint);
+            m_LocalRtcp = m_LocalRtp = ((IPEndPoint)socket.LocalEndPoint);
+            m_ClientRtpPort = m_ClientRtcpPort = m_RemoteRtp.Port;//Maybe local
+            m_RemoteAddress = m_RemoteRtp.Address;
+            m_TransportProtocol = socket.ProtocolType;
+            m_RtpSocket = m_RtcpSocket = socket;            
+        }
+
         /// <summary>
         /// Binds and Connects the required sockets
         /// </summary>
@@ -953,13 +976,19 @@ namespace Media.Rtp
                     m_RtpSocket.Bind(m_LocalRtp);
                     
                     //Connect the socket so RemoteEndpoint is m_RemoteAddress
-                    m_RtpSocket.Connect(m_RemoteAddress, m_ServerRtpPort);
+                    m_RtpSocket.Connect(m_RemoteRtp);
                     
                     //Bind the socket so recieve on m_LocalRtcp
                     m_RtcpSocket.Bind(m_LocalRtcp);
                     
                     //Connect the socket so RemoteEndPoint is m_RemoteRtcp
-                    m_RtcpSocket.Connect(m_RemoteRtcp);//Above should be like this too?
+                    m_RtcpSocket.Connect(m_RemoteRtcp);
+
+
+                    ////byte[] wakeup = new byte[] { 0xce, 0xfa, 0xed, 0xfe };
+
+                    ////m_RtpSocket.SendTo(wakeup, m_RemoteRtp);
+                    ////m_RtcpSocket.SendTo(wakeup, m_RemoteRtcp);
                 }
                 else
                 {
@@ -968,6 +997,8 @@ namespace Media.Rtp
 
                     //Connect the socket to m_RemoteAddress
                     m_RtpSocket.Connect(m_RemoteAddress, m_ServerRtpPort);
+
+                    //RtcpSocket should be equal to RtpSocket
                 }
             }
 

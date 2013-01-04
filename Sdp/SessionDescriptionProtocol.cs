@@ -168,43 +168,43 @@ namespace Media.Sdp
 
         #region Methods        
 
-        public void Add(MediaDescription mediaDescription)
+        public void Add(MediaDescription mediaDescription, bool updateVersion = true)
         {
             if (mediaDescription == null) return;
             m_MediaDescriptions.Add(mediaDescription);
-            ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.Version;
         }
 
-        public void Add(TimeDescription timeDescription)
+        public void Add(TimeDescription timeDescription, bool updateVersion = true)
         {
             if (timeDescription == null) return;
             m_TimeDescriptions.Add(timeDescription);
-            ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.Version;
         }
 
-        public void Add(SessionDescriptionLine line)
+        public void Add(SessionDescriptionLine line, bool updateVersion = true)
         {
             if (line == null) return;
             m_Lines.Add(line);
-            ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.Version;
         }
 
-        public void RemoveLine(int index)
+        public void RemoveLine(int index, bool updateVersion = true)
         {
             m_Lines.RemoveAt(index);
-            ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.Version;
         }
 
-        public void RemoveMediaDescription(int index)
+        public void RemoveMediaDescription(int index, bool updateVersion = true)
         {
             m_MediaDescriptions.RemoveAt(index);
-            ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.Version;
         }
 
-        public void RemoveTimeDescription(int index)
+        public void RemoveTimeDescription(int index, bool updateVersion = true)
         {
             m_TimeDescriptions.RemoveAt(index);
-            ++m_Originator.Version;
+            if(updateVersion) ++m_Originator.Version;
         }
 
         public override string ToString()
@@ -253,9 +253,26 @@ namespace Media.Sdp
     {
         #region Fields
 
+        //Created from the m= which is the first line, this is a computed line and not found in Lines.
+
+        /// <summary>
+        /// The MediaType of the MediaDescription
+        /// </summary>
         public MediaType MediaType { get; private set; }
+
+        /// <summary>
+        /// The MediaPort of the MediaDescription
+        /// </summary>
         public int MediaPort { get; private set; }
+
+        /// <summary>
+        /// The MediaProtocol of the MediaDescription
+        /// </summary>
         public string MediaProtocol { get; private set; }
+
+        /// <summary>
+        /// The MediaFormat of the MediaDescription
+        /// </summary>
         public byte MediaFormat { get; private set; }
 
         //Maybe add a few Computed properties such as SampleRate
@@ -568,7 +585,7 @@ namespace Media.Sdp
 
             public string Username { get { return GetPart(0); } set { SetPart(0, value); } }
             public string SessionId { get { return GetPart(1); } set { SetPart(1, value); } }
-            public long Version { get { string part = GetPart(2); return !string.IsNullOrWhiteSpace(part) ? long.Parse(part) : 0; } set { SetPart(2, value.ToString()); } }
+            public ulong Version { get { string part = GetPart(2); return !string.IsNullOrWhiteSpace(part) ? ulong.Parse(part) : 0; } set { SetPart(2, value.ToString()); } }
             public string NetworkType { get { return GetPart(3); } set { SetPart(3, value); } }
             public string AddressType { get { return GetPart(4); } set { SetPart(4, value); } }
             public string Address { get { return GetPart(5); } set { SetPart(5, value); } }
