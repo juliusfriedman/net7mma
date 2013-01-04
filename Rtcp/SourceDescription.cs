@@ -32,7 +32,7 @@ namespace Media.Rtcp
 
             byte m_Type;
 
-            int m_Length;
+            byte m_Length;
 
             string m_Text;
 
@@ -42,7 +42,7 @@ namespace Media.Rtcp
 
             public SourceDescriptionType DescriptionType { get { return (SourceDescriptionType)m_Type; } set { m_Type = (byte)value; } }
 
-            public int Length { get { return m_Length; } }
+            public byte Length { get { return m_Length; } }
 
             public string Text
             {
@@ -53,7 +53,7 @@ namespace Media.Rtcp
                     else if (value.Length > 255) throw new ArgumentOutOfRangeException("value", "Cannot exceed 255 characters");
                     else
                     {
-                        m_Text = value; m_Length = Encoding.UTF8.GetByteCount(m_Text);
+                        m_Text = value; m_Length = (byte)Encoding.UTF8.GetByteCount(m_Text);
                     }
                 }
             }
@@ -69,12 +69,14 @@ namespace Media.Rtcp
             }
 
             //Used to take RtcpPacket
-            public SourceDescriptionItem(byte[] packet, int offset)
+            public SourceDescriptionItem(byte[] packet, ref int offset)
             {
-                m_Type = packet[offset + 0];
-                m_Length = packet[offset + 1];
-                //Could check length to make sure its 255 or lower...
-                m_Text = Encoding.UTF8.GetString(packet, offset + 2, m_Length);
+                m_Type = packet[offset ++];
+                m_Length = packet[offset ++];
+                if (m_Length > 0)
+                {
+                    m_Text = Encoding.UTF8.GetString(packet, offset, m_Length);
+                }
             }
 
             #endregion
@@ -87,7 +89,7 @@ namespace Media.Rtcp
 
                 result.Add(m_Type);
                 result.Add((byte)m_Length);
-                if (Length > 0)
+                if (m_Length > 0)
                 {
                     result.AddRange(Encoding.UTF8.GetBytes(m_Text));
                 }
@@ -113,19 +115,18 @@ namespace Media.Rtcp
         public SourceDescription(byte[] packet, int offset) 
         {
 
-            //SynchronizationSourceIdentifier = (uint)(packet[offset + 0] << 24 | packet[offset + 1] << 16 | packet[offset + 2] << 8 | packet[offset + 3]);
-
             SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, offset));
 
             offset = 4;
 
+            //To cache the value of the cast because we can't use == / != on SourceDescriptionType because of enum
             byte SourceDescriptionEnd = (byte)SourceDescriptionType.End;
 
             while (offset < packet.Length && packet[offset] != SourceDescriptionEnd)
             {
-                SourceDescriptionItem item = new SourceDescriptionItem(packet, offset);
+                SourceDescriptionItem item = new SourceDescriptionItem(packet, ref offset);
                 Items.Add(item);
-                offset += item.Length + 2; //Type and Length
+                //offset += item.Length + 2; //Type and Length bytes (Now handled with ref)
             }
 
         }
@@ -141,9 +142,8 @@ namespace Media.Rtcp
             int offset = 0;
             while (offset < packet.Data.Length)
             {
-                SourceDescriptionItem item = new SourceDescriptionItem(packet.Data, offset);
+                SourceDescriptionItem item = new SourceDescriptionItem(packet.Data, ref offset);
                 Items.Add(item);
-                offset += 2 + item.Length;
             }
         }
 
@@ -170,15 +170,12 @@ namespace Media.Rtcp
             //Add terminator
             result.AddRange(SourceDescriptionItem.Empty.ToBytes());
 
-            //Ensure header values
+            //Ensure header values right here but this is done when required in case some one wants to mangle with these fields for some reason
             //m_Count = Items.Count;
             //Length = (short)result.Count();
 
             //Align to multiple of 4 for rtcp Length
             while (result.Count % 4 != 0) result.Add(0);
-
-            //Header
-            //result.InsertRange(0, base.ToBytes());
 
             return result.ToArray();
         }

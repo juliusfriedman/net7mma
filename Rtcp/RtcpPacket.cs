@@ -22,7 +22,7 @@ namespace Media.Rtcp
 
         #region Fields
 
-        int m_Version = 2, m_Padding, m_Count;
+        int m_Version , m_Padding, m_Count;
 
         short m_Length;
 
@@ -80,8 +80,11 @@ namespace Media.Rtcp
             if (packetReference.Array[offset] == 36) offset += 4;
 
             //Get version
-            m_Version = packetReference.Array[offset + 0] >> 6; ;
-            
+            m_Version = packetReference.Array[offset + 0] >> 6;
+
+            //Double check to make sure we are parsing a known format
+            if (m_Version != 2) return;
+
             //Invalid Version
             if (m_Version == 0) return;
 
@@ -96,9 +99,6 @@ namespace Media.Rtcp
             //Length Should be Block Count?
             m_Length = (short)(packetReference.Array[offset + 2] << 8 | packetReference.Array[offset + 3]);
 
-
-            if (m_Length < 0 || m_Length > 1500) m_Length = (short)m_Count;
-
             //Extract Data
             m_Data = new byte[Length];
             Array.Copy(packetReference.Array, offset + 4, m_Data, 0, Length);
@@ -108,6 +108,7 @@ namespace Media.Rtcp
 
         public RtcpPacket(RtcpPacketType type, byte? channel = null)
         {
+            Version = 2;
             Created = DateTime.Now;
             m_Type = (byte)type;
             Channel = channel;
@@ -134,6 +135,12 @@ namespace Media.Rtcp
             return packets.ToArray();
         }
 
+        /// <summary>
+        /// Retries compond packets from the buffer
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <returns>The array of packets decoded from the buffer</returns>
         public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0)
         {
             return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), offset);

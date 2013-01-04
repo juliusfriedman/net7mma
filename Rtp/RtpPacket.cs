@@ -70,9 +70,14 @@ namespace Media.Rtp
         public bool Marker { get { return m_Marker > 0; } set { m_Marker = value ? 1 : 0; } }
 
         /// <summary>
-        /// Indicates the format of the data withing the Payload
+        /// Indicates the format of the data within the Payload
         /// </summary>
         public byte PayloadType { get { return m_PayloadType; } set { m_PayloadType = value; } }
+
+        //if (value > 127) 
+        //        { 
+        //            throw new ArgumentOutOfRangeException("MSR.LST.Rtp.RtpPacketBase.PayloadType" + " is a seven bit structure, and can hold values between 0 and 127");       
+        //        } else m_PayloadType = value & 0x7f; 
 
         /// <summary>
         /// The sequence number of the RtpPacket
@@ -145,7 +150,7 @@ namespace Media.Rtp
 
         #region Constructor
 
-        public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; Created = DateTime.UtcNow; }
+        public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; Created = DateTime.UtcNow; Version = 2; }
 
         public RtpPacket(ArraySegment<byte> packetReference, byte? channel = null)
         {
@@ -169,6 +174,10 @@ namespace Media.Rtp
 
             //Version, Padding flag, Extension flag, and Contribuing Source Count
             m_Version = compound >> 6; ;
+
+            //We only parse version 2
+            if (m_Version != 2) return;
+
             m_Padding = (0x1 & (compound >> 5));
             m_Extensions = (0x1 & (compound >> 4));
             m_Csc = 0x1F & compound;

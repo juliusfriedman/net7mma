@@ -20,10 +20,10 @@ namespace Media.Rtcp
 
         public Goodbye(byte[] packet, int index)
         {
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, index + 0));
+            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
             if (packet.Length - index > 4)
             {
-                int length = packet[index + 4];
+                byte length = packet[index + 4];
                 if (length > 0)
                 {
                     Reason = Encoding.UTF8.GetString(packet, index + 5, length);
@@ -35,11 +35,12 @@ namespace Media.Rtcp
 
         #region Methods
 
-        public RtcpPacket ToPacket()
+        public RtcpPacket ToPacket(byte? channel = null)
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.Goodbye);
             output.Data = ToBytes();
             output.BlockCount = 1;
+            output.Channel = channel;
             return output;
         }
 
@@ -50,9 +51,9 @@ namespace Media.Rtcp
 
             if (!string.IsNullOrEmpty(Reason))
             {
-                int lenth = Encoding.UTF8.GetByteCount(Reason);
-                result.Add((byte)lenth);
-                result.AddRange(Encoding.UTF8.GetBytes(Reason));
+                int length = Encoding.UTF8.GetByteCount(Reason);
+                result.Add((byte)length);
+                if (length > 0) result.AddRange(Encoding.UTF8.GetBytes(Reason));
             }           
 
             return result.ToArray();

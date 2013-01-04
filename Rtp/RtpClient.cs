@@ -64,13 +64,13 @@ namespace Media.Rtp
             internal readonly byte DataChannel, ControlChannel;
 
             //The ssrc packets are sent out with under this channel
-            internal uint Ssrc;
+            internal uint SynchronizationSourceIdentifier;
 
             //Any frames for this channel
             internal RtpFrame CurrentFrame, LastFrame;
 
             //Allow for mapping from source to sink allows to see what type of media and format it expects on a given channel
-            internal Sdp.MediaDescription MediaDescription { get; set; }
+            public Sdp.MediaDescription MediaDescription { get; protected set; }
 
             ////I THINK THE PORTS ARE THE REASON FOR THE VIDEO / AUDIO NOT COMING OUT RIGHT
             //I am using this to test if that is the case
@@ -116,7 +116,7 @@ namespace Media.Rtp
             {
                 DataChannel = rtp;
                 ControlChannel = rtcp;
-                Ssrc = ssrc;
+                SynchronizationSourceIdentifier = ssrc;
             }
 
             internal Interleave(byte rtp, byte rtcp, uint ssrc, Sdp.MediaDescription mediaDescription)
@@ -309,9 +309,9 @@ namespace Media.Rtp
                 interleave.SendersReport = new SendersReport(packet);
                 
                 //Ensure this is correct
-                if (interleave.Ssrc == 0)
+                if (interleave.SynchronizationSourceIdentifier == 0)
                 {
-                    interleave.Ssrc = interleave.SendersReport.SynchronizationSourceIdentifier;
+                    interleave.SynchronizationSourceIdentifier = interleave.SendersReport.SynchronizationSourceIdentifier;
                 }
 
                 //Create a corresponding RecieversReport
@@ -319,7 +319,7 @@ namespace Media.Rtp
                 //Change the RecieversReport into a RtcpPacket
 
                 //Send the packet to calculate the correct send time...
-                //Should be scheduled
+                //Should be scheduled (figure out how to set sent after sending. Could do a check on the type if the packet being sent in SendRtcpPacket)
                 SendRtcpPacket(interleave.RecieversReport.ToPacket(interleave.ControlChannel));
                 interleave.RecieversReport.Sent = DateTime.UtcNow;
             }
@@ -362,9 +362,9 @@ namespace Media.Rtp
             interleave.RtpBytesRecieved += packet.Length;
 
             //TODO Determine if this is correct
-            if (interleave.Ssrc == 0)
+            if (interleave.SynchronizationSourceIdentifier == 0)
             {
-                interleave.Ssrc = packet.SynchronizationSourceIdentifier;
+                interleave.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
             }
 
             //If the interleave's CurrentFrame is null allocate one based on the packet recieved
@@ -428,7 +428,7 @@ namespace Media.Rtp
         internal virtual void RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
         {
             int offsetStart = 0;
-            ParseSlice:
+            //ParseSlice:
             if (offsetStart < slice.Array.Length && slice.Array[offsetStart] == MAGIC)
             {
                 //Slice should be channel
@@ -449,8 +449,8 @@ namespace Media.Rtp
                     //Decode the length
                     ushort alength = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
 
-                    //If the packet length is bigger than the Payload resize it
-                    if (packet.Payload.Length > alength)
+                    //If the packet length is bigger than expected resize the payload
+                    if (packet.Length > alength)
                     {
                         //The length includes the RTPHeader Length for some reason
                         Array.Resize<byte>(ref packet.m_Payload, alength - RtpPacket.RtpHeaderLength);
@@ -463,13 +463,13 @@ namespace Media.Rtp
                     OnRtpPacketReceieved(packet);
                     
                     //Check for more packets
-                    if (offsetStart < slice.Array.Length)
-                    {
-                        while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                        goto ParseSlice;
-                    }
+                    ////if (offsetStart < slice.Array.Length)
+                    ////{
+                    ////    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                    ////    goto ParseSlice;
+                    ////}
                 }
-                else if ((payload == (byte)RtcpPacket.RtcpPacketType.SendersReport || payload == (byte)RtcpPacket.RtcpPacketType.ReceiversReport || payload == (byte)RtcpPacket.RtcpPacketType.Goodbye || payload == (byte)RtcpPacket.RtcpPacketType.SourceDescription) && m_Interleaves.Any(i => i.ControlChannel == frameChannel))
+                else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte) RtcpPacket.RtcpPacketType.ApplicationSpecific) && m_Interleaves.Any(i => i.ControlChannel == frameChannel))
                 {
                     //ushort length = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
                     //Add all packs in the m_Buffer to the storage
@@ -481,18 +481,18 @@ namespace Media.Rtp
                         offsetStart += p.Length;
                     }
 
-                    if (offsetStart < slice.Array.Length)
-                    {
-                        while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                        goto ParseSlice;
-                    }
+                    ////if (offsetStart < slice.Array.Length)
+                    ////{
+                    ////    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                    ////    goto ParseSlice;
+                    ////}
 
                 }
                 else
                 {
-                    offsetStart++;
-                    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                    goto ParseSlice;
+                    ////offsetStart++;
+                    ////while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
+                    ////goto ParseSlice;
                 }
             }                     
         }
@@ -500,6 +500,11 @@ namespace Media.Rtp
         internal void OnInterleavedData(ArraySegment<byte> slice)
         {
             if (InterleavedData != null) InterleavedData(this, slice);
+        }
+
+        internal void OnInterleavedData(byte[] slice)
+        {
+            if (InterleavedData != null) InterleavedData(this, new ArraySegment<byte>(slice));
         }
 
         /// <summary>
@@ -620,13 +625,15 @@ namespace Media.Rtp
             //Non interleaved over udp required two sockets for ease ...... could do with just one
             m_RtpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            m_RtpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
             
             //m_RtpSocket.Blocking = false;
             m_RtpSocket.DontFragment = true;
 
             m_RtcpSocket = new Socket(address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
             m_RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            
+            m_RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+
             //m_RtcpSocket.Blocking = false;
             m_RtpSocket.DontFragment = true;         
         }
@@ -679,10 +686,17 @@ namespace Media.Rtp
         internal void SendGoodbye() { m_Interleaves.ForEach(SendGoodbye); }
         internal void SendGoodbye(Interleave i)
         {
-            i.GoodbyeSent = true;
-            Rtcp.RtcpPacket packet = new Rtcp.Goodbye((uint)i.Ssrc).ToPacket();
-            packet.Channel = i.ControlChannel;            
-            SendRtcpPacket(packet);            
+            //If we have assigned an id
+            if (i.SynchronizationSourceIdentifier != 0)
+            {
+                //Check why both need to be set
+                i.GoodbyeRecieved = i.GoodbyeSent = true;
+                SendRtcpPacket(new Rtcp.Goodbye((uint)i.SynchronizationSourceIdentifier).ToPacket(i.ControlChannel));
+            }
+            else // Just indicate we did
+            {
+                i.GoodbyeSent = i.GoodbyeRecieved = true;
+            }
         }
 
         /// <summary>
@@ -696,7 +710,7 @@ namespace Media.Rtp
         internal SendersReport CreateSendersReport(Interleave i)
         {
             //This needs to the given ssrc or the ssrc for the rtcp channel
-            SendersReport result = new SendersReport(i.Ssrc);
+            SendersReport result = new SendersReport(i.SynchronizationSourceIdentifier);
 
             result.NtpTimestamp = Utility.DateTimeToNtp32(DateTime.UtcNow);
 
@@ -731,7 +745,7 @@ namespace Media.Rtp
             #endregion            
 
             //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-            result.Blocks.Add(new ReportBlock((uint)i.Ssrc)
+            result.Blocks.Add(new ReportBlock((uint)i.SynchronizationSourceIdentifier)
             {
                 CumulativePacketsLost = (uint)lost,
                 FractionLost = (uint)fraction,
@@ -746,7 +760,7 @@ namespace Media.Rtp
 
         internal ReceiversReport CreateReceiversReport(Interleave i)
         { //This needs to the given ssrc or the ssrc for the rtcp channel
-            ReceiversReport result = new ReceiversReport(i.Ssrc);
+            ReceiversReport result = new ReceiversReport(i.SynchronizationSourceIdentifier);
 
             #region Delay and Fraction
 
@@ -774,7 +788,7 @@ namespace Media.Rtp
             #endregion
 
             //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-            result.Blocks.Add(new ReportBlock((uint)i.Ssrc)
+            result.Blocks.Add(new ReportBlock((uint)i.SynchronizationSourceIdentifier)
             {
                 CumulativePacketsLost = (uint)lost,
                 FractionLost = (uint)fraction,
@@ -786,6 +800,8 @@ namespace Media.Rtp
 
             return result;
         }
+
+        //Should be moved to the interleave or be make to take an interleave
 
         /// <summary>
         /// Sends a RtcpSenders report to the client
@@ -825,7 +841,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to enqueue</param> (used to take the RtpCLient too but we can just check the packet payload type
         public void EnquePacket(RtcpPacket packet)
         {
-            //Find channel for payload using cd.MediaDescription?
+            //Find channel for packet using Channel
             //var cd = GetInterleaveForPacket(packet);
             lock (m_OutgoingRtcpPackets)
             {
@@ -841,6 +857,14 @@ namespace Media.Rtp
         public void SendRtcpPacket(RtcpPacket packet)
         {
             Interleave interleave = GetInterleaveForPacket(packet);
+            if (interleave == null || interleave.SynchronizationSourceIdentifier == 0)
+            {
+                //Add it back
+                //m_OutgoingRtcpPackets.Add(packet);
+
+                //Return
+                return;
+            }
             int sent = SendData(packet.ToBytes(), interleave.ControlChannel, interleave.RemoteRtcp);
             if (sent > 0)
             {
@@ -861,12 +885,7 @@ namespace Media.Rtp
         {
             //Ensure the packet can be sent
             Interleave interleave = GetInterleaveForPacket(packet);
-            if (interleave == null)
-            {
-                //We don't have a Interleave compatible with this Packet
-                return;
-            }
-            else if (interleave.MediaDescription.MediaFormat != packet.PayloadType)
+            if (interleave.MediaDescription.MediaFormat != packet.PayloadType)
             {
                 //Throw an exception if the payload type does not match
                 throw new RtpClientException("Packet Payload is different then the expected MediaDescription. Expected: '" + interleave.MediaDescription.MediaFormat + "' Found: '" + packet.Payload + "'");
@@ -884,9 +903,22 @@ namespace Media.Rtp
         public void SendRtpPacket(RtpPacket packet)
         {
             Interleave interleave = GetInterleaveForPacket(packet);
+            if (interleave == null || interleave.SynchronizationSourceIdentifier == 0)
+            {
+                //Add it back
+                //m_OutgoingRtpPackets.Add(packet);
+
+                //Return
+                return;
+            } 
+            else if (interleave.MediaDescription.MediaFormat != packet.PayloadType)
+            {
+                //Throw an exception if the payload type does not match
+                throw new RtpClientException("Packet Payload is different then the expected MediaDescription. Expected: '" + interleave.MediaDescription.MediaFormat + "' Found: '" + packet.PayloadType + "'");
+            }
             //If Enable Mixing
             //packet.ContributingSources.Add(packet.SynchronizationSourceIdentifier);
-            int sent = SendData(packet.ToBytes(interleave.Ssrc), interleave.DataChannel, interleave.RemoteRtp);
+            int sent = SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RemoteRtp);
             if (sent > 0)
             {
                 interleave.RtpBytesSent += sent;
@@ -1025,15 +1057,17 @@ namespace Media.Rtp
                 {
                     //if (i.DataChannel == channel) socket = m_RtpSocket;
                     //else if (i.ControlChannel == channel) socket = m_RtcpSocket;
+
+                    //We need to use the interleave socket unless it has not yet been created
                     if (i.DataChannel == channel)
                     {
                         socket = i.RtpSocket;
-                        if (socket == null) socket = m_RtpSocket;
+                        if (socket == null) socket = m_RtpSocket;//Probably Tcp
                     }
                     else
                     {
                         socket = i.RtcpSocket;
-                        if (socket == null) socket = m_RtpSocket;
+                        if (socket == null) socket = m_RtcpSocket;//Probably Tcp
                     }
                 });
 
@@ -1100,11 +1134,8 @@ namespace Media.Rtp
                             signalData.Add(m_Buffer[0]);
                         } while (m_Buffer[0] != MAGIC);
 
-                        //Create a slice from the signal Data
-                        var slice = new ArraySegment<byte>(signalData.ToArray(), 0, recieved);
-
                         //Raise the event
-                        OnInterleavedData(slice);
+                        OnInterleavedData(signalData.ToArray());
                     }
 
                     //Receive 3 bytes more to get the channel and length
@@ -1219,26 +1250,8 @@ namespace Media.Rtp
                 //While we have not recieved a Goodbye
                 while (m_Interleaves.ToList().Any( i=> !i.GoodbyeRecieved /*&& i.GoodbyeSent*/))
                 {
-                    
-                    #region Handle Outgoing RtpPackets
-
+                    //Everything we send is IEnumerable
                     System.Collections.IEnumerable toSend;
-
-                    if (m_OutgoingRtpPackets.Count > 0)
-                    {
-                        lock (m_OutgoingRtpPackets)
-                        {
-                            toSend = m_OutgoingRtpPackets.ToArray();
-                            m_OutgoingRtpPackets.Clear();
-                        }
-                        foreach (RtpPacket p in toSend)
-                        {
-                            SendRtpPacket(p);
-                        }
-                        toSend = null;
-                    }
-
-                    #endregion
 
                     #region Handle Outgoing RtcpPackets
 
@@ -1252,6 +1265,24 @@ namespace Media.Rtp
                         foreach (RtcpPacket p in toSend)
                         {
                             SendRtcpPacket(p);
+                        }
+                        toSend = null;
+                    }
+
+                    #endregion
+
+                    #region Handle Outgoing RtpPackets
+
+                    if (m_OutgoingRtpPackets.Count > 0) //&& m_Interleaves.All(i=>i.RtpSocket != null)
+                    {
+                        lock (m_OutgoingRtpPackets)
+                        {
+                            toSend = m_OutgoingRtpPackets.ToArray();//Where(p=>GetInterleaveForPacket(p).RtpSocket != null)
+                            m_OutgoingRtpPackets.Clear();
+                        }
+                        foreach (RtpPacket p in toSend)
+                        {
+                            SendRtpPacket(p);
                         }
                         toSend = null;
                     }
@@ -1272,6 +1303,8 @@ namespace Media.Rtp
                         //{
                         //    //Disconnect();
                         //}
+
+                        //If last send was long ago may need to send some type of keep alive?
 
                     }
                     #endregion

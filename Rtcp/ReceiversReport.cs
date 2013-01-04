@@ -24,7 +24,7 @@ namespace Media.Rtcp
 
         public ReceiversReport(byte[] packet, int offset) 
         {
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 0));
+            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, offset + 0));
             offset += 4; 
             if (packet.Length > 4)
             {
