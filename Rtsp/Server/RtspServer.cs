@@ -709,6 +709,7 @@ namespace Media.Rtsp
                 System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
                 
                 //Close the socket and remove the client
+                //ci.m_RtspSocket.Shutdown(SocketShutdown.Both); //ONLY TCP
                 ci.m_RtspSocket.Close();
                 ci.Disconnect();
                 m_Clients.Remove(ci.Id);
@@ -1040,11 +1041,11 @@ namespace Media.Rtsp
             //Determine if we have the track
             string track = request.Location.Segments.Last();
 
-            if (!track.Contains('='))
-            {
+            //if (!track.Contains('='))
+            //{
                 //trackId= not found
-                ProcessLocationNotFoundRtspRequest(ci);
-            }
+                //ProcessLocationNotFoundRtspRequest(ci);
+            //}
 
             Sdp.MediaDescription mediaDescription = null;
 
@@ -1291,7 +1292,7 @@ namespace Media.Rtsp
 
                 response.AppendOrSetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(ci.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Name + actualTrack);
 
-                if(i.LastRtpPacket != null) // The user started playing before the source stream got a packet
+                if(i.LastRtpPacket != null) // The user did not start playing before the source stream got a packet (Might be easier to just use new SequenceNumbering on ci?)
                     response.AppendOrSetHeader(RtspHeaders.RtpInfo, "seq=" + i.LastRtpPacket.SequenceNumber + ";rtptime=" + i.LastRtpPacket.TimeStamp);                
             });
 

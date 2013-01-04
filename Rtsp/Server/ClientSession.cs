@@ -250,10 +250,10 @@ namespace Media.Rtsp
                 if (i.LastRtpPacket == null)
                 {
                     //Middle bits
-                    sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 16);
+                    sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 16); //m_SourceInterleaves.Where(ii => ii.DataChannel == i.DataChannel).First().LastRtpPacket.TimeStamp;
 
-                    //Set the senders octet count
-                    sr.RtpTimestamp = sr.SendersPacketCount = sr.SendersOctetCount = 0;
+                    //Set the senders octet count (Already 0)
+                    //sr.SendersPacketCount = sr.SendersOctetCount = 0;
                 }
                 else
                 {
@@ -261,10 +261,10 @@ namespace Media.Rtsp
                     sr.RtpTimestamp = i.LastRtpPacket.TimeStamp;
 
                     //Set the senders octet count
-                    sr.SendersOctetCount = (uint)i.RtpBytesRecieved;
+                    sr.SendersOctetCount = (uint)i.RtpBytesSent;
 
                     //Set the senders packet count
-                    sr.SendersPacketCount = (uint)i.RtpPacketsReceieved; 
+                    sr.SendersPacketCount = (uint)i.RtpPacketsSent; 
                 }
                 
                 //Send the packet on the correct channel
