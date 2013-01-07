@@ -90,33 +90,34 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-
-            //Get the interleave for the packet from the RtpClient
-            RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
-
-            //Nothing we need
-            if (interleave == null) return;
-
-            //Synchronize
-            lock (interleave)
+            //On the first availabel thread
+            ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
             {
-                //If the source has not been assigned we need to send a senders report to identify us
+                //Get the interleave for the packet from the RtpClient
+                RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
+
+                //Nothing we need
+                if (interleave == null) return; 
+
+                //Raise an event
+                m_RtpClient.OnRtpPacketReceieved(packet);
+
+                //If the source has not been assigned we need to send a senders report to identify us (do this on own thread)
                 if (interleave.SynchronizationSourceIdentifier == 0)
                 {
-                    //Send the senders report for the interleave
+                    //Send the senders report for the interleave (Which will create SynchronizationSourceIdentifier) 
                     SendSendersReport(interleave);
                 }
 
                 //Identify the packet as our own
                 packet.SynchronizationSourceIdentifier = interleave.SynchronizationSourceIdentifier;
 
-                //Raise an event
-                m_RtpClient.OnRtpPacketReceieved(packet);
-
                 //Enque the recieved packet for sending
-                m_RtpClient.EnquePacket(packet);         
+                //m_RtpClient.EnquePacket(packet);
 
-            }
+                //Send right away
+                m_RtpClient.SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RemoteRtp);
+            }));
         }
 
         /// <summary>
@@ -126,19 +127,23 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(RtpClient stream, RtcpPacket packet)
         {
-            //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
-            if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
+            //On the first availabel thread
+            ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
             {
-                Disconnect();
-            }
-            else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
-            {
-                //The source stream recieved a senders report                
-            }
-            else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
-            {
-                //The source stream recieved a recievers report                
-            }
+                //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
+                if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
+                {
+                    Disconnect();
+                }
+                else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
+                {
+                    //The source stream recieved a senders report                
+                }
+                else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
+                {
+                    //The source stream recieved a recievers report                
+                }
+            }));
         }
 
         /// <summary>
@@ -236,7 +241,7 @@ namespace Media.Rtsp
             if (interleave.SynchronizationSourceIdentifier == 0)
             {
                 // Guaranteed to be unique per session
-                interleave.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks ^ interleave.DataChannel);
+                interleave.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks ^ (interleave.DataChannel | interleave.ControlChannel));
             }
 
             //Create a Senders Report
@@ -248,27 +253,11 @@ namespace Media.Rtsp
             interleave.SendersReport.NtpTimestamp = sourceInterleave.SendersReport.NtpTimestamp;
             interleave.SendersReport.RtpTimestamp = sourceInterleave.SendersReport.RtpTimestamp;
 
-            //Set the timestamp
-            //sr.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+            //Set the senders octet count
+            interleave.SendersReport.SendersOctetCount = (uint)interleave.RtpBytesSent;
 
-            //If the LastRtpPacket is not null we can include more information
-            if (interleave.CurrentFrame != null)
-            {
-                //Middle bits per RFC (Instead we used the source's Timestamp)
-                //sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 16);
-
-                //Set the senders octet count (Already 0)
-                //sr.SendersPacketCount = sr.SendersOctetCount = 0;
-
-                //Set the timestamp to the most recent timestamp form the inerleave
-                //interleave.SendersReport.RtpTimestamp = interleave.LastRtpPacket.TimeStamp;
-
-                //Set the senders octet count
-                interleave.SendersReport.SendersOctetCount = (uint)interleave.RtpBytesSent;
-
-                //Set the senders packet count
-                interleave.SendersReport.SendersPacketCount = (uint)interleave.RtpPacketsSent;
-            }
+            //Set the senders packet count
+            interleave.SendersReport.SendersPacketCount = (uint)interleave.RtpPacketsSent;
 
             //Send the packet on the correct channel
             m_RtpClient.SendRtcpPacket(interleave.SendersReport.ToPacket(interleave.ControlChannel));

@@ -113,7 +113,7 @@ namespace Media
             int packets = 0;
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); packets++; };
             //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
-            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length); };
+            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
             Console.WriteLine("Waiting for packets...");
             while (packets < 500) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
