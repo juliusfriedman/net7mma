@@ -15,9 +15,13 @@ namespace Media.Rtsp
     /// </summary>
     internal class ClientSession
     {
+        //Needs to have it's own concept of range
+
         #region Fields
 
         internal List<RtpClient.Interleave> m_SourceInterleaves = new List<RtpClient.Interleave>();
+
+        internal List<RtspSourceStream> m_Attached = new List<RtspSourceStream>();
 
         internal RtspServer m_Server;
         
@@ -43,10 +47,11 @@ namespace Media.Rtsp
         //Sockets
         internal Socket m_RtspSocket;
 
+        //Used for Rtsp over Udp
         internal UdpClient m_Udp;
 
+        //Used for Rtsp over Http
         internal HttpListenerContext m_Http;
-
         internal RtspResponse m_LastResponse;
 
         //RtpClient
@@ -74,26 +79,9 @@ namespace Media.Rtsp
             m_RtspSocket = rtspSocket;
         }
 
-        ~ClientSession()
-        {
-            Disconnect();
-        }
-
         #endregion
 
         #region Methods
-
-        /// <summary>
-        /// Sets up the Ssrc and Transport Sockets and starts the worker thread.
-        /// </summary>
-        /// <param name="rtpPort">The clients rtpPort</param>
-        /// <param name="rtcpPort">The clients rtcpPort</param>
-        internal void InitializeRtp(int rtpPort, int rtcpPort)
-        {
-            if (m_RtpClient != null) return;
-            m_RtpClient = RtpClient.Sender(((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, rtpPort, rtcpPort);
-            m_RtpClient.Connect();
-        }
 
         /// <summary>
         /// Called for each RtpPacket received in the source RtpClient
@@ -103,31 +91,32 @@ namespace Media.Rtsp
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
 
-            //Raise an event
-            m_RtpClient.OnRtpPacketReceieved(packet);
+            //Get the interleave for the packet from the RtpClient
+            RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
 
-            //Enque the recieved packet for sending
-            m_RtpClient.EnquePacket(packet); 
+            //Nothing we need
+            if (interleave == null) return;
 
-            //Trying to experiment with VLC... If it keeps having to get hacked up like this then we will just use quicktime for testing
+            //Synchronize
+            lock (interleave)
+            {
+                //If the source has not been assigned we need to send a senders report to identify us
+                if (interleave.SynchronizationSourceIdentifier == 0)
+                {
+                    //Send the senders report for the interleave
+                    SendSendersReport(interleave);
+                }
 
-            //////var il = client.GetInterleaveForPacket(packet);
-            //////if (il.MediaDescription.MediaType == Sdp.MediaType.audio)
-            //////{
-            //////    //Raise an event
-            //////    m_RtpClient.OnRtpPacketReceieved(packet);
+                //Identify the packet as our own
+                packet.SynchronizationSourceIdentifier = interleave.SynchronizationSourceIdentifier;
 
-            //////    //Enque the recieved packet
-            //////    m_RtpClient.EnquePacket(packet);
-            //////}
-            //////else
-            //////{
-            //////    //Send the packet right away....
-            //////    m_RtpClient.SendRtpPacket(packet);
+                //Raise an event
+                m_RtpClient.OnRtpPacketReceieved(packet);
 
-            //////    //Raise as event
-            //////    m_RtpClient.OnRtpPacketReceieved(packet);
-            //////}
+                //Enque the recieved packet for sending
+                m_RtpClient.EnquePacket(packet);         
+
+            }
         }
 
         /// <summary>
@@ -157,10 +146,18 @@ namespace Media.Rtsp
         /// </summary>
         internal void Disconnect()
         {
-            if (m_RtpClient != null) m_RtpClient.Disconnect();
+            //Disconnect the RtpClient
+            if (m_RtpClient != null)
+            {
+                m_RtpClient.Disconnect();
+            }
+            //Detach all attached streams
+            m_Attached.ForEach(Detach);
+
+            //Not really used atm
             if (m_Udp != null) m_Udp.Close();
             m_Http = null;
-            m_Attached.ForEach(Detach);
+            
         }
 
         /// <summary>
@@ -179,13 +176,13 @@ namespace Media.Rtsp
                 response.SetHeader(RtspHeaders.Session, m_SessionId);
             }
             return response;
-        }
-
-        internal List<RtspSourceStream> m_Attached = new List<RtspSourceStream>();
+        }        
 
         internal void Attach(RtspSourceStream stream)
         {
             if (m_Attached.Contains(stream)) return;
+            //Should only be attaching for the source interleaves related to the stream
+            //e.b. m_SourceInterleaves.Where(...
             stream.Client.Client.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
             stream.Client.Client.RtpPacketReceieved += OnSourceRtpPacketRecieved;
             m_Attached.Add(stream);
@@ -206,7 +203,7 @@ namespace Media.Rtsp
             if (m_SessionDescription != null) return;
 
             //Should be 2 NTP Timestamps
-            ulong[] parts = Utility.DateTimeToNptTimestamp(DateTime.Now.ToUniversalTime());
+            ulong[] parts = Utility.DateTimeToNptTimestamp(DateTime.UtcNow);
             
             string sessionId = parts[0].ToString(), sessionVersion = parts[1].ToString();
                                         
@@ -226,56 +223,58 @@ namespace Media.Rtsp
 
         #endregion        
     
+
         internal void SendSendersReports()
         {
-            m_RtpClient.m_Interleaves.ToList().ForEach(i =>
+            m_RtpClient.Interleaves.ForEach(SendSendersReport);
+        }
+
+        internal void SendSendersReport(RtpClient.Interleave interleave)
+        {
+
+            //Assign the ssrc if it has not been yet
+            if (interleave.SynchronizationSourceIdentifier == 0)
             {
-                //Assign the ssrc if it has not been yet
-                if (i.SynchronizationSourceIdentifier == 0)
-                {
-                    //Might need a way to only send a 24 byte report (ShortForm)
-                    i.SynchronizationSourceIdentifier = (uint)(DateTime.Now.Ticks ^ i.DataChannel);// Guaranteed to be unique per session
-                }
+                // Guaranteed to be unique per session
+                interleave.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks ^ interleave.DataChannel);
+            }
 
-                //Create a Senders Report
-                SendersReport sr = new SendersReport(i.SynchronizationSourceIdentifier);
-                
-                //Set the timestamp
-                sr.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+            //Create a Senders Report
+            interleave.SendersReport = new SendersReport(interleave.SynchronizationSourceIdentifier);
 
-                //Wait for the first RtpPacket if needed
-                //while (i.LastRtpPacket == null) System.Threading.Thread.Yield();
+            //Use the values from the Source
+            //The reason for this is that their clock is aligned with the RtpTimeStamp and our clock is not.
+            var sourceInterleave = m_SourceInterleaves.Where(ii => ii.DataChannel == interleave.DataChannel).First();
+            interleave.SendersReport.NtpTimestamp = sourceInterleave.SendersReport.NtpTimestamp;
+            interleave.SendersReport.RtpTimestamp = sourceInterleave.SendersReport.RtpTimestamp;
 
-                //If the LastRtpPacket is null we didn't send anything yet
-                if (i.LastRtpPacket == null)
-                {
-                    //Middle bits
-                    sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 16); //m_SourceInterleaves.Where(ii => ii.DataChannel == i.DataChannel).First().LastRtpPacket.TimeStamp;
+            //Set the timestamp
+            //sr.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
 
-                    //Set the senders octet count (Already 0)
-                    //sr.SendersPacketCount = sr.SendersOctetCount = 0;
-                }
-                else
-                {
-                    //Set the timestamp
-                    sr.RtpTimestamp = i.LastRtpPacket.TimeStamp;
+            //If the LastRtpPacket is not null we can include more information
+            if (interleave.CurrentFrame != null)
+            {
+                //Middle bits per RFC (Instead we used the source's Timestamp)
+                //sr.RtpTimestamp = (uint)(sr.NtpTimestamp << 16);
 
-                    //Set the senders octet count
-                    sr.SendersOctetCount = (uint)i.RtpBytesSent;
+                //Set the senders octet count (Already 0)
+                //sr.SendersPacketCount = sr.SendersOctetCount = 0;
 
-                    //Set the senders packet count
-                    sr.SendersPacketCount = (uint)i.RtpPacketsSent; 
-                }
-                
-                //Send the packet on the correct channel
-                m_RtpClient.SendRtcpPacket(sr.ToPacket(i.ControlChannel));
-                
-                //The packet was sent now
-                sr.Sent = DateTime.Now;
+                //Set the timestamp to the most recent timestamp form the inerleave
+                //interleave.SendersReport.RtpTimestamp = interleave.LastRtpPacket.TimeStamp;
 
-                //Update the senders report on the interleave
-                i.SendersReport = sr;
-            });
+                //Set the senders octet count
+                interleave.SendersReport.SendersOctetCount = (uint)interleave.RtpBytesSent;
+
+                //Set the senders packet count
+                interleave.SendersReport.SendersPacketCount = (uint)interleave.RtpPacketsSent;
+            }
+
+            //Send the packet on the correct channel
+            m_RtpClient.SendRtcpPacket(interleave.SendersReport.ToPacket(interleave.ControlChannel));
+
+            //The packet was sent now
+            interleave.SendersReport.Sent = DateTime.UtcNow;
         }
     }
 }

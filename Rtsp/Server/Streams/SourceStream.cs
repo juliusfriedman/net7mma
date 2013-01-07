@@ -41,7 +41,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// The amount of time the Stream has been Started
         /// </summary>
-        public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.Now - m_Started.Value; return TimeSpan.MinValue; } }
+        public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.UtcNow - m_Started.Value; return TimeSpan.MinValue; } }
 
         /// <summary>
         /// The unique Id of the RtspStream
@@ -79,7 +79,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Is this RtspStream dependent on another
         /// </summary>
-        public bool Parent { get { return !m_Child; } }
+        public bool IsParent { get { return !m_Child; } }
 
         /// <summary>
         /// The Uri to the source media

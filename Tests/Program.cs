@@ -16,11 +16,60 @@ namespace Media
             System.Console.Clear();
             TestRtpPacket();
             System.Console.Clear();
+            TestRtcpPacket();
+            System.Console.Clear();
             TestSdp();
             System.Console.Clear();
             TestRtspClient();
             System.Console.Clear();
             TestServer();
+        }
+
+        private static void TestRtcpPacket()
+        {
+            Console.WriteLine("RtcpTest");
+            byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba,0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            Rtcp.RtcpPacket asPacket = new Rtcp.RtcpPacket(example);
+            Rtcp.SendersReport sr = new Rtcp.SendersReport(asPacket);
+            Console.WriteLine(sr.SynchronizationSourceIdentifier);//1928947603
+            Console.WriteLine(sr.NtpTimestamp);//MSW = d4 92 ce d4, LSW = 2c 49 ba 5e
+            sr.NtpTimestamp = sr.NtpTimestamp;//Ensure setting the value through a setter is correct
+            Console.WriteLine(sr.RtpTimestamp);//3302006772
+            var output = sr.ToPacket().ToBytes();//should be exactly equal to wireShark
+            for (int i = 0; i < output.Length; ++i)
+            {
+                if (example[i] != output[i]) throw new Exception();
+            }
+            Console.WriteLine(BitConverter.ToString(output));
+
+            //Recievers Report and Source Description
+            example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
+                                0x00,0x01,0x00,0x52,0x00,0x00,0x0e,0xbb,0xce,0xd4,0xc8,0xf5,0x00,0x00,0x84,0x28,
+                                0x81,0xca,0x00,0x04,0x69,0xf2,0x79,0x50,0x01,0x06,0x4a,0x61,0x79,0x2d,0x50,0x43,
+                                0x00,0x00,0x00,0x00
+            };
+
+            //Could check for multiple packets with a function
+            Console.WriteLine(Rtcp.RtcpPacket.GetPackets(example).Length);
+
+            //Or manually
+            asPacket = new Rtcp.RtcpPacket(example);
+            Rtcp.ReceiversReport rr = new Rtcp.ReceiversReport(asPacket);
+            Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
+            Console.WriteLine(rr.Blocks.Count);//1
+            Console.WriteLine(rr.Blocks[0].SynchronizationSourceIdentifier);//1631032400
+            Console.WriteLine(rr.Blocks[0].FractionLost);//255/256 0xff
+            Console.WriteLine(rr.Blocks[0].CumulativePacketsLost);//-1, 0xff,0xff,0xff
+            Console.WriteLine(rr.Blocks[0].ExtendedHigestSequenceNumber);//65618, 00, 01, 00, 52
+            Console.WriteLine(rr.Blocks[0].InterArrivalJitter);//3771
+            Console.WriteLine(rr.Blocks[0].LastSendersReport);//3470051573
+            asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength);
+            Rtcp.SourceDescription sd = new Rtcp.SourceDescription(asPacket); //1 Chunk, CName
+
+            
+
+            Console.WriteLine("Press a Key to Start Next Test");
+            Console.ReadKey();
         }
 
         private static void TestRtpPacket()
@@ -58,21 +107,33 @@ namespace Media
         }
 
         static void TestRtspClient()
-        {            
-            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
+        {
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1"); //Work on Udp Hole Punching
             client.StartListening();
             int packets = 0;
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); packets++; };
             //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
             client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length); };
             Console.WriteLine("Waiting for packets...");
-            while (packets < 1024) { System.Threading.Thread.Yield(); }
+            while (packets < 500) { System.Threading.Thread.Yield(); }
             Console.WriteLine("Exiting RtspClient Test");
-            var one = client.SendOptions();
-            var two = client.SendOptions();
-            Console.WriteLine(string.Join(" ",one.GetHeaders()));
-            Console.WriteLine(string.Join(" ", two.GetHeaders()));
+            try
+            {
+                var one = client.SendOptions();
+                var two = client.SendOptions();
+                Console.WriteLine(string.Join(" ", one.GetHeaders()));
+                Console.WriteLine(string.Join(" ", two.GetHeaders()));
+            }
+            catch
+            {
+                Console.WriteLine("Sending Options Failed");
+            }
             client.Disconnect();
+            Console.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
+            Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
+            Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
+            Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+
             Console.WriteLine("Press a Key to Start Next Test");
             System.Console.ReadKey();
         }
@@ -162,18 +223,26 @@ a=mpeg4-esid:101");
 
             //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
             //Here are some example Rtsp Sources
-            //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov - Known Not Working
-            //rtsp://178.218.212.102:1935/live/Stream1 - Working Video no audio
-            //rtsp://fms.zulu.mk/zulu/a2_1 - Working Video, Audio Working intermittently 
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://178.218.212.102:1935/live/Stream1");
+            //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov
+
+            //H264 Stream Udp
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://fms.zulu.mk/zulu/a2_1");
+            
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             
             //Add the stream to the server
             server.AddStream(source);
 
-            //Create another and add it
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://fms.zulu.mk/zulu/a2_1"));
+            //MPEG4 Stream -> Tcp
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://178.218.212.102:1935/live/Stream1"));
+
+            //H264 Stream -> Udp available but causes switch to TCP if NAT
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov"));
+
+            //H264 Stream -> Udp available but causes switch to TCP if NAT
+            //Responding with 500 Internal Server Error for Setup / Play on TCP and UDP gets 400 Bad Request?
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
 
             //Start the server
             server.Start();

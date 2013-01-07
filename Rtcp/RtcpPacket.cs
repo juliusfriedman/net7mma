@@ -7,6 +7,8 @@ namespace Media.Rtcp
 {
     public class RtcpPacket
     {
+        public const int RtcpHeaderLength = 4;
+
         #region Nested Types
 
         public enum RtcpPacketType
@@ -45,7 +47,7 @@ namespace Media.Rtcp
         public bool Padding { get { return Convert.ToBoolean(m_Padding); } set { if (value) m_Padding = 1; else m_Padding = 0; } }
 
         /// <summary>
-        /// The length of this Rtcp Packet in Bytes
+        /// The length of this Rtcp Packet in Bytes (Not including the RtcpHeader)
         /// </summary>
         public short Length { get { return (short)(m_Length * 4); } set { m_Length = (short)(value / 4); } }
 
@@ -77,31 +79,28 @@ namespace Media.Rtcp
             Created = DateTime.UtcNow;
 
             //Frame Header {$,/0x,/0x,/0x}
-            if (packetReference.Array[offset] == 36) offset += 4;
+            if (packetReference.Array[packetReference.Offset + offset] == 36) offset += 4;
 
             //Get version
-            m_Version = packetReference.Array[offset + 0] >> 6;
+            m_Version = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] >> 6;
 
             //Double check to make sure we are parsing a known format
-            if (m_Version != 2) return;
+            if (m_Version != 2) throw new ArgumentException("Only Version 2 is Defined");
 
-            //Invalid Version
-            if (m_Version == 0) return;
-
-            m_Padding = (0x1 & (packetReference.Array[offset + 0] >> 5));
+            m_Padding = (0x1 & (packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] >> 5));
 
             //Count - FOR SS and RR this is exact size
-            m_Count = packetReference.Array[offset + 0] & 0x1F;
+            m_Count = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] & 0x1F;
 
             //Type
-            m_Type = packetReference.Array[offset + 1];
+            m_Type = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 3];
 
-            //Length Should be Block Count?
-            m_Length = (short)(packetReference.Array[offset + 2] << 8 | packetReference.Array[offset + 3]);
+            //Length in words (not including RtcpHeaderLength)
+            m_Length = (short)(packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 2] << 8 | packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 1]);
 
             //Extract Data
             m_Data = new byte[Length];
-            Array.Copy(packetReference.Array, offset + 4, m_Data, 0, Length);
+            Array.Copy(packetReference.Array, packetReference.Offset + offset + RtcpHeaderLength, m_Data, 0, Length);
         }
 
         public RtcpPacket(byte[] packet, int offset = 0) : this(new ArraySegment<byte>(packet, offset, packet.Length - offset)) { }
@@ -109,7 +108,7 @@ namespace Media.Rtcp
         public RtcpPacket(RtcpPacketType type, byte? channel = null)
         {
             Version = 2;
-            Created = DateTime.Now;
+            Created = DateTime.UtcNow;
             m_Type = (byte)type;
             Channel = channel;
         }
@@ -124,12 +123,19 @@ namespace Media.Rtcp
             
             int index = offset;
 
-            while (index < bufferReference.Count)
+            while (index + RtcpHeaderLength < bufferReference.Count)
             {
-                Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, index);
-                if(packet.Length == 0) break;
-                packets.Add(packet);
-                index += packet.Length;
+                try
+                {
+                    Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, index);
+                    if (packet.Length == 0) break;
+                    packets.Add(packet);
+                    index += 4 + packet.Length;
+                }
+                catch
+                {
+                    break;
+                }
             }
 
             return packets.ToArray();

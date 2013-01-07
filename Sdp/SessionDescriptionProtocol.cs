@@ -492,7 +492,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line[1] != '=') throw new SessionDescriptionException("Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line.Length < 2 || line[1] != '=') throw new SessionDescriptionException("Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -516,7 +516,8 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index] = sdpLines[index].Trim();
 
-            if (sdpLine[1] != '=') return null;
+            if (sdpLine.Length <= 2) return null;
+            else if (sdpLine[1] != '=') return null;
 
             char type = sdpLine[0];
 

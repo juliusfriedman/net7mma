@@ -17,7 +17,7 @@ namespace Media.Rtsp.Server.Streams
         public ChildStream(SourceStream source)
             :base(source.Name, source.Source)
         {
-            if (!source.Parent) throw new Exception("Cannot make a Child of a Child");
+            if (!source.IsParent) throw new Exception("Cannot make a Child of a Child");
             m_Parent = source;
             m_Child = true;
         }

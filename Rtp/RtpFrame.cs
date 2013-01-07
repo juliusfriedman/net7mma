@@ -9,6 +9,8 @@ namespace Media.Rtp
     /// </summary>
     public class RtpFrame
     {
+        internal static int MaxPackets = 32;
+
         #region Fields
 
         uint m_TimeStamp, m_Ssrc;
@@ -20,6 +22,8 @@ namespace Media.Rtp
         #endregion
 
         #region Properties
+
+        public DateTime? Created { get; set; }
 
         /// <summary>
         /// Accesses a packet by SequenceNumber (should be uint to also allow for index?)
@@ -92,6 +96,7 @@ namespace Media.Rtp
         public RtpFrame(byte payloadType)
         {
             m_PayloadType = payloadType;
+            Created = DateTime.UtcNow;
         }
 
         public RtpFrame(byte payloadType, uint timeStamp, uint ssrc) 
