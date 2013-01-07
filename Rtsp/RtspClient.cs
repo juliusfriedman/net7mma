@@ -93,7 +93,7 @@ namespace Media.Rtsp
         /// </summary>
         int m_SentBytes, m_RecievedBytes,
             m_RtspTimeoutSeconds, m_RtspPort, m_Ssrc, m_Seq, m_CSeq,
-            m_ProtocolSwitchSeconds = 15, m_RetryCount = 5;
+            m_ProtocolSwitchSeconds = 10, m_RetryCount = 5;
 
         List<RtspMethod> m_SupportedMethods = new List<RtspMethod>();
 

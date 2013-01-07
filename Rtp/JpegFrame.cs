@@ -594,7 +594,7 @@ namespace Media.Rtp
                             if (currentPacketOffset >= Rtp.RtpPacket.MaxPayloadSize)
                             {
                                 //Add current packet
-                                AddPacket(currentPacket);
+                                Add(currentPacket);
 
                                 //Make next packet                                    
                                 currentPacket = new RtpPacket()
@@ -635,7 +635,7 @@ namespace Media.Rtp
                 currentPacket.Marker = true;    
 
                 //Add the final packet
-                AddPacket(currentPacket);
+                Add(currentPacket);
 
                 //To allow the stream to be closed
                 Image = new System.Drawing.Bitmap(Image);

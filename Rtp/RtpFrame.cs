@@ -7,8 +7,11 @@ namespace Media.Rtp
     /// <summary>
     /// A collection of RtpPackets
     /// </summary>
-    public class RtpFrame
+    public class RtpFrame : System.Collections.IEnumerable, IEnumerable<RtpPacket>
     {
+        /// <summary>
+        /// The maximum amount of packets which can be contained in a frame
+        /// </summary>
         internal static int MaxPackets = 32;
 
         #region Fields
@@ -117,23 +120,20 @@ namespace Media.Rtp
         /// </summary>
         /// <returns>A Yield around Packets</returns>
         public IEnumerator<RtpPacket> GetEnumerator()
-        {            
-            foreach (var p in Packets)
-            {
-                yield return p;
-            }
+        {
+            return m_Packets.Values.GetEnumerator();
         }
 
         /// <summary>
         /// Adds a RtpPacket to the RtpFrame
         /// </summary>
         /// <param name="packet">The RtpPacket to Add</param>
-        public virtual void AddPacket(RtpPacket packet)
+        public virtual void Add(RtpPacket packet)
         {
             if (Complete) return;
             if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
             if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
-            if (ContainsPacket(packet)) return;
+            if (Contains(packet)) return;
             lock (m_Packets)
             {                
                 m_Packets.Add(packet.SequenceNumber, packet);
@@ -146,9 +146,9 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The RtpPacket to check</param>
         /// <returns>True if the packet is contained, otherwise false.</returns>
-        public virtual bool ContainsPacket(RtpPacket packet)
+        public virtual bool Contains(RtpPacket packet)
         {
-            return ContainsPacket(packet.SequenceNumber);
+            return Contains(packet.SequenceNumber);
         }
 
         /// <summary>
@@ -156,7 +156,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The sequence number to check</param>
         /// <returns>True if the packet is contained, otherwise false.</returns>
-        public virtual bool ContainsPacket(int sequenceNumber)
+        public virtual bool Contains(int sequenceNumber)
         {
             return m_Packets.ContainsKey(sequenceNumber);
         }
@@ -166,7 +166,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The sequence number to remove</param>
         /// <returns>A RtpPacket with the sequence number if removed, otherwise null</returns>
-        public virtual RtpPacket RemovePacket(int sequenceNumber)
+        public virtual RtpPacket Remove(int sequenceNumber)
         {
             RtpPacket removed;
             if (m_Packets.TryGetValue(sequenceNumber, out removed))
@@ -179,6 +179,27 @@ namespace Media.Rtp
             return removed;
         }
 
+        /// <summary>
+        /// Removes a contained packet if contained
+        /// </summary>
+        /// <param name="packet">The packet to remove</param>
+        /// <returns>The packet removed if contained, otherwise null</returns>
+        public virtual RtpPacket Remove(RtpPacket packet)
+        {
+            RtpPacket removed;
+            if (m_Packets.TryGetValue(packet.SequenceNumber, out removed))
+            {                
+                lock (m_Packets)
+                {
+                    m_Packets.Remove(packet.SequenceNumber);
+                }
+            }
+            return removed;
+        }
+
+        /// <summary>
+        /// Empties the frame
+        /// </summary>
         public virtual void RemoveAllPackets() { lock (m_Packets) { m_Packets.Clear(); } }
 
         /// <summary>
@@ -203,5 +224,10 @@ namespace Media.Rtp
         }
 
         #endregion
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 }

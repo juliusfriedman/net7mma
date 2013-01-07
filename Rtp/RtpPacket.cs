@@ -170,12 +170,13 @@ namespace Media.Rtp
 
             Channel = channel;
 
-            int localOffset = 0;
+            int localOffset = 0, payloadLen = -1;
 
-            //Could get $, RtpChannel, Len here for Tcp to make reciving better
+            //Handle tcp frame headers if required
             if (packetReference.Array[packetReference.Offset] == RtpClient.MAGIC)
             {
                 localOffset = 4;
+                payloadLen = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(packetReference.Array, packetReference.Offset + 2)) - RtpHeaderLength;
             }
 
             //Extract fields
@@ -229,9 +230,15 @@ namespace Media.Rtp
             if (payloadSize == -1)
             {
                 //The real size is the size of the slice in total
-                payloadSize = packetReference.Array.Length - localOffset - position;
+                payloadSize = packetReference.Array.Length - localOffset - position; /* - RtpHeaderLength*/
             }
-            
+
+            //If we had a known length we will use it here to prevent resizing later
+            if (payloadLen != -1)
+            {
+                payloadSize = payloadLen;
+            }
+
             //Create the payload
             m_Payload = new byte[payloadSize];
 
@@ -288,7 +295,6 @@ namespace Media.Rtp
             }
 
             //If extensions were flagged then include the extensions
-            //Might not be required
             if (Extensions)
             {
                 result.AddRange(ExtensionBytes);
