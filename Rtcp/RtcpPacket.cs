@@ -13,6 +13,7 @@ namespace Media.Rtcp
 
         public enum RtcpPacketType
         {
+            //72-76  Reserved for RTCP conflict avoidance   
             SendersReport = 200,
             ReceiversReport= 201,
             SourceDescription = 202,

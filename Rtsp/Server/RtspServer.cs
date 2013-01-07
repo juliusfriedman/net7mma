@@ -756,7 +756,10 @@ namespace Media.Rtsp
                         //We will need to share the socket
                         System.Diagnostics.Debugger.Break();
 
-                        // Just doig this now to VLC FROM HANGING UP
+                        //The request is in the buffer 
+                        //TODO proces
+
+                        // Just doig this now to VLC FROM HANGING UP for now
                         ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
                     }
                     else
@@ -1156,26 +1159,19 @@ namespace Media.Rtsp
             }
 
             //Add the state information for the source
-            var sourceInterleave = found.Client.Client.Interleaves.Where(i => i.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
+            var sourceInterleave = found.Client.Client.Interleaves.Where(i => i.MediaDescription.MediaType == mediaDescription.MediaType && i.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
 
-            
-            
             //Need to ensure all the interleaves are listening
             //if(found.Client.Client.Interleaves.All( i=> i.LastRtpPacket != null))
             
             //If the source has no interleave for that format(unlikely) or the source has not recieved a packet yet
-            //if (sourceInterleave == null || sourceInterleave.LastRtpPacket == null)
-            //{
-            //    //Stream is not yet ready
-            //    ProcessInvalidRtspRequest(ci, RtspStatusCode.PreconditionFailed);
-            //    return;
-            //}
-            //else
-            //{
-            //    //Add the sourceInterleave
-            //    ci.m_SourceInterleaves.Add(sourceInterleave);
-            //}
-
+            if (sourceInterleave == null)
+            {
+                //Stream is not yet ready
+                ProcessInvalidRtspRequest(ci, RtspStatusCode.PreconditionFailed);
+                return;
+            }
+          
             //Add the sourceInterleave
             ci.m_SourceInterleaves.Add(sourceInterleave);
 
@@ -1235,6 +1231,9 @@ namespace Media.Rtsp
             //Ssrc could be generated here for the interleave created for this setup to be more like everyone else...
             //(DateTime.Now.Ticks ^ ci.m_RtspSocket.Handle)
 
+            //We need to make an interleave
+            RtpClient.Interleave currentInterleave = null;
+
             //Determine if the client reqeuested Udp or Tcp
             if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP == false)
             {
@@ -1254,8 +1253,10 @@ namespace Media.Rtsp
                 //Find an open port to send on (might want to reserve this port with a socket)
                 int openPort = Utility.FindOpenUDPPort(MinimumUdp ?? 10000, true);
 
-                //We need to make an interleave
-                RtpClient.Interleave currentInterleave;
+                if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                {
+                    //Handle port out of range
+                }                
 
                 //Add the interleave
                 if (ci.m_RtpClient.Interleaves.Count == 0)
@@ -1271,8 +1272,8 @@ namespace Media.Rtsp
                 }
                 
                 //Initialize the Udp sockets
-                currentInterleave.InitializeSockets(((IPEndPoint)ci.m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);
-                
+                currentInterleave.InitializeSockets(((IPEndPoint)ci.m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)ci.m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);                
+
                 //Add the interleave
                 ci.m_RtpClient.AddInterleave(currentInterleave);
 
@@ -1320,6 +1321,9 @@ namespace Media.Rtsp
             //Send the response
             ProcessSendRtspResponse(resp, ci);
 
+            //Identifies the interleave with a senders report
+            ci.SendSendersReport(currentInterleave);
+
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(resp.GetHeader(RtspHeaders.Session));
             System.Diagnostics.Debug.WriteLine(resp.GetHeader(RtspHeaders.Transport));
@@ -1351,7 +1355,7 @@ namespace Media.Rtsp
                 ProcessAuthorizationRequired(ci);
                 return;
             }                
-            else if (found.Client.Connected && found.Client != null && found.Client.Client.TotalRtpBytesReceieved <= 0&& found.Client.Client.Interleaves.All( i=> i.CurrentFrame != null))
+            else if (found.Client.Connected && found.Client != null && found.Client.Client.TotalRtpBytesReceieved <= 0)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(ci, RtspStatusCode.PreconditionFailed);
@@ -1372,18 +1376,19 @@ namespace Media.Rtsp
             RtspResponse response = ci.CreateRtspResponse(request);
 
             //Create the Rtp-Info RtpHeader as required by RFC2326
-            //-->Should be Id and not Name and should be for all streams being played in the session...
+            //-->Should be Id and not Name and should be for all streams being played in the session unless there is a trackId then we can just output for that track..
+            //This will be helpful if the client stops and starts either an audio or video stream without stopping the whole session
             ci.m_SourceInterleaves.ForEach( i=>{
-                
                 string actualTrack = string.Empty;
-                
+
                 var attributeLine = i.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).First();
-                if(attributeLine != null)
+                if (attributeLine != null)
                     actualTrack = '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
 
                 response.AppendOrSetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(ci.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Name + actualTrack);
 
-                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "seq=" + i.CurrentFrame.HighestSequenceNumber + ";rtptime=" + i.CurrentFrame.TimeStamp);                
+                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "seq=" + i.SequenceNumber + ";rtptime=" + i.RtpTimestamp);
+
             });
 
             //Range info will also have to be stored on the ci when determined, right now this indicates continious play
@@ -1401,7 +1406,13 @@ namespace Media.Rtsp
             {
                 //Attach the client to the source, Here they may only want one track so there is no need to attach events for all
                 ci.Attach(found);
+                ci.SendSendersReports();
             }
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.Session));
+            System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.RtpInfo));
+            System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.Range));
+#endif
         }
 
         internal void ProcessRtspPause(RtspRequest request, ClientSession ci)
@@ -1464,6 +1475,9 @@ namespace Media.Rtsp
                     ProcessAuthorizationRequired(ci);
                     return;
                 }
+
+                //This is tearing down the whole stream where as it should allow only certain tracks
+                //Need to just remove a source interleave form the session and the client's assoicated interleave on their RtpClient.
 
                 if (request.Location.ToString().ToLowerInvariant().Contains("archive"))
                 {
