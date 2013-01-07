@@ -32,6 +32,8 @@ namespace Media.Rtsp.Server.Streams
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
         volatile internal System.Drawing.Image m_lastFrame;
+        
+        //Eventually will be somewhere else maybe
         internal bool m_ForceTCP;// = true; // To force clients to utilize TCP Interleaved
 
         #endregion

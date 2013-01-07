@@ -1185,7 +1185,7 @@ namespace Media.Rtsp
             string transportHeader = request[RtspHeaders.Transport];
 
             //If that is not present we cannot determine what transport the client wants
-            if (string.IsNullOrWhiteSpace(transportHeader))
+            if (string.IsNullOrWhiteSpace(transportHeader) || !(transportHeader.Contains("RTP") && transportHeader.Contains("AVP")))
             {
                 ProcessInvalidRtspRequest(ci);
                 return;
@@ -1355,7 +1355,7 @@ namespace Media.Rtsp
                 ProcessAuthorizationRequired(ci);
                 return;
             }                
-            else if (found.Client.Connected && found.Client != null && found.Client.Client.TotalRtpBytesReceieved <= 0)
+            else if (found.Client.Connected && found.Client.Client.TotalRtpBytesReceieved <= 0)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(ci, RtspStatusCode.PreconditionFailed);
@@ -1488,20 +1488,15 @@ namespace Media.Rtsp
                     ci.Detach(found);
                 }
 
-                //Send Goodbye
-                //Close ports allocated in session
-                //ci.Disconnect();
-
+                //Send the response
                 ProcessSendRtspResponse(ci.CreateRtspResponse(request), ci);
             }
             catch
             {
-                //What
-            }
-            finally
-            {
-                if (ci.m_Attached.Count == 0) RemoveSession(ci);
-            }
+#if DEBUG
+                System.Diagnostics.Debug.WriteLine("Exception in Teardown");
+#endif
+            }            
         }
 
         /// <summary>
@@ -1549,23 +1544,26 @@ namespace Media.Rtsp
 
             //If the source has no password then there is nothing to determine
             if (source.RemoteCredential == null) return true;
+            
             //If the request does not have the authorization header then there is nothing else to determine
             if (!request.ContainsHeader(RtspHeaders.Authroization)) return false;
 
             //Get the header
             string header = request[RtspHeaders.Authroization].ToLower();
+
             if (header.Contains("basic"))
             {
                 //Remove the parts
-                header = header.Replace("basic ", string.Empty).Trim();
+                header = header.Replace("basic", string.Empty).Trim();
+                
                 //Get the decoded value
                 header = request.Encoding.GetString(Convert.FromBase64String(header));
+                
                 //Get the parts
                 string[] parts = header.Split(':');
-                //If not enough parts nothing to compare
-                if (parts.Length < 1) return false;
-                //Return the determination by comparison
-                return parts[0].Equals(source.RemoteCredential.UserName) && parts[2].Equals(source.RemoteCredential.Password);
+                
+                //If enough return the determination by comparison as the result
+                return parts.Length > 1 && (parts[0].Equals(source.RemoteCredential.UserName) && parts[2].Equals(source.RemoteCredential.Password));
             }
             else if (header.Contains("digest"))
             {
@@ -1593,11 +1591,7 @@ namespace Media.Rtsp
                 //ResponseHash = MD5( HA1 + ':' + nonce + ':' + nc + ':' + cnonce + ':' + "qop=auth" + ':' + HA2);
             }
 
-            //If invalid just end here with proper code? AuthRequired if the Request has no header
-            //More likley modify to return a StatusCOde
-            //or Forbidden if it didn't match
-            //200 instead of TRUE?
-
+            //Did not authenticate
             return false;
         }
 

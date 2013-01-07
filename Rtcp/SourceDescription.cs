@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public class SourceDescription
+    public class SourceDescription : System.Collections.IEnumerable
     {
         #region Nested Types
 
@@ -133,7 +133,6 @@ namespace Media.Rtcp
             {
                 SourceDescriptionItem item = new SourceDescriptionItem(packet, ref offset);
                 Items.Add(item);
-                //offset += item.Length + 2; //Type and Length bytes (Now handled with ref)
             }
 
         }
@@ -181,6 +180,12 @@ namespace Media.Rtcp
 
             return result.ToArray();
         }
+
+        public System.Collections.IEnumerator GetEnumerator() { return Items.GetEnumerator(); }
+
+        public void Add(SourceDescriptionItem item) { if(item != null) Items.Add(item); }
+
+        //Contains, Remove
 
         public static implicit operator RtcpPacket(SourceDescription description) { return description.ToPacket(description.Channel); }
 

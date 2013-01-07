@@ -108,7 +108,7 @@ namespace Media
 
         static void TestRtspClient()
         {
-            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1"); //Work on Udp Hole Punching
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1"); //Work on Udp Hole Punching
             client.StartListening();
             int packets = 0;
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); packets++; };

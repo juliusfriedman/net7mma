@@ -298,7 +298,9 @@ namespace Media.Rtsp
                 // Get the headers 
                 foreach (string raw in Message.Substring(endFistLinePosn + crlfLen, headerLength).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    string[] parts = raw.Split(':');
+                    //http://net7mma.codeplex.com/workitem/15937
+                    //We only want the first 2 sub strings to allow for rtsp-info:?
+                    string[] parts = raw.Split(new char[] { ':' }, 2); //raw.Split(':');
                     if (parts.Length > 1) SetHeader(parts[0], parts[1]);                    
                 }
 

@@ -64,7 +64,7 @@ namespace Media.Rtp
             internal readonly byte DataChannel, ControlChannel;
 
             //The ssrc packets are sent out with under this channel
-            internal uint SynchronizationSourceIdentifier;
+            public uint SynchronizationSourceIdentifier { get; internal set; }
 
             //Any frames for this channel
             internal volatile RtpFrame CurrentFrame, LastFrame;
@@ -135,7 +135,7 @@ namespace Media.Rtp
             internal void UpdateJitter(RtpPacket packet)
             {
                 // RFC 3550 A.8.
-                uint transit = (Utility.DateTimeToNtp32(DateTime.UtcNow) - packet.TimeStamp);
+                ulong transit = (Utility.DateTimeToNtp64(DateTime.UtcNow) - packet.TimeStamp);
                 int d = (int)(transit - RtpTransit);
                 RtpTransit = (uint)transit;
                 if (d < 0) d = -d;
@@ -149,6 +149,12 @@ namespace Media.Rtp
                 RtpSeqCycles = RtpReceivedPrior = (uint)(RtpPacketsReceieved = 0);
             }
 
+            /// <summary>
+            /// Currently Unused...
+            /// Increments packets recieved and determines if the sequence number is valid in the current state
+            /// </summary>
+            /// <param name="packet"></param>
+            /// <returns>True if the packet was in state, otherwise false</returns>
             internal bool UpdateSequenceNumber(RtpPacket packet)
             {
                 // RFC 3550 A.1.
@@ -206,6 +212,7 @@ namespace Media.Rtp
                     }
                     else
                     {
+                        //Set the bag sequence to the packets sequence + 1 with the bits of the seq wraps -1 off
                         RtpBadSeq = (uint)((packet.SequenceNumber + 1) & (RTP_SEQ_MOD - 1));
                         return false;
                     }
@@ -221,49 +228,57 @@ namespace Media.Rtp
 
             internal void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort)
             {
-                //Setup the RtpSocket
-                RtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
-                RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
-                RtpSocket.DontFragment = true;
-                RtpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
-
-                //If we sent Rtp and Rtcp on the same socket (might mean duplex)
-                if (remoteRtpPort == remoteRtcpPort)
-                {
-                    RtcpSocket = RtpSocket;
-                }
-                else
-                {
-
-                    //Setup the RtcpSocket
-                    RtcpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                    RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
-                    RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
-                    RtcpSocket.DontFragment = true;
-                    RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
-                }
-
-                //Udp Hole Punch
-                //Might want a seperate method for this... (WakeupRemote)
-                //Most routers / firewalls will let traffic back through if the person from behind initiated the traffic.
-                //Send some bytes to ensure the reciever is awake and ready... (SIP or RELOAD may have something specific and better)
-                //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
-                byte[] wakeup = new byte[] { 0xce, 0xfa, 0xed, 0xfe };
-
-                //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
                 try
                 {
-                    RtpSocket.SendTo(wakeup, RemoteRtp);
+                    //Setup the RtpSocket
+                    RtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
+                    RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
+                    RtpSocket.DontFragment = true;
+                    RtpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+
+                    //If we sent Rtp and Rtcp on the same socket (might mean duplex)
+                    if (remoteRtpPort == remoteRtcpPort)
+                    {
+                        RtcpSocket = RtpSocket;
+                    }
+                    else
+                    {
+
+                        //Setup the RtcpSocket
+                        RtcpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                        RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                        RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
+                        RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
+                        RtcpSocket.DontFragment = true;
+                        RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+                    }
+
+                    //Udp Hole Punch
+                    //Might want a seperate method for this... (WakeupRemote)
+                    //Most routers / firewalls will let traffic back through if the person from behind initiated the traffic.
+                    //Send some bytes to ensure the reciever is awake and ready... (SIP or RELOAD may have something specific and better)
+                    //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
+                    byte[] wakeup = new byte[] { 0xce, 0xfa, 0xed, 0xfe };
+
+                    //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
+                    try
+                    {
+                        RtpSocket.SendTo(wakeup, RemoteRtp);
+                    }
+                    catch (SocketException) { }
+                    try
+                    {
+                        RtcpSocket.SendTo(wakeup, RemoteRtcp);
+                    }
+                    catch (SocketException) { }       
+
                 }
-                catch(SocketException) { }
-                try
+                catch
                 {
-                    RtcpSocket.SendTo(wakeup, RemoteRtcp);
-                }
-                catch (SocketException) { }                
+                    throw;
+                }                         
             }
 
             internal void CloseSockets()
@@ -547,7 +562,7 @@ namespace Media.Rtp
             }
 
             //Add the packet to the current frame
-            interleave.CurrentFrame.AddPacket(packet);
+            interleave.CurrentFrame.Add(packet);
 
             //If the frame is compelted then fire an event and make a new frame
             if (interleave.CurrentFrame.Complete)
@@ -571,49 +586,29 @@ namespace Media.Rtp
 
         internal virtual void RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
         {
-            int offsetStart = 0;
-            //ParseSlice:
-            if (offsetStart < slice.Array.Length && slice.Array[offsetStart] == MAGIC)
+            //Check for the magic byte
+            if (slice.Array[slice.Offset] == MAGIC)
             {
                 //Slice should be channel
-                byte frameChannel = slice.Array[offsetStart + 1];
+                byte frameChannel = slice.Array[slice.Offset + 1];
 
                 //The type to check for RTP or RTCP
-                byte payload = slice.Array[offsetStart + 5];
+                byte payload = slice.Array[slice.Offset + 5];
 
                 //If the frameChannel matches a DataChannel and the Payload type matches
                 if (Interleaves.Any(i => i.MediaDescription.MediaFormat == (byte)(payload & 0x7f) && i.DataChannel == frameChannel))
                 {
                     //make a packet
-                    RtpPacket packet = new RtpPacket(slice.Array, offsetStart);
+                    RtpPacket packet = new RtpPacket(slice.Array, slice.Offset);
                     
                     //Asign the channel
                     packet.Channel = frameChannel;
 
-                    //Decode the length
-                    ushort alength = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
-
-                    //If the packet length is bigger than expected resize the payload
-                    if (packet.Length > alength)
-                    {
-                        //The length includes the RTPHeader Length for some reason
-                        Array.Resize<byte>(ref packet.m_Payload, alength - RtpPacket.RtpHeaderLength);
-                    }
-                    
-                    //Move the offset
-                    offsetStart += packet.Length;
-
                     //Fire the event
-                    OnRtpPacketReceieved(packet);
-                    
-                    //Check for more packets
-                    ////if (offsetStart < slice.Array.Length)
-                    ////{
-                    ////    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                    ////    goto ParseSlice;
-                    ////}
+                    OnRtpPacketReceieved(packet);                                       
                 }
-                else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte) RtcpPacket.RtcpPacketType.ApplicationSpecific) && Interleaves.Any(i => i.ControlChannel == frameChannel))
+                else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific || payload >= 72 && payload <= 76) 
+                    && Interleaves.Any(i => i.ControlChannel == frameChannel))
                 {
                     //ushort length = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
                     //Add all packs in the m_Buffer to the storage
@@ -622,22 +617,9 @@ namespace Media.Rtp
                         p.Channel = frameChannel;
                         //++m_RtcpPacketsReceieved;
                         RtcpPacketReceieved(this, p);
-                        offsetStart += p.Length;
                     }
 
-                    ////if (offsetStart < slice.Array.Length)
-                    ////{
-                    ////    while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                    ////    goto ParseSlice;
-                    ////}
-
                 }
-                //else
-                //{
-                //    ////offsetStart++;
-                //    ////while (offsetStart < slice.Array.Length && slice.Array[offsetStart] != MAGIC) offsetStart++;
-                //    ////goto ParseSlice;
-                //}
             }                     
         }
 
@@ -775,7 +757,8 @@ namespace Media.Rtp
                 //Check why both need to be set
                 i.GoodbyeRecieved = i.GoodbyeSent = true;
                 if (i.RtcpSocket != null)
-                {
+                {                 
+                    //Might want to store the goodbye incase the response is not recieved in a reasonable amount of time
                     SendRtcpPacket(new Rtcp.Goodbye((uint)i.SynchronizationSourceIdentifier).ToPacket(i.ControlChannel));
                 }
             }
@@ -920,9 +903,8 @@ namespace Media.Rtp
         internal SourceDescription CreateSourceDescription(Interleave interleave)
         {
             //Make collection initalizer for source descriptions
-            var sd = new SourceDescription(interleave.SynchronizationSourceIdentifier);
-            sd.Items.Add(SourceDescription.SourceDescriptionItem.CName);
-            return sd;
+            return new SourceDescription(interleave.SynchronizationSourceIdentifier)
+                { SourceDescription.SourceDescriptionItem.CName} ;
         }
 
         internal Interleave GetInterleaveForPacket(RtcpPacket packet)
@@ -1151,7 +1133,7 @@ namespace Media.Rtp
                 if (m_TransportProtocol == ProtocolType.Udp)
                 {
                     //Recieve as many bytes as are available on the socket
-                    recieved += socket.Receive(m_Buffer, recieved, socket.Available, SocketFlags.None);
+                    recieved += socket.Receive(m_Buffer, recieved, Math.Min(socket.Available, m_Buffer.Length), SocketFlags.None);
 
                     //Determine what kind of packet this is 
                     //The type to check for RTP or RTCP
@@ -1169,7 +1151,7 @@ namespace Media.Rtp
 
                         OnRtpPacketReceieved(packet);
                     }
-                    else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific))
+                    else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific) || (payload >= 72 && payload <= 76))
                     {
                         foreach (RtcpPacket p in RtcpPacket.GetPackets(new ArraySegment<byte>(m_Buffer, 0, recieved)))
                         {
@@ -1243,7 +1225,7 @@ namespace Media.Rtp
                     //If we recieved less then we were supposed to
                     while (length < supposedLength)
                     {
-                        //Increase the amount of bytes we recieved up to supposedLength recieving at the correct index and aount
+                        //Increase the amount of bytes we recieved up to supposedLength recieving at the correct index for the correct size
                         length += socket.Receive(m_Buffer, recieved + length, (supposedLength - length), SocketFlags.None);
                     }
 
@@ -1403,6 +1385,8 @@ namespace Media.Rtp
                         catch(SocketException)
                         {
                             //The remote host something or other
+                            //If this is happening often the Udp client disconnected
+                            //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
                         }
 
                         //if ((DateTime.UtcNow - lastRecieve).TotalSeconds > 5)
