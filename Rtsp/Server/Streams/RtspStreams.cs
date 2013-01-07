@@ -11,6 +11,8 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>    
     public class RtspSourceStream : RtpSourceStream
     {
+        //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious
+
         public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
 
         #region Properties
@@ -68,7 +70,7 @@ namespace Media.Rtsp.Server.Streams
             : base(name, sourceLocation)
         {
             //Create the listener
-            if (Parent)
+            if (IsParent)
             {
                 Client = new RtspClient(m_Source);
             }
@@ -132,9 +134,9 @@ namespace Media.Rtsp.Server.Streams
                 }
                 if (RtpClient != null)
                 {
-                    RtpClient.RtpFrameChanged += new Rtp.RtpClient.RtpFrameHandler(Client_RtpFrameCompleted);
+                    RtpClient.RtpFrameChanged += Client_RtpFrameChanged;
                 }
-                m_Started = DateTime.Now;
+                m_Started = DateTime.UtcNow;
             }
         }
 
@@ -148,14 +150,14 @@ namespace Media.Rtsp.Server.Streams
                 Client.StopListening();
                 if (RtpClient != null)
                 {
-                    RtpClient.RtpFrameChanged -= Client_RtpFrameCompleted;
+                    RtpClient.RtpFrameChanged -= Client_RtpFrameChanged;
                 }
             }
             m_Started = null;
             State = StreamState.Stopped;
         }
 
-        internal virtual void Client_RtpFrameCompleted(Rtp.RtpClient sender, Rtp.RtpFrame frame)
+        internal virtual void Client_RtpFrameChanged(Rtp.RtpClient sender, Rtp.RtpFrame frame)
         {
             if (Client.Client != sender) return;
             DecodeFrame(frame);
@@ -168,17 +170,24 @@ namespace Media.Rtsp.Server.Streams
                 Media.Sdp.MediaDescription mediaDescription = this.Client.SessionDescription.MediaDescriptions[0];
                 if (mediaDescription.MediaType == Sdp.MediaType.audio)
                 {
-                    //Could have generic byte[] handlers OnAudioData OnVideoData
+                    //Could have generic byte[] handlers OnAudioData OnVideoData OnEtc
                     return;
                 }
-                else if (mediaDescription.MediaFormat == 26)
+                else if (mediaDescription.MediaType == Sdp.MediaType.video)
                 {
-                    m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
-                    OnFrameDecoded(m_lastFrame);
-                }
-                else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat <= 128)
-                {
-                    //Dynamic..
+                    if (mediaDescription.MediaFormat == 26)
+                    {
+                        m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
+                        OnFrameDecoded(m_lastFrame);
+                    }
+                    else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
+                    {
+                        //Dynamic..
+                    }
+                    else
+                    {
+
+                    }
                 }
             }
             catch

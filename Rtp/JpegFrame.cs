@@ -481,8 +481,8 @@ namespace Media.Rtp
 
                 int Tag, TagSize;
 
-                DateTime ts = DateTime.Now;
-                int sequenceNumber = (int)(sequenceNo ?? DateTime.Now.Ticks);
+                DateTime ts = DateTime.UtcNow;
+                int sequenceNumber = (int)(sequenceNo ?? DateTime.UtcNow.Ticks);
 
                 //The current packet
                 RtpPacket currentPacket = new RtpPacket();

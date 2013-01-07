@@ -44,6 +44,11 @@ namespace Media.Rtsp
         ManualResetEvent m_InterleaveEvent = new ManualResetEvent(false);
 
         /// <summary>
+        /// Used to buffer interleaved Rtsp responses when Interleaving in TCP
+        /// </summary>
+        List<RtspResponse> mResponses = new List<RtspResponse>();
+
+        /// <summary>
         /// The location the media
         /// </summary>
         Uri m_Location;
@@ -84,11 +89,11 @@ namespace Media.Rtsp
         SessionDescription m_SessionDescription;
 
         /// <summary>
-        /// Need to seperate counters
+        /// Need to seperate counters and other stuff
         /// </summary>
         int m_SentBytes, m_RecievedBytes,
             m_RtspTimeoutSeconds, m_RtspPort, m_Ssrc, m_Seq, m_CSeq,
-            m_ClientRtpPort, m_ClientRtcpPort;
+            m_ProtocolSwitchSeconds = 15, m_RetryCount = 5;
 
         List<RtspMethod> m_SupportedMethods = new List<RtspMethod>();
 
@@ -96,7 +101,7 @@ namespace Media.Rtsp
 
         internal RtpClient m_RtpClient;
 
-        Timer m_Timer;
+        Timer m_KeepAliveTimer, m_ProtocolSwitchTimer;
 
         #endregion
 
@@ -127,12 +132,15 @@ namespace Media.Rtsp
 
                     m_RtspPort = m_Location.Port;
 
-                    if (m_RtspPort == -1) m_RtspPort = RtspServer.DefaultPort;
+                    //Validate prots
+                    if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = RtspServer.DefaultPort;
 
+                    //Determine protocol
                     if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocol.Tcp;
                     else if (m_Location.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocol.Udp;
                     else m_RtspProtocol = ClientProtocol.Http;
 
+                    //Make a IPEndPoint 
                     m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
 
                 }
@@ -146,7 +154,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient is connected to the remote host
         /// </summary>
-        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Udp || m_RtspProtocol == ClientProtocol.Http; } }
+        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Udp; } }
 
         /// <summary>
         /// The network credential to utilize in RtspRequests
@@ -172,11 +180,6 @@ namespace Media.Rtsp
         /// The current SequenceNumber of the RtspClient
         /// </summary>
         public int ClientSequenceNumber { get { return m_CSeq; } }
-
-        /// <summary>
-        /// The "seqno=" recieved with the play request.
-        /// </summary>
-        //public int StreamStartSequenceNumber { get { return m_Seq; } }        
 
         /// <summary>
         /// Gets the SessionDescription provided by the server for the media at <see cref="Location"/>
@@ -249,7 +252,7 @@ namespace Media.Rtsp
             OnRequest -= NewRtspClient_OnRequest;
             OnResponse -= NewRtspClient_OnResponse;
             StopListening();
-            if (m_Timer != null) m_Timer.Dispose();
+            if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
         }
 
         #endregion
@@ -292,12 +295,7 @@ namespace Media.Rtsp
         void NewRtspClient_OnRequest(RtspClient sender, RtspRequest request)
         {
             //No Op
-        }
-
-        /// <summary>
-        /// Used to buffer interleaved Rtsp responses when Interleaving in TCP
-        /// </summary>
-        List<RtspResponse> mResponses = new List<RtspResponse>();
+        }        
 
         /// <summary>
         /// Handles Interleaved Data for the RtspClient
@@ -306,10 +304,21 @@ namespace Media.Rtsp
         /// <param name="slice"></param>
         void m_RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
         {
+            //If the slice begins with R (which is what all RTSP messages begin with
             if (slice.Array[0] == 'R')
             {
+
+
+#if DEBUG
                 System.Diagnostics.Debug.WriteLine(System.Text.Encoding.ASCII.GetString(slice.Array));
-                mResponses.Add(new RtspResponse(slice.Array));
+#endif
+
+                //Update counters
+                m_RecievedBytes += slice.Count - slice.Offset;
+
+                //Add the response to out list
+                mResponses.Add(new RtspResponse(slice.Array, slice.Offset));
+                
                 //Clear the event so whoever is waiting can get the response
                 m_InterleaveEvent.Set();
             }
@@ -320,9 +329,9 @@ namespace Media.Rtsp
         /// </summary>
         internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
-        public void StartListening(bool switchTransport = false)
+        public void StartListening()
         {
-            if (Listening && !switchTransport) return;
+            if (Listening && Client.TotalRtpBytesReceieved > 0) return;
             try
             {
                 //Connect the socket
@@ -399,11 +408,20 @@ namespace Media.Rtsp
             try
             {
                 //Get rid of the timer
-                if (m_Timer != null) m_Timer.Dispose();
+                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
 
                 //Determine if we need to do anything
                 if (Listening && !string.IsNullOrWhiteSpace(m_SessionId))
                 {
+
+                    //Close the RtpClient
+                    if (m_RtpClient != null)
+                    {
+                        m_RtpClient.Disconnect();
+                    }
+               
+
+                    //Send the TearDown
                     try
                     {                        
                         SendTeardown();
@@ -414,13 +432,8 @@ namespace Media.Rtsp
                         //And we realy don't care
                     }                    
                 }
-
-                if (m_RtpClient != null)
-                {
-                    m_RtpClient.Disconnect();
-                }
-               
-
+                
+                //Get rid of this socket
                 if (m_RtspSocket != null)
                 {
 
@@ -429,6 +442,7 @@ namespace Media.Rtsp
                     m_RtspSocket = null;
                 }
 
+                //Fire an event
                 OnDisconnected();
             }
             catch { }
@@ -455,7 +469,7 @@ namespace Media.Rtsp
                 if (Credential != null)
                 {
                     //Encoding should be a property on the Listener which defaults to utf8
-                    request.SetHeader(RtspHeaders.Authroization, "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(Credential.UserName + ':' + Credential.Password)));
+                    request.SetHeader(RtspHeaders.Authroization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
                 }
 
                 if (m_SessionId != null)
@@ -469,7 +483,7 @@ namespace Media.Rtsp
 
                 byte[] buffer = m_RtspProtocol == ClientProtocol.Http ? RtspRequest.ToHttpBytes(request) : request.ToBytes();
 
-                //Udp we can just send on the socket
+                //Udp we can just send and recieve on the socket
                 if (m_RtspProtocol == ClientProtocol.Udp)
                 {
                     lock (m_RtspSocket)
@@ -482,20 +496,14 @@ namespace Media.Rtsp
 
                         //Increment our byte counters for Rtsp
                         m_SentBytes += buffer.Length;
-                    }
-                }
 
-                //In Udp we can just recieve
-                if (m_RtspProtocol == ClientProtocol.Udp)
-                {
-                    lock (m_RtspSocket)
-                    {
                         m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
+
                         response = new RtspResponse(m_Buffer);
                     }
-                }
+                }              
                 //If we are in Tcp we must recieve with respect with data which is being interleaved
-                else if (m_RtpClient != null && m_RtpClient.m_WorkerThread != null && request.Method != RtspMethod.SETUP && request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY && m_RtpClient.m_RtpSocket.ProtocolType != ProtocolType.Udp)
+                else if (m_RtpClient != null && m_RtpClient.m_WorkerThread != null && request.Method != RtspMethod.SETUP && request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
                 {
                     //Reset the interleave event
                     m_InterleaveEvent.Reset();
@@ -503,23 +511,33 @@ namespace Media.Rtsp
                     //Assign an event for interleaved data before we write
                     m_RtpClient.InterleavedData += new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);
 
+                    int attempt = 0;
+
+                Resend:
                     //Write the message on the interleaved socket
                     lock (m_RtspSocket)
                     {
-                        m_RtspSocket.Send(buffer);
+                        //Send the data
+                        m_RtspSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
+
+                        //Increment the attempts
+                        ++attempt;
                     }
 
                     //Raise the event
                     Requested(request);
 
-                    //Wait for the event
-                    m_InterleaveEvent.WaitOne();
+                    //Increment our byte counters for Rtsp
+                    m_SentBytes += buffer.Length;
+                    
+                    //Wait for the event as long we we are allowed, if we didn't recieve a response try again
+                    if (!m_InterleaveEvent.WaitOne(ReadTimeout) && attempt < m_RetryCount) goto Resend;
 
                     //Remove the event
                     m_RtpClient.InterleavedData -= new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);
 
                     //Grab the response from the list (Should only be one in there)
-                    response = mResponses.FirstOrDefault();
+                    response = mResponses.FirstOrDefault();                    
 
                     //Clear the responses
                     mResponses.Clear();
@@ -530,11 +548,16 @@ namespace Media.Rtsp
                     {
                         m_SentBytes += m_RtspSocket.Send(buffer);
                         m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
+                        
                         //Fire the event
                         Requested(request);
+
                         response = new RtspResponse(m_Buffer);
                     }
                 }
+
+                //We we have nothing to return
+                if (response == null) return response;
 
                 //Fire the event
                 Received(response);
@@ -542,7 +565,7 @@ namespace Media.Rtsp
                 //Check for SessionId if the response contains it
                 string sessionHeader = response[RtspHeaders.Session];
                 //If there is a session header it may contain the option timeout
-                if (!String.IsNullOrEmpty(sessionHeader))
+                if (!string.IsNullOrEmpty(sessionHeader))
                 {
                     if (sessionHeader.Contains(';'))
                     {
@@ -645,8 +668,11 @@ namespace Media.Rtsp
             {
                 m_SessionId = null;
                 //m_CSeq = 0;
-                m_Timer.Dispose();
-                m_Timer = null;
+                if (m_KeepAliveTimer != null)
+                {
+                    m_KeepAliveTimer.Dispose();
+                    m_KeepAliveTimer = null;
+                }
             }
         }
 
@@ -673,31 +699,22 @@ namespace Media.Rtsp
 
                 if ((useMediaProtocol && mediaDescription.MediaProtocol.Contains("TCP")) || m_RtpProtocol == ProtocolType.Tcp) //m_SessionDescription.MediaDesciptions[0].MediaProtocol.Contains("TCP")
                 {
-                    if (m_RtpClient.m_Interleaves.Count > 0)
+                    if (m_RtpClient.Interleaves.Count > 0)
                     {
-                        var lastInterleave = m_RtpClient.m_Interleaves.Last();
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + lastInterleave.DataChannel + 2 + '-' + lastInterleave.ControlChannel + 2);
+                        var lastInterleave = m_RtpClient.Interleaves.Last();
+                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + (lastInterleave.DataChannel + 2) + '-' + (lastInterleave.ControlChannel + 2));
                     }
                     else
                     {
                         //Suppsed to be "TCP/RTP/AVP" as per RFC4751
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=0-1;");
+                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=0-1");
                     }
                 }
                 else
                 {
-
-                    if (m_RtpClient == null)
-                    {
-                        m_ClientRtpPort = Utility.FindOpenUDPPort(60000);
-                        m_ClientRtcpPort = m_ClientRtpPort + 1;
-                        setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";unicast;client_port=" + m_ClientRtpPort + '-' + m_ClientRtcpPort);
-                    }
-                    else
-                    {
-                        //Should otherwise add interleave to m_RtpClient?
-                    }
-
+                    //Might want to reserver this port now by making a socket...
+                    int openPort = Utility.FindOpenUDPPort(30000, true);
+                    setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";unicast;client_port=" + openPort + '-' + (openPort + 1));
                 }
 
                 RtspResponse response = SendRtspRequest(setup);
@@ -740,6 +757,9 @@ namespace Media.Rtsp
                 //Get the parts of information from the transportHeader
                 string[] parts = transportHeader.Split(';');
 
+                //Values in the header we need
+                int clientRtpPort =-1, clientRtcpPort =-1, serverRtpPort = -1, serverRtcpPort = -1;
+                
                 ///The transport header contains the following information 
                 foreach (string part in parts)
                 {
@@ -749,42 +769,48 @@ namespace Media.Rtsp
                     //else if (part == "unicast") {  }
                     else if (part.StartsWith("client_port="))
                     {
-                        //m_ClientPort = Convert.ToInt32(part.Replace("client_port=", string.Empty));  
-                        //Maybe should ensure they match what we sent to the server
+                        string[] clientPorts = part.Replace("client_port=", string.Empty).Split('-');
+                        if (clientPorts.Length > 1)
+                        {
+                            clientRtpPort = int.Parse(clientPorts[0]);
+                            clientRtcpPort = int.Parse(clientPorts[1]);
+                        }
+                        else
+                        {
+                            throw new RtspClientException("Server indicated Udp but did not provide a port pair");
+                        }
+                        
                     }
                     else if (part.StartsWith("interleaved"))
                     {
                         //Should only be for Tcp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
-                        try
+                        if (channels.Length > 1)
                         {
-                            m_RtpClient.AddInterleave(new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), 0, mediaDescription));
+                            m_RtpClient.AddInterleave(new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)m_Ssrc, mediaDescription));
+                            m_RtpClient.InitializeFrom(m_RtspSocket);
                         }
-                        catch
+                        else
                         {
-                            //Already added
+                            throw new RtspClientException("Server indicated Tcp but did not provide a channel pair");
                         }
                     }
                     else if (part.StartsWith("server_port="))
                     {
                         //m_ServerPort = Convert.ToInt32(part.Replace("Server_port=", string.Empty));
-                        string[] ports = part.Replace("server_port=", string.Empty).Split('-');
+                        string[] serverPorts = part.Replace("server_port=", string.Empty).Split('-');
 
                         //This is not in any RFC including 2326
                         //If there is not a port pair then this must be a tcp response
-                        if (ports.Length == 1 || ports[0] == ports[1])
+                        if (serverPorts.Length == 1 || serverPorts[0] == serverPorts[1])
                         {
-
+                            //If we are not already in Tcp
                             if (m_RtpProtocol != ProtocolType.Tcp)
                             {
                                 //THIS IS INDICATING A TCP Transport
                                 m_RtpProtocol = ProtocolType.Tcp;
 
-                                var newClient = RtpClient.Interleaved(m_RtspSocket);
-
-                                m_RtpClient.m_Interleaves.ForEach(newClient.AddInterleave);
-
-                                m_RtpClient = newClient;
+                                m_RtpClient.InitializeFrom(m_RtspSocket);
 
                                 //Recurse call to ensure propper setup
                                 return SendSetup(location, mediaDescription);
@@ -794,21 +820,26 @@ namespace Media.Rtsp
                         {
                             m_RtpProtocol = ProtocolType.Udp;
 
-                            int rtpPort = Convert.ToInt32(ports[0]), rtcpPort = Convert.ToInt32(ports[1]);
+                            serverRtpPort = int.Parse(serverPorts[0]);
+                            serverRtcpPort = int.Parse(serverPorts[1]);
 
+                            //If we need to make a client then do so
                             if (m_RtpClient == null)
                             {
-                                //m_RtpClient = new RtpClient(m_RemoteIP, m_ClientRtpPort, m_ClientRtcpPort, true, rtpPort, rtcpPort);
-                                m_RtpClient = new RtpClient(m_RemoteIP, rtpPort, rtcpPort, true, m_ClientRtpPort, m_ClientRtcpPort);
-                                var il = new RtpClient.Interleave(0, 1, 0, mediaDescription);
-                                il.RtpSocket = m_RtpClient.m_RtpSocket;
-                                ////il.RtpSocket.Bind(new IPEndPoint(IPAddress.Any, m_RtpClient.m_ServerRtpPort));
-                                ////il.RtpSocket.Connect(m_RemoteIP, m_ClientRtpPort);
-                                il.RtcpSocket = m_RtpClient.m_RtcpSocket;
-                                ////il.RtcpSocket.Bind(new IPEndPoint(IPAddress.Any, m_RtpClient.m_ServerRtpPort + 1));
-                                ////il.RtcpSocket.Connect(m_RemoteIP, m_ClientRtcpPort);
+                                //Todo use Reciever constructor
+                                m_RtpClient = new RtpClient(m_RemoteIP, clientRtpPort, clientRtcpPort, true, serverRtpPort, serverRtcpPort);
+                                var il = new RtpClient.Interleave(0, 1, (uint)m_Ssrc, mediaDescription);
+                                il.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort,serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(il);
                             }
+                            else
+                            {
+                                var last = m_RtpClient.Interleaves.Last();
+                                var il = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), (uint)m_Ssrc, mediaDescription);                                
+                                il.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                m_RtpClient.AddInterleave(il);
+
+                            }                            
                         }
                     }
                     else if (part.StartsWith("mode="))
@@ -828,31 +859,9 @@ namespace Media.Rtsp
 
                 //Hackup, Here we are forcing TCP if the ssrc was not given in the Rtsp Transport header, this should only happen if required
 
-                if (m_Ssrc == 0)
-                {
-                    if (m_RtpProtocol != ProtocolType.Tcp)
-                    {
-                        //THIS IS INDICATING A TCP Transport
-                        m_RtpProtocol = ProtocolType.Tcp;
+                //Connect and wait for Packets via UDP
+                m_RtpClient.Connect();
 
-                        var newClient = RtpClient.Interleaved(m_RtspSocket);
-
-                        //m_RtpClient.m_Interleaves.ForEach(newClient.AddInterleave);
-
-                        m_RtpClient = newClient;
-
-                        //Recurse call to ensure propper setup
-                        return SendSetup(location, mediaDescription);
-                    }
-                }
-                else
-                {
-                    //Connect and wait for Packets via UDP
-                    m_RtpClient.Connect();
-
-                    //If no Packets come in a certain amount of time we need to switch over to TCP.
-                    //One way to do this propery is with a timer...
-                }
 
                 //////SSRC should not be 0, it has not been assigned we cannot recieve packets if this is happening
                 ////if (m_Ssrc != 0)
@@ -880,13 +889,38 @@ namespace Media.Rtsp
             //}
         }
 
-        public RtspResponse SendPlay(Uri location = null)
+        internal void SwitchProtocols(object state)
+        {
+            //If the client has not recieved any bytes and we have not already switched to Tcp
+            if (m_RtpClient.TotalRtpBytesReceieved <= 0 && m_RtpProtocol != ProtocolType.Tcp)
+            {
+                //Reconnect without losing the events on the RtpClient
+                m_RtpProtocol = ProtocolType.Tcp;
+                m_RtpClient.InitializeFrom(m_RtspSocket);
+
+                //Disconnect to allow the server to reset state
+                Disconnect();
+
+                //Clear existing interleaves
+                m_RtpClient.Interleaves.Clear();
+
+                //Start again
+                StartListening();
+
+                //Remove the timer
+                m_ProtocolSwitchTimer.Dispose();
+                m_ProtocolSwitchTimer = null;
+            }
+        }
+
+        public RtspResponse SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
         {
             try
             {
                 RtspRequest play = new RtspRequest(RtspMethod.PLAY, location ?? Location);
-
-                play.SetHeader(RtspHeaders.Range, "npt=" + m_Range + '-');
+                
+                //Inlclude a range so we get back a range
+                play.AppendOrSetHeader(RtspHeaders.Range,"npt=0.000-");
 
                 //Might need to include channels?
 
@@ -914,6 +948,10 @@ namespace Media.Rtsp
                     }
                 }
 
+                //When the client plays 
+                //if npt=now- (Stream in continious)
+                //else if npt=0.000-x.xxx (stream needs to be cached so it can be played back from the server)
+
                 string rangeString = response[RtspHeaders.Range];
                 //Should throw if RtpInfo was present, Range requried RtpInfo
                 if (!string.IsNullOrEmpty(rangeString))
@@ -922,11 +960,12 @@ namespace Media.Rtsp
                 }
 
                 //If there is a timeout ensure it gets utilized
-                if (m_RtspTimeoutSeconds != 0 && m_Timer == null)
+                if (m_RtspTimeoutSeconds != 0 && m_KeepAliveTimer == null)
                 {
-                    m_Timer = new Timer(new TimerCallback(SendGetParameter), null, m_RtspTimeoutSeconds * 1000 / 2, m_RtspTimeoutSeconds * 1000);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendGetParameter), null, m_RtspTimeoutSeconds * 1000 / 2, m_RtspTimeoutSeconds * 1000);
                 }
 
+                //Connect the client (if already connected this will not do anything, might want to change the semantic though)
                 m_RtpClient.Connect();
 
                 return response;
@@ -942,73 +981,27 @@ namespace Media.Rtsp
             finally
             {
                 //Setup a timer to determine if we are recieving data... if we are then then we must switch
-                if (m_RtpClient != null && m_RtpClient.m_RtpSocket != null && m_RtpClient.m_RtpSocket.ProtocolType == ProtocolType.Udp)
+                if (m_RtpClient != null && m_RtpProtocol == ProtocolType.Udp)
                 {
-                    //Setup a time
-                    System.Timers.Timer timer = new System.Timers.Timer(10000);
-                    timer.Elapsed += (source, e) =>
-                    {
-                        //If the client has not recieved any bytes...
-                        if (m_RtpClient.TotalRtpBytesReceieved <= 0)
-                        {
-                            //Maye have an event?
-                            Disconnect();
-                            
-                            //Switch transports keeping events in place
-                            if (m_RtpClient.m_RtpSocket != null)
-                            {
-                                m_RtpClient.m_RtpSocket.Dispose();
-                                m_RtpClient.m_RtpSocket = null;
-                            }
-                            if (m_RtpClient.m_RtcpSocket != null)
-                            {
-                                m_RtpClient.m_RtcpSocket.Dispose();
-                                m_RtpClient.m_RtcpSocket = null;
-                            }
-
-                            //Reconnect without losing the events on the RtpClient
-
-                            m_RtpProtocol = ProtocolType.Tcp;
-
-                            //Recurse call to ensure propper setup
-                            m_RtpClient.m_SocketOwner = false;
-
-                            //Reinitialize the Interlaves
-                            m_RtpClient.m_Interleaves.ForEach(i =>
-                            {
-                                i.GoodbyeRecieved = i.GoodbyeSent = false;
-                                i.RtpSocket = i.RtcpSocket = null;
-                                i.RemoteRtcp = i.RemoteRtp = m_RtpClient.m_RemoteRtp;
-                                i.SynchronizationSourceIdentifier = 0;
-                            });
-
-                            //Start again
-                            StartListening(true);
-
-                            m_RtpClient.InitializeFrom(ref m_RtspSocket);
-
-                            timer.Dispose();
-                            timer = null;
-
-                        }
-                    };
-
-                    timer.AutoReset = false;
-                    timer.Enabled = true;
-                    timer.Start();
-
+                    //Setup a timer, should be accessible from the instance...
+                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, m_ProtocolSwitchSeconds * 1000, System.Threading.Timeout.Infinite);                    
                 }
             }
         }
 
         internal void SendGetParameter(object state)
         {
-            try { SendGetParameter(null); }
+            try 
+            { 
+                SendGetParameter(null); 
+                //Chould also use this to check all channels for flowing information
+            }
             catch
             {
-                if (m_Timer != null)
+                if (m_KeepAliveTimer != null)
                 {
-                    m_Timer.Dispose(); m_Timer = null;
+                    m_KeepAliveTimer.Dispose(); 
+                    m_KeepAliveTimer = null;
                 }
             }
         }

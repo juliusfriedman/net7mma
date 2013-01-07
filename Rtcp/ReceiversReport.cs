@@ -15,16 +15,18 @@ namespace Media.Rtcp
 
         public DateTime? Created { get; set; }
 
+        public byte? Channel { get; set; }
+
         #region Constructor
 
         public ReceiversReport(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
         
         //Packet would have created property?
-        public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { Created = packet.Created; }
+        public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception("Invalid Packet Type"); Channel = packet.Channel; Created = packet.Created ?? DateTime.UtcNow; }
 
         public ReceiversReport(byte[] packet, int offset) 
         {
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, offset + 0));
+            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
             offset += 4; 
             if (packet.Length > 4)
             {
@@ -60,7 +62,7 @@ namespace Media.Rtcp
             return result.ToArray();
         }
 
-        public static implicit operator RtcpPacket(ReceiversReport report) { return report.ToPacket(); }
+        public static implicit operator RtcpPacket(ReceiversReport report) { return report.ToPacket(report.Channel); }
 
         public static implicit operator ReceiversReport(RtcpPacket packet) { return new ReceiversReport(packet); }
 

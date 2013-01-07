@@ -38,7 +38,7 @@ namespace Media.Rtcp
 
             #endregion
 
-            #region Properties
+            #region Properties            
 
             public SourceDescriptionType DescriptionType { get { return (SourceDescriptionType)m_Type; } set { m_Type = (byte)value; } }
 
@@ -77,6 +77,7 @@ namespace Media.Rtcp
                 {
                     m_Text = Encoding.UTF8.GetString(packet, offset, m_Length);
                 }
+                offset += m_Length;
             }
 
             #endregion
@@ -108,6 +109,12 @@ namespace Media.Rtcp
 
         public List<SourceDescriptionItem> Items = new List<SourceDescriptionItem>();
 
+        public DateTime? Created { get; set; }
+
+        public DateTime? Sent { get; set; }
+
+        public byte? Channel { get; set; }
+
         #endregion
 
         #region Constructor
@@ -136,24 +143,19 @@ namespace Media.Rtcp
         public SourceDescription(RtcpPacket packet)
             : this(packet.Data, 0)
         {
+            Channel = packet.Channel;
+            Created = packet.Created ?? DateTime.UtcNow;
             if (packet.PacketType != RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception("Invalid Packet Type");
-
-            //Read each Item...
-            int offset = 0;
-            while (offset < packet.Data.Length)
-            {
-                SourceDescriptionItem item = new SourceDescriptionItem(packet.Data, ref offset);
-                Items.Add(item);
-            }
         }
 
         #endregion
 
-        public RtcpPacket ToPacket()
+        public RtcpPacket ToPacket(byte? channel = null)
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SourceDescription);
             output.BlockCount = Items.Count;
             output.Data = ToBytes();
+            output.Channel = channel;
             return output;
         }
 
@@ -180,7 +182,7 @@ namespace Media.Rtcp
             return result.ToArray();
         }
 
-        public static implicit operator RtcpPacket(SourceDescription description) { return description.ToPacket(); }
+        public static implicit operator RtcpPacket(SourceDescription description) { return description.ToPacket(description.Channel); }
 
         public static implicit operator SourceDescription(RtcpPacket packet) { return new SourceDescription(packet); }
     }

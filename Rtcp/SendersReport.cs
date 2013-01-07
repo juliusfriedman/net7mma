@@ -12,7 +12,8 @@ namespace Media.Rtcp
 
         public uint SynchronizationSourceIdentifier { get; set; }
 
-        public ulong NtpTimestamp { get; set; }
+        internal uint m_NtpMsw, m_NtpLsw;
+        public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
 
         public uint RtpTimestamp { get; set; }
 
@@ -33,33 +34,38 @@ namespace Media.Rtcp
         public SendersReport(uint ssrc)
         {
             SynchronizationSourceIdentifier = ssrc;
-            Created = DateTime.Now;
+            Created = DateTime.UtcNow;
         }
 
-        public SendersReport(byte[] packet, int offset) 
+        public SendersReport(byte[] packet, int offset/*, int blockCount = 0*/) 
         {            
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 0));
+            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
 
             int packetLength = packet.Length;
 
-            if (packetLength > 4)
+            if (packetLength > 8)
             {
 
-                NtpTimestamp = (ulong)System.Net.IPAddress.NetworkToHostOrder((long)BitConverter.ToInt64(packet, offset + 4));
-
-                if (packetLength > 12) RtpTimestamp = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 12));
-                else return;
-
-                if (packetLength > 16) SendersPacketCount = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 16));
-                else return;
+                //Should actually be 2 words instead.... Terrible I know but stilll
+                //NtpTimestamp = (ulong)System.Net.IPAddress.NetworkToHostOrder((long)BitConverter.ToInt64(packet, offset + 4)); 
                 
-                if (packetLength > 20) SendersOctetCount = (uint)System.Net.IPAddress.NetworkToHostOrder((int)BitConverter.ToInt32(packet, offset + 20));
+                m_NtpMsw = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
+                m_NtpLsw = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 8));
+
+                if (packetLength > 12) RtpTimestamp = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 12));
+                else return;
+
+                if (packetLength > 16) SendersPacketCount = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 16));
+                else return;
+
+                if (packetLength > 20) SendersOctetCount = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 20));
                 else return;
 
                 if (packetLength > 24) offset += 24;
                 else return;
 
-                while (offset /*+ ReportBlock.Size*/ < packet.Length)
+                //while(Blocks.Count < blockCount)
+                while (offset + ReportBlock.Size < packet.Length)
                 {
                     Blocks.Add(new ReportBlock(packet, ref offset));
                     //offset += ReportBlock.Size;
@@ -68,7 +74,7 @@ namespace Media.Rtcp
 
         }
 
-        public SendersReport(RtcpPacket packet) : this(packet.Data, 0) { Created = packet.Created; }
+        public SendersReport(RtcpPacket packet) : this(packet.Data, 0/*, packet.BlockCount*/) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type"); Created = packet.Created ?? DateTime.UtcNow; }
 
         #endregion
 
@@ -85,8 +91,12 @@ namespace Media.Rtcp
             List<byte> result = new List<byte>();
             // SSRC
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
+            
             // NTP timestamp
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((long)NtpTimestamp)));
+            //result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((long)NtpTimestamp)));
+            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_NtpMsw)));
+            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_NtpLsw)));
+
             // RTP timestamp
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)RtpTimestamp)));
             // sender's packet count

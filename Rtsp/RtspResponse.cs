@@ -32,8 +32,9 @@ namespace Media.Rtsp
         Forbidden = 403,
         NotFound = 404,
         MethodNotAllowed = 405,
-        NotAcceptable = 406,
+        NotAcceptable = 406,        
         ProxyAuthenticationRequired = 407,
+        PreconditionFailed = 412,
         SessionNotFound = 454,
         UnsupportedTransport = 461,
 
@@ -83,10 +84,18 @@ namespace Media.Rtsp
             if (m_FirstLine == null) StatusCode = RtspStatusCode.Unknown;
             else
             {
-                string[] parts = m_FirstLine.Split(' ');
-                //Version = float.Parse(parts[0].Replace(MessageIdentifier + '/', string.Empty));
-                StatusCode = (RtspStatusCode)Convert.ToInt32(parts[1]);
-                //parts[1] is the Textual Convention for the Status Code
+                if (MessageType == RtspMessageType.Invalid) return;
+                try
+                {
+                    string[] parts = m_FirstLine.Split(' ');
+                    //Version = float.Parse(parts[0].Replace(MessageIdentifier + '/', string.Empty));
+                    StatusCode = (RtspStatusCode)Convert.ToInt32(parts[1]);
+                    //parts[1] is the Textual Convention for the Status Code
+                }
+                catch
+                {
+
+                }
             }
         }
 

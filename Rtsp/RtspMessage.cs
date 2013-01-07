@@ -105,6 +105,62 @@ namespace Media.Rtsp
         private const string MessageIdentifier = "RTSP";	// String that must be in a message buffer to be recognised as an RTSP message and processed.
         private static string[] HeaderSplit = new string[] { CRLF };
 
+        public static byte[] ToHttpBytes(RtspMessage message, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
+        {
+            if (message is RtspRequest)
+            {
+                RtspRequest request = message as RtspRequest;
+
+                byte[] messageBytes = messageBytes = request.Encoding.GetBytes(System.Convert.ToBase64String(request.ToBytes()));
+
+
+                List<byte> result = new List<byte>();
+
+                result.AddRange(request.Encoding.GetBytes("GET " + request.Location + " HTTP 1." + minorVersion.ToString() + CRLF));
+                result.AddRange(request.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
+                result.AddRange(request.Encoding.GetBytes("Pragma:no-cache" + CRLF));
+                result.AddRange(request.Encoding.GetBytes("Cache-Control:no-cache" + CRLF));
+                result.AddRange(request.Encoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
+                if (!string.IsNullOrWhiteSpace(sessionCookie))
+                {
+                    result.AddRange(request.Encoding.GetBytes("x-sessioncookie: " + System.Convert.ToBase64String(request.Encoding.GetBytes(sessionCookie))+ CRLF));
+                }
+                result.AddRange(request.Encoding.GetBytes(CRLF + CRLF));
+
+                result.AddRange(messageBytes);
+
+                return result.ToArray();
+            }
+            else
+            {
+                RtspResponse response = message as RtspResponse;
+
+                byte[] messageBytes = messageBytes = response.Encoding.GetBytes(System.Convert.ToBase64String(response.ToBytes()));
+
+
+                List<byte> result = new List<byte>();
+
+                result.AddRange(response.Encoding.GetBytes("HTTP/1." + minorVersion.ToString() + " " + statusCode + CRLF));
+                result.AddRange(response.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
+                result.AddRange(response.Encoding.GetBytes("Pragma:no-cache" + CRLF));
+                result.AddRange(response.Encoding.GetBytes("Cache-Control:no-cache" + CRLF));
+                result.AddRange(response.Encoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
+                result.AddRange(response.Encoding.GetBytes("Expires:Sun, 9 Jan 1972 00:00:00 GMT" + CRLF));
+                result.AddRange(response.Encoding.GetBytes(CRLF + CRLF));
+
+                result.AddRange(messageBytes);
+
+                return result.ToArray();
+            }
+        }
+
+        public static RtspMessage FromHttpBytes(byte[] message, int offset)
+        {
+            //Parse the HTTP 
+            //Determine if it's Request or Response
+            throw new NotImplementedException();
+        }
+
         #endregion
 
         #region Fields
@@ -187,19 +243,31 @@ namespace Media.Rtsp
             //Should determine encoding...
             Encoding = Encoding.UTF8;
 
-            string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);
+            string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);            
 
             int endFistLinePosn = Message.IndexOf(CRLF, offset);
 
-            if (endFistLinePosn == -1) throw new RtspMessageException("Could not find first line");
+            if (endFistLinePosn == -1)
+            {
+                MessageType = RtspMessageType.Invalid;
+                return;
+            }
 
             //Store the first line for derived types since this is the only thing they need
             m_FirstLine = Message.Substring(offset, endFistLinePosn);
 
             int miLen = MessageIdentifier.Length;
 
-            //Get the message type
-            MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
+            if (Message.Contains(MessageIdentifier))
+            {
+                //Get the message type
+                MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
+            }
+            else
+            {
+                MessageType = RtspMessageType.Invalid;
+                return;
+            }
 
             #region FirstLine
             //Could assign version, then assign Method and Location
@@ -316,7 +384,7 @@ namespace Media.Rtsp
             byte[] encodedCRLF = Encoding.GetBytes(CRLF);
 
             //Write headers
-            foreach (KeyValuePair<string, string> header in m_Headers)
+            foreach (KeyValuePair<string, string> header in m_Headers/*.OrderBy((key) => key.Key).Reverse()*/)
             {
                 result.AddRange(Encoding.GetBytes(header.Key + ": " + header.Value));
                 result.AddRange(encodedCRLF);

@@ -5,38 +5,30 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public class Goodbye
+    public class ApplicationSpecific
     {
         #region Properties
 
         public byte? Channel { get; set; }
         public DateTime? Created { get; set; }
         public uint SynchronizationSourceIdentifier { get; set; }
-        public string Reason { get; set; }
 
         #endregion
 
         #region Constructor
 
-        public Goodbye(uint ssrc) { SynchronizationSourceIdentifier = ssrc; Reason = string.Empty; }
+        public ApplicationSpecific(uint ssrc) { SynchronizationSourceIdentifier = ssrc;}
 
-        public Goodbye(RtcpPacket packet) {
+        public ApplicationSpecific(RtcpPacket packet) {
             Channel = packet.Channel;
             Created = packet.Created ?? DateTime.UtcNow;
-            if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type");
+            if (packet.PacketType != RtcpPacket.RtcpPacketType.ApplicationSpecific) throw new Exception("Invalid Packet Type");
         }
 
-        public Goodbye(byte[] packet, int index)
+        public ApplicationSpecific(byte[] packet, int index)
         {
             SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
-            if (packet.Length - index > 4)
-            {
-                byte length = packet[index + 4];
-                if (length > 0)
-                {
-                    Reason = Encoding.UTF8.GetString(packet, index + 5, length);
-                }
-            }
+            //TODO
         }
 
         #endregion
@@ -57,21 +49,16 @@ namespace Media.Rtcp
             List<byte> result = new List<byte>();
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
 
-            if (!string.IsNullOrEmpty(Reason))
-            {
-                int length = Encoding.UTF8.GetByteCount(Reason);
-                result.Add((byte)length);
-                if (length > 0) result.AddRange(Encoding.UTF8.GetBytes(Reason));
-            }           
+            //TODO
 
             return result.ToArray();
         }
 
         #endregion
 
-        public static implicit operator RtcpPacket(Goodbye goodbye) { return goodbye.ToPacket(goodbye.Channel); }
+        public static implicit operator RtcpPacket(ApplicationSpecific appSpecific) { return appSpecific.ToPacket(appSpecific.Channel); }
 
-        public static implicit operator Goodbye(RtcpPacket packet) { return new Goodbye(packet); }
+        public static implicit operator ApplicationSpecific(RtcpPacket packet) { return new ApplicationSpecific(packet); }
 
     }
 }

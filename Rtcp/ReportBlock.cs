@@ -9,7 +9,8 @@ namespace Media.Rtcp
     {
         public const int Size = 24;
 
-        public uint SynchronizationSourceIdentifier, FractionLost, CumulativePacketsLost, ExtendedHigestSequenceNumber, InterArrivalJitter, LastSendersReport, DelaySinceLastSendersReport;
+        public uint SynchronizationSourceIdentifier, FractionLost, ExtendedHigestSequenceNumber, InterArrivalJitter, LastSendersReport, DelaySinceLastSendersReport;
+        public int CumulativePacketsLost;
 
         public ReportBlock(uint ssrc)
         {
@@ -20,23 +21,23 @@ namespace Media.Rtcp
         {
             if (packet.Length - index < Size) throw new ArgumentOutOfRangeException("index", "Must allow 24 bytes in buffer");
 
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
             FractionLost = packet[++index];
 
-            CumulativePacketsLost = (uint)(packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
-            
-            ExtendedHigestSequenceNumber = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+            CumulativePacketsLost = (packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
+
+            ExtendedHigestSequenceNumber = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
-            
-            InterArrivalJitter = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+
+            InterArrivalJitter = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
-            
-            LastSendersReport = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+
+            LastSendersReport = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
-            
-            DelaySinceLastSendersReport = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+
+            DelaySinceLastSendersReport = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
         }
 
