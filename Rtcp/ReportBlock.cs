@@ -24,9 +24,9 @@ namespace Media.Rtcp
             SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
-            FractionLost = packet[++index];
+            FractionLost = packet[index++];
 
-            CumulativePacketsLost = (packet[++index] << 16 | packet[++index] << 8 | packet[++index]);
+            CumulativePacketsLost = (packet[index++] << 24 | packet[index++] << 16 | packet[index++] << 8 | byte.MaxValue);
 
             ExtendedHigestSequenceNumber = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
@@ -50,28 +50,29 @@ namespace Media.Rtcp
             //result.Add((byte)((SynchronizationSourceIdentifier >> 8) | 0xFF));
             //result.Add((byte)((SynchronizationSourceIdentifier) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(ssrc ?? SynchronizationSourceIdentifier)));
 
             //FractionsLost
             result.Add((byte)FractionLost);
+            
             // cumulative packets lost
+            result.Add((byte)((CumulativePacketsLost >> 24) | 0xFF));
             result.Add((byte)((CumulativePacketsLost >> 16) | 0xFF));
-            result.Add((byte)((CumulativePacketsLost >> 8) | 0xFF));
-            result.Add((byte)((CumulativePacketsLost) | 0xFF));
+            result.Add((byte)((CumulativePacketsLost >> 8 | 0xFF)));
             
             // extended highest sequence number
             //result.Add((byte)((ExtendedHigestSequenceNumber >> 24) | 0xFF));
             //result.Add((byte)((ExtendedHigestSequenceNumber >> 16) | 0xFF));
             //result.Add((byte)((ExtendedHigestSequenceNumber >> 8) | 0xFF));
             //result.Add((byte)((ExtendedHigestSequenceNumber) | 0xFF));
-            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder((int)ExtendedHigestSequenceNumber)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(ExtendedHigestSequenceNumber)));
             
             // jitter
             //result.Add((byte)((InterArrivalJitter >> 24) | 0xFF));
             //result.Add((byte)((InterArrivalJitter >> 16) | 0xFF));
             //result.Add((byte)((InterArrivalJitter >> 8) | 0xFF));
             //result.Add((byte)((InterArrivalJitter) | 0xFF));
-            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder((int)InterArrivalJitter)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(InterArrivalJitter)));
 
             // last SR
             //result.Add((byte)((LastSendersReport >> 24) | 0xFF));
@@ -79,7 +80,7 @@ namespace Media.Rtcp
             //result.Add((byte)((LastSendersReport >> 8) | 0xFF));
             //result.Add((byte)((LastSendersReport) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder((int)LastSendersReport)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(LastSendersReport)));
 
             // delay since last SR
             //result.Add((byte)((DelaySinceLastSendersReport >> 24) | 0xFF));
@@ -87,7 +88,7 @@ namespace Media.Rtcp
             //result.Add((byte)((DelaySinceLastSendersReport >> 8) | 0xFF));
             //result.Add((byte)((DelaySinceLastSendersReport) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes((int)System.Net.IPAddress.HostToNetworkOrder((int)DelaySinceLastSendersReport)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(DelaySinceLastSendersReport)));
 
             return result.ToArray();
         }

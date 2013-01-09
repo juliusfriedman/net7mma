@@ -104,7 +104,7 @@ namespace Media.Rtsp
             List<byte> result = new List<byte>();
 
             //Add the Method and the Uri
-            result.AddRange(Encoding.GetBytes(VersionString + " " + ((int)StatusCode).ToString() + " " + StatusCode.ToString() + CRLF));
+            result.AddRange(Encoding.GetBytes(MessageIdentifier + '/' + Version.ToString("0.0") + " " + ((int)StatusCode).ToString() + " " + StatusCode.ToString() + CRLF));
 
             //Get the base bytes
             result.AddRange(base.ToBytes());

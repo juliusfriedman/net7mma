@@ -23,13 +23,13 @@ namespace Media.Rtcp
         public Goodbye(RtcpPacket packet) {
             Channel = packet.Channel;
             Created = packet.Created ?? DateTime.UtcNow;
-            if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type");
+            if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type, Expected Goodbye. Found: '" + (byte)packet.PacketType + '\'');
         }
 
         public Goodbye(byte[] packet, int index)
         {
             SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
-            if (packet.Length - index > 4)
+            if (packet.Length - index > 5) // We just got 0 - 3 and if we have 4 and 5 there is a length and reason
             {
                 byte length = packet[index + 4];
                 if (length > 0)

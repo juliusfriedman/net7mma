@@ -92,7 +92,7 @@ namespace Media.Rtsp
 
         #region Statics
 
-        public const string VersionString = "RTSP/1.0";
+        //New Line
         public const string CRLF = "\r\n";
 
         // RFC2326 9.2, default port for both TCP and UDP.
@@ -102,8 +102,10 @@ namespace Media.Rtsp
         // RFC2326 9.2, initial round trip time used for retransmits on unreliable transports.
         public const int MaximumLength = 4096;
 
-        private const string MessageIdentifier = "RTSP";	// String that must be in a message buffer to be recognised as an RTSP message and processed.
+        //String which identifies a Rtsp Request or Response
+        internal const string MessageIdentifier = "RTSP";
         private static string[] HeaderSplit = new string[] { CRLF };
+        private static char[] HeaderValueSplit = new char[] { ':' };
 
         public static byte[] ToHttpBytes(RtspMessage message, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
         {
@@ -111,20 +113,23 @@ namespace Media.Rtsp
             {
                 RtspRequest request = message as RtspRequest;
 
-                byte[] messageBytes = messageBytes = request.Encoding.GetBytes(System.Convert.ToBase64String(request.ToBytes()));
-
+                //Get the body of the HttpRequest
+                byte[] messageBytes = request.Encoding.GetBytes(System.Convert.ToBase64String(request.ToBytes()));
 
                 List<byte> result = new List<byte>();
-
+                
+                //Form the HttpRequest
                 result.AddRange(request.Encoding.GetBytes("GET " + request.Location + " HTTP 1." + minorVersion.ToString() + CRLF));
                 result.AddRange(request.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
                 result.AddRange(request.Encoding.GetBytes("Pragma:no-cache" + CRLF));
                 result.AddRange(request.Encoding.GetBytes("Cache-Control:no-cache" + CRLF));
                 result.AddRange(request.Encoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
+                
                 if (!string.IsNullOrWhiteSpace(sessionCookie))
                 {
-                    result.AddRange(request.Encoding.GetBytes("x-sessioncookie: " + System.Convert.ToBase64String(request.Encoding.GetBytes(sessionCookie))+ CRLF));
+                    result.AddRange(request.Encoding.GetBytes("x-sessioncookie: " + System.Convert.ToBase64String(request.Encoding.GetBytes(sessionCookie)) + CRLF));
                 }
+
                 result.AddRange(request.Encoding.GetBytes(CRLF + CRLF));
 
                 result.AddRange(messageBytes);
@@ -135,12 +140,13 @@ namespace Media.Rtsp
             {
                 RtspResponse response = message as RtspResponse;
 
+                //Get the body of the HttpResponse
                 byte[] messageBytes = messageBytes = response.Encoding.GetBytes(System.Convert.ToBase64String(response.ToBytes()));
-
 
                 List<byte> result = new List<byte>();
 
-                result.AddRange(response.Encoding.GetBytes("HTTP/1." + minorVersion.ToString() + " " + statusCode + CRLF));
+                //Form the HttpResponse
+                result.AddRange(response.Encoding.GetBytes("HTTP/1." + minorVersion.ToString() + " " + (int)statusCode + " " + statusCode + CRLF));
                 result.AddRange(response.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
                 result.AddRange(response.Encoding.GetBytes("Pragma:no-cache" + CRLF));
                 result.AddRange(response.Encoding.GetBytes("Cache-Control:no-cache" + CRLF));
@@ -154,16 +160,51 @@ namespace Media.Rtsp
             }
         }
 
-        public static RtspMessage FromHttpBytes(byte[] message, int offset)
+        public static RtspMessage FromHttpBytes(byte[] message, int offset, Encoding encoding = null)
         {
+            //Sanity
+            if (message == null) return null;
+            if (offset > message.Length) throw new ArgumentOutOfRangeException("offset");
+
+            //Use a default encoding if none was given
+            if (encoding == null) encoding = Encoding.UTF8;
+
+            //The message we will attempt to return
+            RtspMessage result = null;            
+
             //Parse the HTTP 
-            //Determine if it's Request or Response
-            throw new NotImplementedException();
+            string Message = encoding.GetString(message, offset, message.Length - offset);
+
+            //Find the end of all the headers
+            int headerEnd = Message.IndexOf(CRLF + CRLF);
+
+            //Get the Http Body, It occurs after all the headers which ends with \r\n\r\n and is Base64 Encoded.
+            string Body = Message.Substring(headerEnd);
+
+            //Might want to provide the headers as an out param
+
+            //Get the bytes of the underlying RtspMessage by decoding the Http Body which was encoded in base64
+            byte[] rtspMessage = System.Convert.FromBase64String(Body);
+
+            //Resposne
+            if (Message.StartsWith("HTTP"))
+            {
+                result = new RtspResponse(rtspMessage);                
+            }
+            else if (Message.StartsWith("GET"))//Request
+            {
+                result = new RtspRequest(rtspMessage);
+            }
+
+            //Done
+            return result;
         }
 
         #endregion
 
         #region Fields
+
+        double m_Version;
 
         /// <summary>
         /// The firstline of the RtspMessage and the Body
@@ -179,6 +220,8 @@ namespace Media.Rtsp
         #endregion
 
         #region Properties        
+
+        public double Version { get { return m_Version; } set { m_Version = value; } }
 
         /// <summary>
         /// The body of the RtspMessage
@@ -236,12 +279,14 @@ namespace Media.Rtsp
         /// Constructs a RtspMessage
         /// </summary>
         /// <param name="messageType"></param>
-        public RtspMessage(RtspMessageType messageType) { MessageType = messageType; Encoding = Encoding.UTF8; /* Version = 1.0F; */ }
+        public RtspMessage(RtspMessageType messageType) { Version = 1.0;  MessageType = messageType; Encoding = Encoding.UTF8; }
 
         public RtspMessage(byte[] packet, int offset = 0)
         {
             //Should determine encoding...
             Encoding = Encoding.UTF8;
+
+            //Should check the first few bytes before doing this?
 
             string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);            
 
@@ -269,18 +314,20 @@ namespace Media.Rtsp
                 return;
             }
 
-            #region FirstLine
+            #region FirstLine Version, (Method / Location or StatusCode)
+            
             //Could assign version, then assign Method and Location
-            //if (MessageType == RtspMessageType.Request)
-            //{
-            //    //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
-            //    Version = float.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty));
-            //}
-            //else
-            //{
-            //    //S->C[0]RTSP/1.0[1]200[2]OK
-            //    Version = float.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
-            //}
+            if (MessageType == RtspMessageType.Request)
+            {
+                //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
+                Version = double.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty));
+            }
+            else
+            {
+                //S->C[0]RTSP/1.0[1]200[2]OK
+                Version = double.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
+            }
+
             #endregion
 
             //Determine if we should decode more
@@ -298,10 +345,10 @@ namespace Media.Rtsp
                 // Get the headers 
                 foreach (string raw in Message.Substring(endFistLinePosn + crlfLen, headerLength).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    //http://net7mma.codeplex.com/workitem/15937
-                    //We only want the first 2 sub strings to allow for rtsp-info:?
-                    string[] parts = raw.Split(new char[] { ':' }, 2); //raw.Split(':');
-                    if (parts.Length > 1) SetHeader(parts[0], parts[1]);                    
+                    //We only want the first 2 sub strings to allow for headers which have a ':' in the data
+                    //E.g. Rtp-Info: rtsp://....
+                    string[] parts = raw.Split(HeaderValueSplit, 2);
+                    if (parts.Length > 1) SetHeader(parts[0].Trim(), parts[1].Trim());                    
                 }
 
                 //Get the body

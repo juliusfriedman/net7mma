@@ -67,7 +67,7 @@ namespace Media
 
         internal static ushort HostToNetworkOrderShort(ushort host) { return (ushort)(((host & 0xFF) << 8) | ((host >> 8) & 0xFF)); }
 
-        internal static uint SwapUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
+        public static uint SwapUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
 
         #region Npt
 

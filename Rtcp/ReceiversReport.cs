@@ -22,7 +22,7 @@ namespace Media.Rtcp
         public ReceiversReport(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
         
         //Packet would have created property?
-        public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception("Invalid Packet Type"); Channel = packet.Channel; Created = packet.Created ?? DateTime.UtcNow; }
+        public ReceiversReport(RtcpPacket packet) : this(packet.Data, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception("Invalid Packet Type, Expected RecieversReport. Found: '" + (byte)packet.PacketType + '\''); Channel = packet.Channel; Created = packet.Created ?? DateTime.UtcNow; }
 
         public ReceiversReport(byte[] packet, int offset) 
         {
@@ -54,7 +54,7 @@ namespace Media.Rtcp
             List<byte> result = new List<byte>();
             
             // SSRC
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt((ssrc ?? SynchronizationSourceIdentifier))));
             
             //Report Blocks
             foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());

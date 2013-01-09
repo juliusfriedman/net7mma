@@ -74,7 +74,7 @@ namespace Media.Rtcp
 
         }
 
-        public SendersReport(RtcpPacket packet) : this(packet.Data, 0/*, packet.BlockCount*/) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type"); Created = packet.Created ?? DateTime.UtcNow; }
+        public SendersReport(RtcpPacket packet) : this(packet.Data, 0/*, packet.BlockCount*/) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
 
         #endregion
 
@@ -94,15 +94,15 @@ namespace Media.Rtcp
             
             // NTP timestamp
             //result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((long)NtpTimestamp)));
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_NtpMsw)));
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_NtpLsw)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(m_NtpMsw)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(m_NtpLsw)));
 
             // RTP timestamp
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)RtpTimestamp)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(RtpTimestamp)));
             // sender's packet count
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SendersPacketCount)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SendersPacketCount)));
             // sender's octet count
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SendersOctetCount)));
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SendersOctetCount)));
             //Report Blocks
             foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());
 

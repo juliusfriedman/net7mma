@@ -116,7 +116,10 @@ namespace Media.Rtsp
                 //m_RtpClient.EnquePacket(packet);
 
                 //Send right away
-                m_RtpClient.SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RemoteRtp);
+                m_RtpClient.SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RtpSocket);
+
+                //Send on its own thread
+                //m_RtpClient.EnquePacket(packet);
             }));
         }
 
@@ -250,6 +253,16 @@ namespace Media.Rtsp
             //Use the values from the Source
             //The reason for this is that their clock is aligned with the RtpTimeStamp and our clock is not.
             var sourceInterleave = m_SourceInterleaves.Where(ii => ii.DataChannel == interleave.DataChannel).First();
+
+            //This looks like it could happen if the client connects when the source stream is disconnected... 
+            //Until I stop it from happening this is here
+            if (sourceInterleave == null)
+            {
+                //Instead of using the source information use the calculated info
+                m_RtpClient.SendSendersReport(interleave);
+                return;
+            }
+
             interleave.SendersReport.NtpTimestamp = sourceInterleave.SendersReport.NtpTimestamp;
             interleave.SendersReport.RtpTimestamp = sourceInterleave.SendersReport.RtpTimestamp;
 

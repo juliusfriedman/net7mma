@@ -260,7 +260,8 @@ namespace Media.Rtp
                     //Most routers / firewalls will let traffic back through if the person from behind initiated the traffic.
                     //Send some bytes to ensure the reciever is awake and ready... (SIP or RELOAD may have something specific and better)
                     //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
-                    byte[] wakeup = new byte[] { 0xce, 0xfa, 0xed, 0xfe };
+                    //Might even make Upnp classes
+                    byte[] wakeup = new byte[] { 0x70, 0x70, 0x70, 0x70 };
 
                     //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
                     try
@@ -940,7 +941,7 @@ namespace Media.Rtp
                 return;
             }
             //Send the packet
-            int sent = SendData(packet.ToBytes(), interleave.ControlChannel, interleave.RemoteRtcp);
+            int sent = SendData(packet.ToBytes(), interleave.ControlChannel, interleave.RtcpSocket);
             //If we actually sent anything
             if (sent > 0)
             {
@@ -1002,7 +1003,7 @@ namespace Media.Rtp
             //packet.ContributingSources.Add(packet.SynchronizationSourceIdentifier);
 
             //Send the bytes
-            int sent = SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RemoteRtp);
+            int sent = SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RtpSocket);
             //If we sent anything
             if (sent > 0)
             {
@@ -1094,31 +1095,29 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="channel">The channel to recieve on, determines the socket</param>
         /// <returns>The number of bytes recieved</returns>             
-        internal int RecieveData(byte channel)
+        internal int RecieveData(byte channel, Socket socket)
         {
             try
             {
-                Socket socket = null;
+                ////Find the socket based on the given channel
+                //Interleaves.ForEach(i =>
+                //{
+                //    //if (i.DataChannel == channel) socket = m_RtpSocket;
+                //    //else if (i.ControlChannel == channel) socket = m_RtcpSocket;
 
-                //Find the socket based on the given channel
-                Interleaves.ForEach(i =>
-                {
-                    //if (i.DataChannel == channel) socket = m_RtpSocket;
-                    //else if (i.ControlChannel == channel) socket = m_RtcpSocket;
+                //    //If we already found the socket
+                //    if (socket != null) return;
 
-                    //If we already found the socket
-                    if (socket != null) return;
-
-                    //We need to use the interleave socket unless it has not yet been created
-                    if (i.DataChannel == channel)
-                    {
-                        socket = i.RtpSocket;
-                    }
-                    else if(i.ControlChannel == channel)
-                    {
-                        socket = i.RtcpSocket;
-                    }
-                });
+                //    //We need to use the interleave socket unless it has not yet been created
+                //    if (i.DataChannel == channel)
+                //    {
+                //        socket = i.RtpSocket;
+                //    }
+                //    else if(i.ControlChannel == channel)
+                //    {
+                //        socket = i.RtcpSocket;
+                //    }
+                //});
 
                 //If there is no socket or there are no bytes to be recieved
                 if (socket == null || /*!socket.Connected ||*/ socket.Available <= 0)
@@ -1251,62 +1250,48 @@ namespace Media.Rtp
         /// Sends the given data on the given channel
         /// </summary>
         /// <param name="data">The data to send</param>
-        /// <param name="channel">The channel to send on</param>
+        /// <param name="channel">The channel to send on (Udp doesn't use it)</param>
         /// <returns>The amount of bytes sent</returns>
-        /// //Here we might need a way to send to all participants rather than just one Socket
-        public int SendData(byte[] data, byte channel, IPEndPoint point  = null)
+        //Here we might need a way to send to all participants rather than just one Socket under Udp
+        internal int SendData(byte[] data, byte channel, Socket socket)
         {
             int sent = 0;
-            if (data == null) return sent;
+            if (data == null || socket == null) return sent;
             try
             {
+
+                //RtpClient.Interleave interleave = null;
+                //Socket socket = null;
+                //Interleaves.ForEach(i =>
+                //{
+                //    if (interleave != null) return;
+                //    else if (i.ControlChannel == channel)
+                //    {
+                //        interleave = i;
+                //        socket = i.RtcpSocket;
+                //    }
+                //    else if (i.DataChannel == channel)
+                //    {
+                //        interleave = i;
+                //        socket = i.RtpSocket;
+                //    }
+                //});
+
                 //Under Udp we can send the packet verbatim
-                if (m_TransportProtocol == ProtocolType.Udp)
+                if (socket.ProtocolType == ProtocolType.Udp)
                 {
-                    if (Interleaves.Any(i => i.ControlChannel == channel))
-                    {
-                        var il = Interleaves.Where(i => i.ControlChannel == channel).First();
-                        lock (il.RtcpSocket)
-                        {
-                            sent += il.RtcpSocket.Send(data);
-                        }
-                    }
-                    else if (Interleaves.Any(i => i.DataChannel == channel))
-                    {
-                        var il = Interleaves.Where(i => i.DataChannel == channel).First();
-                        lock (il.RtpSocket)
-                        {
-                            sent += il.RtpSocket.Send(data);
-                        }
-                    }
+                    sent += socket.Send(data);
                 }
                 else
                 {
                     //Under Tcp we must create and send the frame on the given channel
-                    //Create the frame header
-                    m_Buffer[0] = MAGIC;
-                    m_Buffer[1] = channel;
-                    //Create the length
-                    BitConverter.GetBytes((short)IPAddress.HostToNetworkOrder((short)data.Length)).CopyTo(m_Buffer, 2);
-                    //Copy the message
-                    data.CopyTo(m_Buffer, 4);
+                    List<byte> buffer = new List<byte>(4 + data.Length);
+                    buffer.Add(MAGIC);
+                    buffer.Add(channel);
+                    buffer.AddRange(BitConverter.GetBytes((short)IPAddress.HostToNetworkOrder((short)data.Length)));
+                    buffer.AddRange(data);
                     //Send the frame incrementing the bytes sent
-                    if (Interleaves.Any(i => i.ControlChannel == channel))
-                    {
-                        var il = Interleaves.Where(i => i.ControlChannel == channel).First();
-                        lock (il.RtcpSocket)
-                        {
-                            sent += il.RtcpSocket.Send(data);
-                        }
-                    }
-                    else if (Interleaves.Any(i => i.DataChannel == channel))
-                    {
-                        var il = Interleaves.Where(i => i.DataChannel == channel).First();
-                        lock (il.RtpSocket)
-                        {
-                            sent += il.RtpSocket.Send(data);
-                        }
-                    }
+                    sent += socket.Send(buffer.ToArray());
                 }
             }
             catch
@@ -1315,7 +1300,6 @@ namespace Media.Rtp
             }
             return sent;
         }
-
 
         /// <summary>
         /// Entry point of the m_WorkerThread. Handles sending RtpPackets in buffer and handling any incoming RtcpPackets
@@ -1376,10 +1360,11 @@ namespace Media.Rtp
 
                         try
                         {
+                            //Enumerate each interleave and recive data
                             Interleaves.ForEach(i =>
                             {
-                                RecieveData(i.DataChannel);
-                                RecieveData(i.ControlChannel);
+                                RecieveData(i.DataChannel, i.RtpSocket);
+                                RecieveData(i.ControlChannel, i.RtcpSocket);
                             });
                         }
                         catch(SocketException)
