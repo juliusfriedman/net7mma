@@ -53,11 +53,11 @@ namespace Media.Sdp
 
         #region Properties
 
-        public int Version { get { return m_Version.Version; } private set { m_Version.Version = value; ++m_Originator.Version; } }
+        public int Version { get { return m_Version.Version; } private set { if (value != m_Version.Version) { m_Version.Version = value; ++m_Originator.Version; } } }
 
         public string OriginatorAndSessionIdentifier { get { return m_Originator.ToString(); } set { m_Originator = new Media.Sdp.Lines.SessionOriginatorLine(value.ToString()); } }
 
-        public string SessionName { get { return m_SessionName.SessionName; } set { m_SessionName.SessionName = value; ++m_Originator.Version; } }
+        public string SessionName { get { return m_SessionName.SessionName; } set { if (value != m_SessionName.SessionName) { m_SessionName.SessionName = value; ++m_Originator.Version; } } }
 
         public System.Collections.ObjectModel.ReadOnlyCollection<TimeDescription> TimeDescriptions { get { return m_TimeDescriptions.AsReadOnly(); } set { m_TimeDescriptions = value.ToList(); ++m_Originator.Version; } }
 
@@ -305,7 +305,7 @@ namespace Media.Sdp
 
             string[] parts = sdpLine.Split(' ');
 
-            if (parts.Length != 4) throw new SessionDescriptionException("Invalid Media Name and Address");
+            if (parts.Length != 4) throw new SessionDescriptionException("Invalid Media Description");
 
             MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanValue(parts[0].ToLowerInvariant()));
 

@@ -80,7 +80,8 @@ namespace Media.Rtp
             internal IPEndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
 
             //Better then accessing the frame
-            internal int SequenceNumber, RtpTimestamp;
+            internal int SequenceNumber; 
+            internal uint RtpTimestamp;
 
             //bytes and packet counters
             internal int RtpBytesSent, RtpBytesRecieved,
@@ -507,7 +508,7 @@ namespace Media.Rtp
 
             //Update values
             interleave.SequenceNumber = packet.SequenceNumber;
-            interleave.RtpTimestamp = (int)packet.TimeStamp;
+            interleave.RtpTimestamp = packet.TimeStamp;
 
             //If we recieved a packet before we have identified who it is coming from
             if (interleave.SynchronizationSourceIdentifier == 0)
@@ -769,96 +770,105 @@ namespace Media.Rtp
             }
         }
 
-        internal SendersReport CreateSendersReport(Interleave i)
+        internal SendersReport CreateSendersReport(Interleave i, bool includeBlocks = true)
         {
             SendersReport result = new SendersReport(i.SynchronizationSourceIdentifier);
 
-            result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+            result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.Now);
 
             result.RtpTimestamp = (uint)i.RtpTimestamp;//From the last rtpPacket
 
             result.SendersOctetCount = (uint)i.RtpBytesSent;
             result.SendersPacketCount = (uint)i.RtpPacketsSent;
 
-            #region Delay and Fraction
-
-            //http://www.koders.com/csharp/fidFF28DE8FE7C75389906149D7AC8C23532310F079.aspx?s=socket
-
-            //// RFC 3550 A.3 Determining Number of Packets Expected and Lost.
-            int fraction = 0;
-            uint extended_max = (uint)(i.RtpSeqCycles + i.RtpMaxSeq);
-            int expected = (int)(extended_max - i.RtpBaseSeq + 1);
-            int lost = (int)(expected - i.RtpPacketsReceieved);
-            int expected_interval = (int)(expected - i.RtpExpectedPrior);
-            i.RtpExpectedPrior = (uint)expected;
-            int received_interval = (int)(i.RtpPacketsReceieved - i.RtpReceivedPrior);
-            i.RtpReceivedPrior = (uint)i.RtpPacketsReceieved;
-            int lost_interval = expected_interval - received_interval;
-            if (expected_interval == 0 || lost_interval <= 0)
+            if (includeBlocks)
             {
-                fraction = 0;
+
+                #region Delay and Fraction
+
+                //http://www.koders.com/csharp/fidFF28DE8FE7C75389906149D7AC8C23532310F079.aspx?s=socket
+
+                //// RFC 3550 A.3 Determining Number of Packets Expected and Lost.
+                int fraction = 0;
+                uint extended_max = (uint)(i.RtpSeqCycles + i.RtpMaxSeq);
+                int expected = (int)(extended_max - i.RtpBaseSeq + 1);
+                int lost = (int)(expected - i.RtpPacketsReceieved);
+                int expected_interval = (int)(expected - i.RtpExpectedPrior);
+                i.RtpExpectedPrior = (uint)expected;
+                int received_interval = (int)(i.RtpPacketsReceieved - i.RtpReceivedPrior);
+                i.RtpReceivedPrior = (uint)i.RtpPacketsReceieved;
+                int lost_interval = expected_interval - received_interval;
+                if (expected_interval == 0 || lost_interval <= 0)
+                {
+                    fraction = 0;
+                }
+                else
+                {
+                    fraction = (lost_interval << 8) / expected_interval;
+                }
+
+                #endregion    
+
+                DateTime? lastSent = i.SendersReport != null && i.SendersReport.Sent.HasValue ? i.SendersReport.Sent : null;
+
+                //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
+                result.Blocks.Add(new ReportBlock((uint)i.SynchronizationSourceIdentifier)
+                {
+                    CumulativePacketsLost = lost,
+                    FractionLost = (uint)fraction,
+                    InterArrivalJitter = i.RtpJitter,
+                    LastSendersReport = (uint)(lastSent.HasValue ? Utility.DateTimeToNtp32(lastSent.Value) : 0),
+                    DelaySinceLastSendersReport = (uint)(lastSent.HasValue ? ((DateTime.UtcNow - lastSent.Value).Milliseconds / 65535) * 1000 : 0),
+                    ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
+                });
             }
-            else
-            {
-                fraction = (lost_interval << 8) / expected_interval;
-            }
-
-            #endregion            
-
-            //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-            result.Blocks.Add(new ReportBlock((uint)i.SynchronizationSourceIdentifier)
-            {
-                CumulativePacketsLost = lost,
-                FractionLost = (uint)fraction,
-                InterArrivalJitter = i.RtpJitter,
-                LastSendersReport = (uint)(i.SendersReport != null ? Utility.DateTimeToNtp32(i.SendersReport.Sent.Value) : 0),
-                DelaySinceLastSendersReport = (uint)(i.SendersReport != null ? ((DateTime.UtcNow - i.SendersReport.Sent.Value).Milliseconds / 65535) * 1000 : 0),
-                ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
-            });
-
             return result;
         }
 
-        internal ReceiversReport CreateReceiversReport(Interleave i)
+        internal ReceiversReport CreateReceiversReport(Interleave i, bool includeBlocks = true)
         { 
             ReceiversReport result = new ReceiversReport(i.SynchronizationSourceIdentifier);
 
-            #region Delay and Fraction
-
-            //http://www.koders.com/csharp/fidFF28DE8FE7C75389906149D7AC8C23532310F079.aspx?s=socket
-
-            //// RFC 3550 A.3 Determining Number of Packets Expected and Lost.
-            int fraction = 0;
-            uint extended_max = (uint)(i.RtpSeqCycles + i.RtpMaxSeq);
-            int expected = (int)(extended_max - i.RtpBaseSeq + 1);
-            int lost = (int)(expected - i.RtpPacketsReceieved);
-            int expected_interval = (int)(expected - i.RtpExpectedPrior);
-            i.RtpExpectedPrior = (uint)expected;
-            int received_interval = (int)(i.RtpPacketsReceieved - i.RtpReceivedPrior);
-            i.RtpReceivedPrior = (uint)i.RtpPacketsReceieved;
-            int lost_interval = expected_interval - received_interval;
-            if (expected_interval == 0 || lost_interval <= 0)
+            if (includeBlocks)
             {
-                fraction = 0;
+
+                #region Delay and Fraction
+
+                //http://www.koders.com/csharp/fidFF28DE8FE7C75389906149D7AC8C23532310F079.aspx?s=socket
+
+                //// RFC 3550 A.3 Determining Number of Packets Expected and Lost.
+                int fraction = 0;
+                uint extended_max = (uint)(i.RtpSeqCycles + i.RtpMaxSeq);
+                int expected = (int)(extended_max - i.RtpBaseSeq + 1);
+                int lost = (int)(expected - i.RtpPacketsReceieved);
+                int expected_interval = (int)(expected - i.RtpExpectedPrior);
+                i.RtpExpectedPrior = (uint)expected;
+                int received_interval = (int)(i.RtpPacketsReceieved - i.RtpReceivedPrior);
+                i.RtpReceivedPrior = (uint)i.RtpPacketsReceieved;
+                int lost_interval = expected_interval - received_interval;
+                if (expected_interval == 0 || lost_interval <= 0)
+                {
+                    fraction = 0;
+                }
+                else
+                {
+                    fraction = (lost_interval << 8) / expected_interval;
+                }
+
+                #endregion
+
+                //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
+                result.Blocks.Add(new ReportBlock((uint)i.SynchronizationSourceIdentifier)
+                {
+                    CumulativePacketsLost = lost,
+                    FractionLost = (uint)fraction,
+                    InterArrivalJitter = i.RtpJitter,
+                    LastSendersReport = (uint)(i.SendersReport != null ? Utility.DateTimeToNtp64(i.SendersReport.Created.Value) : 0),
+                    DelaySinceLastSendersReport = (uint)(i.SendersReport != null ? ((DateTime.UtcNow - i.SendersReport.Created.Value).Milliseconds / 65535) * 1000 : 0),
+                    ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
+                });
+
             }
-            else
-            {
-                fraction = (lost_interval << 8) / expected_interval;
-            }
-
-            #endregion
-
-            //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-            result.Blocks.Add(new ReportBlock((uint)i.SynchronizationSourceIdentifier)
-            {
-                CumulativePacketsLost = lost,
-                FractionLost = (uint)fraction,
-                InterArrivalJitter = i.RtpJitter,
-                LastSendersReport = (uint)(i.SendersReport != null ? Utility.DateTimeToNtp64(i.SendersReport.Created.Value) : 0),
-                DelaySinceLastSendersReport = (uint)(i.SendersReport != null ? ((DateTime.UtcNow - i.SendersReport.Created.Value).Milliseconds / 65535) * 1000 : 0),
-                ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
-            });            
-
             return result;
         }
 
@@ -903,9 +913,7 @@ namespace Media.Rtp
 
         internal SourceDescription CreateSourceDescription(Interleave interleave)
         {
-            //Make collection initalizer for source descriptions
-            return new SourceDescription(interleave.SynchronizationSourceIdentifier)
-                { SourceDescription.SourceDescriptionItem.CName} ;
+            return new SourceDescription(interleave.SynchronizationSourceIdentifier) { SourceDescription.SourceDescriptionItem.CName };                
         }
 
         internal Interleave GetInterleaveForPacket(RtcpPacket packet)
@@ -987,8 +995,8 @@ namespace Media.Rtp
             //If we don't have an interleave to send on or the interleave has not been identified
             if (interleave == null || interleave.SynchronizationSourceIdentifier == 0)
             {
-                //Add it back
-                //m_OutgoingRtpPackets.Add(packet);
+                //Add it back for now (Let the source decide if it's too late when it gets there)
+                m_OutgoingRtpPackets.Add(packet);
 
                 //Return
                 return;
@@ -1084,6 +1092,8 @@ namespace Media.Rtp
                 i.CloseSockets();
             });
 
+            Interleaves.Clear();
+
             //Empty buffers
             m_OutgoingRtpPackets.Clear();
             m_OutgoingRtcpPackets.Clear();
@@ -1099,26 +1109,6 @@ namespace Media.Rtp
         {
             try
             {
-                ////Find the socket based on the given channel
-                //Interleaves.ForEach(i =>
-                //{
-                //    //if (i.DataChannel == channel) socket = m_RtpSocket;
-                //    //else if (i.ControlChannel == channel) socket = m_RtcpSocket;
-
-                //    //If we already found the socket
-                //    if (socket != null) return;
-
-                //    //We need to use the interleave socket unless it has not yet been created
-                //    if (i.DataChannel == channel)
-                //    {
-                //        socket = i.RtpSocket;
-                //    }
-                //    else if(i.ControlChannel == channel)
-                //    {
-                //        socket = i.RtcpSocket;
-                //    }
-                //});
-
                 //If there is no socket or there are no bytes to be recieved
                 if (socket == null || /*!socket.Connected ||*/ socket.Available <= 0)
                 {
@@ -1308,7 +1298,7 @@ namespace Media.Rtp
         {
             try
             {
-                DateTime lastRecieve = DateTime.UtcNow;
+                DateTime lastTransmit = DateTime.UtcNow;
 
                 //While we have not recieved a Goodbye
                 //Somehow we were being called and stopped by someone... GoodbyeRecieved & GoodbyeRecieved were true?
@@ -1329,6 +1319,7 @@ namespace Media.Rtp
                         foreach (RtcpPacket p in toSend)
                         {
                             SendRtcpPacket(p);
+                            lastTransmit = DateTime.UtcNow;
                         }
                         toSend = null;
                     }
@@ -1347,6 +1338,7 @@ namespace Media.Rtp
                         foreach (RtpPacket p in toSend)
                         {
                             SendRtpPacket(p);
+                            lastTransmit = DateTime.UtcNow;
                         }
                         toSend = null;
                     }
@@ -1363,8 +1355,8 @@ namespace Media.Rtp
                             //Enumerate each interleave and recive data
                             Interleaves.ForEach(i =>
                             {
-                                RecieveData(i.DataChannel, i.RtpSocket);
-                                RecieveData(i.ControlChannel, i.RtcpSocket);
+                                if (RecieveData(i.DataChannel, i.RtpSocket) > 0) lastTransmit = DateTime.UtcNow;
+                                else if (RecieveData(i.ControlChannel, i.RtcpSocket) > 0) lastTransmit = DateTime.UtcNow;
                             });
                         }
                         catch(SocketException)
@@ -1374,10 +1366,11 @@ namespace Media.Rtp
                             //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
                         }
 
-                        //if ((DateTime.UtcNow - lastRecieve).TotalSeconds > 5)
-                        //{
-                        //    //Disconnect();
-                        //}
+                        if ((DateTime.UtcNow - lastTransmit).TotalSeconds > 15)
+                        {
+                            Disconnect();
+                            break;
+                        }
 
                         //If last send was long ago may need to send some type of keep alive?
 

@@ -341,14 +341,29 @@ namespace Media.Rtsp
                     SendDescribe();
                 }
 
+                int attempt = 0;
+
                 //If we can setup
                 if (m_SupportedMethods.Contains(RtspMethod.SETUP))
                 {
                     //For each MediaDescription in the SessionDecscription
                     foreach (var md in SessionDescription.MediaDescriptions)
                     {
-                        //Send a setup
-                        SendSetup(md);
+                    //Send the setup
+                    SendSetup:
+                        try
+                        {
+                            //Send a setup
+                            SendSetup(md);
+                        }
+                        catch
+                        {
+                            //Sometimes this happened to fast during a reconnect
+                            if (++attempt <= m_RetryCount) goto SendSetup;
+                            //If we eventually get through we will likely result in Tcp Mode
+                            //I would just switch protocol before this point in a re-connect but the source might not support Tcp
+                            //and it's best to leave that for a last cast which occurs after the play times out with the ProtocolSwitchTimer
+                        }
                     }
                 }
 
@@ -636,12 +651,24 @@ namespace Media.Rtsp
             return response;
         }
 
-        public RtspResponse SendTeardown()
+        public RtspResponse SendTeardown(MediaDescription mediaDescription = null)
         {
             RtspResponse response = null;
             try
             {
-                RtspRequest teardown = new RtspRequest(RtspMethod.TEARDOWN, Location);
+                Uri location;
+
+                if (mediaDescription != null)
+                {
+                    SessionDescriptionLine attributeLine = mediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+                    location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
+                }
+                else
+                {
+                    location = Location;
+                }
+
+                RtspRequest teardown = new RtspRequest(RtspMethod.TEARDOWN, location);
                 response = SendRtspRequest(teardown);                
                 return response;
             }
@@ -759,20 +786,40 @@ namespace Media.Rtsp
                     //Get rid of the beginning
                     ssrcPart = ssrcPart.Replace("ssrc=", string.Empty).Trim();
 
-                    if (!ssrcPart.StartsWith("0x")) //plain int
-                        ssrc = int.Parse(ssrcPart);
-                    else //hex
-                        ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); 
+                    if (!ssrcPart.StartsWith("0x") && !int.TryParse(ssrcPart, out ssrc)) //plain int                        
+                        ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
                 }
 
+                //Get the source, we need it first and sometimes it comes at the end
+
+                //Get the Ssrc cause we need it first and it sometimes comes at the end
+                string sourcePart = parts.Where(p => p.StartsWith("sourcePart")).FirstOrDefault();
+                IPAddress sourceIp = null;
+                if (!string.IsNullOrWhiteSpace(sourcePart))
+                {
+                    //Get rid of the beginning
+                    sourcePart = sourcePart.Replace("sourcePart=", string.Empty).Trim();
+
+                    //Try it
+                    IPAddress.TryParse(sourcePart, out sourceIp);
+                }
+
+                //Ensure not null
+                if (sourceIp == null)
+                {
+                    sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+                }
+                
                 ///The transport header contains the following information 
                 foreach (string part in parts)
                 {
                     if (string.IsNullOrWhiteSpace(part)) continue;
+                    else if (part == "unicast" || part.StartsWith("source") || part.StartsWith("ssrc")) { continue; }
+                    
+                    //Handle the ones we need as they occur
                     if (part.Equals("RTP/AVP")) m_RtpProtocol = ProtocolType.Udp;
                     else if (part.Equals("UDP/RTP/AVP") || part.Equals("RTP/AVP/UDP")) m_RtpProtocol = ProtocolType.Udp;
                     else if (part.Equals("TCP/RTP/AVP") || part.Equals("RTP/AVP/TCP")) m_RtpProtocol = ProtocolType.Tcp;
-                    else if (part == "unicast") { /**/ }
                     else if (part == "multicast")
                     {
                         //Todo Implement multicast send, recieve
@@ -840,15 +887,20 @@ namespace Media.Rtsp
                             {
                                 //Todo use Reciever constructor
                                 m_RtpClient = new RtpClient(m_RemoteIP, clientRtpPort, clientRtcpPort, true, serverRtpPort, serverRtcpPort);
+                            }
+                            
+                            //Add the interleave for the mediaDescription
+                            if(m_RtpClient.Interleaves.Count == 0)
+                            {
                                 RtpClient.Interleave newInterleave = new RtpClient.Interleave(0, 1, (uint)ssrc, mediaDescription);
-                                newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(newInterleave);
                             }
                             else
                             {
                                 var last = m_RtpClient.Interleaves.Last();
                                 RtpClient.Interleave newInterleave = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), (uint)ssrc, mediaDescription);
-                                newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(newInterleave);
                             }
                         }
@@ -889,10 +941,11 @@ namespace Media.Rtsp
             }
         }
 
-        internal void SwitchProtocols(object state)
+        internal void SwitchProtocols(object state = null)
         {
+            if (m_RtspSocket == null) return;
             //If the client has not recieved any bytes and we have not already switched to Tcp
-            if (m_RtpClient.TotalRtpBytesReceieved <= 0 && m_RtpProtocol != ProtocolType.Tcp)
+            if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpBytesReceieved <= 0) //m_RtpClient.Interleaves.All(i => i.RtpBytesRecieved >= 0))
             {
                 //Reconnect without losing the events on the RtpClient
                 m_RtpProtocol = ProtocolType.Tcp;
@@ -910,6 +963,10 @@ namespace Media.Rtsp
                 //Remove the timer
                 m_ProtocolSwitchTimer.Dispose();
                 m_ProtocolSwitchTimer = null;
+            }
+            else if (m_RtpProtocol == ProtocolType.Tcp)
+            {
+                //Switch back to Udp?
             }
         }
 
@@ -995,8 +1052,40 @@ namespace Media.Rtsp
         {
             try 
             { 
-                SendGetParameter(null); 
-                //Chould also use this to check all channels for flowing information
+                SendGetParameter(null);
+
+                bool total = false;
+
+                //Check all channels to ensure there is flowing information
+                Client.Interleaves.ForEach(i =>
+                {
+                    //If there is not on the one which is not flowing we have to tear it down with its track name and then perform setup again while the media is still running on other interleaves
+                    if (i.RtpBytesRecieved <= 0 && !total)
+                    {
+                        try
+                        {
+                            //Just one stream gets torn down
+                            SendTeardown(i.MediaDescription);
+                            //Setup 
+                            SendSetup(i.MediaDescription);
+                            //And hopefully played
+                            SendPlay();
+                        }
+                        catch
+                        {
+                            //Indicate total so we don't try again if this happens the first time
+                            total = true;
+
+                            System.Threading.Thread.Sleep(ReadTimeout);
+
+                            //The server might not support disconnecting a single stream so stop all of them and try again
+                            Disconnect();
+
+                            //Start again
+                            StartListening();
+                        }
+                    }
+                });
             }
             catch
             {

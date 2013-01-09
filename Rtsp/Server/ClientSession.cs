@@ -90,7 +90,10 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-            //On the first availabel thread
+            //Send on its own thread (Happens quicker)
+            m_RtpClient.EnquePacket(packet);
+
+            //On the first available thread
             ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
             {
                 //Get the interleave for the packet from the RtpClient
@@ -110,16 +113,10 @@ namespace Media.Rtsp
                 }
 
                 //Identify the packet as our own
-                packet.SynchronizationSourceIdentifier = interleave.SynchronizationSourceIdentifier;
-
-                //Enque the recieved packet for sending
-                //m_RtpClient.EnquePacket(packet);
+                //packet.SynchronizationSourceIdentifier = interleave.SynchronizationSourceIdentifier;
 
                 //Send right away
-                m_RtpClient.SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RtpSocket);
-
-                //Send on its own thread
-                //m_RtpClient.EnquePacket(packet);
+                //m_RtpClient.SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RtpSocket);
             }));
         }
 
@@ -248,35 +245,44 @@ namespace Media.Rtsp
             }
 
             //Create a Senders Report
-            interleave.SendersReport = new SendersReport(interleave.SynchronizationSourceIdentifier);
+            interleave.SendersReport = m_RtpClient.CreateSendersReport(interleave, false);
+
+            //Send the packet and update the time it was sent
+            m_RtpClient.SendRtcpPacket(interleave.SendersReport.ToPacket());
+            interleave.SendersReport.Sent = DateTime.UtcNow;
+            
+            //Media may work better with these older values since the values are time aligned.
 
             //Use the values from the Source
             //The reason for this is that their clock is aligned with the RtpTimeStamp and our clock is not.
-            var sourceInterleave = m_SourceInterleaves.Where(ii => ii.DataChannel == interleave.DataChannel).First();
+            //var sourceInterleave = m_SourceInterleaves.Where(ii => ii.DataChannel == interleave.DataChannel).First();
 
-            //This looks like it could happen if the client connects when the source stream is disconnected... 
-            //Until I stop it from happening this is here
-            if (sourceInterleave == null)
-            {
-                //Instead of using the source information use the calculated info
-                m_RtpClient.SendSendersReport(interleave);
-                return;
-            }
+            //////This looks like it could happen if the client connects when the source stream is disconnected... 
+            //////Until I stop it from happening this is here
+            ////if (sourceInterleave == null)
+            ////{
+            ////    //Instead of using the source information use the calculated info
+            ////    m_RtpClient.SendSendersReport(interleave);
+            ////    return;
+            ////}
 
-            interleave.SendersReport.NtpTimestamp = sourceInterleave.SendersReport.NtpTimestamp;
-            interleave.SendersReport.RtpTimestamp = sourceInterleave.SendersReport.RtpTimestamp;
+            //////Take the values from the source (this is where VLC and other plays start to synchronize time from and is very sensitive)
+            ////interleave.SendersReport.NtpTimestamp = sourceInterleave.SendersReport.NtpTimestamp;
+            
+            //////We take that value and map it to the current RtpTimestamp of the interleave which causes the player to synchonrize very fast because the timestamp is the current from the source media
+            //////interleave.SendersReport.RtpTimestamp = interleave.RtpTimestamp;
 
-            //Set the senders octet count
-            interleave.SendersReport.SendersOctetCount = (uint)interleave.RtpBytesSent;
+            //////Set the senders octet count
+            ////interleave.SendersReport.SendersOctetCount = (uint)interleave.RtpBytesSent;
 
-            //Set the senders packet count
-            interleave.SendersReport.SendersPacketCount = (uint)interleave.RtpPacketsSent;
+            //////Set the senders packet count
+            ////interleave.SendersReport.SendersPacketCount = (uint)interleave.RtpPacketsSent;
 
-            //Send the packet on the correct channel
-            m_RtpClient.SendRtcpPacket(interleave.SendersReport.ToPacket(interleave.ControlChannel));
+            //////Send the packet on the correct channel
+            ////m_RtpClient.SendRtcpPacket(interleave.SendersReport.ToPacket(interleave.ControlChannel));
 
-            //The packet was sent now
-            interleave.SendersReport.Sent = DateTime.UtcNow;
+            //////The packet was sent now
+            ////interleave.SendersReport.Sent = DateTime.UtcNow;
         }
     }
 }
