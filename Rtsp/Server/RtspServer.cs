@@ -623,7 +623,7 @@ namespace Media.Rtsp
             try
             {
                 Socket svr = (Socket)ar.AsyncState;
-                
+
                 Socket clientSocket = svr.EndAccept(ar);
 
                 //Currently if another evil person connected with another persons SessionId they would be able to Teardown the client.
@@ -637,12 +637,16 @@ namespace Media.Rtsp
                 System.Diagnostics.Debug.WriteLine("Accepted connection from: {0}, Id = {1}", clientSocket.RemoteEndPoint, ci.Id);
 #endif
             }
+#if DEBUG
             catch (Exception ex)
             {
-#if DEBUG
+
                 System.Diagnostics.Debug.WriteLine("Accept failed with: {0}", ex);
-#endif
             }
+#else
+            catch { }
+#endif
+            
         }
 
         /// <summary>
@@ -757,10 +761,21 @@ namespace Media.Rtsp
                         System.Diagnostics.Debugger.Break();
 
                         //The request is in the buffer 
-                        //TODO proces
+                        try
+                        {
+                            ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);
+                        }
+#if DEBUG
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
+                        }
+#else 
+                        catch { }
+#endif
 
                         // Just doig this now to VLC FROM HANGING UP for now
-                        ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
+                        //ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
                     }
                     else
                     {
@@ -773,12 +788,15 @@ namespace Media.Rtsp
                     ci.m_Udp.BeginReceive(new AsyncCallback(ProcessReceive), ci);
                 }
             }
+#if DEBUG
             catch (SocketException ex)
             {
-#if DEBUG
+
                 System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
-#endif
             }
+#else 
+            catch { }                
+#endif            
         }
 
         #endregion

@@ -124,15 +124,19 @@ namespace Media
         static void TestRtspClient()
         {
             //Udp working from this source (might need to work on RELOAD)
-            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1"); 
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
         Start:
+            client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
+            client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
+            client.OnResponse += (sender, response) => { Console.WriteLine("Client got response :" + response.StatusCode); };
+            client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected From :" + client.Location); };
             client.StartListening();
-            int packets = 0;
-            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); packets++; };
+            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); };
             //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
             client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
-            Console.WriteLine("Waiting for packets...");
-            while (packets < 500) { System.Threading.Thread.Yield(); }
+            Console.WriteLine("Waiting for packets... Press Q to exit");
+            //Ensure we recieve a bunch of packets before we say the test is good
+            while (Console.ReadKey().Key != ConsoleKey.Q) { }
             Console.WriteLine("Exiting RtspClient Test");
             try
             {
