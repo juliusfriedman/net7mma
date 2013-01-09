@@ -28,19 +28,20 @@ namespace Media
         private static void TestRtcpPacket()
         {
             Console.WriteLine("RtcpTest");
-            byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba,0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+            byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
             Rtcp.RtcpPacket asPacket = new Rtcp.RtcpPacket(example);
             Rtcp.SendersReport sr = new Rtcp.SendersReport(asPacket);
             Console.WriteLine(sr.SynchronizationSourceIdentifier);//1928947603
             Console.WriteLine(sr.NtpTimestamp);//MSW = d4 92 ce d4, LSW = 2c 49 ba 5e
             sr.NtpTimestamp = sr.NtpTimestamp;//Ensure setting the value through a setter is correct
             Console.WriteLine(sr.RtpTimestamp);//3302006772
+            
+            //Verify SendersReport byte for byte
             var output = sr.ToPacket().ToBytes();//should be exactly equal to wireShark
             for (int i = 0; i < output.Length; ++i)
             {
                 if (example[i] != output[i]) throw new Exception();
             }
-            Console.WriteLine(BitConverter.ToString(output));
 
             //Recievers Report and Source Description
             example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
@@ -66,7 +67,21 @@ namespace Media
             asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength);
             Rtcp.SourceDescription sd = new Rtcp.SourceDescription(asPacket); //1 Chunk, CName
 
-            
+            //Verify RecieversReport byte for byte
+            output = rr.ToPacket().ToBytes();//should be exactly equal to wireShark
+            for (int i = asPacket.Length; i >= 0; --i)
+            {
+                if (example[i] != output[i]) throw new Exception();
+            }
+
+            int offset = output.Length + Rtcp.RtcpPacket.RtcpHeaderLength;
+
+            //Verify Source Description byte for byte
+            output = sd.ToBytes();
+            for (int i = 0; i < output.Length; i++, offset++)
+            {
+                if (example[offset] != output[i]) throw new Exception();
+            }
 
             Console.WriteLine("Press a Key to Start Next Test");
             Console.ReadKey();
@@ -108,7 +123,9 @@ namespace Media
 
         static void TestRtspClient()
         {
-            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1"); //Work on Udp Hole Punching
+            //Udp working from this source (might need to work on RELOAD)
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1"); 
+        Start:
             client.StartListening();
             int packets = 0;
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); packets++; };
@@ -133,6 +150,15 @@ namespace Media
             Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
             Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
             Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+
+            //Perform another test if we need to
+            if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
+            {
+                //Work on Udp Hole Punching, or it is not supported
+                client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
+                Console.WriteLine("Performing 2nd Client test");
+                goto Start;
+            }
 
             Console.WriteLine("Press a Key to Start Next Test");
             System.Console.ReadKey();

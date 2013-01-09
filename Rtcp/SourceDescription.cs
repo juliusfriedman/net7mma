@@ -103,11 +103,17 @@ namespace Media.Rtcp
 
         #endregion
 
+        #region Fields
+
+        List<SourceDescriptionItem> m_Items = new List<SourceDescriptionItem>();
+
+        #endregion
+
         #region Properties
 
         public uint SynchronizationSourceIdentifier { get; set; }
 
-        public List<SourceDescriptionItem> Items = new List<SourceDescriptionItem>();
+        public System.Collections.ObjectModel.ReadOnlyCollection<SourceDescriptionItem> Items { get { return m_Items.AsReadOnly(); } }
 
         public DateTime? Created { get; set; }
 
@@ -131,8 +137,7 @@ namespace Media.Rtcp
 
             while (offset < packet.Length && packet[offset] != SourceDescriptionEnd)
             {
-                SourceDescriptionItem item = new SourceDescriptionItem(packet, ref offset);
-                Items.Add(item);
+                m_Items.Add(new SourceDescriptionItem(packet, ref offset));
             }
 
         }
@@ -144,10 +149,12 @@ namespace Media.Rtcp
         {
             Channel = packet.Channel;
             Created = packet.Created ?? DateTime.UtcNow;
-            if (packet.PacketType != RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception("Invalid Packet Type");
+            if (packet.PacketType != RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception("Invalid Packet Type, Expected SourceDescription. Found: '" + (byte)packet.PacketType + '\'');
         }
 
         #endregion
+
+        #region Methods
 
         public RtcpPacket ToPacket(byte? channel = null)
         {
@@ -181,11 +188,15 @@ namespace Media.Rtcp
             return result.ToArray();
         }
 
-        public System.Collections.IEnumerator GetEnumerator() { return Items.GetEnumerator(); }
+        public System.Collections.IEnumerator GetEnumerator() { return m_Items.GetEnumerator(); }
 
-        public void Add(SourceDescriptionItem item) { if(item != null) Items.Add(item); }
+        public void Add(SourceDescriptionItem item) { if (item != null) m_Items.Add(item); }
 
-        //Contains, Remove
+        public bool Contains(SourceDescriptionItem item) { if (item != null) return m_Items.Contains(item); return false; }
+
+        public bool Remove(SourceDescriptionItem item) { return m_Items.Remove(item); }
+
+        #endregion
 
         public static implicit operator RtcpPacket(SourceDescription description) { return description.ToPacket(description.Channel); }
 

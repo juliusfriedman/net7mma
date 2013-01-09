@@ -67,7 +67,6 @@ namespace Media.Rtsp
                 //Assign method from parts
                 Method = (RtspMethod)Enum.Parse(typeof(RtspMethod), parts[0], true);
                 Location = new Uri(parts[1]);
-                //Version = float.Parse(parts[2].Replace(MessageIdentifier + '/', string.Empty));
             }
             catch(Exception ex) { throw new RtspMessageException("Invalid RtspRequest", ex); }
         }
@@ -77,7 +76,7 @@ namespace Media.Rtsp
             List<byte> result = new List<byte>();
 
             //Add the Method and the Uri
-            result.AddRange(Encoding.GetBytes(Method.ToString() + " " + Location.ToString() + " " + VersionString + CRLF));
+            result.AddRange(Encoding.GetBytes(Method.ToString() + " " + Location.ToString() + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString("0.0") + CRLF));
 
             //Get the base bytes
             result.AddRange(base.ToBytes());

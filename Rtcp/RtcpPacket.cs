@@ -7,6 +7,9 @@ namespace Media.Rtcp
 {
     public class RtcpPacket
     {
+        /// <summary>
+        /// The header length (and subsequently) the minimum size of any given RtcpPacket
+        /// </summary>
         public const int RtcpHeaderLength = 4;
 
         #region Nested Types
@@ -62,6 +65,9 @@ namespace Media.Rtcp
         /// </summary>
         public byte[] Data { get { return m_Data; } set { m_Data = value; Length = (short)value.Length; } }
 
+        /// <summary>
+        /// Typically to indicate the amount of ReportBlocks contained in Data for PacketTypes which support such (RecieversReport, SendersReport)
+        /// </summary>
         public int BlockCount { get { return m_Count; } set { m_Count = value; } }
 
         /// <summary>
@@ -80,7 +86,7 @@ namespace Media.Rtcp
             Created = DateTime.UtcNow;
 
             //Frame Header {$,/0x,/0x,/0x}
-            if (packetReference.Array[packetReference.Offset + offset] == 36) offset += 4;
+            if (packetReference.Array[packetReference.Offset + offset] == Rtp.RtpClient.MAGIC) offset += 4;
 
             //Get version
             m_Version = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] >> 6;
@@ -143,16 +149,20 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// Retries compond packets from the buffer
+        /// Retrieves all RtcpPackets contained in the given array
         /// </summary>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
+        /// <param name="buffer">The byte array to check for packets</param>
+        /// <param name="offset">The offset to start checking at</param>
         /// <returns>The array of packets decoded from the buffer</returns>
         public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0)
         {
             return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), offset);
         }
 
+        /// <summary>
+        /// Provides the binary representation of the RtcpPacket ready to be sent on a <see cref="System.Net.Sockets.Socket"/>
+        /// </summary>
+        /// <returns>The packet ready to be sent</returns>
         public virtual byte[] ToBytes()
         {
             List<byte> result = new List<byte>();
