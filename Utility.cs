@@ -125,20 +125,6 @@ namespace Media
             }
         }
 
-        internal static UInt64[] DateTimeToNptTimestamp(DateTime dateTime)
-        {
-            DateTime baseDate;
-
-            if (dateTime >= Epoch1) baseDate = Epoch1;
-            else baseDate = Epoch;
-
-            UInt64 ticks = (UInt64)(dateTime - baseDate).Ticks;
-            UInt64 seconds = ticks / TimeSpan.TicksPerSecond;
-            UInt64 fractions = ((ticks % TimeSpan.TicksPerSecond) * 0x100000000L) / TimeSpan.TicksPerSecond;
-
-            return new UInt64[] { seconds, fractions };
-        }
-
         static DateTime Epoch1 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
 
         static DateTime Epoch = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
