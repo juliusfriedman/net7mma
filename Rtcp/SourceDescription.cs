@@ -161,7 +161,7 @@ namespace Media.Rtcp
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SourceDescription);
             output.BlockCount = Items.Count;
             output.Data = ToBytes();
-            output.Channel = channel;
+            output.Channel = channel ?? Channel;
             return output;
         }
 
@@ -171,7 +171,7 @@ namespace Media.Rtcp
 
             //Add Ssrc
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
 
             //Add Sded Items
             foreach (SourceDescriptionItem item in Items) result.AddRange(item.ToBytes());

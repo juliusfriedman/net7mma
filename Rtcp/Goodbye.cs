@@ -28,7 +28,7 @@ namespace Media.Rtcp
 
         public Goodbye(byte[] packet, int index)
         {
-            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             if (packet.Length - index > 5) // We just got 0 - 3 and if we have 4 and 5 there is a length and reason
             {
                 byte length = packet[index + 4];
@@ -48,7 +48,7 @@ namespace Media.Rtcp
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.Goodbye);
             output.Data = ToBytes();
             output.BlockCount = 1;
-            output.Channel = channel;
+            output.Channel = channel ?? Channel;
             return output;
         }
 
@@ -56,7 +56,7 @@ namespace Media.Rtcp
         {
             List<byte> result = new List<byte>();
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
 
             if (!string.IsNullOrEmpty(Reason))
             {

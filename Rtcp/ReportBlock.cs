@@ -22,7 +22,7 @@ namespace Media.Rtcp
             if (packet.Length - index < Size) throw new ArgumentOutOfRangeException("index", "Must allow 24 bytes in buffer");
 
             //Should check endian before swapping
-            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
             FractionLost = packet[index++];
@@ -31,19 +31,19 @@ namespace Media.Rtcp
             CumulativePacketsLost = (packet[index++] << 24 | packet[index++] << 16 | packet[index++] << 8 | byte.MaxValue);
 
             //Should check endian before swapping
-            ExtendedHigestSequenceNumber = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            ExtendedHigestSequenceNumber = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
             //Should check endian before swapping
-            InterArrivalJitter = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            InterArrivalJitter = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
             //Should check endian before swapping
-            LastSendersReport = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            LastSendersReport = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
             //Should check endian before swapping
-            DelaySinceLastSendersReport = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            DelaySinceLastSendersReport = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
         }
 
@@ -56,7 +56,7 @@ namespace Media.Rtcp
             //result.Add((byte)((SynchronizationSourceIdentifier >> 8) | 0xFF));
             //result.Add((byte)((SynchronizationSourceIdentifier) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(ssrc ?? SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(ssrc ?? SynchronizationSourceIdentifier)));
 
             //FractionsLost
             result.Add((byte)FractionLost);
@@ -71,14 +71,14 @@ namespace Media.Rtcp
             //result.Add((byte)((ExtendedHigestSequenceNumber >> 16) | 0xFF));
             //result.Add((byte)((ExtendedHigestSequenceNumber >> 8) | 0xFF));
             //result.Add((byte)((ExtendedHigestSequenceNumber) | 0xFF));
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(ExtendedHigestSequenceNumber)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(ExtendedHigestSequenceNumber)));
             
             // jitter
             //result.Add((byte)((InterArrivalJitter >> 24) | 0xFF));
             //result.Add((byte)((InterArrivalJitter >> 16) | 0xFF));
             //result.Add((byte)((InterArrivalJitter >> 8) | 0xFF));
             //result.Add((byte)((InterArrivalJitter) | 0xFF));
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(InterArrivalJitter)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(InterArrivalJitter)));
 
             // last SR
             //result.Add((byte)((LastSendersReport >> 24) | 0xFF));
@@ -86,7 +86,7 @@ namespace Media.Rtcp
             //result.Add((byte)((LastSendersReport >> 8) | 0xFF));
             //result.Add((byte)((LastSendersReport) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(LastSendersReport)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(LastSendersReport)));
 
             // delay since last SR
             //result.Add((byte)((DelaySinceLastSendersReport >> 24) | 0xFF));
@@ -94,7 +94,7 @@ namespace Media.Rtcp
             //result.Add((byte)((DelaySinceLastSendersReport >> 8) | 0xFF));
             //result.Add((byte)((DelaySinceLastSendersReport) | 0xFF));
 
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(DelaySinceLastSendersReport)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(DelaySinceLastSendersReport)));
 
             return result.ToArray();
         }

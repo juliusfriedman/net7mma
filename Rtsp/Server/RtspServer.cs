@@ -1269,9 +1269,11 @@ namespace Media.Rtsp
                 }
 
                 //Find an open port to send on (might want to reserve this port with a socket)
-                int openPort = Utility.FindOpenUDPPort(MinimumUdp ?? 10000, true);
+                int openPort = Utility.FindOpenPort(ProtocolType.Udp, MinimumUdp ?? 10000, true);
 
-                if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                if (openPort == -1) throw new RtspServerException("Could not find open Udp Port");
+
+                else if (MaximumUdp.HasValue && openPort > MaximumUdp)
                 {
                     //Handle port out of range
                 }                
