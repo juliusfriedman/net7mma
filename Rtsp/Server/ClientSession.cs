@@ -210,10 +210,7 @@ namespace Media.Rtsp
 
             if (m_SessionDescription != null) return;
 
-            //Should be 2 NTP Timestamps
-            ulong[] parts = Utility.DateTimeToNptTimestamp(DateTime.UtcNow);
-            
-            string sessionId = parts[0].ToString(), sessionVersion = parts[1].ToString();
+            string sessionId = Utility.DateTimeToNtp64(DateTime.UtcNow).ToString(), sessionVersion = Utility.DateTimeToNtp64(DateTime.UtcNow).ToString();
                                         
             string originatorString = "ASTI-RtspServer " + sessionId + " " + sessionVersion + " IN IP4 " + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 
