@@ -208,7 +208,7 @@ namespace Media.Rtp
             m_PayloadType = (byte)(compound & 0x7f);
 
             //Extract Sequence Number
-            SequenceNumber = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + 2));
+            SequenceNumber = Utility.SwapUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + 2));
 
             //Extract Time Stamp
             m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + 4));
@@ -224,8 +224,8 @@ namespace Media.Rtp
             //This might not be needed
             if (Extensions)
             {
-                m_ExtensionFlags = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position));
-                m_ExtensionLength = Utility.HostToNetworkOrderShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position + 2));
+                m_ExtensionFlags = Utility.SwapUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position));
+                m_ExtensionLength = Utility.SwapUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position + 2));
                 m_ExtensionData = new byte[m_ExtensionLength];
                 Array.Copy(packet.Array, localOffset + packet.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;

@@ -132,11 +132,13 @@ namespace Media
             client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected From :" + client.Location); };
             client.StartListening();
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); };
-            //client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); };
+            client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.BackgroundColor = ConsoleColor.Blue; Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); Console.BackgroundColor = ConsoleColor.Black; };
             client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
+
             Console.WriteLine("Waiting for packets... Press Q to exit");
             //Ensure we recieve a bunch of packets before we say the test is good
             while (Console.ReadKey().Key != ConsoleKey.Q) { }
+
             Console.WriteLine("Exiting RtspClient Test");
             try
             {
@@ -149,11 +151,15 @@ namespace Media
             {
                 Console.WriteLine("Sending Options Failed");
             }
-            client.Disconnect();
+            
+            //Print information before disconnecting
+
             Console.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
             Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
             Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
             Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+
+            client.Disconnect();
 
             //Perform another test if we need to
             if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")

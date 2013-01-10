@@ -1005,13 +1005,11 @@ namespace Media.Rtp
             {
                 //Throw an exception if the payload type does not match
                 throw new RtpClientException("Packet Payload is different then the expected MediaDescription. Expected: '" + interleave.MediaDescription.MediaFormat + "' Found: '" + packet.PayloadType + "'");
-            }
-            
-            //If Enable Mixing
-            //packet.ContributingSources.Add(packet.SynchronizationSourceIdentifier);
+            }                       
 
             //Send the bytes
             int sent = SendData(packet.ToBytes(interleave.SynchronizationSourceIdentifier), interleave.DataChannel, interleave.RtpSocket);
+            
             //If we sent anything
             if (sent > 0)
             {
@@ -1037,11 +1035,11 @@ namespace Media.Rtp
             Interleaves.ForEach(i =>
             {
                 i.GoodbyeRecieved = i.GoodbyeSent = false;
+                i.RtpBytesRecieved = i.RtpBytesSent = i.RtcpBytesRecieved = i.RtcpBytesSent = 0;
                 i.RemoteRtcp = i.RemoteRtp = ((IPEndPoint)socket.RemoteEndPoint);
                 i.LocalRtcp = i.LocalRtp = ((IPEndPoint)socket.LocalEndPoint);
                 i.ServerRtcpPort = i.ServerRtpPort = i.RemoteRtp.Port;
                 i.RtpSocket = i.RtcpSocket = socket;
-
             });
         }
 
@@ -1092,6 +1090,7 @@ namespace Media.Rtp
                 i.CloseSockets();
             });
 
+            //Counters go away with the interleaves
             Interleaves.Clear();
 
             //Empty buffers
@@ -1211,7 +1210,7 @@ namespace Media.Rtp
                     //Store the actual length recieved which is the minima of the RtpPacket.MaxPayloadSize and the supposedLength
                     int length = socket.Receive(m_Buffer, recieved, Math.Min(RtpPacket.MaxPayloadSize, (int)supposedLength), SocketFlags.None);
 
-                    //If we recieved less then we were supposed to
+                    //If we recieved less then we were supposed to recieve the rest
                     while (length < supposedLength)
                     {
                         //Increase the amount of bytes we recieved up to supposedLength recieving at the correct index for the correct size

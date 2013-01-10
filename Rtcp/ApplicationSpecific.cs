@@ -28,21 +28,24 @@ namespace Media.Rtcp
         }
 
         public ApplicationSpecific(byte[] packet, int index)
-        {
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+        {            
+            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             Name = Encoding.ASCII.GetString(packet, index + 4, 4);
-            int dataLen = packet.Length - (index + 8);
-            /*
-             * application-dependent data: variable length
-             * Application-dependent data may or may not appear in an APP packet.
-             * It is interpreted by the application and not RTP itself.  
-             * It MUST be a multiple of 32 bits long. *
-             */
-            //if (dataLen % 4 != 0) { }
-            if (dataLen > 0)
+            if (packet.Length > index + 8)
             {
-                Data = new byte[dataLen];
-                System.Array.Copy(packet, 8, Data, 0, dataLen);
+                int dataLen = packet.Length - (index + 8);
+                /*
+                 * application-dependent data: variable length
+                 * Application-dependent data may or may not appear in an APP packet.
+                 * It is interpreted by the application and not RTP itself.  
+                 * It MUST be a multiple of 32 bits long. *
+                 */
+                //if (dataLen % 4 != 0) { }
+                if (dataLen > 0)
+                {
+                    Data = new byte[dataLen];
+                    System.Array.Copy(packet, 8, Data, 0, dataLen);
+                }
             }
         }
 
@@ -62,7 +65,8 @@ namespace Media.Rtcp
         public byte[] ToBytes()
         {
             List<byte> result = new List<byte>();
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
+            //Should check endian before swapping
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SynchronizationSourceIdentifier)));
             result.AddRange(Encoding.ASCII.GetBytes(Name));
             if (Data != null) result.AddRange(Data);
             while (result.Count % 4 != 0) result.Add(0);
