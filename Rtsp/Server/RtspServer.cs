@@ -1174,6 +1174,7 @@ namespace Media.Rtsp
             if (mediaDescription == null)
             {
                 ProcessLocationNotFoundRtspRequest(ci);
+                return;
             }
 
             //Add the state information for the source
@@ -1247,7 +1248,7 @@ namespace Media.Rtsp
             }
 
             //Ssrc could be generated here for the interleave created for this setup to be more like everyone else...
-            //(DateTime.Now.Ticks ^ ci.m_RtspSocket.Handle)
+            //(DateTime.UtcNow.Ticks ^ ci.m_RtspSocket.Handle)
 
             //We need to make an interleave
             RtpClient.Interleave currentInterleave = null;
@@ -1256,7 +1257,7 @@ namespace Media.Rtsp
             if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP == false)
             {
 
-                int rtpPort = int.Parse(clientPorts[0]), rtcpPort = int.Parse(clientPorts[1]);
+                int rtpPort = int.Parse(clientPorts[0].Trim()), rtcpPort = int.Parse(clientPorts[1].Trim());
 
                 //The client requests Udp
                 if(ci.m_RtpClient == null)
@@ -1298,7 +1299,7 @@ namespace Media.Rtsp
                 ci.m_RtpClient.AddInterleave(currentInterleave);
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentInterleave.ClientRtpPort + "-" + currentInterleave.ClientRtcpPort;//ssrc=" + found.RtpClient.m_Interleaves[ci.m_RtpClient.m_Interleaves.Count - 1].Ssrc;
+                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentInterleave.ClientRtpPort + "-" + currentInterleave.ClientRtcpPort;
                 
             }
             else
@@ -1309,19 +1310,24 @@ namespace Media.Rtsp
                 try
                 {
                     //get the requested channels
-                    rtpChannel = byte.Parse(channels[0]);
-                    rtcpChannel = byte.Parse(channels[1]);
+                    rtpChannel = (byte)int.Parse(channels[0].Trim());
+                    rtcpChannel = (byte)int.Parse(channels[1].Trim());
                 }
                 catch
                 {
                     //invalid channel
                     ProcessInvalidRtspRequest(ci, RtspStatusCode.BadRequest);
+                    return;
                 }
 
                 //The client requests Tcp
                 if (ci.m_RtpClient == null)
                 {
                     ci.m_RtpClient = RtpClient.Interleaved(ci.m_RtspSocket);
+                }
+                else if(ci.m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//Could be switching...
+                {
+                    ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
                 }
                 
                 //Add the interleave
@@ -1334,6 +1340,7 @@ namespace Media.Rtsp
                 catch
                 {
                     ProcessInvalidRtspRequest(ci);
+                    return;
                 }
 
                 ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
@@ -1396,18 +1403,21 @@ namespace Media.Rtsp
                 return;
             }
 
+            //Create a response
+            RtspResponse response = ci.CreateRtspResponse(request);
+
             //Determine where they want to start playing from
             string rangeHeader = request[RtspHeaders.Range];
 
-            //If no range header was given
-            if (string.IsNullOrWhiteSpace(rangeHeader))
+            //If a range header was given
+            if (!string.IsNullOrWhiteSpace(rangeHeader))
             {
-                //ProcessInvalidRtspRequest(ci, RtspStatusCode.BadRequest);
-                return;
-            }
+                //Give one back
 
-            //Create a response
-            RtspResponse response = ci.CreateRtspResponse(request);
+                //Right now assume beginning
+                //Range info will also have to be stored on the ci when determined, right now this indicates continious play
+                response.SetHeader(RtspHeaders.Range, "npt=now-");
+            }
 
             //Create the Rtp-Info RtpHeader as required by RFC2326
             //-->Should be Id and not Name and should be for all streams being played in the session unless there is a trackId then we can just output for that track..
@@ -1419,29 +1429,15 @@ namespace Media.Rtsp
                 if (attributeLine != null)
                     actualTrack = '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
 
-                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(ci.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Name + actualTrack);
-
-                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "seq=" + i.SequenceNumber + ";rtptime=" + i.RtpTimestamp);
-
+                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(ci.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Name + actualTrack + ";seq=" + i.SequenceNumber + ";rtptime=" + i.RtpTimestamp);
             });
-
-            //Range info will also have to be stored on the ci when determined, right now this indicates continious play
-            response.SetHeader(RtspHeaders.Range, "npt=now-");
 
             //Send the response
             ProcessSendRtspResponse(response, ci);
 
-            //Hackup
-            if (request.Location.ToString().ToLowerInvariant().Contains("archive"))
-            {
-                //Should handle play from the Play method here because of rewind and FF
-            }
-            else
-            {
-                //Attach the client to the source, Here they may only want one track so there is no need to attach events for all
-                ci.Attach(found);
-                ci.SendSendersReports();
-            }
+            //Attach the client to the source, Here they may only want one track so there is no need to attach events for all
+            ci.Attach(found);
+            ci.SendSendersReports();
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.Session));
             System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.RtpInfo));

@@ -412,7 +412,7 @@ namespace Media.Rtsp
                     m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                 }
                 m_RtspSocket.Connect(m_RemoteRtsp);
-                ReadTimeout = 2000;
+                ReadTimeout = 5000;
 
                 OnConnected();
             }

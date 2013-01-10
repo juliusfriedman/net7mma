@@ -570,6 +570,7 @@ namespace Media.Rtp
                                 //Erase last byte
                                 currentPacketOffset--;
                                 goto Done;
+                                //Could stop resizing if I just looked at temp.Position - temp.Length - 2 and read that at once
                             }
 
                             //Ensure it will fit
@@ -604,7 +605,7 @@ namespace Media.Rtp
                     }
                 }
 
-            //Create all other packets, last packet is currentPacket
+            //Created all other packets, last packet is currentPacket
             Done:
 
                 //Resize final packet if we have not used all available bytes
@@ -765,7 +766,7 @@ namespace Media.Rtp
                 //Go back to the beginning
                 Buffer.Seek(0, System.IO.SeekOrigin.Begin);
 
-                //This article explains in detail what exactly happens: Bitmap and Image constructor dependencies
+                //This article explains in detail what exactly happens: http://support.microsoft.com/kb/814675
                 //In short, for a lifetime of an Image constructed from a stream, the stream must not be destroyed.
                 Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, false, true));
             }

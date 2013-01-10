@@ -88,9 +88,10 @@ namespace Media.Rtsp
                 try
                 {
                     string[] parts = m_FirstLine.Split(' ');
+                    //RtspMessage parsed
                     //Version = float.Parse(parts[0].Replace(MessageIdentifier + '/', string.Empty));
                     StatusCode = (RtspStatusCode)Convert.ToInt32(parts[1]);
-                    //parts[1] is the Textual Convention for the Status Code
+                    //parts[2] is the Textual Convention for the Status Code
                 }
                 catch
                 {
