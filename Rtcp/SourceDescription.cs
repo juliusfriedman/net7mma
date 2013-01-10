@@ -170,6 +170,7 @@ namespace Media.Rtcp
             List<byte> result = new List<byte>();
 
             //Add Ssrc
+            //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
 
             //Add Sded Items

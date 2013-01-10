@@ -42,11 +42,6 @@ namespace Media.Rtp
 
         const byte EntroypEncodedScan = 0;
 
-        public static RtpFrame CreateFrames(System.Drawing.Image source, uint startingSequenceNo, uint ssrc)
-        {
-            return new JpegFrame(source, null, ssrc, startingSequenceNo);
-        }
-
         /// <summary>
         /// Creates RST header for JPEG/RTP packet.
         /// </summary>
@@ -91,7 +86,7 @@ namespace Media.Rtp
             
             //Three bytes
             RtpJpegHeader.Add(0);
-            RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)fragmentOffset)));
+            RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.SwapUnsignedShort((ushort)fragmentOffset)));
 
             RtpJpegHeader.Add((byte)type);
             RtpJpegHeader.Add((byte)quality);
@@ -113,7 +108,7 @@ namespace Media.Rtp
                 {
                     RtpJpegHeader.Add(0); //Must Be Zero
                     RtpJpegHeader.Add(0x00);//Precision (Only 8 Bit Supported)
-                    RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)qTables.Count)));
+                    RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.SwapUnsignedShort((ushort)qTables.Count)));
                     RtpJpegHeader.AddRange(qTables);
                 }
                 else //Otherwise create new tables from the quality
@@ -128,30 +123,6 @@ namespace Media.Rtp
 
             return RtpJpegHeader.ToArray();
         }
-
-        //static void AddPacketToFrame(JpegFrame frame, ref RtpPacket packet, byte[] header, ushort fragmentOffset, ref int offset)
-        //{
-        //    //Add current packet
-        //    frame.AddPacket(packet);
-            
-        //    //Make next packet                                    
-        //    packet = new RtpPacket()
-        //    {
-        //        TimeStamp = packet.TimeStamp,
-        //        SequenceNumber = packet.SequenceNumber + 1,
-        //        SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier,
-        //        PayloadType = JpegFrame.PayloadType
-        //    };
-
-        //    //Correct FragmentOffset should be someting like (fragmentOffset - offset + header.Length) with respect to packets so far
-        //    BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)fragmentOffset)).CopyTo(header, 2);
-
-        //    //Copy header
-        //    header.CopyTo(packet.Payload, 0);
-
-        //    //Set offset in packet.Payload
-        //    offset = 8;
-        //}      
 
         static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, uint dri)
         {
@@ -425,10 +396,10 @@ namespace Media.Rtp
         /// Creates a JpegFrame from a System.Drawing.Image
         /// </summary>
         /// <param name="source">The Image to create a JpegFrame from</param>
-        public JpegFrame(System.Drawing.Image source, uint? quality = null, uint? ssrc = null, uint? sequenceNo = null) : this()
+        public JpegFrame(System.Drawing.Image source, uint quality = 100, uint? ssrc = null, uint? sequenceNo = null, uint? timeStamp = null) : this()
         {
             //Must calculate correctly the Type, Quality, FragmentOffset and Dri
-            uint TypeSpecific = 0, Type = 0, Quality = quality ?? 25, Width = (uint)source.Width, Height = (uint)source.Height;
+            uint TypeSpecific = 0, Type = 0, Quality = quality, Width = (uint)source.Width, Height = (uint)source.Height;
 
             byte[] RestartInterval = null; List<byte> QTables = new List<byte>();
 
@@ -487,7 +458,7 @@ namespace Media.Rtp
                 //The current packet
                 RtpPacket currentPacket = new RtpPacket();
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
-                currentPacket.TimeStamp = (uint)Utility.DateTimeToNtp64(ts);
+                currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtp64(ts));
                 currentPacket.SequenceNumber = sequenceNumber;
                 currentPacket.PayloadType = JpegFrame.PayloadType;
 
@@ -529,15 +500,16 @@ namespace Media.Rtp
                         //Read Length Bytes
                         byte h = (byte)temp.ReadByte(), l = (byte)temp.ReadByte();
                         
-                        //Calculate Length   
+                        //Calculate Length
                         TagSize = h * 256 + l;
 
                         //Correct Length
-                        TagSize -= 3;
-
+                        TagSize -= 3; //Type byte and 2 Length bytes
+#if DEBUG
                         System.Diagnostics.Debug.WriteLine("Encountered Tag " + Tag.ToString("X2"));
 
                         System.Diagnostics.Debug.WriteLine("Size " + TagSize.ToString());
+#endif
 
                         //QTables are copied
                         if (Tag == QuantizationTable)
@@ -546,8 +518,11 @@ namespace Media.Rtp
                             //if (Precision != 0) throw new Exception("Only 8 Bit Precision is Supported");
                             
                             temp.ReadByte();//Discard Table Id
+
                             byte[] table = new byte[TagSize];
+                            
                             temp.Read(table, 0, TagSize);
+
                             QTables.AddRange(table);
                         }
                         else if (Tag == DataRestartInterval) //RestartInterval is copied
@@ -555,8 +530,9 @@ namespace Media.Rtp
                             //Make DRI?      
                             //Type = 64;
                             //RestartInterval = CreateRtpDataRestartIntervalMarker((int)temp.Length, 1, 1, 0x3fff);
+                            throw new NotImplementedException();
                         }
-                        else
+                        else //Skip past tag 
                         {
                             temp.Seek(TagSize, System.IO.SeekOrigin.Current);                            
                         }
@@ -565,17 +541,23 @@ namespace Media.Rtp
                         if (Tag == StartOfScan)
                         {
                             temp.ReadByte();//Discard Byte
+                            
                             //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                             byte[] data = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, QTables);
+
                             data.CopyTo(currentPacket.Payload, currentPacketOffset);
+
                             currentPacketOffset += data.Length;
+
                             goto EntroypEncodedScan;
                         }
 
                         continue;
 
                     EntroypEncodedScan:
+#if DEBUG
                         System.Diagnostics.Debug.WriteLine("Writing EntroypEncodedScan Data");
+#endif
 
                         //Write a value at a time to the payload
                         while (Tag != -1)
@@ -605,8 +587,8 @@ namespace Media.Rtp
                                     PayloadType = JpegFrame.PayloadType
                                 };
 
-                                //Correct FragmentOffset should be someting like
-                                BitConverter.GetBytes((short)Utility.HostToNetworkOrderShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
+                                //Correct FragmentOffset
+                                BitConverter.GetBytes(Utility.SwapUnsignedShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
 
                                 //Copy header
                                 RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
@@ -622,10 +604,11 @@ namespace Media.Rtp
                     }
                 }
 
+            //Create all other packets, last packet is currentPacket
             Done:
 
                 //Resize final packet if we have not used all available bytes
-                if (currentPacketOffset != Rtp.RtpPacket.MaxPayloadSize) {
+                if (currentPacketOffset < Rtp.RtpPacket.MaxPayloadSize) {
                     byte[] tempPayload = currentPacket.Payload;
                     Array.Resize<byte>(ref tempPayload, currentPacketOffset);
                     currentPacket.Payload = tempPayload;
@@ -648,7 +631,7 @@ namespace Media.Rtp
 
         #region Fields
 
-        //Cache for the result Image
+        //End result when encoding or decoding is cached in this member
         internal System.Drawing.Image Image;
 
         #endregion

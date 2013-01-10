@@ -21,22 +21,28 @@ namespace Media.Rtcp
         {
             if (packet.Length - index < Size) throw new ArgumentOutOfRangeException("index", "Must allow 24 bytes in buffer");
 
+            //Should check endian before swapping
             SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
             FractionLost = packet[index++];
 
+            //Should check endian before writing
             CumulativePacketsLost = (packet[index++] << 24 | packet[index++] << 16 | packet[index++] << 8 | byte.MaxValue);
 
+            //Should check endian before swapping
             ExtendedHigestSequenceNumber = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
+            //Should check endian before swapping
             InterArrivalJitter = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
+            //Should check endian before swapping
             LastSendersReport = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
 
+            //Should check endian before swapping
             DelaySinceLastSendersReport = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
         }

@@ -28,7 +28,7 @@ namespace Media.Rtcp
 
         public Goodbye(byte[] packet, int index)
         {
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, index));
+            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
             if (packet.Length - index > 5) // We just got 0 - 3 and if we have 4 and 5 there is a length and reason
             {
                 byte length = packet[index + 4];
@@ -55,7 +55,8 @@ namespace Media.Rtcp
         public byte[] ToBytes()
         {
             List<byte> result = new List<byte>();
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)SynchronizationSourceIdentifier)));
+            //Should check endian before swapping
+            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SynchronizationSourceIdentifier)));
 
             if (!string.IsNullOrEmpty(Reason))
             {

@@ -1324,7 +1324,16 @@ namespace Media.Rtsp
                 
                 //Add the interleave
                 var interleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription);
-                ci.m_RtpClient.AddInterleave(interleave);
+                
+                try
+                {
+                    ci.m_RtpClient.AddInterleave(interleave);
+                }
+                catch
+                {
+                    ProcessInvalidRtspRequest(ci);
+                }
+
                 ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
 
                 returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + interleave.DataChannel + '-' + interleave.ControlChannel;
@@ -1348,6 +1357,11 @@ namespace Media.Rtsp
 #endif
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="ci"></param>
         internal void ProcessRtspPlay(RtspRequest request, ClientSession ci)
         {
 #if DEBUG
@@ -1433,6 +1447,11 @@ namespace Media.Rtsp
 #endif
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="request"></param>
+        /// <param name="ci"></param>
         internal void ProcessRtspPause(RtspRequest request, ClientSession ci)
         {
 

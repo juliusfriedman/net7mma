@@ -31,7 +31,7 @@ namespace Media.Rtsp
         internal DateTime m_LastRtspRequestRecieved;
 
         //Sdp
-        internal string m_SessionId, m_SDPVersion; //Version should be returned from the SDP but when changged should send announce in certain cases?
+        internal string m_SessionId; //m_SDPVersion; //Version should be returned from the SDP but when changged should send announce in certain cases?
 
         internal Media.Sdp.SessionDescription m_SessionDescription;
 
@@ -100,17 +100,20 @@ namespace Media.Rtsp
                 RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
 
                 //Nothing we need
-                if (interleave == null) return; 
+                if (interleave == null) return;
 
                 //Raise an event
                 m_RtpClient.OnRtpPacketReceieved(packet);
 
-                //If the source has not been assigned we need to send a senders report to identify us (do this on own thread)
+                //If the source has not been assigned we need to send a senders report to identify us
                 if (interleave.SynchronizationSourceIdentifier == 0)
                 {
                     //Send the senders report for the interleave (Which will create SynchronizationSourceIdentifier) 
                     SendSendersReport(interleave);
                 }
+
+                //If Enable Mixing
+                //packet.ContributingSources.Add(packet.SynchronizationSourceIdentifier);
 
                 //Identify the packet as our own
                 //packet.SynchronizationSourceIdentifier = interleave.SynchronizationSourceIdentifier;
@@ -223,7 +226,7 @@ namespace Media.Rtsp
             m_SessionDescription.OriginatorAndSessionIdentifier = originatorString;
 
             SessionId = sessionId;
-            m_SDPVersion = sessionVersion; //SHould be retrieved from  OriginatorAndSessionIdentifier after setting?
+            //m_SDPVersion = sessionVersion; //Should be retrieved from  OriginatorAndSessionIdentifier after setting?
         }
 
         #endregion        

@@ -54,6 +54,7 @@ namespace Media.Rtcp
             List<byte> result = new List<byte>();
             
             // SSRC
+            //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt((ssrc ?? SynchronizationSourceIdentifier))));
             
             //Report Blocks

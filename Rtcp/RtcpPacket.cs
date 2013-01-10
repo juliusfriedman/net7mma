@@ -174,6 +174,7 @@ namespace Media.Rtcp
             result[0] |= (byte)(BlockCount & 0x1f);
             result.Add(m_Type);
             //Length
+            //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(m_Length)));
             //Data
             result.AddRange(Data);
