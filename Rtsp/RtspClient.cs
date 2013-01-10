@@ -440,7 +440,7 @@ namespace Media.Rtsp
                     }
                
 
-                    //Send the TearDown
+                    //Send the Teardown
                     try
                     {                        
                         SendTeardown();
@@ -456,8 +456,6 @@ namespace Media.Rtsp
                 //Get rid of this socket
                 if (m_RtspSocket != null)
                 {
-
-                    //m_RtspSocket.Disconnect(true);
                     m_RtspSocket.Dispose();
                     m_RtspSocket = null;
                 }
@@ -472,7 +470,7 @@ namespace Media.Rtsp
 
         #region Rtsp
 
-        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal RtspResponse SendRtspRequest(RtspRequest request)
         {
             try
@@ -733,7 +731,13 @@ namespace Media.Rtsp
                 else // We need to find an open Udp Port
                 {
                     //Might want to reserver this port now by making a socket...
-                    int openPort = Utility.FindOpenUDPPort(30000, true); //Should allow this to be given or set as a property
+                    int openPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
+
+                    if (openPort == -1) throw new RtspClientException("Could not find open Udp Port");
+                    //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                    //{
+                        //Handle port out of range
+                    //}    
                     setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";unicast;client_port=" + openPort + '-' + (openPort + 1));
                 }
 

@@ -15,38 +15,26 @@ namespace Media
     /// </summary>
     public static class Utility
     {
-        static internal int FindOpenPort(ProtocolType type)
-        {
-            if (type == ProtocolType.Udp) return FindOpenUDPPort();
-            else return FindOpenTCPPort();
-        }
-
-        static internal int FindOpenUDPPort(int start = 30000, bool even = true)
+        static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
             int port = start;
 
-            foreach (IPEndPoint ep in System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners().Where(ep => ep.Port >= port))
-            {
+            System.Net.NetworkInformation.IPGlobalProperties ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
+
+            if(ipGlobalProperties == null) return port = -1;
+
+            IEnumerable<IPEndPoint> listeners = null;
+
+            if (type == ProtocolType.Udp) listeners = ipGlobalProperties.GetActiveUdpListeners();
+            else listeners = ipGlobalProperties.GetActiveTcpListeners();
+
+            foreach (IPEndPoint ep in listeners.Where(ep => ep.Port >= port))
                 if (ep.Port == port + 1 || port == ep.Port)
                     port++;
-            }
 
-            if (!even && port % 2 == 0) return port;
+            if (even && port % 2 == 0) return port;
             return ++port;
-        }
 
-        static internal int FindOpenTCPPort(int start = 30000, bool even = true)
-        {
-            int port = start;
-
-            foreach (IPEndPoint ep in System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Where(ep => ep.Port >= port))
-            {
-                if (ep.Port == port + 1 || port == ep.Port)
-                    port++;
-            }
-
-            if (!even && port % 2 == 0) ++port;
-            return port;
         }
 
         /// <summary>
@@ -65,9 +53,9 @@ namespace Media
             return IPAddress.Loopback;
         }
 
-        internal static ushort SwapUnsignedShort(ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
+        internal static ushort ReverseUnsignedShort(ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
 
-        public static uint SwapUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
+        public static uint ReverseUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
 
         #region Npt
 
@@ -114,14 +102,19 @@ namespace Media
             if (value >= Epoch1) baseDate = Epoch1;
             else baseDate = Epoch;
 
-            TimeSpan ts = ((TimeSpan)(value.ToUniversalTime() - baseDate));
+            TimeSpan ts = ((TimeSpan)(value.ToUniversalTime() - baseDate.ToUniversalTime()));
 
-            return ((ulong)(ts.TotalMilliseconds % 1000) << 32) | (uint)(ts.Milliseconds << 22);
+            return ((ulong)(ts.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(ts.Ticks / TimeSpan.TicksPerSecond * 0x100000000L);
         }
 
-        internal static DateTime NptTimestampToDateTime(UInt64 seconds, UInt64 fractions)
+        public static DateTime NptTimestampToDateTime(ulong ntpTimestamp)
         {
-            UInt64 ticks = (seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L);
+            return NptTimestampToDateTime((uint)((ntpTimestamp >> 32) & 0xFFFFFFFF), (uint)(ntpTimestamp & 0xFFFFFFFF));
+        }
+
+        public static DateTime NptTimestampToDateTime(uint seconds, uint fractions)
+        {
+            ulong ticks =(ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
             if ((seconds & 0x80000000L) == 0)
             {
                 return Epoch1 + TimeSpan.FromTicks((Int64)ticks);
@@ -146,9 +139,9 @@ namespace Media
             return new UInt64[] { seconds, fractions };
         }
 
-        static DateTime Epoch1 = new DateTime(2036, 2, 7, 6, 28, 16).ToUniversalTime();
+        static DateTime Epoch1 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
 
-        static DateTime Epoch = new DateTime(1900, 1, 1, 1, 0, 0).ToUniversalTime();
+        static DateTime Epoch = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
 
         #endregion
 

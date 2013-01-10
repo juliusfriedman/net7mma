@@ -208,24 +208,24 @@ namespace Media.Rtp
             m_PayloadType = (byte)(compound & 0x7f);
 
             //Extract Sequence Number
-            SequenceNumber = Utility.SwapUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + 2));
+            SequenceNumber = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + 2));
 
             //Extract Time Stamp
-            m_TimeStamp = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + 4));
+            m_TimeStamp = Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + 4));
 
-            m_Ssrc = Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + 8));
+            m_Ssrc = Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + 8));
 
             int position = localOffset + 12;
 
             //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.SwapUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + position)));
+            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packet.Array, localOffset + packet.Offset + position)));
 
             //Extract Extensions
             //This might not be needed
             if (Extensions)
             {
-                m_ExtensionFlags = Utility.SwapUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position));
-                m_ExtensionLength = Utility.SwapUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position + 2));
+                m_ExtensionFlags = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position));
+                m_ExtensionLength = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packet.Array, localOffset + packet.Offset + position + 2));
                 m_ExtensionData = new byte[m_ExtensionLength];
                 Array.Copy(packet.Array, localOffset + packet.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;

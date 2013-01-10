@@ -26,7 +26,7 @@ namespace Media.Rtcp
 
         public ReceiversReport(byte[] packet, int offset) 
         {
-            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
+            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
             offset += 4; 
             if (packet.Length > 4)
             {
@@ -45,7 +45,7 @@ namespace Media.Rtcp
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport);
             output.Data = ToBytes();
             output.BlockCount = Blocks.Count;
-            output.Channel = channel;
+            output.Channel = channel ?? Channel;
             return output;
         }
 
@@ -55,7 +55,7 @@ namespace Media.Rtcp
             
             // SSRC
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt((ssrc ?? SynchronizationSourceIdentifier))));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((ssrc ?? SynchronizationSourceIdentifier))));
             
             //Report Blocks
             foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());

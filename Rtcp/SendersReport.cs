@@ -44,7 +44,7 @@ namespace Media.Rtcp
 
         public SendersReport(byte[] packet, int offset) 
         {            
-            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
+            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
 
             int packetLength = packet.Length;
 
@@ -52,18 +52,18 @@ namespace Media.Rtcp
             {
 
                 //Get the MSW
-                m_NtpMsw = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
+                m_NtpMsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
 
                 //Get the LSW
-                m_NtpLsw = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 8));
+                m_NtpLsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 8));
 
-                if (packetLength > 12) RtpTimestamp = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 12));
+                if (packetLength > 12) RtpTimestamp = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 12));
                 else return;
 
-                if (packetLength > 16) SendersPacketCount = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 16));
+                if (packetLength > 16) SendersPacketCount = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 16));
                 else return;
 
-                if (packetLength > 20) SendersOctetCount = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, offset + 20));
+                if (packetLength > 20) SendersOctetCount = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 20));
                 else return;
 
                 if (packetLength > 24) offset += 24;
@@ -100,18 +100,18 @@ namespace Media.Rtcp
             
             // NTP timestamp
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(m_NtpMsw)));
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(m_NtpLsw)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_NtpMsw)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_NtpLsw)));
 
             // RTP timestamp
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(RtpTimestamp)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(RtpTimestamp)));
             // sender's packet count
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SendersPacketCount)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersPacketCount)));
             // sender's octet count
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SendersOctetCount)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersOctetCount)));
             //Report Blocks
             foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());
 

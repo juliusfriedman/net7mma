@@ -107,7 +107,7 @@ namespace Media.Sdp
             if (lines.Length < 3) throw new SessionDescriptionException("Invalid Session Description");
 
             //Parse remaining optional entries
-            for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; )
+            for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
             {
                 string line = lines[lineIndex].Trim();
 
@@ -140,7 +140,7 @@ namespace Media.Sdp
                 {
                     SessionDescriptionLine parsed = SessionDescriptionLine.Parse(lines, ref lineIndex);
                     if (parsed != null) m_Lines.Add(parsed);
-                    else lineIndex++;
+                    else lineIndex++;//No advance was made on lineIndex by SessionDescriptionLine if parsed was null
                 }
             }            
         }
@@ -504,7 +504,7 @@ namespace Media.Sdp
         }
 
         /// <summary>
-        /// See returns
+        /// The string representation of the SessionDescriptionLine including the required new lines.
         /// </summary>
         /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
         public override string ToString()

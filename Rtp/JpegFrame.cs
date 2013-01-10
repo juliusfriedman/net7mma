@@ -86,7 +86,7 @@ namespace Media.Rtp
             
             //Three bytes
             RtpJpegHeader.Add(0);
-            RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.SwapUnsignedShort((ushort)fragmentOffset)));
+            RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.ReverseUnsignedShort((ushort)fragmentOffset)));
 
             RtpJpegHeader.Add((byte)type);
             RtpJpegHeader.Add((byte)quality);
@@ -108,7 +108,7 @@ namespace Media.Rtp
                 {
                     RtpJpegHeader.Add(0); //Must Be Zero
                     RtpJpegHeader.Add(0x00);//Precision (Only 8 Bit Supported)
-                    RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.SwapUnsignedShort((ushort)qTables.Count)));
+                    RtpJpegHeader.AddRange(BitConverter.GetBytes((short)Utility.ReverseUnsignedShort((ushort)qTables.Count)));
                     RtpJpegHeader.AddRange(qTables);
                 }
                 else //Otherwise create new tables from the quality
@@ -588,7 +588,7 @@ namespace Media.Rtp
                                 };
 
                                 //Correct FragmentOffset
-                                BitConverter.GetBytes(Utility.SwapUnsignedShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
+                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
 
                                 //Copy header
                                 RtpJpegHeader.CopyTo(currentPacket.Payload, 0);

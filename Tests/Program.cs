@@ -34,6 +34,7 @@ namespace Media
             Console.WriteLine(sr.SynchronizationSourceIdentifier);//1928947603
             Console.WriteLine(sr.NtpTimestamp);//MSW = d4 92 ce d4, LSW = 2c 49 ba 5e
             sr.NtpTimestamp = sr.NtpTimestamp;//Ensure setting the value through a setter is correct
+            //Ensure the utility function works...
             Console.WriteLine(sr.RtpTimestamp);//3302006772
             
             //Verify SendersReport byte for byte

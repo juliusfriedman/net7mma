@@ -29,7 +29,7 @@ namespace Media.Rtcp
 
         public ApplicationSpecific(byte[] packet, int index)
         {            
-            SynchronizationSourceIdentifier = Utility.SwapUnsignedInt(BitConverter.ToUInt32(packet, index));
+            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             Name = Encoding.ASCII.GetString(packet, index + 4, 4);
             if (packet.Length > index + 8)
             {
@@ -58,7 +58,7 @@ namespace Media.Rtcp
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ApplicationSpecific);
             output.Data = ToBytes();
             output.BlockCount = Data != null ? 1 : 0; //Maybe should always be 0 or maybe it doesn't really matter
-            output.Channel = channel;
+            output.Channel = channel ?? Channel;
             return output;
         }
 
@@ -66,7 +66,7 @@ namespace Media.Rtcp
         {
             List<byte> result = new List<byte>();
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.SwapUnsignedInt(SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
             result.AddRange(Encoding.ASCII.GetBytes(Name));
             if (Data != null) result.AddRange(Data);
             while (result.Count % 4 != 0) result.Add(0);
