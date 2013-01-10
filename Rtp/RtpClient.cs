@@ -770,14 +770,65 @@ namespace Media.Rtp
             }
         }
 
+        /*
+         u_int32_t RTPSink::convertToRTPTimestamp(struct timeval tv) {
+          // Begin by converting from "struct timeval" units to RTP timestamp units:
+          u_int32_t timestampIncrement = (fTimestampFrequency*tv.tv_sec);
+          timestampIncrement += (u_int32_t)((2.0*fTimestampFrequency*tv.tv_usec + 1000000.0)/2000000);
+               // note: rounding
+
+          // Then add this to our 'timestamp base':
+          if (fNextTimestampHasBeenPreset) {
+            // Make the returned timestamp the same as the current "fTimestampBase",
+            // so that timestamps begin with the value that was previously preset:
+            fTimestampBase -= timestampIncrement;
+            fNextTimestampHasBeenPreset = False;
+          }
+
+          u_int32_t const rtpTimestamp = fTimestampBase + timestampIncrement;
+        #ifdef DEBUG_TIMESTAMPS
+          fprintf(stderr, "fTimestampBase: 0x%08x, tv: %lu.%06ld\n\t=> RTP timestamp: 0x%08x\n",
+	          fTimestampBase, tv.tv_sec, tv.tv_usec, rtpTimestamp);
+          fflush(stderr);
+        #endif
+
+          return rtpTimestamp;
+        }
+         */
+
         internal SendersReport CreateSendersReport(Interleave i, bool includeBlocks = true)
         {
             SendersReport result = new SendersReport(i.SynchronizationSourceIdentifier);
 
-            result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.Now);
+            result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
 
-            result.RtpTimestamp = (uint)i.RtpTimestamp;//From the last rtpPacket
+            //Corresponds to the same time as the NTP timestamp (above), but in the same units and with the same random offset as the RTP timestamps in data packets. 
+            //This correspondence may be used for intra- and inter-media synchronization for sources whose NTP timestamps are synchronized, 
+            //and may be used by media- independent receivers to estimate the nominal RTP clock frequency. Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet. 
+            //Rather, it is calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
+            //
+            //Need to calculate this correctly based on the MediaDescription sample rate	                    
+            Sdp.SessionDescriptionLine rtpmap = i.MediaDescription.Lines.Where(l => l.Parts[0].StartsWith("rtpmap")).FirstOrDefault();
+            
+            //If there was a RtpMap attribute line
+            if (rtpmap != null)
+            {
+                //Get the clockrate of the media from the line
+                //Example line codec / samplerate / channels
+                //a=rtpmap:96[1]mpeg4-generic/44100/2
+                //a=rtpmap:98[1]H264/90000
+                uint clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]);
 
+                //Calculate RtpTimestamp using clockrate (double check this)
+                result.RtpTimestamp = (uint)((result.NtpTimestamp / clockRate / 1000) * 100000);
+            }
+            else
+            {
+                //Just use the Timestamp from the Interleave
+                result.RtpTimestamp = i.RtpTimestamp;
+            }
+            
+            //Counters
             result.SendersOctetCount = (uint)i.RtpBytesSent;
             result.SendersPacketCount = (uint)i.RtpPacketsSent;
 
@@ -817,11 +868,14 @@ namespace Media.Rtp
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
                     InterArrivalJitter = i.RtpJitter,
+                    //The middle 32 bits out of 64 in the NTP timestamp (as explained in Section 4) received as part of the most recent RTCP sender report (SR) packet from source SSRC_n. If no SR has been received yet, the field is set to zero.
                     LastSendersReport = (uint)(lastSent.HasValue ? Utility.DateTimeToNtp32(lastSent.Value) : 0),
-                    DelaySinceLastSendersReport = (uint)(lastSent.HasValue ? ((DateTime.UtcNow - lastSent.Value).Milliseconds / 65535) * 1000 : 0),
+                    //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
+                    DelaySinceLastSendersReport = (uint)(lastSent.HasValue ? ((DateTime.UtcNow - lastSent.Value).TotalSeconds / 65536) : 0), 
                     ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
                 });
             }
+
             return result;
         }
 
@@ -882,7 +936,7 @@ namespace Media.Rtp
 
         internal void SendSendersReport(Interleave interleave)
         {
-            interleave.SendersReport = CreateSendersReport(interleave);
+            interleave.SendersReport = CreateSendersReport(interleave, false);
             SendRtcpPacket(interleave.SendersReport.ToPacket());
             interleave.SendersReport.Sent = DateTime.UtcNow;
         }
