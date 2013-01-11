@@ -129,7 +129,7 @@ namespace Media.Rtsp
         public ClientProtocolType RtspProtocol { get { return m_RtspProtocol; } }
 
         /// <summary>
-        /// The location to the Media on the Rtsp Server
+        /// Gets or sets location to the Media on the Rtsp Server and updated the ClientProtocol if required by the change
         /// </summary>
         public Uri Location
         {
@@ -224,6 +224,16 @@ namespace Media.Rtsp
         /// </summary>
         public string UserAgent { get { return m_UserAgent; } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("UserAgent cannot consist of only null or whitespace."); m_UserAgent = value; } }
 
+        /// <summary>
+        /// Indicates if the Client is using Rtsp (Reliable, Http)Tcp or (Unreliable)Udp
+        /// </summary>
+        public ClientProtocolType RtspProtocolType { get { return m_RtspProtocol; } }
+
+        /// <summary>
+        /// Indicates if the protocol the Client is performing Rtp over
+        /// </summary>
+        public ProtocolType RtpProtocolType { get { return m_RtpProtocol; } }
+
         #endregion
 
         #region Constructor
@@ -242,7 +252,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
-        public RtspClient(Uri location)
+        public RtspClient(Uri location, ClientProtocolType? protocolType = null)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
             if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme == System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
@@ -252,6 +262,20 @@ namespace Media.Rtsp
             OnRequest += RtspClient_OnRequest;
             OnResponse += RtspClient_OnResponse;
             OnDisconnect += RtspClient_OnDisconnect;
+
+            //If the client has specified a Protcol to use then use it
+            if (protocolType.HasValue)
+            {
+                if (protocolType.Value == ClientProtocolType.Tcp)
+                {
+                    m_RtpProtocol = ProtocolType.Tcp;
+                }
+                else if(protocolType.Value == ClientProtocolType.Udp)
+                {
+                    //Udp is assumed
+                }
+                else throw new ArgumentException("Must be Tcp or Udp.", "protocolType");
+            }
         }
 
         /// <summary>
@@ -259,7 +283,7 @@ namespace Media.Rtsp
         /// E.g. 'rtsp://somehost/sometrack/
         /// </summary>
         /// <param name="location">The string which will be parsed to obtain the Location</param>
-        public RtspClient(string location) : this(new Uri(location)) { }
+        public RtspClient(string location, ClientProtocolType? protocolType = null) : this(new Uri(location), protocolType) { }
 
         ~RtspClient()
         {
@@ -745,7 +769,7 @@ namespace Media.Rtsp
                 if ((useMediaProtocol && mediaDescription.MediaProtocol.Contains("TCP")) || m_RtpProtocol == ProtocolType.Tcp)
                 {
                     //Ask for an interleave
-                    if (m_RtpClient.Interleaves.Count > 0)
+                    if (m_RtpClient != null && m_RtpClient.Interleaves.Count > 0)
                     {
                         var lastInterleave = m_RtpClient.Interleaves.Last();
                         setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + (lastInterleave.DataChannel + 2) + '-' + (lastInterleave.ControlChannel + 2));
@@ -896,6 +920,13 @@ namespace Media.Rtsp
                         {
                             RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription, m_RtspSocket);
                             interleave.RtcpEnabled = !rtcpDisabled;
+
+                            if (m_RtpClient == null)
+                            {
+                                //Create a Interleaved reciever
+                                m_RtpClient = RtpClient.Interleaved(m_RtspSocket);
+                            }
+
                             try
                             {
                                 //try to add the interleave
@@ -942,8 +973,11 @@ namespace Media.Rtsp
                             //If we need to make a client then do so
                             if (m_RtpClient == null)
                             {
-                                //Create a reciever
-                                m_RtpClient = RtpClient.Receiever(m_RemoteIP);
+                                if (m_RtpProtocol == ProtocolType.Udp)
+                                {
+                                    //Create a Udp Reciever
+                                    m_RtpClient = RtpClient.Receiever(m_RemoteIP);
+                                }                                
                             }
                             
                             //Add the interleave for the mediaDescription
@@ -989,8 +1023,6 @@ namespace Media.Rtsp
             //Setup for Interleaved
         SetupTcp:
             {
-                //Reconnect without losing the events on the RtpClient
-                m_RtpProtocol = ProtocolType.Tcp;
                 Client.m_SocketOwner = false;
                 Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 

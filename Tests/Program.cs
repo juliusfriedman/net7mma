@@ -122,8 +122,9 @@ namespace Media
         static void TestRtspClient()
         {
             //Make a client
-            //This host uses Udp
-            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
+            //This host uses Udp but also supports Tcp
+            //We create a client forcing the Rtp Transport to Tcp
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp);            
         Start:
             //Assign some events
             client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
@@ -142,26 +143,32 @@ namespace Media
                 Console.BackgroundColor = ConsoleColor.Black;
             }
 
-            //Add some more events once Listening
-            client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); };
-            client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.BackgroundColor = ConsoleColor.Blue; Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); Console.BackgroundColor = ConsoleColor.Black; };
-            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
-            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.BackgroundColor = ConsoleColor.Green; Console.WriteLine("Sent a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); Console.BackgroundColor = ConsoleColor.Black; };
+            //If We are connected
+            if (client.Connected)
+            {
+
+                //Add some more events once Listening
+                client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); };
+                client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.BackgroundColor = ConsoleColor.Blue; Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); Console.BackgroundColor = ConsoleColor.Black; };
+                client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
+                client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.BackgroundColor = ConsoleColor.Green; Console.WriteLine("Sent a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); Console.BackgroundColor = ConsoleColor.Black; };
 
 
-            Console.WriteLine("Waiting for packets... Press Q to exit");
-            
-            //Ensure we recieve a bunch of packets before we say the test is good
-            while (Console.ReadKey().Key != ConsoleKey.Q)
+                Console.WriteLine("Waiting for packets... Press Q to exit");
+
+                //Ensure we recieve a bunch of packets before we say the test is good
+                while (Console.ReadKey().Key != ConsoleKey.Q) { }
+            }
 
             //All done
             Console.WriteLine("Exiting RtspClient Test");
 
             try
             {
+                //If we are connected
                 if (client.Connected)
                 {
-                    //Send a few requests if we are connected just because
+                    //Send a few requests just because
                     var one = client.SendOptions();
                     var two = client.SendOptions();
                     Console.BackgroundColor = ConsoleColor.Green;
@@ -169,6 +176,18 @@ namespace Media
                     Console.WriteLine(string.Join(" ", one.GetHeaders()));
                     Console.WriteLine(string.Join(" ", two.GetHeaders()));
                     Console.BackgroundColor = ConsoleColor.Black;
+
+                    //Print information before disconnecting
+                    Console.BackgroundColor = ConsoleColor.Green;
+                    Console.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
+                    Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
+                    Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
+                    Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+                    Console.BackgroundColor = ConsoleColor.Black;
+
+                    //Calls Disconnect if the client is Connected
+                    client.StopListening();
+
                 }
             }
             catch
@@ -178,26 +197,15 @@ namespace Media
                 Console.BackgroundColor = ConsoleColor.Black;
             }
             
-            //Print information before disconnecting
-
-            Console.BackgroundColor = ConsoleColor.Green;
-
-            Console.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
-            Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
-            Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
-            Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
-
-            Console.BackgroundColor = ConsoleColor.Black;
             
-            //Calls Disconnect if the client is Connected
-            client.StopListening();
-
             //Perform another test if we need to
             if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
             {
                 //Try another host (this one uses Tcp and forces the client to switch from Udp because Udp packets never arrive)
+                //We will not specify Tcp we will allow the client to switch over automatically
                 client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
-                //client.ProtocolSwitchSeconds = 5; //Switch in 5 seconds rather than the default of 10
+                //Switch in 5 seconds rather than the default of 10
+                client.ProtocolSwitchSeconds = 5; 
                 Console.WriteLine("Performing 2nd Client test");
                 goto Start;
             }
