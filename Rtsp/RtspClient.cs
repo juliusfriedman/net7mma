@@ -129,7 +129,7 @@ namespace Media.Rtsp
         public ClientProtocolType RtspProtocol { get { return m_RtspProtocol; } }
 
         /// <summary>
-        /// Gets or sets location to the Media on the Rtsp Server and updated the ClientProtocol if required by the change
+        /// Gets or sets location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change
         /// </summary>
         public Uri Location
         {
@@ -138,24 +138,28 @@ namespace Media.Rtsp
             {
                 try
                 {
-                    m_Location = value;
+                    //If Different
+                    if (m_Location != value)
+                    {
 
-                    //(Should allow InterNetworkV6)
-                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.Host).Where(ip => ip.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
+                        m_Location = value;
 
-                    m_RtspPort = m_Location.Port;
+                        //(Should allow InterNetworkV6)
+                        m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.Host).Where(ip => ip.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
 
-                    //Validate prots
-                    if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = RtspServer.DefaultPort;
+                        m_RtspPort = m_Location.Port;
 
-                    //Determine protocol
-                    if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocolType.Tcp;
-                    else if (m_Location.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocolType.Udp;
-                    else m_RtspProtocol = ClientProtocolType.Http;
+                        //Validate prots
+                        if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = RtspServer.DefaultPort;
 
-                    //Make a IPEndPoint 
-                    m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
+                        //Determine protocol
+                        if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocolType.Tcp;
+                        else if (m_Location.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocolType.Udp;
+                        else m_RtspProtocol = ClientProtocolType.Http;
 
+                        //Make a IPEndPoint 
+                        m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -252,11 +256,12 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
-        public RtspClient(Uri location, ClientProtocolType? protocolType = null)
+        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
             if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme == System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
 
+            //Set the location and determines the m_RtspProtocol
             Location = location;
 
             OnRequest += RtspClient_OnRequest;
@@ -264,15 +269,16 @@ namespace Media.Rtsp
             OnDisconnect += RtspClient_OnDisconnect;
 
             //If the client has specified a Protcol to use then use it
-            if (protocolType.HasValue)
+            if (rtpProtocolType.HasValue)
             {
-                if (protocolType.Value == ClientProtocolType.Tcp)
+                //Determine if this means anything for Rtp Transport and set the field
+                if (rtpProtocolType.Value == ClientProtocolType.Tcp || rtpProtocolType.Value == ClientProtocolType.Http)
                 {
                     m_RtpProtocol = ProtocolType.Tcp;
                 }
-                else if(protocolType.Value == ClientProtocolType.Udp)
+                else if(rtpProtocolType.Value == ClientProtocolType.Udp)
                 {
-                    //Udp is assumed
+                    m_RtpProtocol = ProtocolType.Udp;
                 }
                 else throw new ArgumentException("Must be Tcp or Udp.", "protocolType");
             }
@@ -283,7 +289,7 @@ namespace Media.Rtsp
         /// E.g. 'rtsp://somehost/sometrack/
         /// </summary>
         /// <param name="location">The string which will be parsed to obtain the Location</param>
-        public RtspClient(string location, ClientProtocolType? protocolType = null) : this(new Uri(location), protocolType) { }
+        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null) : this(new Uri(location), rtpProtocolType) { }
 
         ~RtspClient()
         {

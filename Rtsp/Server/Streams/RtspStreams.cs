@@ -81,8 +81,8 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspSourceStream(string name, string sourceLocation, Rtsp.RtspClient.ClientProtocolType? protocolType = null)
-            : this(name, new Uri(sourceLocation), protocolType) { }
+        public RtspSourceStream(string name, string sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
+            : this(name, new Uri(sourceLocation), rtpProtocolType) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer

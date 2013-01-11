@@ -1283,7 +1283,7 @@ namespace Media.Rtsp
             //We need to make an interleave
             RtpClient.Interleave currentInterleave = null;
 
-            //Determine if the client reqeuested Udp or Tcp
+            //Determine if the client reqeuested Udp or Tcp or we are forcing Tcp for the found stream
             if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP == false)
             {
 
@@ -1373,7 +1373,7 @@ namespace Media.Rtsp
                 }
                 catch
                 {
-                    //If the Channel is in use then this is a Invalid Request
+                    //If the Channel is in use then this is a Invalid Request? Might need to be sure this error code is correct
                     ProcessInvalidRtspRequest(ci);
                     return;
                 }
