@@ -793,6 +793,16 @@ namespace Media.Rtsp
                         ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
                 }
 
+                //If there are Bandwidth lines with RR:0 and RS:0
+                IEnumerable<SessionDescriptionLine> rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && (l.Parts[0] == "RR" || l.Parts[0] == "RS") && l.Parts[1] == "1");
+
+                bool rtcpDisabled = false;
+                //If there are two lines which match the criteria then disable Rtcp on the last Interleave
+                if (rtcpLines != null && rtcpLines.Count() == 2)
+                {                    
+                    rtcpDisabled = true;
+                }
+
                 //Get the source, we need it first and sometimes it comes at the end
 
                 //Get the Ssrc cause we need it first and it sometimes comes at the end
@@ -896,6 +906,7 @@ namespace Media.Rtsp
                             if(m_RtpClient.Interleaves.Count == 0)
                             {
                                 RtpClient.Interleave newInterleave = new RtpClient.Interleave(0, 1, (uint)ssrc, mediaDescription);
+                                newInterleave.RtcpEnabled = !rtcpDisabled;
                                 newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(newInterleave);
                             }
@@ -903,6 +914,7 @@ namespace Media.Rtsp
                             {
                                 var last = m_RtpClient.Interleaves.Last();
                                 RtpClient.Interleave newInterleave = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), (uint)ssrc, mediaDescription);
+                                newInterleave.RtcpEnabled = !rtcpDisabled;
                                 newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(newInterleave);
                             }
@@ -914,17 +926,9 @@ namespace Media.Rtsp
                         System.Diagnostics.Debug.WriteLine("Unhandled Rtsp Response Transport Header Part: " + part);
 #endif
                     }
-                }
+                }               
 
-                //If there are Bandwidth lines with RR:0 and RS:0
-                var rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && l.Parts[0] == "RR" || l.Parts[0] == "RS" && l.Parts[1] == "1");
-                if (rtcpLines != null && rtcpLines.Count() == 2)
-                {
-                    //Disable Rtcp on related interleave
-                    m_RtpClient.Interleaves.Last().RtcpEnabled = false;
-                }
-
-                //Connect and wait for Packets via UDP
+                //Connect and wait for Packets
                 m_RtpClient.Connect();
 
                 return response;
