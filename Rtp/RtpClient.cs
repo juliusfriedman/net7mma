@@ -1072,10 +1072,15 @@ namespace Media.Rtp
             }
             //Send the packet
             int sent = SendData(packet.ToBytes(), interleave.ControlChannel, interleave.RtcpSocket);
+            
             //If we actually sent anything
             if (sent > 0)
-            {                
+            {
                 OnRtcpPacketSent(packet);
+            }
+            else
+            {
+                //Failed?
             }
         }
 
@@ -1132,8 +1137,12 @@ namespace Media.Rtp
             
             //If we sent anything
             if (sent > 0)
-            {                
+            {
                 OnRtpPacketSent(packet);
+            }
+            else
+            {
+                //Failed?
             }
         }
 
@@ -1417,9 +1426,8 @@ namespace Media.Rtp
             {
                 DateTime lastTransmit = DateTime.UtcNow;
 
-                //While we have not recieved a Goodbye
-                //Somehow we were being called and stopped by someone... GoodbyeRecieved & GoodbyeRecieved were true?
-                while (true)//m_Interleaves.ToList().Any( i=> !i.GoodbyeRecieved /*&& i.GoodbyeSent*/))
+                //Until aborted
+                while (true)//m_Interleaves.ToList().All( i=> !i.GoodbyeRecieved /*&& i.GoodbyeSent*/))
                 {
                     //Everything we send is IEnumerable
                     System.Collections.IEnumerable toSend;
@@ -1488,8 +1496,6 @@ namespace Media.Rtp
                             Disconnect();
                             break;
                         }
-
-                        //If last send was long ago may need to send some type of keep alive?
 
                     }
                     #endregion

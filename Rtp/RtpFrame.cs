@@ -213,11 +213,22 @@ namespace Media.Rtp
             {
                 foreach (RtpPacket packet in m_Packets.Values)
                 {
+                    //If there are extensions
                     if (packet.Extensions)
                     {
                         result.AddRange(packet.ExtensionBytes);
                     }
-                    result.AddRange(packet.Payload);
+
+                    //If the packet has padding
+                    if (packet.Padding)
+                    {
+                        //Should be handled by derived implementation
+                        result.AddRange(packet.Payload);
+                    }
+                    else
+                    {
+                        result.AddRange(packet.Payload);
+                    }
                 }
             }
             return result.ToArray();

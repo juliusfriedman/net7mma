@@ -38,11 +38,8 @@ namespace Media
             Console.WriteLine(sr.RtpTimestamp);//3302006772
             
             //Verify SendersReport byte for byte
-            var output = sr.ToPacket().ToBytes();//should be exactly equal to wireShark
-            for (int i = 0; i < output.Length; ++i)
-            {
-                if (example[i] != output[i]) throw new Exception();
-            }
+            var output = sr.ToPacket().ToBytes();//should be exactly equal to example
+            for (int i = 0; i < output.Length; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             //Recievers Report and Source Description
             example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
@@ -51,11 +48,12 @@ namespace Media
                                 0x00,0x00,0x00,0x00
             };
 
-            //Could check for multiple packets with a function
-            Console.WriteLine(Rtcp.RtcpPacket.GetPackets(example).Length);
+            //Could check for multiple packets with a function without having to keep track of the offset with the RtcpPacket.GetPackets Function
+            Rtcp.RtcpPacket[] foundPackets = Rtcp.RtcpPacket.GetPackets(example);
+            Console.WriteLine(foundPackets.Length);
 
-            //Or manually
-            asPacket = new Rtcp.RtcpPacket(example);
+            //Or manually for some reason
+            asPacket = new Rtcp.RtcpPacket(example); // same as foundPackets[0]
             Rtcp.ReceiversReport rr = new Rtcp.ReceiversReport(asPacket);
             Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
             Console.WriteLine(rr.Blocks.Count);//1
@@ -65,15 +63,14 @@ namespace Media
             Console.WriteLine(rr.Blocks[0].ExtendedHigestSequenceNumber);//65618, 00, 01, 00, 52
             Console.WriteLine(rr.Blocks[0].InterArrivalJitter);//3771
             Console.WriteLine(rr.Blocks[0].LastSendersReport);//3470051573
-            asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength);
+
+            //next packet offset by Length + RtcpHeader
+            asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength); //same as foundPackets[1]
             Rtcp.SourceDescription sd = new Rtcp.SourceDescription(asPacket); //1 Chunk, CName
 
             //Verify RecieversReport byte for byte
-            output = rr.ToPacket().ToBytes();//should be exactly equal to wireShark
-            for (int i = asPacket.Length; i >= 0; --i)
-            {
-                if (example[i] != output[i]) throw new Exception();
-            }
+            output = rr.ToPacket().ToBytes();//should be exactly equal to example
+            for (int i = asPacket.Length; i >= 0; --i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             int offset = output.Length + Rtcp.RtcpPacket.RtcpHeaderLength;
 
@@ -215,7 +212,7 @@ namespace Media
 
         static void TestRtpPackets()
         {
-            //Make and serialize some RtpPackets
+            //Make and (de)serialize some RtpPackets
         }
 
         static void TestSdp()
