@@ -329,14 +329,15 @@ namespace Media.Rtsp
         /// Stops and Removes a stream from the server
         /// </summary>
         /// <param name="streamId">The id of the stream</param>
+        /// <param name="stop">True if the stream should be stopped when removed</param>
         /// <returns>True if removed, otherwise false</returns>
-        public bool RemoveStream(Guid streamId)
+        public bool RemoveStream(Guid streamId, bool stop = true)
         {
             try
             {
                 RtspSourceStream client = m_Streams[streamId];
-                client.Stop();
-                //client.Client.Disconnect();
+                if (client == null) return false;
+                if(stop) client.Stop();
                 lock (m_Streams)
                 {
                     return m_Streams.Remove(streamId);
@@ -360,7 +361,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal RtspSourceStream FindStreamByLocation(Uri mediaLocation, ClientSession ci = null)
+        internal RtspSourceStream FindStreamByLocation(Uri mediaLocation)
         {
 
             RtspSourceStream found = null;
@@ -412,7 +413,6 @@ namespace Media.Rtsp
             }
             else
             {
-                if (ci == null) return null;
                 //Need facilites for creating a RtspStream from an archive file
                 //Should have a static constructor RtspArchivedStream.FromMediaLocation(Url location)
                 //Needs the ci who requests this media to attached the archives stream to... 
@@ -429,7 +429,7 @@ namespace Media.Rtsp
         /// Finds and removes inactive clients.
         /// Determined by the time of the sessions last RecieversReport or the last RtspRequestRecieved (get parameter must be sent to keep from timing out)
         /// </summary>
-        internal void DisconnectAndRemoveInactiveSessions(object o) { DisconnectAndRemoveInactiveSessions(); }
+        internal void DisconnectAndRemoveInactiveSessions(object state = null) { DisconnectAndRemoveInactiveSessions(); }
         internal void DisconnectAndRemoveInactiveSessions()
         {
             //Find inactive clients and remove..
@@ -464,7 +464,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Restarted streams which should be Listening but are not
         /// </summary>
-        internal void RestartFaultedStreams(Object o) { RestartFaultedStreams(); }
+        internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
             var toStart = default(List<RtspSourceStream>);
@@ -523,17 +523,28 @@ namespace Media.Rtsp
 
             m_ServerThread.Start();
 
-            m_Maintainer = new Timer(new TimerCallback(o =>
-            {
-                DisconnectAndRemoveInactiveSessions();
-                RestartFaultedStreams();
-            }), null, 30000, 30000);
+            //Should all this frequence to be controlled
+            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, 30000, 30000);
 
             m_Started = DateTime.UtcNow;
 
             if (m_UdpPort != -1) EnableUdp(m_UdpPort);
             if (m_HttpPort != -1) EnableHttp(m_HttpPort);
 
+        }
+
+        /// <summary>
+        /// Removes Inactive Sessions and Restarts Faulted Streams
+        /// </summary>
+        /// <param name="state">Reserved</param>
+        internal virtual void MaintainServer(object state = null)
+        {
+            try
+            {
+                DisconnectAndRemoveInactiveSessions(state);
+                RestartFaultedStreams(state);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -591,7 +602,6 @@ namespace Media.Rtsp
             }
         }        
 
-        //MIght need another for Udp
         /// <summary>
         /// The loop where Rtsp Requests are recieved
         /// </summary>
@@ -646,8 +656,7 @@ namespace Media.Rtsp
             }
 #else
             catch { }
-#endif
-            
+#endif            
         }
 
         /// <summary>
@@ -673,6 +682,7 @@ namespace Media.Rtsp
                         m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
                         //Might need plumbing to store endpoints for sessions
+                        //I guess this would be concidered interleaved Udp :p Have to handle this in the RtspClient as well
                         IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
                         session.m_Udp = new UdpClient();
                         session.m_Udp.Connect(remote);
@@ -683,7 +693,7 @@ namespace Media.Rtsp
                         req = new RtspRequest(session.m_Buffer);
                         if (req.ContainsHeader(RtspHeaders.Session))
                         {
-                            var existing = FindSessionByRtspSessionId(req.GetHeader(RtspHeaders.Session));
+                            ClientSession existing = FindSessionByRtspSessionId(req.GetHeader(RtspHeaders.Session));
                             if (existing == null) throw new RtspServerException("Session Not Found");
                             else
                             {
@@ -1043,7 +1053,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("OPTIONS " + request.Location);
 #endif
 
-            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location);
 
             //No stream with name
             if (found == null)
@@ -1082,7 +1092,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location);
 
             if (found == null)
             {
@@ -1131,7 +1141,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("SETUP " + request.Location);
 #endif
 
-            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location);
             if (found == null)
             {                
                 ProcessLocationNotFoundRtspRequest(ci);
@@ -1205,7 +1215,7 @@ namespace Media.Rtsp
             string transportHeader = request[RtspHeaders.Transport];
 
             //If that is not present we cannot determine what transport the client wants
-            if (string.IsNullOrWhiteSpace(transportHeader) || !(transportHeader.Contains("RTP") && transportHeader.Contains("AVP")))
+            if (string.IsNullOrWhiteSpace(transportHeader) || !(transportHeader.Contains("RTP")))
             {
                 ProcessInvalidRtspRequest(ci);
                 return;
@@ -1224,9 +1234,6 @@ namespace Media.Rtsp
             for (int i = 0, e = parts.Length; i < e; ++i)
             {
                 string part = parts[i].Trim();
-                //if (part == "RTP/AVP" || part == "RTP/AVP/UDP") requestedProtcolType = ProtocolType.Udp;
-                //else if (part == "RTP/AVP/TCP") requestedProtcolType = ProtocolType.Tcp;
-                //else if (part.StartsWith("interleaved="))
                 if (part.StartsWith("interleaved="))
                 {
                     channels = part.Replace("interleaved=", string.Empty).Split('-');                    
@@ -1264,7 +1271,7 @@ namespace Media.Rtsp
                 if(ci.m_RtpClient == null)
                 {
                     //Create a sender
-                    ci.m_RtpClient = RtpClient.Sender(((IPEndPoint)ci.m_RtspSocket.LocalEndPoint).Address, rtpPort, rtcpPort);
+                    ci.m_RtpClient = RtpClient.Sender(((IPEndPoint)ci.m_RtspSocket.LocalEndPoint).Address);
 
                     //Starts worker thread... 
                     ci.m_RtpClient.Connect();
@@ -1274,7 +1281,6 @@ namespace Media.Rtsp
                 int openPort = Utility.FindOpenPort(ProtocolType.Udp, MinimumUdp ?? 10000, true);
 
                 if (openPort == -1) throw new RtspServerException("Could not find open Udp Port");
-
                 else if (MaximumUdp.HasValue && openPort > MaximumUdp)
                 {
                     //Handle port out of range
@@ -1288,7 +1294,7 @@ namespace Media.Rtsp
                 }                    
                 else
                 {
-                    //Have to make a fake data and control channel
+                    //Have to calculate next data and control channel
                     RtpClient.Interleave lastInterleave = ci.m_RtpClient.Interleaves.Last();
                     currentInterleave = new RtpClient.Interleave((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), 0, mediaDescription);
                 }
@@ -1303,7 +1309,7 @@ namespace Media.Rtsp
                 returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentInterleave.ClientRtpPort + "-" + currentInterleave.ClientRtcpPort;
                 
             }
-            else
+            else /// Rtsp / Tcp (Interleaved)
             {
 
                 byte rtpChannel= 0, rtcpChannel = 0;
@@ -1331,19 +1337,23 @@ namespace Media.Rtsp
                     ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
                 }
                 
-                //Add the interleave
+                //Create a new Interleave
                 var interleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription);
                 
+
                 try
                 {
+                    //Try to add the interleave the client requested
                     ci.m_RtpClient.AddInterleave(interleave);
                 }
                 catch
                 {
+                    //If the Channel is in use then this is a Invalid Request
                     ProcessInvalidRtspRequest(ci);
                     return;
                 }
 
+                //Initialize the Interleaved Socket
                 ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
 
                 returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + interleave.DataChannel + '-' + interleave.ControlChannel;
@@ -1385,7 +1395,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(ci);
@@ -1461,7 +1471,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspSourceStream found = FindStreamByLocation(request.Location, ci);
+            RtspSourceStream found = FindStreamByLocation(request.Location);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(ci);
@@ -1498,7 +1508,7 @@ namespace Media.Rtsp
                     return;
                 }
 
-                RtspSourceStream found = FindStreamByLocation(request.Location, ci);
+                RtspSourceStream found = FindStreamByLocation(request.Location);
 
                 if (found == null)
                 {

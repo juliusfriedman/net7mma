@@ -903,8 +903,8 @@ namespace Media.Rtsp
                             //If we need to make a client then do so
                             if (m_RtpClient == null)
                             {
-                                //Todo use Reciever constructor
-                                m_RtpClient = new RtpClient(m_RemoteIP, clientRtpPort, clientRtcpPort, true, serverRtpPort, serverRtcpPort);
+                                //Create a reciever
+                                m_RtpClient = RtpClient.Receiever(m_RemoteIP);
                             }
                             
                             //Add the interleave for the mediaDescription
