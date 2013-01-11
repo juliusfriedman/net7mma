@@ -123,6 +123,7 @@ namespace Media.Rtsp
                 {
                     m_Location = value;
 
+                    //(Should allow InterNetworkV6)
                     m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.Host).Where(ip => ip.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
 
                     m_RtspPort = m_Location.Port;
@@ -796,18 +797,22 @@ namespace Media.Rtsp
                 //If there are Bandwidth lines with RR:0 and RS:0
                 IEnumerable<SessionDescriptionLine> rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && (l.Parts[0] == "RR" || l.Parts[0] == "RS") && l.Parts[1] == "1");
 
+                //Some providers disable Rtcp for one reason or another, it is strongly not recommended
                 bool rtcpDisabled = false;
-                //If there are two lines which match the criteria then disable Rtcp on the last Interleave
+
+                //If there are two lines which match the criteria then disable Rtcp
                 if (rtcpLines != null && rtcpLines.Count() == 2)
-                {                    
+                {             
+                    //Rtcp is disabled, RtcpEnabled is the logic inverse of this (!rtcpDisabled)
                     rtcpDisabled = true;
                 }
 
                 //Get the source, we need it first and sometimes it comes at the end
-
-                //Get the Ssrc cause we need it first and it sometimes comes at the end
                 string sourcePart = parts.Where(p => p.StartsWith("sourcePart")).FirstOrDefault();
+
+                //Cache this to prevent having to go to get it every time down the line
                 IPAddress sourceIp = null;
+
                 if (!string.IsNullOrWhiteSpace(sourcePart))
                 {
                     //Get rid of the beginning
@@ -920,12 +925,13 @@ namespace Media.Rtsp
                             }
                         }
                     }
+#if DEBUG
                     else //The part is not needed
                     {
-#if DEBUG
+
                         System.Diagnostics.Debug.WriteLine("Unhandled Rtsp Response Transport Header Part: " + part);
-#endif
                     }
+#endif
                 }               
 
                 //Connect and wait for Packets

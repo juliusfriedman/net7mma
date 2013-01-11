@@ -138,7 +138,7 @@ namespace Media.Rtp
             internal void UpdateJitter(RtpPacket packet)
             {
                 // RFC 3550 A.8.
-                ulong transit = (Utility.DateTimeToNtp64(DateTime.UtcNow) - packet.TimeStamp);
+                ulong transit = (Utility.DateTimeToNtpTimestamp(DateTime.UtcNow) - packet.TimeStamp);
                 int d = (int)(transit - RtpTransit);
                 RtpTransit = (uint)transit;
                 if (d < 0) d = -d;
@@ -234,7 +234,7 @@ namespace Media.Rtp
                 try
                 {
                     //Setup the RtpSocket
-                    RtpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    RtpSocket = new Socket(remoteIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
@@ -250,7 +250,7 @@ namespace Media.Rtp
                     {
 
                         //Setup the RtcpSocket
-                        RtcpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                        RtcpSocket = new Socket(remoteIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
@@ -801,7 +801,7 @@ namespace Media.Rtp
             if (rtpmap != null)
             {
                 //Make a Ntp Timestamp
-                result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+                result.NtpTimestamp = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow);
 
                 //Example line codec / samplerate / channels
                 //a=rtpmap:96[1]mpeg4-generic/44100/2 (44.1kHz)
@@ -812,23 +812,29 @@ namespace Media.Rtp
                 //Get the clockrate of the media from the line and convert to kHz
                 //double clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]) / 1000;
 
-                //Get the clockrate of the media from the line (already in kHz)
+                //Get the clockrate of the media from the line
                 uint clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]);
 
                 //Calculate RtpTimestamp using NtpTimestamp and clockrate
-                result.RtpTimestamp = (uint)(result.NtpTimestamp * clockRate);
+                //result.RtpTimestamp = (uint)(result.NtpTimestamp * clockRate);
+                
+                //clockRate is in seconds format
+                result.RtpTimestamp = (uint)(Utility.NptTimestampToDateTime(result.NtpTimestamp).Ticks / TimeSpan.TicksPerSecond  * clockRate);                
             }
             else
             {
                 //Just use the Timestamp's from the Interleave
-                result.NtpTimestamp = i.NtpTimestamp;
-                result.RtpTimestamp = i.RtpTimestamp;
+                result.NtpTimestamp = i.NtpTimestamp;                
             }
+
+            //This always comes from the last senders report for the Interleave if present
+            if (i.RtpTimestamp > 0) result.RtpTimestamp = i.RtpTimestamp;
             
             //Counters
             result.SendersOctetCount = (uint)i.RtpBytesSent;
             result.SendersPacketCount = (uint)i.RtpPacketsSent;
 
+            //If source blocks are included include them and calculate their statistics
             if (includeBlocks)
             {
 
@@ -866,7 +872,7 @@ namespace Media.Rtp
                     FractionLost = (uint)fraction,
                     InterArrivalJitter = i.RtpJitter,
                     //The middle 32 bits out of 64 in the NTP timestamp (as explained in Section 4) received as part of the most recent RTCP sender report (SR) packet from source SSRC_n. If no SR has been received yet, the field is set to zero.
-                    LastSendersReport = (uint)(lastSent.HasValue ? Utility.DateTimeToNtp32(lastSent.Value) : 0),
+                    LastSendersReport = (uint)(lastSent.HasValue ? Utility.DateTimeToNtpTimestamp32(lastSent.Value) : 0),
                     //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
                     DelaySinceLastSendersReport = (uint)(lastSent.HasValue ? ((DateTime.UtcNow - lastSent.Value).TotalSeconds / 65536) : 0), 
                     ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
@@ -914,7 +920,7 @@ namespace Media.Rtp
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
                     InterArrivalJitter = i.RtpJitter,
-                    LastSendersReport = (uint)(i.SendersReport != null ? Utility.DateTimeToNtp64(i.SendersReport.Created.Value) : 0),
+                    LastSendersReport = (uint)(i.SendersReport != null ? Utility.DateTimeToNtpTimestamp(i.SendersReport.Created.Value) : 0),
                     DelaySinceLastSendersReport = (uint)(i.SendersReport != null ? ((DateTime.UtcNow - i.SendersReport.Created.Value).Milliseconds / 65535) * 1000 : 0),
                     ExtendedHigestSequenceNumber = (uint)i.SequenceNumber
                 });
