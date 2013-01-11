@@ -893,7 +893,14 @@ namespace Media.Rtsp
                         {
                             RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription);
                             interleave.RtcpEnabled = !rtcpDisabled;
-                            m_RtpClient.AddInterleave(interleave);
+                            try
+                            {
+                                m_RtpClient.AddInterleave(interleave);
+                            }
+                            catch
+                            {
+                                throw new RtspClientException("Server responded with alreadyd in use channel: " + transportHeader);
+                            }
                             m_RtpClient.InitializeFrom(m_RtspSocket);
                         }
                         else
