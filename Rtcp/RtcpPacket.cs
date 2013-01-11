@@ -88,6 +88,9 @@ namespace Media.Rtcp
             //Frame Header {$,/0x,/0x,/0x}
             if (packetReference.Array[packetReference.Offset + offset] == Rtp.RtpClient.MAGIC) offset += 4;
 
+            //Ensure correct length
+            if (packetReference.Count <= RtcpHeaderLength) throw new ArgumentException("The packet does not conform to the Real Time Protocol. Packets must exceed 4 bytes in length.", "packetReference");
+
             //Get version
             m_Version = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] >> 6;
 

@@ -195,6 +195,7 @@ namespace Media
             //If the client is connected disconnect
             if (client.Connected)
             {
+                //Assigned events should be removed
                 client.Disconnect();
             }
 
