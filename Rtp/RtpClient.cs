@@ -827,6 +827,7 @@ namespace Media.Rtp
         /// <param name="existing">The existing Tcp Socket</param>
         RtpClient(Socket existing) : this()
         {
+            m_RemoteAddress = ((IPEndPoint)existing.RemoteEndPoint).Address;
             m_SocketOwner = false;
             m_TransportProtocol = existing.ProtocolType;
         }
