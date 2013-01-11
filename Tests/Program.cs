@@ -124,38 +124,54 @@ namespace Media
 
         static void TestRtspClient()
         {
-            //Udp working from this source (might need to work on RELOAD)
+            //Make a client
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
         Start:
+            //Assign some events
             client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
             client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
             client.OnResponse += (sender, response) => { Console.WriteLine("Client got response :" + response.StatusCode); };
-            client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected From :" + client.Location); };
+            client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected from :" + client.Location); };
             try
             {
+                //Try to StartListening
                 client.StartListening();
             }
             catch(Exception ex)
             {
                 Console.BackgroundColor = ConsoleColor.Red;
-                Console.WriteLine("Uh Oh: " + ex.Message);
+                Console.WriteLine("Was unable to StartListening: " + ex.Message);
                 Console.BackgroundColor = ConsoleColor.Black;
             }
+
+            //Add some more events once Listening
             client.Client.RtpPacketReceieved += (sender, rtpPacket) => { Console.WriteLine("Got a RTP packet, SequenceNo = " + rtpPacket.SequenceNumber + " Channel = " + rtpPacket.Channel + " PayloadType = " + rtpPacket.PayloadType + " Length = " + rtpPacket.Length); };
             client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.BackgroundColor = ConsoleColor.Blue; Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); Console.BackgroundColor = ConsoleColor.Black; };
-            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Created=" + rtcpPacket.Created + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
+            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); };
+            client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.BackgroundColor = ConsoleColor.Green; Console.WriteLine("Sent a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Data)); Console.BackgroundColor = ConsoleColor.Black; };
+
 
             Console.WriteLine("Waiting for packets... Press Q to exit");
+            
             //Ensure we recieve a bunch of packets before we say the test is good
-            while (Console.ReadKey().Key != ConsoleKey.Q) { }
+            while (Console.ReadKey().Key != ConsoleKey.Q)
 
+            //All done
             Console.WriteLine("Exiting RtspClient Test");
+
             try
             {
-                var one = client.SendOptions();
-                var two = client.SendOptions();
-                Console.WriteLine(string.Join(" ", one.GetHeaders()));
-                Console.WriteLine(string.Join(" ", two.GetHeaders()));
+                if (client.Connected)
+                {
+                    //Send a few requests if we are connected just because
+                    var one = client.SendOptions();
+                    var two = client.SendOptions();
+                    Console.BackgroundColor = ConsoleColor.Green;
+                    Console.WriteLine("Sending Options Success");
+                    Console.WriteLine(string.Join(" ", one.GetHeaders()));
+                    Console.WriteLine(string.Join(" ", two.GetHeaders()));
+                    Console.BackgroundColor = ConsoleColor.Black;
+                }
             }
             catch
             {
@@ -166,10 +182,16 @@ namespace Media
             
             //Print information before disconnecting
 
+            Console.BackgroundColor = ConsoleColor.Green;
+
             Console.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
             Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
             Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
             Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+
+            Console.BackgroundColor = ConsoleColor.Black;
+            
+            //If the client is connected disconnect
             if (client.Connected)
             {
                 client.Disconnect();

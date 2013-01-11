@@ -109,14 +109,22 @@ namespace Media.Rtsp
 
         public static byte[] ToHttpBytes(RtspMessage message, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
         {
+
+            if (message.MessageType == RtspMessageType.Invalid) return null;
+
+            //Our result in a List
+            List<byte> result = new List<byte>();
+
+            //Our RtspMessage base64 encoded
+            byte[] messageBytes;
+
+            //Either a RtspRequest or a RtspResponse
             if (message is RtspRequest)
             {
                 RtspRequest request = message as RtspRequest;
 
                 //Get the body of the HttpRequest
-                byte[] messageBytes = request.Encoding.GetBytes(System.Convert.ToBase64String(request.ToBytes()));
-
-                List<byte> result = new List<byte>();
+                messageBytes = request.Encoding.GetBytes(System.Convert.ToBase64String(request.ToBytes()));
                 
                 //Form the HttpRequest
                 result.AddRange(request.Encoding.GetBytes("GET " + request.Location + " HTTP 1." + minorVersion.ToString() + CRLF));
@@ -133,17 +141,13 @@ namespace Media.Rtsp
                 result.AddRange(request.Encoding.GetBytes(CRLF + CRLF));
 
                 result.AddRange(messageBytes);
-
-                return result.ToArray();
             }
             else
             {
                 RtspResponse response = message as RtspResponse;
 
                 //Get the body of the HttpResponse
-                byte[] messageBytes = messageBytes = response.Encoding.GetBytes(System.Convert.ToBase64String(response.ToBytes()));
-
-                List<byte> result = new List<byte>();
+                messageBytes = response.Encoding.GetBytes(System.Convert.ToBase64String(response.ToBytes()));
 
                 //Form the HttpResponse
                 result.AddRange(response.Encoding.GetBytes("HTTP/1." + minorVersion.ToString() + " " + (int)statusCode + " " + statusCode + CRLF));
@@ -155,9 +159,9 @@ namespace Media.Rtsp
                 result.AddRange(response.Encoding.GetBytes(CRLF + CRLF));
 
                 result.AddRange(messageBytes);
-
-                return result.ToArray();
             }
+
+            return result.ToArray();
         }
 
         public static RtspMessage FromHttpBytes(byte[] message, int offset, Encoding encoding = null)
