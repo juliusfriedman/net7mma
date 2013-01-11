@@ -66,13 +66,13 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        internal RtspSourceStream(string name, Uri sourceLocation) 
+        internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? protocolType = null) 
             : base(name, sourceLocation)
         {
             //Create the listener
             if (IsParent)
             {
-                Client = new RtspClient(m_Source);
+                Client = new RtspClient(m_Source, protocolType);
             }
         }
 
@@ -81,8 +81,8 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspSourceStream(string name, string sourceLocation) 
-            : this(name, new Uri(sourceLocation)) { }
+        public RtspSourceStream(string name, string sourceLocation, Rtsp.RtspClient.ClientProtocolType? protocolType = null)
+            : this(name, new Uri(sourceLocation), protocolType) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer

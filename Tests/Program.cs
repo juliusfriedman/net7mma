@@ -295,14 +295,13 @@ a=mpeg4-esid:101");
         /// </summary>
         static void TestServer()
         {
+            //Setup a RtspServer on port 554
             Rtsp.RtspServer server = new Rtsp.RtspServer();
 
-            //Create a stream which will be exposed under the name Uri rtsp://localhost/live/RtspSourceTest
-            //Here are some example Rtsp Sources
-            //rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov
+            //The server will take in RtspSourceStreams and make them available locally
 
-            //H264 Stream Udp
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://fms.zulu.mk/zulu/a2_1");
+            //H264 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://fms.zulu.mk/zulu/a2_1", Rtsp.RtspClient.ClientProtocolType.Tcp);
             
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
@@ -310,14 +309,13 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            //MPEG4 Stream -> Tcp
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://178.218.212.102:1935/live/Stream1"));
+            //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT
+            //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Gamma through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov"));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT
-            //Responding with 500 Internal Server Error for Setup / Play on TCP and UDP gets 400 Bad Request?
+            //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
 
             //Start the server
