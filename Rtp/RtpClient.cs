@@ -91,12 +91,12 @@ namespace Media.Rtp
             public int SequenceNumber { get; internal set; }
 
             /// <summary>
-            /// The RtpTimestamp from the last SendersReport recieved on this channel or otherwise calculated
+            /// The RtpTimestamp from the last SendersReport recieved or created;
             /// </summary>
             public uint RtpTimestamp { get; internal set; }
 
             /// <summary>
-            /// The NtpTimestamp from the last SendersReport recieved on this channel or otherwise calculated
+            /// The NtpTimestamp from the last SendersReport recieved or created
             /// </summary>
             public ulong NtpTimestamp { get; internal set; }
 
@@ -501,6 +501,9 @@ namespace Media.Rtp
                 {
                     interleave.SynchronizationSourceIdentifier = interleave.SendersReport.SynchronizationSourceIdentifier;
                 }
+
+                interleave.NtpTimestamp = interleave.SendersReport.RtpTimestamp;
+                interleave.RtpTimestamp = interleave.SendersReport.RtpTimestamp;
 
                 //Create a corresponding RecieversReport
                 interleave.RecieversReport = CreateReceiversReport(interleave);

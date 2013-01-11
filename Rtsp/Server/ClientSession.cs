@@ -130,7 +130,7 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(RtpClient stream, RtcpPacket packet)
         {
-            //On the first availabel thread
+            //On the first available thread
             ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
             {
                 //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
@@ -141,15 +141,14 @@ namespace Media.Rtsp
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
                 {
                     //The source stream recieved a senders report                
-                    //Update the RtpTimestamp for our clients also
-                    var sr = new SendersReport(packet);
-                    var il = m_RtpClient.GetInterleaveForPacket(packet);
-                    il.NtpTimestamp = sr.NtpTimestamp;
-                    il.RtpTimestamp = sr.RtpTimestamp;                    
-                }
-                else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
-                {
-                    //The source stream recieved a recievers report                
+                    //Update the RtpTimestamp and NtpTimestamp for our clients also
+                    SendersReport sr = new SendersReport(packet);
+                    RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
+                    if (interleave != null)
+                    {
+                        interleave.NtpTimestamp = sr.NtpTimestamp;
+                        interleave.RtpTimestamp = sr.RtpTimestamp;
+                    }
                 }
             }));
         }
@@ -257,12 +256,17 @@ namespace Media.Rtsp
             if (interleave.SynchronizationSourceIdentifier == 0)
             {
                 // Guaranteed to be unique per session
-                interleave.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks ^ (interleave.DataChannel | interleave.ControlChannel));
+                // Does not follow RFC Genenation guidelines but is more performant and just as unique
+                interleave.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & interleave.RtpSocket.Handle.ToInt64() ^ (interleave.DataChannel | interleave.ControlChannel));
+                //Create a Senders Report
+                interleave.SendersReport = m_RtpClient.CreateSendersReport(interleave, false);
             }
-
-            //Create a Senders Report
-            interleave.SendersReport = m_RtpClient.CreateSendersReport(interleave, false);
-
+            else
+            {
+                //Create a Senders Report with blocks
+                interleave.SendersReport = m_RtpClient.CreateSendersReport(interleave);
+            }
+            
             //Send the packet and update the time it was sent
             m_RtpClient.SendRtcpPacket(interleave.SendersReport.ToPacket());
             interleave.SendersReport.Sent = DateTime.UtcNow;            
