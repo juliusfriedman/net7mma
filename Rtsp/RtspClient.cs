@@ -267,7 +267,6 @@ namespace Media.Rtsp
             OnResponse -= RtspClient_OnResponse;
             OnDisconnect -= RtspClient_OnDisconnect;
             StopListening();
-            if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
         }
 
         #endregion
@@ -445,7 +444,11 @@ namespace Media.Rtsp
             try
             {
                 //Get rid of the timer
-                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
+                if (m_KeepAliveTimer != null)
+                {
+                    m_KeepAliveTimer.Dispose();
+                    m_KeepAliveTimer = null;
+                }
 
                 //Determine if we need to do anything
                 if (Listening && !string.IsNullOrWhiteSpace(m_SessionId))
@@ -891,17 +894,20 @@ namespace Media.Rtsp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
                         if (channels.Length > 1)
                         {
-                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription);
+                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription, m_RtspSocket);
                             interleave.RtcpEnabled = !rtcpDisabled;
                             try
                             {
+                                //try to add the interleave
                                 m_RtpClient.AddInterleave(interleave);
+                                
+                                //and initialize the client from the RtspSocket
+                                interleave.InitializeSockets(m_RtspSocket);
                             }
                             catch
                             {
                                 throw new RtspClientException("Server responded with alreadyd in use channel: " + transportHeader);
                             }
-                            m_RtpClient.InitializeFrom(m_RtspSocket);
                         }
                         else
                         {
@@ -985,7 +991,8 @@ namespace Media.Rtsp
             {
                 //Reconnect without losing the events on the RtpClient
                 m_RtpProtocol = ProtocolType.Tcp;
-                m_RtpClient.InitializeFrom(m_RtspSocket);
+                Client.m_SocketOwner = false;
+                Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
                 //Clear existing interleaves
                 m_RtpClient.Interleaves.Clear();
@@ -1002,8 +1009,8 @@ namespace Media.Rtsp
             if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpBytesReceieved <= 0) //m_RtpClient.Interleaves.All(i => i.RtpBytesRecieved >= 0))
             {
                 //Reconnect without losing the events on the RtpClient
-                m_RtpProtocol = ProtocolType.Tcp;
-                m_RtpClient.InitializeFrom(m_RtspSocket);
+                Client.m_SocketOwner = false;
+                Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
                 //Disconnect to allow the server to reset state
                 Disconnect();

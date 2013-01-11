@@ -148,6 +148,12 @@ namespace Media.Rtp
                 MediaDescription = mediaDescription;
             }
 
+            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, Socket socket)
+                : this(dataChannel, controlChannel, ssrc, mediaDescription)
+            {
+                RtpSocket = RtcpSocket = socket;
+            }
+
             /// <summary>
             /// Calculates RTP Interarrival Jitter as specified in RFC 3550 6.4.1.
             /// </summary>
@@ -246,9 +252,21 @@ namespace Media.Rtp
                 return true;
             }
 
-            //Accept a ProtocolType so Tcp can use this too? Then name Connect?
+            /// <summary>
+            /// Creates the required sockets for the Interleave and updates the associatd Properties and Fields
+            /// </summary>
+            /// <param name="localIp"></param>
+            /// <param name="remoteIp"></param>
+            /// <param name="localRtpPort"></param>
+            /// <param name="localRtcpPort"></param>
+            /// <param name="remoteRtpPort"></param>
+            /// <param name="remoteRtcpPort"></param>
             internal void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort)
             {
+                
+                GoodbyeRecieved = GoodbyeSent = false;
+                RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
+
                 try
                 {
                     //Setup the RtpSocket
@@ -308,7 +326,20 @@ namespace Media.Rtp
                 }                         
             }
 
-            //Rename Close?
+            /// <summary>
+            /// Uses the given socket for the Interleave and updates the associatd Properties and Fields
+            /// </summary>
+            /// <param name="socket">The socket to use</param>
+            internal void InitializeSockets(Socket socket)
+            {
+                GoodbyeRecieved = GoodbyeSent = false;
+                RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
+                RemoteRtcp = RemoteRtp = ((IPEndPoint)socket.RemoteEndPoint);
+                LocalRtcp = LocalRtp = ((IPEndPoint)socket.LocalEndPoint);
+                ServerRtcpPort = ServerRtpPort = RemoteRtp.Port;
+                RtpSocket = RtcpSocket = socket;
+            }
+
             internal void CloseSockets()
             {
                 //We don't close tcp sockets and if we are a Tcp socket the Rtcp and Rtp Socket are the same
@@ -753,6 +784,8 @@ namespace Media.Rtp
 
         public bool Connected { get { return m_WorkerThread != null; } }
 
+        //public IPAddress RemoteAddress { get { return m_RemoteAddress; } }
+
         //public bool RtcpEnabled { get { return Interleaves.All(i => i.RtcpEnabled); } set { Interleaves.All(i => i.RtcpEnabled = value); } }
 
         #endregion
@@ -774,12 +807,12 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Creates a RtpClient Sender or Reciever
+        /// Creates a RtpClient Sender or Reciever using Udp
         /// </summary>
         /// <param name="address">The remote address</param>
         /// <param name="rtpPort">The rtp port</param>
         /// <param name="rtcpPort">The rtcp port</param>
-        internal RtpClient(IPAddress address)
+        RtpClient(IPAddress address)
             :this()
         {
 
@@ -794,10 +827,11 @@ namespace Media.Rtp
         /// <param name="existing">The existing Tcp Socket</param>
         RtpClient(Socket existing) : this()
         {
-            InitializeFrom(existing);
+            m_SocketOwner = false;
+            m_TransportProtocol = existing.ProtocolType;
         }
 
-        //Calls disconnect and removes listeners
+        //Removes listeners
         ~RtpClient()
         {
             RtpPacketReceieved -= new RtpPacketHandler(RtpClient_RtpPacketReceieved);
@@ -812,16 +846,16 @@ namespace Media.Rtp
 
         #region Methods
 
-        #region Rtcp
-
         internal void AddInterleave(Interleave interleave)
         {
             lock (Interleaves)
             {
-                if (Interleaves.Any(i => i.DataChannel == interleave.DataChannel || i.ControlChannel == interleave.ControlChannel)) throw new RtpClientException("ChannelId " + interleave.DataChannel + " is already in use");                
+                if (Interleaves.Any(i => i.DataChannel == interleave.DataChannel || i.ControlChannel == interleave.ControlChannel)) throw new RtpClientException("ChannelId " + interleave.DataChannel + " is already in use");
                 Interleaves.Add(interleave);
             }
         }
+
+        #region Rtcp
 
         /// <summary>
         /// Sends a Goodbye to for all interleaves
@@ -1088,6 +1122,11 @@ namespace Media.Rtp
 
         #region Rtp
 
+        internal Interleave GetInterleaveForPacket(RtpPacket packet)
+        {
+            return Interleaves.Where(cd => cd.MediaDescription.MediaFormat == packet.PayloadType).FirstOrDefault();
+        }
+
         /// <summary>
         /// Adds a packet to the queue of outgoing RtpPackets
         /// </summary>
@@ -1148,27 +1187,7 @@ namespace Media.Rtp
 
         #endregion
 
-        internal Interleave GetInterleaveForPacket(RtpPacket packet)
-        {
-            return Interleaves.Where(cd => cd.MediaDescription.MediaFormat == packet.PayloadType).FirstOrDefault();
-        }
-
         #region Socket
-
-        internal void InitializeFrom(Socket socket)
-        {
-            m_SocketOwner = false; 
-            m_TransportProtocol = socket.ProtocolType;
-            Interleaves.ForEach(i =>
-            {
-                i.GoodbyeRecieved = i.GoodbyeSent = false;
-                i.RtpBytesRecieved = i.RtpBytesSent = i.RtcpBytesRecieved = i.RtcpBytesSent = 0;
-                i.RemoteRtcp = i.RemoteRtp = ((IPEndPoint)socket.RemoteEndPoint);
-                i.LocalRtcp = i.LocalRtp = ((IPEndPoint)socket.LocalEndPoint);
-                i.ServerRtcpPort = i.ServerRtpPort = i.RemoteRtp.Port;
-                i.RtpSocket = i.RtcpSocket = socket;
-            });
-        }
 
         /// <summary>
         /// Binds and Connects the required sockets
@@ -1224,7 +1243,6 @@ namespace Media.Rtp
             m_OutgoingRtpPackets.Clear();
             m_OutgoingRtcpPackets.Clear();
         }
-
 
         /// <summary>
         /// Recieved data on a given channel
@@ -1361,7 +1379,6 @@ namespace Media.Rtp
             }
         }
 
-
         /// <summary>
         /// Sends the given data on the given channel
         /// </summary>
@@ -1375,24 +1392,6 @@ namespace Media.Rtp
             if (data == null || socket == null) return sent;
             try
             {
-
-                //RtpClient.Interleave interleave = null;
-                //Socket socket = null;
-                //Interleaves.ForEach(i =>
-                //{
-                //    if (interleave != null) return;
-                //    else if (i.ControlChannel == channel)
-                //    {
-                //        interleave = i;
-                //        socket = i.RtcpSocket;
-                //    }
-                //    else if (i.DataChannel == channel)
-                //    {
-                //        interleave = i;
-                //        socket = i.RtpSocket;
-                //    }
-                //});
-
                 //Under Udp we can send the packet verbatim
                 if (socket.ProtocolType == ProtocolType.Udp)
                 {

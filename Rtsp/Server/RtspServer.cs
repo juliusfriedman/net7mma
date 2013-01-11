@@ -1356,17 +1356,20 @@ namespace Media.Rtsp
                 }
                 else if(ci.m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//Could be switching...
                 {
-                    ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
+                    ci.m_RtpClient.m_SocketOwner = false;
+                    ci.m_RtpClient.m_TransportProtocol = ProtocolType.Tcp;
                 }
-                
+
                 //Create a new Interleave
-                var interleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription);
-                
+                RtpClient.Interleave interleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, ci.m_RtspSocket);
 
                 try
                 {
                     //Try to add the interleave the client requested
                     ci.m_RtpClient.AddInterleave(interleave);
+                    
+                    //Initialize the Interleaved Socket
+                    interleave.InitializeSockets(ci.m_RtspSocket);
                 }
                 catch
                 {
@@ -1374,9 +1377,6 @@ namespace Media.Rtsp
                     ProcessInvalidRtspRequest(ci);
                     return;
                 }
-
-                //Initialize the Interleaved Socket
-                ci.m_RtpClient.InitializeFrom(ci.m_RtspSocket);
 
                 returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + interleave.DataChannel + '-' + interleave.ControlChannel;
             }
