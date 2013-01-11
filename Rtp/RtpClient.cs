@@ -37,14 +37,14 @@ namespace Media.Rtp
             return new RtpClient(existing);
         }
 
-        public static RtpClient Sender(IPAddress remoteAddress, int rtpPort, int rtcpPort)
+        public static RtpClient Sender(IPAddress remoteAddress)
         {
-            return new RtpClient(remoteAddress, rtpPort, rtcpPort);
+            return new RtpClient(remoteAddress);
         }
 
-        public static RtpClient Receiever(IPAddress remoteAddress, int rtpPort, int rtcpPort)
+        public static RtpClient Receiever(IPAddress remoteAddress)
         {
-            return new RtpClient(remoteAddress, rtpPort, rtcpPort, true);
+            return new RtpClient(remoteAddress);
         }
 
         #endregion
@@ -61,7 +61,7 @@ namespace Media.Rtp
         internal class Interleave
         {
             //The id of the channel 0 - 255
-            internal readonly byte DataChannel, ControlChannel;
+            public readonly byte DataChannel, ControlChannel;
 
             //The ssrc packets are sent out with under this channel
             public uint SynchronizationSourceIdentifier { get; internal set; }
@@ -69,21 +69,36 @@ namespace Media.Rtp
             //Any frames for this channel
             internal volatile RtpFrame CurrentFrame, LastFrame;
 
-            //Allow for mapping from source to sink allows to see what type of media and format it expects on a given channel
+            /// <summary>
+            /// MediaDescription which contains information about the type of Media on the Interleave
+            /// </summary>
             public Sdp.MediaDescription MediaDescription { get; protected set; }            
 
             internal Socket RtpSocket, RtcpSocket;
 
             //Is Rtcp Enabled on this Interleave (when false will not send / recieve reports)
-            internal bool RtcpEnabled = true;
+            public bool RtcpEnabled = true;
             
+            //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;
+
+            //The EndPoints connected to (once connected don't need the Ports)
             internal IPEndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
 
-            //Better then accessing the frame
-            internal int SequenceNumber; 
-            internal uint RtpTimestamp;
-            internal ulong NtpTimestamp;
+            /// <summary>
+            /// The sequence number of the last RtpPacket sent or recieved on this channel
+            /// </summary>
+            public int SequenceNumber { get; internal set; }
+
+            /// <summary>
+            /// The RtpTimestamp from the last SendersReport recieved on this channel or otherwise calculated
+            /// </summary>
+            public uint RtpTimestamp { get; internal set; }
+
+            /// <summary>
+            /// The NtpTimestamp from the last SendersReport recieved on this channel or otherwise calculated
+            /// </summary>
+            public ulong NtpTimestamp { get; internal set; }
 
             //bytes and packet counters
             internal int RtpBytesSent, RtpBytesRecieved,
@@ -111,22 +126,24 @@ namespace Media.Rtp
                 RtpJitter;
 
             //Reports
-            internal ReceiversReport RecieversReport;
-            internal SendersReport SendersReport;
-            internal SourceDescription SourceDescription;
+            public ReceiversReport RecieversReport { get; internal set; }
+            public SendersReport SendersReport { get; internal set; }
+            public SourceDescription SourceDescription { get; internal set; }
 
-            internal bool GoodbyeSent, GoodbyeRecieved;
+            //Indicates if we sent or recieved a Goodbye
+            public bool GoodbyeSent{ get; internal set; }
+            public bool GoodbyeRecieved { get; internal set; }
 
-            internal Interleave(byte rtp, byte rtcp, uint ssrc)
+            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc)
             {
-                DataChannel = rtp;
-                ControlChannel = rtcp;
+                DataChannel = dataChannel;
+                ControlChannel = controlChannel;
                 //if they both are the same then this could mean duplexing
                 SynchronizationSourceIdentifier = ssrc;
             }
 
-            internal Interleave(byte rtp, byte rtcp, uint ssrc, Sdp.MediaDescription mediaDescription)
-                :this(rtp, rtcp, ssrc)
+            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription)
+                : this(dataChannel, controlChannel, ssrc)
             {
                 MediaDescription = mediaDescription;
             }
@@ -229,6 +246,7 @@ namespace Media.Rtp
                 return true;
             }
 
+            //Accept a ProtocolType so Tcp can use this too? Then name Connect?
             internal void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort)
             {
                 try
@@ -290,19 +308,20 @@ namespace Media.Rtp
                 }                         
             }
 
+            //Rename Close?
             internal void CloseSockets()
             {
-                //We don't close tcp sockets
+                //We don't close tcp sockets and if we are a Tcp socket the Rtcp and Rtp Socket are the same
                 if (RtpSocket == null || RtcpSocket.ProtocolType == ProtocolType.Tcp) return;
 
-                //for Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
+                //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
                 if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && (int)RtcpSocket.Handle != -1)
                 {
                     RtcpSocket.Dispose();
                     RtcpSocket = null;
                 }
 
-                //Close the RtpSocket if not Tcp
+                //Close the RtpSocket
                 if (RtpSocket != null && (int)RtpSocket.Handle != -1)
                 {
                     RtpSocket.Dispose();
@@ -716,7 +735,7 @@ namespace Media.Rtp
         /// <param name="address">The remote address</param>
         /// <param name="rtpPort">The rtp port</param>
         /// <param name="rtcpPort">The rtcp port</param>
-        internal RtpClient(IPAddress address, int rtpPort, int rtcpPort, bool recevier = false, int serverRtp = -1, int serverRtcp = -1)
+        internal RtpClient(IPAddress address)
             :this()
         {
 
