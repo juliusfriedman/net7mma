@@ -211,26 +211,50 @@ namespace Media.Rtsp
         {
             if (m_HttpListner == null)
             {
-                m_HttpListner = new HttpListener();
-                m_HttpPort = port;
-                m_HttpListner.Prefixes.Add("http://*:"+port+"/");
-                m_HttpListner.Start();                
-                m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
+                try
+                {
+                    m_HttpListner = new HttpListener();
+                    m_HttpPort = port;
+                    m_HttpListner.Prefixes.Add("http://*:" + port + "/");
+                    m_HttpListner.Start();
+                    m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
+                }
+                catch (Exception ex)
+                {
+                    throw new RtspServerException("Error Enabling Http on Port '" + port + "' : " + ex.Message, ex);
+                }
             }
         }
 
         int m_UdpPort = -1;
-        public void EnableUdp(int port = 554) 
+        public void EnableUdp(int port = 555, bool ipV6 = false) 
         {
             if (m_UdpServerSocket != null)
             {
-                m_UdpPort = port;
-                //(Should allow InterNetworkV6)
-                m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
-                ClientSession temp = new ClientSession(this, null);
-                temp.m_RtspSocket = m_UdpServerSocket;
-                m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+                try
+                {
+                    m_UdpPort = port;
+                    if (ipV6)
+                    {
+                        m_UdpServerSocket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                        m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetFirstIPAddress(AddressFamily.InterNetworkV6), port));
+                    }
+                    else
+                    {
+                        m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                        m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
+                    }
+                    //They will recieve on the Udp Server Socket first
+                    {
+                        ClientSession temp = new ClientSession(this, null);
+                        temp.m_RtspSocket = m_UdpServerSocket;
+                        m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+                    }
+                }
+                catch(Exception ex)
+                {
+                    throw new RtspServerException("Error Enabling Udp on Port '" + port + "' : " + ex.Message, ex);
+                }
             }
         }
 
@@ -664,10 +688,12 @@ namespace Media.Rtsp
         {
             //Get the client information
             ClientSession session = (ClientSession)ar.AsyncState;
+            if (session == null) return;
             int received = 0;
             RtspRequest request = null;
             try
             {
+                //If we are Tcp we can just end the recieve
                 if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)                
                 {
                     received = session.m_RtspSocket.EndReceive(ar);
@@ -677,22 +703,29 @@ namespace Media.Rtsp
                     //If this is the inital receive
                     if (m_UdpServerSocket.Handle == session.m_RtspSocket.Handle)
                     {
+                        //End it
                         received = m_UdpServerSocket.EndReceive(ar);
 
-                        ClientSession temp = new ClientSession(this, null);
-                        m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+                        //Start recieving on the Udp Socket again
+                        {
+                            ClientSession temp = new ClientSession(this, m_UdpServerSocket);
+                            m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
+                        }
 
-                        //Might need plumbing to store endpoints for sessions
-                        //I guess this would be concidered interleaved Udp if the ports were the same luckily for Rtsp on Udp they use seperate ports for the Rtp and Rtsp so no framing...
                         IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
+                        
+                        //Easier then Creating the socket and calling Bind :)
                         session.m_Udp = new UdpClient();
                         session.m_Udp.Connect(remote);
+
+                        //Ensure the socket is assigned from the client
                         session.m_RtspSocket = session.m_Udp.Client;
                     }
                     else //This is a repeated recieve
                     {
                         IPEndPoint remote = null;
                         session.m_Buffer = session.m_Udp.EndReceive(ar, ref remote);
+                        //remote.Address should match 
                         received = session.m_Buffer.Length;
                     }
                 }
@@ -703,6 +736,9 @@ namespace Media.Rtsp
 
                     //Parse the request to determine if there is actually an existing session before proceeding
                     request = new RtspRequest(session.m_Buffer);
+
+                    //Log it
+                    if (Logger != null) Logger.LogRequest(request, session);
 
                     //If there is a Session Header
                     if (request.ContainsHeader(RtspHeaders.Session))
@@ -727,7 +763,7 @@ namespace Media.Rtsp
                         else
                         {
                             ProcessInvalidRtspRequest(session, RtspStatusCode.SessionNotFound);
-                            throw new RtspServerException("Session Not Found");
+                            return;
                         }
                     }
 
@@ -778,24 +814,20 @@ namespace Media.Rtsp
                 if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                 {
                     //If the client is interleaving
-                    if (ci.m_RtpClient != null && ci.m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
+                    if (ci.m_RtpClient != null && ci.m_RtpClient.m_TransportProtocol == ProtocolType.Tcp)
                     {
-                        //The client is interleaving
-                        //We will need to share the socket
-                        System.Diagnostics.Debugger.Break();
-
                         //The request is in the buffer 
                         ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);
-
                     }
-                    else
+                    else //The client is not interleaving
                     {
-                        // If the client is not interleaving we can recieve again
+                        // We can recieve again
                         ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
                     }
                 }
-                else
+                else //Rtsp Udp Client
                 {
+                    //Use the Udp Client for the Session (might make just use Sockets eventually)
                     ci.m_Udp.BeginReceive(new AsyncCallback(ProcessReceive), ci);
                 }
             }
@@ -922,11 +954,8 @@ namespace Media.Rtsp
         /// <param name="session">The client information</param>
         internal void ProcessRtspRequest(RtspRequest request, ClientSession session)
         {
-            //Log Request
-            if (Logger != null) Logger.LogRequest(request, session);
-
-            //Ensure we have a session
-            if (session == null)
+            //Ensure we have a session and request
+            if (request == null || session == null)
             {
                 //We can't identify the session                
                 return;
