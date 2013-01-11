@@ -462,6 +462,8 @@ namespace Media.Sdp
     /// </summary>
     public class SessionDescriptionLine
     {
+        static char[] ValueSplit = new char[] { ';' };
+
         public readonly char Type;
         
         protected List<string> m_Parts;
@@ -500,7 +502,7 @@ namespace Media.Sdp
             //a=<flag>
             //a=<name>:<value> where value = {...,...,...;x;y;z}
 
-            m_Parts = new List<string>(line.Remove(0, 2)/*.Replace("\"", string.Empty)*/.Split(new char[] { ';' }));
+            m_Parts = new List<string>(line.Remove(0, 2)/*.Replace("\"", string.Empty)*/.Split(ValueSplit));
         }
 
         /// <summary>

@@ -228,6 +228,17 @@ namespace Media.Rtsp
             m_SessionDescription.SessionName = sessionName;
             m_SessionDescription.OriginatorAndSessionIdentifier = originatorString;
 
+            //As noted in [RTP3550], the use of RTP without RTCP is strongly discouraged.            
+            if (stream.DisableRtcp)
+            {
+                //However, if a sender does not wish to send RTCP packets in a media session, the sender MUST add the lines "b=RS:0" AND "b=RR:0" to the media description (from [RFC3556]).
+                foreach (Sdp.MediaDescription md in m_SessionDescription.MediaDescriptions)
+                {
+                    md.Add(new Sdp.SessionDescriptionLine("b=RS:0"));
+                    md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
+                }
+            }
+
             SessionId = sessionId;
             //m_SDPVersion = sessionVersion; //Should be retrieved from  OriginatorAndSessionIdentifier after setting?
         }

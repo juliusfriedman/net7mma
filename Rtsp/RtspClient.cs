@@ -385,6 +385,18 @@ namespace Media.Rtsp
                     SendPlay();
                 }
 
+                //Check to see if we should disable Rtcp based on the media description
+                foreach (Sdp.MediaDescription md in m_SessionDescription.MediaDescriptions)
+                {
+                    //If there is a Bandwidth line with RR:0 and RS:0
+                    var rtcpLines = md.Lines.Where(l=> l.Type =='b' && l.Parts.Any(p=>p.Contains("RR") || p.Contains("RS")));
+                    if(rtcpLines != null && rtcpLines.Count() == 2)
+                    {
+                        //Disable Rtcp on related interleave
+                        m_RtpClient.Interleaves.Where (i=>i.MediaDescription.MediaFormat == md.MediaFormat).First().RtcpEnabled = false;
+                    }
+                }
+
             }
             catch
             {
