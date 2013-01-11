@@ -72,9 +72,10 @@ namespace Media.Rtp
             //Allow for mapping from source to sink allows to see what type of media and format it expects on a given channel
             public Sdp.MediaDescription MediaDescription { get; protected set; }            
 
-            ////I THINK THE PORTS ARE THE REASON FOR THE VIDEO / AUDIO NOT COMING OUT RIGHT
-            //I am using this to test if that is the case
             internal Socket RtpSocket, RtcpSocket;
+
+            //Is Rtcp Enabled on this Interleave (when false will not send / recieve reports)
+            internal bool RtcpEnabled = true;
             
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;
             internal IPEndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
@@ -245,7 +246,7 @@ namespace Media.Rtp
                     {
                         RtcpSocket = RtpSocket;
                     }
-                    else
+                    else if(RtcpEnabled)
                     {
 
                         //Setup the RtcpSocket
@@ -271,11 +272,16 @@ namespace Media.Rtp
                         RtpSocket.SendTo(wakeup, RemoteRtp);
                     }
                     catch (SocketException) { }
-                    try
+
+                    //Only for Rtcp if enabled
+                    if (RtcpEnabled)
                     {
-                        RtcpSocket.SendTo(wakeup, RemoteRtcp);
+                        try
+                        {
+                            RtcpSocket.SendTo(wakeup, RemoteRtcp);
+                        }
+                        catch (SocketException) { }
                     }
-                    catch (SocketException) { }       
 
                 }
                 catch
@@ -426,7 +432,8 @@ namespace Media.Rtp
             
             Interleave interleave = GetInterleaveForPacket(packet);
             
-            if (interleave == null) return;
+            //If there is no coresponding interleave or Rtcp is not enabled then return
+            if (interleave == null || !interleave.RtcpEnabled) return;
             
             //Increment the counters for the interleave
             ++interleave.RtcpPacketsReceieved;
@@ -683,6 +690,10 @@ namespace Media.Rtp
 
         public int TotalRtcpBytesReceieved { get { return Interleaves.Sum(i => i.RtcpBytesRecieved); } }
 
+        public int? InactivityTimeoutSeconds { get; set; }
+
+        //public bool RtcpEnabled { get { return Interleaves.All(i => i.RtcpEnabled); } set { Interleaves.All(i => i.RtcpEnabled = value); } }
+
         #endregion
 
         #region Constructor
@@ -692,6 +703,7 @@ namespace Media.Rtp
         /// </summary>
         RtpClient()
         {
+            InactivityTimeoutSeconds = 15;
             RtpPacketReceieved += new RtpPacketHandler(RtpClient_RtpPacketReceieved);
             RtcpPacketReceieved += new RtcpPacketHandler(RtpClient_RtcpPacketReceieved);
             RtpFrameChanged += new RtpFrameHandler(RtpClient_RtpFrameChanged);
@@ -741,7 +753,7 @@ namespace Media.Rtp
         {
             lock (Interleaves)
             {
-                if (Interleaves.Any(i => i.DataChannel == interleave.DataChannel || i.ControlChannel == interleave.ControlChannel)) throw new RtpClientException("ChannelId " + interleave.DataChannel + " is already in use");
+                if (Interleaves.Any(i => i.DataChannel == interleave.DataChannel || i.ControlChannel == interleave.ControlChannel)) throw new RtpClientException("ChannelId " + interleave.DataChannel + " is already in use");                
                 Interleaves.Add(interleave);
             }
         }
@@ -770,32 +782,6 @@ namespace Media.Rtp
                 i.GoodbyeSent = i.GoodbyeRecieved = true;
             }
         }
-
-        /*
-         u_int32_t RTPSink::convertToRTPTimestamp(struct timeval tv) {
-          // Begin by converting from "struct timeval" units to RTP timestamp units:
-          u_int32_t timestampIncrement = (fTimestampFrequency*tv.tv_sec);
-          timestampIncrement += (u_int32_t)((2.0*fTimestampFrequency*tv.tv_usec + 1000000.0)/2000000);
-               // note: rounding
-
-          // Then add this to our 'timestamp base':
-          if (fNextTimestampHasBeenPreset) {
-            // Make the returned timestamp the same as the current "fTimestampBase",
-            // so that timestamps begin with the value that was previously preset:
-            fTimestampBase -= timestampIncrement;
-            fNextTimestampHasBeenPreset = False;
-          }
-
-          u_int32_t const rtpTimestamp = fTimestampBase + timestampIncrement;
-        #ifdef DEBUG_TIMESTAMPS
-          fprintf(stderr, "fTimestampBase: 0x%08x, tv: %lu.%06ld\n\t=> RTP timestamp: 0x%08x\n",
-	          fTimestampBase, tv.tv_sec, tv.tv_usec, rtpTimestamp);
-          fflush(stderr);
-        #endif
-
-          return rtpTimestamp;
-        }
-         */
 
         internal SendersReport CreateSendersReport(Interleave i, bool includeBlocks = true)
         {
@@ -1396,9 +1382,9 @@ namespace Media.Rtp
                     {
                         lock (m_OutgoingRtpPackets)
                         {
-                            toSend = m_OutgoingRtpPackets.ToArray();//Where(p=>GetInterleaveForPacket(p).RtpSocket != null)
+                            toSend = m_OutgoingRtpPackets.ToArray();//Where(p=>GetInterleaveForPacket(p).RtpSocket != null && i.RtcpEnabled)
                             m_OutgoingRtpPackets.Clear();
-                        }
+                        }                        
                         foreach (RtpPacket p in toSend)
                         {
                             SendRtpPacket(p);
@@ -1430,7 +1416,7 @@ namespace Media.Rtp
                             //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
                         }
 
-                        if ((DateTime.UtcNow - lastTransmit).TotalSeconds > 15)
+                        if (InactivityTimeoutSeconds.HasValue && InactivityTimeoutSeconds > 0 && (DateTime.UtcNow - lastTransmit).TotalSeconds >= InactivityTimeoutSeconds)
                         {
                             Disconnect();
                             break;

@@ -17,6 +17,8 @@ namespace Media.Rtsp.Server.Streams
         {
         }
 
+        public bool DisableRtcp { get; set; }
+
         public abstract Rtp.RtpClient RtpClient { get; }
     }
 
