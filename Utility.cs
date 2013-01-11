@@ -17,24 +17,34 @@ namespace Media
     {
         static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
+            //Only Tcp or Udp :)
+            if (type != ProtocolType.Udp && type != ProtocolType.Tcp) return -1;
+            
             int port = start;
 
+            //Get the IpGlobalProperties
             System.Net.NetworkInformation.IPGlobalProperties ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
 
+            //Can't get any information
             if(ipGlobalProperties == null) return port = -1;
 
+            //We need endpoints to ensure the ports we want are not in use
             IEnumerable<IPEndPoint> listeners = null;
 
+            //Get the endpoints
             if (type == ProtocolType.Udp) listeners = ipGlobalProperties.GetActiveUdpListeners();
-            else listeners = ipGlobalProperties.GetActiveTcpListeners();
+            else if (type == ProtocolType.Tcp) listeners = ipGlobalProperties.GetActiveTcpListeners();            
 
+            //Enumerate the ones that are = or > then port and increase port along the way
             foreach (IPEndPoint ep in listeners.Where(ep => ep.Port >= port))
                 if (ep.Port == port + 1 || port == ep.Port)
                     port++;
 
+            //If we only want even ports and we found an even one return it
             if (even && port % 2 == 0) return port;
-            return ++port;
 
+            //We found an even and we wanted odd
+            return ++port;
         }
 
         /// <summary>
@@ -64,7 +74,7 @@ namespace Media
         /// </summary>
         /// <param name="value">DateTime value to convert. This value must be in local time.</param>
         /// <returns>Returns NTP value.</returns>
-        public static uint DateTimeToNtp32(DateTime value)
+        public static uint DateTimeToNtpTimestamp32(DateTime value)
         {
             /*
                 In some fields where a more compact representation is
@@ -74,7 +84,7 @@ namespace Media
                 independently.
             */
 
-            return (uint)((DateTimeToNtp64(value) >> 16) & 0xFFFFFFFF);
+            return (uint)((DateTimeToNtpTimestamp(value) >> 16) & 0xFFFFFFFF);
         }
 
         /// <summary>
@@ -82,7 +92,7 @@ namespace Media
         /// </summary>
         /// <param name="value">DateTime value to convert. This value must be in local time.</param>
         /// <returns>Returns NTP value.</returns>
-        public static ulong DateTimeToNtp64(DateTime value)
+        public static ulong DateTimeToNtpTimestamp(DateTime value)
         {
             /*
                 Wallclock time (absolute date and time) is represented using the

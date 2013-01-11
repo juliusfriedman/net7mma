@@ -225,6 +225,7 @@ namespace Media.Rtsp
             if (m_UdpServerSocket != null)
             {
                 m_UdpPort = port;
+                //(Should allow InterNetworkV6)
                 m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
                 ClientSession temp = new ClientSession(this, null);
@@ -506,7 +507,7 @@ namespace Media.Rtsp
             ///Create the server EndPoint
             m_ServerEndPoint = new IPEndPoint(IPAddress.Any, m_ServerPort);
 
-            //Create the server Socket
+            //Create the server Socket (Should allow InterNetworkV6)
             m_TcpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             //Bind the server Socket to the server EndPoint

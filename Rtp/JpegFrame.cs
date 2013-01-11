@@ -16,6 +16,10 @@ namespace Media.Rtp
     {
         #region Statics
 
+        public const int MaxWidth = 2048;
+
+        public const int MaxHeight = 4096;
+
         new public const byte PayloadType = 26;
 
         const byte Prefix = 0xff;
@@ -450,16 +454,14 @@ namespace Media.Rtp
                     Type = 63;
                 }
 
+                //used for reading the JPEG data
                 int Tag, TagSize;
-
-                DateTime ts = DateTime.UtcNow;
-                int sequenceNumber = (int)(sequenceNo ?? DateTime.UtcNow.Ticks);
 
                 //The current packet
                 RtpPacket currentPacket = new RtpPacket();
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
-                currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtp64(ts));
-                currentPacket.SequenceNumber = sequenceNumber;
+                currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
+                currentPacket.SequenceNumber = (int)(sequenceNo ?? DateTime.UtcNow.Ticks);
                 currentPacket.PayloadType = JpegFrame.PayloadType;
 
                 //Where we are in the current packet
@@ -469,15 +471,17 @@ namespace Media.Rtp
                 byte[] RtpJpegHeader = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, null);
 
                 //Determine if we need to write OnVif Extension?
-                //if (Width > 2048 || Height > 4096)
-                //{
+                if (Width > MaxWidth || Height > MaxHeight)
+                {
                     //packet.Extensions = true;
-                //}
+
+                    //Write Extension Headers
+                }
 
                 //Ensure at the begining
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
-                //Find a Jpeg Tag
+                //Find a Jpeg Tag while we are not at the end of the stream
                 while ((Tag = temp.ReadByte()) != -1)
                 {                    
                     //If the prefix is a tag prefix then read another byte as the Tag
@@ -558,6 +562,8 @@ namespace Media.Rtp
 #if DEBUG
                         System.Diagnostics.Debug.WriteLine("Writing EntroypEncodedScan Data");
 #endif
+                        //The payloadSize of each packet in the frame
+                        int payloadSize = RtpPacket.MaxPayloadSize;
 
                         //Write a value at a time to the payload
                         while (Tag != -1)
@@ -570,7 +576,6 @@ namespace Media.Rtp
                                 //Erase last byte
                                 currentPacketOffset--;
                                 goto Done;
-                                //Could stop resizing if I just looked at temp.Position - temp.Length - 2 and read that at once
                             }
 
                             //Ensure it will fit
@@ -579,8 +584,14 @@ namespace Media.Rtp
                                 //Add current packet
                                 Add(currentPacket);
 
+                                //So we dont' have to resize later
+                                if (temp.Length - temp.Position < RtpPacket.MaxPayloadSize)
+                                {
+                                    payloadSize = (int)(temp.Length - temp.Position + 8); //8 for the RtpJpegHeader
+                                }
+
                                 //Make next packet                                    
-                                currentPacket = new RtpPacket()
+                                currentPacket = new RtpPacket(payloadSize)
                                 {
                                     TimeStamp = currentPacket.TimeStamp,
                                     SequenceNumber = currentPacket.SequenceNumber + 1,
@@ -590,7 +601,7 @@ namespace Media.Rtp
 
                                 //Correct FragmentOffset
                                 BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
-
+                                
                                 //Copy header
                                 RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
 
@@ -604,17 +615,8 @@ namespace Media.Rtp
                         
                     }
                 }
-
-            //Created all other packets, last packet is currentPacket
+            //All done reading bytes
             Done:
-
-                //Resize final packet if we have not used all available bytes
-                if (currentPacketOffset < Rtp.RtpPacket.MaxPayloadSize) {
-                    byte[] tempPayload = currentPacket.Payload;
-                    Array.Resize<byte>(ref tempPayload, currentPacketOffset);
-                    currentPacket.Payload = tempPayload;
-                }
-
                 //Final packet marks the end
                 currentPacket.Marker = true;    
 

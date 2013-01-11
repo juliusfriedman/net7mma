@@ -168,7 +168,7 @@ namespace Media.Rtp
 
         #region Constructor
 
-        public RtpPacket() { m_Payload = new byte[MaxPayloadSize]; Created = DateTime.UtcNow; Version = 2; }
+        public RtpPacket(int payloadSize = MaxPayloadSize) { m_Payload = new byte[payloadSize]; Created = DateTime.UtcNow; Version = 2; }
 
         public RtpPacket(ArraySegment<byte> packet, byte? channel = null)
         {

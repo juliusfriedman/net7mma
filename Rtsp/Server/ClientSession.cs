@@ -141,12 +141,11 @@ namespace Media.Rtsp
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
                 {
                     //The source stream recieved a senders report                
-                    //Update the RtpTimestamp
+                    //Update the RtpTimestamp for our clients also
                     var sr = new SendersReport(packet);
-                    var il = stream.GetInterleaveForPacket(packet);
+                    var il = m_RtpClient.GetInterleaveForPacket(packet);
                     il.NtpTimestamp = sr.NtpTimestamp;
-                    il.RtpTimestamp = sr.RtpTimestamp;
-                    
+                    il.RtpTimestamp = sr.RtpTimestamp;                    
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport)
                 {
@@ -216,7 +215,7 @@ namespace Media.Rtsp
 
             if (m_SessionDescription != null) return;
 
-            string sessionId = Utility.DateTimeToNtp64(DateTime.UtcNow).ToString(), sessionVersion = Utility.DateTimeToNtp64(DateTime.UtcNow).ToString();
+            string sessionId = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow).ToString(), sessionVersion = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow).ToString();
                                         
             string originatorString = "ASTI-RtspServer " + sessionId + " " + sessionVersion + " IN IP4 " + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 
