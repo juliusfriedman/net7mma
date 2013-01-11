@@ -891,7 +891,9 @@ namespace Media.Rtsp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
                         if (channels.Length > 1)
                         {
-                            m_RtpClient.AddInterleave(new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription));
+                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription);
+                            interleave.RtcpEnabled = !rtcpDisabled;
+                            m_RtpClient.AddInterleave(interleave);
                             m_RtpClient.InitializeFrom(m_RtspSocket);
                         }
                         else
