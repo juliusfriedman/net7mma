@@ -682,7 +682,7 @@ namespace Media.Rtsp
                         m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
 
                         //Might need plumbing to store endpoints for sessions
-                        //I guess this would be concidered interleaved Udp :p Have to handle this in the RtspClient as well
+                        //I guess this would be concidered interleaved Udp if the ports were the same luckily for Rtsp on Udp they use seperate ports for the Rtp and Rtsp so no framing...
                         IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
                         session.m_Udp = new UdpClient();
                         session.m_Udp.Connect(remote);
@@ -753,6 +753,7 @@ namespace Media.Rtsp
         internal void ProcessSend(IAsyncResult ar)
         {
             ClientSession ci = (ClientSession)ar.AsyncState;
+            if (ci == null) return;
             try
             {
                 int sent = ci.m_RtspSocket.EndSend(ar);
@@ -772,21 +773,8 @@ namespace Media.Rtsp
                         System.Diagnostics.Debugger.Break();
 
                         //The request is in the buffer 
-                        try
-                        {
-                            ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);
-                        }
-#if DEBUG
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
-                        }
-#else 
-                        catch { }
-#endif
+                        ProcessRtspRequest(new RtspRequest(ci.m_Buffer), ci);
 
-                        // Just doig this now to VLC FROM HANGING UP for now
-                        //ci.m_RtspSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
                     }
                     else
                     {
@@ -816,73 +804,103 @@ namespace Media.Rtsp
 
         internal void ProcessHttpRtspRequest(IAsyncResult state)
         {
-            //Could do this would the HttpListner but I feel that in end it will give more flexibility
-            HttpListenerContext context = m_HttpListner.EndGetContext(state);
-                
-            m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
-
-            //Ignore invalid request or return 500? TransportInvalid?
-            if (context.Request.Headers.Get("Accept") != "application/x-rtsp-tunnelled")
+            try
             {
-                context.Response.Close();                
-                return;
+                //Could do this without the HttpListner but I feel that in end it will give more flexibility
+                HttpListenerContext context = m_HttpListner.EndGetContext(state);
+
+                //Begin to Recieve another client
+                m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
+
+                //Ignore invalid request or return 500? TransportInvalid?
+                if (context.Request.Headers.Get("Accept") != "application/x-rtsp-tunnelled")
+                {
+
+                    //Give nothing back?
+                    context.Response.Close();
+                    return;
+                }
+
+                #region Comments and source reference
+
+                //http://comments.gmane.org/gmane.comp.multimedia.live555.devel/5896
+                //http://cgit.freedesktop.org/gstreamer/gst-plugins-base/tree/gst-libs/gst/rtsp/gstrtspconnection.c?id=88110ea67e7d5240a7262dbb9c4e5d8db565cccf
+                //http://www.live555.com/liveMedia/doxygen/html/RTSPClient_8cpp-source.html
+                //https://developer.apple.com/quicktime/icefloe/dispatch028.html
+                //Can't find anythingin RFC except one example
+                //MAY ALSO NEED ICE AND STUN?
+
+                #endregion
+
+                int len = int.Parse(context.Request.Headers.Get("Content-Length"));
+                byte[] buffer = new byte[len];
+
+                //Get RtspRequest from Body and base64 decode as request
+                int rec = context.Request.InputStream.Read(buffer, 0, len);
+                RtspRequest request = new RtspRequest(System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(buffer, 0, len)));
+
+                ClientSession ci;
+
+                // Attempt to find existing session
+                if (request.ContainsHeader(RtspHeaders.Session))
+                {
+                    ci = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
+                }
+                else // Create a new session
+                {
+                    ci = new ClientSession(this, null);
+                    ci.m_Http = context;
+                }
+
+                //If we have a client
+                if (ci != null)
+                {
+
+                    //Process request
+                    ProcessRtspRequest(request, ci);
+                }
+
+                //Process the Response as the server deson't respond for Http
+
+                //Use ci.LastResponse to send response
+                RtspResponse response = ci != null && ci.m_LastResponse != null ? ci.m_LastResponse : new RtspResponse()
+                {
+                    CSeq = request.CSeq,
+                    StatusCode = RtspStatusCode.SessionNotFound
+                };
+
+                context.Response.ContentType = "application/x-rtsp-tunnelled";
+                context.Response.AddHeader("Pragma", "no-cache");
+                context.Response.AddHeader("Cache-Control", "no-cache");
+
+                buffer = response.ToBytes();
+
+                buffer = response.Encoding.GetBytes(Convert.ToBase64String(buffer));
+
+                context.Response.AddHeader("Content-Length", buffer.Length.ToString());
+
+                context.Response.StatusCode = 200;
+
+                context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+
+                context.Response.OutputStream.Close();
+
+                context.Response.Close();
+
+                //If there was a session
+                if (ci != null)
+                {
+                    //Update coutners
+                }
             }
-
-            
-            //http://comments.gmane.org/gmane.comp.multimedia.live555.devel/5896
-            //http://cgit.freedesktop.org/gstreamer/gst-plugins-base/tree/gst-libs/gst/rtsp/gstrtspconnection.c?id=88110ea67e7d5240a7262dbb9c4e5d8db565cccf
-            //http://www.live555.com/liveMedia/doxygen/html/RTSPClient_8cpp-source.html
-            //https://developer.apple.com/quicktime/icefloe/dispatch028.html
-            //Can't find anythingin RFC except one example
-            //MAY ALSO NEED ICE AND STUN?
-            
-            int len = int.Parse(context.Request.Headers.Get("Content-Length"));
-            byte[] buffer = new byte[len];
-            
-            //Get RtspRequest from Body and base64 decode as request
-            int rec = context.Request.InputStream.Read(buffer, 0, len);
-            RtspRequest request = new RtspRequest(System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(buffer, 0, len)));
-            
-            ClientSession ci;
-            if (request.ContainsHeader(RtspHeaders.Session)) // Attempt to find existing session
+#if DEBUG
+            catch(Exception ex)
             {
-                ci = FindSessionByRtspSessionId(request[RtspHeaders.Session]);
-                if (ci == null) goto HttpResponse;
+                System.Diagnostics.Debug.WriteLine("Exception in ProcessHttpRtspRequest: " + ex.Message);
             }
-            else // Create a new session
-            {
-                ci = new ClientSession(this, null);
-                ci.m_Http = context;
-            }
-
-            //Process request
-            ProcessRtspRequest(request, ci);
-        
-        HttpResponse:
-            //Use ci.LastResponse to send response
-            RtspResponse response = ci != null && ci.m_LastResponse != null ? ci.m_LastResponse : new RtspResponse()
-            {
-                CSeq = request.CSeq,
-                StatusCode = RtspStatusCode.SessionNotFound
-            };
-
-            context.Response.ContentType = "application/x-rtsp-tunnelled";
-            context.Response.AddHeader("Pragma", "no-cache");
-            context.Response.AddHeader("Cache-Control", "no-cache");
-
-            buffer = response.ToBytes();
-
-            buffer = response.Encoding.GetBytes(Convert.ToBase64String(buffer));
-
-            context.Response.AddHeader("Content-Length", buffer.Length.ToString());
-
-            context.Response.StatusCode = 200;
-
-            context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-
-            context.Response.OutputStream.Close();
-
-            context.Response.Close();
+#else
+            catch { }
+#endif
         }
 
         /// <summary>
@@ -926,16 +944,19 @@ namespace Media.Rtsp
                 case RtspMethod.OPTIONS:
                     {
                         ProcessRtspOptions(request, session);
+                        //Check for pipline?
                         break;
                     }
                 case RtspMethod.DESCRIBE:
                     {
                         ProcessRtspDescribe(request, session);
+                        //Check for pipline?
                         break;
                     }
                 case RtspMethod.SETUP:
                     {
                         ProcessRtspSetup(request, session);
+                        //Check for pipline?
                         break;
                     }
                 case RtspMethod.PLAY:
@@ -997,6 +1018,7 @@ namespace Media.Rtsp
                     return;
                 }
 
+                //Begin to Send the response over the RtspSocket
                 if(ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                     ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
                 else

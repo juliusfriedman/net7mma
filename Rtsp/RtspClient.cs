@@ -43,10 +43,7 @@ namespace Media.Rtsp
 
         ManualResetEvent m_InterleaveEvent = new ManualResetEvent(false);
 
-        /// <summary>
-        /// Used to buffer interleaved Rtsp responses when Interleaving in TCP
-        /// </summary>
-        List<RtspResponse> mResponses = new List<RtspResponse>();
+        RtspResponse m_LastRtspResponse;
 
         /// <summary>
         /// The location the media
@@ -324,7 +321,7 @@ namespace Media.Rtsp
                 m_RecievedBytes += slice.Count - slice.Offset;
 
                 //Add the response to out list
-                mResponses.Add(new RtspResponse(slice.Array, slice.Offset));
+                m_LastRtspResponse = new RtspResponse(slice.Array, slice.Offset);
                 
                 //Clear the event so whoever is waiting can get the response
                 m_InterleaveEvent.Set();
@@ -476,8 +473,6 @@ namespace Media.Rtsp
         {
             try
             {
-                RtspResponse response;
-
                 if (!Connected) throw new RtspClientException("You must first Connect before sending a request");
 
                 if (request[RtspHeaders.UserAgent] == null)
@@ -502,34 +497,18 @@ namespace Media.Rtsp
 
                 byte[] buffer = m_RtspProtocol == ClientProtocol.Http ? RtspRequest.ToHttpBytes(request) : request.ToBytes();
 
-                //Udp we can just send and recieve on the socket
-                if (m_RtspProtocol == ClientProtocol.Udp)
-                {
-                    lock (m_RtspSocket)
-                    {
-                        //Send the bytes
-                        m_RtspSocket.Send(buffer);
+                //Erase last response
+                m_LastRtspResponse = null;
 
-                        //Fire the event
-                        Requested(request);
-
-                        //Increment our byte counters for Rtsp
-                        m_SentBytes += buffer.Length;
-
-                        m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
-
-                        response = new RtspResponse(m_Buffer);
-                    }
-                }              
-                //If we are in Tcp we must recieve with respect with data which is being interleaved
-                else if (m_RtpClient != null && m_RtpClient.m_WorkerThread != null && request.Method != RtspMethod.SETUP && request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
+                //If we are Interleaving we must recieve with respect with data which is being interleaved
+                if (request.Method != RtspMethod.SETUP && request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY && m_RtpClient != null && m_RtpClient.Connected && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
                 {
                     //Reset the interleave event
                     m_InterleaveEvent.Reset();
 
                     //Assign an event for interleaved data before we write
-                    m_RtpClient.InterleavedData += new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);
-
+                    m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
+                    
                     int attempt = 0;
 
                 Resend:
@@ -545,60 +524,51 @@ namespace Media.Rtsp
 
                     //Increment our byte counters for Rtsp
                     m_SentBytes += buffer.Length;
-                    
+
                     //Wait for the event as long we we are allowed, if we didn't recieve a response try again
                     if (!m_InterleaveEvent.WaitOne(ReadTimeout) && ++attempt <= m_RetryCount) goto Resend;
 
                     //Remove the event
-                    m_RtpClient.InterleavedData -= new RtpClient.InterleaveHandler(m_RtpClient_InterleavedData);
-
-                    //Grab the response from the list (Should only be one in there)
-                    response = mResponses.FirstOrDefault();                    
-
-                    //Clear the responses
-                    mResponses.Clear();
+                    m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;                    
                 }
-                else// If we are not yet interleaving just use the socket
+                else// If we are not yet interleaving or using Udp just use the socket
                 {
                     lock (m_RtspSocket)
                     {
-                        m_SentBytes += m_RtspSocket.Send(buffer);
-                        m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
-                        
-                        //Fire the event
-                        Requested(request);
+                        int attempt = 0;
+                    Resend:
+                        try
+                        {
 
-                        response = new RtspResponse(m_Buffer);
+                            //Send the bytes
+                            m_RtspSocket.Send(buffer);
+
+                            //Fire the event
+                            Requested(request);
+
+                            //Increment our byte counters for Rtsp
+                            m_SentBytes += buffer.Length;
+
+                            m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
+
+                            m_LastRtspResponse = new RtspResponse(m_Buffer);
+                        }
+                        catch
+                        {
+                            if (++attempt <= m_RetryCount) goto Resend;
+                            m_LastRtspResponse = null;
+                        }
                     }
                 }
 
                 //We we have nothing to return
-                if (response == null) return response;
+                if (m_LastRtspResponse == null) return m_LastRtspResponse;
 
                 //Fire the event
-                Received(response);
-
-                //Check for SessionId if the response contains it
-                string sessionHeader = response[RtspHeaders.Session];
-                //If there is a session header it may contain the option timeout
-                if (!string.IsNullOrEmpty(sessionHeader))
-                {
-                    if (sessionHeader.Contains(';'))
-                    {
-                        string[] temp = sessionHeader.Split(';');
-                        m_SessionId = temp[0];
-                        //If there is a timeout we may want to setup a timer on these seconds to send a GET_PARAMETER
-                        m_RtspTimeoutSeconds = Convert.ToInt32(temp[1].Replace("timeout=", string.Empty));
-                    }
-                    else
-                    {
-                        m_SessionId = sessionHeader;
-                        m_RtspTimeoutSeconds = 60; //Seconds
-                    }
-                }
+                Received(m_LastRtspResponse);
 
                 //Return the result
-                return response;
+                return m_LastRtspResponse;
             }
             catch (RtspClientException)
             {
@@ -607,13 +577,49 @@ namespace Media.Rtsp
             catch (Exception ex)
             {
                 throw new RtspClientException("An error occured during the request", ex);
-            }            
+            }
+            finally
+            {
+                //Check for a SessionId or Updated unless this is a Teardown
+                if (request.Method != RtspMethod.TEARDOWN && m_LastRtspResponse != null)
+                {
+                    //Check for SessionId if the response contains it
+                    string sessionHeader = m_LastRtspResponse[RtspHeaders.Session];
+                    //If there is a session header it may contain the option timeout
+                    if (!string.IsNullOrEmpty(sessionHeader))
+                    {
+                        if (sessionHeader.Contains(';'))
+                        {
+                            //Get the values
+                            string[] temp = sessionHeader.Split(';');
+
+                            //Check for any values
+                            if (temp.Length > 0)
+                            {
+                                //Get the SessionId if present
+                                m_SessionId = temp[0].Trim();
+
+                                //Check for a timeout
+                                if (temp.Length > 1 && temp[1].StartsWith("timeout="))
+                                {
+                                    //If there is a timeout we may want to setup a timer on these seconds to send a GET_PARAMETER
+                                    m_RtspTimeoutSeconds = Convert.ToInt32(temp[1].Replace("timeout=", string.Empty));
+                                }
+                            }
+                        }
+                        else
+                        {
+                            m_SessionId = sessionHeader;
+                            m_RtspTimeoutSeconds = 60;
+                        }
+                    }
+                }
+            }
         }        
 
         public RtspResponse SendOptions()
         {
-            RtspRequest options = new RtspRequest(RtspMethod.OPTIONS, Location);
-            RtspResponse response = SendRtspRequest(options);
+            RtspResponse response = SendRtspRequest(new RtspRequest(RtspMethod.OPTIONS, Location));
 
             if (response == null || response.StatusCode != RtspStatusCode.OK) throw new RtspClientException("Unable to get options");
 
@@ -652,10 +658,6 @@ namespace Media.Rtsp
             {
                 throw new RtspClientException("Invalid Session Description", ex);
             }
-
-            //The media Uri is combined with the media description of the track to control for multiple media streams...
-            //m_SessionDescription.MediaDescriptions[0].Lines.Where(l => l.Type == 'a' && l.Parts.Contains("control")).FirstOrDefault();
-            //Location = new Uri(Location.ToString() + '/' + m_SessionDescription.MediaDesciptions[0].GetAtttribute("control"));            
 
             return response;
         }
@@ -700,8 +702,10 @@ namespace Media.Rtsp
             {
                 throw new RtspClientException("Unable to find control directive in the given MediaDesription");
             }
+            
             //Create the location ('/' was '?') but apparently '/' is correct per RFC2326
             Uri location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
+
             //Send the setup
             return SendSetup(location, mediaDescription);
         }
@@ -715,7 +719,7 @@ namespace Media.Rtsp
                 RtspRequest setup = new RtspRequest(RtspMethod.SETUP, location ?? Location);
 
                 //If we need to use Tcp
-                if ((useMediaProtocol && mediaDescription.MediaProtocol.Contains("TCP")) || m_RtpProtocol == ProtocolType.Tcp) //m_SessionDescription.MediaDesciptions[0].MediaProtocol.Contains("TCP")
+                if ((useMediaProtocol && mediaDescription.MediaProtocol.Contains("TCP")) || m_RtpProtocol == ProtocolType.Tcp)
                 {
                     //Ask for an interleave
                     if (m_RtpClient.Interleaves.Count > 0)
@@ -774,7 +778,7 @@ namespace Media.Rtsp
 #endif
 
                 //We need a transportHeader with RTP
-                if (String.IsNullOrEmpty(transportHeader) || !transportHeader.Contains("RTP")) throw new RtspClient.RtspClientException("Cannot setup media, Invalid Transport Header in Rtsp Response: " + transportHeader);
+                if (string.IsNullOrEmpty(transportHeader) || !transportHeader.Contains("RTP")) throw new RtspClient.RtspClientException("Cannot setup media, Invalid Transport Header in Rtsp Response: " + transportHeader);
 
                 //Get the parts of information from the transportHeader
                 string[] parts = transportHeader.Split(';');
@@ -808,7 +812,7 @@ namespace Media.Rtsp
                 }
 
                 //Get the source, we need it first and sometimes it comes at the end
-                string sourcePart = parts.Where(p => p.StartsWith("sourcePart")).FirstOrDefault();
+                string sourcePart = parts.Where(p => p.StartsWith("source")).FirstOrDefault();
 
                 //Cache this to prevent having to go to get it every time down the line
                 IPAddress sourceIp = null;
@@ -816,7 +820,7 @@ namespace Media.Rtsp
                 if (!string.IsNullOrWhiteSpace(sourcePart))
                 {
                     //Get rid of the beginning
-                    sourcePart = sourcePart.Replace("sourcePart=", string.Empty).Trim();
+                    sourcePart = sourcePart.Replace("source=", string.Empty).Trim();
 
                     //Try it
                     IPAddress.TryParse(sourcePart, out sourceIp);

@@ -53,19 +53,6 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspResponse : RtspMessage
     {
-
-        public static RtspResponse FromHttpBytes(byte[] message)
-        {
-            //Get as string
-            string messageString = System.Text.Encoding.UTF8.GetString(message);
-            //SHOULD READ CONTENT LENGTH
-            //Find end of body
-            int indexOfBody = messageString.IndexOf("\r\n\r\n");
-            //Base64 Decode
-            byte[] base64decoded = System.Convert.FromBase64String(System.Text.Encoding.UTF8.GetString(message, 0, message.Length - indexOfBody));
-            return new RtspResponse(base64decoded);
-        }
-
         #region Properties
 
         /// <summary>
@@ -81,21 +68,17 @@ namespace Media.Rtsp
 
         public RtspResponse(byte[] packet, int offset = 0) : base(packet, offset)
         {
-            if (m_FirstLine == null) StatusCode = RtspStatusCode.Unknown;
+            if (m_FirstLine == null || MessageType == RtspMessageType.Invalid) StatusCode = RtspStatusCode.Unknown;
             else
             {
-                if (MessageType == RtspMessageType.Invalid) return;
                 try
                 {
-                    string[] parts = m_FirstLine.Split(' ');
-                    //RtspMessage parsed
-                    //Version = float.Parse(parts[0].Replace(MessageIdentifier + '/', string.Empty));
-                    StatusCode = (RtspStatusCode)Convert.ToInt32(parts[1]);
+                    StatusCode = (RtspStatusCode)int.Parse(m_FirstLine.Split(' ')[1]);
                     //parts[2] is the Textual Convention for the Status Code
                 }
                 catch
                 {
-
+                    StatusCode = RtspStatusCode.Unknown;
                 }
             }
         }

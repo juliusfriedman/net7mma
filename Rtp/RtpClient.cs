@@ -376,6 +376,8 @@ namespace Media.Rtp
         public event InterleaveHandler InterleavedData;
         public event RtpPacketHandler RtpPacketReceieved;
         public event RtcpPacketHandler RtcpPacketReceieved;
+        public event RtpPacketHandler RtpPacketSent;
+        public event RtcpPacketHandler RtcpPacketSent;
         public event RtpFrameHandler RtpFrameChanged;
 
         internal virtual void RtpClient_RtpFrameChanged(RtpClient sender, RtpFrame frame)
@@ -613,6 +615,26 @@ namespace Media.Rtp
             }
         }
 
+        internal virtual void RtpClient_RtpPacketSent(RtpClient sender, RtpPacket packet) 
+        {
+            Interleave interleave = GetInterleaveForPacket(packet);
+
+            if (interleave == null) return;
+
+            //increment the counters
+            interleave.RtpBytesSent += packet.Length;
+            ++interleave.RtpPacketsSent;
+        }
+
+        internal virtual void RtpClient_RtcpPacketSent(RtpClient sender, RtcpPacket packet) 
+        {
+            Interleave interleave = sender.GetInterleaveForPacket(packet);
+            if (interleave == null) return;
+            //Increment the counters
+            interleave.RtcpBytesSent += packet.Length + RtcpPacket.RtcpHeaderLength;
+            ++interleave.RtcpPacketsSent;
+        }
+
         internal virtual void RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
         {
             //Check for the magic byte
@@ -663,7 +685,7 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Raises the RtpPacket Handler
+        /// Raises the RtpPacket Handler for Recieving
         /// </summary>
         /// <param name="packet">The packet to handle</param>
         internal void OnRtpPacketReceieved(RtpPacket packet)
@@ -672,12 +694,30 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Raises the RtcpPacketHandler
+        /// Raises the RtcpPacketHandler for Recieving
         /// </summary>
         /// <param name="packet">The packet to handle</param>
         internal void OnRtcpPacketReceieved(RtcpPacket packet)
         {
             RtcpPacketReceieved(this, packet);
+        }
+
+        /// <summary>
+        /// Raises the RtpPacket Handler for Sending
+        /// </summary>
+        /// <param name="packet">The packet to handle</param>
+        internal void OnRtpPacketSent(RtpPacket packet)
+        {
+            RtpPacketSent(this, packet);
+        }
+
+        /// <summary>
+        /// Raises the RtcpPacketHandler for Sending
+        /// </summary>
+        /// <param name="packet">The packet to handle</param>
+        internal void OnRtcpPacketSent(RtcpPacket packet)
+        {
+            RtcpPacketSent(this, packet);
         }
 
         /// <summary>
@@ -711,6 +751,8 @@ namespace Media.Rtp
 
         public int? InactivityTimeoutSeconds { get; set; }
 
+        public bool Connected { get { return m_WorkerThread != null; } }
+
         //public bool RtcpEnabled { get { return Interleaves.All(i => i.RtcpEnabled); } set { Interleaves.All(i => i.RtcpEnabled = value); } }
 
         #endregion
@@ -725,6 +767,8 @@ namespace Media.Rtp
             InactivityTimeoutSeconds = 15;
             RtpPacketReceieved += new RtpPacketHandler(RtpClient_RtpPacketReceieved);
             RtcpPacketReceieved += new RtcpPacketHandler(RtpClient_RtcpPacketReceieved);
+            RtpPacketSent += new RtpPacketHandler(RtpClient_RtpPacketSent);
+            RtcpPacketSent += new RtcpPacketHandler(RtpClient_RtcpPacketSent);
             RtpFrameChanged += new RtpFrameHandler(RtpClient_RtpFrameChanged);
             InterleavedData += new InterleaveHandler(RtpClient_InterleavedData);
         }
@@ -758,6 +802,8 @@ namespace Media.Rtp
         {
             RtpPacketReceieved -= new RtpPacketHandler(RtpClient_RtpPacketReceieved);
             RtcpPacketReceieved -= new RtcpPacketHandler(RtpClient_RtcpPacketReceieved);
+            RtpPacketSent -= new RtpPacketHandler(RtpClient_RtpPacketSent);
+            RtcpPacketSent -= new RtcpPacketHandler(RtpClient_RtcpPacketSent);
             RtpFrameChanged -= new RtpFrameHandler(RtpClient_RtpFrameChanged);
             InterleavedData -= new InterleaveHandler(RtpClient_InterleavedData);            
         }
@@ -1028,10 +1074,8 @@ namespace Media.Rtp
             int sent = SendData(packet.ToBytes(), interleave.ControlChannel, interleave.RtcpSocket);
             //If we actually sent anything
             if (sent > 0)
-            {
-                //Increment the counters
-                interleave.RtcpBytesSent += sent;
-                ++interleave.RtcpPacketsSent;
+            {                
+                OnRtcpPacketSent(packet);
             }
         }
 
@@ -1088,10 +1132,8 @@ namespace Media.Rtp
             
             //If we sent anything
             if (sent > 0)
-            {
-                //increment the counters
-                interleave.RtpBytesSent += sent;
-                ++interleave.RtpPacketsSent;
+            {                
+                OnRtpPacketSent(packet);
             }
         }
 
