@@ -189,12 +189,8 @@ namespace Media
 
             Console.BackgroundColor = ConsoleColor.Black;
             
-            //If the client is connected disconnect
-            if (client.Connected)
-            {
-                //Assigned events should be removed
-                client.Disconnect();
-            }
+            //Calls Disconnect if the client is Connected
+            client.StopListening();
 
             //Perform another test if we need to
             if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
