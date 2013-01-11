@@ -82,6 +82,7 @@ namespace Media.Rtp
             //Better then accessing the frame
             internal int SequenceNumber; 
             internal uint RtpTimestamp;
+            internal ulong NtpTimestamp;
 
             //bytes and packet counters
             internal int RtpBytesSent, RtpBytesRecieved,
@@ -508,7 +509,7 @@ namespace Media.Rtp
 
             //Update values
             interleave.SequenceNumber = packet.SequenceNumber;
-            interleave.RtpTimestamp = packet.TimeStamp;
+            //interleave.RtpTimestamp = packet.TimeStamp;
 
             //If we recieved a packet before we have identified who it is coming from
             if (interleave.SynchronizationSourceIdentifier == 0)
@@ -800,31 +801,41 @@ namespace Media.Rtp
         {
             SendersReport result = new SendersReport(i.SynchronizationSourceIdentifier);
 
-            result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+            //Calculate the RtpTime
 
             //Corresponds to the same time as the NTP timestamp (above), but in the same units and with the same random offset as the RTP timestamps in data packets. 
             //This correspondence may be used for intra- and inter-media synchronization for sources whose NTP timestamps are synchronized, 
             //and may be used by media- independent receivers to estimate the nominal RTP clock frequency. Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet. 
             //Rather, it is calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
-            //
+            
             //Need to calculate this correctly based on the MediaDescription sample rate	                    
             Sdp.SessionDescriptionLine rtpmap = i.MediaDescription.Lines.Where(l => l.Parts[0].StartsWith("rtpmap")).FirstOrDefault();
             
             //If there was a RtpMap attribute line
             if (rtpmap != null)
             {
-                //Get the clockrate of the media from the line
+                //Make a Ntp Timestamp
+                result.NtpTimestamp = Utility.DateTimeToNtp64(DateTime.UtcNow);
+
                 //Example line codec / samplerate / channels
-                //a=rtpmap:96[1]mpeg4-generic/44100/2
-                //a=rtpmap:98[1]H264/90000
+                //a=rtpmap:96[1]mpeg4-generic/44100/2 (44.1kHz)
+                //a=rtpmap:98[1]H264/90000 (90kHz)
+
+                //https://tools.ietf.org/id/draft-petithuguenin-avt-multiple-clock-rates-01.html
+
+                //Get the clockrate of the media from the line and convert to kHz
+                //double clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]) / 1000;
+
+                //Get the clockrate of the media from the line (already in kHz)
                 uint clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]);
 
-                //Calculate RtpTimestamp using clockrate (double check this)
-                result.RtpTimestamp = (uint)((result.NtpTimestamp / clockRate / 1000) * 100000);
+                //Calculate RtpTimestamp using NtpTimestamp and clockrate
+                result.RtpTimestamp = (uint)(result.NtpTimestamp * clockRate);
             }
             else
             {
-                //Just use the Timestamp from the Interleave
+                //Just use the Timestamp's from the Interleave
+                result.NtpTimestamp = i.NtpTimestamp;
                 result.RtpTimestamp = i.RtpTimestamp;
             }
             
