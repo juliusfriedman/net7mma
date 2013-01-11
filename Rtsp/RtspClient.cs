@@ -917,7 +917,7 @@ namespace Media.Rtsp
                 }
 
                 //If there are Bandwidth lines with RR:0 and RS:0
-                var rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Any(p => p.Contains("RR") || p.Contains("RS")));
+                var rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && l.Parts[0] == "RR" || l.Parts[0] == "RS" && l.Parts[1] == "1");
                 if (rtcpLines != null && rtcpLines.Count() == 2)
                 {
                     //Disable Rtcp on related interleave
