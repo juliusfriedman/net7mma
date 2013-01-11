@@ -637,11 +637,8 @@ namespace Media.Rtsp
 
                 Socket clientSocket = svr.EndAccept(ar);
 
-                //Currently if another evil person connected with another persons SessionId they would be able to Teardown the client.
-                //This needs to be prevented in the server during those requests appropriately
+                //Make a temporary client
                 ClientSession ci = new ClientSession(this, clientSocket);
-
-                AddSession(ci);
 
                 clientSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
 #if DEBUG
@@ -668,13 +665,17 @@ namespace Media.Rtsp
             //Get the client information
             ClientSession session = (ClientSession)ar.AsyncState;
             int received = 0;
-            RtspRequest req = null;
+            RtspRequest request = null;
             try
             {
-                if (session.m_RtspSocket.ProtocolType == ProtocolType.Udp)                
+                if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)                
+                {
+                    received = session.m_RtspSocket.EndReceive(ar);
+                }
+                else //Udp
                 {
                     //If this is the inital receive
-                    if (m_UdpServerSocket == session.m_RtspSocket)
+                    if (m_UdpServerSocket.Handle == session.m_RtspSocket.Handle)
                     {
                         received = m_UdpServerSocket.EndReceive(ar);
 
@@ -687,27 +688,6 @@ namespace Media.Rtsp
                         session.m_Udp = new UdpClient();
                         session.m_Udp.Connect(remote);
                         session.m_RtspSocket = session.m_Udp.Client;
-
-                        //Parse the request to determine if there is actually an existing session
-
-                        req = new RtspRequest(session.m_Buffer);
-                        if (req.ContainsHeader(RtspHeaders.Session))
-                        {
-                            ClientSession existing = FindSessionByRtspSessionId(req.GetHeader(RtspHeaders.Session));
-                            if (existing == null) throw new RtspServerException("Session Not Found");
-                            else
-                            {
-                                //Might be incorrect... e.g. we might want to keep the new session and not update the existing...
-                                //E.g if they connect with Tcp then Udp or the other way around
-                                session.m_Udp = existing.m_Udp;
-                                session = existing;
-                            }
-                        }
-                        else
-                        {
-                            AddSession(session);
-                        }
-
                     }
                     else //This is a repeated recieve
                     {
@@ -716,19 +696,51 @@ namespace Media.Rtsp
                         received = session.m_Buffer.Length;
                     }
                 }
-                else if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
-                {
-                    received = session.m_RtspSocket.EndReceive(ar);
-                }
 
                 //If we received anything
                 if (received > 0)
                 {
-                    //When recieved == 1 the client sent us a rtsp message which we missed.... this is because I am handling interleaving on the server wrong
-                    //I can't use the socket asynchronously when the client is interleving
-                    ProcessRtspRequest(req != null ? req : req = new RtspRequest(session.m_Buffer), session);
+
+                    //Parse the request to determine if there is actually an existing session before proceeding
+                    request = new RtspRequest(session.m_Buffer);
+
+                    //If there is a Session Header
+                    if (request.ContainsHeader(RtspHeaders.Session))
+                    {
+                        //Try to find a matching session
+                        ClientSession existing = FindSessionByRtspSessionId(request.GetHeader(RtspHeaders.Session));
+                        //If there is an existing session with the id
+                        if (existing != null)
+                        {
+                            //If the request EndPoint does not match the session EndPoint the person tried to fake request for Session
+                            if (existing.m_RtspSocket.RemoteEndPoint != session.m_RtspSocket.RemoteEndPoint)
+                            {
+                                ProcessInvalidRtspRequest(session, RtspStatusCode.Unauthorized);
+                                return;
+                            }
+                            else //Sessions matched and EndPoints matched
+                            {
+                                //Should be the same anyway
+                                session = existing;
+                            }
+                        }
+                        else
+                        {
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.SessionNotFound);
+                            throw new RtspServerException("Session Not Found");
+                        }
+                    }
+
+                    //If we didn't have a record of the session then add it now
+                    if (!ContainsSession(session))
+                    {
+                        AddSession(session);
+                    }
+
+                    //Process the request
+                    ProcessRtspRequest(request, session);
                 }
-                else
+                else// We recieved nothing
                 {
                     //This happens then Just recieve again
                     session.m_RtspSocket.BeginReceive(session.m_Buffer, 0, session.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), session);
@@ -740,7 +752,7 @@ namespace Media.Rtsp
             }
             finally
             {
-                req = null;
+                request = null;
                 m_Recieved += received;
                 session.m_Receieved += received;
             }
@@ -913,7 +925,12 @@ namespace Media.Rtsp
             //Log Request
             if (Logger != null) Logger.LogRequest(request, session);
 
-            session.m_LastRequest = request;
+            //Ensure we have a session
+            if (session == null)
+            {
+                //We can't identify the session                
+                return;
+            }
 
             //All requests need the CSeq
             if (!request.ContainsHeader(RtspHeaders.CSeq))
@@ -927,7 +944,7 @@ namespace Media.Rtsp
             {
                 ProcessInvalidRtspRequest(session);
                 return;
-            }
+            }            
 
             //Optional
             //if (!request.ContainsHeader(RtspHeaders.UserAgent)) ProcessInvalidRtspRequest(session, ResponseStatusCode.InternalServerError);
@@ -1008,21 +1025,24 @@ namespace Media.Rtsp
             }
             try
             {
-                ci.m_LastResponse = response;
-
-                byte[] buffer = response.ToBytes();
-
-                if (ci.m_Http != null)
+                //If we have a session
+                if (ci != null)
                 {
-                    //Don't http handle
-                    return;
-                }
+                    ci.m_LastResponse = response;
+                    if (ci.m_Http != null)
+                    {
+                        //Don't http handle
+                        return;
+                    }
 
-                //Begin to Send the response over the RtspSocket
-                if(ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
-                    ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
-                else
-                    ci.m_RtspSocket.BeginSendTo(buffer, 0, buffer.Length,  SocketFlags.None, ci.m_RtspSocket.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);                
+                    byte[] buffer = response.ToBytes();
+
+                    //Begin to Send the response over the RtspSocket
+                    if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                        ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
+                    else
+                        ci.m_RtspSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, ci.m_RtspSocket.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);
+                }
             }
             catch (SocketException)
             {
@@ -1052,7 +1072,7 @@ namespace Media.Rtsp
         internal void ProcessInvalidRtspRequest(ClientSession ci, RtspStatusCode code = RtspStatusCode.BadRequest)
         {            
             //Should allow a reason to be put into the response somehow
-            ProcessSendRtspResponse(ci.CreateRtspResponse(null, code), ci);
+            ProcessSendRtspResponse(ci != null ? ci.CreateRtspResponse(null, code) : new RtspResponse() { StatusCode = code }, ci);
         }
 
         /// <summary>
