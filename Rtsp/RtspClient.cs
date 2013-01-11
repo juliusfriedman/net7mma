@@ -370,7 +370,7 @@ namespace Media.Rtsp
                     SendDescribe();
                 }
 
-                int attempt = 0;
+                int attempt = 1;
 
                 //If we can setup
                 if (m_SupportedMethods.Contains(RtspMethod.SETUP))
@@ -529,7 +529,7 @@ namespace Media.Rtsp
                     //Assign an event for interleaved data before we write
                     m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
                     
-                    int attempt = 0;
+                    int attempt = 1;
 
                 Resend:
                     //Write the message on the interleaved socket
@@ -1127,8 +1127,12 @@ namespace Media.Rtsp
                         {
                             //Just one stream gets torn down
                             SendTeardown(i.MediaDescription);
+
+                            System.Threading.Thread.Sleep(ReadTimeout);
+
                             //Setup 
                             SendSetup(i.MediaDescription);
+
                             //And hopefully played
                             SendPlay();
                         }
