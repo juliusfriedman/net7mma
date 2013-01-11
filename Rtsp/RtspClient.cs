@@ -26,7 +26,7 @@ namespace Media.Rtsp
             public RtspClientException(string message, Exception inner) : base(message, inner) { }
         }
 
-        public enum ClientProtocol
+        public enum ClientProtocolType
         {
             Tcp = ProtocolType.Tcp,
             Reliable = Tcp,
@@ -39,7 +39,7 @@ namespace Media.Rtsp
 
         #region Fields
 
-        ClientProtocol m_RtspProtocol;
+        ClientProtocolType m_RtspProtocol;
 
         ManualResetEvent m_InterleaveEvent = new ManualResetEvent(false);
 
@@ -104,9 +104,29 @@ namespace Media.Rtsp
 
         #region Properties
 
+        /// <summary>
+        /// The amount of time in seconds in which the RtspClient will switch protocols if no Packets have been recieved.
+        /// </summary>
+        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; } }
+
+        /// <summary>
+        /// The amount of times each RtspRequest will be sent if a response is not recieved in ReadTimeout
+        /// </summary>
+        public int RetryCount { get { return m_RetryCount; } set { m_RetryCount = value; } }
+
+        /// <summary>
+        /// The last method requested
+        /// </summary>
         public RtspMethod LastMethod { get { return m_LastMethod; } }
 
-        public ClientProtocol RtspProtocol { get { return m_RtspProtocol; } }
+
+        //The last RtspResponse recieved by the RtspClient
+        public RtspResponse LastResponse { get { return m_LastRtspResponse; } }
+
+        /// <summary>
+        /// The ClientProtocolType the RtspClient is using Reliable (Tcp), Unreliable(Udp) or Http(Tcp)
+        /// </summary>
+        public ClientProtocolType RtspProtocol { get { return m_RtspProtocol; } }
 
         /// <summary>
         /// The location to the Media on the Rtsp Server
@@ -129,9 +149,9 @@ namespace Media.Rtsp
                     if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = RtspServer.DefaultPort;
 
                     //Determine protocol
-                    if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocol.Tcp;
-                    else if (m_Location.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocol.Udp;
-                    else m_RtspProtocol = ClientProtocol.Http;
+                    if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocolType.Tcp;
+                    else if (m_Location.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocolType.Udp;
+                    else m_RtspProtocol = ClientProtocolType.Http;
 
                     //Make a IPEndPoint 
                     m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
@@ -147,7 +167,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient is connected to the remote host
         /// </summary>
-        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocol.Udp; } }
+        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected || m_RtspProtocol == ClientProtocolType.Udp; } }
 
         /// <summary>
         /// The network credential to utilize in RtspRequests
@@ -155,9 +175,9 @@ namespace Media.Rtsp
         public NetworkCredential Credential { get; set; }
 
         /// <summary>
-        /// Indicates if the RtspClient has started listening for RtpData
+        /// Indicates if the RtspClient has started listening for Rtp Packets
         /// </summary>
-        public bool Listening { get { return Connected && m_RtpClient != null; /*  && m_RtpClient.m_RtpSocket.Connected */} }
+        public bool Listening { get { return Connected && m_RtpClient != null && m_RtpClient.Connected; } }
 
         /// <summary>
         /// The amount of bytes sent by the RtspClient
@@ -214,13 +234,13 @@ namespace Media.Rtsp
                 UriParser.Register(new HttpStyleUriParser(), RtspMessage.ReliableTransport, 554);
 
             if (!UriParser.IsKnownScheme(RtspMessage.UnreliableTransport))
-                UriParser.Register(new HttpStyleUriParser(), RtspMessage.UnreliableTransport, 554);
+                UriParser.Register(new HttpStyleUriParser(), RtspMessage.UnreliableTransport, 555);
         }
 
         /// <summary>
         /// Creates a RtspClient on a non standard Rtsp Port
         /// </summary>
-        /// <param name="location">The location of the media</param>
+        /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
         public RtspClient(Uri location)
         {
@@ -368,7 +388,7 @@ namespace Media.Rtsp
                         catch
                         {
                             //Sometimes this happened to fast during a reconnect
-                            if (++attempt <= m_RetryCount) goto SendSetup;
+                            if (m_RetryCount > 0 && ++attempt <= m_RetryCount) goto SendSetup;
                             //If we eventually get through we will likely result in Tcp Mode
                             //I would just switch protocol before this point in a re-connect but the source might not support Tcp
                             //and it's best to leave that for a last cast which occurs after the play times out with the ProtocolSwitchTimer
@@ -401,11 +421,11 @@ namespace Media.Rtsp
             try
             {
                 if (Connected) return;
-                else if (m_RtspProtocol ==  ClientProtocol.Http || m_RtspProtocol == ClientProtocol.Reliable)
+                else if (m_RtspProtocol ==  ClientProtocolType.Http || m_RtspProtocol == ClientProtocolType.Reliable)
                 {
                     m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                 }
-                else if (m_RtspProtocol == ClientProtocol.Unreliable)
+                else if (m_RtspProtocol == ClientProtocolType.Unreliable)
                 {
                     m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                 }
@@ -495,7 +515,7 @@ namespace Media.Rtsp
 
                 m_LastMethod = request.Method;
 
-                byte[] buffer = m_RtspProtocol == ClientProtocol.Http ? RtspRequest.ToHttpBytes(request) : request.ToBytes();
+                byte[] buffer = m_RtspProtocol == ClientProtocolType.Http ? RtspRequest.ToHttpBytes(request) : request.ToBytes();
 
                 //Erase last response
                 m_LastRtspResponse = null;
@@ -526,7 +546,7 @@ namespace Media.Rtsp
                     m_SentBytes += buffer.Length;
 
                     //Wait for the event as long we we are allowed, if we didn't recieve a response try again
-                    if (!m_InterleaveEvent.WaitOne(ReadTimeout) && ++attempt <= m_RetryCount) goto Resend;
+                    if (!m_InterleaveEvent.WaitOne(ReadTimeout) && (m_RetryCount > 0 && ++attempt <= m_RetryCount)) goto Resend;
 
                     //Remove the event
                     m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;                    
@@ -555,7 +575,7 @@ namespace Media.Rtsp
                         }
                         catch
                         {
-                            if (++attempt <= m_RetryCount) goto Resend;
+                            if (m_RetryCount > 0 && ++attempt <= m_RetryCount) goto Resend;
                             m_LastRtspResponse = null;
                         }
                     }
@@ -1080,8 +1100,11 @@ namespace Media.Rtsp
                 //Setup a timer to determine if we are recieving data... if we are then then we must switch
                 if (m_RtpClient != null && m_RtpProtocol == ProtocolType.Udp)
                 {
-                    //Setup a timer, should be accessible from the instance...
-                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, m_ProtocolSwitchSeconds * 1000, System.Threading.Timeout.Infinite);                    
+                    if (m_ProtocolSwitchSeconds > 0)
+                    {
+                        //Setup a timer, should be accessible from the instance...
+                        m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, m_ProtocolSwitchSeconds * 1000, System.Threading.Timeout.Infinite);
+                    }
                 }
             }
         }

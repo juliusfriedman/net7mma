@@ -125,6 +125,7 @@ namespace Media
         static void TestRtspClient()
         {
             //Make a client
+            //This host uses Udp
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
         Start:
             //Assign some events
@@ -200,8 +201,9 @@ namespace Media
             //Perform another test if we need to
             if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
             {
-                //Work on Udp Hole Punching, or it is not supported
+                //Try another host (this one uses Tcp and forces the client to switch from Udp because Udp packets never arrive)
                 client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
+                //client.ProtocolSwitchSeconds = 5; //Switch in 5 seconds rather than the default of 10
                 Console.WriteLine("Performing 2nd Client test");
                 goto Start;
             }
