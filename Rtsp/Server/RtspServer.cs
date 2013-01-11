@@ -790,7 +790,10 @@ namespace Media.Rtsp
             {
                 request = null;
                 m_Recieved += received;
-                session.m_Receieved += received;
+                if (session != null)
+                {
+                    session.m_Receieved += received;
+                }
             }
         }
 
