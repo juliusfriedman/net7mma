@@ -59,7 +59,7 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        public ImageSourceStream(string name, string directory = null)
+        public ImageSourceStream(string name, string directory = null, bool watch = true)
             : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory))) 
         {
 
@@ -68,10 +68,13 @@ namespace Media.Rtsp.Server.Streams
             //If we were given a directory and the directory exists then make a FileSystemWatcher
             if (!string.IsNullOrWhiteSpace(directory) && System.IO.Directory.Exists(directory))
             {
-                m_Watcher = new System.IO.FileSystemWatcher(directory);
-                m_Watcher.EnableRaisingEvents = true;
-                m_Watcher.NotifyFilter = System.IO.NotifyFilters.CreationTime;
-                m_Watcher.Created += m_Watcher_Created;
+                if (watch)
+                {
+                    m_Watcher = new System.IO.FileSystemWatcher(directory);
+                    m_Watcher.EnableRaisingEvents = true;
+                    m_Watcher.NotifyFilter = System.IO.NotifyFilters.CreationTime;
+                    m_Watcher.Created += m_Watcher_Created;
+                }
 
                 foreach (string file in System.IO.Directory.GetFiles(directory, "*.jpg"))
                 {
@@ -88,13 +91,15 @@ namespace Media.Rtsp.Server.Streams
             }
 
             //Add a MediaDescription to our Sdp
-            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, "RTP/AVP", 26));
+            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, "RTP/AVP", Rtp.JpegFrame.PayloadType));
 
+            //Add the control line
             m_Sdp.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             
             //Create a RtpClient so events can be fired
             m_RtpClient = Rtp.RtpClient.Sender(System.Net.IPAddress.Any);
 
+            //Add a Interleave
             m_RtpClient.AddInterleave(new Rtp.RtpClient.Interleave(0, 1, sourceId, m_Sdp.MediaDescriptions[0]));
         }
 
@@ -129,9 +134,26 @@ namespace Media.Rtsp.Server.Streams
 
         void m_Watcher_Created(object sender, System.IO.FileSystemEventArgs e)
         {
-            if (e.FullPath.EndsWith("bmp") || e.FullPath.EndsWith("jpg") || e.FullPath.EndsWith("jpeg") || e.FullPath.EndsWith("png"))
+            string path = e.FullPath.ToLowerInvariant();
+            if (path.EndsWith("bmp") || path.EndsWith("jpg") || path.EndsWith("jpeg") || path.EndsWith("gif") || path.EndsWith("png"))
             {
-                AddImage(new Rtp.JpegFrame(System.Drawing.Image.FromFile(e.FullPath), 100, sourceId, sequenceNumber++, timeStamp));
+                try
+                {
+                    AddFrame(new Rtp.JpegFrame(System.Drawing.Image.FromFile(path), 100, sourceId, sequenceNumber++, timeStamp));
+                }
+                catch { }
+            }
+        }
+
+        public void AddFrame(Rtp.JpegFrame frame)
+        {
+            lock (m_Frames)
+            {
+                try
+                {
+                    m_Frames.Enqueue(frame);
+                }
+                catch { }
             }
         }
 
@@ -143,11 +165,15 @@ namespace Media.Rtsp.Server.Streams
         {
             lock (m_Frames)
             {
-                m_Frames.Enqueue(new Rtp.JpegFrame(image, 100, sourceId, sequenceNumber++, timeStamp));
+                try
+                {
+                    m_Frames.Enqueue(new Rtp.JpegFrame(image, 100, sourceId, sequenceNumber++, timeStamp));
+                }
+                catch { }
             }
         }
 
-        //Move to Source?
+        //Move to SourceStream or RtpSourceStream?
         internal virtual void Packetize()
         {
             while (true)
