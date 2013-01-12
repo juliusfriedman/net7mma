@@ -101,7 +101,7 @@ namespace Media.Rtp
             public ulong NtpTimestamp { get; internal set; }
 
             //bytes and packet counters
-            internal int RtpBytesSent, RtpBytesRecieved,
+            internal long RtpBytesSent, RtpBytesRecieved,
                          RtcpBytesSent, RtcpBytesRecieved,
                          RtpPacketsSent, RtcpPacketsSent,
                          RtpPacketsReceieved, RtcpPacketsReceieved;
@@ -395,6 +395,12 @@ namespace Media.Rtp
 
         internal IPAddress m_RemoteAddress;
 
+        //If we don't want to keep track of the current frames
+        internal bool m_FrameEventsEnabled = true;
+
+        //If we don't want to keep track of Packet Events
+        internal bool m_PacketEventsEnabled = true;
+
         #endregion
 
         #region Events
@@ -414,7 +420,7 @@ namespace Media.Rtp
         internal virtual void RtpClient_RtpFrameChanged(RtpClient sender, RtpFrame frame)
         {
             //We only handle our own packets
-            if (this != sender) return;
+            if (this != sender || !m_FrameEventsEnabled) return;
 
             //Get the interleave associated with the frame
             Interleave interleave = Interleaves.Where(i => i.SynchronizationSourceIdentifier == frame.SynchronizationSourceIdentifier).First();
@@ -479,8 +485,8 @@ namespace Media.Rtp
 
         internal virtual void RtpClient_RtcpPacketReceieved(RtpClient sender, RtcpPacket packet)
         {
-            //We only handle our own packets
-            if (this != sender) return;
+            //Ensure this is our event and we are handling it
+            if (this != sender || !m_PacketEventsEnabled) return;
             
             Interleave interleave = GetInterleaveForPacket(packet);
             
@@ -553,8 +559,8 @@ namespace Media.Rtp
 
         internal virtual void RtpClient_RtpPacketReceieved(RtpClient sender, RtpPacket packet)
         {
-            //Ensure this is our event
-            if (this != sender) return;
+            //Ensure this is our event and we are handling it
+            if (this != sender || !m_PacketEventsEnabled) return;
             
             //Get the interleave for the packet
             Interleave interleave = GetInterleaveForPacket(packet);
@@ -767,27 +773,40 @@ namespace Media.Rtp
 
         #region Properties
 
-        public int TotalRtpPacketsSent { get { return Interleaves.Sum(i => i.RtpPacketsSent); } }
+        public long TotalRtpPacketsSent { get { return Interleaves.Sum(i => i.RtpPacketsSent); } }
 
-        public int TotalRtpBytesSent { get { return Interleaves.Sum(i => i.RtpBytesSent); } }
+        public long TotalRtpBytesSent { get { return Interleaves.Sum(i => i.RtpBytesSent); } }
 
-        public int TotalRtpBytesReceieved { get { return Interleaves.Sum(i => i.RtpBytesRecieved); } }
+        public long TotalRtpBytesReceieved { get { return Interleaves.Sum(i => i.RtpBytesRecieved); } }
 
-        public int TotalRtpPacketsReceieved { get { return Interleaves.Sum(i => i.RtpPacketsReceieved); } }
+        public long TotalRtpPacketsReceieved { get { return Interleaves.Sum(i => i.RtpPacketsReceieved); } }
 
-        public int TotalRtcpPacketsSent { get { return Interleaves.Sum(i => i.RtcpPacketsSent); } }
+        public long TotalRtcpPacketsSent { get { return Interleaves.Sum(i => i.RtcpPacketsSent); } }
 
-        public int TotalRtcpBytesSent { get { return Interleaves.Sum(i => i.RtcpBytesSent); } }
+        public long TotalRtcpBytesSent { get { return Interleaves.Sum(i => i.RtcpBytesSent); } }
 
-        public int TotalRtcpPacketsReceieved { get { return Interleaves.Sum(i => i.RtcpPacketsReceieved); } }
+        public long TotalRtcpPacketsReceieved { get { return Interleaves.Sum(i => i.RtcpPacketsReceieved); } }
 
-        public int TotalRtcpBytesReceieved { get { return Interleaves.Sum(i => i.RtcpBytesRecieved); } }
+        public long TotalRtcpBytesReceieved { get { return Interleaves.Sum(i => i.RtcpBytesRecieved); } }
 
         public int? InactivityTimeoutSeconds { get; set; }
 
         public bool Connected { get { return m_WorkerThread != null; } }
 
-        //public IPAddress RemoteAddress { get { return m_RemoteAddress; } }
+        /// <summary>
+        /// Gets or sets a value which prevents a FrameChanged event from being handled on the RtpClient
+        /// </summary>
+        public bool FrameEventsEnabled { get { return m_FrameEventsEnabled; } set { m_FrameEventsEnabled = false; } }
+
+        /// <summary>
+        /// Gets or sets a value which prevents Rtp and Rtcp packet events from being handled
+        /// </summary>
+        public bool PacketEventsEnabled { get { return m_PacketEventsEnabled; } set { m_PacketEventsEnabled = false; } }
+
+        /// <summary>
+        /// The RemoteAddress of the RtpClient
+        /// </summary>
+        public IPAddress RemoteAddress { get { return m_RemoteAddress; } }
 
         //public bool RtcpEnabled { get { return Interleaves.All(i => i.RtcpEnabled); } set { Interleaves.All(i => i.RtcpEnabled = value); } }
 
@@ -1448,6 +1467,7 @@ namespace Media.Rtp
                         {
                             SendRtcpPacket(p);
                             lastTransmit = DateTime.UtcNow;
+                            //if (GetInterleaveForPacket(p).GoodbyeSent || GetInterleaveForPacket(p).GoodbyeRecieved) break;
                         }
                         toSend = null;
                     }
@@ -1460,6 +1480,7 @@ namespace Media.Rtp
                     {
                         lock (m_OutgoingRtpPackets)
                         {
+                            //Potentially a lot of packets in m_OutGoingPackets
                             toSend = m_OutgoingRtpPackets.ToArray();//Where(p=>GetInterleaveForPacket(p).RtpSocket != null && i.RtcpEnabled)
                             m_OutgoingRtpPackets.Clear();
                         }                        
@@ -1467,6 +1488,7 @@ namespace Media.Rtp
                         {
                             SendRtpPacket(p);
                             lastTransmit = DateTime.UtcNow;
+                            //if (GetInterleaveForPacket(p).GoodbyeSent || GetInterleaveForPacket(p).GoodbyeRecieved) break;
                         }
                         toSend = null;
                     }
