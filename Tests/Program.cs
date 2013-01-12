@@ -81,7 +81,8 @@ namespace Media
                 if (example[offset] != output[i]) throw new Exception();
             }
 
-            Console.WriteLine("Press a Key to Start Next Test");
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+
             Console.ReadKey();
         }
 
@@ -95,27 +96,31 @@ namespace Media
             p = new Rtp.RtpPacket(p.ToBytes());
             Console.WriteLine(p.TimeStamp);
             Console.WriteLine(p.SequenceNumber);
-            Console.WriteLine("Press a Key to Start Next Test");
-            System.Console.ReadKey();
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+            Console.ReadKey();
         }
 
         static void TestRtspMessage()
         {
             Rtsp.RtspRequest request = new Rtsp.RtspRequest();
             request.CSeq = 2;
-            request.Location = new Uri("rtsp://aol.com");
+            request.Location = new Uri("rtsp://someServer.com");
             Rtsp.RtspResponse response = new Rtsp.RtspResponse();
 
             Rtsp.RtspMessage message = request;
 
             byte[] bytes = message.ToBytes();
 
-            if (!(new Rtsp.RtspRequest(bytes).Location == request.Location))
+            Rtsp.RtspRequest fromBytes = new Rtsp.RtspRequest(bytes);
+
+            if (!(fromBytes.Location == request.Location && fromBytes.CSeq == request.CSeq))
             {
                 throw new Exception();
             }
 
-            //Do some testing make them to bytes, reparse. Parse temples ... etc
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+
+            Console.ReadKey();
 
         }
 
@@ -124,19 +129,21 @@ namespace Media
             //Make a client
             //This host uses Udp but also supports Tcp
             //We create a client forcing the Rtp Transport to Tcp
-            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp);            
+            Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp);
+
         Start:
             //Assign some events
             client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
             client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
             client.OnResponse += (sender, response) => { Console.WriteLine("Client got response :" + response.StatusCode); };
             client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected from :" + client.Location); };
+
             try
             {
                 //Try to StartListening
                 client.StartListening();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.BackgroundColor = ConsoleColor.Red;
                 Console.WriteLine("Was unable to StartListening: " + ex.Message);
@@ -157,15 +164,8 @@ namespace Media
 
                 //Ensure we recieve a bunch of packets before we say the test is good
                 while (Console.ReadKey().Key != ConsoleKey.Q) { }
-            }
 
-            //All done
-            Console.WriteLine("Exiting RtspClient Test");
-
-            try
-            {
-                //If we are connected
-                if (client.Connected)
+                try
                 {
                     //Send a few requests just because
                     var one = client.SendOptions();
@@ -183,20 +183,21 @@ namespace Media
                     Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
                     Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
                     Console.BackgroundColor = ConsoleColor.Black;
-
-                    //Calls Disconnect if the client is Connected
-                    client.StopListening();
-
                 }
+                catch
+                {
+                    Console.BackgroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Sending Options Failed");
+                    Console.BackgroundColor = ConsoleColor.Black;
+                }
+
+                //All done with the client
+                client.StopListening();
             }
-            catch
-            {
-                Console.BackgroundColor = ConsoleColor.Red;
-                Console.WriteLine("Sending Options Failed");
-                Console.BackgroundColor = ConsoleColor.Black;
-            }
-            
-            
+
+            //All done
+            Console.WriteLine("Exiting RtspClient Test");
+
             //Perform another test if we need to
             if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
             {
@@ -204,7 +205,7 @@ namespace Media
                 //We will not specify Tcp we will allow the client to switch over automatically
                 client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
                 //Switch in 5 seconds rather than the default of 10
-                client.ProtocolSwitchSeconds = 5; 
+                client.ProtocolSwitchSeconds = 5;
                 Console.WriteLine("Performing 2nd Client test");
                 goto Start;
             }
@@ -287,6 +288,10 @@ a=mpeg4-esid:101");
 
             Console.WriteLine(connectionLine.ToString());
 
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+
+            Console.ReadKey();
+
         }
 
         /// <summary>
@@ -327,30 +332,39 @@ a=mpeg4-esid:101");
             Console.WriteLine("Active Streams :" + server.ActiveStreamCount);
 
             Console.WriteLine("Waiting for input................");
+            Console.WriteLine("Press 'U' to Enable Udp on RtspServer");
+            Console.WriteLine("Press 'H' to Enable Http on RtspServer");
+            Console.WriteLine("Press 'T' to Perform Load Test on RtspServer");
 
             while (true)
             {
+                ConsoleKeyInfo keyInfo = Console.ReadKey();
 
-                var key = Console.ReadKey();
-
-                if (key.KeyChar == 'q') break;
-                else
+                if (keyInfo.Key == ConsoleKey.Q) break;
+                else if (keyInfo.Key == ConsoleKey.H)
                 {
-                    if (System.Diagnostics.Debugger.IsAttached)
-                    {
-                        System.Diagnostics.Debugger.Break();
-                    }
+                    Console.WriteLine("Enabling Http");
+                    server.EnableHttp();
                 }
-
-                //server.EnableHttp();
-                //server.EnableUdp();
-
-                //TestClients();
-
-                //server.DisableHttp();
-                //server.DisableUdp();
-
+                else if (keyInfo.Key == ConsoleKey.U)
+                {
+                    Console.WriteLine("Enabling Udp");
+                    server.EnableUdp();
+                }
+                else if (keyInfo.Key == ConsoleKey.T)
+                {
+                    Console.WriteLine("Performing Load Test");
+                    LoadTest();
+                }
+                else if (System.Diagnostics.Debugger.IsAttached)
+                {
+                    System.Diagnostics.Debugger.Break();
+                }
             }
+
+            server.DisableHttp();
+
+            server.DisableUdp();
 
             Console.WriteLine("Stopping Server");
 
@@ -364,7 +378,7 @@ a=mpeg4-esid:101");
 
             Console.WriteLine("Rtsp Recieved : " + server.TotalRtspBytesRecieved);
 
-            Console.WriteLine("Waiting for input to Exit................");
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
             Console.ReadKey();
 
@@ -373,54 +387,94 @@ a=mpeg4-esid:101");
         /// <summary>
         /// Tests the Rtp and RtspClient in various modes (Against the server)
         /// </summary>
-        static void TestClients()
+        static void LoadTest(bool http = true, bool udp = true)
         {
-            //Call to the server in Tcp, Udp, and Http
-
-            Rtsp.RtspClient tcp = new Rtsp.RtspClient("rtsp://localhost/live/RtspSourceTest");
-
-            //Rtsp.RtspClient udp = new Rtsp.RtspClient("rtspu://localhost/live/RtspSourceTest");
-
-            //Required Admin Priv
-            //Rtsp.RtspClient http = new Rtsp.RtspClient("http://localhost/live/RtspSourceTest");
-
-            Enumerable.Range(0, 100).All((i) =>
+            //99 times
+            Enumerable.Range(0, 98).All(i =>
             {
-                try
+                //Create a client
+                if (http && i % 2 != 0) 
                 {
-                    tcp.Connect();
-                    tcp.SendOptions();
+                    //Use Rtsp / Http
+                    using (Rtsp.RtspClient httpClient = new Rtsp.RtspClient("http://localhost/live/Alpha"))
+                    {
+                        try
+                        {
+                            httpClient.StartListening();
 
-                    //udp.Connect();
-                    //udp.SendOptions();
+                            while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { }
 
-                    //http.Connect();
-                    //http.SendOptions();
-
-                    return true;
+                            return true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
                 }
-                catch
+                else if (udp && i % 3 == 0) 
                 {
-                    return false;
+                    //Use Rtsp / Udp
+                    using (Rtsp.RtspClient httpClient = new Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
+                    {
+                        try
+                        {
+                            httpClient.StartListening();
+
+                            while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { }
+
+                            return true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
                 }
+                else
+                {
+                    //Use Rtsp / Tcp
+                    using (Rtsp.RtspClient tcpClient = new Rtsp.RtspClient("rtsp://localhost/live/Alpha"))
+                    {
+                        try
+                        {
+                            tcpClient.StartListening();
+
+                            while (tcpClient.Client.TotalRtpBytesReceieved <= 1024) { }
+
+                            return true;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
+                }                
             });
         }
 
         static void TestJpegFrame()
         {            
-
+            //Create a JpegFrame from a Image
             Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
+            //Save the JpegFrame as a Image
             using (System.Drawing.Image jpeg = f)
             {
                 jpeg.Save("source.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
 
-
+            //Create a JpegFrame from an existing RtpFrame
             Rtp.JpegFrame t = new Rtp.JpegFrame(f);
+            //Save JpegFrame as Image
             using (System.Drawing.Image jpeg = t)
             {
                 jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
+
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+
+            Console.ReadKey();
+
         }
     }
 }

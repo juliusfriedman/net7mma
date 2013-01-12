@@ -6,7 +6,8 @@ using System.Text;
 namespace Media.Rtsp
 {
     /// <summary>
-    /// RFC2326
+    /// Header Definitions from RFC2326
+    /// http://www.ietf.org/rfc/rfc2326.txt
     /// </summary>
     public sealed class RtspHeaders
     {
@@ -36,21 +37,22 @@ namespace Media.Rtsp
         public const string Server = "Server";
         public const string Session = "Session";
         public const string Transport = "Transport";
+        public const string Required = "Required";
         public const string RtpInfo = "RTP-Info";
         public const string UserAgent = "User-Agent";
         public const string Vary = "Vary";
         public const string WWWAuthenticate = "WWW-Authenticate";
+        
 
         private RtspHeaders() { }
 
-        //Add other helpers
-
         //Ensure this format is correct
-        public static string NptRange(TimeSpan start, TimeSpan end)
-        {
-            return "npt=" + start.TotalSeconds + '.' + start.TotalMilliseconds + '-' + end.TotalSeconds + '.' + end.TotalMilliseconds;
-        }
+        internal const string NtpFormat = "h'.'fff";
 
+        public static string RangeHeader(TimeSpan start, TimeSpan end)
+        {
+            return "npt=" + start.ToString(NtpFormat) + '-' + end.ToString(NtpFormat);
+        }
     }
 
     /// <summary>
@@ -95,11 +97,8 @@ namespace Media.Rtsp
         //New Line
         public const string CRLF = "\r\n";
 
-        // RFC2326 9.2, default port for both TCP and UDP.
         public const string ReliableTransport = "rtsp";
         public const string UnreliableTransport = "rtspu";
-        
-        // RFC2326 9.2, initial round trip time used for retransmits on unreliable transports.
         public const int MaximumLength = 4096;
 
         //String which identifies a Rtsp Request or Response
@@ -287,83 +286,90 @@ namespace Media.Rtsp
 
         public RtspMessage(byte[] packet, int offset = 0)
         {
-            //Should determine encoding...
-            Encoding = Encoding.UTF8;
-
-            //Should check the first few bytes before doing this?
-
-            string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);            
-
-            int endFistLinePosn = Message.IndexOf(CRLF, offset);
-
-            if (endFistLinePosn == -1)
+            try
             {
-                MessageType = RtspMessageType.Invalid;
-                return;
-            }
+                //Should determine encoding...
+                Encoding = Encoding.UTF8;
 
-            //Store the first line for derived types since this is the only thing they need
-            m_FirstLine = Message.Substring(offset, endFistLinePosn);
+                //Should check the first few bytes before doing this?
 
-            int miLen = MessageIdentifier.Length;
+                string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);
 
-            if (Message.Contains(MessageIdentifier))
-            {
-                //Get the message type
-                MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
-            }
-            else
-            {
-                MessageType = RtspMessageType.Invalid;
-                return;
-            }
+                int endFistLinePosn = Message.IndexOf(CRLF, offset);
 
-            #region FirstLine Version, (Method / Location or StatusCode)
-            
-            //Could assign version, then assign Method and Location
-            if (MessageType == RtspMessageType.Request)
-            {
-                //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
-                Version = double.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty));
-            }
-            else
-            {
-                //S->C[0]RTSP/1.0[1]200[2]OK
-                Version = double.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
-            }
-
-            #endregion
-
-            //Determine if we should decode more
-            if (packet.Length - endFistLinePosn > miLen)
-            {
-                int endHeaderPosn = Message.IndexOf(CRLF + CRLF);
-
-                int headerLength = 0, crlfLen = CRLF.Length;
-
-                //If there is no end of the header then
-                //Assume flakey implementation if message does not contain the required CRLFCRLF sequence and treat the message as having no body.
-                if (endHeaderPosn == -1) headerLength = Message.Length - endFistLinePosn - crlfLen;
-                else headerLength = endHeaderPosn - endFistLinePosn - crlfLen;
-
-                // Get the headers 
-                foreach (string raw in Message.Substring(endFistLinePosn + crlfLen, headerLength).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
+                if (endFistLinePosn == -1)
                 {
-                    //We only want the first 2 sub strings to allow for headers which have a ':' in the data
-                    //E.g. Rtp-Info: rtsp://....
-                    string[] parts = raw.Split(HeaderValueSplit, 2);
-                    if (parts.Length > 1) SetHeader(parts[0].Trim(), parts[1].Trim());                    
+                    MessageType = RtspMessageType.Invalid;
+                    return;
                 }
 
-                //Get the body
-                if (endHeaderPosn != -1)
+                //Store the first line for derived types since this is the only thing they need
+                m_FirstLine = Message.Substring(offset, endFistLinePosn);
+
+                int miLen = MessageIdentifier.Length;
+
+                if (Message.Contains(MessageIdentifier))
                 {
-                    Body = Message.Substring(endHeaderPosn + 4); //crlfLen * 2
-                    //Should verify content - length header?
-                    //if(!ContainsHeader(ContentLength) && Body.Length == int.Parse(GetHeader(ContentLength))){
-                    // throw new RtspMessageException("Invalid Content-Length Header");
-                    //}
+                    //Get the message type
+                    MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
                 }
+                else
+                {
+                    MessageType = RtspMessageType.Invalid;
+                    return;
+                }
+
+                #region FirstLine Version, (Method / Location or StatusCode)
+
+                //Could assign version, then assign Method and Location
+                if (MessageType == RtspMessageType.Request)
+                {
+                    //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
+                    Version = double.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty));
+                }
+                else
+                {
+                    //S->C[0]RTSP/1.0[1]200[2]OK
+                    Version = double.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
+                }
+
+                #endregion
+
+                //Determine if we should decode more
+                if (packet.Length - endFistLinePosn > miLen)
+                {
+                    int endHeaderPosn = Message.IndexOf(CRLF + CRLF);
+
+                    int headerLength = 0, crlfLen = CRLF.Length;
+
+                    //If there is no end of the header then
+                    //Assume flakey implementation if message does not contain the required CRLFCRLF sequence and treat the message as having no body.
+                    if (endHeaderPosn == -1) headerLength = Message.Length - endFistLinePosn - crlfLen;
+                    else headerLength = endHeaderPosn - endFistLinePosn - crlfLen;
+
+                    // Get the headers 
+                    foreach (string raw in Message.Substring(endFistLinePosn + crlfLen, headerLength).Split(HeaderSplit, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        //We only want the first 2 sub strings to allow for headers which have a ':' in the data
+                        //E.g. Rtp-Info: rtsp://....
+                        string[] parts = raw.Split(HeaderValueSplit, 2);
+                        if (parts.Length > 1) SetHeader(parts[0].Trim(), parts[1].Trim());
+                    }
+
+                    //Get the body
+                    if (endHeaderPosn != -1)
+                    {
+                        Body = Message.Substring(endHeaderPosn + 4); //crlfLen * 2
+                        //Should verify content - length header?
+                        //if(!ContainsHeader(ContentLength) && Body.Length == int.Parse(GetHeader(ContentLength))){
+                        // throw new RtspMessageException("Invalid Content-Length Header");
+                        //}
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new RtspMessageException(ex.Message, ex, this);
             }
         }
 

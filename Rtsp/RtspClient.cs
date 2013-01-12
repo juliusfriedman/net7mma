@@ -13,9 +13,10 @@ namespace Media.Rtsp
 {
     /// <summary>
     /// Implements RFC 2326
-    /// Communicates with an RtspServer to setup a RtpClient.    
+    /// http://www.ietf.org/rfc/rfc2326.txt
+    /// Provides facilities for communication with an RtspServer
     /// </summary>
-    public class RtspClient
+    public class RtspClient : IDisposable
     {
         #region Nested Types
 
@@ -129,18 +130,23 @@ namespace Media.Rtsp
         public ClientProtocolType RtspProtocol { get { return m_RtspProtocol; } }
 
         /// <summary>
-        /// Gets or sets location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change
+        /// Gets or sets location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change.
+        /// If the RtspClient was listening then it will be stopped and started
         /// </summary>
         public Uri Location
         {
             get { return m_Location; }
-            internal set
+            set
             {
                 try
                 {
                     //If Different
                     if (m_Location != value)
                     {
+
+                        bool wasListening = Listening;
+
+                        if (wasListening) StopListening();
 
                         m_Location = value;
 
@@ -159,6 +165,8 @@ namespace Media.Rtsp
 
                         //Make a IPEndPoint 
                         m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
+
+                        if (wasListening) StartListening();
                     }
                 }
                 catch (Exception ex)
@@ -1079,10 +1087,10 @@ namespace Media.Rtsp
                 //play.AppendOrSetHeader(RtspHeaders.Range,"npt=0.000-");
                 string rangeHeader = "npt=";
 
-                if (startTime.HasValue) rangeHeader += startTime.Value.ToString("0.000");
+                if (startTime.HasValue) rangeHeader += startTime.Value.ToString(RtspHeaders.NtpFormat);
                 else rangeHeader += "0.000-";
 
-                if (endTime.HasValue) rangeHeader += endTime.Value.ToString("0.000");
+                if (endTime.HasValue) rangeHeader += endTime.Value.ToString(RtspHeaders.NtpFormat);
 
                 play.SetHeader(RtspHeaders.Range, rangeHeader);
 
@@ -1233,6 +1241,15 @@ namespace Media.Rtsp
             {
                 return null;
             }
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            StopListening();
         }
 
         #endregion
