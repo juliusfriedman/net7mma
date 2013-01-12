@@ -113,6 +113,7 @@ namespace Media.Rtsp.Server.Streams
             if (m_Worker != null) return;
             m_Worker = new System.Threading.Thread(Packetize);
             m_Worker.Name = "ImageStream" + Id;
+            m_Worker.IsBackground = true;
             m_Worker.Start();
         }
 
@@ -167,7 +168,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
-                    m_Frames.Enqueue(new Rtp.JpegFrame(image, 100, sourceId, sequenceNumber++, timeStamp));
+                    m_Frames.Enqueue(new Rtp.JpegFrame(image, 100, sourceId,0, 0));
                 }
                 catch { }
             }
@@ -187,11 +188,36 @@ namespace Media.Rtsp.Server.Streams
 
                         timeStamp = (uint)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
-                        frame.TimeStamp = timeStamp;
+                        //frame.TimeStamp = timeStamp;
 
-                        foreach (Rtp.RtpPacket packet in frame) RtpClient.OnRtpPacketReceieved(packet);
-                            
-                        if (Loop) m_Frames.Enqueue(frame);
+                        //Maybe need a way to set the sequcenumbers in a frame?
+
+                        //Could just do it like this
+                        //RtpClient.OnRtpFrameChanged(frame);
+
+                        Rtp.RtpClient.Interleave interleave = RtpClient.GetInterleaveForPacket(frame.Packets.Last());
+
+                        //For Rtcp
+                        interleave.SequenceNumber = frame.HighestSequenceNumber;
+                        interleave.RtpTimestamp = frame.TimeStamp;
+                        interleave.NtpTimestamp = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow);
+
+                        Rtp.JpegFrame next = new Rtp.JpegFrame();
+                        next.SynchronizationSourceIdentifier = sourceId;
+                        next.TimeStamp = timeStamp;
+                        foreach (Rtp.RtpPacket packet in frame)
+                        {
+                            packet.TimeStamp = timeStamp;
+                            packet.SequenceNumber = (int)++sequenceNumber;
+                            next.Add(packet);
+                            //Might just be better to utilize the frameChanged and then send from there...
+                            RtpClient.OnRtpPacketReceieved(packet);
+                        }
+
+                        if (Loop)
+                        {
+                            m_Frames.Enqueue(next);
+                        }
                     }
 
                 }

@@ -630,6 +630,15 @@ namespace Media.Rtp
                 }
             //All done reading bytes
             Done:
+
+                //Resize final packet if we have not used all available bytes
+                if (currentPacketOffset < currentPacket.Payload.Length)
+                {
+                    byte[] tempPayload = currentPacket.Payload;
+                    Array.Resize<byte>(ref tempPayload, currentPacketOffset);
+                    currentPacket.Payload = tempPayload;
+                }
+
                 //Final packet marks the end
                 currentPacket.Marker = true;    
 

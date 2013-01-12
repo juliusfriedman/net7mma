@@ -130,12 +130,11 @@ namespace Media.Rtp
         /// <param name="packet">The RtpPacket to Add</param>
         public virtual void Add(RtpPacket packet)
         {
-            if (Complete) return;
             if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
             if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
-            if (Contains(packet)) return;
             lock (m_Packets)
-            {                
+            {
+                if (Complete || Contains(packet)) return;
                 m_Packets.Add(packet.SequenceNumber, packet);
                 Complete = packet.Marker;
             }

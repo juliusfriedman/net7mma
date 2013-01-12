@@ -325,6 +325,9 @@ a=mpeg4-esid:101");
             //Local Stream Provided from pictures in a Directory
             server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
 
+            //Local Stream Provided from pictures in a Directory 
+            server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("Test", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
+
             //Start the server
             server.Start();
 
