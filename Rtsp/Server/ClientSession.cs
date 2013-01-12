@@ -90,27 +90,27 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
+            //Get the interleave for the packet from the RtpClient
+            RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
+
+            //Nothing we need
+            if (interleave == null) return;
+
             //Send on its own thread (Happens quicker)
             m_RtpClient.EnquePacket(packet);
 
             //On the first available thread
             ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
             {
-                //Get the interleave for the packet from the RtpClient
-                RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
-
-                //Nothing we need
-                if (interleave == null) return;
-
-                //Raise an event
-                m_RtpClient.OnRtpPacketReceieved(packet);
-
                 //If the source has not been assigned we need to send a senders report to identify us
                 if (interleave.SynchronizationSourceIdentifier == 0)
                 {
                     //Send the senders report for the interleave (Which will create SynchronizationSourceIdentifier) 
                     SendSendersReport(interleave);
                 }
+
+                //Raise an event
+                m_RtpClient.OnRtpPacketReceieved(packet);
 
                 //If Enable Mixing
                 //packet.ContributingSources.Add(packet.SynchronizationSourceIdentifier);
