@@ -44,7 +44,7 @@ namespace Media.Rtsp
         BadGateway = 502,
         ServiceUnavailable = 503,
         GatewayTimeOut = 504,
-        RTSPVersionNotSupported = 505,
+        VersionNotSupported = 505,
         OptionNotSupported = 551,
     }
 

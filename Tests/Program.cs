@@ -80,7 +80,7 @@ namespace Media
             {
                 if (example[offset] != output[i]) throw new Exception();
             }
-
+            Console.WriteLine("RtcpPacket Test passed!");
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
             Console.ReadKey();
@@ -117,6 +117,8 @@ namespace Media
             {
                 throw new Exception();
             }
+
+            Console.WriteLine("RtspMessage Test passed!");
 
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
@@ -288,6 +290,8 @@ a=mpeg4-esid:101");
 
             Console.WriteLine(connectionLine.ToString());
 
+            Console.WriteLine("SDP Test passed!");
+
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
             Console.ReadKey();
@@ -322,16 +326,16 @@ a=mpeg4-esid:101");
             //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
 
-            //Local Stream Provided from pictures in a Directory
+            //Local Stream Provided from pictures in a Directory  @ rtsp://localhost/live/Pics through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
 
-            //Local Stream Provided from pictures in a Directory 
-            server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("Test", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
+            //Local Stream Provided from pictures in a Directory  @ rtsp://localhost/live/Test through Udp and Tcp
+            server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
 
             //Start the server
             server.Start();
 
-            //If you add more streams they will be started
+            //If you add more streams they will be started once the server is started
 
             Console.WriteLine("Listening on: " + server.LocalEndPoint);
 
@@ -372,10 +376,6 @@ a=mpeg4-esid:101");
 
             server.DisableUdp();
 
-            Console.WriteLine("Stopping Server");
-
-            server.Stop();
-
             Console.WriteLine("Stream Recieved : " + server.TotalStreamBytesRecieved);
 
             Console.WriteLine("Stream Sent : " + server.TotalStreamBytesSent);
@@ -383,6 +383,10 @@ a=mpeg4-esid:101");
             Console.WriteLine("Rtsp Sent : " + server.TotalRtspBytesSent);
 
             Console.WriteLine("Rtsp Recieved : " + server.TotalRtspBytesRecieved);
+
+            Console.WriteLine("Stopping Server");            
+
+            server.Stop();
 
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
@@ -497,6 +501,8 @@ a=mpeg4-esid:101");
             {
                 jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
+
+            Console.WriteLine("Success video.jpg Encoded and saved as result.jpg");
 
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 

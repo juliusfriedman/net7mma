@@ -158,14 +158,17 @@ namespace Media.Rtsp
         /// </summary>
         internal void Disconnect()
         {
+
+            //Detach all attached streams
+            m_Attached.ForEach(Detach);
+
             //Disconnect the RtpClient
             if (m_RtpClient != null)
             {
                 m_RtpClient.Disconnect();
+                m_RtpClient = null;
             }
-            //Detach all attached streams
-            m_Attached.ForEach(Detach);
-
+            
             //Not really used atm
             if (m_Udp != null) m_Udp.Close();
             m_Http = null;
@@ -203,8 +206,11 @@ namespace Media.Rtsp
         internal void Detach(RtpSourceStream stream)
         {
             if (!m_Attached.Contains(stream)) return;
-            stream.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
-            stream.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+            if (stream.RtpClient != null)
+            {
+                stream.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
+                stream.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+            }
             m_Attached.Remove(stream);
         }
 

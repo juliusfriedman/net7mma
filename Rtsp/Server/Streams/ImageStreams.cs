@@ -53,8 +53,6 @@ namespace Media.Rtsp.Server.Streams
 
         public override Rtp.RtpClient RtpClient { get { return m_RtpClient; } }
 
-        public override bool Ready { get { return m_Frames.Count > 0; } }
-
         #endregion
 
         #region Constructor
@@ -62,32 +60,12 @@ namespace Media.Rtsp.Server.Streams
         public ImageSourceStream(string name, string directory = null, bool watch = true)
             : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory))) 
         {
-
-            directory = base.Source.LocalPath;
-
-            //If we were given a directory and the directory exists then make a FileSystemWatcher
-            if (!string.IsNullOrWhiteSpace(directory) && System.IO.Directory.Exists(directory))
+            if (System.IO.Directory.Exists(base.Source.LocalPath) && watch)
             {
-                if (watch)
-                {
-                    m_Watcher = new System.IO.FileSystemWatcher(directory);
-                    m_Watcher.EnableRaisingEvents = true;
-                    m_Watcher.NotifyFilter = System.IO.NotifyFilters.CreationTime;
-                    m_Watcher.Created += m_Watcher_Created;
-                }
-
-                foreach (string file in System.IO.Directory.GetFiles(directory, "*.jpg"))
-                {
-                    try
-                    {
-                        AddImage(System.Drawing.Image.FromFile(file));
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-                }
-
+                m_Watcher = new System.IO.FileSystemWatcher(base.Source.LocalPath);
+                m_Watcher.EnableRaisingEvents = true;
+                m_Watcher.NotifyFilter = System.IO.NotifyFilters.CreationTime;
+                m_Watcher.Created += m_Watcher_Created;
             }
 
             //Add a MediaDescription to our Sdp
@@ -95,12 +73,6 @@ namespace Media.Rtsp.Server.Streams
 
             //Add the control line
             m_Sdp.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
-            
-            //Create a RtpClient so events can be fired
-            m_RtpClient = Rtp.RtpClient.Sender(System.Net.IPAddress.Any);
-
-            //Add a Interleave
-            m_RtpClient.AddInterleave(new Rtp.RtpClient.Interleave(0, 1, sourceId, m_Sdp.MediaDescriptions[0]));
         }
 
         #endregion
@@ -111,19 +83,72 @@ namespace Media.Rtsp.Server.Streams
         public override void Start()
         {
             if (m_Worker != null) return;
+
+            //Create a RtpClient so events can be fired
+            m_RtpClient = Rtp.RtpClient.Sender(System.Net.IPAddress.Any);
+
+            //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.
+            m_RtpClient.AddInterleave(new Rtp.RtpClient.Interleave(0, 1, sourceId, m_Sdp.MediaDescriptions[0]) { RtcpEnabled = false});
+
+            //Ensure never stops sending
+            m_RtpClient.InactivityTimeoutSeconds = -1;
+
+            //Makes it faster to send because we already have the frames
+            m_RtpClient.m_FrameEventsEnabled = false;
+
+            //We don't need to increment the coutners via an event we can do that (for instance if we didn't need to we might not want to)
+            m_RtpClient.m_PacketEventsEnabled = false;
+
+            //Make the thread
             m_Worker = new System.Threading.Thread(Packetize);
             m_Worker.Name = "ImageStream" + Id;
             m_Worker.IsBackground = true;
             m_Worker.Start();
+
+            //If we were given a directory and the directory exists then make a FileSystemWatcher
+            if (!string.IsNullOrWhiteSpace(base.Source.LocalPath) && System.IO.Directory.Exists(base.Source.LocalPath))
+            {
+                System.Threading.ThreadPool.QueueUserWorkItem(o =>
+                {
+                    foreach (string file in System.IO.Directory.GetFiles(base.Source.LocalPath, "*.jpg"))
+                    {
+                        try
+                        {
+                            AddImage(System.Drawing.Image.FromFile(file));
+                        }
+                        catch
+                        {
+                            continue;
+                        }
+                    }
+
+                    //Only ready after all pictures are in the queue
+                    m_Ready = true;
+#if DEBUG
+                    System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Started");
+#endif
+                });
+            }
         }
 
         public override void Stop()
         {
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Stopped");
+#endif
+
+            m_Ready = false;
+
             if (m_Worker != null)
             {
-                m_Worker.Abort();
+                try
+                {
+                    m_Worker.Abort();
+                }
+                catch { }
                 m_Worker = null;
             }
+
             if (m_Watcher != null)
             {
                 m_Watcher.EnableRaisingEvents = false;
@@ -131,6 +156,14 @@ namespace Media.Rtsp.Server.Streams
                 m_Watcher.Dispose();
                 m_Watcher = null;
             }
+
+            if (m_RtpClient != null)
+            {
+                m_RtpClient.Disconnect();
+                m_RtpClient = null;
+            }
+
+            m_Frames.Clear();
         }
 
         void m_Watcher_Created(object sender, System.IO.FileSystemEventArgs e)
@@ -140,7 +173,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
-                    AddFrame(new Rtp.JpegFrame(System.Drawing.Image.FromFile(path), 100, sourceId, sequenceNumber++, timeStamp));
+                    AddFrame(new Rtp.JpegFrame(System.Drawing.Image.FromFile(path), 100, sourceId, sequenceNumber, timeStamp));
                 }
                 catch { }
             }
@@ -181,39 +214,61 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
-
+                    //Don't need to overload Outgoing Packets we can rest if there are many packets still not sent
                     if (m_Frames.Count > 0)
                     {
                         Rtp.JpegFrame frame = m_Frames.Dequeue();
 
                         timeStamp = (uint)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
-                        //frame.TimeStamp = timeStamp;
-
-                        //Maybe need a way to set the sequcenumbers in a frame?
-
-                        //Could just do it like this
-                        //RtpClient.OnRtpFrameChanged(frame);
-
+                        //Get the interleave for the packet
                         Rtp.RtpClient.Interleave interleave = RtpClient.GetInterleaveForPacket(frame.Packets.Last());
 
-                        //For Rtcp
-                        interleave.SequenceNumber = frame.HighestSequenceNumber;
-                        interleave.RtpTimestamp = frame.TimeStamp;
+                        //Updated values on the Interleave
                         interleave.NtpTimestamp = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow);
+                        interleave.RtpTimestamp = frame.TimeStamp;
+                        interleave.SequenceNumber = frame.HighestSequenceNumber;
 
-                        Rtp.JpegFrame next = new Rtp.JpegFrame();
-                        next.SynchronizationSourceIdentifier = sourceId;
-                        next.TimeStamp = timeStamp;
+                        //Create a new frame so the timestamps and sequence numbers can change
+                        Rtp.JpegFrame next = new Rtp.JpegFrame()
+                        {
+                            SynchronizationSourceIdentifier = sourceId,
+                            TimeStamp = timeStamp
+                        };
+
+                        //Iterate each packet and put it into the next frame
                         foreach (Rtp.RtpPacket packet in frame)
                         {
+                            packet.Channel = interleave.DataChannel;
                             packet.TimeStamp = timeStamp;
                             packet.SequenceNumber = (int)++sequenceNumber;
                             next.Add(packet);
-                            //Might just be better to utilize the frameChanged and then send from there...
                             RtpClient.OnRtpPacketReceieved(packet);
+
+                            //If we are keeping track of everything we should increment the counters so the server can send correct Rtcp Reports
+                            if (!RtpClient.m_PacketEventsEnabled)
+                            {
+                                interleave.RtpPacketsSent++;
+                                interleave.RtpBytesSent += packet.Length;
+                            }
                         }
 
+                        //Keep the Current and LastFrame updated if we disabled events
+                        if (!RtpClient.m_PacketEventsEnabled)
+                        {
+                            //Update frames on Interleave incase there is a UI somewhere showing frames from this source
+                            if (interleave.CurrentFrame == null)
+                            {
+                                interleave.CurrentFrame = frame;
+                            }
+                            else
+                            {
+                                interleave.LastFrame = interleave.CurrentFrame;
+                                interleave.CurrentFrame = frame;
+                            }
+                        }
+                        
+                        //If we are to loop images then add it back at the end
                         if (Loop)
                         {
                             m_Frames.Enqueue(next);
