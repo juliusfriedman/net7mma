@@ -322,6 +322,9 @@ a=mpeg4-esid:101");
             //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
 
+            //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
+            server.AddStream(new Rtsp.Server.Streams.LoopingImageSourceStream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location));
+
             //Start the server
             server.Start();
 
@@ -389,7 +392,7 @@ a=mpeg4-esid:101");
         /// </summary>
         static void LoadTest(bool http = true, bool udp = true)
         {
-            //99 times
+            //99 times about a GB in total
             Enumerable.Range(0, 98).All(i =>
             {
                 //Create a client
@@ -400,14 +403,21 @@ a=mpeg4-esid:101");
                     {
                         try
                         {
+                            Console.WriteLine("Performing Http / Rtsp Test");
+
                             httpClient.StartListening();
 
                             while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { }
+
+                            Console.WriteLine("Test passed");
 
                             return true;
                         }
                         catch
                         {
+                            Console.BackgroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Rtp / Http Test Failed");
+                            Console.BackgroundColor = ConsoleColor.Black;
                             return false;
                         }
                     }
@@ -415,18 +425,25 @@ a=mpeg4-esid:101");
                 else if (udp && i % 3 == 0) 
                 {
                     //Use Rtsp / Udp
-                    using (Rtsp.RtspClient httpClient = new Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
+                    using (Rtsp.RtspClient udpClient = new Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
                     {
                         try
                         {
-                            httpClient.StartListening();
+                            Console.WriteLine("Performing Udp / Rtsp Test");
 
-                            while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { }
+                            udpClient.StartListening();
+
+                            while (udpClient.Client.TotalRtpBytesReceieved <= 1024) { }
+
+                            Console.WriteLine("Test passed");
 
                             return true;
                         }
                         catch
                         {
+                            Console.BackgroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Rtp / Udp Test Failed");
+                            Console.BackgroundColor = ConsoleColor.Black;
                             return false;
                         }
                     }
@@ -438,14 +455,21 @@ a=mpeg4-esid:101");
                     {
                         try
                         {
+                            Console.WriteLine("Performing Rtsp / Tcp Test");
+
                             tcpClient.StartListening();
 
                             while (tcpClient.Client.TotalRtpBytesReceieved <= 1024) { }
+
+                            Console.WriteLine("Test passed");
 
                             return true;
                         }
                         catch
                         {
+                            Console.BackgroundColor = ConsoleColor.Red;
+                            Console.WriteLine("Rtp / Tcp Test Failed");
+                            Console.BackgroundColor = ConsoleColor.Black;
                             return false;
                         }
                     }

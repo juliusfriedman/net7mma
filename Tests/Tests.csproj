@@ -83,6 +83,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="flip.jpg" />
     <Content Include="video.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

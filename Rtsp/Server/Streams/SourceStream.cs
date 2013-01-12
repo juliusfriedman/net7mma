@@ -12,8 +12,6 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public abstract class SourceStream
     {
-        //public static ChildStream CreateChild(SourceStream source) { return new ChildStream(source); }
-
         public enum StreamState
         {
             Stopped,
@@ -34,7 +32,8 @@ namespace Media.Rtsp.Server.Streams
         volatile internal System.Drawing.Image m_lastFrame;
         
         internal bool m_ForceTCP;// = true; // To force clients to utilize TCP Interleaved
-        //Might need allows Tcp?
+        internal bool m_DisableSendStastics;
+        internal bool m_Ready;
 
         #endregion
 
@@ -94,6 +93,10 @@ namespace Media.Rtsp.Server.Streams
                 m_Source = value;
             }
         }
+
+        public virtual bool Ready {get { return m_Ready;}}
+
+        public abstract string MediaProtocol { get; }
 
         #endregion
 

@@ -422,8 +422,21 @@ namespace Media.Rtp
                 // Set the scan method
                 parameters.Param[2] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.ScanMethod, (int)System.Drawing.Imaging.EncoderValue.ScanMethodNonInterlaced);
                 
-                //Save the source to the temp stream using the jpeg coded and given encoder params
-                source.Save(temp, codecInfo, parameters);
+                ///TODO - Handle GIF Multiple Frames?
+
+                if (source.Width > JpegFrame.MaxWidth || source.Height > JpegFrame.MaxHeight)
+                {
+                    using (System.Drawing.Image thumb = source.GetThumbnailImage(JpegFrame.MaxWidth, JpegFrame.MaxHeight, null, IntPtr.Zero))
+                    {
+                        //Save the source to the temp stream using the jpeg coded and given encoder params
+                        thumb.Save(temp, codecInfo, parameters);
+                    }
+                }
+                else
+                {
+                    //Save the source to the temp stream using the jpeg coded and given encoder params
+                    source.Save(temp, codecInfo, parameters);
+                }
 
                 //Enure at the beginning
                 temp.Seek(0, System.IO.SeekOrigin.Begin);

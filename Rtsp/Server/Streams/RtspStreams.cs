@@ -62,6 +62,14 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
+        public override bool Ready
+        {
+            get
+            {
+                return Client.Client != null && Client.Client.Connected && Client.Client.TotalRtpBytesReceieved >= 0;
+            }
+        }
+
         #endregion
 
         #region Constructor

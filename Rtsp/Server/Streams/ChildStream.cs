@@ -10,7 +10,7 @@ namespace Media.Rtsp.Server.Streams
     /// A Source Stream which is a facade` to another
     /// </summary>
     public class ChildStream : SourceStream
-    {        
+    {
 
         internal SourceStream m_Parent;
 
@@ -84,6 +84,8 @@ namespace Media.Rtsp.Server.Streams
         {
             return m_Parent.GetFrame();
         }
+
+        public override string MediaProtocol { get { return m_Parent.MediaProtocol; } }
 
     }
 }
