@@ -43,6 +43,8 @@ namespace Media.Rtsp.Server.Streams
 
         #region Propeties
 
+        public bool Loop { get; set; }
+
         public override bool Connected { get { return true; } }
 
         public override bool Listening { get { return true; } }
@@ -161,8 +163,9 @@ namespace Media.Rtsp.Server.Streams
 
                         frame.TimeStamp = timeStamp;
 
-                        foreach (Rtp.RtpPacket packet in frame)
-                            RtpClient.OnRtpPacketReceieved(packet);
+                        foreach (Rtp.RtpPacket packet in frame) RtpClient.OnRtpPacketReceieved(packet);
+                            
+                        if (Loop) m_Frames.Enqueue(frame);
                     }
 
                 }
@@ -171,44 +174,6 @@ namespace Media.Rtsp.Server.Streams
         }
 
         #endregion
-    }
-
-    /// <summary>
-    /// Same as ImageStream only it will automatically add the encoded Images back to the Queue after sending
-    /// </summary>
-    public sealed class LoopingImageSourceStream : ImageSourceStream
-    {
-        public LoopingImageSourceStream(string name, string directory = null) : base(name, directory) { }
-
-        //Move to SourceStream?
-        internal override void Packetize()
-        {
-            while (true)
-            {
-                try
-                {
-
-                    if (m_Frames.Count > 0)
-                    {
-                        Rtp.JpegFrame frame = new Rtp.JpegFrame(m_Frames.Dequeue(), 100, sourceId, sequenceNumber++, timeStamp);
-
-                        timeStamp = (uint)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond * clockRate);
-
-                        frame.TimeStamp = timeStamp;
-
-                        foreach (Rtp.RtpPacket packet in frame)
-                        {
-                            RtpClient.OnRtpPacketReceieved(packet);
-                        }
-
-                        m_Frames.Enqueue(frame);
-
-                    }
-
-                }
-                catch { break; }
-            }
-        }
     }
 
     public sealed class ChildImageStream : ChildStream
