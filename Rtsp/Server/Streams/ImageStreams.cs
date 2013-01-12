@@ -91,7 +91,7 @@ namespace Media.Rtsp.Server.Streams
             }
 
             //Add a MediaDescription to our Sdp
-            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, "RTP/AVP", Rtp.JpegFrame.PayloadType));
+            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, MediaProtocol, Rtp.JpegFrame.PayloadType));
 
             //Add the control line
             m_Sdp.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
