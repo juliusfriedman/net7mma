@@ -422,9 +422,9 @@ namespace Media.Rtp
                 // Set the scan method
                 parameters.Param[2] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.ScanMethod, (int)System.Drawing.Imaging.EncoderValue.ScanMethodNonInterlaced);
                 
-                ///TODO - Handle GIF Multiple Frames?
+                ///Todo -  Handle Multiple Frames from a System.Drawing.Image (Gif)
 
-                if (source.Width > JpegFrame.MaxWidth || source.Height > JpegFrame.MaxHeight)
+                if (source.Width > MaxWidth || source.Height > MaxHeight)
                 {
                     using (System.Drawing.Image thumb = source.GetThumbnailImage(JpegFrame.MaxWidth, JpegFrame.MaxHeight, null, IntPtr.Zero))
                     {

@@ -322,7 +322,7 @@ a=mpeg4-esid:101");
             //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
+            //Local Stream Provided from pictures in a Directory
             server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
 
             //Start the server
