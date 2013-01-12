@@ -65,7 +65,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all streams the server is aggregrating
         /// </summary>
-        Dictionary<Guid, RtspSourceStream> m_Streams = new Dictionary<Guid, RtspSourceStream>();
+        Dictionary<Guid, RtpSourceStream> m_Streams = new Dictionary<Guid, RtpSourceStream>();
 
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
@@ -135,9 +135,9 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="streamId">The unique identifer</param>
         /// <returns>The RtspClient assocaited with the given id if found, otherwise null</returns>
-        public RtspSourceStream this[Guid streamId] { get { return GetStream(streamId); } }
+        public RtpSourceStream this[Guid streamId] { get { return GetStream(streamId); } }
 
-        public List<RtspSourceStream> Streams { get { return m_Streams.Values.ToList(); } }
+        public List<RtpSourceStream> Streams { get { return m_Streams.Values.ToList(); } }
 
         /// <summary>
         /// The amount of streams the server is prepared to listen to
@@ -174,9 +174,9 @@ namespace Media.Rtsp
             get
             {
                 int total = 0;
-                foreach (RtspSourceStream client in m_Streams.Values)
+                foreach (RtpSourceStream client in m_Streams.Values)
                 {
-                    total += client.Client.BytesRecieved;
+                    total += client.RtpClient.TotalRtcpBytesReceieved;
                 }
                 return total;
             }
@@ -190,9 +190,9 @@ namespace Media.Rtsp
             get
             {
                 int total = 0;
-                foreach (RtspSourceStream stream in m_Streams.Values)
+                foreach (RtpSourceStream stream in m_Streams.Values)
                 {
-                    total += stream.Client.BytesSent;
+                    total += stream.RtpClient.TotalRtpBytesSent;
                 }
                 return total;
             }
@@ -334,7 +334,7 @@ namespace Media.Rtsp
         /// Adds a stream to the server. If the server is already started then the stream will also be started
         /// </summary>
         /// <param name="location">The uri of the stream</param>
-        public void AddStream(RtspSourceStream stream)
+        public void AddStream(RtpSourceStream stream)
         {
             if (ContainsStream(stream.Id)) throw new RtspServerException("Cannot add the given stream because it is already contained in the RtspServer");
             else
@@ -370,7 +370,7 @@ namespace Media.Rtsp
         {
             try
             {
-                RtspSourceStream client = m_Streams[streamId];
+                RtpSourceStream client = m_Streams[streamId];
                 if (client == null) return false;
                 if(stop) client.Stop();
                 lock (m_Streams)
@@ -384,9 +384,9 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspSourceStream GetStream(Guid streamId)
+        public RtpSourceStream GetStream(Guid streamId)
         {
-            RtspSourceStream result;
+            RtpSourceStream result;
             m_Streams.TryGetValue(streamId, out result);
             return result;
         }
@@ -396,10 +396,10 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal RtspSourceStream FindStreamByLocation(Uri mediaLocation)
+        internal RtpSourceStream FindStreamByLocation(Uri mediaLocation)
         {
 
-            RtspSourceStream found = null;
+            RtpSourceStream found = null;
 
             string streamBase = null, streamName = null;
 
@@ -436,7 +436,7 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
-                foreach (RtspSourceStream stream in m_Streams.Values.ToList())
+                foreach (RtpSourceStream stream in m_Streams.Values.ToList())
                 {
                     //If the name matches the streamName or stream Id then we found it
                     if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString() == streamName)
@@ -515,24 +515,22 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            var toStart = default(List<RtspSourceStream>);
+            var toStart = default(List<RtpSourceStream>);
             lock (m_Streams)
             {
                 toStart = m_Streams.Values.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false).ToList();
             }
-            foreach (RtspSourceStream stream in toStart)
+            foreach (RtpSourceStream stream in toStart)
             {
                 try
                 {
-                    //Get rid of the state of the previous session
-                    stream.Client.Disconnect();
+                    //Ensure Stopped
+                    stream.Stop();
+
                     //try to start it again
                     stream.Start();
                 }
-                catch
-                {
-
-                }
+                catch { }
             }
         }
 
@@ -638,7 +636,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (RtspSourceStream stream in m_Streams.Values.ToList())
+            foreach (RtpSourceStream stream in m_Streams.Values.ToList())
             {                             
                 stream.Start();
             }
@@ -649,7 +647,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (RtspSourceStream stream in m_Streams.Values.ToList())
+            foreach (RtpSourceStream stream in m_Streams.Values.ToList())
             {                
                 stream.Stop();
             }
@@ -1211,7 +1209,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("OPTIONS " + request.Location);
 #endif
 
-            RtspSourceStream found = FindStreamByLocation(request.Location);
+            RtpSourceStream found = FindStreamByLocation(request.Location);
 
             //No stream with name
             if (found == null)
@@ -1249,7 +1247,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspSourceStream found = FindStreamByLocation(request.Location);
+            RtpSourceStream found = FindStreamByLocation(request.Location);
 
             if (found == null)
             {
@@ -1303,13 +1301,13 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("SETUP " + request.Location);
 #endif
 
-            RtspSourceStream found = FindStreamByLocation(request.Location);
+            RtpSourceStream found = FindStreamByLocation(request.Location);
             if (found == null)
             {                
                 ProcessLocationNotFoundRtspRequest(session);
                 return;
-            }
-            else if (found.Client != null && found.Client.Connected && found.Client.Client.TotalRtpBytesReceieved <= 0)
+            }            
+            else if (!found.Ready)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
@@ -1344,7 +1342,10 @@ namespace Media.Rtsp
             }
 
             //Add the state information for the source
-            RtpClient.Interleave sourceInterleave = found.Client.Client.Interleaves.Where(i => i.MediaDescription.MediaType == mediaDescription.MediaType && i.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
+            RtpClient.Interleave sourceInterleave = null;
+
+            //Either change the construct to RtpSourceStream on Server or make Interleaves available or not required
+            sourceInterleave = found.RtpClient.Interleaves.Where(i => i.MediaDescription.MediaType == mediaDescription.MediaType && i.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
 
             //If the source has no interleave for that format(unlikely) or the source has not recieved a packet yet
             if (sourceInterleave == null || sourceInterleave.RtpBytesRecieved <= 0)
@@ -1491,15 +1492,15 @@ namespace Media.Rtsp
                 }
 
                 //Create a new Interleave
-                RtpClient.Interleave interleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket);
+                currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket);
 
                 try
                 {
                     //Try to add the interleave the client requested
-                    session.m_RtpClient.AddInterleave(interleave);
+                    session.m_RtpClient.AddInterleave(currentInterleave);
                     
                     //Initialize the Interleaved Socket
-                    interleave.InitializeSockets(session.m_RtspSocket);
+                    currentInterleave.InitializeSockets(session.m_RtspSocket);
                 }
                 catch
                 {
@@ -1508,7 +1509,7 @@ namespace Media.Rtsp
                     return;
                 }
 
-                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + interleave.DataChannel + '-' + interleave.ControlChannel;
+                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentInterleave.DataChannel + '-' + currentInterleave.ControlChannel;
             }
 
 
@@ -1540,7 +1541,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("PLAY " + request.Location);
 #endif
 
-            RtspSourceStream found = FindStreamByLocation(request.Location);
+            RtpSourceStream found = FindStreamByLocation(request.Location);
 
             if (found == null)
             {
@@ -1553,7 +1554,7 @@ namespace Media.Rtsp
                 ProcessAuthorizationRequired(session);
                 return;
             }                
-            else if (found.Client.Connected && found.Client.Client.TotalRtpBytesReceieved <= 0)
+            else if (!found.Ready)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
@@ -1608,7 +1609,7 @@ namespace Media.Rtsp
         internal void ProcessRtspPause(RtspRequest request, ClientSession session)
         {
 
-            RtspSourceStream found = FindStreamByLocation(request.Location);
+            RtpSourceStream found = FindStreamByLocation(request.Location);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(session);
@@ -1642,7 +1643,7 @@ namespace Media.Rtsp
 #endif
             try
             {
-                RtspSourceStream found = FindStreamByLocation(request.Location);
+                RtpSourceStream found = FindStreamByLocation(request.Location);
 
                 if (found == null)
                 {
@@ -1704,7 +1705,7 @@ namespace Media.Rtsp
                     }
 
                     //Remove related interleaves from found Client in session
-                    found.Client.Client.Interleaves.ForEach(i => session.m_SourceInterleaves.Remove(i));
+                    found.RtpClient.Interleaves.ForEach(i => session.m_SourceInterleaves.Remove(i));
                 }
 
                 //Send the response
@@ -1758,7 +1759,7 @@ namespace Media.Rtsp
         /// <param name="request">The RtspRequest to authenticate</param>
         /// <param name="source">The RtspStream to authenticate against</param>
         /// <returns>True if authroized, otherwise false</returns>
-        internal bool AuthenticateRequest(RtspRequest request, RtspSourceStream source)
+        internal bool AuthenticateRequest(RtspRequest request, RtpSourceStream source)
         {
             if (request == null) throw new ArgumentNullException("request");
             if (source == null) throw new ArgumentNullException("source");

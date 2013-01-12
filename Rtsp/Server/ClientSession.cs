@@ -21,7 +21,7 @@ namespace Media.Rtsp
 
         internal List<RtpClient.Interleave> m_SourceInterleaves = new List<RtpClient.Interleave>();
 
-        internal List<RtspSourceStream> m_Attached = new List<RtspSourceStream>();
+        internal List<RtpSourceStream> m_Attached = new List<RtpSourceStream>();
 
         internal RtspServer m_Server;
         
@@ -190,25 +190,25 @@ namespace Media.Rtsp
             return response;
         }        
 
-        internal void Attach(RtspSourceStream stream)
+        internal void Attach(RtpSourceStream stream)
         {
             if (m_Attached.Contains(stream)) return;
             //Should only be attaching for the source interleaves related to the stream
             //e.b. m_SourceInterleaves.Where(...
-            stream.Client.Client.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
-            stream.Client.Client.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+            stream.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+            stream.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
             m_Attached.Add(stream);
         }
 
-        internal void Detach(RtspSourceStream stream)
+        internal void Detach(RtpSourceStream stream)
         {
             if (!m_Attached.Contains(stream)) return;
-            stream.Client.Client.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
-            stream.Client.Client.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+            stream.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
+            stream.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
             m_Attached.Remove(stream);
         }
 
-        internal void CreateSessionDescription(RtspSourceStream stream)
+        internal void CreateSessionDescription(SourceStream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
@@ -227,7 +227,7 @@ namespace Media.Rtsp
             m_SessionDescription.OriginatorAndSessionIdentifier = originatorString;
 
             //As noted in [RTP3550], the use of RTP without RTCP is strongly discouraged.            
-            if (stream.DisableRtcp)
+            if (stream.m_DisableSendStastics)
             {
                 //However, if a sender does not wish to send RTCP packets in a media session, the sender MUST add the lines "b=RS:0" AND "b=RR:0" to the media description (from [RFC3556]).
                 foreach (Sdp.MediaDescription md in m_SessionDescription.MediaDescriptions)

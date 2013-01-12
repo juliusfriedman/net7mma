@@ -12,14 +12,20 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public abstract class RtpSourceStream : SourceStream
     {
+
+        public const string RtpMediaProtocol = "RTP/AVP";
+
         public RtpSourceStream(string name, Uri source)
             : base(name, source)
         {
         }
 
-        public bool DisableRtcp { get; set; }
+        public bool DisableRtcp { get { return m_DisableSendStastics; } set { m_DisableSendStastics = value; } }
 
         public abstract Rtp.RtpClient RtpClient { get; }
+
+        public override string MediaProtocol { get { return RtpMediaProtocol; } }
+
     }
 
     //public abstract class RtpChildStream

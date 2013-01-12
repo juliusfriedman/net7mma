@@ -98,6 +98,7 @@
     <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
     <Compile Include="Rtsp\Server\ClientSession.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
+    <Compile Include="Rtsp\Server\Streams\ImageStreams.cs" />
     <Compile Include="Rtsp\Server\Streams\RtpStreams.cs" />
     <Compile Include="Rtsp\Server\Streams\RtspStreams.cs" />
     <Compile Include="Rtsp\Server\Streams\SourceStream.cs" />
