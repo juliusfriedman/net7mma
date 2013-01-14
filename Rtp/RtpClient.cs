@@ -57,6 +57,7 @@ namespace Media.Rtp
         /// Should also be used to allow sources to be send to sinks by id using the correct ssrc
         /// This is relevant if the source has video on channel 0 and the sink gets the video on channel 2
         /// Should be created in Rtsp Setup requests or in discovery of sdp in standalone
+        /// --- Might Call it Session and move the events here also
         /// </summary>
         internal class Interleave
         {
@@ -396,10 +397,10 @@ namespace Media.Rtp
         internal IPAddress m_RemoteAddress;
 
         //If we don't want to keep track of the current frames
-        internal bool m_FrameEventsEnabled = true;
+        internal bool m_IncomingFrameEventsEnabled = true;
 
         //If we don't want to keep track of Packet Events
-        internal bool m_PacketEventsEnabled = true;
+        internal bool m_IncomingPacketEventsEnabled = true, m_OutgoingPacketEventsEnabled;
 
         #endregion
 
@@ -420,7 +421,7 @@ namespace Media.Rtp
         internal virtual void RtpClient_RtpFrameChanged(RtpClient sender, RtpFrame frame)
         {
             //We only handle our own packets
-            if (this != sender || !m_FrameEventsEnabled) return;
+            if (this != sender || !m_IncomingFrameEventsEnabled) return;
 
             //Get the interleave associated with the frame
             Interleave interleave = Interleaves.Where(i => i.SynchronizationSourceIdentifier == frame.SynchronizationSourceIdentifier).First();
@@ -486,7 +487,7 @@ namespace Media.Rtp
         internal virtual void RtpClient_RtcpPacketReceieved(RtpClient sender, RtcpPacket packet)
         {
             //Ensure this is our event and we are handling it
-            if (this != sender || !m_PacketEventsEnabled) return;
+            if (this != sender || !m_IncomingPacketEventsEnabled) return;
             
             Interleave interleave = GetInterleaveForPacket(packet);
             
@@ -560,7 +561,7 @@ namespace Media.Rtp
         internal virtual void RtpClient_RtpPacketReceieved(RtpClient sender, RtpPacket packet)
         {
             //Ensure this is our event and we are handling it
-            if (this != sender || !m_PacketEventsEnabled) return;
+            if (this != sender || !m_IncomingPacketEventsEnabled) return;
             
             //Get the interleave for the packet
             Interleave interleave = GetInterleaveForPacket(packet);
@@ -657,6 +658,8 @@ namespace Media.Rtp
 
         internal virtual void RtpClient_RtpPacketSent(RtpClient sender, RtpPacket packet) 
         {
+            if (!m_OutgoingPacketEventsEnabled) return;
+
             Interleave interleave = GetInterleaveForPacket(packet);
 
             if (interleave == null) return;
@@ -668,6 +671,7 @@ namespace Media.Rtp
 
         internal virtual void RtpClient_RtcpPacketSent(RtpClient sender, RtcpPacket packet) 
         {
+            if (!m_OutgoingPacketEventsEnabled) return;
             Interleave interleave = sender.GetInterleaveForPacket(packet);
             if (interleave == null) return;
             //Increment the counters
@@ -796,12 +800,17 @@ namespace Media.Rtp
         /// <summary>
         /// Gets or sets a value which prevents a FrameChanged event from being handled on the RtpClient
         /// </summary>
-        public bool FrameEventsEnabled { get { return m_FrameEventsEnabled; } set { m_FrameEventsEnabled = false; } }
+        public bool FrameEventsEnabled { get { return m_IncomingFrameEventsEnabled; } set { m_IncomingFrameEventsEnabled = false; } }
 
         /// <summary>
-        /// Gets or sets a value which prevents Rtp and Rtcp packet events from being handled
+        /// Gets or sets a value which prevents Incoming Rtp and Rtcp packet events from being handled
         /// </summary>
-        public bool PacketEventsEnabled { get { return m_PacketEventsEnabled; } set { m_PacketEventsEnabled = false; } }
+        public bool IncomingPacketEventsEnabled { get { return m_IncomingPacketEventsEnabled; } set { m_IncomingPacketEventsEnabled = false; } }
+
+        /// <summary>
+        /// Gets or sets a value which prevents Outgoing Rtp and Rtcp packet events from being handled
+        /// </summary>
+        public bool OutgoingPacketEventsEnabled { get { return m_OutgoingPacketEventsEnabled; } set { m_OutgoingPacketEventsEnabled = false; } }
 
         /// <summary>
         /// The RemoteAddress of the RtpClient
@@ -868,6 +877,10 @@ namespace Media.Rtp
         #endregion
 
         #region Methods
+
+        //Provides method for adding interleaves from outside if Interleave is not exposed..
+        //E.g. AddMedia(MediaDescription)
+        //AddAll(SessionDescription)
 
         internal void AddInterleave(Interleave interleave)
         {
@@ -1467,7 +1480,7 @@ namespace Media.Rtp
                         {
                             SendRtcpPacket(p);
                             lastTransmit = DateTime.UtcNow;
-                            //if (GetInterleaveForPacket(p).GoodbyeSent || GetInterleaveForPacket(p).GoodbyeRecieved) break;
+                            if (GetInterleaveForPacket(p).GoodbyeSent) break;
                         }
                         toSend = null;
                     }
@@ -1488,7 +1501,7 @@ namespace Media.Rtp
                         {
                             SendRtpPacket(p);
                             lastTransmit = DateTime.UtcNow;
-                            //if (GetInterleaveForPacket(p).GoodbyeSent || GetInterleaveForPacket(p).GoodbyeRecieved) break;
+                            if (GetInterleaveForPacket(p).GoodbyeSent) break;
                         }
                         toSend = null;
                     }

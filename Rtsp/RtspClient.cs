@@ -14,7 +14,7 @@ namespace Media.Rtsp
     /// <summary>
     /// Implements RFC 2326
     /// http://www.ietf.org/rfc/rfc2326.txt
-    /// Provides facilities for communication with an RtspServer
+    /// Provides facilities for communication with an RtspServer and events for recieved Rtp and Rtcp packets.
     /// </summary>
     public class RtspClient : IDisposable
     {
@@ -127,11 +127,16 @@ namespace Media.Rtsp
         /// <summary>
         /// The ClientProtocolType the RtspClient is using Reliable (Tcp), Unreliable(Udp) or Http(Tcp)
         /// </summary>
-        public ClientProtocolType RtspProtocol { get { return m_RtspProtocol; } }
+        public ClientProtocolType RtspProtocol { get { return m_RtspProtocol; } set { m_RtspProtocol = value; } }
+
+        /// <summary>
+        /// The ProtocolType the RtspClient will setup for underlying RtpClient.
+        /// </summary>
+        public ProtocolType RtpProtocol { get { return m_RtpProtocol; } set { if (value != ProtocolType.Udp || value != ProtocolType.Tcp) throw new ArgumentException(); m_RtpProtocol = value; } }
 
         /// <summary>
         /// Gets or sets location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change.
-        /// If the RtspClient was listening then it will be stopped and started
+        /// If the RtspClient was listening then it will be stopped and started again
         /// </summary>
         public Uri Location
         {
@@ -264,6 +269,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
+        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
         public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
@@ -297,14 +303,14 @@ namespace Media.Rtsp
         /// E.g. 'rtsp://somehost/sometrack/
         /// </summary>
         /// <param name="location">The string which will be parsed to obtain the Location</param>
+        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
         public RtspClient(string location, ClientProtocolType? rtpProtocolType = null) : this(new Uri(location), rtpProtocolType) { }
 
         ~RtspClient()
         {
             OnRequest -= RtspClient_OnRequest;
             OnResponse -= RtspClient_OnResponse;
-            OnDisconnect -= RtspClient_OnDisconnect;
-            StopListening();
+            OnDisconnect -= RtspClient_OnDisconnect;            
         }
 
         #endregion
@@ -395,19 +401,40 @@ namespace Media.Rtsp
             if (Listening && Client.TotalRtpBytesReceieved > 0) return;
             try
             {
-                //Connect the socket
-                Connect();
-                //Send the options
-                SendOptions();
+                try
+                {
+                    //Connect the socket
+                    Connect();
+                }
+                catch (Exception ex)
+                {
+                    throw new RtspClientException("Could not get Connect to Remote Host: " + ex.Message, ex);
+                }
+
+                try
+                {
+                    //Send the options
+                    SendOptions();
+                }
+                catch (Exception ex)
+                {
+                    throw new RtspClientException("Could not get Options: " + ex.Message, ex);
+                }
 
                 //If we can describe
                 if (m_SupportedMethods.Contains(RtspMethod.DESCRIBE))
                 {
-                    //Send describe
-                    SendDescribe();
+                    try
+                    {
+                        //Send describe
+                        SendDescribe();
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new RtspClientException("Could not Describe: " + ex.Message, ex);
+                    }
                 }
 
-                int attempt = 1;
 
                 //If we can setup
                 if (m_SupportedMethods.Contains(RtspMethod.SETUP))
@@ -415,20 +442,14 @@ namespace Media.Rtsp
                     //For each MediaDescription in the SessionDecscription
                     foreach (var md in SessionDescription.MediaDescriptions)
                     {
-                    //Send the setup
-                    SendSetup:
                         try
                         {
                             //Send a setup
                             SendSetup(md);
                         }
-                        catch
+                        catch(Exception ex)
                         {
-                            //Sometimes this happened to fast during a reconnect
-                            if (m_RetryCount > 0 && ++attempt <= m_RetryCount) goto SendSetup;
-                            //If we eventually get through we will likely result in Tcp Mode
-                            //I would just switch protocol before this point in a re-connect but the source might not support Tcp
-                            //and it's best to leave that for a last cast which occurs after the play times out with the ProtocolSwitchTimer
+                            throw new RtspClientException("Could not Setup: " + ex.Message, ex);                            
                         }
                     }
                 }
@@ -436,8 +457,15 @@ namespace Media.Rtsp
                 //If we can play
                 if (m_SupportedMethods.Contains(RtspMethod.PLAY))
                 {
-                    //Send the play
-                    SendPlay();
+                    try
+                    {
+                        //Send the play
+                        SendPlay();
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new RtspClientException("Could not Play: " + ex.Message, ex);
+                    }
                 }
 
             }
@@ -764,7 +792,6 @@ namespace Media.Rtsp
                 throw new RtspClientException("Unable to find control directive in the given MediaDesription");
             }
             
-            //Create the location ('/' was '?') but apparently '/' is correct per RFC2326
             Uri location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
 
             //Send the setup

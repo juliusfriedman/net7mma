@@ -9,7 +9,7 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// Each source stream the RtspServer encapsulates and can be played by clients
     /// </summary>    
-    public class RtspSourceStream : RtpSourceStream
+    public class RtspSourceStream : RtpSource
     {
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious
 

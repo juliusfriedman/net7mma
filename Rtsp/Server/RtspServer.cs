@@ -65,7 +65,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all streams the server is aggregrating
         /// </summary>
-        Dictionary<Guid, RtpSourceStream> m_Streams = new Dictionary<Guid, RtpSourceStream>();
+        Dictionary<Guid, RtpSource> m_Streams = new Dictionary<Guid, RtpSource>();
 
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
@@ -94,25 +94,43 @@ namespace Media.Rtsp
 
         #region Propeties
 
-        public double Version { get { return m_Version; } protected set { if (value > m_Version) throw new ArgumentOutOfRangeException(); m_Version = value; } }
+        /// <summary>
+        /// The Version of the RtspServer (used in responses)
+        /// </summary>
+        public double Version { get { return m_Version; } protected set { if (value < m_Version) throw new ArgumentOutOfRangeException(); m_Version = value; } }
 
+        /// <summary>
+        /// Indicates if requests require a User Agent
+        /// </summary>
         public bool RequireUserAgent { get; set; }
 
+        /// <summary>
+        /// The name of the server (used in responses)
+        /// </summary>
         public string ServerName { get; set; }
 
+        /// <summary>
+        /// The amount of time before the RtpServer will remove a session if no Rtsp activity has occured.
+        /// </summary>
         public int ClientRtspInactivityTimeoutSeconds { get; set; }
 
-        public int ClientRtpInactivityTimeoutSeconds { get; set; }
+        /// <summary>
+        /// The amount of time before the RtpServer will remove a session if no Rtp activity has occured.
+        /// </summary>
+        //public int ClientRtpInactivityTimeoutSeconds { get; set; }
 
-        //For controlling Port ranges
-        public int? MinimumUdp { get; set; } 
-        int? MaximumUdp { get; set; }
+        //For controlling Port ranges, Provide events so Upnp support can be plugged in? PortClosed/PortOpened(ProtocolType, startPort, endPort?)
+        public int? MinimumUdpPort { get; set; } 
+        int? MaximumUdpPort { get; set; }
 
         /// <summary>
         /// The maximum amount of connected clients
         /// </summary>
         public int MaximumClients { get { return m_MaximumClients; } set { if (value <= 0) throw new ArgumentOutOfRangeException(); m_MaximumClients = value; } }
 
+        /// <summary>
+        /// The amount of time the server has been running
+        /// </summary>
         public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.UtcNow - m_Started.Value; return TimeSpan.Zero; } }
 
         /// <summary>
@@ -121,7 +139,7 @@ namespace Media.Rtsp
         public bool Listening { get { return m_ServerThread != null; /*&& m_ServerThread.ThreadState == ThreadState.Running;*/ } }
 
         /// <summary>
-        /// The port in which the RtspServer is listeing for request
+        /// The port in which the RtspServer is listening for requests
         /// </summary>
         public int ServerPort { get { return m_ServerPort; } }
 
@@ -135,9 +153,12 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="streamId">The unique identifer</param>
         /// <returns>The RtspClient assocaited with the given id if found, otherwise null</returns>
-        public RtpSourceStream this[Guid streamId] { get { return GetStream(streamId); } }
+        public RtpSource this[Guid streamId] { get { return GetStream(streamId); } }
 
-        public List<RtpSourceStream> Streams { get { return m_Streams.Values.ToList(); } }
+        /// <summary>
+        /// The streams contained in the server
+        /// </summary>
+        public List<RtpSource> Streams { get { return m_Streams.Values.ToList(); } }
 
         /// <summary>
         /// The amount of streams the server is prepared to listen to
@@ -167,7 +188,7 @@ namespace Media.Rtsp
         public int TotalRtspBytesSent { get { return m_Sent; } }
 
         /// <summary>
-        /// The amount of bytes recieved from all contained streams in the RtspServer
+        /// The amount of bytes recieved from all contained streams in the RtspServer (Might want to log the counters seperately so the totals are not lost with the streams or just not provide the property)
         /// </summary>
         public long TotalStreamBytesRecieved
         {
@@ -178,7 +199,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// The amount of bytes sent to all contained streams in the RtspServer
+        /// The amount of bytes sent to all contained streams in the RtspServer (Might want to log the counters seperately so the totals are not lost with the streams or just not provide the property)
         /// </summary>
         public long TotalStreamBytesSent
         {
@@ -198,7 +219,8 @@ namespace Media.Rtsp
 
         public RtspServer(int listenPort = DefaultPort)
         {
-            ClientRtpInactivityTimeoutSeconds = ClientRtspInactivityTimeoutSeconds = 120;
+            //Hanlded in RtpClients (Could bring it back and set it on each client created?)
+            /*ClientRtpInactivityTimeoutSeconds = */ClientRtspInactivityTimeoutSeconds = 120;
             ServerName = "ASTI Media Server";
             m_ServerPort = listenPort;
         }
@@ -245,7 +267,7 @@ namespace Media.Rtsp
                         m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                         m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
                     }
-                    //They will recieve on the Udp Server Socket first
+                    //Begin the initial recieve
                     {
                         ClientSession temp = new ClientSession(this, null);
                         temp.m_RtspSocket = m_UdpServerSocket;
@@ -324,7 +346,7 @@ namespace Media.Rtsp
         /// Adds a stream to the server. If the server is already started then the stream will also be started
         /// </summary>
         /// <param name="location">The uri of the stream</param>
-        public void AddStream(RtpSourceStream stream)
+        public void AddStream(RtpSource stream)
         {
             if (ContainsStream(stream.Id)) throw new RtspServerException("Cannot add the given stream because it is already contained in the RtspServer");
             else
@@ -360,7 +382,7 @@ namespace Media.Rtsp
         {
             try
             {
-                RtpSourceStream client = m_Streams[streamId];
+                RtpSource client = m_Streams[streamId];
                 if (client == null) return false;
                 if(stop) client.Stop();
                 lock (m_Streams)
@@ -374,22 +396,21 @@ namespace Media.Rtsp
             }
         }
 
-        public RtpSourceStream GetStream(Guid streamId)
+        public RtpSource GetStream(Guid streamId)
         {
-            RtpSourceStream result;
+            RtpSource result;
             m_Streams.TryGetValue(streamId, out result);
             return result;
         }
 
         /// <summary>
-        /// TODO :: SHould handle /GUID requests and should handle /archive requests
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal RtpSourceStream FindStreamByLocation(Uri mediaLocation)
+        internal RtpSource FindStreamByLocation(Uri mediaLocation)
         {
 
-            RtpSourceStream found = null;
+            RtpSource found = null;
 
             string streamBase = null, streamName = null;
 
@@ -426,7 +447,7 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
-                foreach (RtpSourceStream stream in m_Streams.Values.ToList())
+                foreach (RtpSource stream in m_Streams.Values.ToList())
                 {
                     //If the name matches the streamName or stream Id then we found it
                     if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString() == streamName)
@@ -486,16 +507,16 @@ namespace Media.Rtsp
                     RemoveSession(session);
                 }
 
-                //If the RtpInactivityTimeout is not disabled
-                if (ClientRtpInactivityTimeoutSeconds != -1 &&  session.m_RtpClient != null &&
-                    !session.m_RtpClient.Interleaves.ToList().All(i => !i.GoodbyeSent && //The client hasn't sent a Goodbye
-                        !i.GoodbyeRecieved && //Or Recieved one
-                        //(i.RecieversReport != null || i.SendersReport != null) && //They have a senders report or a recievers report
-                        i.SynchronizationSourceIdentifier != 0 && //And the interleave has been initialized
-                        i.CurrentFrame != null && (i.CurrentFrame.Created.Value - DateTime.UtcNow).TotalSeconds < ClientRtpInactivityTimeoutSeconds)) //And the time since the CurrentFrame was created was not longen than the threshold
-                {
-                    RemoveSession(session);
-                }
+                ////If the RtpInactivityTimeout is not disabled
+                //if (ClientRtpInactivityTimeoutSeconds != -1 &&  session.m_RtpClient != null &&
+                //    !session.m_RtpClient.Interleaves.ToList().All(i => !i.GoodbyeSent && //The client hasn't sent a Goodbye
+                //        !i.GoodbyeRecieved && //Or Recieved one
+                //        //(i.RecieversReport != null || i.SendersReport != null) && //They have a senders report or a recievers report
+                //        i.SynchronizationSourceIdentifier != 0 && //And the interleave has been initialized
+                //        i.CurrentFrame != null && (i.CurrentFrame.Created.Value - DateTime.UtcNow).TotalSeconds < ClientRtpInactivityTimeoutSeconds)) //And the time since the CurrentFrame was created was not longen than the threshold
+                //{
+                //    RemoveSession(session);
+                //}
             }
         }
 
@@ -505,12 +526,12 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            var toStart = default(List<RtpSourceStream>);
+            var toStart = default(List<RtpSource>);
             lock (m_Streams)
             {
                 toStart = m_Streams.Values.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false).ToList();
             }
-            foreach (RtpSourceStream stream in toStart)
+            foreach (RtpSource stream in toStart)
             {
                 try
                 {
@@ -557,7 +578,7 @@ namespace Media.Rtsp
             m_ServerThread.Name = "RtspServer@" + m_ServerPort;
             m_ServerThread.Start();
 
-            //Should all this frequence to be controlled
+            //Should allow all this frequencies to be controlled with a property
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, 30000, 30000);
 
             m_Started = DateTime.UtcNow;
@@ -630,7 +651,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (RtpSourceStream stream in m_Streams.Values.ToList())
+            foreach (RtpSource stream in m_Streams.Values.ToList())
             {                             
                 stream.Start();
             }
@@ -641,7 +662,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (RtpSourceStream stream in m_Streams.Values.ToList())
+            foreach (RtpSource stream in m_Streams.Values.ToList())
             {                
                 stream.Stop();
             }
@@ -1209,7 +1230,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("OPTIONS " + request.Location);
 #endif
 
-            RtpSourceStream found = FindStreamByLocation(request.Location);
+            RtpSource found = FindStreamByLocation(request.Location);
 
             //No stream with name
             if (found == null)
@@ -1247,7 +1268,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtpSourceStream found = FindStreamByLocation(request.Location);
+            RtpSource found = FindStreamByLocation(request.Location);
 
             if (found == null)
             {
@@ -1301,7 +1322,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("SETUP " + request.Location);
 #endif
 
-            RtpSourceStream found = FindStreamByLocation(request.Location);
+            RtpSource found = FindStreamByLocation(request.Location);
             if (found == null)
             {                
                 ProcessLocationNotFoundRtspRequest(session);
@@ -1431,10 +1452,10 @@ namespace Media.Rtsp
                 }
 
                 //Find an open port to send on (might want to reserve this port with a socket)
-                int openPort = Utility.FindOpenPort(ProtocolType.Udp, MinimumUdp ?? 10000, true);
+                int openPort = Utility.FindOpenPort(ProtocolType.Udp, MinimumUdpPort ?? 10000, true);
 
                 if (openPort == -1) throw new RtspServerException("Could not find open Udp Port");
-                else if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                else if (MaximumUdpPort.HasValue && openPort > MaximumUdpPort)
                 {
                     //Handle port out of range
                 }                
@@ -1568,7 +1589,7 @@ namespace Media.Rtsp
             System.Diagnostics.Debug.WriteLine("PLAY " + request.Location);
 #endif
 
-            RtpSourceStream found = FindStreamByLocation(request.Location);
+            RtpSource found = FindStreamByLocation(request.Location);
 
             if (found == null)
             {
@@ -1636,7 +1657,7 @@ namespace Media.Rtsp
         internal void ProcessRtspPause(RtspRequest request, ClientSession session)
         {
 
-            RtpSourceStream found = FindStreamByLocation(request.Location);
+            RtpSource found = FindStreamByLocation(request.Location);
             if (found == null)
             {
                 ProcessLocationNotFoundRtspRequest(session);
@@ -1670,7 +1691,7 @@ namespace Media.Rtsp
 #endif
             try
             {
-                RtpSourceStream found = FindStreamByLocation(request.Location);
+                RtpSource found = FindStreamByLocation(request.Location);
 
                 if (found == null)
                 {
@@ -1786,7 +1807,7 @@ namespace Media.Rtsp
         /// <param name="request">The RtspRequest to authenticate</param>
         /// <param name="source">The RtspStream to authenticate against</param>
         /// <returns>True if authroized, otherwise false</returns>
-        internal bool AuthenticateRequest(RtspRequest request, RtpSourceStream source)
+        internal bool AuthenticateRequest(RtspRequest request, RtpSource source)
         {
             if (request == null) throw new ArgumentNullException("request");
             if (source == null) throw new ArgumentNullException("source");

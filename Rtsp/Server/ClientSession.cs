@@ -21,7 +21,7 @@ namespace Media.Rtsp
 
         internal List<RtpClient.Interleave> m_SourceInterleaves = new List<RtpClient.Interleave>();
 
-        internal List<RtpSourceStream> m_Attached = new List<RtpSourceStream>();
+        internal List<RtpSource> m_Attached = new List<RtpSource>();
 
         internal RtspServer m_Server;
         
@@ -193,7 +193,7 @@ namespace Media.Rtsp
             return response;
         }        
 
-        internal void Attach(RtpSourceStream stream)
+        internal void Attach(RtpSource stream)
         {
             if (m_Attached.Contains(stream)) return;
             //Should only be attaching for the source interleaves related to the stream
@@ -203,7 +203,7 @@ namespace Media.Rtsp
             m_Attached.Add(stream);
         }
 
-        internal void Detach(RtpSourceStream stream)
+        internal void Detach(RtpSource stream)
         {
             if (!m_Attached.Contains(stream)) return;
             if (stream.RtpClient != null)

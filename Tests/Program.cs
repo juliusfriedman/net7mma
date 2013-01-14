@@ -298,6 +298,8 @@ a=mpeg4-esid:101");
 
         }
 
+        static bool udpEnabled, httpEndabled;
+
         /// <summary>
         /// Tests the RtspServer by creating a server, loading/exposing a stream and waiting for a keypress to terminate
         /// </summary>
@@ -320,17 +322,17 @@ a=mpeg4-esid:101");
             //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Gamma through Udp and Tcp
+            //H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Gamma through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov"));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
+            //H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
 
-            //Local Stream Provided from pictures in a Directory  @ rtsp://localhost/live/Pics through Udp and Tcp
-            server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
+            //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
+            server.AddStream(new Rtsp.Server.Streams.JpegRtpImageSource("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
 
-            //Local Stream Provided from pictures in a Directory  @ rtsp://localhost/live/Test through Udp and Tcp
-            server.AddStream(new Rtsp.Server.Streams.ImageSourceStream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
+            //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/SamplePictures through Udp and Tcp
+            server.AddStream(new Rtsp.Server.Streams.JpegRtpImageSource("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
 
             //Start the server
             server.Start();
@@ -355,16 +357,18 @@ a=mpeg4-esid:101");
                 {
                     Console.WriteLine("Enabling Http");
                     server.EnableHttp();
+                    httpEndabled = true;
                 }
                 else if (keyInfo.Key == ConsoleKey.U)
                 {
                     Console.WriteLine("Enabling Udp");
                     server.EnableUdp();
+                    udpEnabled = true;
                 }
                 else if (keyInfo.Key == ConsoleKey.T)
                 {
                     Console.WriteLine("Performing Load Test");
-                    LoadTest();
+                    LoadTest(httpEndabled, udpEnabled);
                 }
                 else if (System.Diagnostics.Debugger.IsAttached)
                 {
@@ -399,11 +403,20 @@ a=mpeg4-esid:101");
         /// </summary>
         static void LoadTest(bool http = true, bool udp = true)
         {
-            //99 times about a GB in total
-            Enumerable.Range(0, 98).All(i =>
+            //100 times about a GB in total
+
+            //Get the Degrees Of Parallelism
+            int dop = 0;
+
+            if (httpEndabled) dop += 2;
+            if (udp) dop += 2;
+            dop += 3;//Tcp
+
+            //Test the server
+            ParallelEnumerable.Range(1, 100).AsParallel().WithDegreeOfParallelism(dop).ForAll(i =>
             {
                 //Create a client
-                if (http && i % 2 != 0) 
+                if (http && i % 2 == 0) 
                 {
                     //Use Rtsp / Http
                     using (Rtsp.RtspClient httpClient = new Rtsp.RtspClient("http://localhost/live/Alpha"))
@@ -418,14 +431,14 @@ a=mpeg4-esid:101");
 
                             Console.WriteLine("Test passed");
 
-                            return true;
+                            return;
                         }
-                        catch
+                        catch(Exception ex)
                         {
                             Console.BackgroundColor = ConsoleColor.Red;
-                            Console.WriteLine("Rtp / Http Test Failed");
+                            Console.WriteLine("Rtp / Http Test Failed: " + ex.Message);
                             Console.BackgroundColor = ConsoleColor.Black;
-                            return false;
+                            return;
                         }
                     }
                 }
@@ -444,14 +457,14 @@ a=mpeg4-esid:101");
 
                             Console.WriteLine("Test passed");
 
-                            return true;
+                            return;
                         }
-                        catch
+                        catch (Exception ex)
                         {
                             Console.BackgroundColor = ConsoleColor.Red;
-                            Console.WriteLine("Rtp / Udp Test Failed");
+                            Console.WriteLine("Rtp / Udp Test Failed: " + ex.Message);
                             Console.BackgroundColor = ConsoleColor.Black;
-                            return false;
+                            return;
                         }
                     }
                 }
@@ -470,14 +483,14 @@ a=mpeg4-esid:101");
 
                             Console.WriteLine("Test passed");
 
-                            return true;
+                            return;
                         }
-                        catch
-                        {
+                        catch(Exception ex)
+                        {                            
                             Console.BackgroundColor = ConsoleColor.Red;
-                            Console.WriteLine("Rtp / Tcp Test Failed");
+                            Console.WriteLine("Rtp / Tcp Test Failed: " + ex.Message);
                             Console.BackgroundColor = ConsoleColor.Black;
-                            return false;
+                            return;
                         }
                     }
                 }                
