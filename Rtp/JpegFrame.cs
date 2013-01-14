@@ -437,6 +437,12 @@ namespace Media.Rtp
                     //Save the source to the temp stream using the jpeg coded and given encoder params
                     source.Save(temp, codecInfo, parameters);
                 }
+                
+                //When the EOI is removed there are some artifacts in the player VLC even though the result is correct
+
+                //temp.Seek(temp.Length - 2, System.IO.SeekOrigin.Begin);
+
+                long endOffset = temp.Length;//temp.ReadByte() == Prefix && temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
 
                 //Enure at the beginning
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
@@ -509,9 +515,13 @@ namespace Media.Rtp
                         //Determine What to do for each Tag
 
                         //Start and End Tag (No Length)
-                        if (Tag == StartOfInformation || Tag == EndOfInformation)
+                        if (Tag == StartOfInformation)
                         {
                             continue;
+                        }
+                        else if (Tag == EndOfInformation)
+                        {
+                            break;
                         }
 
                         //Read Length Bytes
@@ -578,19 +588,10 @@ namespace Media.Rtp
                         //The payloadSize of each packet in the frame
                         int payloadSize = RtpPacket.MaxPayloadSize;
 
-                        //Write a value at a time to the payload
-                        while (Tag != -1)
+                        //Write a value at a time to the payload while we are not at the EOF
+                        //TODO use a integer (remaining) and read all bytes you can into the payload without doing it byte for byte
+                        while ((Tag = temp.ReadByte()) != -1 && temp.Position < endOffset)
                         {
-                            Tag = temp.ReadByte();
-
-                            //Look for EndOfInformation
-                            if (Tag == EndOfInformation && currentPacket.Payload[currentPacketOffset - 1] == Prefix)
-                            {
-                                //Erase last byte
-                                currentPacketOffset--;
-                                goto Done;
-                            }
-
                             //Ensure it will fit
                             if (currentPacketOffset >= Rtp.RtpPacket.MaxPayloadSize)
                             {
@@ -598,9 +599,9 @@ namespace Media.Rtp
                                 Add(currentPacket);
 
                                 //So we dont' have to resize later
-                                if (temp.Length - temp.Position < RtpPacket.MaxPayloadSize)
+                                if (endOffset - temp.Position < RtpPacket.MaxPayloadSize - 8)
                                 {
-                                    payloadSize = (int)(temp.Length - temp.Position + 8); //8 for the RtpJpegHeader
+                                    payloadSize = (int)(endOffset - temp.Position + 8); //8 for the RtpJpegHeader
                                 }
 
                                 //Make next packet                                    
@@ -613,7 +614,7 @@ namespace Media.Rtp
                                 };
 
                                 //Correct FragmentOffset
-                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position - 1))).CopyTo(RtpJpegHeader, 2);
+                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position))).CopyTo(RtpJpegHeader, 2);
                                 
                                 //Copy header
                                 RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
@@ -628,17 +629,6 @@ namespace Media.Rtp
                         
                     }
                 }
-            //All done reading bytes
-            Done:
-
-                //Resize final packet if we have not used all available bytes
-                //if (currentPacketOffset < currentPacket.Payload.Length)
-                //{
-                //    byte[] tempPayload = currentPacket.Payload;
-                //    Array.Resize<byte>(ref tempPayload, currentPacketOffset);
-                //    currentPacket.Payload = tempPayload;
-                //}
-
                 //Final packet marks the end
                 currentPacket.Marker = true;    
 

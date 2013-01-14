@@ -33,7 +33,7 @@ namespace Media.Rtsp.Server.Streams
         
         internal bool m_ForceTCP;// = true; // To force clients to utilize TCP Interleaved
         internal bool m_DisableSendStastics;
-        internal bool m_Ready;
+        bool m_Ready;
 
         #endregion
 
@@ -94,7 +94,7 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
-        public virtual bool Ready {get { return m_Ready;}}
+        public virtual bool Ready { get { return m_Ready; } internal set { m_Ready = value; } }
 
         public abstract string MediaProtocol { get; }
 

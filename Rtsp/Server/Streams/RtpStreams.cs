@@ -10,12 +10,12 @@ namespace Media.Rtsp.Server.Streams
     /// This could also just be an interface
     /// This could also be a class which has the events for RtpPackets etc
     /// </summary>
-    public abstract class RtpSourceStream : SourceStream
+    public abstract class RtpSource : SourceStream
     {
 
         public const string RtpMediaProtocol = "RTP/AVP";
 
-        public RtpSourceStream(string name, Uri source)
+        public RtpSource(string name, Uri source)
             : base(name, source)
         {
         }
