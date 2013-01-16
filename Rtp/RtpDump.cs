@@ -1032,15 +1032,17 @@ namespace Media.Rtp
                 if (m_Reader.ReadByte() == (byte)'#')
                 {
                     //Progress past the FileHeader should be #!rtpplay1.0
-                    if (m_Reader.ReadByte() != '!' && m_Reader.ReadByte() != 'r' && m_Reader.ReadByte() != 't' && m_Reader.ReadByte() != 'p' && m_Reader.ReadByte() != 'l' && m_Reader.ReadByte() != 'a' && m_Reader.ReadByte() != 'y')
+                    if (m_Reader.ReadByte() != '!' || m_Reader.ReadByte() != 'r' || m_Reader.ReadByte() != 't' || m_Reader.ReadByte() != 'p' || m_Reader.ReadByte() != 'p' || m_Reader.ReadByte() != 'l' || m_Reader.ReadByte() != 'a' || m_Reader.ReadByte() != 'y')
                     {
                         throw new Exception("Invalid rtpdump file, Expected #!rtpplay.");
                     }
+                    
                     //Ensure Version
-                    if(m_Reader.ReadByte() != '1' && m_Reader.ReadByte() != '.' && m_Reader.ReadByte() != '0')
+                    if(m_Reader.ReadByte() != '1' || m_Reader.ReadByte() != '.' || m_Reader.ReadByte() != '0')
                     {
                         throw new NotSupportedException("Only version 1 is defined");
                     }
+                    
                     //Source and Port
                     //0.0.0.0/7\n
                     while (m_Reader.ReadByte() != (byte)'\n') { }
@@ -1274,7 +1276,7 @@ namespace Media.Rtp
             if (source == null) throw new ArgumentNullException("source");
             m_leaveOpen = leaveOpen;
             m_Format = format;
-            if (!modify)
+            if (!modify) // New file
             {
                 m_Header = new DumpHeader()
                 {
@@ -1282,8 +1284,11 @@ namespace Media.Rtp
                     UtcStart = utcStart.HasValue ? utcStart.Value.ToUniversalTime() : DateTime.UtcNow
                 };
                 wroteHeader = false;
+
+                //Create the writer
+                m_Writer = new System.IO.BinaryWriter(stream);
             }
-            else
+            else//Modifying
             {
                 try
                 {
@@ -1333,14 +1338,14 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet">The time</param>
         /// <param name="timeOffset">The optional time the packet was recieved relative to the beginning of the file. If the packet has a Created time that will be used otherwise DateTime.UtcNow.</param>
-        public void WriteRtpPacket(RtpPacket packet, TimeSpan? timeOffset = null) { if (packet.Created.HasValue) timeOffset = m_Header.UtcStart- packet.Created.Value; if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. "); WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
+        public void WriteRtpPacket(RtpPacket packet, TimeSpan? timeOffset = null) { if (packet.Created.HasValue) timeOffset = packet.Created.Value - m_Header.UtcStart; if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. "); WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
 
         /// <summary>
         /// Writes a RtcpPacket to the dump
         /// </summary>
         /// <param name="packet">The packet to write</param>
         /// <param name="timeOffset">The optional time the packet was recieved relative to the beginning of the file. If the packet has a Created time that will be used otherwise DateTime.UtcNow.</param>
-        public void WriteRtcpPacket(Rtcp.RtcpPacket packet, TimeSpan? timeOffset = null) { if (packet.Created.HasValue) timeOffset = m_Header.UtcStart - packet.Created.Value; if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. "); WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
+        public void WriteRtcpPacket(Rtcp.RtcpPacket packet, TimeSpan? timeOffset = null) { if (packet.Created.HasValue) timeOffset = packet.Created.Value- m_Header.UtcStart ; if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. "); WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
 
         /// <summary>
         /// Writes a DumpItem to the underlying stream
