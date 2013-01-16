@@ -99,6 +99,8 @@ namespace Media
 
             Rtp.DumpWriter writerAscii = new Rtp.DumpWriter(path + @"\AsciiDump.rtpdump", Rtp.DumpFormat.Ascii, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
+            Rtp.DumpWriter writerHex = new Rtp.DumpWriter(path + @"\HexDump.rtpdump", Rtp.DumpFormat.Hex, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+
             //Senders Report
             byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
@@ -107,6 +109,7 @@ namespace Media
             //Write the packet to the dumps
             writerBinary.WriteRtcpPacket(packet);
             writerAscii.WriteRtcpPacket(packet);
+            writerHex.WriteRtcpPacket(packet);
 
             //Recievers Report and Source Description
             example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
@@ -120,10 +123,12 @@ namespace Media
             {
                 writerBinary.WriteRtcpPacket(apacket);
                 writerAscii.WriteRtcpPacket(apacket);
+                writerHex.WriteRtcpPacket(apacket);
             }
 
             writerAscii.Close();
             writerBinary.Close();
+            writerHex.Close();
 
             //Test the readers
 
@@ -139,6 +144,17 @@ namespace Media
             }
 
             using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\AsciiDump.rtpdump"))
+            {
+
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
+
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception();
+
+            }
+            
+            using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\HexDump.rtpdump"))
             {
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();

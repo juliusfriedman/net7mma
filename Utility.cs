@@ -15,7 +15,6 @@ namespace Media
     /// </summary>
     public static class Utility
     {
-
         internal const long TicksPerMicrosecond = 10;
 
         static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
@@ -112,8 +111,8 @@ namespace Media
 
             DateTime baseDate;
 
-            if (value >= Epoch1) baseDate = Epoch1;
-            else baseDate = Epoch;
+            if (value >= UtcEpoch2036) baseDate = UtcEpoch2036;
+            else baseDate = UtcEpoch1900;
 
             TimeSpan ts = ((TimeSpan)(value.ToUniversalTime() - baseDate.ToUniversalTime()));
 
@@ -130,17 +129,19 @@ namespace Media
             ulong ticks =(ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
             if ((seconds & 0x80000000L) == 0)
             {
-                return Epoch1 + TimeSpan.FromTicks((Int64)ticks);
+                return UtcEpoch2036 + TimeSpan.FromTicks((Int64)ticks);
             }
             else
             {
-                return Epoch + TimeSpan.FromTicks((Int64)ticks);
+                return UtcEpoch1900 + TimeSpan.FromTicks((Int64)ticks);
             }
         }
 
-        static DateTime Epoch1 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
+        public static DateTime UtcEpoch2036 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
 
-        static DateTime Epoch = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
+        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
+
+        public static DateTime UtcEpoch1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         #endregion
 
