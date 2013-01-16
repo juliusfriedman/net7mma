@@ -88,6 +88,7 @@
     <Compile Include="Rtcp\SourceDescription.cs" />
     <Compile Include="Rtp\JpegFrame.cs" />
     <Compile Include="Rtp\RtpClient.cs" />
+    <Compile Include="Rtp\RtpDump.cs" />
     <Compile Include="Rtp\RtpFrame.cs" />
     <Compile Include="Rtp\RtpPacket.cs" />
     <Compile Include="Rtsp\RtspClient.cs" />
