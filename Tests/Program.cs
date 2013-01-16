@@ -177,6 +177,8 @@ namespace Media
 
             System.IO.File.Delete(path + @"\AsciiDump.rtpdump");
 
+            System.IO.File.Delete(path + @"\HexDump.rtpdump");
+
             Console.ReadKey();
         }
 
