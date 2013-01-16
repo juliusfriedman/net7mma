@@ -122,8 +122,6 @@ namespace Media
 
             Rtp.DumpReader reader = new Rtp.DumpReader(path);
 
-            reader.ReadHeader();
-
             if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
 
             if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
