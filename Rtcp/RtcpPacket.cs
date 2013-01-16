@@ -63,7 +63,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The data contained within the Rtcp Packet
         /// </summary>
-        public byte[] Data { get { return m_Data; } set { m_Data = value; Length = (short)value.Length; } }
+        public byte[] Payload { get { return m_Data; } set { m_Data = value; Length = (short)value.Length; } }
 
         /// <summary>
         /// Typically to indicate the amount of ReportBlocks contained in Data for PacketTypes which support such (RecieversReport, SendersReport)
@@ -180,7 +180,7 @@ namespace Media.Rtcp
             //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(m_Length)));
             //Data
-            result.AddRange(Data);
+            result.AddRange(Payload);
             return result.ToArray();
         }
 

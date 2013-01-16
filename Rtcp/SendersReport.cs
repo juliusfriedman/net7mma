@@ -79,14 +79,14 @@ namespace Media.Rtcp
 
         }
 
-        public SendersReport(RtcpPacket packet) : this(packet.Data, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
+        public SendersReport(RtcpPacket packet) : this(packet.Payload, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
 
         #endregion
 
         public virtual RtcpPacket ToPacket(byte? channel = null)
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SendersReport, channel);            
-            output.Data = ToBytes();
+            output.Payload = ToBytes();
             output.BlockCount = Blocks.Count;
             return output;
         }

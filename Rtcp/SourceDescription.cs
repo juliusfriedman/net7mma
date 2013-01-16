@@ -145,7 +145,7 @@ namespace Media.Rtcp
         public SourceDescription(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
 
         public SourceDescription(RtcpPacket packet)
-            : this(packet.Data, 0)
+            : this(packet.Payload, 0)
         {
             Channel = packet.Channel;
             Created = packet.Created ?? DateTime.UtcNow;
@@ -160,7 +160,7 @@ namespace Media.Rtcp
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SourceDescription);
             output.BlockCount = Items.Count;
-            output.Data = ToBytes();
+            output.Payload = ToBytes();
             output.Channel = channel ?? Channel;
             return output;
         }
