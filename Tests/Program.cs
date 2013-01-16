@@ -18,6 +18,8 @@ namespace Media
             System.Console.Clear();
             TestRtcpPacket();
             System.Console.Clear();
+            TestRtpDump();
+            System.Console.Clear();
             TestSdp();
             System.Console.Clear();
             TestRtspClient();
@@ -83,6 +85,57 @@ namespace Media
             Console.WriteLine("RtcpPacket Test passed!");
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
+            Console.ReadKey();                        
+        }
+
+        private static void TestRtpDump()
+        {
+
+            string path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\Dump.rtpdump";
+
+            Console.WriteLine("RtpDump Test - " + path);
+
+            Rtp.DumpWriter writer = new Rtp.DumpWriter(path, Rtp.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+
+            //Senders Report
+            byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+            Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(example);
+
+            writer.WriteRtcpPacket(packet);
+
+            //Recievers Report and Source Description
+            example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
+                                0x00,0x01,0x00,0x52,0x00,0x00,0x0e,0xbb,0xce,0xd4,0xc8,0xf5,0x00,0x00,0x84,0x28,
+                                0x81,0xca,0x00,0x04,0x69,0xf2,0x79,0x50,0x01,0x06,0x4a,0x61,0x79,0x2d,0x50,0x43,
+                                0x00,0x00,0x00,0x00
+            };
+
+            foreach (Rtcp.RtcpPacket apacket in Rtcp.RtcpPacket.GetPackets(example))
+            {
+                writer.WriteRtcpPacket(apacket);
+            }
+
+            writer.Close();
+
+            Console.WriteLine(System.IO.File.ReadAllText(path));
+
+            Rtp.DumpReader reader = new Rtp.DumpReader(path);
+
+            reader.ReadHeader();
+
+            if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+
+            if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
+
+            if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception();
+
+            reader.Close();
+
+            System.IO.File.Delete(path);
+
+            Console.WriteLine("RtpDump Test passed!");
+            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
             Console.ReadKey();
         }
 

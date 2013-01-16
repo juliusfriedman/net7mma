@@ -15,6 +15,9 @@ namespace Media
     /// </summary>
     public static class Utility
     {
+
+        public const long TicksPerMicrosecond = 10;
+
         static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
             //Only Tcp or Udp :)
