@@ -91,18 +91,22 @@ namespace Media
         private static void TestRtpDump()
         {
 
-            string path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\Dump.rtpdump";
+            string path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 
             Console.WriteLine("RtpDump Test - " + path);
 
-            Rtp.DumpWriter writer = new Rtp.DumpWriter(path, Rtp.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            Rtp.DumpWriter writerBinary = new Rtp.DumpWriter(path + @"\BinaryDump.rtpdump", Rtp.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+
+            Rtp.DumpWriter writerAscii = new Rtp.DumpWriter(path + @"\AsciiDump.rtpdump", Rtp.DumpFormat.Ascii, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
             //Senders Report
             byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
             Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(example);
 
-            writer.WriteRtcpPacket(packet);
+            //Write the packet to the dumps
+            writerBinary.WriteRtcpPacket(packet);
+            writerAscii.WriteRtcpPacket(packet);
 
             //Recievers Report and Source Description
             example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
@@ -111,29 +115,52 @@ namespace Media
                                 0x00,0x00,0x00,0x00
             };
 
+            //Write the packets to the dumps
             foreach (Rtcp.RtcpPacket apacket in Rtcp.RtcpPacket.GetPackets(example))
             {
-                writer.WriteRtcpPacket(apacket);
+                writerBinary.WriteRtcpPacket(apacket);
+                writerAscii.WriteRtcpPacket(apacket);
             }
 
-            writer.Close();
+            writerAscii.Close();
+            writerBinary.Close();
 
-            Console.WriteLine(System.IO.File.ReadAllText(path));
+            //Test the readers
 
-            Rtp.DumpReader reader = new Rtp.DumpReader(path);
+            using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\BinaryDump.rtpdump"))
+            {
 
-            if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
 
-            if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
 
-            if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception();
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception();
 
-            reader.Close();
+            }
 
-            System.IO.File.Delete(path);
+            using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\AsciiDump.rtpdump"))
+            {
+
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
+
+                if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception();
+
+            }
+
+            //TODO
+            //Modify Tests
+            //Open existing files and add more packets and verify integrity
 
             Console.WriteLine("RtpDump Test passed!");
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+
+            //Tests done.. delete files
+            System.IO.File.Delete(path + @"\BinaryDump.rtpdump");
+
+            System.IO.File.Delete(path + @"\AsciiDump.rtpdump");
+
             Console.ReadKey();
         }
 
@@ -185,7 +212,7 @@ namespace Media
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp);
 
         Start:
-            //Assign some events
+            //Assign some events (Could log each packet to a dump here)
             client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
             client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
             client.OnResponse += (sender, response) => { Console.WriteLine("Client got response :" + response.StatusCode); };
