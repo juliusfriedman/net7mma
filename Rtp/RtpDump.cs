@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace Media.Rtp
 {
     //Defines commonly used values for writing rtpdump files.
-    internal sealed class Constants
+    internal sealed class RtpDumpConstants
     {
         internal static double Version = 1.0;
 
@@ -19,7 +19,7 @@ namespace Media.Rtp
         /// </summary>
         internal static string FileHeader = "#!rtpplay{0} {1}/{2}\n";
 
-        static Constants() { }
+        static RtpDumpConstants() { }
     }
 
     #region Nested Types
@@ -47,8 +47,8 @@ namespace Media.Rtp
         Invalid = 0,
         Rtp,
         Rtcp,
-        VatC,
-        VatD
+        //VatC,
+        //VatD
     }
 
     /// <summary>
@@ -90,10 +90,10 @@ namespace Media.Rtp
             : this()
         {
             if (reader.BaseStream.Length - reader.BaseStream.Position < HeaderSize) throw new ArgumentOutOfRangeException("Cannot read the required bytes because not enough bytes remain! Required: " + HeaderSize + " Had: " + (reader.BaseStream.Position - reader.BaseStream.Length));
-            Version = Constants.Version;
+            Version = RtpDumpConstants.Version;
             try
             {
-                UtcStart = new System.DateTime(Constants.TicksAtEpoch + (long)(System.Net.IPAddress.HostToNetworkOrder(reader.ReadInt64()) * TimeSpan.TicksPerSecond) + (((long)System.Net.IPAddress.HostToNetworkOrder(reader.ReadInt64())) * TimeSpan.TicksPerMillisecond) / 1000); //16 Bytes                
+                UtcStart = new System.DateTime(RtpDumpConstants.TicksAtEpoch + (long)(System.Net.IPAddress.HostToNetworkOrder(reader.ReadInt64()) * TimeSpan.TicksPerSecond) + (((long)System.Net.IPAddress.HostToNetworkOrder(reader.ReadInt64())) * TimeSpan.TicksPerMillisecond) / 1000); //16 Bytes                
             }
             catch { UtcStart = DateTime.UtcNow; }
             //UtcStart = new DateTime(Constants.TicksAtEpoch);
@@ -115,12 +115,12 @@ namespace Media.Rtp
 
             if (format == DumpFormat.Binary)
             {
-                byte[] fileHeader = System.Text.Encoding.ASCII.GetBytes(string.Format(Constants.FileHeader, Constants.Version.ToString("0.0"), Source.Address, Source.Port));
+                byte[] fileHeader = System.Text.Encoding.ASCII.GetBytes(string.Format(RtpDumpConstants.FileHeader, RtpDumpConstants.Version.ToString("0.0"), Source.Address, Source.Port));
                 writer.Write(fileHeader, 0, fileHeader.Length);
             }
 
             //TODO FIX THIS Calculation
-            long seconds = UtcStart.Ticks - Constants.TicksAtEpoch / TimeSpan.TicksPerSecond;
+            long seconds = UtcStart.Ticks - RtpDumpConstants.TicksAtEpoch / TimeSpan.TicksPerSecond;
             long microseconds = (seconds * TimeSpan.TicksPerMillisecond / 1000);
 
             writer.Write(System.Net.IPAddress.HostToNetworkOrder(seconds));
@@ -155,7 +155,8 @@ namespace Media.Rtp
                     }
                     else
                     {
-                        return DumpItemType.VatC;
+                        //return DumpItemType.VatC;
+                        return DumpItemType.Invalid;
                     }
                 }
                 else
@@ -166,7 +167,8 @@ namespace Media.Rtp
                     }
                     else
                     {
-                        return DumpItemType.VatD;
+                        //return DumpItemType.VatD;
+                        return DumpItemType.Invalid;
                     }
                 }
             }
@@ -545,6 +547,7 @@ namespace Media.Rtp
                      */
                 }                                
 
+                //Handle hex at the same time we handle ASCII just incase
                 if (format == DumpFormat.Hex)
                 {
                     //long dataStart = reader.BaseStream.Position;
@@ -875,7 +878,7 @@ namespace Media.Rtp
                           fprintf(out, "data=");
                           hex(out, packet->p.data + hlen, trunc < len ? trunc : len - hlen);
                         }*/
-                        result.AddRange(System.Text.Encoding.ASCII.GetBytes("data=" + BitConverter.ToString(packet.Data)));
+                        result.AddRange(System.Text.Encoding.ASCII.GetBytes("data=" + BitConverter.ToString(packet.Payload)));
                         result.Add((byte)'\r');
                         result.Add((byte)'\n');
                     }
@@ -963,8 +966,9 @@ namespace Media.Rtp
     /// <summary>
     /// Reads rtpdump compatible files.
     /// http://www.cs.columbia.edu/irt/software/rtptools/
+    /// Various formats supported
     /// </summary>
-    public sealed class DumpReader : IDisposable
+    public sealed class DumpReader : IDisposable, IEnumerable<byte[]>
     {
         //The format of the underlying dump
         internal DumpFormat? m_Format;
@@ -972,21 +976,38 @@ namespace Media.Rtp
         //The header of the underlying dump
         internal DumpHeader? m_Header;
 
-        //A List detailing the offsets at which DumpItems occurs
-        List<long> m_Offsets = new List<long>();
+        //A List detailing the offsets at which DumpItems occurs (maybe used by the writer to allow removal of packets from a stream without erasing them from the source?);
+        internal List<long> m_Offsets = new List<long>();
 
-        System.IO.BinaryReader m_Reader;
+        internal System.IO.BinaryReader m_Reader;
 
         bool m_leaveOpen;
 
+        /// <summary>
+        /// The format of the stream determined via reading the file
+        /// </summary>
         public DumpFormat Format { get { return m_Format ?? DumpFormat.Unknown; } }
 
-        public int Count { get { return m_Offsets.Count; } }
+        public DateTime StartTime { get { if (m_Header.HasValue) return m_Header.Value.UtcStart; return DateTime.MinValue; } }
 
+        //The amount of items contained in the dump thus far in reading. (Might not be worth keeping?)
+        public int ItemCount { get { return m_Offsets.Count; } }
+
+        /// <summary>
+        /// The position in the stream
+        /// </summary>
         public long Position { get { return m_Reader.BaseStream.Position; } }
 
+        /// <summary>
+        /// The length of the stream
+        /// </summary>
         public long Length { get { return m_Reader.BaseStream.Length; } }
 
+        /// <summary>
+        /// Creates a DumpReader on the given stream
+        /// </summary>
+        /// <param name="stream">The stream to read</param>
+        /// <param name="leaveOpen">Indicates if the stream should be left open after reading</param>
         public DumpReader(System.IO.Stream stream, bool leaveOpen = false)
         {
             if (stream == null) throw new ArgumentNullException("stream");
@@ -995,23 +1016,41 @@ namespace Media.Rtp
             ReadHeader();
         }
 
+        /// <summary>
+        /// Creates a DumpReader on the path given which must be a valid rtpdump format file. An excpetion will be thrown if the file does not exist or is invalid.
+        /// </summary>
+        /// <param name="path">The file to read</param>
         public DumpReader(string path) : this(new System.IO.FileStream(path, System.IO.FileMode.Open)) { }
 
+        /// <summary>
+        /// Reads the file header if present and thus determines if the file is Binary or Ascii in the process.
+        /// </summary>
         internal void ReadHeader()
         {
             if (!m_Header.HasValue)
             {
-                long position = m_Reader.BaseStream.Position;
                 if (m_Reader.ReadByte() == (byte)'#')
                 {
-                    //Progress past the FileHeader should be #rtpplay1.0 0.0.0.0/7\n
+                    //Progress past the FileHeader should be #!rtpplay1.0
+                    if (m_Reader.ReadByte() != '!' && m_Reader.ReadByte() != 'r' && m_Reader.ReadByte() != 't' && m_Reader.ReadByte() != 'p' && m_Reader.ReadByte() != 'l' && m_Reader.ReadByte() != 'a' && m_Reader.ReadByte() != 'y')
+                    {
+                        throw new Exception("Invalid rtpdump file, Expected #!rtpplay.");
+                    }
+                    //Ensure Version
+                    if(m_Reader.ReadByte() != '1' && m_Reader.ReadByte() != '.' && m_Reader.ReadByte() != '0')
+                    {
+                        throw new NotSupportedException("Only version 1 is defined");
+                    }
+                    //Source and Port
+                    //0.0.0.0/7\n
                     while (m_Reader.ReadByte() != (byte)'\n') { }
+                    
                     //Should be binary unless we find out different
                     m_Format = DumpFormat.Binary; //It may be header only, etc
                 }
                 else
                 {
-                    m_Reader.BaseStream.Seek(position, System.IO.SeekOrigin.Begin);
+                    m_Reader.BaseStream.Seek(-1, System.IO.SeekOrigin.Current);
                     m_Format = DumpFormat.Ascii;//Or hex check for data=
                 }
                 
@@ -1020,12 +1059,36 @@ namespace Media.Rtp
             }
         }
 
+        /// <summary>
+        /// Reads a DumpItem from the stream and adds the offset to the list of offets. 
+        /// Also determines if the format is Hex if not already determined of if the format is unknown
+        /// </summary>
+        /// <returns>The DumpItem read</returns>
         internal DumpItem? ReadDumpItem()
         {
             try
             {
-                DumpItem item = new DumpItem(m_Reader, m_Format.Value);
-                m_Offsets.Add(item.FileOffset);
+                //Read the item
+                DumpItem? item = new DumpItem(m_Reader, m_Format.Value);
+                
+                //If the fomrat is ASCII AND item has the value
+                if (m_Format == DumpFormat.Ascii && item.HasValue)
+                {
+                    //Add the offset
+                    m_Offsets.Add(item.Value.FileOffset);
+
+                    //If the value's packet is null or has no bytes this is the header format
+                    if (item.Value.Packet == null || item.Value.Packet.Length == 0)
+                    {
+                        m_Format = DumpFormat.Header;
+                    }
+                    else//This is HEX!
+                    {
+                        m_Format = DumpFormat.Hex;
+                    }
+                }
+                //Cant be binary without the payload unless it's Header, Payload, etc NON ASCII I think                
+                else if (m_Format == DumpFormat.Binary &&  (item.Value.Packet == null || item.Value.Packet.Length == 0)) m_Format = DumpFormat.Unknown; 
                 return item;
             }
             catch
@@ -1054,13 +1117,21 @@ namespace Media.Rtp
         /// <summary>
         /// Reads the dump until the next packet occurs, the type of packet can be determined by inspecting the first few bytes.
         /// </summary>
-        /// <param name="type">The optional specific type of packet to find</param>
+        /// <param name="type">The optional specific type of packet to find so inspection will be performed for you</param>
         /// <returns>The data which makes up the packet if found, otherwise null</returns>
         public byte[] ReadNext(DumpItemType? type = null)
-        {
+        {            
+          FindItem:
             DumpItem? item = ReadDumpItem();
-            if (item.HasValue) return item.Value.Packet;
-            else return null;
+            if (item.HasValue)
+            {
+                if (!type.HasValue || (type.HasValue && item.Value.ItemType == type))
+                {
+                    return item.Value.Packet;
+                }
+                else goto FindItem;
+            }
+            return null;
         }
 
         /// <summary>
@@ -1077,19 +1148,36 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Skips the given amount of items in the dump from the current position
+        /// Skips the given amount of items in the dump from the current position (forwards or backwards)
         /// </summary>
         /// <param name="count">The amount of items to skip</param>
         public void Skip(int count)
         {
-            while (ReadDumpItem().HasValue && count > 0)
+            //Going forwards must parse
+            if (count > 0)
             {
-                --count;
+                while (ReadDumpItem().HasValue && count > 0)
+                {
+                    --count;
+                }
+            }
+            else//We already know the offsets
+            {
+                do
+                    m_Reader.BaseStream.Seek(m_Offsets[count--], System.IO.SeekOrigin.Begin);
+                while (count > 0);
             }
         }
 
+        /// <summary>
+        /// Reads a DumpItem from the beginning of the file with respect to the given options
+        /// </summary>
+        /// <param name="fromBeginning">The amount of time which must pass in the file before a return will be possible</param>
+        /// <param name="type"></param>
+        /// <returns></returns>
         internal DumpItem? InternalReadNext(TimeSpan fromBeginning, DumpItemType? type = null)
         {
+            if (fromBeginning < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header.");
             DumpItem? current = null;
             m_Reader.BaseStream.Seek(0, System.IO.SeekOrigin.Begin);
             while ((current = ReadDumpItem()).HasValue)
@@ -1101,20 +1189,47 @@ namespace Media.Rtp
             return current;
         }
 
+        /// <summary>
+        /// Closes the underlying stream if was not to leave open
+        /// </summary>
         public void Close()
         {
             if (!m_leaveOpen)
             {
-                m_Reader.Close();                
+                m_Reader.Dispose();                
             }
         }
 
+        /// <summary>
+        /// Calls Close
+        /// </summary>
         public void Dispose()
         {
             Close(); 
-            m_Reader = null;
         }
 
+        /// <summary>
+        /// Enumerates the packets found
+        /// </summary>
+        /// <returns>A yield around each Item returned</returns>
+        public IEnumerator<byte[]> GetEnumerator()
+        {
+            m_Reader.BaseStream.Seek(0, System.IO.SeekOrigin.Begin);
+            DumpItem? result;
+            while ((result = ReadDumpItem()).HasValue)
+            {
+                yield return result.Value.Packet;
+            }
+        }
+
+        /// <summary>
+        /// Enumerates the byte[]'s which contains packets in the dump file
+        /// </summary>
+        /// <returns></returns>
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
     }
 
     /// <summary>
@@ -1134,10 +1249,25 @@ namespace Media.Rtp
         //Indicates if the headers were written
         bool wroteHeader, m_leaveOpen;
 
+        /// <summary>
+        /// The position in the stream
+        /// </summary>
         public long Position { get { return m_Writer.BaseStream.Position; } }
 
+        /// <summary>
+        /// The length of the stream
+        /// </summary>
         public long Length { get { return m_Writer.BaseStream.Length; } }
 
+        /// <summary>
+        /// Creates a DumpWriter which writes rtpdump comptaible files.
+        /// </summary>
+        /// <param name="stream">The stream to write to</param>
+        /// <param name="format">The format to write in</param>
+        /// <param name="source">The source where packets came from in this dump</param>
+        /// <param name="utcStart">The optional start of the file recording (used in the header)</param>
+        /// <param name="modify">Indicates if the file should be modified or created</param>
+        /// <param name="leaveOpen">Indicates if the stream should be left open after calling Close or Dipose</param>
         public DumpWriter(System.IO.Stream stream, DumpFormat format, System.Net.IPEndPoint source, DateTime? utcStart, bool modify, bool leaveOpen = false)
         {
             if (stream == null) throw new ArgumentNullException("stream");
@@ -1155,19 +1285,42 @@ namespace Media.Rtp
             }
             else
             {
-                //Header already written in modifying
-                //Need to read the header and advance the stream to the end
-                using (DumpReader reader = new DumpReader(stream, wroteHeader = true))
+                try
                 {
-                    m_Header = reader.m_Header.Value;
-                    reader.ReadToEnd();                    
+                    //Header already written in modifying
+                    //Need to read the header and advance the stream to the end
+                    using (DumpReader reader = new DumpReader(stream, wroteHeader = true))
+                    {
+                        if (reader.m_Format != m_Format) throw new Exception("Format does not match, Expected: " + m_Format + " Found: " + reader.m_Format);
+                        m_Header = reader.m_Header.Value;
+                        reader.ReadToEnd();
+                    }
+
+                    //Create the writer
+                    m_Writer = new System.IO.BinaryWriter(stream);
+                }
+                catch(Exception ex)
+                {
+                    throw new Exception("Cannot modify existing invalid file. File does not contain required rtpdump Header.", ex);
                 }
             }
-            m_Writer = new System.IO.BinaryWriter(stream);
+            
         }
 
+        /// <summary>
+        /// Creates a DumpWrite which writes rtpdump compatible files.
+        /// Throws and exception if the file given already exists and overWrite is not specified otherwise a new file will be created
+        /// </summary>
+        /// <param name="filePath">The path to store the created the dump or the location of an existing rtpdump file</param>
+        /// <param name="format">The to write the dump in. An exceptio will be thrown if overwrite is false and format does match the existing file's format</param>
+        /// <param name="source">The IPEndPoint from which RtpPackets were recieved</param>
+        /// <param name="utcStart">The optional time the file started recording</param>
+        /// <param name="overWrite">Indicates the file should be overwritten</param>
         public DumpWriter(string filePath, DumpFormat format, System.Net.IPEndPoint source, DateTime? utcStart, bool overWrite) : this(new System.IO.FileStream(filePath, overWrite ? System.IO.FileMode.Create : System.IO.FileMode.CreateNew), format, source, utcStart, overWrite) { }
 
+        /// <summary>
+        /// Writes the rtpdump file header
+        /// </summary>
         internal void WriteFileHeader()
         {
             if (wroteHeader) return;
@@ -1175,16 +1328,33 @@ namespace Media.Rtp
             wroteHeader = true;
         }
 
-        public void WriteRtpPacket(RtpPacket packet, TimeSpan? timeOffset = null) { WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
+        /// <summary>
+        /// Writes the given packet to the stream at the current position
+        /// </summary>
+        /// <param name="packet">The time</param>
+        /// <param name="timeOffset">The optional time the packet was recieved relative to the beginning of the file. If the packet has a Created time that will be used otherwise DateTime.UtcNow.</param>
+        public void WriteRtpPacket(RtpPacket packet, TimeSpan? timeOffset = null) { if (packet.Created.HasValue) timeOffset = m_Header.UtcStart- packet.Created.Value; if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. "); WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
 
-        public void WriteRtcpPacket(Rtcp.RtcpPacket packet, TimeSpan? timeOffset = null) { WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
+        /// <summary>
+        /// Writes a RtcpPacket to the dump
+        /// </summary>
+        /// <param name="packet">The packet to write</param>
+        /// <param name="timeOffset">The optional time the packet was recieved relative to the beginning of the file. If the packet has a Created time that will be used otherwise DateTime.UtcNow.</param>
+        public void WriteRtcpPacket(Rtcp.RtcpPacket packet, TimeSpan? timeOffset = null) { if (packet.Created.HasValue) timeOffset = m_Header.UtcStart - packet.Created.Value; if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. "); WriteDumpItem(new DumpItem(packet, timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow))); }
 
+        /// <summary>
+        /// Writes a DumpItem to the underlying stream
+        /// </summary>
+        /// <param name="item">The DumpItem to write</param>
         internal void WriteDumpItem(DumpItem item)
         {
             if (!wroteHeader) WriteFileHeader();
             item.Write(m_Writer, m_Format, m_Header);
         }
 
+        /// <summary>
+        /// Closes and Disposes the underlying stream if indicated to do so when constructing the DumpWriter
+        /// </summary>
         public void Close()
         {
             if (!m_leaveOpen)
@@ -1193,12 +1363,14 @@ namespace Media.Rtp
             }
         }
 
+        /// <summary>
+        /// Calls Close
+        /// </summary>
         public void Dispose()
         {
             Close();
             m_Writer = null;
         }
-
     }
 
     #endregion
