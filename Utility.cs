@@ -16,7 +16,7 @@ namespace Media
     public static class Utility
     {
 
-        public const long TicksPerMicrosecond = 10;
+        internal const long TicksPerMicrosecond = 10;
 
         static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
