@@ -948,7 +948,7 @@ namespace Media.Rtp
                 //double clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]) / 1000;
 
                 //Get the clockrate of the media from the line
-                uint clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1]);
+                uint clockRate = uint.Parse(rtpmap.Parts[0].Split('/')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                 //Calculate RtpTimestamp using NtpTimestamp and clockrate
                 //result.RtpTimestamp = (uint)(result.NtpTimestamp * clockRate);

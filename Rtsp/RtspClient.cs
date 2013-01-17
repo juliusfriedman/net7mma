@@ -939,8 +939,8 @@ namespace Media.Rtsp
                         string[] clientPorts = part.Replace("client_port=", string.Empty).Split('-');
                         if (clientPorts.Length > 1)
                         {
-                            clientRtpPort = int.Parse(clientPorts[0]);
-                            clientRtcpPort = int.Parse(clientPorts[1]);
+                            clientRtpPort = int.Parse(clientPorts[0], System.Globalization.CultureInfo.InvariantCulture);
+                            clientRtcpPort = int.Parse(clientPorts[1], System.Globalization.CultureInfo.InvariantCulture);
                         }
                         else
                         {
@@ -959,7 +959,7 @@ namespace Media.Rtsp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
                         if (channels.Length > 1)
                         {
-                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0]), byte.Parse(channels[1]), (uint)ssrc, mediaDescription, m_RtspSocket);
+                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture), byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture), (uint)ssrc, mediaDescription, m_RtspSocket);
                             interleave.RtcpEnabled = !rtcpDisabled;
 
                             if (m_RtpClient == null)
@@ -995,15 +995,15 @@ namespace Media.Rtsp
                         if (serverPorts.Length == 1)
                         {
                             //Duplexing?
-                            serverRtpPort = serverRtcpPort = int.Parse(serverPorts[0]);
+                            serverRtpPort = serverRtcpPort = int.Parse(serverPorts[0], System.Globalization.CultureInfo.InvariantCulture);
                             //Check if the port is 554 which means they must want Interleaved?
                             if (serverRtpPort == 554) goto SetupTcp;
                         }
                         else
                         {
                             //Parse the ports
-                            serverRtpPort = int.Parse(serverPorts[0]);
-                            serverRtcpPort = int.Parse(serverPorts[1]);
+                            serverRtpPort = int.Parse(serverPorts[0], System.Globalization.CultureInfo.InvariantCulture);
+                            serverRtcpPort = int.Parse(serverPorts[1], System.Globalization.CultureInfo.InvariantCulture);
 
                             //Handle duplexing....
                             if (serverRtpPort == serverRtcpPort)

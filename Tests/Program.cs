@@ -95,11 +95,11 @@ namespace Media
 
             Console.WriteLine("RtpDump Test - " + path);
 
-            Rtp.DumpWriter writerBinary = new Rtp.DumpWriter(path + @"\BinaryDump.rtpdump", Rtp.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            Rtp.RtpDump.DumpWriter writerBinary = new Rtp.RtpDump.DumpWriter(path + @"\BinaryDump.rtpdump", Rtp.RtpDump.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
-            Rtp.DumpWriter writerAscii = new Rtp.DumpWriter(path + @"\AsciiDump.rtpdump", Rtp.DumpFormat.Ascii, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            Rtp.RtpDump.DumpWriter writerAscii = new Rtp.RtpDump.DumpWriter(path + @"\AsciiDump.rtpdump", Rtp.RtpDump.DumpFormat.Ascii, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
-            Rtp.DumpWriter writerHex = new Rtp.DumpWriter(path + @"\HexDump.rtpdump", Rtp.DumpFormat.Hex, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            Rtp.RtpDump.DumpWriter writerHex = new Rtp.RtpDump.DumpWriter(path + @"\HexDump.rtpdump", Rtp.RtpDump.DumpFormat.Hex, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
             //Senders Report
             byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -132,7 +132,7 @@ namespace Media
 
             //Test the readers
 
-            using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\BinaryDump.rtpdump"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\BinaryDump.rtpdump"))
             {
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
@@ -143,7 +143,7 @@ namespace Media
 
             }
 
-            using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\AsciiDump.rtpdump"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\AsciiDump.rtpdump"))
             {
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
@@ -154,7 +154,7 @@ namespace Media
 
             }
             
-            using (Rtp.DumpReader reader = new Rtp.DumpReader(path + @"\HexDump.rtpdump"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\HexDump.rtpdump"))
             {
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
@@ -169,8 +169,27 @@ namespace Media
             //Modify Tests
             //Open existing files and add more packets and verify integrity
 
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\bark.rtp"))
+            {
+                Console.WriteLine("Successfully opened bark.rtp");
+
+                Console.WriteLine("Format: " + reader.Format);
+
+                byte[] packetbytes;
+                
+                //Read all Rtp Packets from the file
+                while((packetbytes = reader.ReadNext(Rtp.RtpDump.DumpItemType.Rtp)) != null)
+                {
+                    Rtp.RtpPacket rtpPacket = new Rtp.RtpPacket(packetbytes);
+                    Console.Write("Found Packet :" + rtpPacket.SequenceNumber + " , Timestamp =" + rtpPacket.TimeStamp);
+                    if (rtpPacket.Marker) Console.WriteLine("MARKER");
+                }
+            }
+
             Console.WriteLine("RtpDump Test passed!");
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
+
+            Console.ReadKey();
 
             //Tests done.. delete files
             System.IO.File.Delete(path + @"\BinaryDump.rtpdump");
@@ -179,7 +198,7 @@ namespace Media
 
             System.IO.File.Delete(path + @"\HexDump.rtpdump");
 
-            Console.ReadKey();
+            
         }
 
         private static void TestRtpPacket()

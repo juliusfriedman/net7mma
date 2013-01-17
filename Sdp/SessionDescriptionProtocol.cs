@@ -309,11 +309,11 @@ namespace Media.Sdp
 
             MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanValue(parts[0].ToLowerInvariant()));
 
-            MediaPort = int.Parse(SessionDescription.CleanValue(parts[1])); //Listener should probably verify ports with this
+            MediaPort = int.Parse(SessionDescription.CleanValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture); //Listener should probably verify ports with this
 
             MediaProtocol = parts[2]; //Listener should probably be using this to decide port
 
-            MediaFormat = byte.Parse(SessionDescription.CleanValue(parts[3]));
+            MediaFormat = byte.Parse(SessionDescription.CleanValue(parts[3]), System.Globalization.CultureInfo.InvariantCulture);
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e;)
@@ -394,8 +394,8 @@ namespace Media.Sdp
 
             sdpLine = SessionDescription.CleanValue(sdpLine.Replace("t=", string.Empty));
             string[] parts = sdpLine.Split(' ');
-            SessionStartTime = long.Parse(SessionDescription.CleanValue(parts[0]));
-            SessionStopTime = long.Parse(SessionDescription.CleanValue(parts[1]));
+            SessionStartTime = long.Parse(SessionDescription.CleanValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
+            SessionStopTime = long.Parse(SessionDescription.CleanValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
             RepeatTimes = new List<long>();
             //Iterate remaining lines
             for (; index < sdpLines.Length; ++index)
@@ -409,7 +409,7 @@ namespace Media.Sdp
                 //Parse and add the repeat time
                 try
                 {
-                    RepeatTimes.Add(long.Parse(SessionDescription.CleanValue(sdpLine.Replace("r=", string.Empty))));
+                    RepeatTimes.Add(long.Parse(SessionDescription.CleanValue(sdpLine.Replace("r=", string.Empty)), System.Globalization.CultureInfo.InvariantCulture));
                 }
                 catch (Exception ex)
                 {
@@ -554,7 +554,7 @@ namespace Media.Sdp
         internal class SessionVersionLine : SessionDescriptionLine
         {
 
-            public int Version { get { return m_Parts.Count > 0 ? int.Parse(m_Parts[0]) : 0; } set { m_Parts.Clear(); m_Parts.Add(value.ToString()); } }
+            public int Version { get { return m_Parts.Count > 0 ? int.Parse(m_Parts[0], System.Globalization.CultureInfo.InvariantCulture) : 0; } set { m_Parts.Clear(); m_Parts.Add(value.ToString()); } }
 
             public SessionVersionLine(int version)
                 : base('v')
@@ -588,7 +588,7 @@ namespace Media.Sdp
 
             public string Username { get { return GetPart(0); } set { SetPart(0, value); } }
             public string SessionId { get { return GetPart(1); } set { SetPart(1, value); } }
-            public ulong Version { get { string part = GetPart(2); return !string.IsNullOrWhiteSpace(part) ? ulong.Parse(part) : 0; } set { SetPart(2, value.ToString()); } }
+            public ulong Version { get { string part = GetPart(2); return !string.IsNullOrWhiteSpace(part) ? ulong.Parse(part, System.Globalization.CultureInfo.InvariantCulture) : 0; } set { SetPart(2, value.ToString()); } }
             public string NetworkType { get { return GetPart(3); } set { SetPart(3, value); } }
             public string AddressType { get { return GetPart(4); } set { SetPart(4, value); } }
             public string Address { get { return GetPart(5); } set { SetPart(5, value); } }

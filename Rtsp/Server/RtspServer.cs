@@ -944,7 +944,7 @@ namespace Media.Rtsp
 
                 #endregion
 
-                int len = int.Parse(context.Request.Headers.Get("Content-Length"));
+                int len = int.Parse(context.Request.Headers.Get("Content-Length"), System.Globalization.CultureInfo.InvariantCulture);
                 byte[] buffer = new byte[len];
 
                 //Get RtspRequest from Body and base64 decode as request
@@ -1439,7 +1439,7 @@ namespace Media.Rtsp
             if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP == false)
             {
 
-                int rtpPort = int.Parse(clientPorts[0].Trim()), rtcpPort = int.Parse(clientPorts[1].Trim());
+                int rtpPort = int.Parse(clientPorts[0].Trim(), System.Globalization.CultureInfo.InvariantCulture), rtcpPort = int.Parse(clientPorts[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
 
                 //The client requests Udp
                 if(session.m_RtpClient == null)
@@ -1497,8 +1497,8 @@ namespace Media.Rtsp
                 try
                 {
                     //get the requested channels
-                    rtpChannel = (byte)int.Parse(channels[0].Trim());
-                    rtcpChannel = (byte)int.Parse(channels[1].Trim());
+                    rtpChannel = (byte)int.Parse(channels[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                    rtcpChannel = (byte)int.Parse(channels[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
                 }
                 catch
                 {
