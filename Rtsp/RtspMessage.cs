@@ -325,12 +325,12 @@ namespace Media.Rtsp
                 if (MessageType == RtspMessageType.Request)
                 {
                     //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
-                    Version = double.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty));
+                    Version = double.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty), System.Globalization.CultureInfo.InvariantCulture);
                 }
                 else
                 {
                     //S->C[0]RTSP/1.0[1]200[2]OK
-                    Version = double.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty));
+                    Version = double.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty), System.Globalization.CultureInfo.InvariantCulture);
                 }
 
                 #endregion

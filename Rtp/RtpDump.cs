@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Collections.Generic;
 
-namespace Media.Rtp
+namespace Media.Rtp.RtpDump
 {
     //Defines commonly used values for writing rtpdump files.
     internal sealed class RtpDumpConstants
@@ -71,7 +71,6 @@ namespace Media.Rtp
     {
         const int HeaderSize = 22;
 
-        public double Version { get; internal set; }
         public DateTime UtcStart { get; internal set; }
         public System.Net.IPEndPoint SourceEndPoint { get; internal set; }
 
@@ -79,7 +78,6 @@ namespace Media.Rtp
             : this()
         {
             if (reader.BaseStream.Length - reader.BaseStream.Position < HeaderSize) throw new ArgumentOutOfRangeException("Cannot read the required bytes because not enough bytes remain! Required: " + HeaderSize + " Had: " + (reader.BaseStream.Position - reader.BaseStream.Length));
-            Version = RtpDumpConstants.Version;
             try
             {
                 UtcStart = new System.DateTime(Utility.UtcEpoch1970.Ticks + (long)(System.Net.IPAddress.HostToNetworkOrder(reader.ReadInt64()) * TimeSpan.TicksPerSecond) + (((long)System.Net.IPAddress.HostToNetworkOrder(reader.ReadInt64())) * TimeSpan.TicksPerMillisecond) / 1000); //16 Bytes                
@@ -286,14 +284,14 @@ namespace Media.Rtp
             }
             else if (format == DumpFormat.Rtcp && ItemType == DumpItemType.Rtcp || format == DumpFormat.Ascii || format == DumpFormat.Hex)
             {
-                
-                TimeOffset = TimeSpan.FromMilliseconds(double.Parse(RtpDumpConstants.ReadDelimitedValue(reader)));
+
+                TimeOffset = TimeSpan.FromMilliseconds(double.Parse(RtpDumpConstants.ReadDelimitedValue(reader), System.Globalization.CultureInfo.InvariantCulture));
 
                 string type = RtpDumpConstants.ReadDelimitedValue(reader);
 
                 if (type != "RTP" && type != "RTCP") throw new Exception("Invalid Dump, Expected RTP or RTCP, Found: " + type);
 
-                PacketLength = ushort.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1]);
+                PacketLength = ushort.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                 //Read from
                 string from = RtpDumpConstants.ReadDelimitedValue(reader);
@@ -314,13 +312,13 @@ namespace Media.Rtp
                     bool extensions = RtpDumpConstants.ReadDelimitedValue(reader).Last() == 0x30 ? false : true;
 
                     //Read cc=
-                    int csc = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1]);
+                    int csc = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                     //Read m=
                     bool marker = RtpDumpConstants.ReadDelimitedValue(reader).Last() == 0x30 ? false : true;
 
                     //Read pt=
-                    byte payloadType = (byte)(int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1]) & 0x7f);
+                    byte payloadType = (byte)(int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture) & 0x7f);
 
                     //Skip format info
                     string formatInfo = RtpDumpConstants.ReadDelimitedValue(reader);
@@ -330,10 +328,10 @@ namespace Media.Rtp
 #endif
 
                     //Read seq=
-                    int seq = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1]);
+                    int seq = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                     //Read ts=
-                    int ts = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1]);
+                    int ts = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                     //Read ssrc=
                     int ssrc = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.NumberStyles.HexNumber);
@@ -387,7 +385,7 @@ namespace Media.Rtp
                     int blockCount = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.NumberStyles.HexNumber);
 
                     //Read Len
-                    short len = short.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1]);
+                    short len = short.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                     Rtcp.RtcpPacket packet = null;
 
@@ -427,22 +425,22 @@ namespace Media.Rtp
 
                         if (directives.Length > 0 && !string.IsNullOrWhiteSpace(directives[0]))
                         {
-                            sr.NtpTimestamp = ulong.Parse(directives[0].Split('=')[1]);
+                            sr.NtpTimestamp = ulong.Parse(directives[0].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
                         }
 
                         if (directives.Length > 1 && !string.IsNullOrWhiteSpace(directives[1]))
                         {
-                            sr.RtpTimestamp = uint.Parse(directives[1].Split('=')[1]);
+                            sr.RtpTimestamp = uint.Parse(directives[1].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
                         }
 
                         if (directives.Length > 2 && !string.IsNullOrWhiteSpace(directives[2]))
                         {
-                            sr.SendersPacketCount = uint.Parse(directives[2].Split('=')[1]);
+                            sr.SendersPacketCount = uint.Parse(directives[2].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
                         }
 
                         if (directives.Length > 3 && !string.IsNullOrWhiteSpace(directives[3]))
                         {
-                            sr.SendersOctetCount = uint.Parse(directives[3].Split('=')[1]);
+                            sr.SendersOctetCount = uint.Parse(directives[3].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
                         }
 
                         //Determine if there are blocks
@@ -454,14 +452,14 @@ namespace Media.Rtp
 
                             while (blockIndex < directives.Length)
                             {
-                                sr.Blocks.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1]))
+                                sr.Blocks.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture))
                                 {
-                                    FractionLost = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                    CumulativePacketsLost = int.Parse(directives[blockIndex++].Split('=')[1]),
-                                    ExtendedHigestSequenceNumber = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                    InterArrivalJitter = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                    LastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                    DelaySinceLastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1]),
+                                    FractionLost = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                    CumulativePacketsLost = int.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                    ExtendedHigestSequenceNumber = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                    InterArrivalJitter = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                    LastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                    DelaySinceLastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
                                 });
                             }
                         }
@@ -482,14 +480,14 @@ namespace Media.Rtp
 
                              while (blockIndex < directives.Length)
                              {
-                                 rr.Blocks.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1]))
+                                 rr.Blocks.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture))
                                  {
-                                     FractionLost = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                     CumulativePacketsLost = int.Parse(directives[blockIndex++].Split('=')[1]),
-                                     ExtendedHigestSequenceNumber = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                     InterArrivalJitter = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                     LastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1]),
-                                     DelaySinceLastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1]),
+                                     FractionLost = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                     CumulativePacketsLost = int.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                     ExtendedHigestSequenceNumber = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                     InterArrivalJitter = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                     LastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
+                                     DelaySinceLastSendersReport = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
                                  });
                              }
                         }
@@ -941,7 +939,7 @@ namespace Media.Rtp
                     m_Format = DumpFormat.Ascii;//Or hex check for data=
                 }
                 
-                //Read DumpHeader
+                //Read DumpHeader (should be per packet)
                 m_Header = new DumpHeader(m_Reader);
             }
         }

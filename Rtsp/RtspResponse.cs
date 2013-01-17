@@ -73,7 +73,7 @@ namespace Media.Rtsp
             {
                 try
                 {
-                    StatusCode = (RtspStatusCode)int.Parse(m_FirstLine.Split(' ')[1]);
+                    StatusCode = (RtspStatusCode)int.Parse(m_FirstLine.Split(' ')[1], System.Globalization.CultureInfo.InvariantCulture);
                     //parts[2] is the Textual Convention for the Status Code
                 }
                 catch
