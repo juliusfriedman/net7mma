@@ -702,8 +702,8 @@ namespace Media.Rtp
                     //Fire the event
                     OnRtpPacketReceieved(packet);                                       
                 }
-                else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific || payload >= 72 && payload <= 76) 
-                    && Interleaves.Any(i => i.ControlChannel == frameChannel))
+                else if (RtcpPacket.IsKnownPacketType(payload) && Interleaves.Any(i => i.ControlChannel == frameChannel))
+                    
                 {
                     //ushort length = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(slice.Array, offsetStart + 2));
                     //Add all packs in the m_Buffer to the storage
@@ -1320,7 +1320,7 @@ namespace Media.Rtp
 
                         OnRtpPacketReceieved(packet);
                     }
-                    else if ((payload >= (byte)RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific) || (payload >= 72 && payload <= 76))
+                    else if (RtcpPacket.IsKnownPacketType(payload))
                     {
                         foreach (RtcpPacket p in RtcpPacket.GetPackets(new ArraySegment<byte>(m_Buffer, 0, recieved)))
                         {
