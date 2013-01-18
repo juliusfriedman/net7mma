@@ -30,18 +30,42 @@ namespace Media
 
         #endregion
 
-        internal static byte[] GetBytes(string str)
+        ///// <summary>
+        ///// Converts a String to a Byte[]
+        ///// </summary>
+        ///// <param name="str">String in the format FF00AABB</param>
+        ///// <returns>The corresponding byte array</returns>
+        //internal static byte[] GetBytes(string str)
+        //{
+        //    List<byte> result = new List<byte>();
+        //    for (int i = 0, e = str.Length; i < e; i += 2)
+        //    {
+        //        result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
+        //    }
+        //    return result.ToArray();
+        //}
+
+        /// <summary>
+        /// About 10 milliseconds faster then Managed when doing it 100,000 times. otherwise no change
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
+        internal unsafe static byte[] GetBytesUnsafe(string str)
         {
             List<byte> result = new List<byte>();
-            for (int i = 0, e = str.Length; i < e; i += 2)
+            //So we don't have to substring get a pointer
+            fixed (char* pChar = str)
             {
-                result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
+                //Iterate the pointer using the managed length ....
+                for (int i = 0, e = str.Length; i < e; i += 2)
+                {
+                    //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
+                    result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
+                }
             }
+            //Return the bytes
             return result.ToArray();
         }
-
-
-        internal const long TicksPerMicrosecond = 10;
 
         static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {

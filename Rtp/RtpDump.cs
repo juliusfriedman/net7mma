@@ -80,8 +80,15 @@ namespace Media.Rtp.RtpDump
             if (reader.BaseStream.Length - reader.BaseStream.Position < HeaderSize) throw new ArgumentOutOfRangeException("Cannot read the required bytes because not enough bytes remain! Required: " + HeaderSize + " Had: " + (reader.BaseStream.Position - reader.BaseStream.Length));
             try
             {
-                UtcStart = new System.DateTime(Utility.UtcEpoch1970.Ticks + (long)(System.Net.IPAddress.NetworkToHostOrder(reader.ReadInt64()) * TimeSpan.TicksPerSecond) + (((long)System.Net.IPAddress.NetworkToHostOrder(reader.ReadInt64())) * TimeSpan.TicksPerMillisecond) / 1000, DateTimeKind.Utc); //16 Bytes                
-                SourceEndPoint = new System.Net.IPEndPoint((long)Utility.ReverseUnsignedInt(reader.ReadUInt32()), Utility.ReverseUnsignedShort(reader.ReadUInt16())); //6 Bytes
+                //Read 16 Bytes (2 longs in network byte order)
+                long microseconds = System.Net.IPAddress.NetworkToHostOrder(reader.ReadInt64());
+                long seconds = System.Net.IPAddress.NetworkToHostOrder(reader.ReadInt64());
+                
+                //Calculate when the file was written
+                UtcStart = new System.DateTime(Utility.UtcEpoch1970.Ticks + (seconds * TimeSpan.TicksPerSecond) + (microseconds / 1000000L), DateTimeKind.Utc); 
+                
+                //Not in file bark.rtp based on reverse engineering, assumingly because the IP and Port Source are in the Binary FileHeader
+                //SourceEndPoint = new System.Net.IPEndPoint((long)Utility.ReverseUnsignedInt(reader.ReadUInt32()), Utility.ReverseUnsignedShort(reader.ReadUInt16())); //6 Bytes
             }
             catch { UtcStart = DateTime.UtcNow; SourceEndPoint = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7); }
         }
@@ -99,13 +106,15 @@ namespace Media.Rtp.RtpDump
             //TODO FIX THIS Calculation
             long ticks = (UtcStart.Ticks - Utility.UtcEpoch1970.Ticks);
             long seconds =  ticks / TimeSpan.TicksPerSecond;
-            //long microseconds = ticks / 10;
+            long microseconds = seconds / 1000000L;
 
+            //Reversed order per reverse engineering bark.rtp not per the schema on the site
+            writer.Write(System.Net.IPAddress.HostToNetworkOrder(microseconds));
             writer.Write(System.Net.IPAddress.HostToNetworkOrder(seconds));
-            writer.Write(System.Net.IPAddress.HostToNetworkOrder((long)0));
-            //writer.Write((byte)0);
-            writer.Write(Utility.ReverseUnsignedInt((uint)SourceEndPoint.Address.Address));
-            writer.Write(Utility.ReverseUnsignedShort((ushort)SourceEndPoint.Port));
+
+            //Not in the file per reverse engineering bark.rtp not per the schema on the site
+            //writer.Write(Utility.ReverseUnsignedInt((uint)SourceEndPoint.Address.Address));
+            //writer.Write(Utility.ReverseUnsignedShort((ushort)SourceEndPoint.Port));
         }
     }
 
@@ -280,9 +289,9 @@ namespace Media.Rtp.RtpDump
                     ////Read the rest
                     //reader.Read(Packet, 4, (PacketLength * 4));
 
-                    //Apparently Compound Packets are stored in a way which is different so to accept reading this we must use the Length - 8
-                    Packet = new byte[Length - 8];
-                    reader.Read(Packet, 0, Length - 8);
+                    //Apparently Compound Packets are stored in a way which is different so to accept reading this we must use the Length - DumpItemSize
+                    Packet = new byte[Length - DumpItemSize];
+                    reader.Read(Packet, 0, Length - DumpItemSize);
 
                 }
                 else //Rtp
@@ -365,13 +374,21 @@ namespace Media.Rtp.RtpDump
                     int ts = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
 
                     //Read ssrc=
-                    int ssrc = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.NumberStyles.HexNumber);
+                    int ssrc = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.NumberStyles.HexNumber);                    
 
-                    //Handle hex at the same time we handle ASCII just incase
+                    //Extension data
+                    int ex_type = 0, ex_len = 0;
+                    byte[] ext_data = null;
+                    if (extensions)
+                    {
+                        ex_type = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.NumberStyles.HexNumber);
+                        ex_len = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
+                        ext_data = Utility.GetBytesUnsafe(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1].Replace("0x", string.Empty));
+                    }
+
+                    //Handle Hex
                     if (format == DumpFormat.Hex)
                     {
-
-                        //Read Hex Format data=
                         //Read data=...
                         string hex = RtpDumpConstants.ReadDelimitedValue(reader, '\n').Split('=')[1];
 
@@ -380,27 +397,33 @@ namespace Media.Rtp.RtpDump
                             hex = hex.Remove(hex.Length - 1);
                         }
 
-                        Packet = Utility.GetBytes(hex.Replace("0x", string.Empty));
+                        //Parse the bytes
+                        Packet = Utility.GetBytesUnsafe(hex.Replace("0x", string.Empty));
 
                         PacketLength = (ushort)Packet.Length;
 
                         return;
                     }
 
-
-                    //Read ext info
-                    //
-                    //
-
-                    //Put packetBytes together
+                    //Put Packet together again
                     RtpPacket packet = new RtpPacket(PacketLength);
                     packet.Marker = marker;
                     packet.Padding = padding;
                     packet.PayloadType = payloadType;
+
                     while (csc > 0)
                     {
                         packet.ContributingSources.Add((uint)csc--);
                     }
+                    
+                    if (extensions)
+                    {
+                        packet.Extensions = extensions;
+                        packet.m_ExtensionData = ext_data;
+                        packet.m_ExtensionFlags = (ushort)ex_type;
+                        packet.m_ExtensionLength = (ushort)ex_len;
+                    }
+
                     Packet = packet.ToBytes();
 
                 }
@@ -423,7 +446,7 @@ namespace Media.Rtp.RtpDump
                             hex = hex.Remove(hex.Length - 1);
                         }
 
-                        Packet = Utility.GetBytes(hex.Replace("0x", string.Empty));
+                        Packet = Utility.GetBytesUnsafe(hex.Replace("0x", string.Empty));
                         return;
                     }
 
@@ -698,10 +721,16 @@ namespace Media.Rtp.RtpDump
             List<byte> result = new List<byte>();
 
             //Add the header
-            if (format == DumpFormat.Binary || format == DumpFormat.Header || format == DumpFormat.Payload)
+            if (format == DumpFormat.Binary)
             {
                 result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(Length)));
                 result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(PacketLength)));
+                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((uint)TimeOffset.TotalMilliseconds)));
+            }
+            else if (format == DumpFormat.Header)
+            {
+                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(DumpItemSize + RtpPacket.RtpHeaderLength)));
+                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(PacketLength = RtpPacket.RtpHeaderLength)));
                 result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((uint)TimeOffset.TotalMilliseconds)));
             }
 
@@ -719,19 +748,16 @@ namespace Media.Rtp.RtpDump
                 //Only Rtp
                 if (ItemType == DumpItemType.Rtp)
                 {
-                    //like "dump"(Binary), but don't save audio/video payload
+                    //like "dump" (Binary), but don't save audio/video payload or Extension Data
                     if (format == DumpFormat.Header)
                     {
-                        //byte[] headerBytes = new byte[12];
-                        //System.Array.Copy(Packet, 0, headerBytes, 0, 12);
-                        //Extension method to save allocating
-                        PacketLength = 12;
-                        result.AddRange(Packet, 0, 12);
+                        PacketLength = RtpPacket.RtpHeaderLength;
+                        result.AddRange(Packet, 0, RtpPacket.RtpHeaderLength);
                     }
                     else if (format == DumpFormat.Payload)
                     {
-                        //only audio/video payload
-                        result.AddRange(new RtpPacket(Packet).Payload);
+                        //only audio/video payload (No Extension Data)
+                        result.AddRange((BoxedPacket as RtpPacket).Payload);
                     }
                 }
                 //else
@@ -772,9 +798,9 @@ namespace Media.Rtp.RtpDump
                         if (packet.Extensions)
                         {
                             byte[] extensionBytes = packet.ExtensionBytes;
-                            result.AddRange(System.Text.Encoding.ASCII.GetBytes("ext_type=" + System.Net.IPAddress.HostToNetworkOrder(BitConverter.ToUInt16(extensionBytes, 0)).ToString("X") + ' '));
-                            result.AddRange(System.Text.Encoding.ASCII.GetBytes("ext_len=" + System.Net.IPAddress.HostToNetworkOrder(BitConverter.ToUInt16(extensionBytes, 2) + ' ')));
-                            result.AddRange(System.Text.Encoding.ASCII.GetBytes("ext_data=" + BitConverter.ToString(extensionBytes, 4)));
+                            result.AddRange(System.Text.Encoding.ASCII.GetBytes("ext_type=" + Utility.ReverseUnsignedShort(BitConverter.ToUInt16(extensionBytes, 0)).ToString("X") + ' '));
+                            result.AddRange(System.Text.Encoding.ASCII.GetBytes("ext_len=" + Utility.ReverseUnsignedShort(BitConverter.ToUInt16(extensionBytes, 2)) + ' '));
+                            result.AddRange(System.Text.Encoding.ASCII.GetBytes("ext_data=0x" + BitConverter.ToString(extensionBytes, 4).Replace("-", "0x")));
                         }
                     }
                 }
@@ -927,9 +953,7 @@ namespace Media.Rtp.RtpDump
 
         internal System.IO.BinaryReader m_Reader;
 
-        internal long m_EndFileHeaderOffset;
-
-        bool m_leaveOpen;
+        bool m_leaveOpen, forceFormat;
 
         /// <summary>
         /// The format of the stream determined via reading the file, (Until ReadNext has been called the format may not be correctly identified)
@@ -937,6 +961,8 @@ namespace Media.Rtp.RtpDump
         public DumpFormat Format { get { return m_Format ?? DumpFormat.Unknown; } }
 
         public DateTime StartTime { get { if (m_CurrentHeader.HasValue) return m_CurrentHeader.Value.UtcStart; return DateTime.MinValue; } }
+
+        public System.Net.IPEndPoint SourceAddress { get { if (m_CurrentHeader.HasValue) return m_CurrentHeader.Value.SourceEndPoint; return null; } } 
 
         //The amount of items contained in the dump thus far in reading. (Might not be worth keeping?)
         public int ItemCount { get { return m_Offsets.Count; } }
@@ -956,19 +982,23 @@ namespace Media.Rtp.RtpDump
         /// </summary>
         /// <param name="stream">The stream to read</param>
         /// <param name="leaveOpen">Indicates if the stream should be left open after reading</param>
-        public DumpReader(System.IO.Stream stream, bool leaveOpen = false)
+        /// <param name="DumpFormat">The optional format to force the reader to read the dump in (Useful for <see cref="DumpFormat.Header"/>)</param>
+        public DumpReader(System.IO.Stream stream, bool leaveOpen = false, DumpFormat? format = null)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             m_leaveOpen = leaveOpen;
             m_Reader = new System.IO.BinaryReader(stream);
+            m_Format = format;
+            forceFormat = format.HasValue;
             ReadFileHeader();
         }
 
         /// <summary>
         /// Creates a DumpReader on the path given which must be a valid rtpdump format file. An excpetion will be thrown if the file does not exist or is invalid.
+        /// The stream will be closed when the Reader is Disposed.
         /// </summary>
         /// <param name="path">The file to read</param>
-        public DumpReader(string path) : this(new System.IO.FileStream(path, System.IO.FileMode.Open)) { }
+        public DumpReader(string path, DumpFormat? format = null) : this(new System.IO.FileStream(path, System.IO.FileMode.Open), false, format) { }
 
         /// <summary>
         /// Reads the file header if present and thus determines if the file is Binary or Ascii in the process.
@@ -977,42 +1007,42 @@ namespace Media.Rtp.RtpDump
         {
             if (!m_CurrentHeader.HasValue)
             {
-                if (m_Reader.ReadByte() == (byte)'#')
+                //Check for Binary
+                if (m_Reader.PeekChar() == (byte)'#')
                 {
-                    //Progress past the FileHeader should be #!rtpplay1.0
-                    if (m_Reader.ReadByte() != '!' || m_Reader.ReadByte() != 'r' || m_Reader.ReadByte() != 't' || m_Reader.ReadByte() != 'p' || m_Reader.ReadByte() != 'p' || m_Reader.ReadByte() != 'l' || m_Reader.ReadByte() != 'a' || m_Reader.ReadByte() != 'y')
+                    try
                     {
-                        throw new Exception("Invalid rtpdump file, Expected #!rtpplay.");
+                        //Progress past the FileHeader should be #!rtpplay1.0 and IP/Port\n
+                        string firstLine = RtpDumpConstants.ReadDelimitedValue(m_Reader, '\n');
+
+                        //Split up the parts
+                        string[] parts = firstLine.Split(' ');
+
+                        if (parts[0] != "#!rtpplay1.0") throw new Exception("Invalid rtpdump file, Expected #!rtpplay, Found:" + parts[0]);
+
+                        //Source and Port
+                        string[] sourceInfo = parts[1].Split('/');
+                        string ip = sourceInfo[0];
+
+                        //If we were not given the format in advance
+                        if (!m_Format.HasValue)
+                        {
+                            //Should be binary unless we find out different
+                            m_Format = DumpFormat.Binary; //It may be header only, etc
+                        }
+
+                        //Read the Header (Which is supposed to be per packet but only occurs once in bark.rtp
+                        m_CurrentHeader = new DumpHeader(m_Reader)
+                        {
+                            SourceEndPoint = new System.Net.IPEndPoint(System.Net.IPAddress.Parse(ip), int.Parse(sourceInfo[1]))
+                        };
                     }
-                    
-                    //Ensure Version
-                    if(m_Reader.ReadByte() != '1' || m_Reader.ReadByte() != '.' || m_Reader.ReadByte() != '0')
-                    {
-                        throw new NotSupportedException("Only version 1 is defined");
-                    }
-                    
-                    //Source and Port
-                    //0.0.0.0/7\n
-                    while (m_Reader.ReadByte() != (byte)'\n') { }
-                    
-                    //Should be binary unless we find out different
-                    m_Format = DumpFormat.Binary; //It may be header only, etc
+                    catch(Exception ex) { throw new Exception("Invalid rtpdump file.", ex); }
                 }
                 else
                 {
-                    m_Reader.BaseStream.Seek(-1, System.IO.SeekOrigin.Current);
                     m_Format = DumpFormat.Ascii;//Or hex check for data=
                 }
-
-                ///Ugly... read the first item to determine hex or not...
-                m_EndFileHeaderOffset = m_Reader.BaseStream.Position;
-
-                m_CurrentHeader = new DumpHeader(m_Reader);
-
-                //ReadDumpItem();
-                
-                //Backup so reading starts here
-                //m_Reader.BaseStream.Seek(m_EndFileHeaderOffset, System.IO.SeekOrigin.Begin);
             }
         }
 
@@ -1030,9 +1060,17 @@ namespace Media.Rtp.RtpDump
                 DumpItem? item = new DumpItem(m_Reader, ref format);
                 if (item.HasValue)
                 {
-                    m_Format = format;
-                    //Add the offset
-                    m_Offsets.Add(item.Value.FileOffset);
+                    //If the format was not forced then update the format
+                    if (!forceFormat)
+                    {
+                        m_Format = format;
+                    }
+
+                    //Add the offset if we didn't already know about it
+                    if (m_Offsets.Count == 0 || (m_Offsets.Count > 0 && item.Value.FileOffset > m_Offsets.Last()))
+                    {
+                        m_Offsets.Add(item.Value.FileOffset);
+                    }
 
                     //If the format is ASCII AND item has the value
                     if (m_Format == DumpFormat.Ascii && item.HasValue)
@@ -1063,7 +1101,7 @@ namespace Media.Rtp.RtpDump
             while ((current = ReadDumpItem()).HasValue)
             {
 #if DEBUG
-                System.Diagnostics.Debug.Write("Found DumpItem @ " + current.Value.FileOffset);
+                System.Diagnostics.Debug.WriteLine("Found DumpItem @ " + current.Value.FileOffset);
 #endif
             }
 
@@ -1107,19 +1145,25 @@ namespace Media.Rtp.RtpDump
         /// <param name="count">The amount of items to skip</param>
         public void Skip(int count)
         {
-            //Going forwards must parse
+            //Going forwards must try to parse
             if (count > 0)
             {
-                while (ReadDumpItem().HasValue && count > 0)
+                try
                 {
-                    --count;
+                    while (ReadDumpItem().HasValue && count > 0)
+                    {
+                        --count;
+                    }
                 }
+                catch { return; }
             }
-            else//We already know the offsets
+            else
             {
-                do
-                    m_Reader.BaseStream.Seek(m_Offsets[count--], System.IO.SeekOrigin.Begin);
-                while (count > 0);
+                //Ensure not Out of Range
+                if (m_Offsets.Count + count > m_Offsets.Count) throw new ArgumentOutOfRangeException("count");
+                
+                //We already know the offsets
+                m_Reader.BaseStream.Seek(m_Offsets[m_Offsets.Count + count], System.IO.SeekOrigin.Begin);
             }
         }
 
@@ -1280,7 +1324,7 @@ namespace Media.Rtp.RtpDump
         /// <param name="source">The IPEndPoint from which RtpPackets were recieved</param>
         /// <param name="utcStart">The optional time the file started recording</param>
         /// <param name="overWrite">Indicates the file should be overwritten</param>
-        public DumpWriter(string filePath, DumpFormat format, System.Net.IPEndPoint source, DateTime? utcStart, bool overWrite) : this(new System.IO.FileStream(filePath, overWrite ? System.IO.FileMode.Create : System.IO.FileMode.CreateNew), format, source, utcStart, overWrite) { }
+        public DumpWriter(string filePath, DumpFormat format, System.Net.IPEndPoint source, DateTime? utcStart, bool overWrite, bool modify = false) : this(new System.IO.FileStream(filePath, !modify ? overWrite ? System.IO.FileMode.Create : System.IO.FileMode.CreateNew : System.IO.FileMode.OpenOrCreate), format, source, utcStart, modify) { }
 
         /// <summary>
         /// Writes the rtpdump file header
@@ -1288,21 +1332,25 @@ namespace Media.Rtp.RtpDump
         internal void WriteFileHeader()
         {
             if (wroteHeader) return;
-            if (m_Format == DumpFormat.Binary)
+            if (m_Format == DumpFormat.Binary || m_Format == DumpFormat.Header)
             {
+                //Write the header which is present for Binary Files and Header files
                 byte[] fileHeader = System.Text.Encoding.ASCII.GetBytes(string.Format(RtpDumpConstants.FileHeader, RtpDumpConstants.Version.ToString("0.0"), m_Header.SourceEndPoint.Address, m_Header.SourceEndPoint.Port));
                 m_Writer.Write(fileHeader, 0, fileHeader.Length);
-            }
-            
-            //Write the header which is supposed to precees every packe only once per file
-            //This is per the bark.rtp example
-            m_Header.Write(m_Writer, m_Format);
 
+                //Write the header which is supposed to preceed every packet, it actually only occurs once per file
+                //This is per reverse engineering bark.rtp
+                m_Header.Write(m_Writer, m_Format);
+            }
+            //We wrote the header...
             wroteHeader = true;
         }
 
         /// <summary>
-        /// Writes the given packet to the stream at the current position
+        /// Writes the given RtpPacket to the stream at the current position.
+        /// If written in <see cref="DumpFormat.Binary"/> or <see cref="DumpFormat.Header"/> the packet will contain an 8 Byte overhead. 
+        /// If written in <see cref="DumpFormat.Header"/> the packet will not contain the RtpPacket Payload or the Extension Data if present.
+        /// If written in <see cref="DumpFormat.Payload"/> the Rtp Packet will only contain the RTP Payload and will not be able to be read back into RtpPackets with this class.        
         /// </summary>
         /// <param name="packet">The time</param>
         /// <param name="timeOffset">The optional time the packet was recieved relative to the beginning of the file. If the packet has a Created time that will be used otherwise DateTime.UtcNow.</param>
@@ -1321,7 +1369,8 @@ namespace Media.Rtp.RtpDump
         }
 
         /// <summary>
-        /// Writes a RtcpPacket to the dump
+        /// Writes a RtcpPacket to the dump. 
+        /// If written in Binary the packet will contain an 8 Byte overhead. If written in Payload or Header the Rtcp Packet is silently ignored.
         /// </summary>
         /// <param name="packet">The packet to write</param>
         /// <param name="timeOffset">The optional time the packet was recieved relative to the beginning of the file. If the packet has a Created time that will be used otherwise DateTime.UtcNow.</param>

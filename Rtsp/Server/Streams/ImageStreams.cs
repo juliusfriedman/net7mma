@@ -22,7 +22,7 @@ namespace Media.Rtsp.Server.Streams
         protected uint timeStamp = 0;
 
         //Should be moved to SourceStream?
-        protected uint sequenceNumber = 0;
+        protected ushort sequenceNumber = 0;
 
         //Where images are placed to be encoded and sent (should have a Dictionary<string, Queue<Image>> if more then one track should be supported.)
         //Or MediaDescription, Queue<Image>
@@ -269,7 +269,7 @@ namespace Media.Rtsp.Server.Streams
                     {
                         packet.Channel = interleave.DataChannel;
                         packet.TimeStamp = timeStamp;
-                        packet.SequenceNumber = (int)++sequenceNumber;
+                        packet.SequenceNumber = ++sequenceNumber;
                         next.Add(packet);
 
                         //Fire an event so the server sends a packet to all clients connected to this source
