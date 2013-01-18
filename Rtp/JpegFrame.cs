@@ -480,7 +480,7 @@ namespace Media.Rtp
                 RtpPacket currentPacket = new RtpPacket();
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
                 currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
-                currentPacket.SequenceNumber = (int)(sequenceNo ?? DateTime.UtcNow.Ticks);
+                currentPacket.SequenceNumber = (ushort)(sequenceNo ?? DateTime.UtcNow.Ticks);
                 currentPacket.PayloadType = JpegFrame.PayloadType;
 
                 //Where we are in the current packet
@@ -608,7 +608,7 @@ namespace Media.Rtp
                                 currentPacket = new RtpPacket(payloadSize)
                                 {
                                     TimeStamp = currentPacket.TimeStamp,
-                                    SequenceNumber = currentPacket.SequenceNumber + 1,
+                                    SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
                                     SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
                                     PayloadType = JpegFrame.PayloadType
                                 };

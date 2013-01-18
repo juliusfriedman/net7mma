@@ -91,15 +91,17 @@ namespace Media
         private static void TestRtpDump()
         {
 
-            string path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            string currentPath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
 
-            Console.WriteLine("RtpDump Test - " + path);
+            Console.WriteLine("RtpDump Test - " + currentPath);
 
-            Rtp.RtpDump.DumpWriter writerBinary = new Rtp.RtpDump.DumpWriter(path + @"\BinaryDump.rtpdump", Rtp.RtpDump.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            #region Test Writer
 
-            Rtp.RtpDump.DumpWriter writerAscii = new Rtp.RtpDump.DumpWriter(path + @"\AsciiDump.rtpdump", Rtp.RtpDump.DumpFormat.Ascii, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            Rtp.RtpDump.DumpWriter writerBinary = new Rtp.RtpDump.DumpWriter(currentPath + @"\BinaryDump.rtpdump", Rtp.RtpDump.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
-            Rtp.RtpDump.DumpWriter writerHex = new Rtp.RtpDump.DumpWriter(path + @"\HexDump.rtpdump", Rtp.RtpDump.DumpFormat.Hex, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+            Rtp.RtpDump.DumpWriter writerAscii = new Rtp.RtpDump.DumpWriter(currentPath + @"\AsciiDump.rtpdump", Rtp.RtpDump.DumpFormat.Ascii, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
+
+            Rtp.RtpDump.DumpWriter writerHex = new Rtp.RtpDump.DumpWriter(currentPath + @"\HexDump.rtpdump", Rtp.RtpDump.DumpFormat.Hex, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false);
 
             //Senders Report
             byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -126,13 +128,17 @@ namespace Media
                 writerHex.WritePacket(apacket);
             }
 
-            writerAscii.Close();
-            writerBinary.Close();
-            writerHex.Close();
+            writerAscii.Dispose();
+            writerBinary.Dispose();
+            writerHex.Dispose();
+
+            #endregion
+
+            #region Test Reader
 
             //Test the readers
 
-            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\BinaryDump.rtpdump"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(currentPath + @"\BinaryDump.rtpdump"))
             {
 
                 Console.WriteLine("Successfully opened BinaryDump.rtpdump");
@@ -149,7 +155,7 @@ namespace Media
 
             }
 
-            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\AsciiDump.rtpdump"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(currentPath + @"\AsciiDump.rtpdump"))
             {
                 Console.WriteLine("Successfully opened AsciiDump.rtpdump");
 
@@ -165,7 +171,7 @@ namespace Media
 
             }
             
-            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\HexDump.rtpdump"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(currentPath + @"\HexDump.rtpdump"))
             {
 
                 Console.WriteLine("Successfully opened HexDump.rtpdump");
@@ -182,20 +188,46 @@ namespace Media
 
             }
 
-            //TODO
-            //Header and Payload Format Tests
-            //Should be able to specify Header or Payload when writing
-            //Then when reading Binary will be determined unless Header || Payload is set in advance
-            //When reading without knowing Header or Payload was used to write there is no way to determine the packet type in advance...
+            #endregion
 
-            //Modify Tests
-            //Open existing files and add more packets and verify integrity
+            #region Demonstrate DumpFormat.Header
 
+            //Using the DumpFormat.Header will only allow RtpPackets, RtcpPackets will be silently ignored.
+            //Also the Payload is not written only the RtpHeader
+            using (Rtp.RtpDump.DumpWriter writerHeader = new Rtp.RtpDump.DumpWriter(currentPath + @"\HeaderDump.rtpdump", Rtp.RtpDump.DumpFormat.Header, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false))
+            {
+                writerHeader.WritePacket(new Rtp.RtpPacket(7)
+                {
+                    Marker = true,
+                    SequenceNumber = 0x7777
+                });
+            }
+
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(currentPath + @"\HeaderDump.rtpdump", Rtp.RtpDump.DumpFormat.Header))
+            {
+
+                Console.WriteLine("Successfully opened HeaderDump.rtpdump");
+
+                Console.WriteLine("StartUtc: " + reader.StartTime);
+
+                Rtp.RtpPacket headerPacket = new Rtp.RtpPacket(reader.ReadNext());
+
+                if (headerPacket.Marker != true || headerPacket.SequenceNumber != 0x7777) throw new Exception();
+
+                Console.WriteLine("Format: " + reader.Format);
+            }
+
+            #endregion
+
+            #region Read Example rtpdump file 'bark.rtp' and Write the same file as 'mybark.rtp'
+
+            //Maintain a count of how many packets were written for next test
             int writeCount;
 
-            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\bark.rtp"))
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(currentPath + @"\bark.rtp"))
             {
-                using (Rtp.RtpDump.DumpWriter writer = new Rtp.RtpDump.DumpWriter(path + @"\mybark.rtp", Rtp.RtpDump.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0), null, false))
+                //Write a file with the same attributes as the example file
+                using (Rtp.RtpDump.DumpWriter writer = new Rtp.RtpDump.DumpWriter(currentPath + @"\mybark.rtp", reader.Format, reader.SourceAddress, reader.StartTime, false))
                 {
 
                     Console.WriteLine("Successfully opened bark.rtp");
@@ -242,12 +274,40 @@ namespace Media
                 }
             }
 
-            //Ensure same amount of packets as read as written
-            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\mybark.rtp"))
+            //I would just do a ReadAllBytes and compare but....
+            //The files are 8 bytes off in size, reason being in the example file has a compound RTCP packet (SR, SDES) 
+            //When that packet is written as a compound and not 2 individual packets it saves a DumpItem overhead (8 bytes)
+
+            #endregion
+
+            #region Modify 'mybark.rtp' Add a single packet and verify integrity
+
+            //Modify myBark to add single packet
+            using (Rtp.RtpDump.DumpWriter writer = new Rtp.RtpDump.DumpWriter(currentPath + @"\mybark.rtp", Rtp.RtpDump.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7), null, false, true))
+            {
+                writer.WritePacket(new Rtp.RtpPacket(7)
+                {
+                    Marker = true,
+                    SequenceNumber = 0x7777
+                });
+            }
+
+            //Ensure modification worked
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(currentPath + @"\mybark.rtp"))
             {
                 reader.ReadToEnd();
-                if (reader.ItemCount != writeCount) throw new Exception("Did not write a compatible file");
+                reader.Skip(-1);
+                Rtp.RtpPacket addedPacket = new Rtp.RtpPacket(reader.ReadNext());
+                if (addedPacket.Marker != true || addedPacket.SequenceNumber != 0x7777) throw new Exception();
+                if (reader.ItemCount != writeCount + 1) throw new Exception("Modify Test Failed");
+                Console.WriteLine("Modified mybark.rtp, Added 1 Item Total Items: " + reader.ItemCount);
             }
+
+            
+
+            Console.WriteLine("Wrote a compatible file!");
+
+            #endregion
 
             Console.WriteLine("RtpDump Test passed!");
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
@@ -255,13 +315,15 @@ namespace Media
             Console.ReadKey();
 
             //Tests done.. delete files
-            System.IO.File.Delete(path + @"\mybark.rtp");
+            System.IO.File.Delete(currentPath + @"\mybark.rtp");
 
-            System.IO.File.Delete(path + @"\BinaryDump.rtpdump");
+            System.IO.File.Delete(currentPath + @"\BinaryDump.rtpdump");
 
-            System.IO.File.Delete(path + @"\AsciiDump.rtpdump");
+            System.IO.File.Delete(currentPath + @"\AsciiDump.rtpdump");
 
-            System.IO.File.Delete(path + @"\HexDump.rtpdump");
+            System.IO.File.Delete(currentPath + @"\HexDump.rtpdump");
+
+            System.IO.File.Delete(currentPath + @"\HeaderDump.rtpdump");
 
             
         }

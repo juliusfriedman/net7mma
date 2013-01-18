@@ -31,7 +31,8 @@ namespace Media.Rtp
         //Make list for easier writing (.Net 4.5 ArraySegment is IEnumerable)
         internal byte[] m_Payload;// = new List<byte>();
 
-        int m_Version, m_Padding, m_Extensions, m_Csc, m_Marker, m_SequenceNumber;
+        byte m_Version, m_Padding, m_Extensions, m_Csc, m_Marker;
+        ushort m_SequenceNumber;
 
         uint m_TimeStamp, m_Ssrc;
 
@@ -39,8 +40,8 @@ namespace Media.Rtp
 
         #region Extensions
 
-        ushort m_ExtensionFlags, m_ExtensionLength;
-        byte[] m_ExtensionData;
+        internal ushort m_ExtensionFlags, m_ExtensionLength;
+        internal byte[] m_ExtensionData;
 
         #endregion
 
@@ -51,32 +52,32 @@ namespace Media.Rtp
         /// <summary>
         /// The Version of the RTP Protocol this packet conforms to
         /// </summary>
-        public int Version { get { return m_Version; } set { m_Version = value; } }
+        public int Version { get { return m_Version; } set { m_Version = (byte)value; } }
 
         /// <summary>
         /// Indicates if the RTPPacket contains padding at the end which is not part of the payload
         /// </summary>
-        public bool Padding { get { return m_Padding > 0; } set { m_Padding = value ? 1 : 0; } }
+        public bool Padding { get { return m_Padding > 0; } set { m_Padding = value ? (byte)1 : (byte)0; } }
 
         /// <summary>
         /// Indicates if the RTPPacket contains extensions
         /// </summary>
-        public bool Extensions { get { return m_Extensions > 0; } set { m_Extensions = value ? 1 : 0; } }
+        public bool Extensions { get { return m_Extensions > 0; } set { m_Extensions = value ? (byte)1 : (byte)0; } }
 
         /// <summary>
         /// Indicates the amount of contributing sources
         /// </summary>
-        public int ContributingSourceCount { get { return m_Csc; } internal set { m_Csc = value; if (value == 0) m_ContributingSources.Clear(); } }
+        public int ContributingSourceCount { get { return m_Csc; } internal set { m_Csc = (byte)value; if (value == 0) m_ContributingSources.Clear(); } }
 
         /// <summary>
         /// The list of contributing sources
         /// </summary>
-        public List<uint> ContributingSources { get { return m_ContributingSources; } set { m_ContributingSources = value; m_Csc = value.Count; } }
+        public List<uint> ContributingSources { get { return m_ContributingSources; } set { m_ContributingSources = value; m_Csc = (byte)value.Count; } }
 
         /// <summary>
         /// Indicates if the RTPPacket contains a Marker flag
         /// </summary>
-        public bool Marker { get { return m_Marker > 0; } set { m_Marker = value ? 1 : 0; } }
+        public bool Marker { get { return m_Marker > 0; } set { m_Marker = value ? (byte)1 : (byte)0; } }
 
         /// <summary>
         /// Indicates the format of the data within the Payload
@@ -100,7 +101,7 @@ namespace Media.Rtp
         /// <summary>
         /// The sequence number of the RtpPacket
         /// </summary>
-        public int SequenceNumber { get { return m_SequenceNumber; } set { m_SequenceNumber = value; } }
+        public ushort SequenceNumber { get { return m_SequenceNumber; } set { m_SequenceNumber = value; } }
 
         /// <summary>
         /// The Timestamp of the RtpPacket
@@ -139,13 +140,31 @@ namespace Media.Rtp
 
                 List<byte> result = new List<byte>();
 
-                result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionFlags)));
+                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_ExtensionFlags)));
 
-                result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_ExtensionLength)));
+                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_ExtensionLength)));
 
                 result.AddRange(m_ExtensionData);
 
                 return result.ToArray();
+            }
+            set
+            {
+                if (value == null)
+                {
+                    m_Extensions = 0;
+                }
+                else
+                {
+
+                    m_ExtensionFlags = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 0));
+
+                    m_ExtensionLength = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 2));
+
+                    m_ExtensionData = new byte[m_ExtensionLength];
+
+                    System.Array.Copy(value, 4, m_ExtensionData, 0, m_ExtensionLength);
+                }
             }
         }
 
@@ -173,7 +192,7 @@ namespace Media.Rtp
         public RtpPacket(ArraySegment<byte> packetReference, byte? channel = null)
         {
             //Ensure correct length
-            if (packetReference.Count <= RtpHeaderLength) throw new ArgumentException("The packet does not conform to the Real Time Protocol. Packets must exceed 12 bytes in length.", "packet");
+            if (packetReference.Count < RtpHeaderLength) throw new ArgumentException("The packet does not conform to the Real Time Protocol. Packets must at least 12 bytes in length.", "packet");
 
             Created = DateTime.UtcNow;
 
@@ -192,14 +211,14 @@ namespace Media.Rtp
             byte compound = packetReference.Array[localOffset + packetReference.Offset];
 
             //Version, Padding flag, Extension flag, and Contribuing Source Count
-            m_Version = compound >> 6; ;
+            m_Version = (byte)(compound >> 6);
 
             //We only parse version 2
             if (m_Version != 2) throw new ArgumentException("Only Version 2 is Defined");
 
-            m_Padding = (0x1 & (compound >> 5));
-            m_Extensions = (0x1 & (compound >> 4));
-            m_Csc = 0x1F & compound;
+            m_Padding = (byte)(0x1 & (compound >> 5));
+            m_Extensions = (byte)(0x1 & (compound >> 4));
+            m_Csc = (byte)(0x1F & compound);
 
             //Extract Marker flag and payload type
             compound = packetReference.Array[localOffset + packetReference.Offset + 1];
@@ -215,7 +234,9 @@ namespace Media.Rtp
 
             m_Ssrc = Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + 8));
 
-            int position = localOffset + 12;
+            if (packetReference.Count <= RtpHeaderLength) return;
+
+            int position = localOffset + RtpHeaderLength;
 
             //Extract Contributing Sources
             for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + position)));
@@ -292,13 +313,13 @@ namespace Media.Rtp
             result.Add((byte)( ((Marker ? 1 : 0) << 7) | m_PayloadType));
 
             //Add the SequenceNumber
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)m_SequenceNumber)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_SequenceNumber)));
 
             //Add the Timestamp
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)m_TimeStamp)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_TimeStamp)));
 
             //Add the SynchonrizationSourceIdentifier
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? m_Ssrc))));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((ssrc ?? m_Ssrc))));
 
             if (ContributingSourceCount > 0)
             {
