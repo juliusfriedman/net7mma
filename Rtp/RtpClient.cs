@@ -276,7 +276,7 @@ namespace Media.Rtp
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
                     RtpSocket.DontFragment = true;
-                    RtpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+                    RtpSocket.ReceiveBufferSize =  RtpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
 
                     //If we sent Rtp and Rtcp on the same socket (might mean duplex)
                     if (remoteRtpPort == remoteRtcpPort)
@@ -292,7 +292,7 @@ namespace Media.Rtp
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
                         RtcpSocket.DontFragment = true;
-                        RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+                        RtcpSocket.ReceiveBufferSize = RtcpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
                     }
 
                     //Udp Hole Punch
