@@ -15,6 +15,32 @@ namespace Media
     /// </summary>
     public static class Utility
     {
+
+        #region Extensions
+
+        public static void AddRange<T>(this List<T> list, IEnumerable<T> source, int start, int length)
+        {
+            if (list == null) throw new ArgumentNullException("list");
+            if (source == null) throw new ArgumentNullException("source");
+            int count = source.Count<T>();
+            if (start > count || start < 0) throw new ArgumentOutOfRangeException("start");
+            if (length - start > count) throw new ArgumentOutOfRangeException("length");
+            list.AddRange(source.Skip(start).Take(length));
+        }
+
+        #endregion
+
+        internal static byte[] GetBytes(string str)
+        {
+            List<byte> result = new List<byte>();
+            for (int i = 0, e = str.Length; i < e; i += 2)
+            {
+                result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
+            }
+            return result.ToArray();
+        }
+
+
         internal const long TicksPerMicrosecond = 10;
 
         static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
