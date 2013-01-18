@@ -34,8 +34,6 @@ namespace Media.Rtp.RtpDump
 
     }
 
-    #region Nested Types
-
     /// <summary>
     /// The known formats of a rtpdump file.
     /// </summary>
@@ -62,6 +60,8 @@ namespace Media.Rtp.RtpDump
         //VatC,
         //VatD
     }
+
+    #region DumpHeader
 
     /// <summary>
     /// Represents the beginning of a rtpdump File.
@@ -117,6 +117,10 @@ namespace Media.Rtp.RtpDump
             //writer.Write(Utility.ReverseUnsignedShort((ushort)SourceEndPoint.Port));
         }
     }
+
+    #endregion
+
+    #region DumpItem
 
     /// <summary>
     /// Implements the individual items found in a rtpdump.
@@ -302,7 +306,7 @@ namespace Media.Rtp.RtpDump
                         Packet = new byte[PacketLength];
                         reader.Read(Packet, 0, PacketLength);
                         //May just be header only
-                        if (PacketLength == 12) format = DumpFormat.Header;
+                        if (PacketLength == Rtp.RtpPacket.RtpHeaderLength) format = DumpFormat.Header;
                     }
                     else
                     {
@@ -933,7 +937,7 @@ namespace Media.Rtp.RtpDump
 
     #endregion
 
-    #region DumpReader DumpWriter
+    #region DumpReader
 
     /// <summary>
     /// Reads rtpdump compatible files.
@@ -1229,6 +1233,10 @@ namespace Media.Rtp.RtpDump
             return GetEnumerator();
         }
     }
+
+    #endregion
+
+    #region DumpWriter
 
     /// <summary>
     /// Writes a rtpdump compatible file to a System.IO.Stream

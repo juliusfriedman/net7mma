@@ -127,6 +127,8 @@ namespace Media.Rtcp
 
         #region Methods
 
+        public static bool IsKnownPacketType(byte suspect) { return suspect >= (byte)RtcpPacket.RtcpPacketType.SendersReport && suspect <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific || suspect >= 72 && suspect <= 76; }
+
         public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, int offset = 0)
         {
             List<RtcpPacket> packets = new List<RtcpPacket>();
