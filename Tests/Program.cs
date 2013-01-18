@@ -107,9 +107,9 @@ namespace Media
             Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(example);
 
             //Write the packet to the dumps
-            writerBinary.WriteRtcpPacket(packet);
-            writerAscii.WriteRtcpPacket(packet);
-            writerHex.WriteRtcpPacket(packet);
+            writerBinary.WritePacket(packet);
+            writerAscii.WritePacket(packet);
+            writerHex.WritePacket(packet);
 
             //Recievers Report and Source Description
             example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
@@ -121,9 +121,9 @@ namespace Media
             //Write the packets to the dumps
             foreach (Rtcp.RtcpPacket apacket in Rtcp.RtcpPacket.GetPackets(example))
             {
-                writerBinary.WriteRtcpPacket(apacket);
-                writerAscii.WriteRtcpPacket(apacket);
-                writerHex.WriteRtcpPacket(apacket);
+                writerBinary.WritePacket(apacket);
+                writerAscii.WritePacket(apacket);
+                writerHex.WritePacket(apacket);
             }
 
             writerAscii.Close();
@@ -135,7 +135,13 @@ namespace Media
             using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\BinaryDump.rtpdump"))
             {
 
+                Console.WriteLine("Successfully opened BinaryDump.rtpdump");
+
+                Console.WriteLine("StartUtc: " + reader.StartTime);
+
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+
+                Console.WriteLine("Format: " + reader.Format);
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
 
@@ -145,8 +151,13 @@ namespace Media
 
             using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\AsciiDump.rtpdump"))
             {
+                Console.WriteLine("Successfully opened AsciiDump.rtpdump");
+
+                Console.WriteLine("StartUtc: " + reader.StartTime);
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+
+                Console.WriteLine("Format: " + reader.Format);
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
 
@@ -157,7 +168,13 @@ namespace Media
             using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\HexDump.rtpdump"))
             {
 
+                Console.WriteLine("Successfully opened HexDump.rtpdump");
+
+                Console.WriteLine("StartUtc: " + reader.StartTime);
+
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.SendersReport) throw new Exception();
+                
+                Console.WriteLine("Format: " + reader.Format);
 
                 if (new Rtcp.RtcpPacket(reader.ReadNext()).PacketType != Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception();
 
@@ -166,24 +183,70 @@ namespace Media
             }
 
             //TODO
+            //Header and Payload Format Tests
+            //Should be able to specify Header or Payload when writing
+            //Then when reading Binary will be determined unless Header || Payload is set in advance
+            //When reading without knowing Header or Payload was used to write there is no way to determine the packet type in advance...
+
             //Modify Tests
             //Open existing files and add more packets and verify integrity
 
+            int writeCount;
+
             using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\bark.rtp"))
             {
-                Console.WriteLine("Successfully opened bark.rtp");
-
-                Console.WriteLine("Format: " + reader.Format);
-
-                byte[] packetbytes;
-                
-                //Read all Rtp Packets from the file
-                while((packetbytes = reader.ReadNext(Rtp.RtpDump.DumpItemType.Rtp)) != null)
+                using (Rtp.RtpDump.DumpWriter writer = new Rtp.RtpDump.DumpWriter(path + @"\mybark.rtp", Rtp.RtpDump.DumpFormat.Binary, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0), null, false))
                 {
-                    Rtp.RtpPacket rtpPacket = new Rtp.RtpPacket(packetbytes);
-                    Console.Write("Found Packet :" + rtpPacket.SequenceNumber + " , Timestamp =" + rtpPacket.TimeStamp);
-                    if (rtpPacket.Marker) Console.WriteLine("MARKER");
+
+                    Console.WriteLine("Successfully opened bark.rtp");
+
+                    Console.WriteLine("StartUtc: " + reader.StartTime);
+
+                    //Each item will be returned as a byte[] reguardless of format
+                    byte[] itemBytes;
+
+                    //Read all Rtp Packets from the file
+                    while ((itemBytes = reader.ReadNext()) != null)
+                    {
+
+                        //Show the format for the first item (All others should have the same)
+                        if (reader.ItemCount == 1)
+                        {
+                            Console.WriteLine("Format: " + reader.Format);
+                        }
+
+                        int version = itemBytes[0] >> 6;
+                        //Some rtpdump files contain VAT Packets...
+                        if (version != 2) continue;
+                        byte payload = itemBytes[1];
+
+                        if (payload >= (byte)Rtcp.RtcpPacket.RtcpPacketType.SendersReport && payload <= (byte)Rtcp.RtcpPacket.RtcpPacketType.ApplicationSpecific || payload >= 72 && payload <= 76)
+                        {
+                            //Could be compound packets
+                            foreach (Rtcp.RtcpPacket rtcpPacket in Rtcp.RtcpPacket.GetPackets(itemBytes))
+                            {
+                                Console.WriteLine("Found Rtcp Packet: Type=" + rtcpPacket.PacketType + " , Length=" + rtcpPacket.Length);
+                                writer.WritePacket(rtcpPacket);
+                            }                            
+                        }
+                        else
+                        {
+                            Rtp.RtpPacket rtpPacket = new Rtp.RtpPacket(itemBytes);
+                            Console.WriteLine("Found Rtp Packet: SequenceNum=" + rtpPacket.SequenceNumber + " , Timestamp=" + rtpPacket.TimeStamp + (rtpPacket.Marker ? " MARKER" : string.Empty));
+                            writer.WritePacket(rtpPacket);
+                        }
+                    }
+
+                    writeCount = writer.Count;
+
                 }
+            }
+
+            //Ensure same amount of packets as read as written
+            using (Rtp.RtpDump.DumpReader reader = new Rtp.RtpDump.DumpReader(path + @"\mybark.rtp"))
+            {
+                reader.ReadToEnd();
+                if (reader.ItemCount != writeCount) throw new Exception("Did not write a compatible file");
             }
 
             Console.WriteLine("RtpDump Test passed!");
@@ -192,6 +255,8 @@ namespace Media
             Console.ReadKey();
 
             //Tests done.. delete files
+            System.IO.File.Delete(path + @"\mybark.rtp");
+
             System.IO.File.Delete(path + @"\BinaryDump.rtpdump");
 
             System.IO.File.Delete(path + @"\AsciiDump.rtpdump");
