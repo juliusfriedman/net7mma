@@ -1169,10 +1169,6 @@ namespace Media.Rtsp
                     }
                 }
 
-                //When the client plays 
-                //if npt=now- (Stream in continious)
-                //else if npt=0.000-x.xxx (stream needs to be cached so it can be played back from the server)
-
                 string rangeString = response[RtspHeaders.Range];
 
                 //Should throw if RtpInfo was present, Range requried RtpInfo
@@ -1195,7 +1191,7 @@ namespace Media.Rtsp
                             else if (times.Length == 2)
                             {
                                 m_StartTime = TimeSpan.Parse(times[0].Trim());
-                                m_StartTime = TimeSpan.Parse(times[1].Trim());
+                                m_EndTime = TimeSpan.Parse(times[1].Trim());
                             }
                             else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
                         }
@@ -1213,7 +1209,7 @@ namespace Media.Rtsp
                             else if (times.Length == 2)
                             {
                                 m_StartTime = TimeSpan.Parse(times[0].Trim());
-                                m_StartTime = TimeSpan.Parse(times[1].Trim());
+                                m_EndTime = TimeSpan.Parse(times[1].Trim());
                             }
                             else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
                         }
@@ -1226,11 +1222,10 @@ namespace Media.Rtsp
                             //Check for start time only
                             else if (times.Length == 1)
                             {
-                                DateTime startDate;
+                                DateTime now = DateTime.UtcNow, startDate;
                                 ///Parse and determine the start time
                                 if (DateTime.TryParse(times[0].Trim(), out startDate))
                                 {
-                                    DateTime now = DateTime.UtcNow;
                                     //Time in the past
                                     if (now > startDate) m_StartTime = now - startDate;
                                     //Future?
@@ -1241,11 +1236,10 @@ namespace Media.Rtsp
                             }
                             else if (times.Length == 2)
                             {
-                                DateTime startDate, endDate;
+                                DateTime now = DateTime.UtcNow, startDate, endDate;
                                 ///Parse and determine the start time
                                 if (DateTime.TryParse(times[0].Trim(), out startDate))
                                 {
-                                    DateTime now = DateTime.UtcNow;
                                     //Time in the past
                                     if (now > startDate) m_StartTime = now - startDate;
                                     //Future?
@@ -1255,7 +1249,6 @@ namespace Media.Rtsp
                                 ///Parse and determine the end time
                                 if (DateTime.TryParse(times[1].Trim(), out endDate))
                                 {
-                                    DateTime now = DateTime.UtcNow;
                                     //Time in the past
                                     if (now > startDate) m_EndTime = now - startDate;
                                     //Future?
