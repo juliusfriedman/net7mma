@@ -1184,16 +1184,16 @@ namespace Media.Rtsp
                             if (times[0].ToLowerInvariant() == "now") m_Live = true;
                             else if (times.Length == 1)
                             {
-                                m_StartTime = TimeSpan.Parse(times[0].Trim());
+                                m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
                                 //Only start is live?
                                 m_Live = true;
                             }
                             else if (times.Length == 2)
                             {
-                                m_StartTime = TimeSpan.Parse(times[0].Trim());
-                                m_EndTime = TimeSpan.Parse(times[1].Trim());
+                                m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                m_EndTime = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
                             }
-                            else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
+                            else throw new RtspClientException("Invalid Range Header Received: " + rangeString);
                         }
                         else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
                         {
@@ -1202,16 +1202,16 @@ namespace Media.Rtsp
                             if (times[0].ToLowerInvariant() == "now") m_Live = true;
                             else if (times.Length == 1)
                             {
-                                m_StartTime = TimeSpan.Parse(times[0].Trim());
+                                m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
                                 //Only start is live?
                                 m_Live = true;
                             }
                             else if (times.Length == 2)
                             {
-                                m_StartTime = TimeSpan.Parse(times[0].Trim());
-                                m_EndTime = TimeSpan.Parse(times[1].Trim());
+                                m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                m_EndTime = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
                             }
-                            else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
+                            else throw new RtspClientException("Invalid Range Header Received: " + rangeString);
                         }
                         else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
                         {
@@ -1255,7 +1255,7 @@ namespace Media.Rtsp
                                     else m_EndTime = startDate - now;
                                 }
                             }
-                            else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
+                            else throw new RtspClientException("Invalid Range Header Received: " + rangeString);
                         }
                         
                     }
