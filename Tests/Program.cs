@@ -375,11 +375,36 @@ namespace Media
             //We create a client forcing the Rtp Transport to Tcp
             Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp);
 
-        Start:
+        StartTest:
             //Assign some events (Could log each packet to a dump here)
             client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
             client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
-            client.OnResponse += (sender, response) => { Console.WriteLine("Client got response :" + response.StatusCode); };
+            client.OnResponse += (sender, request, response) => { 
+                Console.WriteLine("Client got response :" + response.StatusCode + ", for request: " + request.Location + " " + request.Method);
+
+                if (request.Method == Rtsp.RtspMethod.PLAY)
+                {
+                    //Indicate if LivePlay
+                    if (client.LivePlay)
+                    {
+                        Console.WriteLine("Playing from Live Source");
+                    }
+
+                    //Indicate if StartTime is found
+                    if (client.StartTime.HasValue)
+                    {
+                        Console.WriteLine("Media Start Time:" + client.StartTime);
+
+                    }
+
+                    //Indicate if EndTime is found
+                    if (client.EndTime.HasValue)
+                    {
+                        Console.WriteLine("Media End Time:" + client.EndTime);
+                    }
+                }
+
+            };
             client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected from :" + client.Location); };
 
             try
@@ -403,7 +428,7 @@ namespace Media
                 client.Client.RtpFrameChanged += (sender, rtpFrame) => { Console.BackgroundColor = ConsoleColor.Blue; Console.WriteLine("Got a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete); Console.BackgroundColor = ConsoleColor.Black; };
                 client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.WriteLine("Got a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Payload)); };
                 client.Client.RtcpPacketReceieved += (sender, rtcpPacket) => { Console.BackgroundColor = ConsoleColor.Green; Console.WriteLine("Sent a RTCP packet Channel= " + rtcpPacket.Channel + " Type=" + rtcpPacket.PacketType + " Length=" + rtcpPacket.Length + " Bytes = " + BitConverter.ToString(rtcpPacket.Payload)); Console.BackgroundColor = ConsoleColor.Black; };
-
+              
                 Console.WriteLine("Waiting for packets... Press Q to exit");
 
                 //Ensure we recieve a bunch of packets before we say the test is good
@@ -451,7 +476,7 @@ namespace Media
                 //Switch in 5 seconds rather than the default of 10
                 client.ProtocolSwitchSeconds = 5;
                 Console.WriteLine("Performing 2nd Client test");
-                goto Start;
+                goto StartTest;
             }
 
             Console.WriteLine("Press a Key to Start Next Test");
