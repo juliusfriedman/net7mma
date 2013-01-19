@@ -95,15 +95,34 @@ namespace Media.Rtsp
 
         List<RtspMethod> m_SupportedMethods = new List<RtspMethod>();
 
-        string m_UserAgent = "ASTI RTP Client", m_SessionId, m_TransportMode, m_Range;
+        string m_UserAgent = "ASTI RTP Client", m_SessionId, m_TransportMode;
 
         internal RtpClient m_RtpClient;
 
         Timer m_KeepAliveTimer, m_ProtocolSwitchTimer;
 
+        bool m_Live;
+
+        TimeSpan? m_StartTime, m_EndTime;
+
         #endregion
 
         #region Properties
+
+        /// <summary>
+        /// The TimeSpan which represents the time this media started playing from.
+        /// </summary>
+        public TimeSpan? StartTime { get { return m_StartTime; } }
+
+        /// <summary>
+        /// The TimeSpan which represents the time the media will end.
+        /// </summary>
+        public TimeSpan? EndTime { get { return m_EndTime; } }
+
+        /// <summary>
+        /// Indicates if the RtspClient is playing from a live source which means there is no absolute start or end time and seeking may not be supported.
+        /// </summary>
+        public bool LivePlay { get { return m_Live; } }
 
         /// <summary>
         /// The amount of time in seconds in which the RtspClient will switch protocols if no Packets have been recieved.
@@ -323,7 +342,7 @@ namespace Media.Rtsp
 
         public delegate void RequestHandler(RtspClient sender, RtspRequest request);
 
-        public delegate void ResponseHandler(RtspClient sender, RtspResponse response);
+        public delegate void ResponseHandler(RtspClient sender, RtspRequest request, RtspResponse response);
 
         public event ConnectHandler OnConnect;
 
@@ -335,7 +354,7 @@ namespace Media.Rtsp
 
         public event ResponseHandler OnResponse;
 
-        internal void Received(RtspResponse response) { if (OnResponse != null) OnResponse(this, response); }
+        internal void Received(RtspRequest request, RtspResponse response) { if (OnResponse != null) OnResponse(this, request, response); }
 
         public event DisconnectHandler OnDisconnect;
 
@@ -345,7 +364,7 @@ namespace Media.Rtsp
 
         #region Methods
 
-        void RtspClient_OnResponse(RtspClient sender, RtspResponse response)
+        void RtspClient_OnResponse(RtspClient sender, RtspRequest request, RtspResponse response)
         {
             //No Op
         }
@@ -654,7 +673,7 @@ namespace Media.Rtsp
                 if (m_LastRtspResponse == null) return m_LastRtspResponse;
 
                 //Fire the event
-                Received(m_LastRtspResponse);
+                Received(request, m_LastRtspResponse);
 
                 //Return the result
                 return m_LastRtspResponse;
@@ -959,8 +978,7 @@ namespace Media.Rtsp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
                         if (channels.Length > 1)
                         {
-                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture), byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture), (uint)ssrc, mediaDescription, m_RtspSocket);
-                            interleave.RtcpEnabled = !rtcpDisabled;
+                            RtpClient.Interleave interleave = new RtpClient.Interleave(byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture), byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture), (uint)ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
                             if (m_RtpClient == null)
                             {
@@ -978,12 +996,12 @@ namespace Media.Rtsp
                             }
                             catch
                             {
-                                throw new RtspClientException("Server responded with alreadyd in use channel: " + transportHeader);
+                                throw new RtspClientException("Server responded with channel already in use: " + transportHeader);
                             }
                         }
                         else
                         {
-                            throw new RtspClientException("Server indicated Tcp but did not provide a channel pair: " + transportHeader);
+                            throw new RtspClientException("Server indicated Tcp Transport but did not provide a channel pair: " + transportHeader);
                         }
                     }
                     else if (part.StartsWith("server_port="))
@@ -1024,16 +1042,14 @@ namespace Media.Rtsp
                             //Add the interleave for the mediaDescription
                             if(m_RtpClient.Interleaves.Count == 0)
                             {
-                                RtpClient.Interleave newInterleave = new RtpClient.Interleave(0, 1, (uint)ssrc, mediaDescription);
-                                newInterleave.RtcpEnabled = !rtcpDisabled;
+                                RtpClient.Interleave newInterleave = new RtpClient.Interleave(0, 1, (uint)ssrc, mediaDescription, !rtcpDisabled);
                                 newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(newInterleave);
                             }
                             else
                             {
                                 var last = m_RtpClient.Interleaves.Last();
-                                RtpClient.Interleave newInterleave = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), (uint)ssrc, mediaDescription);
-                                newInterleave.RtcpEnabled = !rtcpDisabled;
+                                RtpClient.Interleave newInterleave = new RtpClient.Interleave((byte)(last.DataChannel + 2), (byte)(last.ControlChannel + 2), (uint)ssrc, mediaDescription, !rtcpDisabled);
                                 newInterleave.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.AddInterleave(newInterleave);
                             }
@@ -1161,8 +1177,95 @@ namespace Media.Rtsp
 
                 //Should throw if RtpInfo was present, Range requried RtpInfo
                 if (!string.IsNullOrEmpty(rangeString))
-                {
-                    m_Range = rangeString.Trim();
+                {                    
+                    string[] times = rangeString.Trim().Split('=');
+                    if(times.Length > 1)
+                    {
+                        //Determine Format
+                        if (times[0] == "npt")//ntp=1.060-20
+                        {
+                            times = times[1].Split('-');
+                            if (times[0].ToLowerInvariant() == "now") m_Live = true;
+                            else if (times.Length == 1)
+                            {
+                                m_StartTime = TimeSpan.Parse(times[0].Trim());
+                                //Only start is live?
+                                m_Live = true;
+                            }
+                            else if (times.Length == 2)
+                            {
+                                m_StartTime = TimeSpan.Parse(times[0].Trim());
+                                m_StartTime = TimeSpan.Parse(times[1].Trim());
+                            }
+                            else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
+                        }
+                        else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
+                        {
+                            //Get the times into the times array skipping the time from the server
+                            times = times[1].Split('-', ';').Where(s=> !s.StartsWith("time=")).ToArray();
+                            if (times[0].ToLowerInvariant() == "now") m_Live = true;
+                            else if (times.Length == 1)
+                            {
+                                m_StartTime = TimeSpan.Parse(times[0].Trim());
+                                //Only start is live?
+                                m_Live = true;
+                            }
+                            else if (times.Length == 2)
+                            {
+                                m_StartTime = TimeSpan.Parse(times[0].Trim());
+                                m_StartTime = TimeSpan.Parse(times[1].Trim());
+                            }
+                            else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
+                        }
+                        else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
+                        {
+                            //Get the times into times array
+                            times = times[1].Split('-');
+                            //Check for live
+                            if (times[0].ToLowerInvariant() == "now") m_Live = true;
+                            //Check for start time only
+                            else if (times.Length == 1)
+                            {
+                                DateTime startDate;
+                                ///Parse and determine the start time
+                                if (DateTime.TryParse(times[0].Trim(), out startDate))
+                                {
+                                    DateTime now = DateTime.UtcNow;
+                                    //Time in the past
+                                    if (now > startDate) m_StartTime = now - startDate;
+                                    //Future?
+                                    else m_StartTime = startDate - now;
+                                }
+                                //Only start is live?
+                                m_Live = true;
+                            }
+                            else if (times.Length == 2)
+                            {
+                                DateTime startDate, endDate;
+                                ///Parse and determine the start time
+                                if (DateTime.TryParse(times[0].Trim(), out startDate))
+                                {
+                                    DateTime now = DateTime.UtcNow;
+                                    //Time in the past
+                                    if (now > startDate) m_StartTime = now - startDate;
+                                    //Future?
+                                    else m_StartTime = startDate - now;
+                                }
+                                
+                                ///Parse and determine the end time
+                                if (DateTime.TryParse(times[1].Trim(), out endDate))
+                                {
+                                    DateTime now = DateTime.UtcNow;
+                                    //Time in the past
+                                    if (now > startDate) m_EndTime = now - startDate;
+                                    //Future?
+                                    else m_EndTime = startDate - now;
+                                }
+                            }
+                            else throw new RtspClientException("Invalid Range Header Recieved: " + rangeString);
+                        }
+                        
+                    }
                 }
 
                 //If there is a timeout ensure it gets utilized

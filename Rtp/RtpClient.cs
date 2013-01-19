@@ -21,6 +21,8 @@ namespace Media.Rtp
     {
         #region Statics
 
+        static byte[] WakeUpBytes = new byte[] { 0x70, 0x70, 0x70, 0x70 };
+
         internal static byte MAGIC = 36; // $
 
         static uint RTP_SEQ_MOD = (1 << 16);
@@ -78,7 +80,7 @@ namespace Media.Rtp
             internal Socket RtpSocket, RtcpSocket;
 
             //Is Rtcp Enabled on this Interleave (when false will not send / recieve reports)
-            public bool RtcpEnabled = true;
+            public readonly bool RtcpEnabled = true;
             
             //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;
@@ -135,22 +137,23 @@ namespace Media.Rtp
             public bool GoodbyeSent{ get; internal set; }
             public bool GoodbyeRecieved { get; internal set; }
 
-            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc)
+            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, bool rtcpEnabled = true)
             {
                 DataChannel = dataChannel;
                 ControlChannel = controlChannel;
                 //if they both are the same then this could mean duplexing
                 SynchronizationSourceIdentifier = ssrc;
+                RtcpEnabled = rtcpEnabled;
             }
 
-            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription)
-                : this(dataChannel, controlChannel, ssrc)
+            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true)
+                : this(dataChannel, controlChannel, ssrc, rtcpEnabled)
             {
-                MediaDescription = mediaDescription;
+                MediaDescription = mediaDescription;                
             }
 
-            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, Socket socket)
-                : this(dataChannel, controlChannel, ssrc, mediaDescription)
+            internal Interleave(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, Socket socket, bool rtcpEnabled = true)
+                : this(dataChannel, controlChannel, ssrc, mediaDescription, rtcpEnabled)
             {
                 RtpSocket = RtcpSocket = socket;
             }
@@ -301,22 +304,15 @@ namespace Media.Rtp
                     //Send some bytes to ensure the reciever is awake and ready... (SIP or RELOAD may have something specific and better)
                     //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
                     //Might even make Upnp classes
-                    byte[] wakeup = new byte[] { 0x70, 0x70, 0x70, 0x70 };
 
                     //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
-                    try
-                    {
-                        RtpSocket.SendTo(wakeup, RemoteRtp);
-                    }
+                    try { RtpSocket.SendTo(WakeUpBytes, RemoteRtp); }
                     catch (SocketException) { }
 
                     //Only for Rtcp if enabled
                     if (RtcpEnabled)
                     {
-                        try
-                        {
-                            RtcpSocket.SendTo(wakeup, RemoteRtcp);
-                        }
+                        try { RtcpSocket.SendTo(WakeUpBytes, RemoteRtcp); }
                         catch (SocketException) { }
                     }
 

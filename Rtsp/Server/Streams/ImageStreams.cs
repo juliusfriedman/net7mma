@@ -109,7 +109,7 @@ namespace Media.Rtsp.Server.Streams
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
-            m_RtpClient.AddInterleave(new Rtp.RtpClient.Interleave(0, 1, sourceId, m_Sdp.MediaDescriptions[0]) { RtcpEnabled = false});
+            m_RtpClient.AddInterleave(new Rtp.RtpClient.Interleave(0, 1, sourceId, m_Sdp.MediaDescriptions[0], false));
 
             //Ensure never stops sending
             m_RtpClient.InactivityTimeoutSeconds = -1;
