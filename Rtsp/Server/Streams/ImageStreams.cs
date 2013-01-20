@@ -10,7 +10,7 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public class JpegRtpImageSource : RtpSource
     {
-        #region Fields        
+        #region Fields
 
         //Should be moved to SourceStream? Should have Fps and calculate for developers?
         protected readonly int clockRate = 9000;
@@ -48,9 +48,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Implementes the Connected property for SourceStream
         /// </summary>
-        public override bool Connected { get { return RtpClient != null && RtpClient.Connected; } 
-
-}
+        public override bool Connected { get { return true; } }
 
         /// <summary>
         /// Implementes the Listening property for SourceStream
@@ -72,7 +70,7 @@ namespace Media.Rtsp.Server.Streams
         #region Constructor
 
         public JpegRtpImageSource(string name, string directory = null, bool watch = true)
-            : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory))) 
+            : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory)))
         {
             //If we were told to watch and given a directory and the directory exists then make a FileSystemWatcher
             if (System.IO.Directory.Exists(base.Source.LocalPath) && watch)
@@ -103,19 +101,14 @@ namespace Media.Rtsp.Server.Streams
             //If this class was used to send directly to one person it would be setup with the recievers address
             m_RtpClient = Rtp.RtpClient.Sender(System.Net.IPAddress.Any);
 
-            //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.           
+            //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
+            //See the notes about having a Dictionary to support various tracks
             m_RtpClient.AddInterleave(new Rtp.RtpClient.Interleave(0, 1, sourceId, m_Sdp.MediaDescriptions[0], false));
 
             //Ensure never stops sending
             m_RtpClient.InactivityTimeoutSeconds = -1;
 
-            //The packet event builds frames
-            m_RtpClient.m_IncomingPacketEventsEnabled = false;
-
-            //The frame event if fired when a frame changes
-            m_RtpClient.m_IncomingFrameEventsEnabled = false;
-
-            //We don't need to increment the counters or keep track of frames via an event we can do that (Makes it a little faster to send)
+            //We don't need to increment the counters or keep track of frames via an event we can do that (Makes it a little faster to send since you are not waiting for events to increment counters)
             m_RtpClient.m_OutgoingPacketEventsEnabled = false;
 
             //Make the thread
@@ -235,7 +228,7 @@ namespace Media.Rtsp.Server.Streams
         }
 
         internal virtual void SendPackets()
-        {            
+        {
             while (true)
             {
                 try
@@ -243,17 +236,14 @@ namespace Media.Rtsp.Server.Streams
                     Rtp.JpegFrame frame = m_Frames.Dequeue();
 
                     //Get the interleave for the packet
-                    Rtp.RtpClient.Interleave interleave = RtpClient.Interleaves.Where(i => i.SynchronizationSourceIdentifier == frame.SynchronizationSourceIdentifier).First();//GetInterleaveForPacket(frame.Packets.Last());
-
-                    DateTime now = DateTime.UtcNow;
+                    Rtp.RtpClient.Interleave interleave = RtpClient.GetInterleaveForPacket(frame.Packets.Last());
 
                     //Updated values on the Interleave
-                    interleave.NtpTimestamp = Utility.DateTimeToNtpTimestamp(now);
-                    interleave.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
+                    interleave.NtpTimestamp = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow);
+                    interleave.RtpTimestamp = (uint)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
                     //Create a new frame so the timestamps and sequence numbers can change
-                    Rtp.JpegFrame next = null;
-                    if(Loop) next = new Rtp.JpegFrame()
+                    Rtp.JpegFrame next = new Rtp.JpegFrame()
                     {
                         SynchronizationSourceIdentifier = sourceId,
                         TimeStamp = interleave.RtpTimestamp
@@ -262,17 +252,10 @@ namespace Media.Rtsp.Server.Streams
                     //Iterate each packet and put it into the next frame
                     foreach (Rtp.RtpPacket packet in frame)
                     {
-                        //Set the properties of the packet
                         packet.Channel = interleave.DataChannel;
-                        packet.SynchronizationSourceIdentifier = sourceId;
                         packet.TimeStamp = interleave.RtpTimestamp;
                         packet.SequenceNumber = ++interleave.SequenceNumber;
-                        
-                        //Add the next packet
-                        if (Loop)
-                        {
-                            next.Add(packet);
-                        }
+                        next.Add(packet);
 
                         //Fire an event so the server sends a packet to all clients connected to this source
                         RtpClient.OnRtpPacketReceieved(packet);

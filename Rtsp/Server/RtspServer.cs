@@ -1461,6 +1461,8 @@ namespace Media.Rtsp
                     //Create a sender
                     session.m_RtpClient = RtpClient.Sender(((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address);
 
+
+
                     //Starts worker thread... 
                     session.m_RtpClient.Connect();
                 }
