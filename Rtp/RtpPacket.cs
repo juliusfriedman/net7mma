@@ -324,7 +324,7 @@ namespace Media.Rtp
             if (ContributingSourceCount > 0)
             {
                 //Loop the sources and add them to the header
-                m_ContributingSources.ForEach(cs => result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)cs))));
+                m_ContributingSources.ForEach(cs => result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(cs))));
             }
 
             //If extensions were flagged then include the extensions

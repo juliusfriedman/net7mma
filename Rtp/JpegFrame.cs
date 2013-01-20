@@ -20,7 +20,7 @@ namespace Media.Rtp
 
         public const int MaxHeight = 4096;
 
-        new public const byte PayloadType = 26;
+        public const byte RtpJpegPayloadType = 26;
 
         const byte Prefix = 0xff;
 
@@ -388,13 +388,15 @@ namespace Media.Rtp
         /// <summary>
         /// Creates an empty JpegFrame
         /// </summary>
-        internal JpegFrame() : base(JpegFrame.PayloadType) { }
+        internal JpegFrame() : base(JpegFrame.RtpJpegPayloadType) { }
 
         /// <summary>
         /// Creates a new JpegFrame from an existing RtpFrame which has the JpegFrame PayloadType
         /// </summary>
         /// <param name="f">The existing frame</param>
-        public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != JpegFrame.PayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
+        public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != JpegFrame.RtpJpegPayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
+
+        public JpegFrame(JpegFrame f) : base(f) { if (PayloadType != JpegFrame.RtpJpegPayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); Image = f.ToImage(); }
 
         /// <summary>
         /// Creates a JpegFrame from a System.Drawing.Image
@@ -440,7 +442,7 @@ namespace Media.Rtp
                 
                 //When the EOI is removed there are some artifacts in the player VLC even though the result is correct
 
-                //temp.Seek(temp.Length - 2, System.IO.SeekOrigin.Begin);
+                //temp.Seek(-2, System.IO.SeekOrigin.Current);
 
                 long endOffset = temp.Length;//temp.ReadByte() == Prefix && temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
 
@@ -481,7 +483,7 @@ namespace Media.Rtp
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
                 currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
                 currentPacket.SequenceNumber = (ushort)(sequenceNo ?? DateTime.UtcNow.Ticks);
-                currentPacket.PayloadType = JpegFrame.PayloadType;
+                currentPacket.PayloadType = JpegFrame.RtpJpegPayloadType;
 
                 //Where we are in the current packet
                 int currentPacketOffset = 0;
@@ -544,7 +546,7 @@ namespace Media.Rtp
                             //byte Precision = (byte)temp.ReadByte();//Discard Precision
                             //if (Precision != 0) throw new Exception("Only 8 Bit Precision is Supported");
                             
-                            temp.ReadByte();//Discard Table Id
+                            temp.ReadByte();//Discard Table Id (And Precision which is in the same byte)
 
                             byte[] table = new byte[TagSize];
                             
@@ -585,56 +587,62 @@ namespace Media.Rtp
 #if DEBUG
                         System.Diagnostics.Debug.WriteLine("Writing EntroypEncodedScan Data");
 #endif
-                        //The payloadSize of each packet in the frame
-                        int payloadSize = RtpPacket.MaxPayloadSize;
+                        
+                        //Determine how much to read
+                        int packetRemains = Rtp.RtpPacket.MaxPayloadSize - currentPacketOffset;
 
-                        //Write a value at a time to the payload while we are not at the EOF
-                        //TODO use a integer (remaining) and read all bytes you can into the payload without doing it byte for byte
-                        while ((Tag = temp.ReadByte()) != -1 && temp.Position < endOffset)
+                        //How much remains in the stream relative to the endOffset
+                        long streamRemains = endOffset - temp.Position;
+
+                        //While we are not done reading
+                        while (temp.Position < endOffset)
                         {
-                            //Ensure it will fit
-                            if (currentPacketOffset >= Rtp.RtpPacket.MaxPayloadSize)
+                            //Read what we can into the packet
+                            packetRemains -= temp.Read(currentPacket.Payload, currentPacketOffset, packetRemains);
+
+                            //Update how much remains
+                            streamRemains = endOffset - temp.Position;
+
+                            //Determine if we need to adjust the size and add the packet
+                            if (streamRemains < RtpPacket.MaxPayloadSize - 8)
                             {
-                                //Add current packet
-                                Add(currentPacket);
+                                //Final packet marks the end
+                                currentPacket.Marker = true;
 
-                                //So we dont' have to resize later
-                                if (endOffset - temp.Position < RtpPacket.MaxPayloadSize - 8)
-                                {
-                                    payloadSize = (int)(endOffset - temp.Position + 8); //8 for the RtpJpegHeader
-                                }
-
-                                //Make next packet                                    
-                                currentPacket = new RtpPacket(payloadSize)
-                                {
-                                    TimeStamp = currentPacket.TimeStamp,
-                                    SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
-                                    SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
-                                    PayloadType = JpegFrame.PayloadType
-                                };
-
-                                //Correct FragmentOffset
-                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position))).CopyTo(RtpJpegHeader, 2);
-                                
-                                //Copy header
-                                RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
-
-                                //Set offset in packet.Payload
-                                currentPacketOffset = 8;
+                                //8 for the RtpJpegHeader
+                                packetRemains = (int)(streamRemains + 8); 
+                            }
+                            else
+                            {
+                                //Size is normal
+                                packetRemains = RtpPacket.MaxPayloadSize;
                             }
 
-                            //Write next byte advancing currentPacketOffset
-                            currentPacket.Payload[currentPacketOffset++] = (byte)Tag;                            
+                            //Add current packet
+                            Add(currentPacket);
+
+                            //Make next packet                                    
+                            currentPacket = new RtpPacket(packetRemains)
+                            {
+                                TimeStamp = currentPacket.TimeStamp,
+                                SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
+                                SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
+                                PayloadType = JpegFrame.RtpJpegPayloadType
+                            };
+
+                            //Correct FragmentOffset
+                            BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position))).CopyTo(RtpJpegHeader, 2);
+
+                            //Copy header
+                            RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
+
+                            //Set offset in packet.Payload
+                            packetRemains -= currentPacketOffset = 8;
                         }
                         
                     }
                 }
-                //Final packet marks the end
-                currentPacket.Marker = true;    
-
-                //Add the final packet
-                Add(currentPacket);
-
+                
                 //To allow the stream to be closed
                 Image = new System.Drawing.Bitmap(Image);
             }
@@ -795,7 +803,7 @@ namespace Media.Rtp
             try
             {
                 if (Image == null) ProcessPackets();
-                return Image;
+                return new System.Drawing.Bitmap(Image);
             }
             catch
             {

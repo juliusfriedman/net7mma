@@ -90,7 +90,7 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-            //Get the interleave for the packet from the RtpClient
+            //Get the interleave for the packet from the RtpClient of the Session
             RtpClient.Interleave interleave = m_RtpClient.GetInterleaveForPacket(packet);
 
             //Nothing we need
@@ -262,7 +262,7 @@ namespace Media.Rtsp
             if (interleave.SynchronizationSourceIdentifier == 0)
             {
                 // Guaranteed to be unique per session
-                // Does not follow RFC Genenation guidelines but is more performant and just as unique
+                // Does not follow RFC Generation guidelines but is more performant and just as unique
                 interleave.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & interleave.RtpSocket.Handle.ToInt64() ^ (interleave.DataChannel | interleave.ControlChannel));
                 //Create a Senders Report
                 interleave.SendersReport = m_RtpClient.CreateSendersReport(interleave, false);
