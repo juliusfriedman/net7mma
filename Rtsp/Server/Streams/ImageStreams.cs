@@ -243,11 +243,15 @@ namespace Media.Rtsp.Server.Streams
                     interleave.RtpTimestamp = (uint)(DateTime.UtcNow.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
                     //Create a new frame so the timestamps and sequence numbers can change
-                    Rtp.JpegFrame next = new Rtp.JpegFrame()
+                    Rtp.JpegFrame next = null;
+                    if (Loop)
                     {
-                        SynchronizationSourceIdentifier = sourceId,
-                        TimeStamp = interleave.RtpTimestamp
-                    };
+                        next = new Rtp.JpegFrame()
+                            {
+                                SynchronizationSourceIdentifier = sourceId,
+                                TimeStamp = interleave.RtpTimestamp
+                            };
+                    }
 
                     //Iterate each packet and put it into the next frame
                     foreach (Rtp.RtpPacket packet in frame)
@@ -255,7 +259,7 @@ namespace Media.Rtsp.Server.Streams
                         packet.Channel = interleave.DataChannel;
                         packet.TimeStamp = interleave.RtpTimestamp;
                         packet.SequenceNumber = ++interleave.SequenceNumber;
-                        next.Add(packet);
+                        if (Loop) next.Add(packet);
 
                         //Fire an event so the server sends a packet to all clients connected to this source
                         RtpClient.OnRtpPacketReceieved(packet);

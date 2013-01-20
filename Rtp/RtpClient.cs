@@ -261,6 +261,7 @@ namespace Media.Rtp
                 else
                 {
                     /* duplicate or reordered packet */
+                    //return false;
                 }
                 RtpPacketsReceieved++;
 
@@ -290,8 +291,7 @@ namespace Media.Rtp
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
                     RtpSocket.DontFragment = true;
-                    //RtpSocket.ReceiveBufferSize = RtpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
-                    RtpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+                    RtpSocket.ReceiveBufferSize = RtpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
                     //May help if behind a router
                     //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
                     //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
@@ -312,8 +312,7 @@ namespace Media.Rtp
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
                         RtcpSocket.DontFragment = true;
-                        //RtcpSocket.ReceiveBufferSize = RtcpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
-                        RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
+                        RtcpSocket.ReceiveBufferSize = RtcpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
                         //May help if behind a router
                         //RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
                         try { RtcpSocket.SendTo(WakeUpBytes, RemoteRtcp); }
@@ -1437,14 +1436,18 @@ namespace Media.Rtp
                     sent = socket.Send(data, sent, data.Length - sent, SocketFlags.None, out error);
                     //If there was an error with the size of the datagram
                     if (error == SocketError.MessageSize)
-                    {
+                    {                        
+#if DEBUG
+                        System.Diagnostics.Debug.WriteLine("SocketError occured in RtpClient.SendData: SocketError = \"SocketError.MessageSize\", Resending data with larger buffer.");
+#endif
+
                         //Resize the buffer
                         socket.SendBufferSize = data.Length + 1;
                         //Send again
                         sent = socket.Send(data, 0, data.Length - sent, SocketFlags.None, out error);
                     }
                     //If the send was not successful throw an error with the errorCode
-                    if (error != SocketError.Success) throw new SocketException((int)error);
+                    else if (error != SocketError.Success) throw new SocketException((int)error);
                 }
                 else
                 {
