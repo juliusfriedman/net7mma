@@ -828,6 +828,7 @@ namespace Media.Rtsp
                     //Determine if we support what the client requests in `Required` Header
                     if (request.ContainsHeader(RtspHeaders.Required))
                     {
+                        //
                     }
 
                     //Process the request
@@ -1429,6 +1430,19 @@ namespace Media.Rtsp
                 return;
             }
 
+            //If there are Bandwidth lines with RR:0 and RS:0
+            IEnumerable<Media.Sdp.SessionDescriptionLine> rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && (l.Parts[0] == "RR" || l.Parts[0] == "RS") && l.Parts[1] == "1");
+
+            //Some providers disable Rtcp for one reason or another, it is strongly not recommended
+            bool rtcpDisabled = false;
+
+            //If there are two lines which match the criteria then disable Rtcp
+            if (rtcpLines != null && rtcpLines.Count() == 2)
+            {
+                //Rtcp is disabled, RtcpEnabled is the logic inverse of this (!rtcpDisabled)
+                rtcpDisabled = true;
+            }
+
             //Ssrc could be generated here for the interleave created for this setup to be more like everyone else...
             //(DateTime.UtcNow.Ticks ^ ci.m_RtspSocket.Handle)
 
@@ -1464,13 +1478,13 @@ namespace Media.Rtsp
                 if (session.m_RtpClient.Interleaves.Count == 0)
                 {
                     //Use default data and control channel
-                    currentInterleave = new RtpClient.Interleave(0, 1, 0, mediaDescription);
+                    currentInterleave = new RtpClient.Interleave(0, 1, 0, mediaDescription, !rtcpDisabled);
                 }                    
                 else
                 {
                     //Have to calculate next data and control channel
                     RtpClient.Interleave lastInterleave = session.m_RtpClient.Interleaves.Last();
-                    currentInterleave = new RtpClient.Interleave((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), 0, mediaDescription);
+                    currentInterleave = new RtpClient.Interleave((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), 0, mediaDescription, !rtcpDisabled);
                 }
                 
                 //Initialize the Udp sockets
@@ -1514,7 +1528,7 @@ namespace Media.Rtsp
                     session.m_RtpClient = RtpClient.Interleaved(session.m_RtspSocket);
 
                     //Create a new Interleave
-                    currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket);
+                    currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
 
                     //Add the interleave the client requested
                     session.m_RtpClient.AddInterleave(currentInterleave);
@@ -1532,7 +1546,7 @@ namespace Media.Rtsp
                     session.m_RtpClient.Interleaves.Clear();
 
                     //Add the interleave the client requested
-                    currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket);
+                    currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
 
                     //Add the interleave the client requested
                     session.m_RtpClient.AddInterleave(currentInterleave);
@@ -1546,7 +1560,7 @@ namespace Media.Rtsp
                     if (session.m_RtpClient.Interleaves.Count == 0)
                     {
                         //Use default data and control channel
-                        currentInterleave = new RtpClient.Interleave(0, 1, 0, mediaDescription);
+                        currentInterleave = new RtpClient.Interleave(0, 1, 0, mediaDescription, !rtcpDisabled);
                     }
                     else
                     {

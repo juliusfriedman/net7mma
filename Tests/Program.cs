@@ -379,31 +379,27 @@ namespace Media
             //Assign some events (Could log each packet to a dump here)
             client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
             client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
-            client.OnResponse += (sender, request, response) => { 
-                Console.WriteLine("Client got response :" + response.StatusCode + ", for request: " + request.Location + " " + request.Method);
-
-                if (request.Method == Rtsp.RtspMethod.PLAY)
+            client.OnResponse += (sender, request, response) => { Console.WriteLine("Client got response :" + response.StatusCode + ", for request: " + request.Location + " " + request.Method); };
+            client.OnPlay += (sender) =>
+            {
+                //Indicate if LivePlay
+                if (client.LivePlay)
                 {
-                    //Indicate if LivePlay
-                    if (client.LivePlay)
-                    {
-                        Console.WriteLine("Playing from Live Source");
-                    }
-
-                    //Indicate if StartTime is found
-                    if (client.StartTime.HasValue)
-                    {
-                        Console.WriteLine("Media Start Time:" + client.StartTime);
-
-                    }
-
-                    //Indicate if EndTime is found
-                    if (client.EndTime.HasValue)
-                    {
-                        Console.WriteLine("Media End Time:" + client.EndTime);
-                    }
+                    Console.WriteLine("Playing from Live Source");
                 }
 
+                //Indicate if StartTime is found
+                if (client.StartTime.HasValue)
+                {
+                    Console.WriteLine("Media Start Time:" + client.StartTime);
+
+                }
+
+                //Indicate if EndTime is found
+                if (client.EndTime.HasValue)
+                {
+                    Console.WriteLine("Media End Time:" + client.EndTime);
+                }
             };
             client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected from :" + client.Location); };
 

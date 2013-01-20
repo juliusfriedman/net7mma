@@ -18,6 +18,9 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspClient : IDisposable
     {
+
+        static char[] TimeSplit = new char[] { '-', ';' };
+
         #region Nested Types
 
         public class RtspClientException : Exception
@@ -336,15 +339,13 @@ namespace Media.Rtsp
 
         #region Events
 
-        public delegate void ConnectHandler(RtspClient sender);
-
-        public delegate void DisconnectHandler(RtspClient sender);
+        public delegate void RtspClientAction(RtspClient sender);
 
         public delegate void RequestHandler(RtspClient sender, RtspRequest request);
 
         public delegate void ResponseHandler(RtspClient sender, RtspRequest request, RtspResponse response);
 
-        public event ConnectHandler OnConnect;
+        public event RtspClientAction OnConnect;
 
         internal void OnConnected() { if (OnConnect != null) OnConnect(this); }
 
@@ -356,9 +357,17 @@ namespace Media.Rtsp
 
         internal void Received(RtspRequest request, RtspResponse response) { if (OnResponse != null) OnResponse(this, request, response); }
 
-        public event DisconnectHandler OnDisconnect;
+        public event RtspClientAction OnDisconnect;
 
         internal void OnDisconnected() { if (OnDisconnect != null) OnDisconnect(this); }
+
+        public event RtspClientAction OnPlay;
+
+        internal void Playing() { if (OnPlay != null) OnPlay(this); }
+
+        public event RtspClientAction OnStop;
+
+        internal void Stopping() { if (OnStop != null) OnStop(this); }
 
         #endregion
 
@@ -773,6 +782,8 @@ namespace Media.Rtsp
         public RtspResponse SendTeardown(MediaDescription mediaDescription = null)
         {
             RtspResponse response = null;
+            //Indicate we are stopping
+            Stopping();
             try
             {
                 Uri location;
@@ -1171,7 +1182,7 @@ namespace Media.Rtsp
 
                 string rangeString = response[RtspHeaders.Range];
 
-                //Should throw if RtpInfo was present, Range requried RtpInfo
+                //Should throw if RtpInfo was present
                 if (!string.IsNullOrEmpty(rangeString))
                 {                    
                     string[] times = rangeString.Trim().Split('=');
@@ -1180,25 +1191,40 @@ namespace Media.Rtsp
                         //Determine Format
                         if (times[0] == "npt")//ntp=1.060-20
                         {
-                            times = times[1].Split('-');
+                            times = times[1].Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
                             if (times[0].ToLowerInvariant() == "now") m_Live = true;
                             else if (times.Length == 1)
                             {
-                                m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                if(times[0].Contains(':'))
+                                {
+                                    m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                                else
+                                {
+                                    m_StartTime = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                                }
                                 //Only start is live?
                                 m_Live = true;
                             }
                             else if (times.Length == 2)
                             {
-                                m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                                m_EndTime = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                if (times[0].Contains(':'))
+                                {
+                                    m_StartTime = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                    m_EndTime = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                                else
+                                {
+                                    m_StartTime = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                                    m_EndTime = TimeSpan.FromSeconds(double.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                                }
                             }
                             else throw new RtspClientException("Invalid Range Header Received: " + rangeString);
                         }
                         else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
                         {
                             //Get the times into the times array skipping the time from the server
-                            times = times[1].Split('-', ';').Where(s=> !s.StartsWith("time=")).ToArray();
+                            times = times[1].Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s=> !s.StartsWith("time=")).ToArray();
                             if (times[0].ToLowerInvariant() == "now") m_Live = true;
                             else if (times.Length == 1)
                             {
@@ -1216,7 +1242,7 @@ namespace Media.Rtsp
                         else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
                         {
                             //Get the times into times array
-                            times = times[1].Split('-');
+                            times = times[1].Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
                             //Check for live
                             if (times[0].ToLowerInvariant() == "now") m_Live = true;
                             //Check for start time only
@@ -1269,6 +1295,9 @@ namespace Media.Rtsp
 
                 //Connect the client (if already connected this will not do anything, might want to change the semantic though)
                 m_RtpClient.Connect();
+
+                //Raise the playing event
+                Playing();
 
                 return response;
             }
