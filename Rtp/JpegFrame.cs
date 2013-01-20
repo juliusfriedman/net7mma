@@ -577,67 +577,60 @@ namespace Media.Rtp
                             data.CopyTo(currentPacket.Payload, currentPacketOffset);
 
                             currentPacketOffset += data.Length;
-
-                            goto EntroypEncodedScan;
-                        }
-
-                        continue;
-
-                    EntroypEncodedScan:
 #if DEBUG
-                        System.Diagnostics.Debug.WriteLine("Writing EntroypEncodedScan Data");
+                            System.Diagnostics.Debug.WriteLine("Writing EntroypEncodedScan Data");
 #endif
-                        
-                        //Determine how much to read
-                        int packetRemains = Rtp.RtpPacket.MaxPayloadSize - currentPacketOffset;
 
-                        //How much remains in the stream relative to the endOffset
-                        long streamRemains = endOffset - temp.Position;
+                            //Determine how much to read
+                            int packetRemains = Rtp.RtpPacket.MaxPayloadSize - currentPacketOffset;
 
-                        //While we are not done reading
-                        while (temp.Position < endOffset)
-                        {
-                            //Read what we can into the packet
-                            packetRemains -= temp.Read(currentPacket.Payload, currentPacketOffset, packetRemains);
+                            //How much remains in the stream relative to the endOffset
+                            long streamRemains = endOffset - temp.Position;
 
-                            //Update how much remains
-                            streamRemains = endOffset - temp.Position;
-
-                            //Determine if we need to adjust the size and add the packet
-                            if (streamRemains < RtpPacket.MaxPayloadSize - 8)
+                            //While we are not done reading
+                            while (temp.Position < endOffset)
                             {
-                                //8 for the RtpJpegHeader
-                                packetRemains = (int)(streamRemains + 8); 
+                                //Read what we can into the packet
+                                packetRemains -= temp.Read(currentPacket.Payload, currentPacketOffset, packetRemains);
+
+                                //Update how much remains
+                                streamRemains = endOffset - temp.Position;
+
+                                //Determine if we need to adjust the size and add the packet
+                                if (streamRemains < RtpPacket.MaxPayloadSize - 8)
+                                {
+                                    //8 for the RtpJpegHeader
+                                    packetRemains = (int)(streamRemains + 8);
+                                }
+                                else
+                                {
+                                    //Size is normal
+                                    packetRemains = RtpPacket.MaxPayloadSize;
+                                }
+
+                                //Add current packet
+                                Add(currentPacket);
+
+                                //Make next packet                                    
+                                currentPacket = new RtpPacket(packetRemains)
+                                {
+                                    TimeStamp = currentPacket.TimeStamp,
+                                    SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
+                                    SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
+                                    PayloadType = JpegFrame.RtpJpegPayloadType,
+                                    Marker = packetRemains < RtpPacket.MaxPayloadSize
+                                };
+
+                                //Correct FragmentOffset
+                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position))).CopyTo(RtpJpegHeader, 2);
+
+                                //Copy header
+                                RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
+
+                                //Set offset in packet.Payload
+                                packetRemains -= currentPacketOffset = 8;
                             }
-                            else
-                            {
-                                //Size is normal
-                                packetRemains = RtpPacket.MaxPayloadSize;
-                            }
-
-                            //Add current packet
-                            Add(currentPacket);
-
-                            //Make next packet                                    
-                            currentPacket = new RtpPacket(packetRemains)
-                            {
-                                TimeStamp = currentPacket.TimeStamp,
-                                SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
-                                SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
-                                PayloadType = JpegFrame.RtpJpegPayloadType,
-                                Marker = packetRemains < RtpPacket.MaxPayloadSize
-                            };
-
-                            //Correct FragmentOffset
-                            BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position))).CopyTo(RtpJpegHeader, 2);
-
-                            //Copy header
-                            RtpJpegHeader.CopyTo(currentPacket.Payload, 0);
-
-                            //Set offset in packet.Payload
-                            packetRemains -= currentPacketOffset = 8;
                         }
-                        
                     }
                 }
                 
