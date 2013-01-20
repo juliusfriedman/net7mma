@@ -20,7 +20,7 @@ namespace Media.Rtp
 
         byte m_PayloadType;
 
-        SortedList<int, RtpPacket> m_Packets = new SortedList<int, RtpPacket>();
+        SortedList<uint, RtpPacket> m_Packets = new SortedList<uint, RtpPacket>();
 
         #endregion
 
@@ -33,7 +33,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="SequenceNumber"></param>
         /// <returns></returns>
-        public RtpPacket this[int SequenceNumber] { get { return m_Packets[SequenceNumber]; } set { m_Packets[SequenceNumber] = value; } }
+        public RtpPacket this[uint SequenceNumber] { get { return m_Packets[SequenceNumber]; } set { m_Packets[SequenceNumber] = value; } }
 
         /// <summary>
         /// The SynchronizationSourceIdentifier of All Packets Contained
@@ -44,9 +44,8 @@ namespace Media.Rtp
             set
             {
                 m_Ssrc = (uint)value;
-                for (int i = 0, e = m_Packets.Count; i < e; ++i)
+                foreach (RtpPacket p in m_Packets.Values)
                 {
-                    RtpPacket p = m_Packets[i];
                     p.SynchronizationSourceIdentifier = m_Ssrc;
                 }
             }
@@ -90,7 +89,7 @@ namespace Media.Rtp
         /// <summary>
         /// The HighestSequenceNumber in the contained Packets or -1 if no Packets are contained
         /// </summary>
-        public int HighestSequenceNumber { get { return Count > 0 ? m_Packets.Values.Last().SequenceNumber : -1; } }
+        public ushort HighestSequenceNumber { get { return (ushort)(Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); } }
 
         #endregion
 
@@ -132,6 +131,7 @@ namespace Media.Rtp
         {
             if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
             if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
+            if (packet.TimeStamp != TimeStamp) throw new ArgumentException("packet.TimeStamp must match frame TimeStamp", "packet");
             lock (m_Packets)
             {
                 if (Complete || Contains(packet)) return;
@@ -155,7 +155,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The sequence number to check</param>
         /// <returns>True if the packet is contained, otherwise false.</returns>
-        public virtual bool Contains(int sequenceNumber)
+        public virtual bool Contains(uint sequenceNumber)
         {
             return m_Packets.ContainsKey(sequenceNumber);
         }
@@ -165,7 +165,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The sequence number to remove</param>
         /// <returns>A RtpPacket with the sequence number if removed, otherwise null</returns>
-        public virtual RtpPacket Remove(int sequenceNumber)
+        public virtual RtpPacket Remove(uint sequenceNumber)
         {
             RtpPacket removed;
             if (m_Packets.TryGetValue(sequenceNumber, out removed))

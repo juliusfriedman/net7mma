@@ -45,12 +45,19 @@ namespace Media.Rtp
 
         public static RtpClient Sender(IPAddress remoteAddress)
         {
-            return new RtpClient(remoteAddress);
+            return new RtpClient(remoteAddress)
+            {
+                IncomingPacketEventsEnabled = false,
+                m_IncomingPacketEventsEnabled = false
+            };
         }
 
         public static RtpClient Receiever(IPAddress remoteAddress)
         {
-            return new RtpClient(remoteAddress);
+            return new RtpClient(remoteAddress)
+            {
+                OutgoingPacketEventsEnabled = false
+            };
         }
 
         #endregion
@@ -84,7 +91,7 @@ namespace Media.Rtp
             internal Socket RtpSocket, RtcpSocket;
 
             //Is Rtcp Enabled on this Interleave (when false will not send / recieve reports)
-            public readonly bool RtcpEnabled = true;
+            public bool RtcpEnabled = true;
 
             //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;
@@ -283,7 +290,8 @@ namespace Media.Rtp
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
                     RtpSocket.DontFragment = true;
-                    RtpSocket.ReceiveBufferSize = RtpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
+                    //RtpSocket.ReceiveBufferSize = RtpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
+                    RtpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
                     //May help if behind a router
                     //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
                     //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
@@ -303,8 +311,9 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
-                        //RtcpSocket.DontFragment = true;
-                        RtcpSocket.ReceiveBufferSize = RtcpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
+                        RtcpSocket.DontFragment = true;
+                        //RtcpSocket.ReceiveBufferSize = RtcpSocket.SendBufferSize = RtpPacket.MaxPacketSize;
+                        RtcpSocket.ReceiveBufferSize = RtpPacket.MaxPacketSize;
                         //May help if behind a router
                         //RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
                         try { RtcpSocket.SendTo(WakeUpBytes, RemoteRtcp); }

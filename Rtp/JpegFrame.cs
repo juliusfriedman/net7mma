@@ -560,14 +560,9 @@ namespace Media.Rtp
                             //Type = 64;
                             //RestartInterval = CreateRtpDataRestartIntervalMarker((int)temp.Length, 1, 1, 0x3fff);
                             throw new NotImplementedException();
-                        }
-                        else //Skip past tag 
-                        {
-                            temp.Seek(TagSize, System.IO.SeekOrigin.Current);                            
-                        }
-
+                        }                        
                         //Last Marker in Header before EntroypEncodedScan
-                        if (Tag == StartOfScan)
+                        else if (Tag == StartOfScan)
                         {
                             temp.ReadByte();//Discard Byte
                             
@@ -630,6 +625,10 @@ namespace Media.Rtp
                                 //Set offset in packet.Payload
                                 packetRemains -= currentPacketOffset = 8;
                             }
+                        }
+                        else //Skip past tag 
+                        {
+                            temp.Seek(TagSize, System.IO.SeekOrigin.Current);
                         }
                     }
                 }
