@@ -606,9 +606,6 @@ namespace Media.Rtp
                             //Determine if we need to adjust the size and add the packet
                             if (streamRemains < RtpPacket.MaxPayloadSize - 8)
                             {
-                                //Final packet marks the end
-                                currentPacket.Marker = true;
-
                                 //8 for the RtpJpegHeader
                                 packetRemains = (int)(streamRemains + 8); 
                             }
@@ -627,7 +624,8 @@ namespace Media.Rtp
                                 TimeStamp = currentPacket.TimeStamp,
                                 SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
                                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
-                                PayloadType = JpegFrame.RtpJpegPayloadType
+                                PayloadType = JpegFrame.RtpJpegPayloadType,
+                                Marker = packetRemains < RtpPacket.MaxPayloadSize
                             };
 
                             //Correct FragmentOffset

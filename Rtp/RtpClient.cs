@@ -11,10 +11,9 @@ namespace Media.Rtp
 {
     /// <summary>
     /// Implementation of Rtp RFC3550 and RFC4751
-    /// Sends and Recieves Rtcp Packets according to the spec.    
-    /// ToDo:
-    /// Figure out if each Interleave needs it's own Socket for Udp
-    /// Add logic for stand alone operation (rtp Uri) to sdp
+    /// Automatically responds to Rtcp Packets if enabled and required.
+    /// Todo:
+    /// Add logic for stand alone operation (rtp:// Uri)
     /// Abstract participants into a list so each client can clearly identify who it's sending too.
     /// </summary>
     public class RtpClient
