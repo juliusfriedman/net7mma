@@ -56,6 +56,11 @@ namespace Media.Rtcp
         public short Length { get { return (short)(m_Length * 4); } set { m_Length = (short)(value / 4); } }
 
         /// <summary>
+        /// The length of this Rtcp Packet in Bytes Including the RtcpHeader
+        /// </summary>
+        public short PacketLength { get { return (short)(RtcpHeaderLength + Length); } }
+
+        /// <summary>
         /// The type of RtcpPacket
         /// </summary>
         public RtcpPacketType PacketType { get { return (RtcpPacketType)m_Type; } set { m_Type = (byte)value; } }
@@ -129,20 +134,26 @@ namespace Media.Rtcp
 
         public static bool IsKnownPacketType(byte suspect) { return suspect >= (byte)RtcpPacket.RtcpPacketType.SendersReport && suspect <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific || suspect >= 72 && suspect <= 76; }
 
-        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, int offset = 0)
+        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference)
+        {
+            int offset = bufferReference.Offset;
+            return GetPackets(bufferReference, ref offset);
+        }
+
+        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, ref int offset)
         {
             List<RtcpPacket> packets = new List<RtcpPacket>();
-            
-            int index = offset;
 
-            while (index + RtcpHeaderLength < bufferReference.Count)
+            int localOffset = bufferReference.Array[bufferReference.Offset + offset] == Rtp.RtpClient.MAGIC ? 5 : 1;
+
+            while (offset + RtcpHeaderLength < bufferReference.Count && IsKnownPacketType(bufferReference.Array[localOffset + bufferReference.Offset + offset]))
             {
                 try
                 {
-                    Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, index);
+                    Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, offset);
                     if (packet.Length == 0) break;
                     packets.Add(packet);
-                    index += 4 + packet.Length;
+                    offset += packet.PacketLength;
                 }
                 catch
                 {
@@ -161,7 +172,7 @@ namespace Media.Rtcp
         /// <returns>The array of packets decoded from the buffer</returns>
         public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0)
         {
-            return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), offset);
+            return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), ref offset);
         }
 
         /// <summary>

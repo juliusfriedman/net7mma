@@ -442,15 +442,15 @@ namespace Media.Rtp
                 
                 //When the EOI is removed there are some artifacts in the player VLC even though the result is correct
 
-                //temp.Seek(-2, System.IO.SeekOrigin.Current);
+                temp.Seek(-2, System.IO.SeekOrigin.Current);
 
-                long endOffset = temp.Length;//temp.ReadByte() == Prefix && temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
+                long endOffset = temp.ReadByte() == Prefix && temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
 
                 //Enure at the beginning
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
                 //Read the JPEG Back from the stream so it's pixel format is JPEG
-                Image = System.Drawing.Image.FromStream(temp);
+                Image = System.Drawing.Image.FromStream(temp, false, true);
 
                 //Determine if there are Quantization Tables which must be sent
                 if (Image.PropertyIdList.Contains(0x5090) && Image.PropertyIdList.Contains(0x5091))
@@ -482,7 +482,7 @@ namespace Media.Rtp
                 RtpPacket currentPacket = new RtpPacket();
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
                 currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
-                currentPacket.SequenceNumber = (ushort)(sequenceNo ?? DateTime.UtcNow.Ticks);
+                currentPacket.SequenceNumber = (ushort)(sequenceNo ?? 1);
                 currentPacket.PayloadType = JpegFrame.RtpJpegPayloadType;
 
                 //Where we are in the current packet
@@ -591,10 +591,13 @@ namespace Media.Rtp
                                 //Update how much remains
                                 streamRemains = endOffset - temp.Position;
 
+                                //Add current packet
+                                Add(currentPacket);
+
                                 //Determine if we need to adjust the size and add the packet
                                 if (streamRemains < RtpPacket.MaxPayloadSize - 8)
                                 {
-                                    //8 for the RtpJpegHeader
+                                    //8 for the RtpJpegHeader and this will cause the Marker be to set
                                     packetRemains = (int)(streamRemains + 8);
                                 }
                                 else
@@ -602,9 +605,6 @@ namespace Media.Rtp
                                     //Size is normal
                                     packetRemains = RtpPacket.MaxPayloadSize;
                                 }
-
-                                //Add current packet
-                                Add(currentPacket);
 
                                 //Make next packet                                    
                                 currentPacket = new RtpPacket(packetRemains)
@@ -632,13 +632,11 @@ namespace Media.Rtp
                         }
                     }
                 }
-                
+
                 //To allow the stream to be closed
                 Image = new System.Drawing.Bitmap(Image);
             }
         }
-
-        ~JpegFrame() { if (Image != null) { Image.Dispose(); Image = null; } }
 
         #endregion
 
@@ -664,8 +662,9 @@ namespace Media.Rtp
             using (System.IO.MemoryStream Buffer = new System.IO.MemoryStream())
             {
                 //Loop each packet
-                this.Packets.ForEach(packet =>
-                {
+                foreach(RtpPacket packet in this){
+                //this.Packets.ForEach(packet =>
+                //{
                     //Payload starts at offset 0
                     int offset = 0;
 
@@ -764,7 +763,7 @@ namespace Media.Rtp
 
                     //Write the Payload data from the offset
                     Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
-                });
+                }//);
 
                 //Check for EOI Marker
                 Buffer.Seek(Buffer.Length - 2, System.IO.SeekOrigin.Begin);

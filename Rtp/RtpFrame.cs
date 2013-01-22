@@ -20,20 +20,13 @@ namespace Media.Rtp
 
         byte m_PayloadType;
 
-        SortedList<uint, RtpPacket> m_Packets = new SortedList<uint, RtpPacket>();
+        protected SortedList<uint, RtpPacket> m_Packets = new SortedList<uint, RtpPacket>();
 
         #endregion
 
         #region Properties
 
         public DateTime? Created { get; set; }
-
-        /// <summary>
-        /// Accesses a packet by SequenceNumber (should be uint to also allow for index?)
-        /// </summary>
-        /// <param name="SequenceNumber"></param>
-        /// <returns></returns>
-        public RtpPacket this[uint SequenceNumber] { get { return m_Packets[SequenceNumber]; } set { m_Packets[SequenceNumber] = value; } }
 
         /// <summary>
         /// The SynchronizationSourceIdentifier of All Packets Contained
@@ -60,11 +53,6 @@ namespace Media.Rtp
         /// The Timestamp of All Packets Contained
         /// </summary>
         public virtual uint TimeStamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
-
-        /// <summary>
-        /// A List of All Packets Contained Sorted by SequenceNumber
-        /// </summary>
-        public virtual List<RtpPacket> Packets { get { return m_Packets.Values.ToList(); } }
 
         /// <summary>
         /// Indicated if a Contained Packet has the Marker Bit Set

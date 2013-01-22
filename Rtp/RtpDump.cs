@@ -1060,8 +1060,16 @@ namespace Media.Rtp.RtpDump
             try
             {
                 DumpFormat format = m_Format.Value;
-                //Read the item
-                DumpItem? item = new DumpItem(m_Reader, ref format);
+                
+                DumpItem? item = null;
+                
+                //If we are not at the end;
+                if(m_Reader.BaseStream.Position < m_Reader.BaseStream.Length)
+                {
+                    //Read the item
+                    item = new DumpItem(m_Reader, ref format);
+                }
+
                 if (item.HasValue)
                 {
                     //If the format was not forced then update the format

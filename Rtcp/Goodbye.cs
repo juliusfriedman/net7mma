@@ -11,6 +11,7 @@ namespace Media.Rtcp
 
         public byte? Channel { get; set; }
         public DateTime? Created { get; set; }
+        public DateTime? Sent { get; set; }
         public uint SynchronizationSourceIdentifier { get; set; }
         public string Reason { get; set; }
 
