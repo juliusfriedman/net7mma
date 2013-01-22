@@ -105,6 +105,11 @@ namespace Media.Rtsp
         public bool RequireUserAgent { get; set; }
 
         /// <summary>
+        /// Indicates if setup requests require a Range Header
+        /// </summary>
+        public bool RequireRangeHeader { get; set; }
+
+        /// <summary>
         /// The name of the server (used in responses)
         /// </summary>
         public string ServerName { get; set; }
@@ -158,7 +163,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The streams contained in the server
         /// </summary>
-        public List<RtpSource> Streams { get { return m_Streams.Values.ToList(); } }
+        public IEnumerable<RtpSource> Streams { get { lock (m_Streams) return m_Streams.Values.ToArray(); } }
 
         /// <summary>
         /// The amount of streams the server is prepared to listen to
@@ -171,9 +176,9 @@ namespace Media.Rtsp
         public int ActiveStreamCount
         {
             get
-            {
+            {                
                 if (TotalStreamCount == 0) return 0;
-                return m_Streams.Where(s => s.Value.Listening == true).Count();
+                return Streams.Where(s => s.Listening == true).Count();
             }
         }
 
@@ -194,7 +199,7 @@ namespace Media.Rtsp
         {
             get
             {
-                return m_Streams.Values.Sum(s => s.RtpClient.TotalRtpBytesReceieved);
+                return Streams.Sum(s => s.RtpClient.TotalRtpBytesReceieved);
             }
         }
 
@@ -205,7 +210,7 @@ namespace Media.Rtsp
         {
             get
             {
-                return m_Streams.Values.Sum(s => s.RtpClient.TotalRtpBytesSent);
+                return Streams.Sum(s => s.RtpClient.TotalRtpBytesSent);
             }
         }
 
@@ -382,13 +387,16 @@ namespace Media.Rtsp
         {
             try
             {
-                RtpSource client = m_Streams[streamId];
-                if (client == null) return false;
-                if(stop) client.Stop();
-                lock (m_Streams)
+                if (m_Streams.ContainsKey(streamId))
                 {
-                    return m_Streams.Remove(streamId);
+                    RtpSource source = this[streamId];
+                    if (stop) source.Stop();
+                    lock (m_Streams)
+                    {
+                        return m_Streams.Remove(streamId);
+                    }
                 }
+                return false;
             }
             catch
             {
@@ -447,7 +455,7 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
-                foreach (RtpSource stream in m_Streams.Values.ToList())
+                foreach (RtpSource stream in Streams)
                 {
                     //If the name matches the streamName or stream Id then we found it
                     if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString() == streamName)
@@ -526,12 +534,7 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            var toStart = default(List<RtpSource>);
-            lock (m_Streams)
-            {
-                toStart = m_Streams.Values.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false).ToList();
-            }
-            foreach (RtpSource stream in toStart)
+            foreach (RtpSource stream in Streams.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false))
             {
                 try
                 {
@@ -651,7 +654,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (RtpSource stream in m_Streams.Values.ToList())
+            foreach (RtpSource stream in Streams)
             {                             
                 stream.Start();
             }
@@ -662,7 +665,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (RtpSource stream in m_Streams.Values.ToList())
+            foreach (RtpSource stream in Streams)
             {                
                 stream.Stop();
             }
@@ -894,7 +897,7 @@ namespace Media.Rtsp
                     //If the client is interleaving
                     if (session.m_RtpClient != null && session.m_RtpClient.m_TransportProtocol == ProtocolType.Tcp)
                     {
-                        //The request is in the buffer 
+                        //The request is in the buffer (Complete this)
                         ProcessRtspRequest(new RtspRequest(session.m_Buffer), session);
                     }
                     else //The client is not interleaving
@@ -912,6 +915,7 @@ namespace Media.Rtsp
                     m_Sent += sent;
 
                     //Use the Udp Client for the Session (might make just use Sockets eventually)
+                    //Complete this after Tcp Interleaving
                     session.m_Udp.BeginReceive(new AsyncCallback(ProcessReceive), session);
                 }
             }
@@ -1163,9 +1167,9 @@ namespace Media.Rtsp
             
             /* Add Supported Header
             Supported: play.basic, con.persistent
-                basic play, TCP is supported
+                       (basic play, TCP is supported)
             setup.playing means that setup and teardown can be used in the play state.
-            Should also check the Require: header because this means the play is looking for a feature
+            Should also check the Require: header because this means the client is looking for a feature
             */
 
             try
@@ -1333,6 +1337,7 @@ namespace Media.Rtsp
         /// <param name="session"></param>
         internal void ProcessRtspSetup(RtspRequest request, ClientSession session)
         {
+
 #if DEBUG
             System.Diagnostics.Debug.WriteLine("SETUP " + request.Location);
 #endif
@@ -1410,6 +1415,118 @@ namespace Media.Rtsp
                 return;
             }
 
+
+            //Get the Range header
+            string rangeString = request[RtspHeaders.Range];
+            TimeSpan? startRange = null, endRange = null;
+            
+            //If that is not present we cannot determine where the client wants to start playing from
+            if (string.IsNullOrWhiteSpace(rangeString))
+            {
+                if (RequireRangeHeader)
+                {
+                    ProcessInvalidRtspRequest(session);
+                    return;
+                }
+            }
+            else
+            {
+                //Parse Range Header
+                string[] times = rangeString.Trim().Split('=');
+                if (times.Length > 1)
+                {
+                    //Determine Format
+                    if (times[0] == "npt")//ntp=1.060-20
+                    {
+                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        if (times[0].ToLowerInvariant() == "now") { }
+                        else if (times.Length == 1)
+                        {
+                            if (times[0].Contains(':'))
+                            {
+                                startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                endRange = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                        }
+                        else if (times.Length == 2)
+                        {
+                            if (times[0].Contains(':'))
+                            {
+                                startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                endRange = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                startRange = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                                endRange = TimeSpan.FromSeconds(double.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                        }
+                        else ProcessInvalidRtspRequest(session);
+                    }
+                    else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
+                    {
+                        //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
+                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s => !s.StartsWith("time=")).ToArray();
+                        if (times[0].ToLowerInvariant() == "now") { }
+                        else if (times.Length == 1)
+                        {
+                            startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                        else if (times.Length == 2)
+                        {
+                            startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            endRange = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                        else ProcessInvalidRtspRequest(session);
+                    }
+                    else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
+                    {
+                        //Get the times into times array
+                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        //Check for live
+                        if (times[0].ToLowerInvariant() == "now") { }
+                        //Check for start time only
+                        else if (times.Length == 1)
+                        {
+                            DateTime now = DateTime.UtcNow, startDate;
+                            ///Parse and determine the start time
+                            if (DateTime.TryParse(times[0].Trim(), out startDate))
+                            {
+                                //Time in the past
+                                if (now > startDate) startRange = now - startDate;
+                                //Future?
+                                else startRange = startDate - now;
+                            }
+                        }
+                        else if (times.Length == 2)
+                        {
+                            DateTime now = DateTime.UtcNow, startDate, endDate;
+                            ///Parse and determine the start time
+                            if (DateTime.TryParse(times[0].Trim(), out startDate))
+                            {
+                                //Time in the past
+                                if (now > startDate) startRange = now - startDate;
+                                //Future?
+                                else startRange = startDate - now;
+                            }
+
+                            ///Parse and determine the end time
+                            if (DateTime.TryParse(times[1].Trim(), out endDate))
+                            {
+                                //Time in the past
+                                if (now > startDate) endRange = now - startDate;
+                                //Future?
+                                else endRange = startDate - now;
+                            }
+                        }
+                        else ProcessInvalidRtspRequest(session);
+                    }
+                }
+            }
+
             //comes from transportHeader client_port= (We just send it back)
             string clientPortDirective = null; 
 
@@ -1423,9 +1540,9 @@ namespace Media.Rtsp
             for (int i = 0, e = parts.Length; i < e; ++i)
             {
                 string part = parts[i].Trim();
-                if (part.StartsWith("transportChanneld="))
+                if (part.StartsWith("interleaved="))
                 {
-                    channels = part.Replace("transportChanneld=", string.Empty).Split('-');                    
+                    channels = part.Replace("interleaved=", string.Empty).Split('-');                    
                 }
                 else if (part.StartsWith("client_port="))
                 {

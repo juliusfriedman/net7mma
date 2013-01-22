@@ -21,7 +21,8 @@ namespace Media.Rtcp
 
         public ApplicationSpecific(uint ssrc) { SynchronizationSourceIdentifier = ssrc;}
 
-        public ApplicationSpecific(RtcpPacket packet) {
+        public ApplicationSpecific(RtcpPacket packet) : this(packet.Payload, 0)
+        {
             Channel = packet.Channel;
             Created = packet.Created ?? DateTime.UtcNow;
             if (packet.PacketType != RtcpPacket.RtcpPacketType.ApplicationSpecific) throw new Exception("Invalid Packet Type, Expected ApplicationSpecific. Found: '" + (byte)packet.PacketType + '\'');

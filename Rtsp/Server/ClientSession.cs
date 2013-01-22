@@ -90,11 +90,8 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-            try
-            {
-                //Send on its own thread
-                m_RtpClient.EnquePacket(packet);
-            }
+                    //Send on its own thread
+            try { m_RtpClient.EnquePacket(packet); }
             catch { }
         }
 
@@ -230,36 +227,6 @@ namespace Media.Rtsp
             //m_SDPVersion = sessionVersion; //Should be retrieved from  OriginatorAndSessionIdentifier after setting?
         }
 
-        #endregion        
-        
-        //May can use the RtpClient as is and not require these methods, they are just using the methodology of the RtpClient anyway
-
-        //internal void SendSendersReports()
-        //{
-        //    m_RtpClient.Channels.ForEach(m_RtpClient.SendSendersReport);
-        //}
-
-        //internal void SendSendersReport(RtpClient.TransportChannel transportChannel)
-        //{
-        //    //Assign the ssrc if it has not been yet
-        //    if (transportChannel.SynchronizationSourceIdentifier == 0)
-        //    {
-        //        // Guaranteed to be unique per session
-        //        // Does not follow RFC Generation guidelines but is more performant and just as unique
-        //        transportChannel.SynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & transportChannel.RtpSocket.Handle.ToInt64() ^ (transportChannel.DataChannel | transportChannel.ControlChannel));
-                
-        //        //Create a Senders Report
-        //        transportChannel.SendersReport = m_RtpClient.CreateSendersReport(transportChannel, false);
-        //    }
-        //    else
-        //    {
-        //        //Create a Senders Report with blocks
-        //        transportChannel.SendersReport = m_RtpClient.CreateSendersReport(transportChannel);
-        //    }
-            
-        //    //Send the packet and update the time it was sent
-        //    m_RtpClient.SendRtcpPacket(transportChannel.SendersReport.ToPacket(transportChannel.ControlChannel));
-        //    transportChannel.SendersReport.Sent = DateTime.UtcNow;            
-        //}
+        #endregion                       
     }
 }

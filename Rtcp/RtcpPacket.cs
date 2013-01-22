@@ -86,6 +86,11 @@ namespace Media.Rtcp
 
         #region Constructor
 
+        /// <summary>
+        /// Constructs a RtcpPacket from the given ArraySegment at the additional optional offset into the ArraySegment
+        /// </summary>
+        /// <param name="packetReference">The ArraySegment containing the RtcpPacket to parse</param>
+        /// <param name="offset">The optional offset of the RtcpPacket to parse</param>
         public RtcpPacket(ArraySegment<byte> packetReference, int offset = 0)
         {
             Created = DateTime.UtcNow;

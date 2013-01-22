@@ -94,8 +94,14 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
+        /// <summary>
+        /// Indicates the source is ready to have clients connect
+        /// </summary>
         public virtual bool Ready { get { return m_Ready; } internal set { m_Ready = value; } }
 
+        /// <summary>
+        /// The MediaProtocol of the source used in the SessionDescription describing this source
+        /// </summary>
         public abstract string MediaProtocol { get; }
 
         #endregion

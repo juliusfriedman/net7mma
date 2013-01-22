@@ -12,7 +12,6 @@ namespace Media.Rtsp.Server.Streams
     public class RtspSourceStream : RtpSource
     {
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious
-
         public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
 
         #region Properties
@@ -74,13 +73,13 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? protocolType = null) 
+        internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null) 
             : base(name, sourceLocation)
         {
             //Create the listener
             if (IsParent)
             {
-                Client = new RtspClient(m_Source, protocolType);
+                Client = new RtspClient(m_Source, rtpProtocolType);
             }
         }
 
@@ -167,7 +166,7 @@ namespace Media.Rtsp.Server.Streams
 
         internal virtual void Client_RtpFrameChanged(Rtp.RtpClient sender, Rtp.RtpFrame frame)
         {
-            if (Client.Client != sender) return;
+            if (Client.Client == null || Client.Client != sender) return;
             DecodeFrame(frame);
         }
 
@@ -179,7 +178,7 @@ namespace Media.Rtsp.Server.Streams
                 if (mediaDescription.MediaType == Sdp.MediaType.audio)
                 {
                     //Could have generic byte[] handlers OnAudioData OnVideoData OnEtc
-                    return;
+                    //throw new NotImplementedException();
                 }
                 else if (mediaDescription.MediaType == Sdp.MediaType.video)
                 {
@@ -191,10 +190,11 @@ namespace Media.Rtsp.Server.Streams
                     else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
                     {
                         //Dynamic..
+                        //throw new NotImplementedException();
                     }
                     else
                     {
-
+                        //throw new NotImplementedException();
                     }
                 }
             }
@@ -211,10 +211,7 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public class RtspChildStream : ChildStream
     {
-        public RtspChildStream(RtspSourceStream source)
-            : base(source)
-        {
-        }
+        public RtspChildStream(RtspSourceStream source) : base(source) { }
 
         public RtspClient Client
         {
@@ -222,7 +219,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 return ((RtspSourceStream)m_Parent).Client;
             }
-            set
+            internal set
             {
                 ((RtspSourceStream)m_Parent).Client = value;
             }
