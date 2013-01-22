@@ -476,10 +476,10 @@ namespace Media.Rtp
                 }
 
                 //used for reading the JPEG data
-                int Tag, TagSize;
+                int Tag, TagSize, MTU = RtpPacket.MaxPayloadSize - 200;
 
                 //The current packet
-                RtpPacket currentPacket = new RtpPacket();
+                RtpPacket currentPacket = new RtpPacket(MTU);
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
                 currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
                 currentPacket.SequenceNumber = (ushort)(sequenceNo ?? 1);
@@ -577,7 +577,7 @@ namespace Media.Rtp
 #endif
 
                             //Determine how much to read
-                            int packetRemains = Rtp.RtpPacket.MaxPayloadSize - currentPacketOffset;
+                            int packetRemains = MTU - currentPacketOffset;
 
                             //How much remains in the stream relative to the endOffset
                             long streamRemains = endOffset - temp.Position;
@@ -595,7 +595,7 @@ namespace Media.Rtp
                                 Add(currentPacket);
 
                                 //Determine if we need to adjust the size and add the packet
-                                if (streamRemains < RtpPacket.MaxPayloadSize - 8)
+                                if (streamRemains < MTU - 8)
                                 {
                                     //8 for the RtpJpegHeader and this will cause the Marker be to set
                                     packetRemains = (int)(streamRemains + 8);
@@ -603,7 +603,7 @@ namespace Media.Rtp
                                 else
                                 {
                                     //Size is normal
-                                    packetRemains = RtpPacket.MaxPayloadSize;
+                                    packetRemains = MTU;
                                 }
 
                                 //Make next packet                                    
@@ -613,11 +613,11 @@ namespace Media.Rtp
                                     SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
                                     SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
                                     PayloadType = JpegFrame.RtpJpegPayloadType,
-                                    Marker = packetRemains < RtpPacket.MaxPayloadSize
+                                    Marker = packetRemains < MTU
                                 };
 
                                 //Correct FragmentOffset
-                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position))).CopyTo(RtpJpegHeader, 2);
+                                BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(temp.Position << 48))).CopyTo(RtpJpegHeader, 2);
 
                                 //Copy header
                                 RtpJpegHeader.CopyTo(currentPacket.Payload, 0);

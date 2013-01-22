@@ -103,7 +103,7 @@ namespace Media.Rtsp.Server.Streams
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
-            m_RtpClient.AddTransportChannel(new Rtp.RtpClient.TransportChannel(0, 1, sourceId, m_Sdp.MediaDescriptions[0], false));
+            m_RtpClient.AddTransportContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, m_Sdp.MediaDescriptions[0], false));
 
             //Ensure never stops sending
             m_RtpClient.InactivityTimeoutSeconds = -1;
@@ -241,7 +241,7 @@ namespace Media.Rtsp.Server.Streams
                     Rtp.JpegFrame frame = m_Frames.Dequeue();
 
                     //Get the transportChannel for the packet
-                    Rtp.RtpClient.TransportChannel transportChannel = RtpClient.Channels.Where(c => c.SynchronizationSourceIdentifier == frame.SynchronizationSourceIdentifier).FirstOrDefault();
+                    Rtp.RtpClient.TransportContext transportChannel = RtpClient.TransportContexts.Where(c => c.SynchronizationSourceIdentifier == frame.SynchronizationSourceIdentifier).FirstOrDefault();
 
                     DateTime now = DateTime.UtcNow;
 
@@ -256,7 +256,7 @@ namespace Media.Rtsp.Server.Streams
                         next = new Rtp.JpegFrame()
                             {
                                 SynchronizationSourceIdentifier = sourceId,
-                                TimeStamp = transportChannel.RtpTimestamp
+                                Timestamp = transportChannel.RtpTimestamp
                             };
                     }
 

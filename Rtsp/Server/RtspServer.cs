@@ -879,17 +879,18 @@ namespace Media.Rtsp
         {
             ClientSession session = (ClientSession)ar.AsyncState;
             if (session == null) return;
+            int sent = 0;
             try
             {
-                int sent = session.m_RtspSocket.EndSend(ar);
-
-                session.m_Sent += sent;
-
-                m_Sent += sent;
-
-                //Start recieve again 
+                //Rtsp Tcp
                 if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                 {
+                    sent = session.m_RtspSocket.EndSend(ar);
+
+                    session.m_Sent += sent;
+
+                    m_Sent += sent;
+
                     //If the client is interleaving
                     if (session.m_RtpClient != null && session.m_RtpClient.m_TransportProtocol == ProtocolType.Tcp)
                     {
@@ -902,8 +903,14 @@ namespace Media.Rtsp
                         session.m_RtspSocket.BeginReceive(session.m_Buffer, 0, session.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), session);
                     }
                 }
-                else //Rtsp Udp Client
+                else //Rtsp Udp
                 {
+                    sent = session.m_Udp.EndSend(ar);
+
+                    session.m_Sent += sent;
+
+                    m_Sent += sent;
+
                     //Use the Udp Client for the Session (might make just use Sockets eventually)
                     session.m_Udp.BeginReceive(new AsyncCallback(ProcessReceive), session);
                 }
@@ -1144,7 +1151,6 @@ namespace Media.Rtsp
 
         /// <summary>
         /// Sends a Rtsp Response on the given client session
-        /// May need to be modified for Http and Udp to use SentTo
         /// </summary>
         /// <param name="response">The RtspResponse to send</param> If this was byte[] then it could handle http
         /// <param name="ci">The session to send the response on</param>
@@ -1180,7 +1186,7 @@ namespace Media.Rtsp
                     if (ci.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                         ci.m_RtspSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ProcessSend), ci);
                     else
-                        ci.m_RtspSocket.BeginSendTo(buffer, 0, buffer.Length, SocketFlags.None, ci.m_RtspSocket.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);
+                        ci.m_Udp.BeginSend(buffer, buffer.Length, (IPEndPoint)ci.m_Udp.Client.RemoteEndPoint, new AsyncCallback(ProcessSend), ci);
                 }
             }
             catch (SocketException)
@@ -1372,10 +1378,10 @@ namespace Media.Rtsp
             }
 
             //Add the state information for the source
-            RtpClient.TransportChannel sourceTransportChannel = null;
+            RtpClient.TransportContext sourceTransportChannel = null;
 
             //Either change the construct to RtpSourceStream on Server or make Interleaves available or not required
-            sourceTransportChannel = found.RtpClient.Channels.Where(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
+            sourceTransportChannel = found.RtpClient.TransportContexts.Where(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
 
             //If the source has no transportChannel for that format(unlikely) or the source has not recieved a packet yet
             if (sourceTransportChannel == null /*|| sourceInterleave.RtpBytesRecieved == 0*/) // Recieving is only relevent if the source is recieving :) Might need a different flag
@@ -1452,7 +1458,7 @@ namespace Media.Rtsp
             uint ssrc = (uint)(DateTime.UtcNow.Ticks ^ session.m_RtspSocket.Handle.ToInt64());
 
             //We need to make an transportChannel
-            RtpClient.TransportChannel currentTransportChannel = null;
+            RtpClient.TransportContext currentContext = null;
 
             //Determine if the client reqeuested Udp or Tcp or we are forcing Tcp for the found stream
             if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP == false)
@@ -1482,26 +1488,26 @@ namespace Media.Rtsp
                 }                
 
                 //Add the transportChannel
-                if (session.m_RtpClient.Channels.Count == 0)
+                if (session.m_RtpClient.TransportContexts.Count == 0)
                 {
                     //Use default data and control channel
-                    currentTransportChannel = new RtpClient.TransportChannel(0, 1, ssrc, mediaDescription, !rtcpDisabled);
+                    currentContext = new RtpClient.TransportContext(0, 1, ssrc, mediaDescription, !rtcpDisabled);
                 }                    
                 else
                 {
                     //Have to calculate next data and control channel
-                    RtpClient.TransportChannel lastInterleave = session.m_RtpClient.Channels.Last();
-                    currentTransportChannel = new RtpClient.TransportChannel((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);
+                    RtpClient.TransportContext lastContext = session.m_RtpClient.TransportContexts.Last();
+                    currentContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);
                 }
                 
                 //Initialize the Udp sockets
-                currentTransportChannel.InitializeSockets(((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)session.m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);                
+                currentContext.InitializeSockets(((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)session.m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);                
 
                 //Add the transportChannel
-                session.m_RtpClient.AddTransportChannel(currentTransportChannel);
+                session.m_RtpClient.AddTransportContext(currentContext);
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentTransportChannel.ClientRtpPort + "-" + currentTransportChannel.ClientRtcpPort + ";source=" + ((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + currentTransportChannel.SynchronizationSourceIdentifier.ToString("X"); 
+                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentContext.ClientRtpPort + "-" + currentContext.ClientRtcpPort + ";source=" + ((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + currentContext.SynchronizationSourceIdentifier.ToString("X"); 
                 
             }
             else if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP)//Requested Udp and Tcp was forced
@@ -1535,13 +1541,13 @@ namespace Media.Rtsp
                     session.m_RtpClient = RtpClient.Interleaved(session.m_RtspSocket);
 
                     //Create a new Interleave
-                    currentTransportChannel = new RtpClient.TransportChannel(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
+                    currentContext = new RtpClient.TransportContext(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
 
                     //Add the transportChannel the client requested
-                    session.m_RtpClient.AddTransportChannel(currentTransportChannel);
+                    session.m_RtpClient.AddTransportContext(currentContext);
 
                     //Initialize the Interleaved Socket
-                    currentTransportChannel.InitializeSockets(session.m_RtspSocket);
+                    currentContext.InitializeSockets(session.m_RtspSocket);
                 }
                 else if (session.m_RtpClient != null && session.m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching From Udp to Tcp
                 {
@@ -1556,46 +1562,46 @@ namespace Media.Rtsp
                     session.m_RtpClient.m_TransportProtocol = ProtocolType.Tcp;
 
                     //Clear the existing transportChannels
-                    session.m_RtpClient.Channels.Clear();
+                    session.m_RtpClient.TransportContexts.Clear();
 
                     //Get rid of existing packets
                     lock (session.m_RtpClient.m_OutgoingRtpPackets) session.m_RtpClient.m_OutgoingRtpPackets.Clear();
                     lock (session.m_RtpClient.m_OutgoingRtcpPackets) session.m_RtpClient.m_OutgoingRtcpPackets.Clear();    
 
                     //Add the transportChannel the client requested
-                    currentTransportChannel = new RtpClient.TransportChannel(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
+                    currentContext = new RtpClient.TransportContext(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
 
                     //Add the transportChannel the client requested
-                    session.m_RtpClient.AddTransportChannel(currentTransportChannel);
+                    session.m_RtpClient.AddTransportContext(currentContext);
 
                     //Initialize the Interleaved Socket
-                    currentTransportChannel.InitializeSockets(session.m_RtspSocket);
+                    currentContext.InitializeSockets(session.m_RtspSocket);
                 }
                 else //Is Tcp not Switching
                 {
                     //Add the transportChannel
-                    if (session.m_RtpClient.Channels.Count == 0)
+                    if (session.m_RtpClient.TransportContexts.Count == 0)
                     {
                         //Use default data and control channel
-                        currentTransportChannel = new RtpClient.TransportChannel(0, 1, ssrc, mediaDescription, !rtcpDisabled);
+                        currentContext = new RtpClient.TransportContext(0, 1, ssrc, mediaDescription, !rtcpDisabled);
                     }
                     else
                     {
                         //Have to calculate next data and control channel
-                        RtpClient.TransportChannel lastTransportChannel = session.m_RtpClient.Channels.Last();
-                        currentTransportChannel = new RtpClient.TransportChannel((byte)(lastTransportChannel.DataChannel + 2), (byte)(lastTransportChannel.ControlChannel + 2), ssrc, mediaDescription);
+                        RtpClient.TransportContext lastContext = session.m_RtpClient.TransportContexts.Last();
+                        currentContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
                     }
                     
                     //Initialize the current TransportChannel with the interleaved Socket
-                    currentTransportChannel.InitializeSockets(session.m_RtspSocket);
+                    currentContext.InitializeSockets(session.m_RtspSocket);
                 }
 
-                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentTransportChannel.DataChannel + '-' + currentTransportChannel.ControlChannel +";ssrc=" + currentTransportChannel.SynchronizationSourceIdentifier.ToString("X");
+                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentContext.DataChannel + '-' + currentContext.ControlChannel +";ssrc=" + currentContext.SynchronizationSourceIdentifier.ToString("X");
             }
 
             //Update the values
-            currentTransportChannel.NtpTimestamp = sourceTransportChannel.NtpTimestamp;
-            currentTransportChannel.RtpTimestamp = sourceTransportChannel.RtpTimestamp;
+            currentContext.NtpTimestamp = sourceTransportChannel.NtpTimestamp;
+            currentContext.RtpTimestamp = sourceTransportChannel.RtpTimestamp;
 
             //Create the response
             RtspResponse resp = session.CreateRtspResponse(request);
@@ -1753,7 +1759,7 @@ namespace Media.Rtsp
 
                     Sdp.MediaDescription mediaDescription = null;
 
-                    RtpClient.TransportChannel sourceInterleave = null;
+                    RtpClient.TransportContext sourceInterleave = null;
 
                     session.SourceChannels.ForEach(c =>
                     {
@@ -1796,7 +1802,7 @@ namespace Media.Rtsp
                     }
 
                     //Remove related transportChannels from found Client in session
-                    found.RtpClient.Channels.ForEach(c => session.SourceChannels.Remove(c));
+                    found.RtpClient.TransportContexts.ForEach(c => session.SourceChannels.Remove(c));
                 }
 
                 //Send the response

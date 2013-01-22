@@ -52,7 +52,7 @@ namespace Media.Rtp
         /// <summary>
         /// The Timestamp of All Packets Contained
         /// </summary>
-        public virtual uint TimeStamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
+        public virtual uint Timestamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
 
         /// <summary>
         /// Indicated if a Contained Packet has the Marker Bit Set
@@ -119,7 +119,7 @@ namespace Media.Rtp
         {
             if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
             if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
-            if (packet.TimeStamp != TimeStamp) throw new ArgumentException("packet.TimeStamp must match frame TimeStamp", "packet");
+            if (packet.TimeStamp != Timestamp) throw new ArgumentException("packet.TimeStamp must match frame TimeStamp", "packet");
             lock (m_Packets)
             {
                 if (Complete || Contains(packet)) return;
