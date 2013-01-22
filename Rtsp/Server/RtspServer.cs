@@ -509,11 +509,11 @@ namespace Media.Rtsp
 
                 ////If the RtpInactivityTimeout is not disabled
                 //if (ClientRtpInactivityTimeoutSeconds != -1 &&  session.m_RtpClient != null &&
-                //    !session.m_RtpClient.Interleaves.ToList().All(i => !i.GoodbyeSent && //The client hasn't sent a Goodbye
-                //        !i.GoodbyeRecieved && //Or Recieved one
-                //        //(i.RecieversReport != null || i.SendersReport != null) && //They have a senders report or a recievers report
-                //        i.SynchronizationSourceIdentifier != 0 && //And the interleave has been initialized
-                //        i.CurrentFrame != null && (i.CurrentFrame.Created.Value - DateTime.UtcNow).TotalSeconds < ClientRtpInactivityTimeoutSeconds)) //And the time since the CurrentFrame was created was not longen than the threshold
+                //    !session.m_RtpClient.Interleaves.ToList().All(c => !c.GoodbyeSent && //The client hasn't sent a Goodbye
+                //        !c.GoodbyeRecieved && //Or Recieved one
+                //        //(c.RecieversReport != null || c.SendersReport != null) && //They have a senders report or a recievers report
+                //        c.SynchronizationSourceIdentifier != 0 && //And the transportChannel has been initialized
+                //        c.CurrentFrame != null && (c.CurrentFrame.Created.Value - DateTime.UtcNow).TotalSeconds < ClientRtpInactivityTimeoutSeconds)) //And the time since the CurrentFrame was created was not longen than the threshold
                 //{
                 //    RemoveSession(session);
                 //}
@@ -716,6 +716,7 @@ namespace Media.Rtsp
                 //Make a temporary client (Could move semantics about begin recieve to ClientSession)
                 ClientSession ci = new ClientSession(this, clientSocket);
 
+                //Start receiving into the client buffer
                 clientSocket.BeginReceive(ci.m_Buffer, 0, ci.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), ci);
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine("Accepted connection from: {0}, Assigned Id = {1}", clientSocket.RemoteEndPoint, ci.Id);
@@ -765,10 +766,15 @@ namespace Media.Rtsp
                             m_UdpServerSocket.BeginReceive(temp.m_Buffer, 0, temp.m_Buffer.Length, SocketFlags.None, new AsyncCallback(ProcessReceive), temp);
                         }
 
+                        //Determine who sent the request (Should use overload of Receive with Ep?)
                         IPEndPoint remote = (IPEndPoint)m_UdpServerSocket.RemoteEndPoint;
                         
-                        //Easier then Creating the socket and calling Bind :)
+                        //Easier then Creating and configuring the socket.
+                        //TODO - (Stop being Lazy and use socket)
                         session.m_Udp = new UdpClient();
+                        session.m_Udp.AllowNatTraversal(true);
+                        session.m_Udp.ExclusiveAddressUse = false;
+                        session.m_Udp.Ttl = 255;
                         session.m_Udp.Connect(remote);
 
                         //Ensure the socket is assigned from the client
@@ -786,7 +792,6 @@ namespace Media.Rtsp
                 //If we received anything
                 if (received > 0)
                 {
-
                     //Parse the request to determine if there is actually an existing session before proceeding
                     request = new RtspRequest(session.m_Buffer);
 
@@ -807,11 +812,11 @@ namespace Media.Rtsp
                                 ProcessInvalidRtspRequest(session, RtspStatusCode.Unauthorized);
                                 return;
                             }
-                            else //Sessions matched and EndPoints matched
-                            {
-                                //Should be the same anyway
-                                session = existing;
-                            }
+                            //else //Sessions matched and EndPoints matched
+                            //{
+                            //    //Should be the same anyway
+                            //    //session = existing;
+                            //}
                         }
                         else
                         {
@@ -820,7 +825,7 @@ namespace Media.Rtsp
                             return;
                         }
                     }
-                    else if (!ContainsSession(session)) //Otherwise we didn't have a record of the session then add it now
+                    else if (!ContainsSession(session)) //Otherwise if we didn't have a record of the session then add it now
                     {
                         AddSession(session);
                     }
@@ -855,7 +860,10 @@ namespace Media.Rtsp
             finally
             {
                 request = null;
+                //Count for the server
                 m_Recieved += received;
+
+                //Count for the session (Should be done in the session request handler?)
                 if (session != null)
                 {
                     session.m_Receieved += received;
@@ -901,10 +909,10 @@ namespace Media.Rtsp
                 }
             }
 #if DEBUG
-            catch (SocketException ex)
+            catch (Exception ex)
             {
 
-                System.Diagnostics.Debug.WriteLine("Socket Exception in ProcessSend: " + ex.ToString());
+                System.Diagnostics.Debug.WriteLine("Exception in ProcessSend: " + ex.ToString());
             }
 #else 
             catch { }                
@@ -1364,13 +1372,13 @@ namespace Media.Rtsp
             }
 
             //Add the state information for the source
-            RtpClient.Interleave sourceInterleave = null;
+            RtpClient.TransportChannel sourceTransportChannel = null;
 
             //Either change the construct to RtpSourceStream on Server or make Interleaves available or not required
-            sourceInterleave = found.RtpClient.Interleaves.Where(i => i.MediaDescription.MediaType == mediaDescription.MediaType && i.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
+            sourceTransportChannel = found.RtpClient.Channels.Where(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
 
-            //If the source has no interleave for that format(unlikely) or the source has not recieved a packet yet
-            if (sourceInterleave == null /*|| sourceInterleave.RtpBytesRecieved == 0*/) // Recieving is only relevent if the source is recieving :) Might need a different flag
+            //If the source has no transportChannel for that format(unlikely) or the source has not recieved a packet yet
+            if (sourceTransportChannel == null /*|| sourceInterleave.RtpBytesRecieved == 0*/) // Recieving is only relevent if the source is recieving :) Might need a different flag
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
@@ -1378,7 +1386,7 @@ namespace Media.Rtsp
             }
           
             //Add the sourceInterleave
-            session.m_SourceInterleaves.Add(sourceInterleave);
+            session.SourceChannels.Add(sourceTransportChannel);
 
             if (!AuthenticateRequest(request, found))
             {
@@ -1409,9 +1417,9 @@ namespace Media.Rtsp
             for (int i = 0, e = parts.Length; i < e; ++i)
             {
                 string part = parts[i].Trim();
-                if (part.StartsWith("interleaved="))
+                if (part.StartsWith("transportChanneld="))
                 {
-                    channels = part.Replace("interleaved=", string.Empty).Split('-');                    
+                    channels = part.Replace("transportChanneld=", string.Empty).Split('-');                    
                 }
                 else if (part.StartsWith("client_port="))
                 {
@@ -1431,23 +1439,20 @@ namespace Media.Rtsp
             }
 
             //If there are Bandwidth lines with RR:0 and RS:0
-            IEnumerable<Media.Sdp.SessionDescriptionLine> rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && (l.Parts[0] == "RR" || l.Parts[0] == "RS") && l.Parts[1] == "1");
+            IEnumerable<Media.Sdp.SessionDescriptionLine> rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && (l.Parts[0] == "RR" || l.Parts[0] == "RS") && l.Parts[1] == "0");
 
             //Some providers disable Rtcp for one reason or another, it is strongly not recommended
             bool rtcpDisabled = false;
 
             //If there are two lines which match the criteria then disable Rtcp
-            if (rtcpLines != null && rtcpLines.Count() == 2)
-            {
-                //Rtcp is disabled, RtcpEnabled is the logic inverse of this (!rtcpDisabled)
-                rtcpDisabled = true;
-            }
+            //Rtcp is disabled, RtcpEnabled is the logic inverse of this (!rtcpDisabled)
+            rtcpDisabled = rtcpLines != null && rtcpLines.Count() == 2;
 
-            //Ssrc could be generated here for the interleave created for this setup to be more like everyone else...
-            //(DateTime.UtcNow.Ticks ^ ci.m_RtspSocket.Handle)
+            //Ssrc could be generated here for the transportChannel created for this setup to be more like everyone else...
+            uint ssrc = (uint)(DateTime.UtcNow.Ticks ^ session.m_RtspSocket.Handle.ToInt64());
 
-            //We need to make an interleave
-            RtpClient.Interleave currentInterleave = null;
+            //We need to make an transportChannel
+            RtpClient.TransportChannel currentTransportChannel = null;
 
             //Determine if the client reqeuested Udp or Tcp or we are forcing Tcp for the found stream
             if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP == false)
@@ -1476,27 +1481,27 @@ namespace Media.Rtsp
                     //Handle port out of range
                 }                
 
-                //Add the interleave
-                if (session.m_RtpClient.Interleaves.Count == 0)
+                //Add the transportChannel
+                if (session.m_RtpClient.Channels.Count == 0)
                 {
                     //Use default data and control channel
-                    currentInterleave = new RtpClient.Interleave(0, 1, 0, mediaDescription, !rtcpDisabled);
+                    currentTransportChannel = new RtpClient.TransportChannel(0, 1, ssrc, mediaDescription, !rtcpDisabled);
                 }                    
                 else
                 {
                     //Have to calculate next data and control channel
-                    RtpClient.Interleave lastInterleave = session.m_RtpClient.Interleaves.Last();
-                    currentInterleave = new RtpClient.Interleave((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), 0, mediaDescription, !rtcpDisabled);
+                    RtpClient.TransportChannel lastInterleave = session.m_RtpClient.Channels.Last();
+                    currentTransportChannel = new RtpClient.TransportChannel((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);
                 }
                 
                 //Initialize the Udp sockets
-                currentInterleave.InitializeSockets(((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)session.m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);                
+                currentTransportChannel.InitializeSockets(((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)session.m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);                
 
-                //Add the interleave
-                session.m_RtpClient.AddInterleave(currentInterleave);
+                //Add the transportChannel
+                session.m_RtpClient.AddTransportChannel(currentTransportChannel);
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentInterleave.ClientRtpPort + "-" + currentInterleave.ClientRtcpPort;
+                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentTransportChannel.ClientRtpPort + "-" + currentTransportChannel.ClientRtcpPort + ";source=" + ((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + currentTransportChannel.SynchronizationSourceIdentifier.ToString("X"); 
                 
             }
             else if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP)//Requested Udp and Tcp was forced
@@ -1530,52 +1535,67 @@ namespace Media.Rtsp
                     session.m_RtpClient = RtpClient.Interleaved(session.m_RtspSocket);
 
                     //Create a new Interleave
-                    currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
+                    currentTransportChannel = new RtpClient.TransportChannel(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
 
-                    //Add the interleave the client requested
-                    session.m_RtpClient.AddInterleave(currentInterleave);
+                    //Add the transportChannel the client requested
+                    session.m_RtpClient.AddTransportChannel(currentTransportChannel);
 
                     //Initialize the Interleaved Socket
-                    currentInterleave.InitializeSockets(session.m_RtspSocket);
+                    currentTransportChannel.InitializeSockets(session.m_RtspSocket);
                 }
-                else if (session.m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching...
+                else if (session.m_RtpClient != null && session.m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching From Udp to Tcp
                 {
+                    //Has Udp source from before switch must clear
+                    session.SourceChannels.Clear();
+
+                    //Re-add the source
+                    session.SourceChannels.Add(sourceTransportChannel);
+
                     //Switch the client to Tcp manually
                     session.m_RtpClient.m_SocketOwner = false;
                     session.m_RtpClient.m_TransportProtocol = ProtocolType.Tcp;
 
-                    //Clear the existing interleaves
-                    session.m_RtpClient.Interleaves.Clear();
+                    //Clear the existing transportChannels
+                    session.m_RtpClient.Channels.Clear();
 
-                    //Add the interleave the client requested
-                    currentInterleave = new RtpClient.Interleave(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
+                    //Get rid of existing packets
+                    lock (session.m_RtpClient.m_OutgoingRtpPackets) session.m_RtpClient.m_OutgoingRtpPackets.Clear();
+                    lock (session.m_RtpClient.m_OutgoingRtcpPackets) session.m_RtpClient.m_OutgoingRtcpPackets.Clear();    
 
-                    //Add the interleave the client requested
-                    session.m_RtpClient.AddInterleave(currentInterleave);
+                    //Add the transportChannel the client requested
+                    currentTransportChannel = new RtpClient.TransportChannel(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
+
+                    //Add the transportChannel the client requested
+                    session.m_RtpClient.AddTransportChannel(currentTransportChannel);
 
                     //Initialize the Interleaved Socket
-                    currentInterleave.InitializeSockets(session.m_RtspSocket);
+                    currentTransportChannel.InitializeSockets(session.m_RtspSocket);
                 }
                 else //Is Tcp not Switching
                 {
-                    //Add the interleave
-                    if (session.m_RtpClient.Interleaves.Count == 0)
+                    //Add the transportChannel
+                    if (session.m_RtpClient.Channels.Count == 0)
                     {
                         //Use default data and control channel
-                        currentInterleave = new RtpClient.Interleave(0, 1, 0, mediaDescription, !rtcpDisabled);
+                        currentTransportChannel = new RtpClient.TransportChannel(0, 1, ssrc, mediaDescription, !rtcpDisabled);
                     }
                     else
                     {
                         //Have to calculate next data and control channel
-                        RtpClient.Interleave lastInterleave = session.m_RtpClient.Interleaves.Last();
-                        currentInterleave = new RtpClient.Interleave((byte)(lastInterleave.DataChannel + 2), (byte)(lastInterleave.ControlChannel + 2), 0, mediaDescription);
+                        RtpClient.TransportChannel lastTransportChannel = session.m_RtpClient.Channels.Last();
+                        currentTransportChannel = new RtpClient.TransportChannel((byte)(lastTransportChannel.DataChannel + 2), (byte)(lastTransportChannel.ControlChannel + 2), ssrc, mediaDescription);
                     }
-                    currentInterleave.InitializeSockets(session.m_RtspSocket);
+                    
+                    //Initialize the current TransportChannel with the interleaved Socket
+                    currentTransportChannel.InitializeSockets(session.m_RtspSocket);
                 }
 
-                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentInterleave.DataChannel + '-' + currentInterleave.ControlChannel;
+                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentTransportChannel.DataChannel + '-' + currentTransportChannel.ControlChannel +";ssrc=" + currentTransportChannel.SynchronizationSourceIdentifier.ToString("X");
             }
 
+            //Update the values
+            currentTransportChannel.NtpTimestamp = sourceTransportChannel.NtpTimestamp;
+            currentTransportChannel.RtpTimestamp = sourceTransportChannel.RtpTimestamp;
 
             //Create the response
             RtspResponse resp = session.CreateRtspResponse(request);
@@ -1585,8 +1605,8 @@ namespace Media.Rtsp
             //Send the response
             ProcessSendRtspResponse(resp, session);
 
-            //Identifies the interleave with a senders report
-            session.SendSendersReport(currentInterleave);
+            //Identifies the transportChannel with a senders report
+            //session.SendSendersReport(currentInterleave);
 
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(resp.GetHeader(RtspHeaders.Session));
@@ -1642,22 +1662,25 @@ namespace Media.Rtsp
             }
 
             //Create the Rtp-Info RtpHeader as required by RFC2326
-            session.m_SourceInterleaves.ForEach( i=>{
+            session.SourceChannels.ForEach( c=> {
                 string actualTrack = string.Empty;
 
-                var attributeLine = i.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).First();
+                Sdp.SessionDescriptionLine attributeLine = c.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).First();
                 if (attributeLine != null)
                     actualTrack = '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
 
-                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(session.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Id + actualTrack + ";seq=" + i.SequenceNumber + ";rtptime=" + i.RtpTimestamp);
+                response.AppendOrSetHeader(RtspHeaders.RtpInfo, "url=rtsp://" + ((IPEndPoint)(session.m_RtspSocket.LocalEndPoint)).Address + "/live/" + found.Id + actualTrack + ";seq=" + c.SequenceNumber + ";rtptime=" + c.RtpTimestamp);
             });
 
             //Send the response
             ProcessSendRtspResponse(response, session);
 
+            //Send a SendersReport to identify the media being sent before anything else
+            session.m_RtpClient.SendSendersReports();
+
             //Attach the client to the source, Here they may only want one track so there is no need to attach events for all
+            //Todo - Provide overload for MediaDescription
             session.Attach(found);
-            session.SendSendersReports();
 #if DEBUG
             System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.Session));
             System.Diagnostics.Debug.WriteLine(response.GetHeader(RtspHeaders.RtpInfo));
@@ -1730,32 +1753,36 @@ namespace Media.Rtsp
 
                     Sdp.MediaDescription mediaDescription = null;
 
-                    RtpClient.Interleave sourceInterleave = null;
+                    RtpClient.TransportChannel sourceInterleave = null;
 
-                    session.m_SourceInterleaves.ForEach(i =>
+                    session.SourceChannels.ForEach(c =>
                     {
                         if (mediaDescription != null) return;
-                        Sdp.SessionDescriptionLine attributeLine = i.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+                        Sdp.SessionDescriptionLine attributeLine = c.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
                         if (attributeLine != null)
                         {
                             string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
                             if (actualTrack == track)
                             {
-                                sourceInterleave = i;
+                                sourceInterleave = c;
                                 return;
                             }
                         }
                     });
 
                     //Cannot teardown media because we can't find the track they are asking to tear down
-                    if (mediaDescription == null || !session.m_SourceInterleaves.Contains(sourceInterleave))
+                    if (mediaDescription == null || !session.SourceChannels.Contains(sourceInterleave))
                     {
                         ProcessLocationNotFoundRtspRequest(session);
                         return;
                     }
 
-                    //Remove related interleaves from found Client in session
-                    session.m_SourceInterleaves.Remove(sourceInterleave);
+                    //Remove related transportChannels from found Client in session
+                    session.SourceChannels.Remove(sourceInterleave);
+
+                    //Todo
+                    //session.Detach(mediaDescription);
+
                 }
                 else //Tear down all streams
                 {
@@ -1768,8 +1795,8 @@ namespace Media.Rtsp
                         session.Detach(found);
                     }
 
-                    //Remove related interleaves from found Client in session
-                    found.RtpClient.Interleaves.ForEach(i => session.m_SourceInterleaves.Remove(i));
+                    //Remove related transportChannels from found Client in session
+                    found.RtpClient.Channels.ForEach(c => session.SourceChannels.Remove(c));
                 }
 
                 //Send the response
@@ -1797,7 +1824,6 @@ namespace Media.Rtsp
 #endif
 
             //We should process the body and return the parameters
-
             ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
         }
 

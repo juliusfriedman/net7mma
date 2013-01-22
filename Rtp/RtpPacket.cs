@@ -15,7 +15,7 @@ namespace Media.Rtp
         public const int RtpHeaderLength = 12;
 
         /// <summary>
-        /// The maximum size of any given RtpPacket including header overhead
+        /// The maximum size of any given RtpPacket including header overhead and framing bytes
         /// </summary>
         public const int MaxPacketSize = 1500;
 
@@ -169,7 +169,7 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// The length of the packet in bytes
+        /// The length of the packet in bytes including the RtpHeader
         /// </summary>
         public int Length { get { return RtpHeaderLength + (ContributingSources.Count > 0 ? ContributingSources.Count * 4 : 0) + (m_ExtensionData != null ? 4 + m_ExtensionData.Length : 0) + (Payload != null ? Payload.Length : 0); } }
 
