@@ -112,6 +112,7 @@ namespace Media.Rtcp
             // sender's octet count
             //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersOctetCount)));
+            
             //Report Blocks
             foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());
 

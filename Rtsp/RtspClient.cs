@@ -842,10 +842,10 @@ namespace Media.Rtsp
                 if ((useMediaProtocol && mediaDescription.MediaProtocol.Contains("TCP")) || m_RtpProtocol == ProtocolType.Tcp)
                 {
                     //Ask for an transportChannel
-                    if (m_RtpClient != null && m_RtpClient.Channels.Count > 0)
+                    if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
                     {
-                        RtpClient.TransportChannel lastTransportChannel = m_RtpClient.Channels.Last();
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + (lastTransportChannel.DataChannel + 2) + '-' + (lastTransportChannel.ControlChannel + 2));
+                        RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + (lastContext.DataChannel + 2) + '-' + (lastContext.ControlChannel + 2));
                     }
                     else
                     {
@@ -986,7 +986,7 @@ namespace Media.Rtsp
                         string[] channels = part.Replace("interleaved=", string.Empty).Split('-');
                         if (channels.Length > 1)
                         {
-                            RtpClient.TransportChannel transportChannel = new RtpClient.TransportChannel(byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture), byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture), (uint)ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
+                            RtpClient.TransportContext transportContext = new RtpClient.TransportContext(byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture), byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture), (uint)ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
                             //If there is not a client
                             if (m_RtpClient == null)
@@ -998,10 +998,10 @@ namespace Media.Rtsp
                             try
                             {
                                 //try to add the transportChannel
-                                m_RtpClient.AddTransportChannel(transportChannel);
+                                m_RtpClient.AddTransportContext(transportContext);
                                 
                                 //and initialize the client from the RtspSocket
-                                transportChannel.InitializeSockets(m_RtspSocket);
+                                transportContext.InitializeSockets(m_RtspSocket);
                             }
                             catch
                             {
@@ -1049,18 +1049,18 @@ namespace Media.Rtsp
                             }
                             
                             //Add the transportChannel for the mediaDescription
-                            if(m_RtpClient.Channels.Count == 0)
+                            if(m_RtpClient.TransportContexts.Count == 0)
                             {
-                                RtpClient.TransportChannel newChannel = new RtpClient.TransportChannel(0, 1, (uint)ssrc, mediaDescription, !rtcpDisabled);
-                                newChannel.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
-                                m_RtpClient.AddTransportChannel(newChannel);
+                                RtpClient.TransportContext newContext = new RtpClient.TransportContext(0, 1, (uint)ssrc, mediaDescription, !rtcpDisabled);
+                                newContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                m_RtpClient.AddTransportContext(newContext);
                             }
                             else
                             {
-                                RtpClient.TransportChannel lastChannel = m_RtpClient.Channels.Last();
-                                RtpClient.TransportChannel nextChannel = new RtpClient.TransportChannel((byte)(lastChannel.DataChannel + 2), (byte)(lastChannel.ControlChannel + 2), (uint)ssrc, mediaDescription, !rtcpDisabled);
-                                nextChannel.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
-                                m_RtpClient.AddTransportChannel(nextChannel);
+                                RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                                RtpClient.TransportContext nextContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), (uint)ssrc, mediaDescription, !rtcpDisabled);
+                                nextContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                m_RtpClient.AddTransportContext(nextContext);
                             }
                         }
                     }
@@ -1093,7 +1093,7 @@ namespace Media.Rtsp
                 Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
                 //Clear existing transportChannels
-                m_RtpClient.Channels.Clear();
+                m_RtpClient.TransportContexts.Clear();
 
                 //Recurse call to ensure propper setup
                 return SendSetup(location, mediaDescription);
@@ -1114,7 +1114,7 @@ namespace Media.Rtsp
                 Disconnect();
 
                 //Clear existing transportChannels
-                m_RtpClient.Channels.Clear();
+                m_RtpClient.TransportContexts.Clear();
 
                 //Start again
                 StartListening();
@@ -1334,7 +1334,7 @@ namespace Media.Rtsp
                 bool total = false;
 
                 //Check all channels to ensure there is flowing information
-                Client.Channels.ForEach(c =>
+                Client.TransportContexts.ForEach(c =>
                 {
                     //If there is not on the one which is not flowing we have to tear it down with its track name and then perform setup again while the media is still running on other transportChannels
                     if (c.RtpBytesRecieved <= 0 && !total)

@@ -19,7 +19,7 @@ namespace Media.Rtsp
 
         #region Fields
 
-        internal List<RtpClient.TransportChannel> SourceChannels = new List<RtpClient.TransportChannel>();
+        internal List<RtpClient.TransportContext> SourceChannels = new List<RtpClient.TransportContext>();
 
         internal List<RtpSource> m_Attached = new List<RtpSource>();
 
@@ -90,15 +90,12 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtpPacketRecieved(RtpClient client, RtpPacket packet)
         {
-            //ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
-            //{
-                try
-                {
-                    //Send on its own thread
-                    m_RtpClient.EnquePacket(packet);
-                }
-                catch { }
-            //}));
+            try
+            {
+                //Send on its own thread
+                m_RtpClient.EnquePacket(packet);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -108,33 +105,35 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(RtpClient stream, RtcpPacket packet)
         {
-            //ThreadPool.QueueUserWorkItem(new WaitCallback((o) =>
-            //{
-                try
+            try
+            {
+                //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
+                if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
                 {
-                    //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
-                    //if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
-                    //{
-                    //    Disconnect();
-                    //}
+                    RtpClient.TransportContext trasnportContext = m_RtpClient.GetContextForPacket(packet);
 
-                    if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
+                    if (trasnportContext != null)
                     {
-                        //The source stream recieved a senders report                
-                        //Update the RtpTimestamp and NtpTimestamp for our clients also
-                        SendersReport sr = new SendersReport(packet);
+                        m_RtpClient.SendGoodbye(trasnportContext);
+                    }
 
-                        RtpClient.TransportChannel transportChannel = m_RtpClient.GetChannelForPacket(packet);
+                }
+                else if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport)
+                {
+                    //The source stream recieved a senders report                
+                    //Update the RtpTimestamp and NtpTimestamp for our clients also
+                    SendersReport sr = new SendersReport(packet);
 
-                        if (transportChannel != null)
-                        {
-                            transportChannel.NtpTimestamp = sr.NtpTimestamp;
-                            transportChannel.RtpTimestamp = sr.RtpTimestamp;
-                        }
+                    RtpClient.TransportContext trasnportContext = m_RtpClient.GetContextForPacket(packet);
+
+                    if (trasnportContext != null)
+                    {
+                        trasnportContext.NtpTimestamp = sr.NtpTimestamp;
+                        trasnportContext.RtpTimestamp = sr.RtpTimestamp;
                     }
                 }
-                catch { }
-            //}));
+            }
+            catch { }
         }
 
         /// <summary>
