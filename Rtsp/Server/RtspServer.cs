@@ -1413,119 +1413,7 @@ namespace Media.Rtsp
             {
                 ProcessInvalidRtspRequest(session);
                 return;
-            }
-
-
-            //Get the Range header
-            string rangeString = request[RtspHeaders.Range];
-            TimeSpan? startRange = null, endRange = null;
-            
-            //If that is not present we cannot determine where the client wants to start playing from
-            if (string.IsNullOrWhiteSpace(rangeString))
-            {
-                if (RequireRangeHeader)
-                {
-                    ProcessInvalidRtspRequest(session);
-                    return;
-                }
-            }
-            else
-            {
-                //Parse Range Header
-                string[] times = rangeString.Trim().Split('=');
-                if (times.Length > 1)
-                {
-                    //Determine Format
-                    if (times[0] == "npt")//ntp=1.060-20
-                    {
-                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
-                        if (times[0].ToLowerInvariant() == "now") { }
-                        else if (times.Length == 1)
-                        {
-                            if (times[0].Contains(':'))
-                            {
-                                startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                            }
-                            else
-                            {
-                                endRange = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
-                            }
-                        }
-                        else if (times.Length == 2)
-                        {
-                            if (times[0].Contains(':'))
-                            {
-                                startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                                endRange = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                            }
-                            else
-                            {
-                                startRange = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
-                                endRange = TimeSpan.FromSeconds(double.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture));
-                            }
-                        }
-                        else ProcessInvalidRtspRequest(session);
-                    }
-                    else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
-                    {
-                        //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
-                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s => !s.StartsWith("time=")).ToArray();
-                        if (times[0].ToLowerInvariant() == "now") { }
-                        else if (times.Length == 1)
-                        {
-                            startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                        }
-                        else if (times.Length == 2)
-                        {
-                            startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                            endRange = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
-                        }
-                        else ProcessInvalidRtspRequest(session);
-                    }
-                    else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
-                    {
-                        //Get the times into times array
-                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
-                        //Check for live
-                        if (times[0].ToLowerInvariant() == "now") { }
-                        //Check for start time only
-                        else if (times.Length == 1)
-                        {
-                            DateTime now = DateTime.UtcNow, startDate;
-                            ///Parse and determine the start time
-                            if (DateTime.TryParse(times[0].Trim(), out startDate))
-                            {
-                                //Time in the past
-                                if (now > startDate) startRange = now - startDate;
-                                //Future?
-                                else startRange = startDate - now;
-                            }
-                        }
-                        else if (times.Length == 2)
-                        {
-                            DateTime now = DateTime.UtcNow, startDate, endDate;
-                            ///Parse and determine the start time
-                            if (DateTime.TryParse(times[0].Trim(), out startDate))
-                            {
-                                //Time in the past
-                                if (now > startDate) startRange = now - startDate;
-                                //Future?
-                                else startRange = startDate - now;
-                            }
-
-                            ///Parse and determine the end time
-                            if (DateTime.TryParse(times[1].Trim(), out endDate))
-                            {
-                                //Time in the past
-                                if (now > startDate) endRange = now - startDate;
-                                //Future?
-                                else endRange = startDate - now;
-                            }
-                        }
-                        else ProcessInvalidRtspRequest(session);
-                    }
-                }
-            }
+            }            
 
             //comes from transportHeader client_port= (We just send it back)
             string clientPortDirective = null; 
@@ -1767,23 +1655,127 @@ namespace Media.Rtsp
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
                 return;
             }
+        
+            //Get the Range header
+            string rangeString = request[RtspHeaders.Range];
+            TimeSpan? startRange = null, endRange = null;
+
+            //If that is not present we cannot determine where the client wants to start playing from
+            if (string.IsNullOrWhiteSpace(rangeString))
+            {
+                if (RequireRangeHeader)
+                {
+                    ProcessInvalidRtspRequest(session);
+                    return;
+                }
+            }
+            else
+            {
+                //Parse Range Header
+                string[] times = rangeString.Trim().Split('=');
+                if (times.Length > 1)
+                {
+                    //Determine Format
+                    if (times[0] == "npt")//ntp=1.060-20
+                    {
+                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        if (times[0].ToLowerInvariant() == "now") { }
+                        else if (times.Length == 1)
+                        {
+                            if (times[0].Contains(':'))
+                            {
+                                startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                startRange = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                        }
+                        else if (times.Length == 2)
+                        {
+                            if (times[0].Contains(':'))
+                            {
+                                startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                endRange = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            else
+                            {
+                                startRange = TimeSpan.FromSeconds(double.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                                endRange = TimeSpan.FromSeconds(double.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                        }
+                        else ProcessInvalidRtspRequest(session);
+                    }
+                    else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
+                    {
+                        //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
+                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s => !s.StartsWith("time=")).ToArray();
+                        if (times[0].ToLowerInvariant() == "now") { }
+                        else if (times.Length == 1)
+                        {
+                            startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                        else if (times.Length == 2)
+                        {
+                            startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            endRange = TimeSpan.Parse(times[1].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                        else ProcessInvalidRtspRequest(session);
+                    }
+                    else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
+                    {
+                        //Get the times into times array
+                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        //Check for live
+                        if (times[0].ToLowerInvariant() == "now") { }
+                        //Check for start time only
+                        else if (times.Length == 1)
+                        {
+                            DateTime now = DateTime.UtcNow, startDate;
+                            ///Parse and determine the start time
+                            if (DateTime.TryParse(times[0].Trim(), out startDate))
+                            {
+                                //Time in the past
+                                if (now > startDate) startRange = now - startDate;
+                                //Future?
+                                else startRange = startDate - now;
+                            }
+                        }
+                        else if (times.Length == 2)
+                        {
+                            DateTime now = DateTime.UtcNow, startDate, endDate;
+                            ///Parse and determine the start time
+                            if (DateTime.TryParse(times[0].Trim(), out startDate))
+                            {
+                                //Time in the past
+                                if (now > startDate) startRange = now - startDate;
+                                //Future?
+                                else startRange = startDate - now;
+                            }
+
+                            ///Parse and determine the end time
+                            if (DateTime.TryParse(times[1].Trim(), out endDate))
+                            {
+                                //Time in the past
+                                if (now > endDate) endRange = now - endDate;
+                                //Future?
+                                else endRange = startDate - now;
+                            }
+                        }
+                        else ProcessInvalidRtspRequest(session);
+                    }
+                }
+            }
+
+            //Todo 
+            //Validate Range and store in ClientSession and start playing from range
 
             //Create a response
             RtspResponse response = session.CreateRtspResponse(request);
 
-            //Determine where they want to start playing from
-            string rangeHeader = request[RtspHeaders.Range];
-
-            //If a range header was given
-            if (!string.IsNullOrWhiteSpace(rangeHeader))
-            {
-                //Give one back
-
-                //Right now assume beginning
-                //Range info will also have to be stored on the ci when determined, right now this indicates continious play
-                response.SetHeader(RtspHeaders.Range, "npt=now-");
-            }
-
+            //Add the range header
+            response.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
+           
             //Create the Rtp-Info RtpHeader as required by RFC2326
             session.SourceChannels.ForEach( c=> {
                 string actualTrack = string.Empty;

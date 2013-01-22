@@ -49,9 +49,10 @@ namespace Media.Rtsp
         //Ensure this format is correct
         internal const string NtpFormat = "h'.'fff";
 
-        public static string RangeHeader(TimeSpan start, TimeSpan end)
+        public static string RangeHeader(TimeSpan? start, TimeSpan? end, string format = null)
         {
-            return "npt=" + start.ToString(NtpFormat) + '-' + end.ToString(NtpFormat);
+            if (string.IsNullOrWhiteSpace(format)) format = NtpFormat;
+            return "npt=" + (start.HasValue ? start.Value.ToString(NtpFormat) : "now") + '-' + (end.HasValue ? end.Value.ToString(NtpFormat) : string.Empty);
         }
     }
 

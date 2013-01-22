@@ -1136,16 +1136,7 @@ namespace Media.Rtsp
             {
                 RtspRequest play = new RtspRequest(RtspMethod.PLAY, location ?? Location);
 
-                //Inlclude a range so we get back a range
-                //play.AppendOrSetHeader(RtspHeaders.Range,"npt=0.000-");
-                string rangeHeader = "npt=";
-
-                if (startTime.HasValue) rangeHeader += startTime.Value.ToString(RtspHeaders.NtpFormat);
-                else rangeHeader += "0.000-";
-
-                if (endTime.HasValue) rangeHeader += endTime.Value.ToString(RtspHeaders.NtpFormat);
-
-                play.SetHeader(RtspHeaders.Range, rangeHeader);
+                play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime));
 
                 RtspResponse response = SendRtspRequest(play);
 
@@ -1277,7 +1268,7 @@ namespace Media.Rtsp
                                 if (DateTime.TryParse(times[1].Trim(), out endDate))
                                 {
                                     //Time in the past
-                                    if (now > startDate) m_EndTime = now - startDate;
+                                    if (now > endDate) m_EndTime = now - endDate;
                                     //Future?
                                     else m_EndTime = startDate - now;
                                 }
