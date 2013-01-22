@@ -475,7 +475,7 @@ namespace Media
                     if (System.Console.ReadKey().Key != ConsoleKey.Q)
                     {
 
-                        //Try another host (this one uses Tcp and forces the client to switch from Udp because Udp packets never arrive)
+                        //Try another host (this one uses Tcp and forces the client to switch from Udp because Udp packets usually never arrive)
                         //We will not specify Tcp we will allow the client to switch over automatically
                         client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
                         //Switch in 5 seconds rather than the default of 10

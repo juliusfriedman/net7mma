@@ -245,7 +245,7 @@ namespace Media.Rtsp.Server.Streams
 
                     DateTime now = DateTime.UtcNow;
 
-                    //Updated values on the Interleave
+                    //Updated values on the transportChannel
                     transportChannel.NtpTimestamp = Utility.DateTimeToNtpTimestamp(now);
                     transportChannel.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
