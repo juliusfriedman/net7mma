@@ -371,7 +371,7 @@ namespace Media
         static void TestRtspClient()
         {
 
-            Console.WriteLine("Starting RtspClient Test... Press Q to Skip");
+            Console.WriteLine("RtspClient Test. Press a key to continue. Press Q to Skip");
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
 
@@ -380,10 +380,10 @@ namespace Media
                 Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
             StartTest:
                 //Assign some events (Could log each packet to a dump here)
-                client.OnConnect += (sender) => { Console.WriteLine("Connected to :" + client.Location); };
+                client.OnConnect += (sender, args) => { Console.WriteLine("Connected to :" + client.Location); };
                 client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
                 client.OnResponse += (sender, request, response) => { Console.WriteLine("Client got response :" + response.StatusCode + ", for request: " + request.Location + " " + request.Method); };
-                client.OnPlay += (sender) =>
+                client.OnPlay += (sender, args) =>
                 {
                     //Indicate if LivePlay
                     if (client.LivePlay)
@@ -404,7 +404,7 @@ namespace Media
                         Console.WriteLine("Media End Time:" + client.EndTime);
                     }
                 };
-                client.OnDisconnect += (sender) => { Console.WriteLine("Disconnected from :" + client.Location); };
+                client.OnDisconnect += (sender, args) => { Console.WriteLine("Disconnected from :" + client.Location); };
 
                 try
                 {

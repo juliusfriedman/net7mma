@@ -451,10 +451,10 @@ namespace Media.Rtp
                 }
                 
                 //Check for the EOI Marker
-                temp.Seek(-2, System.IO.SeekOrigin.Current);
+                temp.Seek(-1, System.IO.SeekOrigin.Current);
 
                 //If present we will ignore it when creating the packets
-                long endOffset = temp.ReadByte() == Prefix && temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
+                long endOffset = temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
 
                 //Enure at the beginning
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
@@ -773,9 +773,9 @@ namespace Media.Rtp
                 }//);
 
                 //Check for EOI Marker
-                Buffer.Seek(Buffer.Length - 2, System.IO.SeekOrigin.Begin);
+                Buffer.Seek(Buffer.Length - 1, System.IO.SeekOrigin.Begin);
 
-                if (Buffer.ReadByte() != Prefix && Buffer.ReadByte() != EndOfInformation)
+                if (Buffer.ReadByte() != EndOfInformation)
                 {
                     Buffer.WriteByte(Prefix);
                     Buffer.WriteByte(EndOfInformation);

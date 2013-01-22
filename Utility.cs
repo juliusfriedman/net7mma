@@ -30,24 +30,12 @@ namespace Media
 
         #endregion
 
-        ///// <summary>
-        ///// Converts a String to a Byte[]
-        ///// </summary>
-        ///// <param name="str">String in the format FF00AABB</param>
-        ///// <returns>The corresponding byte array</returns>
-        //internal static byte[] GetBytes(string str)
-        //{
-        //    List<byte> result = new List<byte>();
-        //    for (int i = 0, e = str.Length; i < e; i += 2)
-        //    {
-        //        result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
-        //    }
-        //    return result.ToArray();
-        //}
-
         /// <summary>
-        /// About 10 milliseconds faster then Managed when doing it 100,000 times. otherwise no change
+        /// Converts a String to a Byte[]
         /// </summary>
+        /// <notes>Reduced string allocations from managed version substring
+        /// About 10 milliseconds faster then Managed when doing it 100,000 times. otherwise no change
+        /// </notes>
         /// <param name="str"></param>
         /// <returns></returns>
         internal unsafe static byte[] GetBytesUnsafe(string str)
@@ -61,6 +49,7 @@ namespace Media
                 {
                     //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
                     result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
+                    ////        result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
                 }
             }
             //Return the bytes

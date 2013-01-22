@@ -1632,6 +1632,7 @@ namespace Media.Rtsp
         /// <param name="session"></param>
         internal void ProcessRtspPlay(RtspRequest request, ClientSession session)
         {
+
 #if DEBUG
             System.Diagnostics.Debug.WriteLine("PLAY " + request.Location);
 #endif
@@ -1693,6 +1694,7 @@ namespace Media.Rtsp
                         }
                         else if (times.Length == 2)
                         {
+                            //Both might not be in the same format? Check spec
                             if (times[0].Contains(':'))
                             {
                                 startRange = TimeSpan.Parse(times[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
@@ -1811,6 +1813,10 @@ namespace Media.Rtsp
         internal void ProcessRtspPause(RtspRequest request, ClientSession session)
         {
 
+#if DEBUG
+            System.Diagnostics.Debug.WriteLine("PAUSE " + request.Location);
+#endif
+
             RtpSource found = FindStreamByLocation(request.Location);
             if (found == null)
             {
@@ -1830,7 +1836,6 @@ namespace Media.Rtsp
 
             //Might need to add some headers
             ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
-
         }
 
         /// <summary>
@@ -1840,6 +1845,7 @@ namespace Media.Rtsp
         /// <param name="session">The session which recieved the request</param>
         internal void ProcessRtspTeardown(RtspRequest request, ClientSession session)
         {
+
 #if DEBUG
             System.Diagnostics.Debug.WriteLine("TEARDOWN " + request.Location);
 #endif
