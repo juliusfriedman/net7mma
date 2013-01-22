@@ -43,6 +43,8 @@ namespace Media.Rtsp
 
         #region Fields
 
+        bool m_ForcedProtocol;
+
         ClientProtocolType m_RtspProtocol;
 
         ManualResetEvent m_InterleaveEvent = new ManualResetEvent(false);
@@ -291,7 +293,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
-        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
+        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
         public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
@@ -300,13 +302,14 @@ namespace Media.Rtsp
             //Set the location and determines the m_RtspProtocol
             Location = location;
 
-            OnRequest += RtspClient_OnRequest;
-            OnResponse += RtspClient_OnResponse;
             OnDisconnect += RtspClient_OnDisconnect;
 
             //If the client has specified a Protcol to use then use it
             if (rtpProtocolType.HasValue)
             {
+                //The Protocol was forced.
+                m_ForcedProtocol = true;
+
                 //Determine if this means anything for Rtp Transport and set the field
                 if (rtpProtocolType.Value == ClientProtocolType.Tcp || rtpProtocolType.Value == ClientProtocolType.Http)
                 {
@@ -330,8 +333,6 @@ namespace Media.Rtsp
 
         ~RtspClient()
         {
-            OnRequest -= RtspClient_OnRequest;
-            OnResponse -= RtspClient_OnResponse;
             OnDisconnect -= RtspClient_OnDisconnect;            
         }
 
@@ -339,7 +340,7 @@ namespace Media.Rtsp
 
         #region Events
 
-        public delegate void RtspClientAction(RtspClient sender);
+        public delegate void RtspClientAction(RtspClient sender, object args);
 
         public delegate void RequestHandler(RtspClient sender, RtspRequest request);
 
@@ -347,7 +348,7 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnConnect;
 
-        internal void OnConnected() { if (OnConnect != null) OnConnect(this); }
+        internal void OnConnected() { if (OnConnect != null) OnConnect(this, EventArgs.Empty); }
 
         public event RequestHandler OnRequest;
 
@@ -359,31 +360,21 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnDisconnect;
 
-        internal void OnDisconnected() { if (OnDisconnect != null) OnDisconnect(this); }
+        internal void OnDisconnected() { if (OnDisconnect != null) OnDisconnect(this, EventArgs.Empty); }
 
         public event RtspClientAction OnPlay;
 
-        internal void Playing() { if (OnPlay != null) OnPlay(this); }
+        internal void Playing() { if (OnPlay != null) OnPlay(this, EventArgs.Empty); }
 
         public event RtspClientAction OnStop;
 
-        internal void Stopping() { if (OnStop != null) OnStop(this); }
+        internal void Stopping(MediaDescription mediaDescription = null) { if (OnStop != null) OnStop(this, mediaDescription); }
 
         #endregion
 
         #region Methods
 
-        void RtspClient_OnResponse(RtspClient sender, RtspRequest request, RtspResponse response)
-        {
-            //No Op
-        }
-
-        void RtspClient_OnRequest(RtspClient sender, RtspRequest request)
-        {
-            //No Op
-        }
-
-        void RtspClient_OnDisconnect(RtspClient sender)
+        static void RtspClient_OnDisconnect(RtspClient sender, object args)
         {
             if (sender.m_KeepAliveTimer != null)
             {
@@ -785,7 +776,7 @@ namespace Media.Rtsp
         {
             RtspResponse response = null;
             //Indicate we are stopping
-            Stopping();
+            Stopping(mediaDescription);
             try
             {
                 Uri location;
@@ -1102,7 +1093,7 @@ namespace Media.Rtsp
 
         internal void SwitchProtocols(object state = null)
         {
-            if (m_RtspSocket == null) return;
+            if (m_RtspSocket == null && m_ForcedProtocol) return;
             //If the client has not recieved any bytes and we have not already switched to Tcp
             if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpBytesReceieved <= 0)
             {
