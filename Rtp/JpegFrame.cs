@@ -419,14 +419,24 @@ namespace Media.Rtp
                 System.Drawing.Imaging.EncoderParameters parameters = new System.Drawing.Imaging.EncoderParameters(3);
                 // Set the quality
                 parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, Quality);
-                // Set the render method
+                // Set the render method to Progressive
                 parameters.Param[1] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.RenderMethod, (int)System.Drawing.Imaging.EncoderValue.RenderProgressive);
-                // Set the scan method
+                // Set the scan method to Progressive
                 parameters.Param[2] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.ScanMethod, (int)System.Drawing.Imaging.EncoderValue.ScanMethodNonInterlaced);
-                
-                ///Todo -  Handle Multiple Frames from a System.Drawing.Image (Gif)
 
-                if (source.Width > MaxWidth || source.Height > MaxHeight)
+                //Determine if there are multiple frames in the image
+                //if(source.FrameDimensionsList.Count() > 0)
+                //{
+                //    System.Drawing.Imaging.FrameDimension dimension = new System.Drawing.Imaging.FrameDimension(source.FrameDimensionsList[0]);
+                //    int frameCount = source.GetFrameCount(dimension);
+                //    if (frameCount > 1)
+                //    {
+                //        ///Todo -  Handle Multiple Frames from a System.Drawing.Image (Gif) 
+                //        ///Perhaps the sender should just SetActiveFrame and then we will use the active frame
+                //    }
+                //}
+
+                if (source.Width > JpegFrame.MaxWidth || source.Height > JpegFrame.MaxHeight)
                 {
                     using (System.Drawing.Image thumb = source.GetThumbnailImage(JpegFrame.MaxWidth, JpegFrame.MaxHeight, null, IntPtr.Zero))
                     {
@@ -440,10 +450,10 @@ namespace Media.Rtp
                     source.Save(temp, codecInfo, parameters);
                 }
                 
-                //When the EOI is removed there are some artifacts in the player VLC even though the result is correct
-
+                //Check for the EOI Marker
                 temp.Seek(-2, System.IO.SeekOrigin.Current);
 
+                //If present we will ignore it when creating the packets
                 long endOffset = temp.ReadByte() == Prefix && temp.ReadByte() == EndOfInformation ? temp.Length - 2 : temp.Length;
 
                 //Enure at the beginning
@@ -476,10 +486,12 @@ namespace Media.Rtp
                 }
 
                 //used for reading the JPEG data
-                int Tag, TagSize, MTU = RtpPacket.MaxPayloadSize - 200;
+                int Tag, TagSize, 
+                    //The max size of each Jpeg RtpPacket (Allow for any overhead)
+                    BytesInPacket = RtpPacket.MaxPayloadSize - 200;
 
                 //The current packet
-                RtpPacket currentPacket = new RtpPacket(MTU);
+                RtpPacket currentPacket = new RtpPacket(BytesInPacket);
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
                 currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
                 currentPacket.SequenceNumber = (ushort)(sequenceNo ?? 1);
@@ -535,13 +547,11 @@ namespace Media.Rtp
                         //Correct Length
                         TagSize -= 3; //Type byte and 2 Length bytes
 #if DEBUG
-                        System.Diagnostics.Debug.WriteLine("Encountered Tag " + Tag.ToString("X2"));
-
-                        System.Diagnostics.Debug.WriteLine("Size " + TagSize.ToString());
+                        System.Diagnostics.Debug.WriteLine("Encountered Tag " + Tag.ToString("X2") + ", Size " + TagSize.ToString());
 #endif
 
-                        //QTables are copied
-                        if (Tag == QuantizationTable)
+                        //QTables are copied when Quality is > 127
+                        if (Tag == QuantizationTable && Quality > 127)
                         {
                             //byte Precision = (byte)temp.ReadByte();//Discard Precision
                             //if (Precision != 0) throw new Exception("Only 8 Bit Precision is Supported");
@@ -577,7 +587,7 @@ namespace Media.Rtp
 #endif
 
                             //Determine how much to read
-                            int packetRemains = MTU - currentPacketOffset;
+                            int packetRemains = BytesInPacket - currentPacketOffset;
 
                             //How much remains in the stream relative to the endOffset
                             long streamRemains = endOffset - temp.Position;
@@ -595,7 +605,7 @@ namespace Media.Rtp
                                 Add(currentPacket);
 
                                 //Determine if we need to adjust the size and add the packet
-                                if (streamRemains < MTU - 8)
+                                if (streamRemains < BytesInPacket - 8)
                                 {
                                     //8 for the RtpJpegHeader and this will cause the Marker be to set
                                     packetRemains = (int)(streamRemains + 8);
@@ -603,7 +613,7 @@ namespace Media.Rtp
                                 else
                                 {
                                     //Size is normal
-                                    packetRemains = MTU;
+                                    packetRemains = BytesInPacket;
                                 }
 
                                 //Make next packet                                    
@@ -613,7 +623,7 @@ namespace Media.Rtp
                                     SequenceNumber = (ushort)(currentPacket.SequenceNumber + 1),
                                     SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier,
                                     PayloadType = JpegFrame.RtpJpegPayloadType,
-                                    Marker = packetRemains < MTU
+                                    Marker = packetRemains < BytesInPacket
                                 };
 
                                 //Correct FragmentOffset
@@ -673,17 +683,9 @@ namespace Media.Rtp
                     {
                         //This could be OnVif extension
                         //http://www.onvif.org/specs/stream/ONVIF-Streaming-Spec-v220.pdf
-                        //Check in packet.m_ExtensionData
 
-                        //Length in next two bytes
-                        int len = packet.Payload[offset + 2] * 256 * packet.Payload[offset + 3];
-                        //Then write to buffer
-                        //Then continue from offset decoding RtpJpeg Header
-                        //offset += 4 + len;
-                        Buffer.Write(packet.Payload, offset, 2);
-                        Buffer.WriteByte(packet.Payload[offset + 2]);
-                        Buffer.WriteByte(packet.Payload[offset + 3]);
-                        Buffer.Write(packet.Payload, offset + 4, len);
+                        //Decode
+                        //packet.ExtensionBytes;
                     }
 
                     //Decode RtpJpeg Header
@@ -723,9 +725,10 @@ namespace Media.Rtp
                                 //Must be Zero is Not Zero
                             }
 
+                            //TableId and Precision
                             //If Precision == 1 then this is a 16 bit table...
                             //Also each bit should be checked to determine the number of tables?
-                            uint Precision = (uint)(packet.Payload[offset++]);
+                            byte Precision = (packet.Payload[offset++]);
                             //Might be more then 1 table...                            
                             //Determine by looking at each bit in Precision?
                             if (Precision > 0)
@@ -734,7 +737,7 @@ namespace Media.Rtp
                             }
 
                             //Length of all tables
-                            uint Length = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                            ushort Length = (ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
 
                             //If there is Table Data Read it
                             if (Length > 0)
@@ -758,6 +761,10 @@ namespace Media.Rtp
                             byte[] header = CreateJFIFHeader(Type, Width, Height, tables, RestartInterval);
                             Buffer.Write(header, 0, header.Length);
                         }
+                        //else
+                        //{
+                        //    //Write header using Extensions...
+                        //}
 
                     }
 

@@ -79,6 +79,7 @@ namespace Media.Rtcp
 
         }
 
+        //Should check Conflict avoidance 
         public SendersReport(RtcpPacket packet) : this(packet.Payload, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
 
         #endregion

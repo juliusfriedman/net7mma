@@ -19,7 +19,7 @@ namespace Media.Rtsp
     public class RtspClient : IDisposable
     {
 
-        static char[] TimeSplit = new char[] { '-', ';' };
+        internal static char[] TimeSplit = new char[] { '-', ';' };
 
         #region Nested Types
 
@@ -1224,7 +1224,7 @@ namespace Media.Rtsp
                         }
                         else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
                         {
-                            //Get the times into the times array skipping the time from the server
+                            //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
                             times = times[1].Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s=> !s.StartsWith("time=")).ToArray();
                             if (times[0].ToLowerInvariant() == "now") m_Live = true;
                             else if (times.Length == 1)
