@@ -957,15 +957,11 @@ namespace Media.Rtp
             //Make a Goodbye
             context.Goodbye = new Rtcp.Goodbye((uint)context.SynchronizationSourceIdentifier);
 
-            //If we have assigned an id
-            if (context.SynchronizationSourceIdentifier != 0)
-            {                
-                if (context.RtcpSocket != null)
-                {
-                    //Might want to store the goodbye incase the response is not recieved in a reasonable amount of time
-                    SendRtcpPacket(context.Goodbye.ToPacket(context.ControlChannel));
-                    context.Goodbye.Sent = DateTime.UtcNow;
-                }
+            if (context.RtcpSocket != null)
+            {
+                //Might want to store the goodbye incase the response is not recieved in a reasonable amount of time
+                SendRtcpPacket(context.Goodbye.ToPacket(context.ControlChannel));
+                context.Goodbye.Sent = DateTime.UtcNow;
             }
         }
 
@@ -1453,10 +1449,13 @@ namespace Media.Rtp
                     //}
 
                     //Decode the length since the channel is known
-                    ushort supposedLength = (ushort)IPAddress.NetworkToHostOrder(BitConverter.ToInt16(m_Buffer, 2));
+                    ushort supposedLength = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(m_Buffer, 2));
+
+                    //Sometimes the length is wrong
+                    supposedLength = (ushort)Math.Min((ushort)RtpPacket.MaxPayloadSize, supposedLength);
 
                     //Store the actual length recieved which is the minima of the RtpPacket.MaxPayloadSize and the supposedLength
-                    int length = socket.Receive(m_Buffer, received, Math.Min(RtpPacket.MaxPayloadSize, (int)supposedLength), SocketFlags.None);
+                    int length = socket.Receive(m_Buffer, received, supposedLength, SocketFlags.None);
 
                     //If we recieved less then we were supposed to recieve the rest
                     while (length < supposedLength)
@@ -1592,7 +1591,8 @@ namespace Media.Rtp
                             if (SendRtcpPacket(packet) == packet.PacketLength) lastActivity = DateTime.UtcNow;
 
                             //If we send a goodebye
-                            if (GetContextForPacket(packet).Goodbye != null) break;
+                            Goodbye goodbye = GetContextForPacket(packet).Goodbye;
+                            if (goodbye != null && goodbye.Sent.HasValue) break;
                         }
 
                         toSend = null;
@@ -1606,19 +1606,22 @@ namespace Media.Rtp
                     {
                         lock (m_OutgoingRtpPackets)
                         {
+                            //Could check for timestamp more recent then packet at 0  on transporContext and discard...
                             //Send only A few at a time to share with rtcp
                             int remove = Math.Min(m_OutgoingRtpPackets.Count, RtpFrame.MaxPackets);
                             toSend = m_OutgoingRtpPackets.GetRange(0, remove);
                             m_OutgoingRtpPackets.RemoveRange(0, remove);
                         }
 
-                        foreach (RtpPacket p in toSend)
+                        foreach (RtpPacket packet in toSend)
                         {
                             //If we sent or received a goodbye
-                            if (GetContextForPacket(p).Goodbye != null) break;
+                            //If we send a goodebye
+                            Goodbye goodbye = GetContextForPacket(packet).Goodbye;
+                            if (goodbye != null && goodbye.Sent.HasValue) break;
 
                             //If the entire packet was sent
-                            if (SendRtpPacket(p) == p.Length) lastActivity = DateTime.UtcNow;
+                            if (SendRtpPacket(packet) == packet.Length) lastActivity = DateTime.UtcNow;
                         }
 
                         toSend = null;
@@ -1638,6 +1641,12 @@ namespace Media.Rtp
                             {
                                 if (RecieveData(c.DataChannel, c.RtpSocket) > 0) lastActivity = DateTime.UtcNow;
                                 if (RecieveData(c.ControlChannel, c.RtcpSocket) > 0) lastActivity = DateTime.UtcNow;
+
+                                //If we have our own InactivityTimeout then enforce it
+                                if (InactivityTimeoutSeconds.HasValue && InactivityTimeoutSeconds > 0 && (DateTime.UtcNow - lastActivity).TotalSeconds >= InactivityTimeoutSeconds)
+                                {
+                                    SendGoodbye(c);
+                                }
                             });
                         }
                         catch (SocketException)
@@ -1646,14 +1655,6 @@ namespace Media.Rtp
                             //If this is happening often the Udp client disconnected
                             //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
                         }
-
-                        //If we have our own InactivityTimeout then enforce it
-                        if (InactivityTimeoutSeconds.HasValue && InactivityTimeoutSeconds > 0 && (DateTime.UtcNow - lastActivity).TotalSeconds >= InactivityTimeoutSeconds)
-                        {
-                            Disconnect();
-                            break;
-                        }
-
                     }
 
                     #endregion

@@ -528,7 +528,14 @@ namespace Media.Rtsp
         {
             try
             {
-                //Get rid of the timer
+                //Get rid of the timers
+
+                if (m_ProtocolSwitchTimer != null)
+                {
+                    m_ProtocolSwitchTimer.Dispose();
+                    m_ProtocolSwitchTimer = null;
+                }
+
                 if (m_KeepAliveTimer != null)
                 {
                     m_KeepAliveTimer.Dispose();
@@ -1115,10 +1122,6 @@ namespace Media.Rtsp
                 //Switch back to Udp?
                 throw new NotImplementedException("Switch from Tcp to Udp Not Implemented.");
             }
-
-            //Remove the timer
-            m_ProtocolSwitchTimer.Dispose();
-            m_ProtocolSwitchTimer = null;
         }
 
         public RtspResponse SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
