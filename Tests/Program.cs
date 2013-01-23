@@ -484,7 +484,6 @@ namespace Media
                         goto StartTest;
                     }
                 }
-
                 
             }
 
@@ -775,29 +774,48 @@ a=mpeg4-esid:101");
         }
 
         static void TestJpegFrame()
-        {            
-            //Create a JpegFrame from a Image
-            Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
-            //Save the JpegFrame as a Image
-            using (System.Drawing.Image jpeg = f)
+        {
+            try
             {
-                jpeg.Save("source.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-            }
+                //Create a JpegFrame from a Image
+                Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
+                //Save the JpegFrame as a Image
+                using (System.Drawing.Image jpeg = f)
+                {
+                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
 
-            //Create a JpegFrame from an existing RtpFrame
-            Rtp.JpegFrame t = new Rtp.JpegFrame(f);
-            //Save JpegFrame as Image
-            using (System.Drawing.Image jpeg = t)
+                //Create a JpegFrame from an existing RtpFrame (No Decoding Performed)
+                Rtp.JpegFrame t = new Rtp.JpegFrame(f);
+                using (System.Drawing.Image jpeg = t)
+                {
+                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+
+                //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)
+                //Todo find out why this fails...
+                t = new Rtp.JpegFrame();
+                foreach (Rtp.RtpPacket p in f) t.Add(p);
+
+                //Save JpegFrame as Image
+                using (System.Drawing.Image jpeg = t)
+                {
+                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+
+                Console.BackgroundColor = ConsoleColor.Green;
+                Console.WriteLine("Test Passed");
+                Console.BackgroundColor = ConsoleColor.Black;
+            }
+            catch (Exception ex)
             {
-                jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                Console.BackgroundColor = ConsoleColor.Red;
+                Console.WriteLine("Test Failed! Exception Occured: " + ex.Message);
+                Console.BackgroundColor = ConsoleColor.Black;
             }
-
-            Console.WriteLine("Success video.jpg Encoded and saved as result.jpg");
 
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-
             Console.ReadKey();
-
         }
     }
 }

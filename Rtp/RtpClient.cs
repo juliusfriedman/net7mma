@@ -386,14 +386,14 @@ namespace Media.Rtp
                 if (RtpSocket == null || RtcpSocket.ProtocolType == ProtocolType.Tcp) return;
 
                 //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
-                if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && (int)RtcpSocket.Handle > 0)
+                if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0)
                 {
                     RtcpSocket.Dispose();
                     RtcpSocket = null;
                 }
 
                 //Close the RtpSocket
-                if (RtpSocket != null && (int)RtpSocket.Handle > 0)
+                if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0)
                 {
                     RtpSocket.Dispose();
                     RtpSocket = null;
@@ -434,8 +434,11 @@ namespace Media.Rtp
 
         internal IPAddress m_RemoteAddress;
 
-        //If we don't want to keep track of Packet Events
-        internal bool m_IncomingPacketEventsEnabled = true, m_OutgoingPacketEventsEnabled = true;
+        //If we don't want to keep track of Packet Events these would be false
+        //This one controls incoming counters and FrameChanged when marker packets arrive
+        internal bool m_IncomingPacketEventsEnabled = true, 
+            //This one controls outgoing counters
+            m_OutgoingPacketEventsEnabled = true;
 
         #endregion
 
@@ -1106,7 +1109,7 @@ namespace Media.Rtp
 
         internal void SendReceiversReport(TransportContext context)
         {
-            context.RecieversReport = CreateReceiversReport(context);
+            context.RecieversReport = CreateReceiversReport(context, context.RecieversReport != null);
             SendRtcpPacket(context.RecieversReport.ToPacket(context.ControlChannel));
             context.RecieversReport.Sent = DateTime.UtcNow;
         }
@@ -1295,11 +1298,11 @@ namespace Media.Rtp
             });
 
             //Counters go away with the transportChannels
-            TransportContexts.Clear();
+            lock (TransportContexts) TransportContexts.Clear();
 
             //Empty buffers
-            m_OutgoingRtpPackets.Clear();
-            m_OutgoingRtcpPackets.Clear();
+            lock (m_OutgoingRtpPackets) m_OutgoingRtpPackets.Clear();
+            lock (m_OutgoingRtcpPackets) m_OutgoingRtcpPackets.Clear();
         }
 
         /// <summary>
