@@ -249,17 +249,6 @@ namespace Media.Rtsp.Server.Streams
                     transportChannel.NtpTimestamp = Utility.DateTimeToNtpTimestamp(now);
                     transportChannel.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
-                    //Create a new frame so the timestamps and sequence numbers can change
-                    Rtp.JpegFrame next = null;
-                    if (Loop)
-                    {
-                        next = new Rtp.JpegFrame()
-                            {
-                                SynchronizationSourceIdentifier = sourceId,
-                                Timestamp = transportChannel.RtpTimestamp
-                            };
-                    }
-
                     //Keep the Current and LastFrame updated if we disabled events
                     if (!RtpClient.m_IncomingPacketEventsEnabled)
                     {
@@ -283,8 +272,6 @@ namespace Media.Rtsp.Server.Streams
                         packet.TimeStamp = transportChannel.RtpTimestamp;
                         packet.SequenceNumber = ++transportChannel.SequenceNumber;
                         
-                        if (Loop) next.Add(packet);
-
                         //Fire an event so the server sends a packet to all clients connected to this source
                         RtpClient.OnRtpPacketReceieved(packet);
 
@@ -299,7 +286,7 @@ namespace Media.Rtsp.Server.Streams
                     //If we are to loop images then add it back at the end
                     if (Loop)
                     {
-                        m_Frames.Enqueue(next);
+                        m_Frames.Enqueue(frame);
                     }
 
                 }

@@ -1546,7 +1546,7 @@ namespace Media.Rtsp
                     session.m_RtpClient = RtpClient.Interleaved(session.m_RtspSocket);
 
                     //Create a new Interleave
-                    currentContext = new RtpClient.TransportContext(rtpChannel, rtcpChannel, 0, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
+                    currentContext = new RtpClient.TransportContext(rtpChannel, rtcpChannel, ssrc, mediaDescription, session.m_RtspSocket, !rtcpDisabled);
 
                     //Add the transportChannel the client requested
                     session.m_RtpClient.AddTransportContext(currentContext);

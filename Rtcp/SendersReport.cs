@@ -50,7 +50,6 @@ namespace Media.Rtcp
 
             if (packetLength > 8)
             {
-
                 //Get the MSW
                 m_NtpMsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
 
