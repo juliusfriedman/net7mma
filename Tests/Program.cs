@@ -10,26 +10,52 @@ namespace Media
         [STAThread]
         public static void Main(string[] args)
         {
-            TestJpegFrame();
+            RunTest(TestJpegFrame);
+            RunTest(TestRtspMessage);
+            RunTest(TestRtpPacket);
+            RunTest(TestRtcpPacket);
+            RunTest(TestRtpDump);
+            RunTest(TestSdp);
+            RunTest(TestRtspClient);
+            RunTest(TestServer);
+        }
+
+        private static void RunTest(Action test)
+        {
             System.Console.Clear();
-            TestRtspMessage();
-            System.Console.Clear();
-            TestRtpPacket();
-            System.Console.Clear();
-            TestRtcpPacket();
-            System.Console.Clear();
-            TestRtpDump();
-            System.Console.Clear();
-            TestSdp();
-            System.Console.Clear();
-            TestRtspClient();
-            System.Console.Clear();
-            TestServer();
+            Console.BackgroundColor = ConsoleColor.Blue;
+            Console.WriteLine("About to run test: " + test.Method.Name);
+            Console.WriteLine("Press Q to skip or any other key to continue.");
+            Console.BackgroundColor = ConsoleColor.Black;
+            if (Console.ReadKey().Key == ConsoleKey.Q)
+            {
+                return;
+            }
+            else
+            {
+                try { 
+                    test();
+                    Console.BackgroundColor = ConsoleColor.Green;
+                    Console.WriteLine("Test Passed!");
+                    Console.WriteLine("Press a key to continue.");
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ReadKey();
+                }
+                catch (Exception ex) {
+                    Console.BackgroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Test Failed!");
+                    Console.WriteLine("Exception.Message: " + ex.Message);
+                    Console.WriteLine("Press a key to continue.");
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ReadKey();
+                }
+            }
         }
 
         private static void TestRtcpPacket()
         {
             Console.WriteLine("RtcpTest");
+            Console.WriteLine("--------");
             byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
             Rtcp.RtcpPacket asPacket = new Rtcp.RtcpPacket(example);
             Rtcp.SendersReport sr = new Rtcp.SendersReport(asPacket);
@@ -81,11 +107,7 @@ namespace Media
             for (int i = 0; i < output.Length; i++, offset++)
             {
                 if (example[offset] != output[i]) throw new Exception();
-            }
-            Console.WriteLine("RtcpPacket Test passed!");
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-
-            Console.ReadKey();                        
+            }          
         }
 
         private static void TestRtpDump()
@@ -309,14 +331,6 @@ namespace Media
 
             #endregion
 
-
-            Console.BackgroundColor = ConsoleColor.Green;
-            Console.WriteLine("Test Passed");
-            Console.BackgroundColor = ConsoleColor.Black;
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-
-            Console.ReadKey();
-
             //Tests done.. delete files
             System.IO.File.Delete(currentPath + @"\mybark.rtp");
 
@@ -333,6 +347,8 @@ namespace Media
         private static void TestRtpPacket()
         {
             Console.WriteLine("RtpTest");
+            Console.WriteLine("--------");
+
             Rtp.RtpPacket p = new Rtp.RtpPacket();
             p.TimeStamp = 987654321;
             p.SequenceNumber = 7;
@@ -340,8 +356,6 @@ namespace Media
             p = new Rtp.RtpPacket(p.ToBytes());
             Console.WriteLine(p.TimeStamp);
             Console.WriteLine(p.SequenceNumber);
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-            Console.ReadKey();
         }
 
         static void TestRtspMessage()
@@ -361,19 +375,12 @@ namespace Media
             {
                 throw new Exception();
             }
-
-            Console.WriteLine("RtspMessage Test passed!");
-
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-
-            Console.ReadKey();
-
         }
 
         static void TestRtspClient()
         {
 
-            Console.WriteLine("RtspClient Test. Press a key to continue. Press Q to Skip");
+            Console.WriteLine("Test #1. Press a key to continue. Press Q to Skip");
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
 
@@ -473,7 +480,7 @@ namespace Media
                 if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
                 {
                     //Do another test
-                    Console.WriteLine("Press a Key to Start 2nd RtspClient Test (Q to Skip)");
+                    Console.WriteLine("Press a Key to Start Test #2 (Q to Skip)");
                     if (System.Console.ReadKey().Key != ConsoleKey.Q)
                     {
 
@@ -488,15 +495,6 @@ namespace Media
                 }
                 
             }
-
-            Console.WriteLine("Test Complete");
-            Console.WriteLine("Press a Key to Start Next Test");
-            System.Console.ReadKey();
-        }
-
-        static void TestRtpPackets()
-        {
-            //Make and (de)serialize some RtpPackets
         }
 
         static void TestSdp()
@@ -567,13 +565,6 @@ a=mpeg4-esid:101");
             Console.WriteLine(mpeg4IodLine.ToString());
 
             Console.WriteLine(connectionLine.ToString());
-
-            Console.WriteLine("SDP Test passed!");
-
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-
-            Console.ReadKey();
-
         }
 
         static bool udpEnabled, httpEndabled;
@@ -624,7 +615,7 @@ a=mpeg4-esid:101");
             Console.WriteLine("Waiting for input................");
             Console.WriteLine("Press 'U' to Enable Udp on RtspServer");
             Console.WriteLine("Press 'H' to Enable Http on RtspServer");
-            Console.WriteLine("Press 'T' to Perform Load Test on RtspServer");
+            Console.WriteLine("Press 'T' to Perform Load SubTest on RtspServer");
 
             while (true)
             {
@@ -646,7 +637,7 @@ a=mpeg4-esid:101");
                 else if (keyInfo.Key == ConsoleKey.T)
                 {
                     Console.WriteLine("Performing Load Test");
-                    LoadTest(httpEndabled, udpEnabled);
+                    SubTestLoad(httpEndabled, udpEnabled);
                 }
                 else if (System.Diagnostics.Debugger.IsAttached)
                 {
@@ -679,7 +670,7 @@ a=mpeg4-esid:101");
         /// <summary>
         /// Tests the Rtp and RtspClient in various modes (Against the server)
         /// </summary>
-        static void LoadTest(bool http = true, bool udp = true)
+        static void SubTestLoad(bool http = true, bool udp = true)
         {
             //100 times about a GB in total
 
@@ -759,7 +750,9 @@ a=mpeg4-esid:101");
 
                             while (tcpClient.Client.TotalRtpBytesReceieved <= 1024) { }
 
+                            Console.BackgroundColor = ConsoleColor.Gray;
                             Console.WriteLine("Test passed");
+                            Console.BackgroundColor = ConsoleColor.Black;
 
                             return;
                         }
@@ -777,50 +770,34 @@ a=mpeg4-esid:101");
 
         static void TestJpegFrame()
         {
-            try
+            //Create a JpegFrame from a Image (Encoding performed)
+            Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
+            //Save the JpegFrame as a Image
+            using (System.Drawing.Image jpeg = f)
             {
-                //Create a JpegFrame from a Image (Encoding performed)
-                Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
-                //Save the JpegFrame as a Image
-                using (System.Drawing.Image jpeg = f)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                //Create a JpegFrame from an existing RtpFrame (No Encoding / Decoding Performed)
-                Rtp.JpegFrame t = new Rtp.JpegFrame(f);
-                using (System.Drawing.Image jpeg = t)
-                {                    
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)                
-                t = new Rtp.JpegFrame();
-                foreach (Rtp.RtpPacket p in f)
-                {
-                    t.Add(p);
-                }                
-
-                //Save JpegFrame as Image
-                //Todo find out why this fails... (System.Interop.ExternalException - Generic Error in GDI+ has occured.)
-                using (System.Drawing.Image jpeg = t)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                Console.BackgroundColor = ConsoleColor.Green;
-                Console.WriteLine("Test Passed");
-                Console.BackgroundColor = ConsoleColor.Black;
-            }
-            catch (Exception ex)
-            {
-                Console.BackgroundColor = ConsoleColor.Red;
-                Console.WriteLine("Test Failed! Exception Occured: " + ex.Message);
-                Console.BackgroundColor = ConsoleColor.Black;
+                jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
 
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-            Console.ReadKey();
+            //Create a JpegFrame from an existing RtpFrame (No Encoding / Decoding Performed)
+            Rtp.JpegFrame t = new Rtp.JpegFrame(f);
+            using (System.Drawing.Image jpeg = t)
+            {
+                jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            }
+
+            //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)                
+            t = new Rtp.JpegFrame();
+            foreach (Rtp.RtpPacket p in f)
+            {
+                t.Add(p);
+            }
+
+            //Save JpegFrame as Image
+            //Todo find out why this fails... (System.Interop.ExternalException - Generic Error in GDI+ has occured.)
+            using (System.Drawing.Image jpeg = t)
+            {
+                jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            }
         }
     }
 }

@@ -576,7 +576,7 @@ namespace Media.Rtp
             }
             else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport || (int)packet.PacketType == 73)
             {
-                if (transportContext.CurrentFrame == null) return;
+                if (!transportContext.RtcpEnabled) return;
                 transportContext.RecieversReport = new ReceiversReport(packet);
 
                 //Should be scheduled
