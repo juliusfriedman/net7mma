@@ -238,39 +238,44 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
+                    //Dequeue a frame or die
                     Rtp.JpegFrame frame = m_Frames.Dequeue();
 
                     //Get the transportChannel for the packet
-                    Rtp.RtpClient.TransportContext transportChannel = RtpClient.TransportContexts.Where(c => c.SynchronizationSourceIdentifier == frame.SynchronizationSourceIdentifier).FirstOrDefault();
+                    Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
 
                     DateTime now = DateTime.UtcNow;
 
                     //Updated values on the transportChannel
-                    transportChannel.NtpTimestamp = Utility.DateTimeToNtpTimestamp(now);
-                    transportChannel.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
+                    transportContext.NtpTimestamp = Utility.DateTimeToNtpTimestamp(now);
+                    transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
                     //Keep the Current and LastFrame updated if we disabled events
                     if (!RtpClient.m_IncomingPacketEventsEnabled)
                     {
-                        //Update frames on Interleave incase there is a UI somewhere showing frames from this source
-                        if (transportChannel.CurrentFrame == null)
+                        //Update frames on transportContext incase there is a UI somewhere showing frames from this source
+                        if (transportContext.CurrentFrame == null)
                         {
-                            transportChannel.CurrentFrame = frame;
+                            transportContext.CurrentFrame = frame;
                         }
                         else
                         {
-                            transportChannel.LastFrame = transportChannel.CurrentFrame;
-                            transportChannel.CurrentFrame = frame;
+                            transportContext.LastFrame = transportContext.CurrentFrame;
+                            transportContext.CurrentFrame = frame;
                         }
+                        //We should also raise an event to let the UI know
+                        RtpClient.OnRtpFrameChanged(transportContext.CurrentFrame);
                     }
 
                     //Iterate each packet and put it into the next frame
                     foreach (Rtp.RtpPacket packet in frame)
                     {
-                        packet.Channel = transportChannel.DataChannel;
+                        //Copy the values before we signal the server
+                        packet.Channel = transportContext.DataChannel;
                         packet.SynchronizationSourceIdentifier = sourceId;
-                        packet.TimeStamp = transportChannel.RtpTimestamp;
-                        packet.SequenceNumber = ++transportChannel.SequenceNumber;
+                        packet.TimeStamp = transportContext.RtpTimestamp;
+                        //Increment the sequence number on the transportChannel and assign the result to the packet
+                        packet.SequenceNumber = ++transportContext.SequenceNumber;
                         
                         //Fire an event so the server sends a packet to all clients connected to this source
                         RtpClient.OnRtpPacketReceieved(packet);
@@ -278,8 +283,8 @@ namespace Media.Rtsp.Server.Streams
                         //If we are keeping track of everything we should increment the counters so the server can send correct Rtcp Reports
                         if (!RtpClient.m_OutgoingPacketEventsEnabled)
                         {
-                            transportChannel.RtpPacketsSent++;
-                            transportChannel.RtpBytesSent += packet.Length;
+                            transportContext.RtpPacketsSent++;
+                            transportContext.RtpBytesSent += packet.Length;
                         }
                     }
 
