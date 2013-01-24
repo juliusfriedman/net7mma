@@ -52,8 +52,6 @@ namespace Media.Rtp
             public const byte DataRestartInterval = 0xdd;
 
             public const byte StartOfScan = 0xda;
-
-            public const byte EntroypEncodedScan = 0;
         }
 
         /// <summary>
@@ -134,7 +132,7 @@ namespace Media.Rtp
                 if (quality > 127 && qTables != null)
                 {
                     RtpJpegHeader.Add(0); //Must Be Zero
-                    RtpJpegHeader.Add(0x00);//Precision (Only 8 Bit Supported)
+                    RtpJpegHeader.Add(0x00);//Precision (Only 8 Bit Supported) (Should set two bits for 2 tables here per RFC but not many implementations follow)
                     RtpJpegHeader.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)qTables.Count)));
                     RtpJpegHeader.AddRange(qTables);               
                 }
@@ -272,7 +270,8 @@ namespace Media.Rtp
             //Create quantization table from Seed quality
             for (int i = 0; i < 128; ++i)
             {
-                resultTables[i] = (byte)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), 255);
+                                        //Clamp with Min, Max
+                resultTables[i] = (byte)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), byte.MaxValue);
             }
 
             return resultTables;
@@ -292,7 +291,7 @@ namespace Media.Rtp
             int tableSize = tables.Count / tableCount;
             
             //Each tag is 4 bytes (prefix and tag) + 2 for len = 4 + 1 for Precision and TableId and 1 for being 0 based.
-            byte[] result = new byte[6 * (tables.Count / tableSize) + tableSize * tableCount];
+            byte[] result = new byte[5 * (tables.Count / tableSize) + tableSize * tableCount];
 
             result[0] = Tags.Prefix;
             result[1] = Tags.QuantizationTable;
@@ -530,6 +529,7 @@ namespace Media.Rtp
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
                 //Find a Jpeg Tag while we are not at the end of the stream
+                //Tags come in the format 0xFFXX
                 while ((Tag = temp.ReadByte()) != -1)
                 {                    
                     //If the prefix is a tag prefix then read another byte as the Tag
