@@ -1624,9 +1624,8 @@ namespace Media.Rtp
                             //If the entire packet was sent
                             if (SendRtcpPacket(packet) == packet.PacketLength) lastActivity = DateTime.UtcNow;
 
-                            //If we send a goodebye
-                            Goodbye goodbye = GetContextForPacket(packet).Goodbye;
-                            if (goodbye != null && goodbye.Sent.HasValue) break;
+                            //If we have received or sent a goodbyte
+                            if (GetContextForPacket(packet).Goodbye != null) break;
                         }
 
                         toSend = null;

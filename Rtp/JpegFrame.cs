@@ -178,6 +178,9 @@ namespace Media.Rtp
                 result.AddRange(CreateDataRestartIntervalMarker(dri));
             }
 
+            //Quantization Tables
+            result.AddRange(CreateQuantizationTablesMarker(tables));
+
             //Start Of Frame
             result.Add(Tags.Prefix);
             result.Add(Tags.StartOfFrame);//SOF
@@ -191,12 +194,13 @@ namespace Media.Rtp
 
             result.Add(0x03);//Number of components
             result.Add(0x01);//Component Number
-            result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Horizontal or Vertical Sample
-            result.Add(0x00);//Matrix Number
+            result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Horizontal or Vertical Sample  
+          
+            result.Add(0x00);//Matrix Number (Quant Table Id)?
 
             result.Add(0x02);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
-            result.Add(0);//Matrix Number
+            result.Add(1);//Matrix Number
 
             result.Add(0x03);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
@@ -206,10 +210,7 @@ namespace Media.Rtp
             result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
             result.AddRange(CreateHuffmanTableMarker(lum_ac_codelens, lum_ac_symbols, 0, 1));
             result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
-            result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
-            
-            //Quantization Tables
-            result.AddRange(CreateQuantizationTablesMarker(tables));
+            result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));                       
 
             //Start Of Scan
             result.Add(Tags.Prefix);
@@ -289,26 +290,29 @@ namespace Media.Rtp
             if (tableCount > 2) throw new ArgumentOutOfRangeException("tableCount");
 
             int tableSize = tables.Count / tableCount;
-
-            byte[] result = new byte[4 * (tables.Count / tableSize) + tableSize * tableCount];
+            
+            //Each tag is 4 bytes (prefix and tag) + 2 for len = 4 + 1 for Precision and TableId and 1 for being 0 based.
+            byte[] result = new byte[6 * (tables.Count / tableSize) + tableSize * tableCount];
 
             result[0] = Tags.Prefix;
             result[1] = Tags.QuantizationTable;
-            result[2] = 0;//Precision 0, and table Id
+            result[2] = 0;//Len
             result[3] = (byte)(tableSize + 3);
+            result[4] = 0; // Precision and TableId
 
             //First table. Type - Lumiance usually when two
-            System.Array.Copy(tables.Array, tables.Offset, result, 4, tableSize);
+            System.Array.Copy(tables.Array, tables.Offset, result, 5, tableSize);
 
             if (tableCount > 1)
             {
-                result[tableSize + 4] = Tags.Prefix;
-                result[tableSize + 5] = Tags.QuantizationTable;
-                result[tableSize + 6] = 1;//Precision 0, and table Id
-                result[tableSize + 7] = (byte)(tableSize + 3);
+                result[tableSize + 5] = Tags.Prefix;
+                result[tableSize + 6] = Tags.QuantizationTable;
+                result[tableSize + 7] = 0;//Len
+                result[tableSize + 8] = (byte)(tableSize + 3);
+                result[tableSize + 9] = 1;//Precision 0, and table Id
 
                 //Second Table. Type - Chromiance usually when two
-                System.Array.Copy(tables.Array, tables.Offset + tableSize, result, tableSize + 4 + 4, tableSize);
+                System.Array.Copy(tables.Array, tables.Offset + tableSize, result, tableSize + 5 + 5, tableSize);
             }
 
             return result;
@@ -417,7 +421,7 @@ namespace Media.Rtp
         /// Creates a JpegFrame from a System.Drawing.Image
         /// </summary>
         /// <param name="source">The Image to create a JpegFrame from</param>
-        public JpegFrame(System.Drawing.Image source, uint quality = 100, uint? ssrc = null, uint? sequenceNo = null, uint? timeStamp = null) : this()
+        public JpegFrame(System.Drawing.Image source, uint quality = 99, uint? ssrc = null, uint? sequenceNo = null, uint? timeStamp = null) : this()
         {
             //Must calculate correctly the Type, Quality, FragmentOffset and Dri
             uint TypeSpecific = 0, Type = 0, Quality = quality, Width = (uint)source.Width, Height = (uint)source.Height;
@@ -808,7 +812,7 @@ namespace Media.Rtp
                 //This article explains in detail what exactly happens: http://support.microsoft.com/kb/814675
                 //In short, for a lifetime of an Image constructed from a stream, the stream must not be destroyed.
                 //Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, false, true));
-                Image = System.Drawing.Image.FromStream(Buffer, false, true).GetThumbnailImage(Image.Width, Image.Height, null, IntPtr.Zero);
+                Image = System.Drawing.Image.FromStream(Buffer, false, true);
             }
         }
 
