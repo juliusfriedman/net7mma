@@ -22,6 +22,8 @@ namespace Media.Rtp
 
         public const byte RtpJpegPayloadType = 26;
 
+        public static System.Drawing.Imaging.ImageCodecInfo JpegCodecInfo = System.Drawing.Imaging.ImageCodecInfo.GetImageDecoders().First(d => d.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+
         /// <summary>
         /// Tags which are contained in a valid Jpeg Image
         /// </summary>
@@ -176,15 +178,6 @@ namespace Media.Rtp
                 result.AddRange(CreateDataRestartIntervalMarker(dri));
             }
 
-            //Quantization Tables
-            result.AddRange(CreateQuantizationTablesMarker(tables));
-
-            //Huffman Tables
-            result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
-            result.AddRange(CreateHuffmanTableMarker(lum_ac_codelens, lum_ac_symbols, 0, 1));
-            result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
-            result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
-
             //Start Of Frame
             result.Add(Tags.Prefix);
             result.Add(Tags.StartOfFrame);//SOF
@@ -195,18 +188,28 @@ namespace Media.Rtp
             result.Add((byte)height);
             result.Add((byte)(width >> 8)); //Width
             result.Add((byte)width);
-            
+
             result.Add(0x03);//Number of components
             result.Add(0x01);//Component Number
             result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Horizontal or Vertical Sample
             result.Add(0x00);//Matrix Number
+
             result.Add(0x02);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
-            result.Add((byte)(tables.Count > 64 ? 1 : 0));//Matrix Number
+            result.Add(0);//Matrix Number
 
             result.Add(0x03);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
-            result.Add(1);//Matrix Number            
+            result.Add(1);//Matrix Number      
+
+            //Huffman Tables
+            result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
+            result.AddRange(CreateHuffmanTableMarker(lum_ac_codelens, lum_ac_symbols, 0, 1));
+            result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
+            result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
+            
+            //Quantization Tables
+            result.AddRange(CreateQuantizationTablesMarker(tables));
 
             //Start Of Scan
             result.Add(Tags.Prefix);
@@ -274,73 +277,46 @@ namespace Media.Rtp
             return resultTables;
         }
 
-        static byte[] CreateQuantizationTablesMarker(ArraySegment<byte> tables)
+        /// <summary>
+        /// Creates a Jpeg QuantizationTableMarker for each table given in the tables
+        /// </summary>
+        /// <param name="tables">The tables verbatim, either 1 or 2 (Lumiance and Chromiance)</param>
+        /// <returns>The table with marker and perfix/returns>
+        static byte[] CreateQuantizationTablesMarker(ArraySegment<byte> tables, int tableCount = 2)
         {
             //List<byte> result = new List<byte>();
 
-            int tableSize = tables.Count / 2; //2 tables same length
+            if (tableCount > 2) throw new ArgumentOutOfRangeException("tableCount");
 
-            byte[] result = new byte[4 * (tables.Count / 32) + tableSize * 2];
+            int tableSize = tables.Count / tableCount;
+
+            byte[] result = new byte[4 * (tables.Count / tableSize) + tableSize * tableCount];
 
             result[0] = Tags.Prefix;
             result[1] = Tags.QuantizationTable;
-            result[2] = 0;//Precision and table Id
+            result[2] = 0;//Precision 0, and table Id
             result[3] = (byte)(tableSize + 3);
 
-            //Type - Lumiance
+            //First table. Type - Lumiance usually when two
             System.Array.Copy(tables.Array, tables.Offset, result, 4, tableSize);
 
+            if (tableCount > 1)
+            {
+                result[tableSize + 4] = Tags.Prefix;
+                result[tableSize + 5] = Tags.QuantizationTable;
+                result[tableSize + 6] = 1;//Precision 0, and table Id
+                result[tableSize + 7] = (byte)(tableSize + 3);
 
-            result[tableSize + 4] = Tags.Prefix;
-            result[tableSize + 5] = Tags.QuantizationTable;
-            result[tableSize + 6] = 1;//Precision and table Id
-            result[tableSize + 7] = (byte)(tableSize + 3);
-
-            //Type - Chromiance
-            System.Array.Copy(tables.Array, tables.Offset + tableSize, result, tableSize + 4 + 4, tableSize);
+                //Second Table. Type - Chromiance usually when two
+                System.Array.Copy(tables.Array, tables.Offset + tableSize, result, tableSize + 4 + 4, tableSize);
+            }
 
             return result;
-
-
-            ////Luma
-
-            //result.Add(Tags.Prefix);
-            //result.Add(Tags.QuantizationTable);
-
-            //result.Add(0x00);//Length
-            //result.Add((byte)(tableSize + 3));
-
-            //result.Add(0x00);//Type - Lumiance
-
-            //for (int i = 0, e = tableSize; i < e; ++i)
-            //{
-            //    result.Add(tables.Array[tables.Offset + i]);
-            //}
-
-            ////Chroma
-
-            //result.Add(Tags.Prefix);
-            //result.Add(Tags.QuantizationTable);
-
-            //result.Add(0x00);//Length
-            //result.Add((byte)(tableSize + 3));
-
-            //result.Add(0x01);//Type - Chromiance
-
-            //for (int i = tableSize, e = tables.Count; i < e; ++i)
-            //{
-            //    result.Add(tables.Array[tables.Offset + i]);
-            //}
-
-            //return result.ToArray();
-
         }
 
         static byte[] lum_dc_codelens = { 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
 
         static byte[] lum_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-
-
 
         static byte[] lum_ac_codelens = {0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
 
@@ -431,7 +407,11 @@ namespace Media.Rtp
         /// <param name="f">The existing frame</param>
         public JpegFrame(RtpFrame f) : base(f) { if (PayloadType != JpegFrame.RtpJpegPayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); }
 
-        public JpegFrame(JpegFrame f) : base(f) { if (PayloadType != JpegFrame.RtpJpegPayloadType) throw new ArgumentException("Expected the payload type 26, Found type: " + f.PayloadType); Image = f.ToImage(); }
+        /// <summary>
+        /// Creates a shallow copy an existing JpegFrame
+        /// </summary>
+        /// <param name="f">The JpegFrame to copy</param>
+        public JpegFrame(JpegFrame f) : this((RtpFrame)f) { Image = f.ToImage(); }
 
         /// <summary>
         /// Creates a JpegFrame from a System.Drawing.Image
@@ -443,9 +423,6 @@ namespace Media.Rtp
             uint TypeSpecific = 0, Type = 0, Quality = quality, Width = (uint)source.Width, Height = (uint)source.Height;
 
             byte[] RestartInterval = null; List<byte> QTables = new List<byte>();
-
-            //Get the Jpeg Codec Info
-            System.Drawing.Imaging.ImageCodecInfo codecInfo = System.Drawing.Imaging.ImageCodecInfo.GetImageDecoders().Where(d => d.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid).Single();
 
             //Save the image in Jpeg format and request the PropertyItems from the Jpeg format of the Image
             using(System.IO.MemoryStream temp = new System.IO.MemoryStream())
@@ -476,13 +453,13 @@ namespace Media.Rtp
                     using (System.Drawing.Image thumb = source.GetThumbnailImage(JpegFrame.MaxWidth, JpegFrame.MaxHeight, null, IntPtr.Zero))
                     {
                         //Save the source to the temp stream using the jpeg coded and given encoder params
-                        thumb.Save(temp, codecInfo, parameters);
+                        thumb.Save(temp, JpegCodecInfo, parameters);
                     }
                 }
                 else
                 {
                     //Save the source to the temp stream using the jpeg coded and given encoder params
-                    source.Save(temp, codecInfo, parameters);
+                    source.Save(temp, JpegCodecInfo, parameters);
                 }
                 
                 //Check for the EOI Marker
@@ -500,6 +477,8 @@ namespace Media.Rtp
                 //Determine if there are Quantization Tables which must be sent
                 if (Image.PropertyIdList.Contains(0x5090) && Image.PropertyIdList.Contains(0x5091))
                 {
+                    //QTables.AddRange((byte[])Image.GetPropertyItem(0x5090).Value); //16 bit
+                    //QTables.AddRange((byte[])Image.GetPropertyItem(0x5091).Value); //16 bit
                     //This is causing the QTables to be read on the reciever side
                     Quality |= 128;
                 }
@@ -578,7 +557,6 @@ namespace Media.Rtp
 
                         //Correct Length
                         TagSize -= 2; //Not including their own length
-                        //3 allowing some picutres?
 
                         //QTables are copied when Quality is > 127
                         if (Tag == Tags.QuantizationTable && Quality > 127)
@@ -703,7 +681,7 @@ namespace Media.Rtp
         /// </summary>
         internal void ProcessPackets()
         {
-            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, RestartInterval = 0;
+            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, RestartInterval = 0, RestartCount = 0;
             ArraySegment<byte> tables = default(ArraySegment<byte>);
 
             //Using a new MemoryStream for a Buffer
@@ -732,6 +710,7 @@ namespace Media.Rtp
                     Quality = (uint)packet.Payload[offset++];
                     Width = (uint)(packet.Payload[offset++] * 8); // This should have been 128 or > and the standard would have worked for all resolutions
                     Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
+                    //It is worth noting Rtp does not care what you send and more tags such as comments and or higher resolution pictures may be sent and these values will simply be ignored.
 
                     //Only occur in the first packet
                     if (FragmentOffset == 0)
@@ -750,8 +729,13 @@ namespace Media.Rtp
                                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                              */
                             RestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                            //offset++;
-                            //offset++;
+                            RestartCount = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                            //Get first last bits and flag out
+                            bool first = (RestartInterval & 1) == RestartInterval, last = (RestartCount & 32768) == RestartCount;
+                            //Remove bit
+                            RestartInterval &= 1;
+                            //Remove bit
+                            RestartCount &= (uint)32768;
                         }
 
                         //If the quality > 127 there are usually Quantization Tables
@@ -762,15 +746,16 @@ namespace Media.Rtp
                                 //Must be Zero is Not Zero
                             }
 
-                            //TableId and Precision
-                            //If Precision == 1 then this is a 16 bit table...
-                            //Also each bit should be checked to determine the number of tables?
+                            //Precision and TableId
+                            //If nibble of byte == 1 then this is a 16 bit table...
+                            
+                            //Also each bit in this byte should be checked to determine the number of tables present...
+                            //E.g. the byte should be set bit by bit but a lot of implementations including VLC do not handle this properly
                             byte Precision = (packet.Payload[offset++]);
-                            //Might be more then 1 table...                            
-                            //Determine by looking at each bit in Precision?
                             if (Precision > 0)
                             {
                                 //Not Supported
+                                throw new NotSupportedException("Found a Quantization Table with 16 Bit Precision");
                             }
 
                             //Length of all tables
@@ -802,7 +787,6 @@ namespace Media.Rtp
                         //{
                         //    //Write header using Extensions...
                         //}
-
                     }
 
                     //Write the Payload data from the offset
@@ -823,9 +807,12 @@ namespace Media.Rtp
 
                 //This article explains in detail what exactly happens: http://support.microsoft.com/kb/814675
                 //In short, for a lifetime of an Image constructed from a stream, the stream must not be destroyed.
-                Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, false, true));
+                //Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, false, true));
+                Image = System.Drawing.Image.FromStream(Buffer, false, true).GetThumbnailImage(Image.Width, Image.Height, null, IntPtr.Zero);
             }
         }
+
+        //~JpegFrame() { RemoveAllPackets(); }
 
         /// <summary>
         /// Creates a image from the processed packets in the memory stream
@@ -836,12 +823,37 @@ namespace Media.Rtp
             try
             {
                 if (Image == null) ProcessPackets();
-                return new System.Drawing.Bitmap(Image);
+                //return new System.Drawing.Bitmap(Image);
+                return Image.GetThumbnailImage(Image.Width, Image.Height, null, IntPtr.Zero);
             }
             catch
             {
                 throw;
             }
+        }
+
+        internal void DisposeImage()
+        {
+            if (Image != null)
+            {
+                Image.Dispose();
+                Image = null;
+            }
+        }
+
+        /// <summary>
+        /// Removing All Packets in a JpegFrame destroys any Image associated with the Frame
+        /// </summary>
+        public override void RemoveAllPackets()
+        {
+            DisposeImage();
+            base.RemoveAllPackets();
+        }
+
+        public override RtpPacket Remove(uint sequenceNumber)
+        {
+            DisposeImage();
+            return base.Remove(sequenceNumber);
         }
 
         #endregion

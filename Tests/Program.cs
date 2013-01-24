@@ -309,7 +309,10 @@ namespace Media
 
             #endregion
 
-            Console.WriteLine("RtpDump Test passed!");
+
+            Console.BackgroundColor = ConsoleColor.Green;
+            Console.WriteLine("Test Passed");
+            Console.BackgroundColor = ConsoleColor.Black;
             Console.WriteLine("Waiting for input to Exit................ (Press any key)");
 
             Console.ReadKey();
@@ -324,7 +327,6 @@ namespace Media
             System.IO.File.Delete(currentPath + @"\HexDump.rtpdump");
 
             System.IO.File.Delete(currentPath + @"\HeaderDump.rtpdump");
-
             
         }
 
@@ -777,7 +779,7 @@ a=mpeg4-esid:101");
         {
             try
             {
-                //Create a JpegFrame from a Image
+                //Create a JpegFrame from a Image (Encoding performed)
                 Rtp.JpegFrame f = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
                 //Save the JpegFrame as a Image
                 using (System.Drawing.Image jpeg = f)
@@ -785,19 +787,19 @@ a=mpeg4-esid:101");
                     jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
                 }
 
-                //Create a JpegFrame from an existing RtpFrame (No Decoding Performed)
+                //Create a JpegFrame from an existing RtpFrame (No Encoding / Decoding Performed)
                 Rtp.JpegFrame t = new Rtp.JpegFrame(f);
                 using (System.Drawing.Image jpeg = t)
-                {
+                {                    
                     jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
                 }
 
-                //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)
-                //Todo find out why this fails...
+                //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)                
                 t = new Rtp.JpegFrame();
                 foreach (Rtp.RtpPacket p in f) t.Add(p);
 
                 //Save JpegFrame as Image
+                //Todo find out why this fails... (System.Interop.ExternalException - Generic Error in GDI+ has occured.)
                 using (System.Drawing.Image jpeg = t)
                 {
                     jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);

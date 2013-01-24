@@ -1131,8 +1131,24 @@ namespace Media.Rtp
             return new SourceDescription(context.SynchronizationSourceIdentifier) { SourceDescription.SourceDescriptionItem.CName };
         }
 
+        /// <summary>
+        /// Selects a TransportContext by matching the SynchronizationSourceIdentifier to the given sourceid
+        /// </summary>
+        /// <param name="sourceId"></param>
+        /// <returns></returns>
+        internal TransportContext GetContextBySourceId(uint sourceId)
+        {
+            return TransportContexts.Where(c => c.SynchronizationSourceIdentifier == sourceId).FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Selects a TransportContext by using the packet's Channel property
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <returns></returns>
         internal TransportContext GetContextForPacket(RtcpPacket packet)
         {
+            if (!packet.Channel.HasValue) return null;
             return TransportContexts.Where(c => packet.Channel == c.ControlChannel).FirstOrDefault();
         }
 
@@ -1186,9 +1202,24 @@ namespace Media.Rtp
 
         #region Rtp
 
+        /// <summary>
+        /// Selects a TransportContext for a RtpPacket by matching the packet's PayloadType to the TransportContext's MediaDescription.MediaFormat
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <returns></returns>
         internal TransportContext GetContextForPacket(RtpPacket packet)
         {
-            return TransportContexts.Where(cd => cd.MediaDescription.MediaFormat == packet.PayloadType).FirstOrDefault();
+            return GetContextByPayloadType(packet.PayloadType);
+        }
+
+        /// <summary>
+        /// Selects a TransportContext by matching the given payloadType to the TransportContext's MediaDescription.MediaFormat
+        /// </summary>
+        /// <param name="payloadType"></param>
+        /// <returns></returns>
+        internal TransportContext GetContextByPayloadType(byte payloadType)
+        {
+            return TransportContexts.Where(cd => cd.MediaDescription.MediaFormat == payloadType).FirstOrDefault();
         }
 
         /// <summary>
