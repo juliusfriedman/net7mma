@@ -48,8 +48,9 @@ namespace Media
                 for (int i = 0, e = str.Length; i < e; i += 2)
                 {
                     //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
-                    result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
+                    result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));                    
                     ////        result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
+                    //Could also just perform math here rather than parse >=A && <=F ? ...
                 }
             }
             //Return the bytes

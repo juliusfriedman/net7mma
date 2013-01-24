@@ -1200,7 +1200,7 @@ namespace Media.Rtp.RtpDump
         }
 
         /// <summary>
-        /// Closes the underlying stream if was not to leave open
+        /// Closes the underlying stream if was not set to leave open
         /// </summary>
         public void Close()
         {

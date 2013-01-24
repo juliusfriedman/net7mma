@@ -264,6 +264,8 @@ namespace Media.Rtsp.Server.Streams
                             transportContext.CurrentFrame = frame;
                         }
                         //We should also raise an event to let the UI know
+                        //Normally this would be fired for us when the marker was seen through raising OnRtpPacketReceieved
+                        //But as a Sender we have disabled this event
                         RtpClient.OnRtpFrameChanged(transportContext.CurrentFrame);
                     }
 

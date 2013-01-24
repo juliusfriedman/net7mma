@@ -796,7 +796,10 @@ a=mpeg4-esid:101");
 
                 //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)                
                 t = new Rtp.JpegFrame();
-                foreach (Rtp.RtpPacket p in f) t.Add(p);
+                foreach (Rtp.RtpPacket p in f)
+                {
+                    t.Add(p);
+                }                
 
                 //Save JpegFrame as Image
                 //Todo find out why this fails... (System.Interop.ExternalException - Generic Error in GDI+ has occured.)
