@@ -29,10 +29,11 @@ namespace Media.Rtsp.Server.Streams
         internal NetworkCredential m_RemoteCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
-        volatile internal System.Drawing.Image m_lastFrame;
         
-        internal bool m_ForceTCP;// = true; // To force clients to utilize TCP Interleaved
-        internal bool m_DisableSendStastics;
+        //Maybe should be m_AllowUdp?
+        internal bool m_ForceTCP;// = true; // To force clients to utilize TCP, Interleaved in Rtsp or Rtp
+
+        internal bool m_DisableQOS; //Disabled optional quality of service, In Rtp this is Rtcp
         bool m_Ready;
 
         #endregion
@@ -66,16 +67,12 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// The credential of the stream which will be exposed to clients
         /// </summary>
-        public virtual NetworkCredential RemoteCredential
-        {
-            get { return m_RemoteCred; }
-            set { m_RemoteCred = value; }
-        }
+        public virtual NetworkCredential RemoteCredential { get { return m_RemoteCred; } set { m_RemoteCred = value; } }
 
         /// <summary>
         /// State of the stream 
         /// </summary>
-        public virtual StreamState State { get; set; }
+        public virtual StreamState State { get; protected set; }
 
         /// <summary>
         /// Is this RtspStream dependent on another
@@ -97,12 +94,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Indicates the source is ready to have clients connect
         /// </summary>
-        public virtual bool Ready { get { return m_Ready; } internal set { m_Ready = value; } }
-
-        /// <summary>
-        /// The MediaProtocol of the source used in the SessionDescription describing this source
-        /// </summary>
-        public abstract string MediaProtocol { get; }
+        public virtual bool Ready { get { return m_Ready; } protected set { m_Ready = value; } }
 
         #endregion
 
@@ -145,9 +137,7 @@ namespace Media.Rtsp.Server.Streams
 
         public abstract bool Connected { get; }
 
-        public abstract bool Listening { get; }
-
-        public abstract Sdp.SessionDescription SessionDescription { get; }
+        public abstract bool Listening { get; }        
 
         public void AddAlias(string name)
         {
@@ -158,11 +148,6 @@ namespace Media.Rtsp.Server.Streams
         public void RemoveAlias(string alias)
         {
             m_Aliases.Remove(alias);
-        }
-
-        public virtual System.Drawing.Image GetFrame()
-        {
-            return m_lastFrame;
         }
     }
 }
