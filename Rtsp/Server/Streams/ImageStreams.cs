@@ -79,13 +79,7 @@ namespace Media.Rtsp.Server.Streams
                 m_Watcher.EnableRaisingEvents = true;
                 m_Watcher.NotifyFilter = System.IO.NotifyFilters.CreationTime;
                 m_Watcher.Created += FileCreated;
-            }
-
-            //Add a MediaDescription to our Sdp
-            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, MediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
-
-            //Add the control line
-            m_Sdp.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            }            
         }
 
         #endregion
@@ -104,6 +98,12 @@ namespace Media.Rtsp.Server.Streams
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
             m_RtpClient.AddTransportContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, m_Sdp.MediaDescriptions[0], false));
+
+            //Add a MediaDescription to our Sdp
+            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, m_Sdp.MediaDescriptions[0].MediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
+
+            //Add the control line
+            m_Sdp.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
 
             //Ensure never stops sending
             m_RtpClient.InactivityTimeoutSeconds = -1;

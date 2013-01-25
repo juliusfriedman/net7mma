@@ -14,27 +14,38 @@ namespace Media.Rtsp.Server.Streams
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious
         public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
 
+        System.Drawing.Image m_lastFrame;
+
         #region Properties
 
-        public virtual RtspClient Client { get; set; }
-
-        public override Rtp.RtpClient RtpClient { get { return Client.Client; } }
+        /// <summary>
+        /// Gets the RtspClient this RtspSourceStream uses to provide media
+        /// </summary>
+        public virtual RtspClient RtspClient { get; set; }
 
         /// <summary>
-        /// Indicates if the sources listener is connected
+        /// Gets the RtpClient used by the RtspClient to provide media
         /// </summary>
-        public override bool Connected { get { return Client.Connected; } }
+        public override Rtp.RtpClient RtpClient { get { return RtspClient.Client; } }
 
         /// <summary>
-        /// Indicates if the sources listener is listening
+        /// Indicates if the RtspClient is connected
         /// </summary>
-        public override bool Listening { get { return Client.Listening; } }
+        public override bool Connected { get { return RtspClient.Connected; } }
 
         /// <summary>
-        /// Sdp of the Stream
+        /// Indicates if the RtspClient listener is listening
         /// </summary>
-        public override Sdp.SessionDescription SessionDescription { get { return Client.SessionDescription; } }
+        public override bool Listening { get { return RtspClient.Listening; } }
 
+        /// <summary>
+        /// SessionDescription from the source RtspClient
+        /// </summary>
+        public override Sdp.SessionDescription SessionDescription { get { return RtspClient.SessionDescription; } }
+
+        /// <summary>
+        /// Gets or sets the source Uri used in the RtspClient
+        /// </summary>
         public override Uri Source
         {
             get
@@ -48,24 +59,27 @@ namespace Media.Rtsp.Server.Streams
 
                 base.Source = value;
 
-                if (Client != null)
+                if (RtspClient != null)
                 {
-                    bool wasConnected = Client.Connected;
+                    bool wasConnected = RtspClient.Connected;
 
                     if (wasConnected) Stop();
 
-                    Client.Location = base.Source;
+                    RtspClient.Location = base.Source;
 
                     if (wasConnected) Start();
                 }
             }
         }
 
+        /// <summary>
+        /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
+        /// </summary>
         public override bool Ready
         {
             get
             {
-                return Client.Client != null && Client.Client.Connected && Client.Client.TotalRtpBytesReceieved >= 0;
+                return RtpClient != null && RtpClient.Connected && RtpClient.TotalRtpBytesReceieved >= 0;
             }
         }
 
@@ -76,11 +90,12 @@ namespace Media.Rtsp.Server.Streams
         internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null) 
             : base(name, sourceLocation)
         {
-            //Create the listener
+            //Create the listener if we are the top level stream (Parent)
             if (IsParent)
             {
-                Client = new RtspClient(m_Source, rtpProtocolType);
+                RtspClient = new RtspClient(m_Source, rtpProtocolType);
             }
+            //else it is already assigned via the child
         }
 
         /// <summary>
@@ -101,7 +116,7 @@ namespace Media.Rtsp.Server.Streams
             : this(name, sourceLocation)
         {
             //Set the creds
-            Client.Credential = SourceCredential = credential;
+            RtspClient.Credential = SourceCredential = credential;
         }
 
         /// <summary>
@@ -114,7 +129,7 @@ namespace Media.Rtsp.Server.Streams
             : this(name, sourceLocation)
         {
             //Set the creds
-            Client.Credential = SourceCredential = credential;
+            RtspClient.Credential = SourceCredential = credential;
         }
 
         #endregion
@@ -125,11 +140,11 @@ namespace Media.Rtsp.Server.Streams
         public override void Start()
         {
             State = StreamState.Started;
-            if (!Client.Connected)
+            if (!RtspClient.Connected)
             {
                 try
                 {
-                    Client.StartListening();
+                    RtspClient.StartListening();
                 }
                 catch (RtspClient.RtspClientException)
                 {
@@ -141,7 +156,7 @@ namespace Media.Rtsp.Server.Streams
                 }
                 if (RtpClient != null)
                 {
-                    RtpClient.RtpFrameChanged += Client_RtpFrameChanged;
+                    RtpClient.RtpFrameChanged += DecodeFrame;
                 }
                 m_Started = DateTime.UtcNow;
             }
@@ -152,29 +167,25 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public override void Stop()
         {
-            if (Client.Listening)
+            if (RtspClient.Listening)
             {
-                Client.StopListening();
+                RtspClient.StopListening();
                 if (RtpClient != null)
                 {
-                    RtpClient.RtpFrameChanged -= Client_RtpFrameChanged;
+                    RtpClient.RtpFrameChanged -= DecodeFrame;
                 }
             }
             m_Started = null;
             State = StreamState.Stopped;
         }
 
-        internal virtual void Client_RtpFrameChanged(Rtp.RtpClient sender, Rtp.RtpFrame frame)
+        internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
         {
-            if (Client.Client == null || Client.Client != sender) return;
-            DecodeFrame(frame);
-        }
-
-        internal void DecodeFrame(Rtp.RtpFrame frame)
-        {
+            if (RtspClient.Client == null || RtspClient.Client != sender) return;
             try
             {
-                Media.Sdp.MediaDescription mediaDescription = this.Client.SessionDescription.MediaDescriptions[0];
+                //Get the MediaDescription
+                Media.Sdp.MediaDescription mediaDescription = this.RtspClient.Client.GetContextBySourceId(frame.SynchronizationSourceIdentifier).MediaDescription;
                 if (mediaDescription.MediaType == Sdp.MediaType.audio)
                 {
                     //Could have generic byte[] handlers OnAudioData OnVideoData OnEtc
@@ -184,8 +195,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     if (mediaDescription.MediaFormat == 26)
                     {
-                        m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage();
-                        OnFrameDecoded(m_lastFrame);
+                       OnFrameDecoded(m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage());
                     }
                     else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
                     {
@@ -194,6 +204,7 @@ namespace Media.Rtsp.Server.Streams
                     }
                     else
                     {
+                        //0 - 95
                         //throw new NotImplementedException();
                     }
                 }
@@ -203,7 +214,6 @@ namespace Media.Rtsp.Server.Streams
                 return;
             }
         }
-
     }
 
     /// <summary>
@@ -217,11 +227,11 @@ namespace Media.Rtsp.Server.Streams
         {
             get
             {
-                return ((RtspSourceStream)m_Parent).Client;
+                return ((RtspSourceStream)m_Parent).RtspClient;
             }
             internal set
             {
-                ((RtspSourceStream)m_Parent).Client = value;
+                ((RtspSourceStream)m_Parent).RtspClient = value;
             }
         }        
     }

@@ -104,7 +104,7 @@ namespace Media.Rtsp
         {
             try
             {
-                //E.g. when Stream Location changes on the fly ... could maybe also have events for started and stopped on the listener?
+                //E.g. when Stream Location changes on the fly etc.
                 if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye)
                 {
                     RtpClient.TransportContext trasnportContext = m_RtpClient.GetContextForPacket(packet);
@@ -194,7 +194,7 @@ namespace Media.Rtsp
             m_Attached.Remove(stream);
         }
 
-        internal void CreateSessionDescription(SourceStream stream)
+        internal void CreateSessionDescription(RtpSource stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
 
@@ -213,7 +213,7 @@ namespace Media.Rtsp
             m_SessionDescription.OriginatorAndSessionIdentifier = originatorString;
 
             //As noted in [RTP3550], the use of RTP without RTCP is strongly discouraged.            
-            if (stream.m_DisableSendStastics)
+            if (stream.m_DisableQOS)
             {
                 //However, if a sender does not wish to send RTCP packets in a media session, the sender MUST add the lines "b=RS:0" AND "b=RR:0" to the media description (from [RFC3556]).
                 foreach (Sdp.MediaDescription md in m_SessionDescription.MediaDescriptions)
