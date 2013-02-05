@@ -121,12 +121,17 @@ namespace Media.Rtp
         /// <summary>
         /// The Extension Data of the RtpPacket (only available when Extensions is true)
         /// </summary>
-        public byte[] ExtensionData { get { return m_ExtensionData; } set { Extensions = value != null; m_ExtensionData = value; m_ExtensionLength = (ushort)value.Length; } }
+        public byte[] ExtensionData { get { return m_ExtensionData; } set { Extensions = value != null; if (value != null && value.Length % 4 != 0) throw new ArgumentException("Extension data length must be a multiple of 32"); m_ExtensionData = value; m_ExtensionLength = (value == null ? ushort.MinValue : (ushort)(value.Length / 4)); } }
 
         /// <summary>
         /// The Extension flags of the RtpPacket
         /// </summary>
         public ushort ExtensionFlags { get { return m_ExtensionFlags; } set { m_ExtensionFlags = value; } }
+
+        /// <summary>
+        /// The Length of the ExtensionData in 32 bit (only available when Extensions is true)
+        /// </summary>
+        public ushort ExtensionLength { get { return m_ExtensionLength; } set { m_ExtensionLength = value; } }
 
         /// <summary>
         /// Gets the ExtensionData of the RtpPacket including Flags and Length
@@ -152,14 +157,14 @@ namespace Media.Rtp
             {
                 if (value == null)
                 {
-                    m_Extensions = 0;
+                    m_ExtensionFlags = m_ExtensionLength = m_Extensions = 0;
                 }
                 else
                 {
 
                     m_ExtensionFlags = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 0));
 
-                    m_ExtensionLength = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 2));
+                    m_ExtensionLength = (ushort)(4 * Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 2)));
 
                     m_ExtensionData = new byte[m_ExtensionLength];
 
@@ -218,7 +223,7 @@ namespace Media.Rtp
 
             m_Padding = (byte)(0x1 & (compound >> 5));
             m_Extensions = (byte)(0x1 & (compound >> 4));
-            m_Csc = (byte)(0x1F & compound);
+            m_Csc = (byte)(0x0F & compound);
 
             //Extract Marker flag and payload type
             compound = packetReference.Array[localOffset + packetReference.Offset + 1];
@@ -246,7 +251,7 @@ namespace Media.Rtp
             if (Extensions)
             {
                 m_ExtensionFlags = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position));
-                m_ExtensionLength = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position + 2));
+                m_ExtensionLength = (ushort)(4 * Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position + 2)));
                 m_ExtensionData = new byte[m_ExtensionLength];
                 Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
                 position += 4 + m_ExtensionLength;

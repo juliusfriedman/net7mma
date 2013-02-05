@@ -21,22 +21,8 @@ namespace Media.Rtsp.Server.Streams
             m_Child = true;
         }
 
-        public override bool Connected { get { return m_Parent.Connected; } }
-
         public override Uri Source { get { return m_Parent.Source; } set { m_Parent.Source = value; } }
 
-        public override bool Listening { get { return m_Parent.Listening; } }
-
         public override NetworkCredential SourceCredential { get { return m_Parent.SourceCredential; } set { m_Parent.SourceCredential = value; } }
-
-        public override void Start()
-        {
-            //Add Events
-        }
-
-        public override void Stop()
-        {
-            //Remove Events
-        }
     }
 }

@@ -387,7 +387,7 @@ namespace Media.Rtp.RtpDump
                     {
                         ex_type = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.NumberStyles.HexNumber);
                         ex_len = int.Parse(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1], System.Globalization.CultureInfo.InvariantCulture);
-                        ext_data = Utility.GetBytesUnsafe(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1].Replace("0x", string.Empty));
+                        ext_data = Utility.HexToBytes(RtpDumpConstants.ReadDelimitedValue(reader).Split('=')[1].Replace("0x", string.Empty));
                     }
 
                     //Handle Hex
@@ -402,7 +402,7 @@ namespace Media.Rtp.RtpDump
                         }
 
                         //Parse the bytes
-                        Packet = Utility.GetBytesUnsafe(hex.Replace("0x", string.Empty));
+                        Packet = Utility.HexToBytes(hex.Replace("0x", string.Empty));
 
                         PacketLength = (ushort)Packet.Length;
 
@@ -450,7 +450,7 @@ namespace Media.Rtp.RtpDump
                             hex = hex.Remove(hex.Length - 1);
                         }
 
-                        Packet = Utility.GetBytesUnsafe(hex.Replace("0x", string.Empty));
+                        Packet = Utility.HexToBytes(hex.Replace("0x", string.Empty));
                         return;
                     }
 
@@ -611,11 +611,14 @@ namespace Media.Rtp.RtpDump
 
                             while (blockIndex < directives.Length)
                             {
-                                string[] parts = directives[blockIndex++].Split('=');
-                                sd.Add(new Rtcp.SourceDescription.SourceDescriptionItem((Rtcp.SourceDescription.SourceDescriptionType)Enum.Parse(typeof(Rtcp.SourceDescription.SourceDescriptionType), parts[0], true))
+                                string[] blocks = directives[blockIndex++].Split('=');
+
+                                Rtcp.SourceDescription.SourceDescriptionItem item = new Rtcp.SourceDescription.SourceDescriptionItem((Rtcp.SourceDescription.SourceDescriptionType)Enum.Parse(typeof(Rtcp.SourceDescription.SourceDescriptionType), blocks[0], true));
+
+                                if (blocks.Length > 1)
                                 {
-                                    Text = parts[1].Replace("\"", string.Empty)
-                                });
+                                    item.Text = blocks[1].Replace("\"", string.Empty);
+                                }
                             }
 
                             //Use ToPacket to build field

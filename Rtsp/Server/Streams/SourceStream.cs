@@ -34,7 +34,6 @@ namespace Media.Rtsp.Server.Streams
         internal bool m_ForceTCP;// = true; // To force clients to utilize TCP, Interleaved in Rtsp or Rtp
 
         internal bool m_DisableQOS; //Disabled optional quality of service, In Rtp this is Rtcp
-        bool m_Ready;
 
         #endregion
 
@@ -64,6 +63,7 @@ namespace Media.Rtsp.Server.Streams
         /// The credential the source requires
         /// </summary>
         public virtual NetworkCredential SourceCredential { get { return m_SourceCred; } set { m_SourceCred = value; } }
+        
         /// <summary>
         /// The credential of the stream which will be exposed to clients
         /// </summary>
@@ -82,23 +82,16 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// The Uri to the source media
         /// </summary>
-        public virtual Uri Source
-        {
-            get { return m_Source; }
-            set
-            {
-                m_Source = value;
-            }
-        }
+        public virtual Uri Source { get { return m_Source; } set { m_Source = value; } }
 
         /// <summary>
         /// Indicates the source is ready to have clients connect
         /// </summary>
-        public virtual bool Ready { get { return m_Ready; } protected set { m_Ready = value; } }
+        public virtual bool Ready { get; protected set; }
 
         #endregion
 
-        //Needs Packet and Frame Events abstraction?
+        #region Constructor        
 
         public SourceStream(string name, Uri source)
         {
@@ -122,22 +115,25 @@ namespace Media.Rtsp.Server.Streams
             //m_CredentalCache.Add(source, "Basic", remoteCredential);
         }
 
+        #endregion
+
+        #region Events
+
         public delegate void FrameDecodedHandler(SourceStream stream, System.Drawing.Image decoded);
 
-        public virtual event FrameDecodedHandler FrameDecoded;
+        public event FrameDecodedHandler FrameDecoded;
 
-        internal void OnFrameDecoded(System.Drawing.Image decoded)
-        {
-            if (FrameDecoded != null) FrameDecoded(this, decoded);
-        }
+        internal void OnFrameDecoded(System.Drawing.Image decoded) { if (FrameDecoded != null) FrameDecoded(this, decoded); }
 
-        public abstract void Start();
+        #endregion
 
-        public abstract void Stop();
+        #region Methods
 
-        public abstract bool Connected { get; }
+        //Sets the State = StreamState.Started
+        public virtual void Start() { State = StreamState.Started; }
 
-        public abstract bool Listening { get; }        
+        //Sets the State = StreamState.Stopped
+        public virtual void Stop() { State = StreamState.Stopped; }
 
         public void AddAlias(string name)
         {
@@ -149,5 +145,7 @@ namespace Media.Rtsp.Server.Streams
         {
             m_Aliases.Remove(alias);
         }
+
+        #endregion
     }
 }
