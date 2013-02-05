@@ -31,26 +31,36 @@ namespace Media
         #endregion
 
         /// <summary>
-        /// Converts a String to a Byte[]
+        /// Converts a String in the form 0011AABB to a Byte[] using the chars in the string as bytes to caulcate the decimal value.
+        /// Lower case values are not supported and no error checking is performed.
         /// </summary>
-        /// <notes>Reduced string allocations from managed version substring
+        /// <notes>
+        /// Reduced string allocations from managed version substring
         /// About 10 milliseconds faster then Managed when doing it 100,000 times. otherwise no change
         /// </notes>
         /// <param name="str"></param>
         /// <returns></returns>
-        internal unsafe static byte[] GetBytesUnsafe(string str)
+        internal unsafe static byte[] HexToBytes(string str, int start = 0, int length = -1)
         {
+            if (length == 0) return null;
+            if (length <= -1) length = str.Length;
+            if (start > length - start) throw new ArgumentOutOfRangeException("start");
+            if (length > length - start) throw new ArgumentOutOfRangeException("length");
             List<byte> result = new List<byte>();
-            //So we don't have to substring get a pointer
-            fixed (char* pChar = str)
+            //Dont check the results for overflow
+            unchecked
             {
-                //Iterate the pointer using the managed length ....
-                for (int i = 0, e = str.Length; i < e; i += 2)
+                //So we don't have to substring get a pointer to the first char
+                fixed (char* pChar = str)
                 {
-                    //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
-                    result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));                    
-                    ////        result.Add(byte.Parse(str.Substring(i, 2), System.Globalization.NumberStyles.HexNumber));
-                    //Could also just perform math here rather than parse >=A && <=F ? ...
+                    //Iterate the pointer using the managed length ....
+                    for (int i = start, e = length; i < e; i += 2)
+                    {
+                        //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
+                        //result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
+                        //Conver 2 Chars to a byte
+                        result.Add((byte)((pChar[i] > '9' ? pChar[i] - 'A' + 10 : pChar[i] - '0') << 4 | (pChar[i + 1] > '9' ? pChar[i + 1] - 'A' + 10 : pChar[i + 1] - '0')));
+                    }
                 }
             }
             //Return the bytes
@@ -79,13 +89,15 @@ namespace Media
 
             //Enumerate the ones that are = or > then port and increase port along the way
             foreach (IPEndPoint ep in listeners.Where(ep => ep.Port >= port))
-                if (ep.Port == port + 1 || port == ep.Port)
-                    port++;
+            {
+                if (port == ep.Port) port++;
+                else if (ep.Port == port + 1) port += 2;
+            }
 
             //If we only want even ports and we found an even one return it
-            if (even && port % 2 == 0) return port;
+            if (even && port % 2 == 0 || !even && port %2 != 0) return port;
 
-            //We found an even and we wanted odd
+            //We found an even and we wanted odd or vice versa
             return ++port;
         }
 
@@ -93,19 +105,11 @@ namespace Media
         /// Determine the computers first Ipv4 Address 
         /// </summary>
         /// <returns>The First IPV4 Address Found on the Machine</returns>
-        static internal IPAddress GetV4IPAddress()
-        {
-            return GetFirstIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
-        }
+        static internal IPAddress GetFirstV4IPAddress() { return GetFirstIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); }
 
-        static internal IPAddress GetFirstIPAddress(System.Net.Sockets.AddressFamily addressFamily)
-        {
-            foreach (System.Net.IPAddress ip in System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName()).AddressList)
-                if (ip.AddressFamily == addressFamily) return ip;
-            return IPAddress.Loopback;
-        }
+        static internal IPAddress GetFirstIPAddress(System.Net.Sockets.AddressFamily addressFamily) { foreach (System.Net.IPAddress ip in System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName()).AddressList) if (ip.AddressFamily == addressFamily) return ip; return IPAddress.Loopback; }
 
-        internal static ushort ReverseUnsignedShort(ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
+        public static ushort ReverseUnsignedShort(ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
 
         public static uint ReverseUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
 
@@ -149,14 +153,11 @@ namespace Media
                 independently.
             */
 
-            DateTime baseDate;
+            DateTime baseDate = value >= UtcEpoch2036 ? UtcEpoch2036 : UtcEpoch1900;
+            
+            TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
 
-            if (value >= UtcEpoch2036) baseDate = UtcEpoch2036;
-            else baseDate = UtcEpoch1900;
-
-            TimeSpan ts = ((TimeSpan)(value.ToUniversalTime() - baseDate.ToUniversalTime()));
-
-            return ((ulong)(ts.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(ts.Ticks / TimeSpan.TicksPerSecond * 0x100000000L);
+            return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / TimeSpan.TicksPerSecond * 0x100000000L);
         }
 
         public static DateTime NptTimestampToDateTime(ulong ntpTimestamp)
@@ -167,6 +168,7 @@ namespace Media
         public static DateTime NptTimestampToDateTime(uint seconds, uint fractions)
         {
             ulong ticks =(ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
+            //Check for 2nd epoch
             if ((seconds & 0x80000000L) == 0)
             {
                 return UtcEpoch2036 + TimeSpan.FromTicks((Int64)ticks);
@@ -177,9 +179,10 @@ namespace Media
             }
         }
 
+        //When the First Epoch will wrap (The real Y2k)
         public static DateTime UtcEpoch2036 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
 
-        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
+        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public static DateTime UtcEpoch1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 

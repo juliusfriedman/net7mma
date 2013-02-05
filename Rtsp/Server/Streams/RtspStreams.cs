@@ -29,16 +29,6 @@ namespace Media.Rtsp.Server.Streams
         public override Rtp.RtpClient RtpClient { get { return RtspClient.Client; } }
 
         /// <summary>
-        /// Indicates if the RtspClient is connected
-        /// </summary>
-        public override bool Connected { get { return RtspClient.Connected; } }
-
-        /// <summary>
-        /// Indicates if the RtspClient listener is listening
-        /// </summary>
-        public override bool Listening { get { return RtspClient.Listening; } }
-
-        /// <summary>
         /// SessionDescription from the source RtspClient
         /// </summary>
         public override Sdp.SessionDescription SessionDescription { get { return RtspClient.SessionDescription; } }
@@ -75,13 +65,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready
-        {
-            get
-            {
-                return RtpClient != null && RtpClient.Connected && RtpClient.TotalRtpBytesReceieved >= 0;
-            }
-        }
+        public override bool Ready { get { return RtspClient != null && RtspClient.Connected && RtspClient.Listening && RtpClient != null && RtpClient.Connected && RtpClient.TotalRtpBytesReceieved >= 0; ;} }
 
         #endregion
 
@@ -138,28 +122,28 @@ namespace Media.Rtsp.Server.Streams
         /// Beings streaming from the source
         /// </summary>
         public override void Start()
-        {
-            State = StreamState.Started;
+        {            
             if (!RtspClient.Connected)
             {
                 try
                 {
                     RtspClient.StartListening();
+                    m_Started = DateTime.UtcNow;
+                    if (RtpClient != null) RtpClient.RtpFrameChanged += DecodeFrame;
                 }
                 catch (RtspClient.RtspClientException)
                 {
                     //Wrong Credentails etc...
+                    //Swallow, Stream still 'Started'?
                 }
                 catch
                 {
+                    //Stop?
                     throw;
                 }
-                if (RtpClient != null)
-                {
-                    RtpClient.RtpFrameChanged += DecodeFrame;
-                }
-                m_Started = DateTime.UtcNow;
             }
+            //Call base
+            base.Start();
         }
 
         /// <summary>
@@ -169,14 +153,15 @@ namespace Media.Rtsp.Server.Streams
         {
             if (RtspClient.Listening)
             {
-                RtspClient.StopListening();
-                if (RtpClient != null)
+                try
                 {
-                    RtpClient.RtpFrameChanged -= DecodeFrame;
+                    RtspClient.StopListening();
+                    if (RtpClient != null) RtpClient.RtpFrameChanged -= DecodeFrame;
                 }
+                catch { }
             }
+            base.Stop();
             m_Started = null;
-            State = StreamState.Stopped;
         }
 
         internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)

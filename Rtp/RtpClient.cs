@@ -103,7 +103,7 @@ namespace Media.Rtp
             internal Socket RtpSocket, RtcpSocket;
 
             //Is Rtcp Enabled on this Interleave (when false will not send / recieve reports)
-            public bool RtcpEnabled = true;
+            public readonly bool RtcpEnabled = true;
 
             //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;
@@ -1323,10 +1323,7 @@ namespace Media.Rtp
             }
 
             //Dispose Interleve Sockets
-            TransportContexts.ForEach(c =>
-            {
-                c.CloseSockets();
-            });
+            TransportContexts.ForEach(c => c.CloseSockets());
 
             //Counters go away with the transportChannels
             lock (TransportContexts) TransportContexts.Clear();
@@ -1405,15 +1402,14 @@ namespace Media.Rtp
                         }
                         else
                         {
-
-                            context = TransportContexts.Where(c => c.MediaDescription.MediaFormat == (byte)(payload & 0x7f) /*&& c.RemoteRtp == socket.RemoteEndPoint*/).FirstOrDefault();
-
+                            context = GetContextByPayloadType((byte)(payload & 0x7f));
+                            
                             if (context == null) return received;
 
                             RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, offset, received - offset));
                             packet.Channel = context.DataChannel;
 
-                            //The end point could apparently have also changed here
+                            //The end point could apparently have also changed here from udp in certain cirsumstances / configurations. Maybe have a setting to allow this
                             //GetInterleaveForPacket(packet).RemoteRtp = (IPEndPoint)socket.RemoteEndPoint;
 
                             OnRtpPacketReceieved(packet);
@@ -1577,15 +1573,9 @@ namespace Media.Rtp
 #if DEBUG
             catch (Exception ex)
             {
-                if (ex is SocketException)
-                {
-                    System.Diagnostics.Debug.WriteLine("SocketException occured in RtpClient.SendData: " + ex.Message + ". SocketError = " + error + ", ErrorCode = " + (ex as SocketException).ErrorCode);
-
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("Exception occured in RtpClient.SendData: " + ex.Message + ". SocketError = " + error);
-                }
+                string output = "Exception occured in RtpClient.SendData: " + ex.Message + ". SocketError = " + error + '"';
+                if (ex is SocketException) output += ", ErrorCode = " + (ex as SocketException).ErrorCode + '"';
+                System.Diagnostics.Debug.WriteLine(output);
             }
 #else
             catch {  }
@@ -1594,16 +1584,45 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Entry point of the m_WorkerThread. Handles sending out RtpPackets and RtcpPackets in buffer and handling any incoming RtcpPackets
+        /// Sends a RtcpGoodbye Immediately if we have not recieved a packet in the required time.
+        /// </summary>
+        /// <param name="lastActivity">The time the lastActivity has occured on the context (sending or recieving)</param>
+        /// <param name="context">The context to check against</param>
+        /// <returns>True if the connection is inactive and a Goodebye was attempted to be sent to the remote party</returns>
+        internal bool SendGoodbyeIfInactive(DateTime lastActivity, TransportContext context)
+        {
+            bool inactive = false;
+
+            if (context.RtcpEnabled)
+            {
+                //Check SR, RR last recieved / sent the same as below
+                if (true)
+                {
+                    //SendGoodbye(context);
+                    //inactive = true;
+                }
+            }
+
+            //If we have our own InactivityTimeout then enforce it (If Rtcp is disabled and the remote party does not send a Goodbye this may never happen)
+            if (inactive || InactivityTimeoutSeconds.HasValue && InactivityTimeoutSeconds > 0 && (DateTime.UtcNow - lastActivity).TotalSeconds >= InactivityTimeoutSeconds)
+            {
+                SendGoodbye(context);
+                inactive = true;
+            }
+
+            return inactive;
+        }
+
+        /// <summary>
+        /// Entry point of the m_WorkerThread. Handles sending out RtpPackets and RtcpPackets in buffer and handling any incoming RtcpPackets.
+        /// Sends a Goodbye and exits if no packets are sent of recieved in a certain amount of time
         /// </summary>
         internal void SendRecieve()
         {
             try
             {
-                DateTime lastActivity = DateTime.UtcNow;
-
                 //Until aborted
-                while (true)
+                while (m_WorkerThread != null && m_WorkerThread.ThreadState != ThreadState.StopRequested)
                 {
                     //Everything we send is IEnumerable
                     System.Collections.IEnumerable toSend;
@@ -1622,10 +1641,13 @@ namespace Media.Rtp
                         foreach (RtcpPacket packet in toSend)
                         {
                             //If the entire packet was sent
-                            if (SendRtcpPacket(packet) == packet.PacketLength) lastActivity = DateTime.UtcNow;
-
-                            //If we have received or sent a goodbyte
-                            if (GetContextForPacket(packet).Goodbye != null) break;
+                            if (SendRtcpPacket(packet) == packet.PacketLength)
+                            {
+                                //If we have received or sent a goodbyte
+                                TransportContext context = GetContextForPacket(packet);
+                                if (context.Goodbye != null) break;
+                                else if (SendGoodbyeIfInactive(DateTime.UtcNow, context)) break;
+                            }
                         }
 
                         toSend = null;
@@ -1648,13 +1670,15 @@ namespace Media.Rtp
 
                         foreach (RtpPacket packet in toSend)
                         {
-                            //If we sent or received a goodbye
-                            //If we send a goodebye
-                            Goodbye goodbye = GetContextForPacket(packet).Goodbye;
-                            if (goodbye != null && goodbye.Sent.HasValue) break;
-
                             //If the entire packet was sent
-                            if (SendRtpPacket(packet) == packet.Length) lastActivity = DateTime.UtcNow;
+                            if (SendRtpPacket(packet) == packet.Length)
+                            {
+                                //If we sent or received a goodbye
+                                //If we send a goodebye
+                                TransportContext context = GetContextForPacket(packet);
+                                if (context.Goodbye != null) break;
+                                else if (SendGoodbyeIfInactive(DateTime.UtcNow, context)) break;
+                            }
                         }
 
                         toSend = null;
@@ -1666,21 +1690,21 @@ namespace Media.Rtp
 
                     lock (TransportContexts)
                     {
-
                         try
                         {
+                            bool inactive = false;
+
                             //Enumerate each context and receive data, if received update the lastActivity
                             TransportContexts.ForEach(c =>
                             {
-                                if (RecieveData(c.DataChannel, c.RtpSocket) > 0) lastActivity = DateTime.UtcNow;
-                                if (RecieveData(c.ControlChannel, c.RtcpSocket) > 0) lastActivity = DateTime.UtcNow;
-
-                                //If we have our own InactivityTimeout then enforce it
-                                if (InactivityTimeoutSeconds.HasValue && InactivityTimeoutSeconds > 0 && (DateTime.UtcNow - lastActivity).TotalSeconds >= InactivityTimeoutSeconds)
+                                if (RecieveData(c.DataChannel, c.RtpSocket) <= 0 || RecieveData(c.ControlChannel, c.RtcpSocket) <= 0)
                                 {
-                                    SendGoodbye(c);
+                                    //If we have our own InactivityTimeout then enforce it
+                                    inactive = SendGoodbyeIfInactive(DateTime.UtcNow, c);
                                 }
                             });
+                            
+                            if(inactive) break;
                         }
                         catch (SocketException)
                         {

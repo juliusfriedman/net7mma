@@ -28,6 +28,8 @@ namespace Media.Rtcp
             FractionLost = packet[index++];
 
             //Should check endian before writing
+
+            //Read UInt24
             CumulativePacketsLost = (packet[index++] << 24 | packet[index++] << 16 | packet[index++] << 8 | byte.MaxValue);
 
             //Should check endian before swapping
@@ -61,7 +63,7 @@ namespace Media.Rtcp
             //FractionsLost
             result.Add((byte)FractionLost);
             
-            // cumulative packets lost
+            // cumulative packets lost (UInt24)
             result.Add((byte)((CumulativePacketsLost >> 24) | 0xFF));
             result.Add((byte)((CumulativePacketsLost >> 16) | 0xFF));
             result.Add((byte)((CumulativePacketsLost >> 8 | 0xFF)));

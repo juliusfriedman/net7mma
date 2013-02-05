@@ -11,8 +11,9 @@ using Media.Rtsp.Server.Streams;
 namespace Media.Rtsp
 {
     /// <summary>
-    /// Implementation of Rfc 2326 server 
+    /// Implementation of Rtsp / RFC2326 server 
     /// http://tools.ietf.org/html/rfc2326
+    /// Suppports Reliable(Rtsp / Tcp or Rtsp / Http) and Unreliable(Rtsp / Udp) connections
     /// </summary>
     public class RtspServer
     {
@@ -50,10 +51,14 @@ namespace Media.Rtsp
 
         int m_MaximumClients = 1024;
 
+        /// <summary>
+        /// The version of the Rtsp protocol in use by the server
+        /// </summary>
         double m_Version = 1.0;
 
         /// <summary>
         /// The HttpListner used for handling Rtsp over Http
+        /// Todo, use Socket on Designated Port
         /// </summary>
         HttpListener m_HttpListner;
 
@@ -178,7 +183,7 @@ namespace Media.Rtsp
             get
             {                
                 if (TotalStreamCount == 0) return 0;
-                return Streams.Where(s => s.Listening == true).Count();
+                return Streams.Where(s => s.State == SourceStream.StreamState.Stopped && s.Ready == true).Count();
             }
         }
 
@@ -224,8 +229,7 @@ namespace Media.Rtsp
 
         public RtspServer(int listenPort = DefaultPort)
         {
-            //Hanlded in RtpClients (Could bring it back and set it on each client created?)
-            /*ClientRtpInactivityTimeoutSeconds = */ClientRtspInactivityTimeoutSeconds = 120;
+            ClientRtspInactivityTimeoutSeconds = 60;
             ServerName = "ASTI Media Server";
             m_ServerPort = listenPort;
         }
@@ -270,7 +274,7 @@ namespace Media.Rtsp
                     else
                     {
                         m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                        m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetV4IPAddress(), port));
+                        m_UdpServerSocket.Bind(new IPEndPoint(Utility.GetFirstV4IPAddress(), port));
                     }
                     //Begin the initial recieve
                     {
@@ -514,17 +518,6 @@ namespace Media.Rtsp
                     if(session.m_RtpClient != null) session.m_RtpClient.SendGoodbyes();
                     RemoveSession(session);
                 }
-
-                ////If the RtpInactivityTimeout is not disabled
-                //if (ClientRtpInactivityTimeoutSeconds != -1 &&  session.m_RtpClient != null &&
-                //    !session.m_RtpClient.Interleaves.ToList().All(c => !c.GoodbyeSent && //The client hasn't sent a Goodbye
-                //        !c.GoodbyeRecieved && //Or Recieved one
-                //        //(c.RecieversReport != null || c.SendersReport != null) && //They have a senders report or a recievers report
-                //        c.SynchronizationSourceIdentifier != 0 && //And the transportChannel has been initialized
-                //        c.CurrentFrame != null && (c.CurrentFrame.Created.Value - DateTime.UtcNow).TotalSeconds < ClientRtpInactivityTimeoutSeconds)) //And the time since the CurrentFrame was created was not longen than the threshold
-                //{
-                //    RemoveSession(session);
-                //}
             }
         }
 
@@ -534,7 +527,7 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            foreach (RtpSource stream in Streams.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Listening == false))
+            foreach (RtpSource stream in Streams.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Ready == false))
             {
                 try
                 {
@@ -628,13 +621,6 @@ namespace Media.Rtsp
                 m_Maintainer = null;
             }
 
-            //Dispose the socket
-            m_TcpServerSocket.Dispose();
-
-            //Stop other listeners
-            DisableHttp();
-            DisableUdp();
-
             //Stop listening on client streams
             StopStreams();
 
@@ -644,6 +630,13 @@ namespace Media.Rtsp
                 cs.Disconnect();
                 RemoveSession(cs);
             }
+
+            //Dispose the socket
+            m_TcpServerSocket.Dispose();
+
+            //Stop other listeners
+            DisableHttp();
+            DisableUdp();
 
             //Erase statistics
             m_Started = null;
@@ -777,7 +770,7 @@ namespace Media.Rtsp
                         session.m_Udp = new UdpClient();
                         session.m_Udp.AllowNatTraversal(true);
                         session.m_Udp.ExclusiveAddressUse = false;
-                        session.m_Udp.Ttl = 255;
+                        //session.m_Udp.Ttl = 255;
                         session.m_Udp.Connect(remote);
 
                         //Ensure the socket is assigned from the client
@@ -934,6 +927,7 @@ namespace Media.Rtsp
 
         #region Rtsp Request Handling Methods
 
+        //Todo use sockets and don't require a Http Listener.
         internal void ProcessHttpRtspRequest(IAsyncResult state)
         {
             try
@@ -1054,7 +1048,7 @@ namespace Media.Rtsp
             //Ensure we have a session and request
             if (request == null || session == null)
             {
-                //We can't identify the session                
+                //We can't identify the request or session
                 return;
             }
 
@@ -1064,12 +1058,15 @@ namespace Media.Rtsp
                 ProcessInvalidRtspRequest(session);
                 return;
             }
-            else if (session.LastRequest != null && request.CSeq == session.LastRequest.CSeq)
+            else if (session.LastRequest != null && request.CSeq == session.LastRequest.CSeq) //Check for a duplicate request
             {
-                //TODO Fix me (Usually Tcp)
-                //Do nothing just to allow vlc to continue
+                //TODO Fix me 
+                //Do nothing just to allow vlc to continue for now
                 return;
             }
+
+            //Synchronize the server and client since this is not a duplicate
+            session.LastRequest = request;
 
             //If there is a body and no content-length
             if (string.IsNullOrWhiteSpace(request.Body) && !request.ContainsHeader(RtspHeaders.ContentLength))
@@ -1093,9 +1090,6 @@ namespace Media.Rtsp
                 ProcessInvalidRtspRequest(session, RtspStatusCode.VersionNotSupported);
                 return;
             }
-
-            //Synchronize the server and client
-            session.LastRequest = request;
 
             //Determine the handler for the request and process it
             switch (request.Method)
@@ -1301,7 +1295,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            if (!found.Listening)
+            if (!found.Ready)
             {
                 ProcessInvalidRtspRequest(session, RtspStatusCode.MethodNotAllowed);
                 return;
@@ -1610,7 +1604,7 @@ namespace Media.Rtsp
 
             //Create the response
             RtspResponse resp = session.CreateRtspResponse(request);
-            resp.AppendOrSetHeader(RtspHeaders.Session, "timeout=60");
+            resp.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + ClientRtspInactivityTimeoutSeconds);
             resp.SetHeader(RtspHeaders.Transport, returnTransportHeader);
 
             //Send the response

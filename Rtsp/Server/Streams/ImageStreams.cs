@@ -33,9 +33,6 @@ namespace Media.Rtsp.Server.Streams
         //Watches for files if given in constructor
         protected System.IO.FileSystemWatcher m_Watcher;
 
-        //Sdp created dynamically per instance
-        protected Sdp.SessionDescription m_Sdp = new Sdp.SessionDescription(1);
-
         #endregion
 
         #region Propeties
@@ -44,21 +41,6 @@ namespace Media.Rtsp.Server.Streams
         /// Indicates if the Stream should continue from the beginning once reaching the end
         /// </summary>
         public bool Loop { get; set; }
-
-        /// <summary>
-        /// Implementes the Connected property for SourceStream
-        /// </summary>
-        public override bool Connected { get { return true; } }
-
-        /// <summary>
-        /// Implementes the Listening property for SourceStream
-        /// </summary>
-        public override bool Listening { get { return true; } }
-
-        /// <summary>
-        /// Implementes the SessionDescription property for SourceStream
-        /// </summary>
-        public override Sdp.SessionDescription SessionDescription { get { return m_Sdp; } }
 
         /// <summary>
         /// Implementes the SessionDescription property for RtpSourceStream
@@ -95,15 +77,15 @@ namespace Media.Rtsp.Server.Streams
             //If this class was used to send directly to one person it would be setup with the recievers address
             m_RtpClient = Rtp.RtpClient.Sender(System.Net.IPAddress.Any);
 
+            //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, RtpSource.RtpMediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
+
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
-            m_RtpClient.AddTransportContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, m_Sdp.MediaDescriptions[0], false));
-
-            //Add a MediaDescription to our Sdp
-            m_Sdp.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, m_Sdp.MediaDescriptions[0].MediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
+            m_RtpClient.AddTransportContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false));
 
             //Add the control line
-            m_Sdp.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
 
             //Ensure never stops sending
             m_RtpClient.InactivityTimeoutSeconds = -1;
@@ -139,7 +121,7 @@ namespace Media.Rtsp.Server.Streams
                         }
                     }
                     
-                    //If we habe not been stopped
+                    //If we have not been stopped already
                     if (m_Worker != null)
                     {
                         //Only ready after all pictures are in the queue
@@ -157,6 +139,7 @@ namespace Media.Rtsp.Server.Streams
                 Ready = true;
                 m_Worker.Start();
             }
+            base.Start();
         }
 
         public override void Stop()
@@ -189,6 +172,7 @@ namespace Media.Rtsp.Server.Streams
             }
 
             m_Frames.Clear();
+            base.Stop();
         }
 
         /// <summary>
@@ -234,7 +218,7 @@ namespace Media.Rtsp.Server.Streams
 
         internal virtual void SendPackets()
         {
-            while (true)
+            while (State == StreamState.Started)
             {
                 try
                 {

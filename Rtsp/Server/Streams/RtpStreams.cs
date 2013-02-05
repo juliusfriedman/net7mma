@@ -17,11 +17,8 @@ namespace Media.Rtsp.Server.Streams
 
         Sdp.SessionDescription m_Sdp = new Sdp.SessionDescription(1);
 
-        public RtpSource(string name, Uri source)
-            : base(name, source)
-        {
-        }
-
+        public RtpSource(string name, Uri source) : base(name, source) { }
+        
         public bool DisableRtcp { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
 
         public abstract Rtp.RtpClient RtpClient { get; }
