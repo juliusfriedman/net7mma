@@ -356,6 +356,53 @@ namespace Media
             p = new Rtp.RtpPacket(p.ToBytes());
             Console.WriteLine(p.TimeStamp);
             Console.WriteLine(p.SequenceNumber);
+
+            //Test TestOnvifRTPExtensionHeader (Thanks to Wuffles@codeplex)
+
+            byte[] m_SamplePacketBytes = new byte[]
+                                      {
+                                          0x90, 0x60, 0x94, 0x63, // RTP Header
+                                          0x0D, 0x19, 0x60, 0xC9, // .
+                                          0xA6, 0x20, 0x13, 0x44, // .
+
+                                          0xAB, 0xAC, 0x00, 0x03, // Extension Header   
+                                          0xD4, 0xBB, 0x8A, 0x43, // Extension Data     
+                                          0xFE, 0x7A, 0xC8, 0x1E, // Extension Data     
+                                          0x00, 0xD3, 0x00, 0x00, // Extension Data     
+
+                                          0x5C, 0x81, 0x9B, 0xC0, // RTP Payload start
+                                          0x1C, 0x02, 0x38, 0x8E, // .
+                                          0x2B, 0xC0, 0x01, 0x09, // .
+                                          0x55, 0x77, 0x49, 0x99, // .
+                                          0x62, 0xFF, 0xBA, 0xC9, // .
+                                          0x8E, 0xCE, 0x23, 0x96, // .
+                                          0x6A, 0xCC, 0xF5, 0x5F, // .
+                                          0xA0, 0x08, 0xD9, 0x37, // .
+                                          0xCF, 0xFA, 0xA5, 0x4D, // .
+                                          0x16, 0x6C, 0x78, 0x61, // .
+                                          0xFA, 0x7F, 0xC8, 0x7E, // .
+                                          0xA1, 0x15, 0xF6, 0x5F, // .
+                                          0xA3, 0x2F, 0x82, 0xC7, // .
+                                          0x45, 0x0A, 0x87, 0x75, // .
+                                          0xEC, 0x5B, 0x7D, 0xDE, // .
+                                          0x82, 0x31, 0xD0, 0xE9, // .
+                                          0xBE, 0xE5, 0x39, 0x8D, // etc... 
+                                      };
+            Rtp.RtpPacket testPacket = new Rtp.RtpPacket(m_SamplePacketBytes);
+
+            // Check extension values are what we expected.
+            if (testPacket.ExtensionFlags != 0xABAC) throw new Exception("Expected Extension Flags Not Found");
+            else Console.WriteLine("Found ExtensionFlags: " + testPacket.ExtensionFlags.ToString("X"));
+
+            // The extension data length is 3 (DWORDS) but this property exposes the length of the ExtensionData in bytes
+            if (testPacket.ExtensionLength != 12) throw new Exception("Expected ExtensionLength not found");
+            else Console.WriteLine("Found ExtensionLength: " + testPacket.ExtensionLength);
+
+            // Test the extension data is correct
+            byte[] expected = { 0xD4, 0xBB, 0x8A, 0x43, 0xFE, 0x7A, 0xC8, 0x1E, 0x00, 0xD3, 0x00, 0x00 };
+            if (!testPacket.ExtensionData.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
+            else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(testPacket.ExtensionData));
+
         }
 
         static void TestRtspMessage()
@@ -373,7 +420,7 @@ namespace Media
 
             if (!(fromBytes.Location == request.Location && fromBytes.CSeq == request.CSeq))
             {
-                throw new Exception();
+                throw new Exception("Location Or CSeq does not match!");
             }
         }
 
