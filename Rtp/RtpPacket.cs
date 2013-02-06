@@ -119,9 +119,9 @@ namespace Media.Rtp
         public byte[] Payload { get { return m_Payload; } set { m_Payload = value; } }
 
         /// <summary>
-        /// The Extension Data of the RtpPacket (only available when Extensions is true)
+        /// The Extension Data of the RtpPacket (Must be aligned to a multiple of 32 bits, only available when Extensions is true)
         /// </summary>
-        public byte[] ExtensionData { get { return m_ExtensionData; } set { Extensions = value != null; if (value != null && value.Length % 4 != 0) throw new ArgumentException("Extension data length must be a multiple of 32"); m_ExtensionData = value; m_ExtensionLength = (value == null ? ushort.MinValue : (ushort)(value.Length / 4)); } }
+        public byte[] ExtensionData { get { return m_ExtensionData; } set { Extensions = value != null; if (value != null && value.Length % 4 != 0) throw new InvalidOperationException("Extension data must be aligned to a multiple of 32"); m_ExtensionData = value; m_ExtensionLength = (value == null ? ushort.MinValue : (ushort)(value.Length / 4)); } }
 
         /// <summary>
         /// The Extension flags of the RtpPacket
@@ -129,9 +129,9 @@ namespace Media.Rtp
         public ushort ExtensionFlags { get { return m_ExtensionFlags; } set { m_ExtensionFlags = value; } }
 
         /// <summary>
-        /// The Length of the ExtensionData in 32 bit (only available when Extensions is true)
+        /// Gets or sets the Length of the ExtensionData in bytes. (Must be a multiple of 32)
         /// </summary>
-        public ushort ExtensionLength { get { return m_ExtensionLength; } set { m_ExtensionLength = value; } }
+        public ushort ExtensionLength { get { return m_ExtensionLength; } set { if (value % 4 != 0) throw new InvalidOperationException("Value must be a multiple of 32"); m_ExtensionLength = (ushort)(value / 4); } }
 
         /// <summary>
         /// Gets the ExtensionData of the RtpPacket including Flags and Length
@@ -247,7 +247,6 @@ namespace Media.Rtp
             for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + position)));
 
             //Extract Extensions
-            //This might not be needed
             if (Extensions)
             {
                 m_ExtensionFlags = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position));
@@ -257,17 +256,18 @@ namespace Media.Rtp
                 position += 4 + m_ExtensionLength;
             }
 
-            //Extract payload
+            //ToDo Reorder and optomize this section to prevent unrequired subtraction operation
+
+            //Determine payload length
             int payloadSize = packetReference.Count - localOffset - position;
             
-            //If the data was recieved late on a Tcp socket then the size at the beginning may be invalid.. 
-            //System.Diagnostics.Debug.WriteLine((ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(packetReference.Array, 2)));
+            //If the payloadSize is negitive and we were not given a payloadLen
             if (payloadSize == -1)
             {
                 //The real size is the size of the slice in total
                 payloadSize = packetReference.Array.Length - localOffset - position; /* - RtpHeaderLength*/
             }
-
+            
             //If we had a known length we will use it here to prevent resizing later
             if (payloadLen != -1)
             {
