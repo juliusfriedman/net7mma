@@ -63,11 +63,21 @@ namespace Media.Rtsp.Server.Streams
         /// The credential the source requires
         /// </summary>
         public virtual NetworkCredential SourceCredential { get { return m_SourceCred; } set { m_SourceCred = value; } }
+
+        /// <summary>
+        /// The type of Authentication the source requires
+        /// </summary>
+        public virtual AuthenticationSchemes SourceAuthenticationScheme { get; set; }
         
         /// <summary>
         /// The credential of the stream which will be exposed to clients
         /// </summary>
         public virtual NetworkCredential RemoteCredential { get { return m_RemoteCred; } set { m_RemoteCred = value; } }
+
+        /// <summary>
+        /// The type of Authentication to use when remote connections occur
+        /// </summary>
+        public virtual AuthenticationSchemes RemoteAuthenticationScheme { get; set; }
 
         /// <summary>
         /// State of the stream 

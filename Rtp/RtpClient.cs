@@ -103,7 +103,7 @@ namespace Media.Rtp
             internal Socket RtpSocket, RtcpSocket;
 
             //Is Rtcp Enabled on this Interleave (when false will not send / recieve reports)
-            public readonly bool RtcpEnabled = true;
+            public bool RtcpEnabled = true;
 
             //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort, ClientRtpPort, ClientRtcpPort;

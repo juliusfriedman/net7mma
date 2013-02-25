@@ -1969,8 +1969,8 @@ namespace Media.Rtsp
             if (request == null) throw new ArgumentNullException("request");
             if (source == null) throw new ArgumentNullException("source");
 
-            //If the source has no password then there is nothing to determine
-            if (source.RemoteCredential == null) return true;
+            //If the source has no authentication scheme or no credential then there is nothing to determine
+            if (source.SourceAuthenticationScheme == AuthenticationSchemes.None || source.RemoteCredential == null) return true;
             
             //If the request does not have the authorization header then there is nothing else to determine
             if (!request.ContainsHeader(RtspHeaders.Authroization)) return false;
@@ -1978,7 +1978,7 @@ namespace Media.Rtsp
             //Get the header
             string header = request[RtspHeaders.Authroization].ToLower();
 
-            if (header.Contains("basic"))
+            if (source.SourceAuthenticationScheme == AuthenticationSchemes.Basic && header.Contains("basic"))
             {
                 //Remove the parts
                 header = header.Replace("basic", string.Empty).Trim();
@@ -1992,10 +1992,11 @@ namespace Media.Rtsp
                 //If enough return the determination by comparison as the result
                 return parts.Length > 1 && (parts[0].Equals(source.RemoteCredential.UserName) && parts[2].Equals(source.RemoteCredential.Password));
             }
-            else if (header.Contains("digest"))
+            else if (source.SourceAuthenticationScheme == AuthenticationSchemes.Digest && header.Contains("digest"))
             {
                 //Digest RFC2069
-                /*
+                /* Example header -
+                 * 
                  Authorization: Digest username="Mufasa",
                      realm="testrealm@host.com",
                      nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",

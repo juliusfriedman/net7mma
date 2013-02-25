@@ -30,6 +30,8 @@ namespace Media
 
         #endregion
 
+        internal static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
+
         /// <summary>
         /// Converts a String in the form 0011AABB to a Byte[] using the chars in the string as bytes to caulcate the decimal value.
         /// Lower case values are not supported and no error checking is performed.
@@ -40,7 +42,7 @@ namespace Media
         /// </notes>
         /// <param name="str"></param>
         /// <returns></returns>
-        internal unsafe static byte[] HexToBytes(string str, int start = 0, int length = -1)
+        internal unsafe static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
         {
             if (length == 0) return null;
             if (length <= -1) length = str.Length;
@@ -59,7 +61,7 @@ namespace Media
                         //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
                         //result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
                         //Conver 2 Chars to a byte
-                        result.Add((byte)((pChar[i] > '9' ? pChar[i] - 'A' + 10 : pChar[i] - '0') << 4 | (pChar[i + 1] > '9' ? pChar[i + 1] - 'A' + 10 : pChar[i + 1] - '0')));
+                        result.Add((byte)(HexCharToByte(pChar[i]) << 4 | HexCharToByte(pChar[i + 1])));
                     }
                 }
             }
@@ -182,7 +184,7 @@ namespace Media
         //When the First Epoch will wrap (The real Y2k)
         public static DateTime UtcEpoch2036 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
 
-        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
 
         public static DateTime UtcEpoch1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
