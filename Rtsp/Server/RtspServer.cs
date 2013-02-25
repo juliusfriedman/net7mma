@@ -2008,7 +2008,7 @@ namespace Media.Rtsp
                      opaque="5ccc069c403ebaf9f0171e9517f40e41"
                  */
 
-                //Need to calculate based on hash 
+                //Need to calculate based on hash  
 
                 //http://en.wikipedia.org/wiki/Digest_access_authentication
                 //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.

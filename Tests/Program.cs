@@ -17,7 +17,63 @@ namespace Media
             RunTest(TestRtpDump);
             RunTest(TestSdp);
             RunTest(TestRtspClient);
+            //RunTest(TestRtpClient);
             RunTest(TestServer);
+        }
+
+        /// <summary>
+        /// Tests the RtpClient.
+        /// TODO: Work
+        /// </summary>
+        private static void TestRtpClient()
+        {
+            Rtp.RtpClient sender = Rtp.RtpClient.Sender(Utility.GetFirstV4IPAddress());
+
+            //Create a Session Description
+            Sdp.SessionDescription SessionDescription = new Sdp.SessionDescription(1);
+
+            //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 17777, Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
+
+            //Create a sourceId
+            uint sourceId = (uint)DateTime.UtcNow.Ticks;
+
+            Rtp.RtpClient receiver = Rtp.RtpClient.Receiever(Utility.GetFirstV4IPAddress());
+
+            //Create a context for the receiver
+
+            //Connect the reciver
+            receiver.Connect();
+
+            //Create and Add a TransportContext          
+            Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false);
+            sender.AddTransportContext(sendersContext);
+
+            //Connect the sender
+            sender.Connect();
+
+            Rtp.JpegFrame testFrame = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
+
+            sender.EnqueFrame(testFrame);
+
+            sender.SendGoodbyes();
+
+            if (sender.TotalRtpPacketsSent != testFrame.Count) throw new Exception("Did not send entire frame");
+
+            if (receiver.TotalRtpPacketsReceieved != testFrame.Count) throw new Exception("Did not recieve entire frame");
+
+            //Measure QoE / QoS based on sent / received ratio.
+
+            Console.WriteLine("Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
+
+            //Determine what is actually being received by obtaining the TransportContext of the receiver
+            Rtp.RtpClient.TransportContext receiversContext = receiver.GetContextForFrame(testFrame);
+
+            Console.WriteLine("Since : " + receiversContext.RecieversReport.Blocks[0].LastSendersReport);
+            Console.WriteLine("-----------------------");
+            Console.WriteLine("Receiver Lost : " + sendersContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");
+
+            Console.WriteLine("Test Passed");
         }
 
         private static void RunTest(Action test)
@@ -33,7 +89,8 @@ namespace Media
             }
             else
             {
-                try { 
+                try
+                {
                     test();
                     Console.BackgroundColor = ConsoleColor.Green;
                     Console.WriteLine("Test Passed!");
@@ -41,7 +98,8 @@ namespace Media
                     Console.BackgroundColor = ConsoleColor.Black;
                     Console.ReadKey();
                 }
-                catch (Exception ex) {
+                catch (Exception ex)
+                {
                     Console.BackgroundColor = ConsoleColor.Red;
                     Console.WriteLine("Test Failed!");
                     Console.WriteLine("Exception.Message: " + ex.Message);
