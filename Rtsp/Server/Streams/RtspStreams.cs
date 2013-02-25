@@ -87,8 +87,15 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspSourceStream(string name, string sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
-            : this(name, new Uri(sourceLocation), rtpProtocolType) { }
+        public RtspSourceStream(string name, string sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null) : this(name, new Uri(sourceLocation), rtpProtocolType) { }
+        
+        /// <summary>
+        /// Constructs a RtspStream for use in a RtspServer
+        /// </summary>
+        /// <param name="name">The name given to the stream on the RtspServer</param>
+        /// <param name="sourceLocation">The rtsp uri to the media</param>
+        /// <param name="credential">The network credential the stream requires</param>
+        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential) : this(name, new Uri(sourceLocation), credential) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -97,19 +104,6 @@ namespace Media.Rtsp.Server.Streams
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential)
-            : this(name, sourceLocation)
-        {
-            //Set the creds
-            RtspClient.Credential = SourceCredential = credential;
-        }
-
-        /// <summary>
-        /// Constructs a RtspStream for use in a RtspServer
-        /// </summary>
-        /// <param name="name">The name given to the stream on the RtspServer</param>
-        /// <param name="sourceLocation">The rtsp uri to the media</param>
-        /// <param name="credential">The network credential the stream requires</param>
-        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential)
             : this(name, sourceLocation)
         {
             //Set the creds

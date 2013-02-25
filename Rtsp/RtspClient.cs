@@ -51,6 +51,8 @@ namespace Media.Rtsp
 
         RtspResponse m_LastRtspResponse;
 
+        AuthenticationSchemes m_AuthenticationScheme;
+
         /// <summary>
         /// The location the media
         /// </summary>
@@ -115,17 +117,17 @@ namespace Media.Rtsp
         #region Properties
 
         /// <summary>
-        /// The TimeSpan which represents the time this media started playing from.
+        /// If playing, the TimeSpan which represents the time this media started playing from.
         /// </summary>
         public TimeSpan? StartTime { get { return m_StartTime; } }
 
         /// <summary>
-        /// The TimeSpan which represents the time the media will end.
+        /// If playing, the TimeSpan which represents the time the media will end.
         /// </summary>
         public TimeSpan? EndTime { get { return m_EndTime; } }
 
         /// <summary>
-        /// Indicates if the RtspClient is playing from a live source which means there is no absolute start or end time and seeking may not be supported.
+        /// If playing, indicates if the RtspClient is playing from a live source which means there is no absolute start or end time and seeking may not be supported.
         /// </summary>
         public bool LivePlay { get { return m_Live; } }
 
@@ -214,6 +216,11 @@ namespace Media.Rtsp
         /// The network credential to utilize in RtspRequests
         /// </summary>
         public NetworkCredential Credential { get; set; }
+
+        /// <summary>
+        /// The type of AuthenticationScheme to utilize in RtspRequests
+        /// </summary>
+        public AuthenticationSchemes AuthenticationScheme { get { return m_AuthenticationScheme; } set { if (value == m_AuthenticationScheme) return; if (value != AuthenticationSchemes.Basic && value != AuthenticationSchemes.Digest && value != AuthenticationSchemes.None) throw new System.InvalidOperationException("Only None, Basic and Digest are supported"); else m_AuthenticationScheme = value; } }
 
         /// <summary>
         /// Indicates if the RtspClient has started listening for Rtp Packets
@@ -595,21 +602,33 @@ namespace Media.Rtsp
                     request.SetHeader(RtspHeaders.UserAgent, m_UserAgent);
                 }
 
-                if (Credential != null)
+                //If there is an AuthenticationScheme utilize the information in the Credential
+                if (m_AuthenticationScheme != AuthenticationSchemes.None && Credential != null)
                 {
-                    //Encoding should be a property on the Listener which defaults to utf8
-                    request.SetHeader(RtspHeaders.Authroization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
+                    if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
+                    {
+                        //Encoding should be a property on the Listener which defaults to utf8
+                        request.SetHeader(RtspHeaders.Authroization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
+                    }
+                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
+                    {
+                        //Digest Impl
+                    }
                 }
 
+                ///Use the sessionId if present
                 if (m_SessionId != null)
                 {
                     request.SetHeader(RtspHeaders.Session, m_SessionId);
                 }
 
+                //Get the next Sequence Number
                 request.CSeq = NextClientSequenceNumber();
 
+                //Set the last method
                 m_LastMethod = request.Method;
 
+                //Get the bytes of the request
                 byte[] buffer = m_RtspProtocol == ClientProtocolType.Http ? RtspRequest.ToHttpBytes(request) : request.ToBytes();
 
                 //Erase last response
