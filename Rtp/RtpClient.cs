@@ -84,7 +84,7 @@ namespace Media.Rtp
         /// This is relevant if the source has video on channel 0 and the sink gets the video on channel 2
         /// Should be created in Rtsp Setup requests or in discovery of sdp in standalone
         /// </summary>
-        internal class TransportContext
+        public class TransportContext
         {
             //The id of the channel 0 - 255
             public readonly byte DataChannel, ControlChannel;
@@ -162,7 +162,7 @@ namespace Media.Rtp
             public SourceDescription SourceDescription { get; internal set; }
             public Goodbye Goodbye { get; internal set; }
 
-            internal TransportContext(byte dataChannel, byte controlChannel, uint ssrc, bool rtcpEnabled = true)
+            public TransportContext(byte dataChannel, byte controlChannel, uint ssrc, bool rtcpEnabled = true)
             {
                 DataChannel = dataChannel;
                 ControlChannel = controlChannel;
@@ -171,13 +171,13 @@ namespace Media.Rtp
                 RtcpEnabled = rtcpEnabled;
             }
 
-            internal TransportContext(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true)
+            public TransportContext(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true)
                 : this(dataChannel, controlChannel, ssrc, rtcpEnabled)
             {
                 MediaDescription = mediaDescription;
             }
 
-            internal TransportContext(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, Socket socket, bool rtcpEnabled = true)
+            public TransportContext(byte dataChannel, byte controlChannel, uint ssrc, Sdp.MediaDescription mediaDescription, Socket socket, bool rtcpEnabled = true)
                 : this(dataChannel, controlChannel, ssrc, mediaDescription, rtcpEnabled)
             {
                 RtpSocket = RtcpSocket = socket;
@@ -187,7 +187,7 @@ namespace Media.Rtp
             /// Calculates RTP Interarrival Jitter as specified in RFC 3550 6.4.1.
             /// </summary>
             /// <param name="packet">RTP packet.</param>
-            internal void UpdateJitter(RtpPacket packet)
+            public void UpdateJitter(RtpPacket packet)
             {
                 // RFC 3550 A.8.
                 ulong transit = (Utility.DateTimeToNtpTimestamp(DateTime.UtcNow) - packet.TimeStamp);
@@ -197,7 +197,7 @@ namespace Media.Rtp
                 RtpJitter += (uint)((1d / 16d) * ((double)d - RtpJitter));
             }
 
-            internal void ResetCounters(uint sequenceNumber)
+            public void ResetCounters(uint sequenceNumber)
             {
                 RtpBaseSeq = RtpMaxSeq = (uint)sequenceNumber;
                 RtpBadSeq = RTP_SEQ_MOD + 1;   /* so seq == bad_seq is false */
@@ -210,7 +210,7 @@ namespace Media.Rtp
             /// </summary>
             /// <param name="packet"></param>
             /// <returns>True if the packet was in state, otherwise false</returns>
-            internal bool UpdateSequenceNumber(RtpPacket packet)
+            public bool UpdateSequenceNumber(RtpPacket packet)
             {
                 // RFC 3550 A.1.
 
@@ -938,12 +938,13 @@ namespace Media.Rtp
         //E.g. AddMedia(MediaDescription)
         //AddAll(SessionDescription)
 
-        internal void AddTransportContext(TransportContext context)
+        public void AddTransportContext(TransportContext context)
         {
             lock (TransportContexts)
             {
                 if (TransportContexts.Any(c => c.DataChannel == context.DataChannel || c.ControlChannel == context.ControlChannel)) throw new RtpClientException("Requested Channel is already in use");
                 else TransportContexts.Add(context);
+                //Should be announced here?
             }
         }
 
@@ -1207,9 +1208,19 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet"></param>
         /// <returns></returns>
-        internal TransportContext GetContextForPacket(RtpPacket packet)
+        public TransportContext GetContextForPacket(RtpPacket packet)
         {
             return GetContextByPayloadType(packet.PayloadType);
+        }
+
+        /// <summary>
+        /// Selects a TransportContext for a RtpPacket by matching the packet's PayloadType to the TransportContext's MediaDescription.MediaFormat
+        /// </summary>
+        /// <param name="packet"></param>
+        /// <returns></returns>
+        public TransportContext GetContextForFrame(RtpFrame frame)
+        {
+            return GetContextByPayloadType(frame.PayloadType);
         }
 
         /// <summary>
@@ -1217,7 +1228,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="payloadType"></param>
         /// <returns></returns>
-        internal TransportContext GetContextByPayloadType(byte payloadType)
+        public TransportContext GetContextByPayloadType(byte payloadType)
         {
             return TransportContexts.Where(cd => cd.MediaDescription.MediaFormat == payloadType).FirstOrDefault();
         }
@@ -1234,6 +1245,11 @@ namespace Media.Rtp
                 m_OutgoingRtpPackets.Add(packet);
             }
         }
+
+        public void EnqueFrame(RtpFrame frame) { foreach (RtpPacket packet in frame) EnquePacket(packet); }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public void SendRtpFrame(RtpFrame frame) { foreach (RtpPacket packet in frame) SendRtpPacket(packet); }
 
         /// <summary>
         /// Sends a RtpPacket to the connected client.

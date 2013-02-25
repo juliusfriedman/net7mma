@@ -29,8 +29,8 @@ namespace Media
         }
 
         #endregion
-
-        internal static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
+        
+        public static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
 
         /// <summary>
         /// Converts a String in the form 0011AABB to a Byte[] using the chars in the string as bytes to caulcate the decimal value.
@@ -42,7 +42,7 @@ namespace Media
         /// </notes>
         /// <param name="str"></param>
         /// <returns></returns>
-        internal unsafe static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
+        public unsafe static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
         {
             if (length == 0) return null;
             if (length <= -1) length = str.Length;
@@ -69,7 +69,7 @@ namespace Media
             return result.ToArray();
         }
 
-        static internal int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
+        public static int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
             //Only Tcp or Udp :)
             if (type != ProtocolType.Udp && type != ProtocolType.Tcp) return -1;
@@ -107,9 +107,9 @@ namespace Media
         /// Determine the computers first Ipv4 Address 
         /// </summary>
         /// <returns>The First IPV4 Address Found on the Machine</returns>
-        static internal IPAddress GetFirstV4IPAddress() { return GetFirstIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); }
+        public static IPAddress GetFirstV4IPAddress() { return GetFirstIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); }
 
-        static internal IPAddress GetFirstIPAddress(System.Net.Sockets.AddressFamily addressFamily) { foreach (System.Net.IPAddress ip in System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName()).AddressList) if (ip.AddressFamily == addressFamily) return ip; return IPAddress.Loopback; }
+        public static IPAddress GetFirstIPAddress(System.Net.Sockets.AddressFamily addressFamily) { foreach (System.Net.IPAddress ip in System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName()).AddressList) if (ip.AddressFamily == addressFamily) return ip; return IPAddress.Loopback; }
 
         public static ushort ReverseUnsignedShort(ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
 
