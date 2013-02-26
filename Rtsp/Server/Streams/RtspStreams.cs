@@ -65,22 +65,11 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready { get { return RtspClient != null && RtspClient.Connected && RtspClient.Listening && RtpClient != null && RtpClient.Connected && RtpClient.TotalRtpBytesReceieved >= 0; ;} }
+        public override bool Ready { get { return RtspClient != null && RtspClient.Connected && RtspClient.Listening && RtpClient != null && RtpClient.Connected && RtpClient.TotalRtpBytesReceieved >= 0;} }
 
         #endregion
 
         #region Constructor
-
-        internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null) 
-            : base(name, sourceLocation)
-        {
-            //Create the listener if we are the top level stream (Parent)
-            if (IsParent)
-            {
-                RtspClient = new RtspClient(m_Source, rtpProtocolType);
-            }
-            //else it is already assigned via the child
-        }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -103,11 +92,25 @@ namespace Media.Rtsp.Server.Streams
         /// <param name="name">The name given to the stream on the RtspServer</param>
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
-        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential)
+        /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
+        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential, AuthenticationSchemes authType = AuthenticationSchemes.Basic)
             : this(name, sourceLocation)
         {
             //Set the creds
             RtspClient.Credential = SourceCredential = credential;
+            RtspClient.AuthenticationScheme = SourceAuthenticationScheme = authType;
+        }
+
+
+        internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
+            : base(name, sourceLocation)
+        {
+            //Create the listener if we are the top level stream (Parent)
+            if (IsParent)
+            {
+                RtspClient = new RtspClient(m_Source, rtpProtocolType);
+            }
+            //else it is already assigned via the child
         }
 
         #endregion

@@ -29,7 +29,11 @@ namespace Media
         }
 
         #endregion
-        
+
+        public static System.Security.Cryptography.MD5 MD5HashAlgorithm = System.Security.Cryptography.MD5.Create();
+
+        public static Random Random = new Random();
+
         public static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
 
         /// <summary>
