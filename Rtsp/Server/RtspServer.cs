@@ -2011,13 +2011,42 @@ namespace Media.Rtsp
 
                 //Need to calculate based on hash  
 
+                string[] parts = header.Split(',');
+
+                string username, realm, nonce, nc, cnonce, uri, qop, opaque, response;
+
+                username = parts.Where(p => p.StartsWith("username")).FirstOrDefault();
+
+                realm = parts.Where(p => p.StartsWith("realm")).FirstOrDefault();
+
+                nc = parts.Where(p => p.StartsWith("nc")).FirstOrDefault();
+
+                nonce = parts.Where(p => p.StartsWith("nonce")).FirstOrDefault();
+
+                cnonce = parts.Where(p => p.StartsWith("cnonce")).FirstOrDefault();
+
+                uri = parts.Where(p => p.StartsWith("uri")).FirstOrDefault();
+
+                qop = parts.Where(p => p.StartsWith("qop")).FirstOrDefault();
+
+                opaque = parts.Where(p => p.StartsWith("opaque")).FirstOrDefault();
+
+                response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
+
+                if (string.IsNullOrEmpty(username) || username != source.RemoteCredential.UserName) return false;
+
                 //http://en.wikipedia.org/wiki/Digest_access_authentication
                 //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                //H1 = MD5(source.m_RtspCred.UserName +':' + realm + ':' + source.m_RtspCred.Password)
+                byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(source.RemoteCredential.UserName + ':' + realm + ':' + source.RemoteCredential.Password));
+                
                 //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                //H2 = MD5(request.Method +':' + uri)
+                byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(request.Method +':' + uri));
+                
                 //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                //ResponseHash = MD5( HA1 + ':' + nonce + ':' + nc + ':' + cnonce + ':' + "qop=auth" + ':' + HA2);
+                byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Convert.ToString(HA1).Replace("-", string.Empty) + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + Convert.ToString(HA2).Replace("-", string.Empty)));
+
+                //return the result of a mutal hash creation via comparison
+                return Comparer<byte[]>.Default.Compare(ResponseHash, Utility.HexStringToBytes(response.Replace("response=", string.Empty))) == 0;
             }
 
             //Did not authenticate

@@ -613,6 +613,60 @@ namespace Media.Rtsp
                     else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
                     {
                         //Digest Impl
+
+                        //Digest RFC2069
+                        /* Example header -
+                         * 
+                         Authorization: Digest username="Mufasa",
+                             realm="testrealm@host.com",
+                             nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
+                             uri="/dir/index.html",
+                             qop=auth,
+                             nc=00000001,
+                             cnonce="0a4f113b",
+                             response="6629fae49393a05397450978507c4ef1",
+                             opaque="5ccc069c403ebaf9f0171e9517f40e41"
+                         */
+
+                        //Need to calculate based on hash  
+
+                        string username, realm, nonce, nc, cnonce, uri, qop, opaque, response;
+
+                        username = "username=" + Credential.UserName;
+
+                        realm = "/";
+
+                        nc = "nc=00000001";
+
+                        {
+                            int a = Utility.Random.Next(int.MaxValue);
+                            nonce = "nonce=" + (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
+                        }
+
+                        cnonce = "cnonce=" + Utility.Random.Next(int.MaxValue).ToString("X");
+
+                        uri = "uri=\""+Location.PathAndQuery + '"';
+
+                        qop = "qop=auth";
+
+                        {
+                            int a = Utility.Random.Next(int.MaxValue);
+                            opaque = "opaque=" + (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
+                        }
+
+                        //http://en.wikipedia.org/wiki/Digest_access_authentication
+                        //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
+                        byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Credential.UserName + ':' + realm + ':' + Credential.Password));
+
+                        //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
+                        byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(request.Method + ':' + uri));
+
+                        //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
+                        byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Convert.ToString(HA1).Replace("-", string.Empty) + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + Convert.ToString(HA2).Replace("-", string.Empty)));
+
+                        response = "response=" + Convert.ToString(ResponseHash).Replace("-", string.Empty);
+
+                        request.SetHeader(RtspHeaders.Authroization, "Digest " + string.Join(",", username, realm, nonce, uri, qop, nc, cnonce, response, opaque));
                     }
                 }
 
