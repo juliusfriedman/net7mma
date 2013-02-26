@@ -5,6 +5,14 @@ using System.Text;
 
 namespace Media.Rtsp.Server.Streams
 {
+
+    //public class ImageStream : SourceStream
+    //{
+    //    public Rtp.RtpFrame CreateFrames() { }
+    //    public virtual void Encoode() { }
+    //    public virtual void Decode() { }
+    //}
+
     /// <summary>
     /// Sends System.Drawing.Images over Rtp by encoding them as a RFC2435 Jpeg
     /// </summary>

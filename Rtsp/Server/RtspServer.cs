@@ -1975,9 +1975,10 @@ namespace Media.Rtsp
             //If the request does not have the authorization header then there is nothing else to determine
             if (!request.ContainsHeader(RtspHeaders.Authroization)) return false;
 
-            //Get the header
+            //Get the Authroization Header
             string header = request[RtspHeaders.Authroization].ToLower();
 
+            //If the SourceAuthenticationScheme is Basic and the header contains the BASIC indication then validiate using BASIC authentication
             if (source.SourceAuthenticationScheme == AuthenticationSchemes.Basic && header.Contains("basic"))
             {
                 //Remove the parts

@@ -16,8 +16,8 @@ namespace Media
             RunTest(TestRtcpPacket);
             RunTest(TestRtpDump);
             RunTest(TestSdp);
+            RunTest(TestRtpClient);
             RunTest(TestRtspClient);
-            //RunTest(TestRtpClient);
             RunTest(TestServer);
         }
 
@@ -38,40 +38,63 @@ namespace Media
             //Create a sourceId
             uint sourceId = (uint)DateTime.UtcNow.Ticks;
 
+            System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
+
             Rtp.RtpClient receiver = Rtp.RtpClient.Receiever(Utility.GetFirstV4IPAddress());
 
-            //Create a context for the receiver
+            //Create and Add the required TransportContext's
+
+            Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0]), 
+                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0]);
+
+            receiversContext.InitializeSockets(localIp, localIp, 17777, 17778, 17777, 17778);
+
+            receiver.AddTransportContext(receiversContext);
 
             //Connect the reciver
             receiver.Connect();
 
-            //Create and Add a TransportContext          
-            Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false);
+            sendersContext.InitializeSockets(localIp, localIp, 17777, 17778, 17777, 17778);
+
             sender.AddTransportContext(sendersContext);
 
             //Connect the sender
             sender.Connect();
 
-            Rtp.JpegFrame testFrame = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"));
+            //Send an initial report
+            sender.SendSendersReports();
+            receiver.SendReceiversReports();
 
-            sender.EnqueFrame(testFrame);
+            //Make a frame
+            Rtp.JpegFrame testFrame = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"), 100, sendersContext.SynchronizationSourceIdentifier, 1);
+            
+            //Send it
+            sender.SendRtpFrame(testFrame);
 
+            //Send another report
+            sender.SendSendersReports();
+
+            //Send the receivers report
+            receiver.SendReceiversReports();
+
+            //Send a goodbye
             sender.SendGoodbyes();
+
+            //Check values
 
             if (sender.TotalRtpPacketsSent != testFrame.Count) throw new Exception("Did not send entire frame");
 
-            if (receiver.TotalRtpPacketsReceieved != testFrame.Count) throw new Exception("Did not recieve entire frame");
-
             //Measure QoE / QoS based on sent / received ratio.
 
+            Console.WriteLine("Since : " + sendersContext.SendersReport.Sent);
+            Console.WriteLine("-----------------------");
             Console.WriteLine("Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
             //Determine what is actually being received by obtaining the TransportContext of the receiver
-            Rtp.RtpClient.TransportContext receiversContext = receiver.GetContextForFrame(testFrame);
-
-            Console.WriteLine("Since : " + receiversContext.RecieversReport.Blocks[0].LastSendersReport);
+            
+            Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
             Console.WriteLine("-----------------------");
-            Console.WriteLine("Receiver Lost : " + sendersContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");
+            Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");
 
             Console.WriteLine("Test Passed");
         }

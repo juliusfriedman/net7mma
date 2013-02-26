@@ -291,7 +291,7 @@ namespace Media.Rtp
             /// <param name="localRtcpPort"></param>
             /// <param name="remoteRtpPort"></param>
             /// <param name="remoteRtcpPort"></param>
-            internal void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort)
+            public void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort)
             {
 
                 Goodbye = null;
@@ -365,7 +365,7 @@ namespace Media.Rtp
             /// Uses the given socket for the Interleave and updates the associatd Properties and Fields
             /// </summary>
             /// <param name="socket">The socket to use</param>
-            internal void InitializeSockets(Socket socket)
+            public void InitializeSockets(Socket socket)
             {
                 Goodbye = null;
                 SendersReport = null;
@@ -380,7 +380,7 @@ namespace Media.Rtp
                 RtpSocket.NoDelay = true;
             }
 
-            internal void CloseSockets()
+            public void CloseSockets()
             {
                 //We don't close tcp sockets and if we are a Tcp socket the Rtcp and Rtp Socket are the same
                 if (RtpSocket == null || RtcpSocket.ProtocolType == ProtocolType.Tcp) return;
@@ -934,10 +934,6 @@ namespace Media.Rtp
 
         #region Methods
 
-        //Provides method for adding transportChannels from outside if Interleave is not exposed..
-        //E.g. AddMedia(MediaDescription)
-        //AddAll(SessionDescription)
-
         public void AddTransportContext(TransportContext context)
         {
             lock (TransportContexts)
@@ -1208,30 +1204,21 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="packet"></param>
         /// <returns></returns>
-        public TransportContext GetContextForPacket(RtpPacket packet)
-        {
-            return GetContextByPayloadType(packet.PayloadType);
-        }
+        public TransportContext GetContextForPacket(RtpPacket packet) { return GetContextByPayloadType(packet.PayloadType); }
 
         /// <summary>
         /// Selects a TransportContext for a RtpPacket by matching the packet's PayloadType to the TransportContext's MediaDescription.MediaFormat
         /// </summary>
         /// <param name="packet"></param>
         /// <returns></returns>
-        public TransportContext GetContextForFrame(RtpFrame frame)
-        {
-            return GetContextByPayloadType(frame.PayloadType);
-        }
+        public TransportContext GetContextForFrame(RtpFrame frame) { return GetContextByPayloadType(frame.PayloadType); }
 
         /// <summary>
         /// Selects a TransportContext by matching the given payloadType to the TransportContext's MediaDescription.MediaFormat
         /// </summary>
         /// <param name="payloadType"></param>
         /// <returns></returns>
-        public TransportContext GetContextByPayloadType(byte payloadType)
-        {
-            return TransportContexts.Where(cd => cd.MediaDescription.MediaFormat == payloadType).FirstOrDefault();
-        }
+        public TransportContext GetContextByPayloadType(byte payloadType) { return TransportContexts.Where(cd => cd.MediaDescription.MediaFormat == payloadType).FirstOrDefault(); }
 
         /// <summary>
         /// Adds a packet to the queue of outgoing RtpPackets
@@ -1547,6 +1534,7 @@ namespace Media.Rtp
         //Here we might need a way to send to all participants rather than just one Socket under Udp        
         internal int SendData(byte[] data, byte channel, Socket socket)
         {
+            
             SocketError error = SocketError.SocketError;
             int sent = 0;
             if (data == null || socket == null) return sent;
