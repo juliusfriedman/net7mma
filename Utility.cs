@@ -188,7 +188,7 @@ namespace Media
         //When the First Epoch will wrap (The real Y2k)
         public static DateTime UtcEpoch2036 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
 
-        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 1, 0, 0, DateTimeKind.Utc);
+        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         public static DateTime UtcEpoch1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
