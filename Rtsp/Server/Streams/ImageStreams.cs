@@ -180,6 +180,7 @@ namespace Media.Rtsp.Server.Streams
             }
 
             m_Frames.Clear();
+
             base.Stop();
         }
 
