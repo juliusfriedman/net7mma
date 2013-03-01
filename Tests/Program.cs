@@ -9,7 +9,7 @@ namespace Media
     {
         [STAThread]
         public static void Main(string[] args)
-        {
+        {            
             RunTest(TestJpegFrame);
             RunTest(TestRtspMessage);
             RunTest(TestRtpPacket);
@@ -19,11 +19,10 @@ namespace Media
             RunTest(TestRtpClient);
             RunTest(TestRtspClient);
             RunTest(TestServer);
-        }
+        }      
 
         /// <summary>
         /// Tests the RtpClient.
-        /// TODO: Work
         /// </summary>
         private static void TestRtpClient()
         {
@@ -35,17 +34,14 @@ namespace Media
             //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 17777, Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
 
-            //Create a sourceId
-            uint sourceId = (uint)DateTime.UtcNow.Ticks;
-
             System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
 
             Rtp.RtpClient receiver = Rtp.RtpClient.Receiever(Utility.GetFirstV4IPAddress());
 
             //Create and Add the required TransportContext's
 
-            Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0]), 
-                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0]);
+            Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]),
+                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]);
 
             receiversContext.InitializeSockets(localIp, localIp, 17777, 17778, 17777, 17778);
 
@@ -143,8 +139,7 @@ namespace Media
             Console.WriteLine(sr.SynchronizationSourceIdentifier);//1928947603
             Console.WriteLine(sr.NtpTimestamp);//MSW = d4 92 ce d4, LSW = 2c 49 ba 5e
             sr.NtpTimestamp = sr.NtpTimestamp;//Ensure setting the value through a setter is correct
-            //Ensure the utility function works...
-            Console.WriteLine(sr.RtpTimestamp);//3302006772
+            if (sr.RtpTimestamp != 3302006772) throw new Exception("RtpTimestamp Invalid!");
             
             //Verify SendersReport byte for byte
             var output = sr.ToPacket().ToBytes();//should be exactly equal to example
@@ -605,7 +600,7 @@ namespace Media
                 Console.WriteLine("Exiting RtspClient Test");
 
                 //Perform another test if we need to
-                if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/a2_1")
+                if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/alsat_2")
                 {
                     //Do another test
                     Console.WriteLine("Press a Key to Start Test #2 (Q to Skip)");
@@ -614,7 +609,7 @@ namespace Media
 
                         //Try another host (this one uses Tcp and forces the client to switch from Udp because Udp packets usually never arrive)
                         //We will not specify Tcp we will allow the client to switch over automatically
-                        client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/a2_1");
+                        client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/alsat_2");
                         //Switch in 5 seconds rather than the default of 10
                         client.ProtocolSwitchSeconds = 5;
                         Console.WriteLine("Performing 2nd Client test");
@@ -708,7 +703,7 @@ a=mpeg4-esid:101");
             //The server will take in RtspSourceStreams and make them available locally
 
             //H264 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://fms.zulu.mk/zulu/a2_1", Rtsp.RtspClient.ClientProtocolType.Tcp);
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://fms.zulu.mk/zulu/alsat_2", Rtsp.RtspClient.ClientProtocolType.Tcp);
             
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
