@@ -41,11 +41,14 @@ namespace Media.Rtcp
                  * It is interpreted by the application and not RTP itself.  
                  * It MUST be a multiple of 32 bits long. *
                  */
-                //if (dataLen % 4 != 0) { }
                 if (dataLen > 0)
                 {
-                    Data = new byte[dataLen];
-                    System.Array.Copy(packet, 8, Data, 0, dataLen);
+                    if (dataLen % 4 != 0) { throw new Exception("Data MUST be a multiple of 32 bits long."); }
+                    else
+                    {
+                        Data = new byte[dataLen];
+                        System.Array.Copy(packet, 8, Data, 0, dataLen);
+                    }
                 }
             }
         }
