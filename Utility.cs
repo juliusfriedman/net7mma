@@ -30,9 +30,13 @@ namespace Media
 
         #endregion
 
+        #region Properties
+
         public static System.Security.Cryptography.MD5 MD5HashAlgorithm = System.Security.Cryptography.MD5.Create();
 
         public static Random Random = new Random();
+
+        #endregion
 
         public static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
 
@@ -126,39 +130,34 @@ namespace Media
         /// </summary>
         /// <param name="value">DateTime value to convert. This value must be in local time.</param>
         /// <returns>Returns NTP value.</returns>
-        public static uint DateTimeToNtpTimestamp32(DateTime value)
-        {
-            /*
-                In some fields where a more compact representation is
-                appropriate, only the middle 32 bits are used; that is, the low 16
-                bits of the integer part and the high 16 bits of the fractional part.
-                The high 16 bits of the integer part must be determined
-                independently.
-            */
-
-            return (uint)((DateTimeToNtpTimestamp(value) >> 16) & 0xFFFFFFFF);
-        }
+        /// <notes>
+        /// In some fields where a more compact representation is
+        /// appropriate, only the middle 32 bits are used; that is, the low 16
+        /// bits of the integer part and the high 16 bits of the fractional part.
+        /// The high 16 bits of the integer part must be determined
+        /// independently.
+        /// </notes>
+        public static uint DateTimeToNtpTimestamp32(DateTime value) { return (uint)((DateTimeToNtpTimestamp(value) >> 16) & 0xFFFFFFFF); }
 
         /// <summary>
         /// Converts specified DateTime value to long NTP time. Note: NTP time is in UTC.
         /// </summary>
         /// <param name="value">DateTime value to convert. This value must be in local time.</param>
         /// <returns>Returns NTP value.</returns>
+        /// <notes>
+        /// Wallclock time (absolute date and time) is represented using the
+        /// timestamp format of the Network Time Protocol (NTP), which is in
+        /// seconds relative to 0h UTC on 1 January 1900 [4].  The full
+        /// resolution NTP timestamp is a 64-bit unsigned fixed-point number with
+        /// the integer part in the first 32 bits and the fractional part in the
+        /// last 32 bits. In some fields where a more compact representation is
+        /// appropriate, only the middle 32 bits are used; that is, the low 16
+        /// bits of the integer part and the high 16 bits of the fractional part.
+        /// The high 16 bits of the integer part must be determined
+        /// independently.
+        /// </notes>
         public static ulong DateTimeToNtpTimestamp(DateTime value)
         {
-            /*
-                Wallclock time (absolute date and time) is represented using the
-                timestamp format of the Network Time Protocol (NTP), which is in
-                seconds relative to 0h UTC on 1 January 1900 [4].  The full
-                resolution NTP timestamp is a 64-bit unsigned fixed-point number with
-                the integer part in the first 32 bits and the fractional part in the
-                last 32 bits. In some fields where a more compact representation is
-                appropriate, only the middle 32 bits are used; that is, the low 16
-                bits of the integer part and the high 16 bits of the fractional part.
-                The high 16 bits of the integer part must be determined
-                independently.
-            */
-
             DateTime baseDate = value >= UtcEpoch2036 ? UtcEpoch2036 : UtcEpoch1900;
             
             TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
@@ -166,23 +165,12 @@ namespace Media
             return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / TimeSpan.TicksPerSecond * 0x100000000L);
         }
 
-        public static DateTime NptTimestampToDateTime(ulong ntpTimestamp)
-        {
-            return NptTimestampToDateTime((uint)((ntpTimestamp >> 32) & 0xFFFFFFFF), (uint)(ntpTimestamp & 0xFFFFFFFF));
-        }
+        public static DateTime NptTimestampToDateTime(ulong ntpTimestamp) { return NptTimestampToDateTime((uint)((ntpTimestamp >> 32) & 0xFFFFFFFF), (uint)(ntpTimestamp & 0xFFFFFFFF)); }
 
         public static DateTime NptTimestampToDateTime(uint seconds, uint fractions)
         {
             ulong ticks =(ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
-            //Check for 2nd epoch
-            if ((seconds & 0x80000000L) == 0)
-            {
-                return UtcEpoch2036 + TimeSpan.FromTicks((Int64)ticks);
-            }
-            else
-            {
-                return UtcEpoch1900 + TimeSpan.FromTicks((Int64)ticks);
-            }
+            return (seconds & 0x80000000L) == 0 ? UtcEpoch2036 + TimeSpan.FromTicks((Int64)ticks) : UtcEpoch1900 + TimeSpan.FromTicks((Int64)ticks);
         }
 
         //When the First Epoch will wrap (The real Y2k)
