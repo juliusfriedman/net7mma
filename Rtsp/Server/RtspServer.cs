@@ -523,6 +523,7 @@ namespace Media.Rtsp
             {
                  clients = m_Clients.Values.ToArray();
             }
+            
             //Iterate and find inactive sessions
             foreach (ClientSession session in clients)
             {
