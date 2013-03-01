@@ -682,7 +682,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void RecieveLoop()
         {
-            int timeOut;
+            int timeOut = 0;
 
             while (!m_StopRequested)
             {
