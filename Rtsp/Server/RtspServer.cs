@@ -698,9 +698,11 @@ namespace Media.Rtsp
                     //Reset the state of the event to blocking
                     allDone.Reset();
 
-                    if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
-
+                    //Get the timeout from the socket
                     timeOut = m_TcpServerSocket.ReceiveTimeout;
+
+                    //If the timeout is infinite only wait for the default
+                    if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
 
                     //Start acceping
                     m_TcpServerSocket.BeginAccept(new AsyncCallback(ProcessAccept), m_TcpServerSocket);
