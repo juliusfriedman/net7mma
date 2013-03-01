@@ -19,6 +19,10 @@ namespace Media.Rtsp
     {
         public const int DefaultPort = 554;
 
+        public const int DefaultReceiveTimeout = 1000;
+
+        public const int DefaultSendTimeout = 1000;
+
         #region Nested Types
 
         /// <summary>
@@ -580,7 +584,9 @@ namespace Media.Rtsp
             m_TcpServerSocket.Listen(MaximumClients);
 
             //Set the recieve timeout
-            //m_TcpServerSocket.ReceiveTimeout = 1000;
+            m_TcpServerSocket.ReceiveTimeout = DefaultReceiveTimeout;
+
+            m_TcpServerSocket.SendTimeout = DefaultSendTimeout;
 
             //Create a thread to handle client connections
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
@@ -692,7 +698,7 @@ namespace Media.Rtsp
                     //Reset the state of the event to blocking
                     allDone.Reset();
 
-                    if (timeOut <= 0) timeOut = 1000;
+                    if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
 
                     timeOut = m_TcpServerSocket.ReceiveTimeout;
 
