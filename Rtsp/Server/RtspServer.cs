@@ -125,6 +125,16 @@ namespace Media.Rtsp
         public int ClientRtspInactivityTimeoutSeconds { get; set; }
 
         /// <summary>
+        /// Gets or sets the ReceiveTimeout of the TcpSocket used by the RtspServer
+        /// </summary>
+        public int ReceiveTimeout { get { return m_TcpServerSocket.ReceiveTimeout; } set { m_TcpServerSocket.ReceiveTimeout = value; } }
+
+        /// <summary>
+        /// Gets or sets the SendTimeout of the TcpSocket used by the RtspServer
+        /// </summary>
+        public int SendTimeout { get { return m_TcpServerSocket.SendTimeout; } set { m_TcpServerSocket.SendTimeout = value; } }
+
+        /// <summary>
         /// The amount of time before the RtpServer will remove a session if no Rtp activity has occured.
         /// </summary>
         //public int ClientRtpInactivityTimeoutSeconds { get; set; }
@@ -569,6 +579,9 @@ namespace Media.Rtsp
             //Set the backlog
             m_TcpServerSocket.Listen(MaximumClients);
 
+            //Set the recieve timeout
+            //m_TcpServerSocket.ReceiveTimeout = 1000;
+
             //Create a thread to handle client connections
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = "RtspServer@" + m_ServerPort;
@@ -669,6 +682,8 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void RecieveLoop()
         {
+            int timeOut;
+
             while (!m_StopRequested)
             {
                 //If we can accept
@@ -677,14 +692,18 @@ namespace Media.Rtsp
                     //Reset the state of the event to blocking
                     allDone.Reset();
 
+                    if (timeOut <= 0) timeOut = 1000;
+
+                    timeOut = m_TcpServerSocket.ReceiveTimeout;
+
                     //Start acceping
                     m_TcpServerSocket.BeginAccept(new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
                     //Wait using the event
-                    while (!allDone.WaitOne(m_TcpServerSocket.ReceiveTimeout / 2))
+                    while (!allDone.WaitOne(timeOut / 2))
                     {
                         //Wait some more busily
-                        System.Threading.Thread.SpinWait(m_TcpServerSocket.ReceiveTimeout / 2);
+                        System.Threading.Thread.SpinWait(timeOut / 2);
                     }
                 }
             }
