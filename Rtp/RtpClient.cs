@@ -251,7 +251,7 @@ namespace Media.Rtp
                         */
                         RtpSeqCycles += RTP_SEQ_MOD;
                     }
-                    RtpMaxSeq = (uint)packet.SequenceNumber;
+                    RtpMaxSeq = packet.SequenceNumber;
                 }
                 else if (udelta <= RTP_SEQ_MOD - MAX_MISORDER)
                 {
@@ -278,7 +278,7 @@ namespace Media.Rtp
                     //return false;
                 }
                 RtpPacketsReceieved++;
-
+                
                 return true;
             }
 
@@ -563,7 +563,7 @@ namespace Media.Rtp
                 //    //Changed ssrc?
                 //}
 
-                transportContext.NtpTimestamp = transportContext.SendersReport.RtpTimestamp;
+                transportContext.NtpTimestamp = transportContext.SendersReport.NtpTimestamp;
                 transportContext.RtpTimestamp = transportContext.SendersReport.RtpTimestamp;
                 
                 //Should be scheduled
@@ -622,87 +622,95 @@ namespace Media.Rtp
                 return;
             }
 
-            //Maintain counters
-            ++transportContext.RtpPacketsReceieved;
-            transportContext.RtpBytesRecieved += packet.Length;
-
-            //Update values
-            transportContext.SequenceNumber = packet.SequenceNumber;
-
-            //If we recieved a packet before we have identified who it is coming from
-            if (transportContext.SynchronizationSourceIdentifier == 0)
+            //Synchronize
+            lock (transportContext)
             {
-                transportContext.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
-#if DEBUG
-                System.Diagnostics.Debug.WriteLine("Recieved First RtpPacket Before TransportChannel was identified");
-                System.Diagnostics.Debug.WriteLine("Updating SSRC From " + transportContext.SynchronizationSourceIdentifier + " To " + packet.SynchronizationSourceIdentifier);
-#endif
-            }
+                //Maintain counters
+                ++transportContext.RtpPacketsReceieved;
+                transportContext.RtpBytesRecieved += packet.Length;
 
-            //This occurs when you disconnect and re-connect again mostly.
-            //Eventually might not want to accept this... right now prior sessions sometime use the same ssrc if not timed out so this is allowing it
-            if (transportContext.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier)
-            {                
-                transportContext.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
-#if DEBUG
-                System.Diagnostics.Debug.WriteLine("Recieved RtpPacket With difference SSRC on " + transportContext.LocalRtp + " From " + transportContext.RemoteRtp);
-                System.Diagnostics.Debug.WriteLine("Updating SSRC From " + transportContext.SynchronizationSourceIdentifier + " To " + packet.SynchronizationSourceIdentifier);
-#endif
-            }
-
-            //If we have not allocated a currentFrame
-            if (transportContext.CurrentFrame == null)
-            {
-                transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
-                transportContext.SequenceNumber = packet.SequenceNumber;
-            }
-            //If the transportChannels identifier is not the same as the packet then we will not handle this packet
-            else if (transportContext.CurrentFrame != null && transportContext.CurrentFrame.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier || transportContext.CurrentFrame.SynchronizationSourceIdentifier != transportContext.SynchronizationSourceIdentifier)
-            {
-                //it could be an injection or something else
-                return;
-            }
-
-            //Update the Jitter of the Interleave
-            transportContext.UpdateJitter(packet);
-
-            //If the transportChannel's CurrentFrame's TimeStamp does not match the packet TimeStamp or the Ssrc's do not match            
-            if (transportContext.CurrentFrame.Timestamp != packet.TimeStamp)
-            {
-                //This is possibly a new frame
-                transportContext.LastFrame = transportContext.CurrentFrame;
-
-                //If the lastFrame had any packets then fire the event so it may be handled
-                if (!transportContext.LastFrame.Empty)
+                //Update values if in state
+                if (transportContext.UpdateSequenceNumber(packet))
                 {
-                    //Fire the event
-                    sender.RtpFrameChanged(sender, transportContext.LastFrame);
+                    //Update the Jitter of the Interleave
+                    transportContext.UpdateJitter(packet);
+
+                    //Set the sequence number of the context
+                    transportContext.SequenceNumber = packet.SequenceNumber;
                 }
 
-                //Make a new frame in the transportChannel's CurrentFrame
-                transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
-            }
+                //If we recieved a packet before we have identified who it is coming from
+                if (transportContext.SynchronizationSourceIdentifier == 0)
+                {
+                    transportContext.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
+#if DEBUG
+                    System.Diagnostics.Debug.WriteLine("Recieved First RtpPacket Before TransportChannel was identified");
+                    System.Diagnostics.Debug.WriteLine("Updating SSRC From " + transportContext.SynchronizationSourceIdentifier + " To " + packet.SynchronizationSourceIdentifier);
+#endif
+                }
 
-            //Add the packet to the current frame
-            transportContext.CurrentFrame.Add(packet);
+                //This occurs when you disconnect and re-connect again mostly.
+                //Eventually might not want to accept this... right now prior sessions sometime use the same ssrc if not timed out so this is allowing it
+                if (transportContext.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier)
+                {
+                    transportContext.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
+#if DEBUG
+                    System.Diagnostics.Debug.WriteLine("Recieved RtpPacket With difference SSRC on " + transportContext.LocalRtp + " From " + transportContext.RemoteRtp);
+                    System.Diagnostics.Debug.WriteLine("Updating SSRC From " + transportContext.SynchronizationSourceIdentifier + " To " + packet.SynchronizationSourceIdentifier);
+#endif
+                }
 
-            //If the frame is compelted then fire an event and make a new frame
-            if (transportContext.CurrentFrame.Complete)
-            {
-                //Make the LastFrame the CurrentFrame
-                transportContext.LastFrame = transportContext.CurrentFrame;
+                //If we have not allocated a currentFrame
+                if (transportContext.CurrentFrame == null)
+                {
+                    transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+                    transportContext.SequenceNumber = packet.SequenceNumber;
+                }
+                //If the transportChannels identifier is not the same as the packet then we will not handle this packet
+                else if (transportContext.CurrentFrame != null && transportContext.CurrentFrame.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier || transportContext.CurrentFrame.SynchronizationSourceIdentifier != transportContext.SynchronizationSourceIdentifier)
+                {
+                    //it could be an injection or something else
+                    return;
+                }
 
-                //Make a new frame in the CurrentFrame
-                transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+                //If the transportChannel's CurrentFrame's TimeStamp does not match the packet TimeStamp or the Ssrc's do not match            
+                if (transportContext.CurrentFrame.Timestamp != packet.TimeStamp)
+                {
+                    //This is possibly a new frame
+                    transportContext.LastFrame = transportContext.CurrentFrame;
 
-                //Fire the event on the LastFrame
-                sender.RtpFrameChanged(sender, transportContext.LastFrame);
+                    //If the lastFrame had any packets then fire the event so it may be handled
+                    if (!transportContext.LastFrame.Empty)
+                    {
+                        //Fire the event
+                        sender.RtpFrameChanged(sender, transportContext.LastFrame);
+                    }
 
-            }
-            else if (transportContext.CurrentFrame.Count > RtpFrame.MaxPackets)
-            {
-                //Backup of frames
-                transportContext.CurrentFrame.RemoveAllPackets();
+                    //Make a new frame in the transportChannel's CurrentFrame
+                    transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+                }
+
+                //Add the packet to the current frame
+                transportContext.CurrentFrame.Add(packet);
+
+                //If the frame is compelted then fire an event and make a new frame
+                if (transportContext.CurrentFrame.Complete)
+                {
+                    //Make the LastFrame the CurrentFrame
+                    transportContext.LastFrame = transportContext.CurrentFrame;
+
+                    //Make a new frame in the CurrentFrame
+                    transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.TimeStamp, packet.SynchronizationSourceIdentifier);
+
+                    //Fire the event on the LastFrame
+                    sender.RtpFrameChanged(sender, transportContext.LastFrame);
+
+                }
+                else if (transportContext.CurrentFrame.Count > RtpFrame.MaxPackets)
+                {
+                    //Backup of frames
+                    transportContext.CurrentFrame.RemoveAllPackets();
+                }
             }
         }
 

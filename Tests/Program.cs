@@ -43,14 +43,17 @@ namespace Media
             Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]),
                 receiversContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]);
 
-            receiversContext.InitializeSockets(localIp, localIp, 17777, 17778, 17777, 17778);
+            //Find open ports, 1 for Rtp, 1 for Rtcp
+            int rtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17777, false), rtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17778);
+
+            receiversContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, rtpPort, rtcpPort);
 
             receiver.AddTransportContext(receiversContext);
 
             //Connect the reciver
             receiver.Connect();
 
-            sendersContext.InitializeSockets(localIp, localIp, 17777, 17778, 17777, 17778);
+            sendersContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, rtpPort, rtcpPort);
 
             sender.AddTransportContext(sendersContext);
 
