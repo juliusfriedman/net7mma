@@ -17,7 +17,7 @@ namespace Media.Rtsp
     /// Provides facilities for communication with an RtspServer to establish one or more Rtp Transport Channels.
     /// </summary>
     public class RtspClient : IDisposable
-    {
+    {        
 
         internal static char[] TimeSplit = new char[] { '-', ';' };
 

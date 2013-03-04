@@ -71,6 +71,8 @@ namespace Media.Rtsp
     /// </summary>
     public abstract class RtspMessage
     {
+        internal static string VersionFormat = "0.0";
+
         #region Nested Types
 
         /// <summary>
