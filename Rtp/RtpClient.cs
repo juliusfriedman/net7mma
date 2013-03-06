@@ -1323,8 +1323,12 @@ namespace Media.Rtp
                     //Attempt to join
                     if (!m_WorkerThread.Join(1000))
                     {
-                        //Abort
-                        m_WorkerThread.Abort();
+                        try
+                        {
+                            //Abort
+                            m_WorkerThread.Abort();
+                        }
+                        catch { }
                     }
                 }
 
