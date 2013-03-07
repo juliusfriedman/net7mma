@@ -526,24 +526,32 @@ namespace Media.Sdp
             //Invalid Line
             if (type == default(char)) return null;
 
-            switch (type)
+            try
             {
-                case 'v': return new Media.Sdp.Lines.SessionVersionLine(sdpLines, ref index);
-                case 'o': return new Media.Sdp.Lines.SessionOriginatorLine(sdpLines, ref index);
-                case 's': return new Media.Sdp.Lines.SessionNameLine(sdpLines, ref index);
-                case 'c': return new Media.Sdp.Lines.SessionConnectionLine(sdpLines, ref index);
-                case 'u': return new Media.Sdp.Lines.SessionUriLine(sdpLines, ref index);
-                case 'e': return new Media.Sdp.Lines.SessionEmailLine(sdpLines, ref index);
-                case 'p': return new Media.Sdp.Lines.SessionPhoneLine(sdpLines, ref index);
-                case 'z': //TimeZone Information
-                case 'a': //Attribute
-                case 'b': //Bandwidth
-                default:
-                    {
-                        ++index;
-                        return new SessionDescriptionLine(sdpLine);
-                    }
+                switch (type)
+                {
+                    case 'v': return new Media.Sdp.Lines.SessionVersionLine(sdpLines, ref index);
+                    case 'o': return new Media.Sdp.Lines.SessionOriginatorLine(sdpLines, ref index);
+                    case 's': return new Media.Sdp.Lines.SessionNameLine(sdpLines, ref index);
+                    case 'c': return new Media.Sdp.Lines.SessionConnectionLine(sdpLines, ref index);
+                    case 'u': return new Media.Sdp.Lines.SessionUriLine(sdpLines, ref index);
+                    case 'e': return new Media.Sdp.Lines.SessionEmailLine(sdpLines, ref index);
+                    case 'p': return new Media.Sdp.Lines.SessionPhoneLine(sdpLines, ref index);
+                    case 'z': //TimeZone Information
+                    case 'a': //Attribute
+                    case 'b': //Bandwidth
+                    default:
+                        {
+                            ++index;
+                            return new SessionDescriptionLine(sdpLine);
+                        }
+                }
             }
+            catch
+            {
+                return null;
+            }
+
         }
     }
 
@@ -776,7 +784,14 @@ namespace Media.Sdp
             public SessionUriLine(string uri)
                 : this()
             {
-                Location = new Uri(uri);
+                try
+                {
+                    Location = new Uri(uri);
+                }
+                catch
+                {
+                    throw;
+                }
             }
 
             public SessionUriLine(Uri uri)

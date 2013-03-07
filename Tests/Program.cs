@@ -700,6 +700,11 @@ a=mpeg4-esid:101");
             Console.WriteLine(mpeg4IodLine.ToString());
 
             Console.WriteLine(connectionLine.ToString());
+
+            sd = new Sdp.SessionDescription("v=0\r\no=StreamingServer 3219006489 1223277283000 IN IP4 10.8.127.4\r\ns=/sample_100kbit.mp4\r\nu=http:///\r\ne=admin@\r\nc=IN IP4 0.0.0.0\r\nb=AS:96\r\nt=0 0\r\na=control:*\r\na=mpeg4-iod:\"data:application/mpeg4-iod;base64,AoJrAE///w/z/wOBdgABQNhkYXRhOmF\"");
+
+            Console.WriteLine(sd);
+
         }
 
         /// <summary>
