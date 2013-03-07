@@ -186,7 +186,16 @@ namespace Media
             for (int i = 0; i < output.Length; i++, offset++)
             {
                 if (example[offset] != output[i]) throw new Exception();
-            }          
+            }
+
+
+            example = new byte[] { 0x81, 0xcc, 0x00, 0x06, 0x4e, 0xc8, 0x79, 0x50, 0x71, 0x74, 0x73, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x61, 0x74, 0x00, 0x04, 0x00, 0x00, 0x00, 0x14 };
+
+            asPacket = new Rtcp.RtcpPacket(example, 0);
+
+            Rtcp.ApplicationSpecific app = new Rtcp.ApplicationSpecific(asPacket);
+
+            if (app.Name != "qtsi") throw new Exception("Invalid App Packet Type");
         }
 
         private static void TestRtpDump()

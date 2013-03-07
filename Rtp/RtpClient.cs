@@ -291,7 +291,7 @@ namespace Media.Rtp
             /// <param name="localRtcpPort"></param>
             /// <param name="remoteRtpPort"></param>
             /// <param name="remoteRtcpPort"></param>
-            public void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort)
+            public void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort, bool wakeup = true)
             {
 
                 Goodbye = null;
@@ -319,10 +319,13 @@ namespace Media.Rtp
                     RtpSocket.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
                     //Set type of service
                     RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-                    
-                    //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
-                    try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtp); }
-                    catch (SocketException) { }
+
+                    if (wakeup)
+                    {
+                        //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
+                        try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtp); }
+                        catch (SocketException) { }
+                    }
 
                     //If we sent Rtp and Rtcp on the same socket (might mean duplex)
                     if (remoteRtpPort == remoteRtcpPort)
@@ -349,9 +352,12 @@ namespace Media.Rtp
                         RtcpSocket.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
                         //Set type of service
                         RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-                        
-                        try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
-                        catch (SocketException) { }
+
+                        if (wakeup)
+                        {
+                            try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
+                            catch (SocketException) { }
+                        }
 
                     }
                 }
@@ -1228,6 +1234,20 @@ namespace Media.Rtp
         public TransportContext GetContextByPayloadType(byte payloadType) { return TransportContexts.Where(cd => cd.MediaDescription.MediaFormat == payloadType).FirstOrDefault(); }
 
         /// <summary>
+        /// Selects a TransportContext by matching the given socket handle to the TransportContext socket's handle
+        /// </summary>
+        /// <param name="payloadType"></param>
+        /// <returns></returns>
+        public TransportContext GetContextBySocketHandle(IntPtr socketHandle) { return TransportContexts.Where(cd => cd.RtpSocket.Handle == socketHandle || cd.RtcpSocket.Handle == socketHandle).FirstOrDefault(); }
+
+        /// <summary>
+        /// Selects a TransportContext by matching the given socket handle to the TransportContext socket's handle
+        /// </summary>
+        /// <param name="payloadType"></param>
+        /// <returns></returns>
+        public TransportContext GetContextBySocket(Socket socket) { return GetContextBySocketHandle(socket.Handle); }
+
+        /// <summary>
         /// Adds a packet to the queue of outgoing RtpPackets
         /// </summary>
         /// <param name="packet">The packet to enqueue</param> (used to take the RtpCLient too but we can just check the packet payload type
@@ -1590,7 +1610,7 @@ namespace Media.Rtp
             {
                 string output = "Exception occured in RtpClient.SendData: " + ex.Message + ". SocketError = " + error + '"';
                 if (ex is SocketException) output += ", ErrorCode = " + (ex as SocketException).ErrorCode + '"';
-                System.Diagnostics.Debug.WriteLine(output);
+                System.Diagnostics.Debug.WriteLine(output);                
             }
 #else
             catch {  }

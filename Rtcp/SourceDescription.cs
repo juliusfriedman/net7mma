@@ -142,7 +142,7 @@ namespace Media.Rtcp
 
         }
 
-        public SourceDescription(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
+        public SourceDescription(uint ssrc) { SynchronizationSourceIdentifier = ssrc; Created = DateTime.Now; }
 
         public SourceDescription(RtcpPacket packet)
             : this(packet.Payload, 0)
