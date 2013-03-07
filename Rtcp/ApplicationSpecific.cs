@@ -73,7 +73,7 @@ namespace Media.Rtcp
             result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
             result.AddRange(Encoding.ASCII.GetBytes(Name));
             if (Data != null) result.AddRange(Data);
-            //while (result.Count % 4 != 0) result.Add(0);
+            while (result.Count % 4 != 0) result.Add(0);
             return result.ToArray();
         }
 

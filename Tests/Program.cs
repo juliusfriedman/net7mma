@@ -179,10 +179,10 @@ namespace Media
             output = rr.ToPacket().ToBytes();//should be exactly equal to example
             for (int i = asPacket.Length; i >= 0; --i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
-            int offset = output.Length + Rtcp.RtcpPacket.RtcpHeaderLength;
+            int offset = output.Length;// +Rtcp.RtcpPacket.RtcpHeaderLength;
 
             //Verify Source Description byte for byte
-            output = sd.ToBytes();
+            output = sd.ToPacket().ToBytes();
             for (int i = 0; i < output.Length; i++, offset++)
             {
                 if (example[offset] != output[i]) throw new Exception();
