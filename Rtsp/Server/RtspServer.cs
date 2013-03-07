@@ -237,6 +237,10 @@ namespace Media.Rtsp
 
         public RtspServerLogger Logger { get; set; }
 
+        public bool HttpEnabled { get { return m_HttpPort != -1; } }
+
+        public bool UdpEnabled { get { return m_UdpPort != -1; } }
+
         #endregion
 
         #region Constructor

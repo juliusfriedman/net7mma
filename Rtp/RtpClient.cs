@@ -1392,6 +1392,13 @@ namespace Media.Rtp
                     //Recieve as many bytes as are available on the socket up to the buffer length (no frame bytes)
                     received = socket.Receive(m_Buffer, received, Math.Min(socket.Available,  m_Buffer.Length), SocketFlags.None, out error);
 
+                    /*
+                     * Freebox Stb Patch
+                    var tc = GetContextBySocketHandle(socket.Handle);
+                    EndPoint fbRtp = new IPEndPoint(tc.RemoteRtp.Address, 0);//Any port
+                    received = socket.ReceiveFrom(m_Buffer, SocketFlags.None, ref fbRtp);
+                    */
+
                     //If the send was not successful throw an error with the errorCode
                     if (error != SocketError.Success) throw new SocketException((int)error);
 
