@@ -201,10 +201,10 @@ namespace Media.Rtcp
             result.AddRange(Payload);
 
             ////Handle padding and alignment
-            //if (/*Padding || */ PacketType == RtcpPacketType.ApplicationSpecific || PacketType == RtcpPacketType.SourceDescription)
-            //{
-            //    while (result.Count % 4 != 0) result.Add(0);
-            //}
+            if (/*Padding || */ PacketType == RtcpPacketType.ApplicationSpecific || PacketType == RtcpPacketType.SourceDescription)
+            {
+                while (result.Count % 4 != 0) result.Add(0);
+            }
 
             return result.ToArray();
         }
