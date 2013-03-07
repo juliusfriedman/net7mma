@@ -702,8 +702,6 @@ a=mpeg4-esid:101");
             Console.WriteLine(connectionLine.ToString());
         }
 
-        static bool udpEnabled, httpEndabled;
-
         /// <summary>
         /// Tests the RtspServer by creating a server, loading/exposing a stream and waiting for a keypress to terminate
         /// </summary>
@@ -761,18 +759,16 @@ a=mpeg4-esid:101");
                 {
                     Console.WriteLine("Enabling Http");
                     server.EnableHttp();
-                    httpEndabled = true;
                 }
                 else if (keyInfo.Key == ConsoleKey.U)
                 {
                     Console.WriteLine("Enabling Udp");
                     server.EnableUdp();
-                    udpEnabled = true;
                 }
                 else if (keyInfo.Key == ConsoleKey.T)
                 {
                     Console.WriteLine("Performing Load Test");
-                    SubTestLoad(httpEndabled, udpEnabled);
+                    SubTestLoad(server);
                 }
                 else if (System.Diagnostics.Debugger.IsAttached)
                 {
@@ -805,22 +801,22 @@ a=mpeg4-esid:101");
         /// <summary>
         /// Tests the Rtp and RtspClient in various modes (Against the server)
         /// </summary>
-        static void SubTestLoad(bool http = true, bool udp = true)
+        static void SubTestLoad(Rtsp.RtspServer server)
         {
             //100 times about a GB in total
 
             //Get the Degrees Of Parallelism
             int dop = 0;
 
-            if (httpEndabled) dop += 2;
-            if (udp) dop += 2;
+            if (server.HttpEnabled) dop += 2;
+            if (server.UdpEnabled) dop += 2;
             dop += 3;//Tcp
 
             //Test the server
             ParallelEnumerable.Range(1, 100).AsParallel().WithDegreeOfParallelism(dop).ForAll(i =>
             {
                 //Create a client
-                if (http && i % 2 == 0) 
+                if (server.HttpEnabled && i % 2 == 0) 
                 {
                     //Use Rtsp / Http
                     using (Rtsp.RtspClient httpClient = new Rtsp.RtspClient("http://localhost/live/Alpha"))
@@ -846,7 +842,7 @@ a=mpeg4-esid:101");
                         }
                     }
                 }
-                else if (udp && i % 3 == 0) 
+                else if (server.UdpEnabled && i % 3 == 0) 
                 {
                     //Use Rtsp / Udp
                     using (Rtsp.RtspClient udpClient = new Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
