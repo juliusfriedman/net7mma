@@ -188,7 +188,8 @@ namespace Media
                 if (example[offset] != output[i]) throw new Exception();
             }
 
-            //qtsi app - specific
+            //ApplicationSpecific - qtsi
+
             example = new byte[] { 0x81, 0xcc, 0x00, 0x06, 0x4e, 0xc8, 0x79, 0x50, 0x71, 0x74, 0x73, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x61, 0x74, 0x00, 0x04, 0x00, 0x00, 0x00, 0x14 };
 
             asPacket = new Rtcp.RtcpPacket(example, 0);
@@ -196,6 +197,15 @@ namespace Media
             Rtcp.ApplicationSpecific app = new Rtcp.ApplicationSpecific(asPacket);
 
             if (app.Name != "qtsi") throw new Exception("Invalid App Packet Type");
+
+            //Test making a packet with a known length in bytes
+
+            sd = new Rtcp.SourceDescription(0x1AB7C080); //4 Bytes
+            sd.Add(new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC")); // ItemType(1), Length(1), ItemValue(9), End(1) =  12 Bytes
+            asPacket = sd.ToPacket(); // Header = 4 Bytes
+
+            if (asPacket.Length != 20) throw new Exception("Invalid Length");
+
         }
 
         private static void TestRtpDump()
