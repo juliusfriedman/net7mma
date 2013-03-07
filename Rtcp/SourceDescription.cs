@@ -184,7 +184,7 @@ namespace Media.Rtcp
             //Length = (short)result.Count();
 
             //Align to multiple of 4 for rtcp Length
-            while (result.Count % 4 != 0) result.Add(0);
+            //while (result.Count % 4 != 0) result.Add(0);
 
             return result.ToArray();
         }
