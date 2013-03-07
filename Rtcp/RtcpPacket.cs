@@ -199,6 +199,13 @@ namespace Media.Rtcp
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(m_Length)));
             //Data
             result.AddRange(Payload);
+
+            //Handle padding and alignment
+            if (/*Padding || */ PacketType == RtcpPacketType.ApplicationSpecific || PacketType == RtcpPacketType.SourceDescription)
+            {
+                while (result.Count % 4 != 0) result.Add(0);
+            }
+
             return result.ToArray();
         }
 
