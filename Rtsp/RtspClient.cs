@@ -1374,7 +1374,8 @@ namespace Media.Rtsp
                 //Setup a timer to determine if we are recieving data... if we are then then we must switch
                 if (m_RtpClient != null && m_RtpProtocol == ProtocolType.Udp)
                 {
-                    if (m_ProtocolSwitchSeconds > 0)
+                    //If we have a timeout to switch the protocols and the protocol has not been forced
+                    if (m_ProtocolSwitchSeconds > 0 && !m_ForcedProtocol)
                     {
                         //Setup a timer, should be accessible from the instance...
                         m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, m_ProtocolSwitchSeconds * 1000, System.Threading.Timeout.Infinite);
