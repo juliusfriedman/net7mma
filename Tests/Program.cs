@@ -151,7 +151,7 @@ namespace Media
             //Recievers Report and Source Description
             example = new byte[] { 0x81,0xc9,0x00,0x07,0x69,0xf2,0x79,0x50,0x61,0x37,0x94,0x50,0xff,0xff,0xff,0xff,
                                 0x00,0x01,0x00,0x52,0x00,0x00,0x0e,0xbb,0xce,0xd4,0xc8,0xf5,0x00,0x00,0x84,0x28,
-                                0x81,0xca,0x00,0x03,0x69,0xf2,0x79,0x50,0x01,0x06,0x4a,0x61,0x79,0x2d,0x50,0x43,
+                                0x81,0xca,0x00,0x04,0x69,0xf2,0x79,0x50,0x01,0x06,0x4a,0x61,0x79,0x2d,0x50,0x43,
                                 0x00,0x00,0x00,0x00
             };
 
@@ -201,10 +201,10 @@ namespace Media
             //Test making a packet with a known length in bytes
 
             sd = new Rtcp.SourceDescription(0x1AB7C080); //4 Bytes
-            sd.Add(new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC")); // ItemType(1), Length(1), ItemValue(9), End(1) =  12 Bytes
+            sd.Add(new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC")); // ItemType(1), Length(1), ItemValue(9), End(1) =  12 Bytes                        
             asPacket = sd.ToPacket(); // Header = 4 Bytes
 
-            if (asPacket.Length != 16) throw new Exception("Invalid Length");
+            if (asPacket.Length != 16 || asPacket.ToBytes()[3] != 4) throw new Exception("Invalid Length");
         }
 
         private static void TestRtpDump()

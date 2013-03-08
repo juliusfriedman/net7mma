@@ -175,10 +175,7 @@ namespace Media.Rtcp
         /// <param name="buffer">The byte array to check for packets</param>
         /// <param name="offset">The offset to start checking at</param>
         /// <returns>The array of packets decoded from the buffer</returns>
-        public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0)
-        {
-            return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), ref offset);
-        }
+        public static RtcpPacket[] GetPackets(byte[] buffer, int offset = 0) { return GetPackets(new ArraySegment<byte>(buffer, offset, buffer.Length - offset), ref offset); }
 
         /// <summary>
         /// Provides the binary representation of the RtcpPacket ready to be sent on a <see cref="System.Net.Sockets.Socket"/>
@@ -199,13 +196,6 @@ namespace Media.Rtcp
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(m_Length)));
             //Data
             result.AddRange(Payload);
-
-            ////Handle padding and alignment
-            if (/*Padding || */ PacketType == RtcpPacketType.ApplicationSpecific || PacketType == RtcpPacketType.SourceDescription)
-            {
-                while (result.Count % 4 != 0) result.Add(0);
-            }
-
             return result.ToArray();
         }
 

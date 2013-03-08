@@ -89,12 +89,14 @@ namespace Media.Rtcp
                 List<byte> result = new List<byte>();
 
                 result.Add(m_Type);
-                result.Add((byte)m_Length);
-                if (m_Length > 0)
+                if (DescriptionType != SourceDescriptionType.End)
                 {
-                    result.AddRange(Encoding.UTF8.GetBytes(m_Text));
+                    result.Add((byte)m_Length);
+                    if (m_Length > 0)
+                    {
+                        result.AddRange(Encoding.UTF8.GetBytes(m_Text));
+                    }
                 }
-
                 return result.ToArray();
             }
 
@@ -183,8 +185,8 @@ namespace Media.Rtcp
             //m_Count = Items.Count;
             //Length = (short)result.Count();
 
-            //Align to multiple of 4 for rtcp Length
-            //while (result.Count % 4 != 0) result.Add(0);
+            //Data is aligned to a multiple of 32 bits
+            while (result.Count % 4 != 0) result.Add(0);
 
             return result.ToArray();
         }
