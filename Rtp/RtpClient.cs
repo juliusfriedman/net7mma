@@ -307,6 +307,7 @@ namespace Media.Rtp
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
+                    RtpSocket.SendTimeout  = RtpSocket.ReceiveTimeout = 0;
                     
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
@@ -340,6 +341,7 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
+                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = 0;
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
@@ -953,6 +955,18 @@ namespace Media.Rtp
             {
                 if (TransportContexts.Any(c => c.DataChannel == context.DataChannel || c.ControlChannel == context.ControlChannel)) throw new RtpClientException("Requested Channel is already in use");
                 else TransportContexts.Add(context);
+                //Should be announced here?
+            }
+        }
+
+        public void RemoveTransportContext(TransportContext context)
+        {
+            lock (TransportContexts)
+            {
+                if(TransportContexts.Contains(context))
+                {
+                    TransportContexts.Remove(context);
+                }
                 //Should be announced here?
             }
         }
@@ -1605,7 +1619,7 @@ namespace Media.Rtp
                     buffer.AddRange(data);
                     data = buffer.ToArray();
 
-                    //Send the frame keepting track of the bytes sent
+                    //Send the frame keeping track of the bytes sent
                     sent = socket.Send(data, sent, data.Length - sent, SocketFlags.None, out error);                    
                 }
 
@@ -1638,11 +1652,11 @@ namespace Media.Rtp
             if (context.RtcpEnabled)
             {
                 //Check SR, RR last recieved / sent the same as below
-                if (true)
-                {
-                    //SendGoodbye(context);
-                    //inactive = true;
-                }
+                //if (true)
+                //{
+                //    //SendGoodbye(context);
+                //    //inactive = true;
+                //}
             }
 
             //If we have our own InactivityTimeout then enforce it (If Rtcp is disabled and the remote party does not send a Goodbye this may never happen)

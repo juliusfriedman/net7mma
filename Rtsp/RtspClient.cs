@@ -469,7 +469,7 @@ namespace Media.Rtsp
                     foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
                     {
                         try
-                        {
+                        {                           
                             //Send a setup
                             SendSetup(md);
                         }
@@ -485,8 +485,30 @@ namespace Media.Rtsp
                 {
                     try
                     {
-                        //Send the play
-                        SendPlay();
+                        //Find range info in the SDP
+                        var rangeInfo = SessionDescription.Lines.Where(l => l.Parts.Contains("range")).FirstOrDefault();
+
+                        //If there is a range directive
+                        if (rangeInfo != null)
+                        {
+                            string[] parts = rangeInfo.Parts[0].Replace("range:", string.Empty).Split('-');
+
+                            if (parts.Length > 1)
+                            {
+                                //Send the play with the indicated start and end time
+                                SendPlay(Location, TimeSpan.Parse(parts[0]), TimeSpan.Parse(parts[1]));
+                            }
+                            else
+                            {
+                                //Send the play with the indicated start time only
+                                SendPlay(Location, TimeSpan.Parse(parts[0]), null);
+                            }
+                        }
+                        else
+                        {
+                            //Send to default play
+                            SendPlay();
+                        }
                     }
                     catch (Exception ex)
                     {

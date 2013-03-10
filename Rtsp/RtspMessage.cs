@@ -275,8 +275,6 @@ namespace Media.Rtsp
         /// </summary>
         public Encoding Encoding { get; set; }
 
-        //public float Version { get; set; }
-
         #endregion
 
         #region Constructor        
