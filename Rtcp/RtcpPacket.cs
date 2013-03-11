@@ -17,11 +17,20 @@ namespace Media.Rtcp
         public enum RtcpPacketType
         {
             //72-76  Reserved for RTCP conflict avoidance   
+            FullIntraFrameRequest = 192,
+            NegativeACKnowledgement = 193,
+            SmtpeTimeCodeMapping = 194,
+            ExtendedInterArrivalJitter = 195,            
             SendersReport = 200,
             ReceiversReport= 201,
             SourceDescription = 202,
             Goodbye = 203,
-            ApplicationSpecific = 204
+            ApplicationSpecific = 204,
+            TransportLayerFeedback = 205,
+            PayloadSpecificFeedback = 206,
+            ExtendedReport = 207,
+            AudioVideoBroadcastInfomation = 208,
+            ReceiverSummaryInformation = 209
         }
 
         #endregion

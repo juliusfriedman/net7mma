@@ -8,9 +8,8 @@ namespace Media.Rtcp
 
     //http://www.networksorcery.com/enp/rfc/rfc3611.txt
 
-    class ExtendedReportBlock : ReportBlock
+    class ExtendedReportBlock
     {
-        ExtendedReportBlock() : base(0) { }
     }
 
     class ExtendedReport
