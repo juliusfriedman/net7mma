@@ -26,7 +26,10 @@ namespace Media
         /// </summary>
         private static void TestRtpClient()
         {
-            Rtp.RtpClient sender = Rtp.RtpClient.Sender(Utility.GetFirstV4IPAddress());
+            //Get the local interface address
+            System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
+
+            Rtp.RtpClient sender = Rtp.RtpClient.Sender(localIp);
 
             //Create a Session Description
             Sdp.SessionDescription SessionDescription = new Sdp.SessionDescription(1);
@@ -34,9 +37,15 @@ namespace Media
             //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 17777, Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Rtp.JpegFrame.RtpJpegPayloadType));
 
-            System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
+            sender.RtcpPacketSent += (s, p) => Console.WriteLine("Sender Sent A RtcpPacket =>" + p.PacketType);
+            sender.RtcpPacketReceieved += (s, p) => Console.WriteLine("Sender Received A RtcpPacket =>" + p.PacketType);
+            sender.RtpPacketSent += (s, p) => Console.WriteLine("Sender Sent A RtpPacket =>" + p.SequenceNumber);
 
             Rtp.RtpClient receiver = Rtp.RtpClient.Receiever(Utility.GetFirstV4IPAddress());
+
+            receiver.RtcpPacketSent += (s, p) => Console.WriteLine("Receiver Sent A RtcpPacket =>" + p.PacketType);
+            receiver.RtcpPacketReceieved += (s, p) => Console.WriteLine("Receiver Received A RtcpPacket =>" + p.PacketType);
+            receiver.RtpPacketReceieved += (s, p) => Console.WriteLine("Receiver Received A RtpPacket =>" + p.SequenceNumber);
 
             //Create and Add the required TransportContext's
 
@@ -64,11 +73,17 @@ namespace Media
             sender.SendSendersReports();
             receiver.SendReceiversReports();
 
+            Console.WriteLine("Connection Established,  Encoding Frame");
+
             //Make a frame
             Rtp.JpegFrame testFrame = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"), 100, sendersContext.SynchronizationSourceIdentifier, 1);
-            
+
+            Console.WriteLine("Sending Encoded Frame");
+
             //Send it
             sender.SendRtpFrame(testFrame);
+
+            Console.WriteLine("Sent, Sending Reports and Goodbye");
 
             //Send another report
             sender.SendSendersReports();
@@ -77,7 +92,7 @@ namespace Media
             receiver.SendReceiversReports();
 
             //Send a goodbye
-            sender.SendGoodbyes();
+            sender.SendGoodbyes();            
 
             //Check values
 
@@ -96,6 +111,10 @@ namespace Media
             Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");
 
             Console.WriteLine("Test Passed");
+
+            sender.Disconnect();
+
+            receiver.Disconnect();
         }
 
         private static void RunTest(Action test)
