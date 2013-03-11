@@ -110,6 +110,9 @@ namespace Media
             Console.WriteLine("-----------------------");
             Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");
 
+            //Or by comparing packets received
+            if (receiver.TotalRtpPacketsReceieved < sender.TotalRtpPacketsSent) throw new Exception("Did not receive all packets");
+
             Console.WriteLine("Test Passed");
 
             sender.Disconnect();
