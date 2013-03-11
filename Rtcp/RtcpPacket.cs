@@ -29,7 +29,7 @@ namespace Media.Rtcp
             TransportLayerFeedback = 205,
             PayloadSpecificFeedback = 206,
             ExtendedReport = 207,
-            AudioVideoBroadcastInfomation = 208,
+            AudioVideoBridging = 208,
             ReceiverSummaryInformation = 209
         }
 
