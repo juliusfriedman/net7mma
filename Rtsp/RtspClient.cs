@@ -493,15 +493,28 @@ namespace Media.Rtsp
                         {
                             string[] parts = rangeInfo.Parts[0].Replace("range:", string.Empty).Split('-');
 
+                            string rangeType = "ntp";
+
+                            //Determine if the SDP also contains the format specifier
+                            if (parts[0].Contains("="))
+                            {
+                                rangeType = parts[0].Substring(0, parts[0].IndexOf('='));
+
+                                //Ensure first part only contains value not specifier
+                                parts[0] = parts[0].Replace(rangeType, string.Empty);
+                                parts[0] = parts[0].Replace("=", string.Empty);
+                            }
+
+                            //If there is a start and end time
                             if (parts.Length > 1)
                             {
                                 //Send the play with the indicated start and end time
-                                SendPlay(Location, TimeSpan.Parse(parts[0]), TimeSpan.Parse(parts[1]));
+                                SendPlay(Location, TimeSpan.Parse(parts[0]), TimeSpan.Parse(parts[1]), rangeType);
                             }
                             else
                             {
                                 //Send the play with the indicated start time only
-                                SendPlay(Location, TimeSpan.Parse(parts[0]), null);
+                                SendPlay(Location, TimeSpan.Parse(parts[0]), null, rangeType);
                             }
                         }
                         else
@@ -1219,13 +1232,13 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspResponse SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspResponse SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "ntp", string rangeFormat = null)
         {
             try
             {
                 RtspRequest play = new RtspRequest(RtspMethod.PLAY, location ?? Location);
 
-                play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime));
+                play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime, rangeType, rangeFormat));
 
                 RtspResponse response = SendRtspRequest(play);
 
