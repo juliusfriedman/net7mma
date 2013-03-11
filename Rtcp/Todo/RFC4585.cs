@@ -6,6 +6,8 @@ using System.Text;
 namespace Media.Rtcp
 {
 
+    //TODO Integrate Feedback into RtpClient and perform Rtcp checks for feedback enabled / disabled.
+
     public enum FeedbackFormat
     {
         Unassigned = 0,
@@ -74,7 +76,7 @@ namespace Media.Rtcp
         public DateTime? Sent { get; set; }
         public uint SenderSynchronizationSourceIdentifier { get; set; }
         public uint SourceSynchronizationSourceIdentifier { get; set; }
-        public byte[] FeedbackControlInformation { get; set; }
+        public FeedbackControlInformation FeedbackControlInformation { get; set; }
         public byte Format { get; set; }
         public FeedbackFormat FeedbackFormat { get { return (FeedbackFormat)Format; } set { Format = (byte)value; } }
 
@@ -82,7 +84,7 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public RtcpFeedbackPacket(uint senderSsrc, uint sourceSsrc, byte format = 0, byte[] data = null) { Created = DateTime.UtcNow; SenderSynchronizationSourceIdentifier = senderSsrc; SourceSynchronizationSourceIdentifier = sourceSsrc; FeedbackControlInformation = data; }
+        public RtcpFeedbackPacket(uint senderSsrc, uint sourceSsrc, byte format = 0, byte[] data = null) { Created = DateTime.UtcNow; SenderSynchronizationSourceIdentifier = senderSsrc; SourceSynchronizationSourceIdentifier = sourceSsrc; FeedbackControlInformation = new FeedbackControlInformation(data); }
 
         public RtcpFeedbackPacket(RtcpPacket packet) : this(packet.Payload, 0)
         {
@@ -97,12 +99,8 @@ namespace Media.Rtcp
             SenderSynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
             index += 4;
             SourceSynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
-            index += 4;
-
-            int len = packet.Length - index;
-
-            FeedbackControlInformation = new byte[len];
-            System.Array.Copy(packet, index, FeedbackControlInformation, 0, len);
+            index += 4;            
+            FeedbackControlInformation = new FeedbackControlInformation(packet, index);
 
         }
 
@@ -125,7 +123,7 @@ namespace Media.Rtcp
             //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SenderSynchronizationSourceIdentifier)));
             result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SourceSynchronizationSourceIdentifier)));
-            if (FeedbackControlInformation != null) result.AddRange(FeedbackControlInformation);
+            if (FeedbackControlInformation != null) result.AddRange(FeedbackControlInformation.ToBytes());
             //Data is aligned to a multiple of 32 bits
             while (result.Count % 4 != 0) result.Add(0);
             return result.ToArray();
@@ -139,13 +137,28 @@ namespace Media.Rtcp
 
     }
 
-    //RPSI
+    public class FeedbackControlInformation
+    {
+        public FeedbackControlInformation(byte[] packet, int index)
+        {
+            PaddedBits = packet[index++];
+            PayloadType = packet[index++];
+            int len = packet.Length - index;
+            NativeRPSIBitString = new byte[len];
+            System.Array.Copy(packet, 0, NativeRPSIBitString, 0, len);
+        }
+
+        public FeedbackControlInformation(byte[] packet) : this(packet, 0) { }
+
+        byte PaddedBits { get; set; }
+        byte PayloadType { get; set; }
+        byte[] NativeRPSIBitString { get; set; }
+
+        public byte[] ToBytes() { List<byte> result = new List<byte>(); result.Add(PaddedBits); result.Add(PayloadType); result.AddRange(NativeRPSIBitString); return result.ToArray(); }
+
+    }
 
     //PLI
 
     //SLI
-
-    //ALFB
-
-
 }
