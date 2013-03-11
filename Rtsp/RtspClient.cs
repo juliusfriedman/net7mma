@@ -1372,7 +1372,7 @@ namespace Media.Rtsp
                 if (m_RtspTimeoutSeconds != 0 && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendGetParameter), null, m_RtspTimeoutSeconds * 1000 / 2, m_RtspTimeoutSeconds * 1000 / 2);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeoutSeconds * 1000 / 2, m_RtspTimeoutSeconds * 1000 / 2);
                 }
 
                 //Connect the client (if already connected this will not do anything, might want to change the semantic though)
@@ -1406,11 +1406,19 @@ namespace Media.Rtsp
             }
         }
 
-        internal void SendGetParameter(object state)
+        internal void SendKeepAlive(object state)
         {
             try 
-            { 
-                SendGetParameter(null);
+            {
+                //Darwin DSS and other servers might not support GET_PARAMETER
+                if (SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
+                {
+                    SendGetParameter(null);
+                }
+                else if (SupportedMethods.Contains(RtspMethod.OPTIONS)) //If at least options is supported
+                {
+                    SendOptions();
+                }
 
                 bool total = false;
 
