@@ -10,10 +10,6 @@ namespace Media.Rtcp
 
     //http://datatracker.ietf.org/doc/rfc5760/?include_text=1
 
-    class GenericRtpFeedback
-    {
-    }
-
     /*
      
         The RSI report block has a fixed header size followed by a variable

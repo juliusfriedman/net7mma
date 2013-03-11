@@ -486,7 +486,7 @@ namespace Media.Rtsp
                     try
                     {
                         //Find range info in the SDP
-                        var rangeInfo = SessionDescription.Lines.Where(l => l.Parts.Contains("range")).FirstOrDefault();
+                        var rangeInfo = SessionDescription.Lines.Where(l => l.Parts.Any(p => p.Contains("range"))).FirstOrDefault();
 
                         //If there is a range directive
                         if (rangeInfo != null)
