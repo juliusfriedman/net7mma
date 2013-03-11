@@ -728,12 +728,12 @@ namespace Media.Rtp
 
             if (transportContext == null) return;
 
-            lock (transportContext)
-            {
-                //increment the counters
-                transportContext.RtpBytesSent += packet.Length;
-                ++transportContext.RtpPacketsSent;
-            }
+            //increment the counters
+            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
+            Interlocked.Increment(ref transportContext.RtpPacketsSent);
+            
+            //transportContext.RtpBytesSent += packet.Length;
+            //++transportContext.RtpPacketsSent;
         }
 
         internal static void RtpClient_RtcpPacketSent(RtpClient sender, RtcpPacket packet)
@@ -744,12 +744,12 @@ namespace Media.Rtp
 
             if (transportContext == null) return;
 
-            lock (transportContext)
-            {
-                //Increment the counters
-                transportContext.RtcpBytesSent += packet.PacketLength;
-                ++transportContext.RtcpPacketsSent;
-            }
+            //Increment the counters
+            //transportContext.RtcpBytesSent += packet.PacketLength;
+            //++transportContext.RtcpPacketsSent;
+
+            Interlocked.Add(ref transportContext.RtcpBytesSent, packet.Length);
+            Interlocked.Increment(ref transportContext.RtcpPacketsSent);
         }
 
         internal virtual void RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
