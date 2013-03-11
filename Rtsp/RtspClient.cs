@@ -509,12 +509,12 @@ namespace Media.Rtsp
                             if (parts.Length > 1)
                             {
                                 //Send the play with the indicated start and end time
-                                SendPlay(Location, TimeSpan.Parse(parts[0]), TimeSpan.Parse(parts[1]), rangeType);
+                                SendPlay(Location, TimeSpan.Parse(parts[0].Trim()), TimeSpan.Parse(parts[1].Trim()), rangeType);
                             }
                             else
                             {
                                 //Send the play with the indicated start time only
-                                SendPlay(Location, TimeSpan.Parse(parts[0]), null, rangeType);
+                                SendPlay(Location, TimeSpan.Parse(parts[0].Trim()), null, rangeType);
                             }
                         }
                         else
