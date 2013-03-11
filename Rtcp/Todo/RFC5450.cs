@@ -9,6 +9,16 @@ namespace Media.Rtcp
 
     /*
      
+     * The form of the transmission offset extension block is as follows:
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |  ID   | len=2 |              transmission offset              |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   The length field takes the value 2 to indicate that 3 bytes follow.
+     * 
      4.  Extended Jitter Reports
 
    The inter-arrival jitter computed as defined in Section 6.4.1 of RFC

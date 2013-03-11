@@ -91,21 +91,21 @@ namespace Media
             //Send the receivers report
             receiver.SendReceiversReports();
 
-            //Send a goodbye
-            sender.SendGoodbyes();            
+            Console.WriteLine("Waiting 5 seconds for all packets to arrive");
+            System.Threading.Thread.Sleep(TimeSpan.FromSeconds(5));
 
             //Check values
-
             if (sender.TotalRtpPacketsSent != testFrame.Count) throw new Exception("Did not send entire frame");
 
-            //Measure QoE / QoS based on sent / received ratio.
+            //Send a goodbye
+            sender.SendGoodbyes();
 
+            //Measure QoE / QoS based on sent / received ratio.
             Console.WriteLine("Since : " + sendersContext.SendersReport.Sent);
             Console.WriteLine("-----------------------");
             Console.WriteLine("Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
-            //Determine what is actually being received by obtaining the TransportContext of the receiver
-            
+            //Determine what is actually being received by obtaining the TransportContext of the receiver            
             Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
             Console.WriteLine("-----------------------");
             Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");

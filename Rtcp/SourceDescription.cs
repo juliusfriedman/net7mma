@@ -130,6 +130,8 @@ namespace Media.Rtcp
         public SourceDescription(byte[] packet, int offset) 
         {
 
+            Created = DateTime.Now; 
+
             SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, offset));
 
             offset = 4;
