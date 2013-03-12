@@ -7,7 +7,8 @@ namespace Media.Rtcp
 {
 
     //TODO Integrate Feedback into RtpClient and perform Rtcp checks for feedback enabled / disabled and finally send feedback with reports if required.
-
+    
+    //See if name is correct and possibly enumerate ApplicationLayer vs PayloadSpecific formats?
     public enum FeedbackControlInformationType
     {
         Unassigned = 0,
@@ -18,6 +19,7 @@ namespace Media.Rtcp
         Reserved = 31
     }
 
+    //RtpFeedback
     /*
      * References
      http://tools.ietf.org/rfc/rfc4585.txt
@@ -109,6 +111,7 @@ namespace Media.Rtcp
 
     }
 
+    //NACK
     /*     
 6.2.   Transport Layer Feedback Messages
 
@@ -359,7 +362,7 @@ namespace Media.Rtcp
    performance.
      */
 
-    class PictureLossIndication
+    public class PictureLossIndication
     {
         public RtcpPacket ToPacket(byte? channel = null)
         {
@@ -425,7 +428,7 @@ namespace Media.Rtcp
       is considered macroblock number N).
      */
 
-    class SliceLossIndication
+    public class SliceLossIndication
     {
         public RtcpPacket ToPacket(byte? channel = null)
         {

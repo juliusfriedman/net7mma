@@ -5,10 +5,12 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    //http://www.networksorcery.com/enp/rfc/rfc5450.txt
+    //http://www.networksorcery.com/enp/rfc/rfc5450.txt    
 
     /*
      
+     * Read from RtpPacket ExtensionData
+     * 
      * The form of the transmission offset extension block is as follows:
 
        0                   1                   2                   3
@@ -18,6 +20,10 @@ namespace Media.Rtcp
       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
    The length field takes the value 2 to indicate that 3 bytes follow.
+     * 
+     * 
+     * 
+     * 
      * 
      4.  Extended Jitter Reports
 
@@ -71,7 +77,46 @@ RFC 5450                RTP Transmission Offsets              March 2009
      
      */
 
-    class ExtendedJitterReport
+    public class ExtendedJitterReport
     {
+        public List<uint> Jitters = new List<uint>();
+
+        public DateTime? Sent { get; set; }
+
+        public DateTime? Created { get; set; }
+
+        public ExtendedJitterReport(RtcpPacket packet) : this(packet.Payload, 0) { }
+
+        public ExtendedJitterReport(byte[] packet, int index)
+        {
+            while (index < packet.Length)
+            {
+                Jitters.Add(Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index)));
+                index += 4;
+            }
+        }
+
+        public RtcpPacket ToPacket(byte? channel = null)
+        {
+            return new RtcpPacket(RtcpPacket.RtcpPacketType.ExtendedInterArrivalJitter, channel)
+            {
+                BlockCount = Jitters.Count,
+                Payload = ToBytes()
+            };
+        }
+
+        public byte[] ToBytes()
+        {
+            List<byte> result = new List<byte>();
+
+            Jitters.ForEach(j => result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(j))));
+
+            return result.ToArray();
+        }
+
+        public static implicit operator RtcpPacket(ExtendedJitterReport jitter) { return jitter.ToPacket(); }
+
+        public static implicit operator ExtendedJitterReport(RtcpPacket packet) { return new ExtendedJitterReport(packet); }
+
     }
 }
