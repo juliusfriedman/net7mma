@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace Media.Rtcp
 {
@@ -124,9 +123,9 @@ RFC 2032           RTP Payload Format for H.261 Video       October 1996
      
      */
 
-    class NegativeACKnowledgement
+    public class NegativeACKnowledgement
     {
-         public DateTime? Created { get; set; }
+        public DateTime? Created { get; set; }
 
         public DateTime? Sent { get; set; }
 
