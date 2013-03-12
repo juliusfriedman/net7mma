@@ -14,7 +14,7 @@ namespace Media.Rtcp
 
         #region Nested Types
 
-        public enum RtcpPacketType
+        public enum RtcpPacketType : byte
         {
             //72-76  Reserved for RTCP conflict avoidance   
             FullIntraFrameRequest = 192,

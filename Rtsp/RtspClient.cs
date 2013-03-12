@@ -403,7 +403,7 @@ namespace Media.Rtsp
 
 
 #if DEBUG
-                System.Diagnostics.Debug.WriteLine(System.Text.Encoding.ASCII.GetString(slice.Array));
+                System.Diagnostics.Debug.WriteLine("InterleavedData (Rtsp): " + System.Text.Encoding.ASCII.GetString(slice.Array));
 #endif
 
                 //Update counters
@@ -493,7 +493,7 @@ namespace Media.Rtsp
                         {
                             string[] parts = rangeInfo.Parts[0].Replace("range:", string.Empty).Split('-');
 
-                            string rangeType = "ntp";
+                            string rangeType = null;
 
                             //Determine if the SDP also contains the format specifier
                             if (parts[0].Contains("="))
@@ -1208,9 +1208,11 @@ namespace Media.Rtsp
 
         internal void SwitchProtocols(object state = null)
         {
+            //If there is no socket or the protocol was forced return
             if (m_RtspSocket == null && m_ForcedProtocol) return;
+
             //If the client has not recieved any bytes and we have not already switched to Tcp
-            if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpBytesReceieved <= 0)
+            else if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpBytesReceieved <= 0)
             {
                 //Reconnect without losing the events on the RtpClient
                 Client.m_SocketOwner = false;
@@ -1229,6 +1231,17 @@ namespace Media.Rtsp
             {
                 //Switch back to Udp?
                 throw new NotImplementedException("Switch from Tcp to Udp Not Implemented.");
+
+                //Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Udp;
+
+                ////Disconnect to allow the server to reset state
+                //Disconnect();
+
+                ////Clear existing transportChannels
+                //m_RtpClient.TransportContexts.Clear();
+
+                ////Start again
+                //StartListening();
             }
         }
 
@@ -1266,9 +1279,7 @@ namespace Media.Rtsp
 #if DEBUG
                         else
                         {
-
                             System.Diagnostics.Debug.WriteLine("RtspClient Encountered unhandled Rtp-Info part: " + piece);
-
                         }
 #endif
                     }
@@ -1424,11 +1435,11 @@ namespace Media.Rtsp
             try 
             {
                 //Darwin DSS and other servers might not support GET_PARAMETER
-                if (SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
+                if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
                 {
                     SendGetParameter(null);
                 }
-                else if (SupportedMethods.Contains(RtspMethod.OPTIONS)) //If at least options is supported
+                else if (m_SupportedMethods.Contains(RtspMethod.OPTIONS)) //If at least options is supported
                 {
                     SendOptions();
                 }

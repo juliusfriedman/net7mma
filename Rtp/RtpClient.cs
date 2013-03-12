@@ -558,7 +558,7 @@ namespace Media.Rtp
                 ++transportContext.RtcpPacketsReceieved;
                 transportContext.RtcpBytesRecieved += packet.Length;
 
-                if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport || (int)packet.PacketType == 72)
+                if (packet.PacketType == RtcpPacket.RtcpPacketType.SendersReport || (byte)packet.PacketType == 72)
                 {
                     //Store the senders report
                     transportContext.SendersReport = new SendersReport(packet);
@@ -584,7 +584,7 @@ namespace Media.Rtp
                     //Should also send source description
                     sender.SendSourceDescription(transportContext);
                 }
-                else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport || (int)packet.PacketType == 73)
+                else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport || (byte)packet.PacketType == 73)
                 {
                     transportContext.RecieversReport = new ReceiversReport(packet);
 
@@ -593,17 +593,17 @@ namespace Media.Rtp
                     //Send a senders report
                     sender.SendSendersReport(transportContext);
                 }
-                else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription || (int)packet.PacketType == 74)
+                else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription || (byte)packet.PacketType == 74)
                 {
                     //Might record ssrc here
                     transportContext.SourceDescription = new SourceDescription(packet);
                 }
-                else if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye || (int)packet.PacketType == 75)
+                else if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye || (byte)packet.PacketType == 75)
                 {
                     //Maybe the server should be aware when this happens?
                     transportContext.Goodbye = new Goodbye(packet);
 
-                    //TODO THIS SHOULD ONLY OCCUR IF m_Interleaves.All(i=> c.GoodbyeRecieved)
+                    //TODO THIS SHOULD ONLY OCCUR IF TransportContexts.All(i=> i.Goodbye != null)
                     sender.Disconnect();
                 }
                 //else if (packet.PacketType == RtcpPacket.RtcpPacketType.ApplicationSpecific || (int)packet.PacketType == 76)
@@ -669,7 +669,9 @@ namespace Media.Rtp
                     transportContext.SequenceNumber = packet.SequenceNumber;
                 }
                 //If the transportChannels identifier is not the same as the packet then we will not handle this packet
-                else if (transportContext.CurrentFrame != null && transportContext.CurrentFrame.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier || transportContext.CurrentFrame.SynchronizationSourceIdentifier != transportContext.SynchronizationSourceIdentifier)
+                else if (transportContext.CurrentFrame != null && 
+                    transportContext.CurrentFrame.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier || 
+                    transportContext.CurrentFrame.SynchronizationSourceIdentifier != transportContext.SynchronizationSourceIdentifier)
                 {
                     //it could be an injection or something else
                     return;
