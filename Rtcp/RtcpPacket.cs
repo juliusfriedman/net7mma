@@ -20,7 +20,8 @@ namespace Media.Rtcp
             FullIntraFrameRequest = 192,
             NegativeACKnowledgement = 193,
             SmtpeTimeCodeMapping = 194,
-            ExtendedInterArrivalJitter = 195,            
+            ExtendedInterArrivalJitter = 195,      
+            Reserved = 196,
             SendersReport = 200,
             ReceiversReport= 201,
             SourceDescription = 202,
@@ -146,7 +147,12 @@ namespace Media.Rtcp
 
         #region Methods
 
-        public static bool IsKnownPacketType(byte suspect) { return suspect >= (byte)RtcpPacket.RtcpPacketType.SendersReport && suspect <= (byte)RtcpPacket.RtcpPacketType.ApplicationSpecific || suspect >= 72 && suspect <= 76; }
+        public static bool IsKnownPacketType(byte suspect) 
+        {
+            return suspect >= (byte)RtcpPacket.RtcpPacketType.FullIntraFrameRequest && suspect <= (byte)RtcpPacket.RtcpPacketType.ExtendedInterArrivalJitter
+                || suspect >= 72 && suspect <= 76
+                || suspect >= (byte)RtcpPacket.RtcpPacketType.SendersReport && suspect <= (byte)RtcpPacket.RtcpPacketType.ReceiverSummaryInformation; 
+        }
 
         public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference)
         {
