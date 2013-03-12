@@ -162,6 +162,8 @@ namespace Media.Rtp
             public SourceDescription SourceDescription { get; internal set; }
             public Goodbye Goodbye { get; internal set; }
 
+            //public readonly List<RtcpPacket> ControlLog; //Only if RtcpEnabled
+
             public TransportContext(byte dataChannel, byte controlChannel, uint ssrc, bool rtcpEnabled = true)
             {
                 DataChannel = dataChannel;
