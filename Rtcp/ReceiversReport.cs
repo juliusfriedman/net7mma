@@ -41,10 +41,9 @@ namespace Media.Rtcp
 
         public virtual RtcpPacket ToPacket(byte? channel = null)
         {
-            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport);
+            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport, channel ?? Channel);
             output.Payload = ToBytes();
             output.BlockCount = Blocks.Count;
-            output.Channel = channel ?? Channel;
             return output;
         }
 

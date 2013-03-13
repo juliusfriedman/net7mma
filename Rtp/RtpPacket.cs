@@ -131,7 +131,7 @@ namespace Media.Rtp
         /// <summary>
         /// Gets or sets the Length of the ExtensionData in bytes. (Must be a multiple of 32)
         /// </summary>
-        public ushort ExtensionLength { get { return m_ExtensionLength; } set { if (value % 4 != 0) throw new InvalidOperationException("Value must be a multiple of 32"); m_ExtensionLength = (ushort)(value / 4); } }
+        public ushort ExtensionLength { get { return (ushort)(m_ExtensionLength * 4); } set { if (value % 4 != 0) throw new InvalidOperationException("Value must be a multiple of 32"); m_ExtensionLength = (ushort)(value / 4); } }
 
         /// <summary>
         /// Gets the ExtensionData of the RtpPacket including Flags and Length
@@ -164,11 +164,13 @@ namespace Media.Rtp
 
                     m_ExtensionFlags = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 0));
 
-                    m_ExtensionLength = (ushort)(4 * Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 2)));
+                    //Take the length in 32 bit words
+                    ExtensionLength = (ushort)(Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 2)));
 
-                    m_ExtensionData = new byte[m_ExtensionLength];
+                    //Use the property to get the length in bytes which is m_ExtensionLength * 4 though the getter ExtensionLength
+                    m_ExtensionData = new byte[ExtensionLength];
 
-                    System.Array.Copy(value, 4, m_ExtensionData, 0, m_ExtensionLength);
+                    System.Array.Copy(value, 4, m_ExtensionData, 0, ExtensionLength);
                 }
             }
         }
@@ -192,7 +194,7 @@ namespace Media.Rtp
 
         #region Constructor
 
-        public RtpPacket(int payloadSize = MaxPayloadSize) { m_Payload = new byte[payloadSize]; Created = DateTime.UtcNow; Version = 2; }
+        public RtpPacket(int payloadSize = MaxPayloadSize, int version = 2) { m_Payload = new byte[payloadSize]; Created = DateTime.UtcNow; Version = version; }
 
         public RtpPacket(ArraySegment<byte> packetReference, byte? channel = null)
         {
@@ -250,10 +252,10 @@ namespace Media.Rtp
             if (Extensions)
             {
                 m_ExtensionFlags = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position));
-                m_ExtensionLength = (ushort)(4 * Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position + 2)));
-                m_ExtensionData = new byte[m_ExtensionLength];
-                Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position + 4, m_ExtensionData, 0, m_ExtensionLength);
-                position += 4 + m_ExtensionLength;
+                m_ExtensionLength = (ushort)(Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position + 2)));
+                m_ExtensionData = new byte[ExtensionLength];
+                Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position + 4, m_ExtensionData, 0, ExtensionLength);
+                position += 4 + ExtensionLength;
             }
 
             //ToDo Reorder and optomize this section to prevent unrequired subtraction operation

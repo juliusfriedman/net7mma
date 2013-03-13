@@ -32,6 +32,8 @@ namespace Media.Rtcp
 
         public DateTime? Created { get; set; }
 
+        public byte? Channel { get; set; }
+
         #endregion
 
         #region Constructor
@@ -85,7 +87,7 @@ namespace Media.Rtcp
 
         public virtual RtcpPacket ToPacket(byte? channel = null)
         {
-            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SendersReport, channel);            
+            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SendersReport, channel ?? Channel);            
             output.Payload = ToBytes();
             output.BlockCount = Blocks.Count;
             return output;
@@ -96,7 +98,7 @@ namespace Media.Rtcp
             List<byte> result = new List<byte>();
             // SSRC
             //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((int)(ssrc ?? SynchronizationSourceIdentifier))));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(ssrc ?? SynchronizationSourceIdentifier)));
             
             // NTP timestamp
             //Should check endian before swapping

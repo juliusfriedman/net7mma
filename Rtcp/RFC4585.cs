@@ -9,7 +9,7 @@ namespace Media.Rtcp
     //TODO Integrate Feedback into RtpClient and perform Rtcp checks for feedback enabled / disabled and finally send feedback with reports if required.
     
     //See if name is correct and possibly enumerate ApplicationLayer vs PayloadSpecific formats?
-    public enum FeedbackControlInformationType
+    public enum FeedbackControlInformationType : byte
     {
         Unassigned = 0,
         PictureLossIndication = 1,
@@ -32,6 +32,8 @@ namespace Media.Rtcp
     public class RtcpFeedbackPacket
     {
 
+        RtcpPacket.RtcpPacketType m_PacketType;
+
          #region Properties
 
         public byte? Channel { get; set; }
@@ -42,7 +44,6 @@ namespace Media.Rtcp
         public byte[] FeedbackControlInformation { get; set; }
         public byte Format { get; set; }
         public FeedbackControlInformationType FeedbackFormat { get { return (FeedbackControlInformationType)Format; } set { Format = (byte)value; } }
-        RtcpPacket.RtcpPacketType m_PacketType;
         public RtcpPacket.RtcpPacketType PacketType { get { return m_PacketType; } set { if (value != RtcpPacket.RtcpPacketType.TransportLayerFeedback && value != RtcpPacket.RtcpPacketType.PayloadSpecificFeedback) throw new InvalidOperationException(); m_PacketType = value; } }
 
         #endregion

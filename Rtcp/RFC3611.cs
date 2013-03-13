@@ -11,22 +11,22 @@ namespace Media.Rtcp
 
     //http://www.networksorcery.com/enp/rfc/rfc3611.txt
 
-    //6.2.  RTCP XR Block Type Registry
-    public enum ExtendedReportBlockType : byte
-    {
-        Invalid = 0,
-        Loss = 1,
-        DuplicateRLE = 2,
-        PacketReceiptTimes = 3,
-        ReceiverReferenceTime = 4,
-        DLRR = 5,
-        StatisticsSummary = 6,
-        VoIPMetric = 7,
-        Reserved = 255
-    }
-
     public class ExtendedReportBlock
     {
+        //6.2.  RTCP XR Block Type Registry
+        public enum ExtendedReportBlockType : byte
+        {
+            Invalid = 0,
+            Loss = 1,
+            DuplicateRLE = 2,
+            PacketReceiptTimes = 3,
+            ReceiverReferenceTime = 4,
+            DLRR = 5,
+            StatisticsSummary = 6,
+            VoIPMetric = 7,
+            Reserved = 255
+        }
+
         #region Fields
         public byte BlockType, TypeSpecific;
         ushort m_BlockLength;        
@@ -97,6 +97,8 @@ namespace Media.Rtcp
     #region Todo
 
     //Loss RLE Report Block
+
+    //---- Loss RLE Chunks
 
     /*
      
@@ -213,6 +215,16 @@ RFC 3611                        RTCP XR                    November 2003
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      
      */
+
+    //Chunk { bool RunLength { Data[0] & 1 == 1}, BitVector { Data[0] & 1 << 1 == 1}, NullTerminating { Data[0] == 0 } }
+
+    //Run Length Chunk
+
+    //Bit Vector Chunk
+
+    //Terminating Null Chunk
+
+    //----
 
     //Duplicate RLE Report Block
 

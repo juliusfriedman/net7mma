@@ -10,7 +10,14 @@ namespace Media.Rtcp
 
     //http://tools.ietf.org/html/draft-williams-avtext-avbsync-01
 
-    //http://tools.ietf.org/html/draft-williams-avtext-avbsync-02
+    //http://tools.ietf.org/html/draft-williams-avtext-avbsync-02    
+
+    //Todo write Williams since draft is expired
+    //Could have been just an application specific packet with a length = 9, name = ravb, BlockCount = {0, 1, 2} for ProtocolIndication
+    //Use ExtendedReports Framework if necessary.
+
+    //Specialization of IEEE 1588 Best Master Clock Algorithm to 802.1AS 
+    //http://www.ieee802.org/1/files/public/docs2006/as-garner-bmc-060606.pdf
 
     /*
      
@@ -71,7 +78,25 @@ namespace Media.Rtcp
     /// The applications at the renderer(s) then use that correlation to translate the RTP timestamp to the presentation time stamp allowing 
     /// the renderer(s) to start playing at the same time and keep playing at the same rate.
     /// </summary>
-    class AVBRtcpPacket
+    class AVBRtcpPacket /*: PT = 208, Length = 9, SubType = BlockCount*/
     {
+        public enum ProtocolIndication
+        {
+            IEEE8021AS = 0,
+            IEEE1588v1 = 1,
+            IEEE1588v2 = 2
+        }
+
+        public ProtocolIndication Protocol { get { return (ProtocolIndication)SubType; } set { SubType = (byte)value; } }
+        public byte SubType { get; set; }
+
+        uint Ssrc;
+        string Name; //ASCII
+        ushort gmTimeBaseIndicator, gmPortNumber;
+        uint gmClockIdentity, //EUI-64
+            //After streamId
+             AsTimestamp, RtpTimestamp;
+
+        ulong StreamId;        
     }
 }

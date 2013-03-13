@@ -15,7 +15,6 @@ namespace Media
     /// </summary>
     public static class Utility
     {
-
         #region Extensions
 
         public static void AddRange<T>(this List<T> list, IEnumerable<T> source, int start, int length)
@@ -37,6 +36,8 @@ namespace Media
         public static Random Random = new Random();
 
         #endregion
+
+        #region Hex Functions
 
         public static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
 
@@ -76,6 +77,10 @@ namespace Media
             //Return the bytes
             return result.ToArray();
         }
+
+        #endregion
+
+        #region Port and IPAddress Functions
 
         public static int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
@@ -119,9 +124,18 @@ namespace Media
 
         public static IPAddress GetFirstIPAddress(System.Net.Sockets.AddressFamily addressFamily) { foreach (System.Net.IPAddress ip in System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName()).AddressList) if (ip.AddressFamily == addressFamily) return ip; return IPAddress.Loopback; }
 
+        #endregion
+
+        #region Bit Manipulation
+
         public static ushort ReverseUnsignedShort(ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
 
         public static uint ReverseUnsignedInt(uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
+
+        //Could perform logic in Reverse Functions and rename them ToBigEndian then make seperate explicit Function for Reverse for ease of refactoring usage.
+        //public static void ToBigEndian(Array array) { if (!BitConverter.IsLittleEndian) return; Array.Reverse(array); }
+
+        #endregion
 
         #region Npt
 
