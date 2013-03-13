@@ -552,8 +552,8 @@ namespace Media
 
                 //Make a client
                 //This host uses Udp but also supports Tcp if Nat fails
-                //rtsp://195.252.113.40:554/rts - rtsp://178.218.212.102:1935/live/Stream1
-                Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://195.252.113.40:554/rts");
+                //rtsp://195.252.113.40:554/rts - Weird Server with no supported methods
+                Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
             StartTest:
                 //Assign some events (Could log each packet to a dump here)
                 client.OnConnect += (sender, args) => { Console.WriteLine("Connected to :" + client.Location); };
