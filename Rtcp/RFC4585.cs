@@ -53,11 +53,11 @@ namespace Media.Rtcp
 
         public RtcpFeedbackPacket(RtcpPacket packet) : this(packet.Payload, 0)
         {
+            if (packet.PacketType != RtcpPacket.RtcpPacketType.TransportLayerFeedback || packet.PacketType != RtcpPacket.RtcpPacketType.PayloadSpecificFeedback) throw new Exception("Invalid Packet Type, Expected RTPFB or PSFB. Found: '" + (byte)packet.PacketType + '\'');
+            else PacketType = packet.PacketType;
             Channel = packet.Channel;
             Created = packet.Created ?? DateTime.UtcNow;
             Format = (byte)packet.BlockCount;            
-            if (packet.PacketType != RtcpPacket.RtcpPacketType.TransportLayerFeedback || packet.PacketType != RtcpPacket.RtcpPacketType.PayloadSpecificFeedback) throw new Exception("Invalid Packet Type, Expected RTPFB or PSFB. Found: '" + (byte)packet.PacketType + '\'');
-            else PacketType = packet.PacketType;
         }
 
         internal RtcpFeedbackPacket(byte[] packet, int index)
