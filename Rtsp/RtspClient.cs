@@ -447,90 +447,84 @@ namespace Media.Rtsp
                     throw new RtspClientException("Could not get Options: " + ex.Message, ex);
                 }
 
-                //If we can describe
-                if (m_SupportedMethods.Contains(RtspMethod.DESCRIBE))
+                try
+                {
+                    //Send describe
+                    SendDescribe();
+                }
+                catch (Exception ex)
+                {
+                    throw new RtspClientException("Could not Describe: " + ex.Message, ex);
+                }
+
+
+                //For each MediaDescription in the SessionDecscription
+                foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
                 {
                     try
                     {
-                        //Send describe
-                        SendDescribe();
+                        //Send a setup
+                        SendSetup(md);
                     }
                     catch (Exception ex)
                     {
-                        throw new RtspClientException("Could not Describe: " + ex.Message, ex);
+                        throw new RtspClientException("Could not Setup: " + ex.Message, ex);
                     }
                 }
 
-
-                //If we can setup
-                if (m_SupportedMethods.Contains(RtspMethod.SETUP))
+                try
                 {
-                    //For each MediaDescription in the SessionDecscription
-                    foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
+                    //Find range info in the SDP
+                    var rangeInfo = SessionDescription.Lines.Where(l => l.Parts.Any(p => p.Contains("range"))).FirstOrDefault();
+
+                    //If there is a range directive
+                    if (rangeInfo != null)
                     {
-                        try
-                        {                           
-                            //Send a setup
-                            SendSetup(md);
-                        }
-                        catch(Exception ex)
+                        //Maybe create a RtspRange class?
+
+                        string[] parts = rangeInfo.Parts[0].Replace("range:", string.Empty).Split('-');
+
+                        string rangeType = null;
+
+                        //Determine if the SDP also contains the format specifier
+                        if (parts[0].Contains("="))
                         {
-                            throw new RtspClientException("Could not Setup: " + ex.Message, ex);                            
+                            rangeType = parts[0].Substring(0, parts[0].IndexOf('='));
+
+                            //Ensure first part only contains value not specifier
+                            parts[0] = parts[0].Replace(rangeType, string.Empty);
+                            parts[0] = parts[0].Replace("=", string.Empty).Trim();
                         }
-                    }
-                }
 
-                //If we can play
-                if (m_SupportedMethods.Contains(RtspMethod.PLAY))
-                {
-                    try
-                    {
-                        //Find range info in the SDP
-                        var rangeInfo = SessionDescription.Lines.Where(l => l.Parts.Any(p => p.Contains("range"))).FirstOrDefault();
+                        TimeSpan? start = null;
 
-                        //If there is a range directive
-                        if (rangeInfo != null)
+                        if (parts[0] != "now") start = TimeSpan.FromSeconds(double.Parse(parts[0]));
+
+                        //If there is a start and end time
+                        if (parts.Length > 1)
                         {
-                            string[] parts = rangeInfo.Parts[0].Replace("range:", string.Empty).Split('-');
+                            TimeSpan? end = null;
 
-                            string rangeType = null;
+                            if (!string.IsNullOrWhiteSpace(parts[1])) end = TimeSpan.FromSeconds(double.Parse(parts[1]));
 
-                            //Determine if the SDP also contains the format specifier
-                            if (parts[0].Contains("="))
-                            {
-                                rangeType = parts[0].Substring(0, parts[0].IndexOf('='));
-
-                                //Ensure first part only contains value not specifier
-                                parts[0] = parts[0].Replace(rangeType, string.Empty);
-                                parts[0] = parts[0].Replace("=", string.Empty).Trim();                                
-                            }
-
-                            TimeSpan? start = null;
-                            
-                            if(parts[0] == "now") start = TimeSpan.Parse(parts[0]);
-
-                            //If there is a start and end time
-                            if (parts.Length > 1)
-                            {
-                                //Send the play with the indicated start and end time
-                                SendPlay(Location, start, TimeSpan.Parse(parts[1].Trim()), rangeType);
-                            }
-                            else
-                            {
-                                //Send the play with the indicated start time only
-                                SendPlay(Location, start, null, rangeType);
-                            }
+                            //Send the play with the indicated start and end time
+                            SendPlay(Location, start, end, rangeType);
                         }
                         else
                         {
-                            //Send to default play
-                            SendPlay();
+                            //Send the play with the indicated start time only
+                            SendPlay(Location, start, null, rangeType);
                         }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        throw new RtspClientException("Could not Play: " + ex.Message, ex);
+                        //Send to default play
+                        SendPlay();
                     }
+                }
+                catch (Exception ex)
+                {
+                    throw new RtspClientException("Could not Play: " + ex.Message, ex);
                 }
 
             }
@@ -854,7 +848,7 @@ namespace Media.Rtsp
 
             string publicMethods = response[RtspHeaders.Public];
 
-            if (string.IsNullOrEmpty(publicMethods)) return response;
+            if (string.IsNullOrWhiteSpace(publicMethods)) return response;
 
             foreach (string method in publicMethods.Split(','))
             {
