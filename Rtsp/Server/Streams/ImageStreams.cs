@@ -6,6 +6,8 @@ using System.Text;
 namespace Media.Rtsp.Server.Streams
 {
 
+    //Todo Seperate ImageStream from JpegRtpImageSource
+
     //public class ImageStream : SourceStream
     //{
     //    public Rtp.RtpFrame CreateFrames() { }
@@ -224,6 +226,8 @@ namespace Media.Rtsp.Server.Streams
                 catch { /**/ }
             }
         }
+
+        //Needs to only send packets and not worry about updating the frame, that should be done by ImageSource
 
         internal virtual void SendPackets()
         {

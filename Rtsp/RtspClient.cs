@@ -502,19 +502,23 @@ namespace Media.Rtsp
 
                                 //Ensure first part only contains value not specifier
                                 parts[0] = parts[0].Replace(rangeType, string.Empty);
-                                parts[0] = parts[0].Replace("=", string.Empty);
+                                parts[0] = parts[0].Replace("=", string.Empty).Trim();                                
                             }
+
+                            TimeSpan? start = null;
+                            
+                            if(parts[0] == "now") start = TimeSpan.Parse(parts[0]);
 
                             //If there is a start and end time
                             if (parts.Length > 1)
                             {
                                 //Send the play with the indicated start and end time
-                                SendPlay(Location, TimeSpan.Parse(parts[0].Trim()), TimeSpan.Parse(parts[1].Trim()), rangeType);
+                                SendPlay(Location, start, TimeSpan.Parse(parts[1].Trim()), rangeType);
                             }
                             else
                             {
                                 //Send the play with the indicated start time only
-                                SendPlay(Location, TimeSpan.Parse(parts[0].Trim()), null, rangeType);
+                                SendPlay(Location, start, null, rangeType);
                             }
                         }
                         else

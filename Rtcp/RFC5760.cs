@@ -31,31 +31,86 @@ namespace Media.Rtcp
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      
      */
-
-    public enum SubReportBlockType : byte
-    {
-        IPv4Address = 0,
-        IPv6Address = 1,
-        DNSName = 2,
-        Reserved = 3,
-        Loss = 4,
-        Jitter = 5,
-        RoundTripTime = 6,
-        CumulativeLoss = 7,
-        Collisions = 8,
-        Stats = 10,
-        Bandwidth = 11,
-        GroupInfo = 12,
-        Unassigned = 13
-    }
-
+    
     public class RecieverSummaryInformation
     {
-        uint SynchronizationSourceIdentifier, SummarizedSynchronizationSourceIdentifier;
-        public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
-        uint m_NtpMsw, m_NtpLsw;
-
+        #region Fields
+        public uint SynchronizationSourceIdentifier, SummarizedSynchronizationSourceIdentifier;
         List<SubReportBlock> Reports = new List<SubReportBlock>();
+        uint m_NtpMsw, m_NtpLsw;
+        #endregion
+
+        #region Properties
+
+        public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
+        
+        public DateTime? Sent { get; set; }
+
+        public DateTime? Created { get; set; }
+
+        #endregion
+
+        #region Constructor
+
+        public RecieverSummaryInformation(uint ssrc, uint summarized)
+        {
+            SynchronizationSourceIdentifier = ssrc;
+            SummarizedSynchronizationSourceIdentifier = summarized;
+            Created = DateTime.UtcNow;
+        }
+
+        public RecieverSummaryInformation(byte[] packet, int offset) 
+        {            
+            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
+            SummarizedSynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
+            //Get the MSW
+            m_NtpMsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
+
+            //Get the LSW
+            m_NtpLsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 8));
+
+            //never trust block count :)
+            //while(Blocks.Count < blockCount)
+            while (offset < packet.Length)
+            {
+                Reports.Add(new SubReportBlock(packet, ref offset));
+            }
+        }
+
+        public RecieverSummaryInformation(RtcpPacket packet) : this(packet.Payload, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiverSummaryInformation) throw new Exception("Invalid Packet Type, Expected ReceiverSummaryInformation. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
+
+        #endregion
+
+        public RtcpPacket ToPacket(byte? channel = null)
+        {
+            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiverSummaryInformation, channel);            
+            output.Payload = ToBytes();
+            output.BlockCount = Reports.Count;
+            return output;
+        }
+
+        public byte[] ToBytes(uint? ssrc = null, uint? summarized = null)
+        {
+            List<byte> result = new List<byte>();
+            // SSRC
+            //Should check endian before swapping
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(ssrc ?? SynchronizationSourceIdentifier)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(summarized ?? SummarizedSynchronizationSourceIdentifier)));
+            
+            // NTP timestamp
+            //Should check endian before swapping
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_NtpMsw)));
+            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_NtpLsw)));
+
+            //Report Blocks
+            foreach (SubReportBlock block in Reports) result.AddRange(block.ToBytes());
+
+            return result.ToArray();
+        }
+
+        public static implicit operator RtcpPacket(RecieverSummaryInformation rsi) { return rsi.ToPacket(); }
+
+        public static implicit operator RecieverSummaryInformation(RtcpPacket packet) { return new RecieverSummaryInformation(packet); }
     }
 
     #region SubReportBlock and SubReportBlock Types
@@ -81,6 +136,23 @@ namespace Media.Rtcp
 
     public class SubReportBlock
     {
+        public enum SubReportBlockType : byte
+        {
+            IPv4Address = 0,
+            IPv6Address = 1,
+            DNSName = 2,
+            Reserved = 3,
+            Loss = 4,
+            Jitter = 5,
+            RoundTripTime = 6,
+            CumulativeLoss = 7,
+            Collisions = 8,
+            Stats = 10,
+            Bandwidth = 11,
+            GroupInfo = 12,
+            Unassigned = 13
+        }
+
         public SubReportBlockType BlockType { get; set; }
         protected byte m_Length;
         public int Length { get { return m_Length * 4;} set { m_Length = (byte)(value / 4); } }
@@ -96,7 +168,7 @@ namespace Media.Rtcp
             System.Array.Copy(packet, index, Data, 0, Length);
         }
 
-        byte[] ToBytes()
+        public byte[] ToBytes()
         {
             byte[] result = new byte[2 + Length];
             result[0] = (byte)BlockType;
@@ -237,9 +309,17 @@ namespace Media.Rtcp
     public class BandwidthIndicationSubReportBlock : SubReportBlock 
     {
         public BandwidthIndicationSubReportBlock() : base(SubReportBlockType.Bandwidth) { }
+
+        //1 Bit
         public bool Sender { get { return (Data[0] & 0x7F) == 1; } set { if (value) Data[0] |= (byte)(1 << 7); else Data[0] &= unchecked((byte)(~(1 << 7))); } }
+
+        //1 Bit
         public bool Receiver { get { return (Data[0] & 0xBF) == 1; } set { if (value) Data[0] |= (byte)(1 << 6); else Data[0] &= unchecked((byte)(~(1 << 6))); } }
+        
+        //14 Bit
+        //Setter overwrites bits from Sender and Receiver. Can't use copy to, must assign bytes manually and respect bits ( Data[0] only, Data[1] can just be a straight assign )
         public ushort Reserved { get { return (ushort)(Utility.ReverseUnsignedShort(BitConverter.ToUInt16(Data, 0)) & 0x3FFF); } set { BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)(value & 0x3FFF))).CopyTo(Data, 0); } }
+
         public uint Bandwidth { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Data, 2)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Data, 2); } } 
     }
 

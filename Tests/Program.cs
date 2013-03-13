@@ -194,7 +194,7 @@ namespace Media
             Console.WriteLine(rr.Blocks[0].LastSendersReport);//3470051573
 
             //next packet offset by Length + RtcpHeader
-            asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength); //same as foundPackets[1]
+            asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength); //same as foundPackets[1] or asPacket.PacketLength
             Rtcp.SourceDescription sd = new Rtcp.SourceDescription(asPacket); //1 Chunk, CName
 
             //Verify RecieversReport byte for byte
