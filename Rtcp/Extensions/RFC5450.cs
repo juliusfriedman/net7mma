@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Media.Rtcp
+namespace Media.Rtcp.Extensions
 {
     //http://www.networksorcery.com/enp/rfc/rfc5450.txt    
 

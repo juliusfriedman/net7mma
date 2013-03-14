@@ -67,6 +67,8 @@ namespace Media
                     //Iterate the pointer using the managed length ....
                     for (int i = start, e = length; i < e; i += 2)
                     {
+                        //(maybe check for if(pChar[i] == '-' ) ++i to reduce string manipulations pre call)
+
                         //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
                         //result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
                         //Conver 2 Chars to a byte

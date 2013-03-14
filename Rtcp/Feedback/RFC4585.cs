@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Media.Rtcp
+namespace Media.Rtcp.Feedback
 {
 
     //TODO Integrate Feedback into RtpClient and perform Rtcp checks for feedback enabled / disabled and finally send feedback with reports if required.
@@ -34,7 +34,7 @@ namespace Media.Rtcp
 
         RtcpPacket.RtcpPacketType m_PacketType;
 
-         #region Properties
+        #region Properties
 
         public byte? Channel { get; set; }
         public DateTime? Created { get; set; }
@@ -112,6 +112,8 @@ namespace Media.Rtcp
 
     }
 
+    //Todo:  Derive and nest types and make properties come from FeedbackControlInformation when accessed
+
     //NACK
     /*     
 6.2.   Transport Layer Feedback Messages
@@ -166,8 +168,6 @@ namespace Media.Rtcp
 
     public class GenericNegativeACKnowledgement
     {
-        
-
         public ushort PacketId { get; set; }
 
         public ushort BitmapLostPackets { get; set; }
@@ -388,7 +388,9 @@ namespace Media.Rtcp
 
         public PictureLossIndication(byte[] packet, int index)
         {
-
+            SenderSynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt16(packet, index));
+            index += 4;
+            SourceSynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt16(packet, index));
         }
 
         public byte? Channel { get; set; }

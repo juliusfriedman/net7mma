@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Media.Rtcp
+namespace Media.Rtcp.Extensions
 {
     //http://www.networksorcery.com/enp/rfc/rfc2032.txt
 
@@ -32,7 +32,7 @@ namespace Media.Rtcp
      
      */
 
-    public class FullINTRAFrameRequest
+    public class FullINTRAFrameRequest 
     {
 
         public DateTime? Created { get; set; }

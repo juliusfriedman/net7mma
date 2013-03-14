@@ -2,7 +2,7 @@ Managed Media Aggregation
 
 Copyright 2012 
 
-Julius R. Friedman - juliusfriedman@gamil.com 
+Julius R. Friedman - juliusfriedman@gmail.com 
 Sr. Software Engineer ASTI Transportation Inc. www.asti-trans.com
 
 Licensed under the Apache License, Version 2.0 (the "License");

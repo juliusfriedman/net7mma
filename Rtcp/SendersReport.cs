@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public class SendersReport
+    public sealed class SendersReport : System.Collections.IEnumerable
     {
         #region Fields
 
@@ -80,12 +80,12 @@ namespace Media.Rtcp
 
         }
 
-        //Should check Conflict avoidance 
+        //Should check Conflict avoidance type
         public SendersReport(RtcpPacket packet) : this(packet.Payload, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
 
         #endregion
 
-        public virtual RtcpPacket ToPacket(byte? channel = null)
+        public RtcpPacket ToPacket(byte? channel = null)
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SendersReport, channel ?? Channel);            
             output.Payload = ToBytes();
@@ -93,7 +93,7 @@ namespace Media.Rtcp
             return output;
         }
 
-        public virtual byte[] ToBytes(uint? ssrc = null)
+        public byte[] ToBytes(uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
             // SSRC
@@ -124,5 +124,10 @@ namespace Media.Rtcp
         public static implicit operator RtcpPacket(SendersReport report) { return report.ToPacket(); }
 
         public static implicit operator SendersReport(RtcpPacket packet) { return new SendersReport(packet); }
+
+        public System.Collections.IEnumerator GetEnumerator()
+        {
+            return Blocks.GetEnumerator();
+        }
     }
 }

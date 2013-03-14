@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Media.Rtcp
+namespace Media.Rtcp.Extensions
 {
     //RTCP XR Framework (eXtended Report)
 
@@ -11,8 +11,11 @@ namespace Media.Rtcp
 
     //http://www.networksorcery.com/enp/rfc/rfc3611.txt
 
-    public class ExtendedReportBlock
+    public class ExtendedReport : System.Collections.IEnumerable
     {
+
+        #region Nested Types
+
         //6.2.  RTCP XR Block Type Registry
         public enum ExtendedReportBlockType : byte
         {
@@ -27,43 +30,46 @@ namespace Media.Rtcp
             Reserved = 255
         }
 
-        #region Fields
-        public byte BlockType, TypeSpecific;
-        ushort m_BlockLength;        
-        byte[] m_Data;
-        #endregion
-
-        #region Propeties
-        public ushort Length { get { return (ushort)(m_BlockLength * 4); } set { m_BlockLength = (ushort)(value / 4); } }
-        public byte[] Data { get { return m_Data; } set { m_Data = value; Length = (ushort)m_Data.Length; } }
-        public ExtendedReportBlockType ReportBlockType { get { return (ExtendedReportBlockType)BlockType; } set { BlockType = (byte)value; } }
-        #endregion
-
-        public ExtendedReportBlock(byte[] packet, ref int index)
+        public class ExtendedReportBlock
         {
-            BlockType = packet[index++];
-            TypeSpecific = packet[index++];
-            m_BlockLength = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(packet, index));
-            index += 2;
-            Data = new byte[Length];
-            System.Array.Copy(packet, index, Data, 0, Length);
+            #region Fields
+            public byte BlockType, TypeSpecific;
+            ushort m_BlockLength;
+            byte[] m_Data;
+            #endregion
+
+            #region Propeties
+            public ushort Length { get { return (ushort)(m_BlockLength * 4); } set { m_BlockLength = (ushort)(value / 4); } }
+            public byte[] Data { get { return m_Data; } set { m_Data = value; Length = (ushort)m_Data.Length; } }
+            public ExtendedReportBlockType ReportBlockType { get { return (ExtendedReportBlockType)BlockType; } set { BlockType = (byte)value; } }
+            #endregion
+
+            public ExtendedReportBlock(byte[] packet, ref int index)
+            {
+                BlockType = packet[index++];
+                TypeSpecific = packet[index++];
+                m_BlockLength = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(packet, index));
+                index += 2;
+                Data = new byte[Length];
+                System.Array.Copy(packet, index, Data, 0, Length);
+            }
+
+            public byte[] ToBytes()
+            {
+                byte[] result = new byte[4 + Data.Length];
+                result[0] = BlockType;
+                result[1] = TypeSpecific;
+                BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_BlockLength)).CopyTo(result, 2);
+                Data.CopyTo(result, 4);
+                return result;
+            }
         }
 
-        public byte[] ToBytes()
-        {
-            byte[] result = new byte[4 + Data.Length];
-            result[0] = BlockType;
-            result[1] = TypeSpecific;
-            BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_BlockLength)).CopyTo(result, 2);
-            Data.CopyTo(result, 4);
-            return result;
-        }
-    }
+        #endregion
 
-    public class ExtendedReport
-    {
         public uint SynchronizationSourceIdentifier;
-        public List<ExtendedReportBlock> ReportBlocks = new List<ExtendedReportBlock>();
+
+        public List<ExtendedReportBlock> Blocks = new List<ExtendedReportBlock>();
 
         public ExtendedReport(RtcpPacket packet) { }
 
@@ -73,7 +79,7 @@ namespace Media.Rtcp
 
             while (index < packet.Length)
             {
-                ReportBlocks.Add(new ExtendedReportBlock(packet, ref index));
+                Blocks.Add(new ExtendedReportBlock(packet, ref index));
             }
         }
 
@@ -87,14 +93,22 @@ namespace Media.Rtcp
 
         public byte[] ToBytes()
         {
-            List<byte> result = new List<byte>();
+            List<byte> result = new List<byte>(4 + ReportBlock.Size * Blocks.Count);
             result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
-            ReportBlocks.ForEach(rb => result.AddRange(rb.ToBytes()));
+            Blocks.ForEach(rb => result.AddRange(rb.ToBytes()));
             return result.ToArray();
         }
+
+        public System.Collections.IEnumerator GetEnumerator()
+        {
+            return Blocks.GetEnumerator();
+        }
+
     }
 
     #region Todo
+
+    //Nest in ExtendedReport
 
     //Loss RLE Report Block
 

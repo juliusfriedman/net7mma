@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public class SourceDescription : System.Collections.IEnumerable
+    public sealed class SourceDescription : System.Collections.IEnumerable
     {
         #region Nested Types
 
