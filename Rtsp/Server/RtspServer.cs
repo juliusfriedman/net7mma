@@ -2039,6 +2039,65 @@ namespace Media.Rtsp
                      cnonce="0a4f113b",
                      response="6629fae49393a05397450978507c4ef1",
                      opaque="5ccc069c403ebaf9f0171e9517f40e41"
+                 * 
+                 * 
+                 * Example Convo
+                 * 
+                 * ANNOUNCE rtsp://216.224.181.197/bstream.sdp RTSP/1.0
+    CSeq: 1
+    Content-Type: application/sdp
+    User-Agent: C.U.
+    Authorization: Digest username="gidon", realm="null", nonce="null", uri="/bstream.sdp", response="239fcac559661c17436e427e75f3d6a0"
+    Content-Length: 313
+
+    v=0
+    s=CameraStream
+    m=video 5006 RTP/AVP 96
+    b=RR:0
+    a=rtpmap:96 H264/90000
+    a=fmtp:96 packetization-mode=1;profile-level-id=42000c;sprop-parameter-sets=Z0IADJZUCg+I,aM44gA==;
+    a=control:trackID=0
+    m=audio 5004 RTP/AVP 96
+    b=AS:128
+    b=RR:0
+    a=rtpmap:96 AMR/8000
+    a=fmtp:96 octet-align=1;
+    a=control:trackID=1
+
+
+    RTSP/1.0 401 Unauthorized
+    Server: DSS/6.0.3 (Build/526.3; Platform/Linux; Release/Darwin Streaming Server; State/Development; )
+    Cseq: 1
+    WWW-Authenticate: Digest realm="Streaming Server", nonce="e5c0b7aff71820962027d73f55fe48c8"
+
+
+    ANNOUNCE rtsp://216.224.181.197/bstream.sdp RTSP/1.0
+    CSeq: 2
+    Content-Type: application/sdp
+    User-Agent: C.U.
+    Authorization: Digest username="gidon", realm="Streaming Server", nonce="e5c0b7aff71820962027d73f55fe48c8", uri="/bstream.sdp", response="6e3aa3be3f5c04a324491fe9ab341918"
+    Content-Length: 313
+
+    v=0
+    s=CameraStream
+    m=video 5006 RTP/AVP 96
+    b=RR:0
+    a=rtpmap:96 H264/90000
+    a=fmtp:96 packetization-mode=1;profile-level-id=42000c;sprop-parameter-sets=Z0IADJZUCg+I,aM44gA==;
+    a=control:trackID=0
+    m=audio 5004 RTP/AVP 96
+    b=AS:128
+    b=RR:0
+    a=rtpmap:96 AMR/8000
+    a=fmtp:96 octet-align=1;
+    a=control:trackID=1
+
+
+    RTSP/1.0 200 OK
+    Server: DSS/6.0.3 (Build/526.3; Platform/Linux; Release/Darwin Streaming Server; State/Development; )
+    Cseq: 2
+                 * 
+                 * 
                  */
 
                 //Need to calculate based on hash  
@@ -2078,7 +2137,8 @@ namespace Media.Rtsp
                 byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Convert.ToString(HA1).Replace("-", string.Empty) + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + Convert.ToString(HA2).Replace("-", string.Empty)));
 
                 //return the result of a mutal hash creation via comparison
-                return Comparer<byte[]>.Default.Compare(ResponseHash, Utility.HexStringToBytes(response.Replace("response=", string.Empty))) == 0;
+                return ResponseHash.SequenceEqual(Utility.HexStringToBytes(response.Replace("response=", string.Empty)));
+                //return Comparer<byte[]>.Default.Compare(ResponseHash, Utility.HexStringToBytes(response.Replace("response=", string.Empty))) == 0;
             }
 
             //Did not authenticate

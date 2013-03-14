@@ -83,14 +83,14 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rtcp\ApplicationSpecific.cs" />
     <Compile Include="Rtcp\Goodbye.cs" />
-    <Compile Include="Rtcp\Todo\IEEE1733.cs" />
+    <Compile Include="Rtcp\Draft\IEEE1733.cs" />
     <Compile Include="Rtcp\ReceiversReport.cs" />
     <Compile Include="Rtcp\ReportBlock.cs" />
-    <Compile Include="Rtcp\RFC2032.cs" />
-    <Compile Include="Rtcp\RFC3611.cs" />
-    <Compile Include="Rtcp\RFC4585.cs" />
-    <Compile Include="Rtcp\RFC5450.cs" />
-    <Compile Include="Rtcp\RFC5760.cs" />
+    <Compile Include="Rtcp\Extensions\RFC2032.cs" />
+    <Compile Include="Rtcp\Extensions\RFC3611.cs" />
+    <Compile Include="Rtcp\Feedback\RFC4585.cs" />
+    <Compile Include="Rtcp\Extensions\RFC5450.cs" />
+    <Compile Include="Rtcp\Extensions\RFC5760.cs" />
     <Compile Include="Rtcp\RtcpPacket.cs" />
     <Compile Include="Rtcp\SendersReport.cs" />
     <Compile Include="Rtcp\SourceDescription.cs" />
@@ -113,9 +113,6 @@
     <Compile Include="Rtsp\Server\Streams\SourceStream.cs" />
     <Compile Include="Sdp\SessionDescriptionProtocol.cs" />
     <Compile Include="Utility.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="ClassDiagram1.cd" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />

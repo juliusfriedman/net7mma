@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public class ReceiversReport
+    public sealed class ReceiversReport
     {
         public List<ReportBlock> Blocks = new List<ReportBlock>();
 
@@ -39,7 +39,7 @@ namespace Media.Rtcp
 
         #endregion
 
-        public virtual RtcpPacket ToPacket(byte? channel = null)
+        public RtcpPacket ToPacket(byte? channel = null)
         {
             RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport, channel ?? Channel);
             output.Payload = ToBytes();
@@ -47,7 +47,7 @@ namespace Media.Rtcp
             return output;
         }
 
-        public virtual byte[] ToBytes(uint? ssrc = null)
+        public byte[] ToBytes(uint? ssrc = null)
         {
             List<byte> result = new List<byte>();
             

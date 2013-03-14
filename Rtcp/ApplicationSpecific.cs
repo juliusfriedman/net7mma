@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public class ApplicationSpecific
+    public sealed class ApplicationSpecific
     {
         #region Properties
 
