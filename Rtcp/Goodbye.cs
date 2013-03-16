@@ -5,75 +5,52 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public sealed class Goodbye
+    public sealed class Goodbye : RtcpPacket
     {
         #region Properties
 
-        public byte? Channel { get; set; }
-        public DateTime? Created { get; set; }
-        public DateTime? Sent { get; set; }
-        public uint SynchronizationSourceIdentifier { get; set; }
-        public string Reason { get; set; }
+        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
 
-        #endregion
-
-        #region Constructor
-
-        public Goodbye(uint ssrc) { SynchronizationSourceIdentifier = ssrc; Reason = string.Empty; }
-
-        public Goodbye(RtcpPacket packet) {
-            Channel = packet.Channel;
-            Created = packet.Created ?? DateTime.UtcNow;
-            if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type, Expected Goodbye. Found: '" + (byte)packet.PacketType + '\'');
-        }
-
-        public Goodbye(byte[] packet, int index)
+        public string Reason
         {
-            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
-            if (packet.Length - index > 5) // We just got 0 - 3 and if we have 4 and 5 there is a length and reason
+            get { return Encoding.UTF8.GetString(Payload, 5, Payload[4]); }
+            set
             {
-                byte length = packet[index + 4];
-                if (length > 0)
+                if (string.IsNullOrWhiteSpace(value))
                 {
-                    Reason = Encoding.UTF8.GetString(packet, index + 5, length);
+                    Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier));
+                }
+                else
+                {
+                    if (value.Length > 255) throw new ArgumentException("Reason cannot be longer than 255 characters.");
+                    byte[] values = Encoding.UTF8.GetBytes(value);
+                    int difference = value.Length - Reason.Length;
+                    if (difference == 0)
+                    {
+                        values.CopyTo(Payload, 5);
+                    }
+                    else
+                    {
+                        List<byte> temp = new List<byte>();
+                        temp.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
+                        temp.Add((byte)values.Length);
+                        temp.AddRange(Encoding.UTF8.GetBytes(value));
+                        Payload = temp.ToArray();
+                    }
                 }
             }
         }
 
         #endregion
 
-        #region Methods
+        #region Constructor
 
-        public RtcpPacket ToPacket(byte? channel = null)
-        {
-            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.Goodbye);
-            output.Payload = ToBytes();
-            output.BlockCount = 1;
-            output.Channel = channel ?? Channel;
-            return output;
-        }
+        public Goodbye(uint ssrc, byte? channel = null) : base(RtcpPacketType.Goodbye, channel) { SynchronizationSourceIdentifier = ssrc; }
 
-        public byte[] ToBytes()
-        {
-            List<byte> result = new List<byte>();
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
+        public Goodbye(RtcpPacket packet) : base(packet) { if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type, Expected Goodbye. Found: '" + (byte)packet.PacketType + '\''); }
 
-            if (!string.IsNullOrEmpty(Reason))
-            {
-                int length = Encoding.UTF8.GetByteCount(Reason);
-                result.Add((byte)length);
-                if (length > 0) result.AddRange(Encoding.UTF8.GetBytes(Reason));
-            }           
-
-            return result.ToArray();
-        }
+        public Goodbye(byte[] packet, int index) : base(packet, index, RtcpPacketType.Goodbye) { }
 
         #endregion
-
-        public static implicit operator RtcpPacket(Goodbye goodbye) { return goodbye.ToPacket(goodbye.Channel); }
-
-        public static implicit operator Goodbye(RtcpPacket packet) { return new Goodbye(packet); }
-
     }
 }

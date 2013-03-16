@@ -986,19 +986,22 @@ namespace Media.Rtp
         internal void SendGoodbye(TransportContext context)
         {
             //Make a Goodbye
-            context.Goodbye = new Rtcp.Goodbye((uint)context.SynchronizationSourceIdentifier);
+            context.Goodbye = new Rtcp.Goodbye((uint)context.SynchronizationSourceIdentifier, context.ControlChannel);
 
             if (context.RtcpSocket != null)
             {
                 //Might want to store the goodbye incase the response is not recieved in a reasonable amount of time
-                SendRtcpPacket(context.Goodbye.ToPacket(context.ControlChannel));
+                SendRtcpPacket(context.Goodbye);
                 context.Goodbye.Sent = DateTime.UtcNow;
             }
         }
 
         internal SendersReport CreateSendersReport(TransportContext context, bool includeBlocks = true)
         {
-            SendersReport result = new SendersReport(context.SynchronizationSourceIdentifier);
+            SendersReport result = new SendersReport(context.SynchronizationSourceIdentifier)
+            {
+                Channel = context.ControlChannel
+            };
 
             //Use the values from the TransportChannel
             result.NtpTimestamp = context.NtpTimestamp;
@@ -1041,7 +1044,7 @@ namespace Media.Rtp
                 DateTime? lastSent = context.SendersReport != null && context.SendersReport.Sent.HasValue ? context.SendersReport.Sent : null; 
 
                 //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-                result.Blocks.Add(new ReportBlock((uint)context.SynchronizationSourceIdentifier)
+                result.Add(new ReportBlock((uint)context.SynchronizationSourceIdentifier)
                 {
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
@@ -1059,7 +1062,10 @@ namespace Media.Rtp
 
         internal ReceiversReport CreateReceiversReport(TransportContext context, bool includeBlocks = true)
         {
-            ReceiversReport result = new ReceiversReport(context.SynchronizationSourceIdentifier);
+            ReceiversReport result = new ReceiversReport(context.SynchronizationSourceIdentifier)
+            {
+                Channel = context.ControlChannel
+            };
 
             if (includeBlocks)
             {
@@ -1092,7 +1098,7 @@ namespace Media.Rtp
                 DateTime now = DateTime.UtcNow;
 
                 //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-                result.Blocks.Add(new ReportBlock((uint)context.SynchronizationSourceIdentifier)
+                result.Add(new ReportBlock((uint)context.SynchronizationSourceIdentifier)
                 {
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
@@ -1126,7 +1132,7 @@ namespace Media.Rtp
 
             //First report include no blocks (No last senders report)
             context.SendersReport = CreateSendersReport(context, context.SendersReport != null);
-            SendRtcpPacket(context.SendersReport.ToPacket(context.ControlChannel));
+            SendRtcpPacket(context.SendersReport);
             context.SendersReport.Sent = DateTime.UtcNow;
         }
 
@@ -1138,7 +1144,7 @@ namespace Media.Rtp
         internal void SendReceiversReport(TransportContext context)
         {
             context.RecieversReport = CreateReceiversReport(context, context.RecieversReport != null);
-            SendRtcpPacket(context.RecieversReport.ToPacket(context.ControlChannel));
+            SendRtcpPacket(context.RecieversReport);
             context.RecieversReport.Sent = DateTime.UtcNow;
         }
 
@@ -1150,13 +1156,16 @@ namespace Media.Rtp
         internal void SendSourceDescription(TransportContext transportChannel)
         {
             transportChannel.SourceDescription = CreateSourceDescription(transportChannel);
-            SendRtcpPacket(transportChannel.SourceDescription.ToPacket(transportChannel.ControlChannel));
+            SendRtcpPacket(transportChannel.SourceDescription);
             transportChannel.SourceDescription.Sent = DateTime.UtcNow;
         }
 
         internal SourceDescription CreateSourceDescription(TransportContext context)
         {
-            return new SourceDescription(context.SynchronizationSourceIdentifier) { SourceDescription.SourceDescriptionItem.CName };
+            return new SourceDescription(context.ControlChannel) 
+            { 
+                new SourceDescription.SourceDescriptionChunk(context.SynchronizationSourceIdentifier, SourceDescription.SourceDescriptionItem.CName)
+            };
         }
 
         /// <summary>

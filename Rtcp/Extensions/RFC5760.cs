@@ -160,7 +160,9 @@ namespace Media.Rtcp.Extensions
 
         public class FeedbackTargetAddressSubReportBlock : SubReportBlock
         {
-            public ushort Port { get { return Utility.ReverseUnsignedShort(BitConverter.ToUInt16(Data, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedShort(value)).CopyTo(Data, 0); } } public uint Address { get { return Utility.ReverseUnsignedShort(BitConverter.ToUInt16(Data, 2)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Data, 2); } }
+            public ushort Port { get { return Utility.ReverseUnsignedShort(BitConverter.ToUInt16(Data, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedShort(value)).CopyTo(Data, 0); } } 
+            
+            public uint Address { get { return Utility.ReverseUnsignedShort(BitConverter.ToUInt16(Data, 2)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Data, 2); } }
 
             public System.Net.IPAddress IPAddress { get { return new System.Net.IPAddress((long)Address); } set { Address = (uint)value.Address; } }
 
@@ -170,7 +172,9 @@ namespace Media.Rtcp.Extensions
 
             public static FeedbackTargetAddressSubReportBlock IPAddressTarget(System.Net.IPEndPoint ipEndPoint) { if (ipEndPoint.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork || ipEndPoint.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) throw new NotSupportedException("Only the InterNetwork or InterNetworkV6 AddressFamily is supported."); return ipEndPoint.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? IPv4AddressTarget(ipEndPoint.Address, (ushort)ipEndPoint.Port) : IPv6AddressTarget(ipEndPoint.Address, (ushort)ipEndPoint.Port); }
 
-            public static FeedbackTargetAddressSubReportBlock IPv4AddressTarget(System.Net.IPEndPoint ipEndPoint) { return IPv4AddressTarget(ipEndPoint.Address, (ushort)ipEndPoint.Port); }
+            public static FeedbackTargetAddressSubReportBlock IPv4AddressTarget(System.Net.IPEndPoint ipEndPoint) { if (ipEndPoint.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) throw new NotSupportedException("IPEndPoint address must be InterNetwork."); return IPv4AddressTarget(ipEndPoint.Address, (ushort)ipEndPoint.Port); }
+
+            public static FeedbackTargetAddressSubReportBlock IPv6AddressTarget(System.Net.IPEndPoint ipEndPoint) { if (ipEndPoint.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) throw new NotSupportedException("IPEndPoint address must be InterNetwork."); return IPv6AddressTarget(ipEndPoint.Address, (ushort)ipEndPoint.Port); }
 
             public static FeedbackTargetAddressSubReportBlock IPv4AddressTarget(System.Net.IPAddress address, ushort port)
             {
@@ -181,8 +185,6 @@ namespace Media.Rtcp.Extensions
                     Port = port
                 };
             }
-
-            public static FeedbackTargetAddressSubReportBlock IPv6AddressTarget(System.Net.IPEndPoint ipEndPoint) { return IPv6AddressTarget(ipEndPoint.Address, (ushort)ipEndPoint.Port); }
 
             public static FeedbackTargetAddressSubReportBlock IPv6AddressTarget(System.Net.IPAddress address, ushort port)
             {
@@ -196,6 +198,7 @@ namespace Media.Rtcp.Extensions
 
             public static FeedbackTargetAddressSubReportBlock DNSName(System.Net.IPAddress address, ushort port)
             {
+                if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6) throw new NotSupportedException("Only the InterNetwork or InterNetworkV6 AddressFamily is supported."); 
                 return new FeedbackTargetAddressSubReportBlock(SubReportBlockType.DNSName)
                 {
                     Address = (uint)address.Address,
@@ -206,7 +209,15 @@ namespace Media.Rtcp.Extensions
             public FeedbackTargetAddressSubReportBlock(byte[] packet, ref int index, SubReportBlockType type)
                 : base(packet, ref index)
             {
-                if (BlockType != SubReportBlockType.DNSName && BlockType != SubReportBlockType.IPv4Address && BlockType != SubReportBlockType.IPv6Address) throw new InvalidOperationException("BlockType must be either DNSName, IPv4Address or IPv6Address. Found: " + BlockType);
+                //if (BlockType != SubReportBlockType.DNSName || BlockType != SubReportBlockType.IPv4Address || BlockType != SubReportBlockType.IPv6Address) throw new InvalidOperationException("BlockType must be either DNSName, IPv4Address or IPv6Address. Found: " + BlockType);
+
+                if (BlockType != type) throw new InvalidOperationException("Expected BlockType: " +type+ ". Found: " + BlockType);
+
+                ////Parse Port and Address
+                //Port = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(packet, index));
+                //index += 2;
+                //Address = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
+                //index += 4;
             }
 
             public static implicit operator FeedbackTargetAddressSubReportBlock(System.Net.IPEndPoint ipEndPoint) { return FeedbackTargetAddressSubReportBlock.IPAddressTarget(ipEndPoint); }
@@ -322,7 +333,7 @@ namespace Media.Rtcp.Extensions
                 set
                 {
                     if (value.Length > BucketBitSize) throw new ArgumentOutOfRangeException();
-                    value.CopyTo(Data, (int)(MinimumDistributionValue + (index + 1) * (MaximumDistributionValue - MinimumDistributionValue) / NumberDistributionBuckets));
+                    value.CopyTo(Data, 11 + (int)(MinimumDistributionValue + (index + 1) * (MaximumDistributionValue - MinimumDistributionValue) / NumberDistributionBuckets));
                 }
             }
 

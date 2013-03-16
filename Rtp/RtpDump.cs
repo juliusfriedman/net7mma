@@ -549,7 +549,7 @@ namespace Media.Rtp.RtpDump
 
                             while (blockIndex < directives.Length)
                             {
-                                sr.Blocks.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture))
+                                sr.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture))
                                 {
                                     FractionLost = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
                                     CumulativePacketsLost = int.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
@@ -562,7 +562,7 @@ namespace Media.Rtp.RtpDump
                         }
 
                         //Use ToPacket to build field
-                        Packet = sr.ToPacket().ToBytes();
+                        Packet = sr.ToBytes();
                     }
                     else if (subtype == "RR")
                     {
@@ -577,7 +577,7 @@ namespace Media.Rtp.RtpDump
 
                             while (blockIndex < directives.Length)
                             {
-                                rr.Blocks.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture))
+                                rr.Add(new Rtcp.ReportBlock(uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture))
                                 {
                                     FractionLost = uint.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
                                     CumulativePacketsLost = int.Parse(directives[blockIndex++].Split('=')[1], System.Globalization.CultureInfo.InvariantCulture),
@@ -590,7 +590,7 @@ namespace Media.Rtp.RtpDump
                         }
 
                         //Use ToPacket to build field
-                        Packet = rr.ToPacket().ToBytes();
+                        Packet = rr.ToBytes();
 
                     }
                     else if (subtype == "SDES")
@@ -605,21 +605,21 @@ namespace Media.Rtp.RtpDump
                         {
                             uint src = uint.Parse(directives[0].Split('=')[1], System.Globalization.NumberStyles.HexNumber);
 
-                            sd = new Rtcp.SourceDescription(src);
+                            sd = new Rtcp.SourceDescription();
 
                             int blockIndex = 1;
 
                             while (blockIndex < directives.Length)
                             {
                                 string[] parts = directives[blockIndex++].Split('=');
-                                sd.Add(new Rtcp.SourceDescription.SourceDescriptionItem((Rtcp.SourceDescription.SourceDescriptionType)Enum.Parse(typeof(Rtcp.SourceDescription.SourceDescriptionType), parts[0], true))
+                                sd.Add(new Rtcp.SourceDescription.SourceDescriptionChunk(src, new Rtcp.SourceDescription.SourceDescriptionItem((Rtcp.SourceDescription.SourceDescriptionType)Enum.Parse(typeof(Rtcp.SourceDescription.SourceDescriptionType), parts[0], true))
                                 {
                                     Text = parts[1].Replace("\"", string.Empty)
-                                });
+                                }));
                             }
 
                             //Use ToPacket to build field
-                            Packet = sd.ToPacket().ToBytes();
+                            Packet = sd.ToBytes();
 
                         }
                         else
@@ -832,7 +832,7 @@ namespace Media.Rtp.RtpDump
                         result.Add((byte)')');
                         result.Add((byte)'\r');
                         result.Add((byte)'\n');
-                        foreach (Rtcp.ReportBlock rb in sr.Blocks)
+                        foreach (Rtcp.ReportBlock rb in sr)
                         {
                             result.AddRange(System.Text.Encoding.ASCII.GetBytes("(ssrc=" + rb.SynchronizationSourceIdentifier.ToString("X") + " fraction=" + rb.FractionLost + " lost=" + rb.CumulativePacketsLost + " last_seq=" + rb.ExtendedHigestSequenceNumber + " jit=" + rb.InterArrivalJitter + " lsr=" + rb.LastSendersReport + " dlsr=" + rb.DelaySinceLastSendersReport + ')'));
                             result.Add((byte)'\r');
@@ -848,7 +848,7 @@ namespace Media.Rtp.RtpDump
                         result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (RR ssrc=" + rr.SynchronizationSourceIdentifier.ToString("X") + " p=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
                         result.Add((byte)'\r');
                         result.Add((byte)'\n');
-                        foreach (Rtcp.ReportBlock rb in rr.Blocks)
+                        foreach (Rtcp.ReportBlock rb in rr)
                         {
                             result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (ssrc=" + rb.SynchronizationSourceIdentifier.ToString("X") + " fraction=" + rb.FractionLost + " lost=" + rb.CumulativePacketsLost + " last_seq=" + rb.ExtendedHigestSequenceNumber + " jit=" + rb.InterArrivalJitter + " lsr=" + rb.LastSendersReport + " dlsr=" + rb.DelaySinceLastSendersReport + ')'));
                             result.Add((byte)'\r');
@@ -863,7 +863,7 @@ namespace Media.Rtp.RtpDump
                         Rtcp.SourceDescription sd = new Rtcp.SourceDescription(packet);
                         result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (SDES p=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
                         result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (src=" + sd.SynchronizationSourceIdentifier.ToString("X") + ' '));
-                        foreach (Rtcp.SourceDescription.SourceDescriptionItem item in sd.Items)
+                        foreach (Rtcp.SourceDescription.SourceDescriptionItem item in sd)
                         {
                             result.AddRange(System.Text.Encoding.ASCII.GetBytes(item.DescriptionType.ToString().ToUpperInvariant() + "=\"" + item.Text + "\" "));
                         }

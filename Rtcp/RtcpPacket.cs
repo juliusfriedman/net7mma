@@ -92,6 +92,8 @@ namespace Media.Rtcp
 
         public DateTime? Created {get; set;}
 
+        public DateTime? Sent { get; set; }
+
         #endregion
 
         #region Constructor
@@ -101,7 +103,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="packetReference">The ArraySegment containing the RtcpPacket to parse</param>
         /// <param name="offset">The optional offset of the RtcpPacket to parse</param>
-        public RtcpPacket(ArraySegment<byte> packetReference, int offset = 0)
+        public RtcpPacket(ArraySegment<byte> packetReference, int offset = 0, RtcpPacketType? expectedType = null)
         {
             Created = DateTime.UtcNow;
 
@@ -125,15 +127,17 @@ namespace Media.Rtcp
             //Type
             m_Type = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 3];
 
+            if (expectedType.HasValue && PacketType != expectedType) throw new Exception("Invalid PacketType, Expected: " + expectedType + " , Found: " + PacketType);
+
             //Length in words (not including RtcpHeaderLength)
             m_Length = (short)(packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 2] << 8 | packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 1]);
 
-            //Extract Data
+            //Copy Payload
             m_Data = new byte[Length];
             Array.Copy(packetReference.Array, packetReference.Offset + offset + RtcpHeaderLength, m_Data, 0, Length);
         }
 
-        public RtcpPacket(byte[] packet, int offset = 0) : this(new ArraySegment<byte>(packet, offset, packet.Length - offset)) { }
+        public RtcpPacket(byte[] packet, int offset = 0, RtcpPacketType? expectedType = null) : this(new ArraySegment<byte>(packet, offset, packet.Length - offset), 0, expectedType) { }
 
         public RtcpPacket(RtcpPacketType type, byte? channel = null)
         {
@@ -141,6 +145,19 @@ namespace Media.Rtcp
             Created = DateTime.UtcNow;
             m_Type = (byte)type;
             Channel = channel;
+            m_Data = new byte[4];
+        }
+
+        public RtcpPacket(RtcpPacket other)
+        {
+            Created = DateTime.UtcNow;
+            Version = other.Version;
+            Padding = other.Padding;
+            m_Type = other.m_Type;
+            m_Length = other.m_Length;
+            BlockCount = other.BlockCount;
+            Payload = other.Payload;
+            Channel = other.Channel;            
         }
 
         #endregion
@@ -206,11 +223,26 @@ namespace Media.Rtcp
             //Blockcount
             result[0] |= (byte)(BlockCount & 0x1f);
             result.Add(m_Type);
+         
+
+            ////Determine if padding for alignment is required
+            int padding = PacketLength % 4;
+
+            if (padding > 0)
+            {
+                int paddedLength = Payload.Length + padding;
+
+                Array.Resize<byte>(ref m_Data, paddedLength);
+
+                Length = (short)paddedLength;
+            }
+
             //Length
             //Should check endian before swapping
             result.AddRange(BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(m_Length)));
-            //Data
+
             result.AddRange(Payload);
+            
             return result.ToArray();
         }
 

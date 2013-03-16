@@ -5,129 +5,114 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public sealed class SendersReport : System.Collections.IEnumerable
+    public sealed class SendersReport : RtcpPacket, System.Collections.IEnumerable
     {
         #region Fields
 
+        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
+
         //2 Words which make up the NtpTimestamp
-        internal uint m_NtpMsw, m_NtpLsw;
+        internal uint m_NtpMsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 4)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 4); } }
+        internal uint m_NtpLsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 8)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 8); } }
+        public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
 
         #endregion
 
         #region Properties
 
-        public uint SynchronizationSourceIdentifier { get; set; }
+        public uint RtpTimestamp { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 12)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 12); } }
 
-        public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
+        public uint SendersPacketCount { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 16)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 16); } }
 
-        public uint RtpTimestamp { get; set; }
+        public uint SendersOctetCount { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 20)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 20); } }
 
-        public uint SendersPacketCount { get; set; }
+        public ReportBlock this[int index]
+        {
+            get
+            {
+                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
 
-        public uint SendersOctetCount { get; set; }
+                //Determine offset of block
+                int offset = 0;
+                if (index > 0) offset = 24 + (ReportBlock.Size * index);
+                else offset = 24;
 
-        public List<ReportBlock> Blocks = new List<ReportBlock>();
+                return new ReportBlock(Payload, ref offset);
+            }
+            set
+            {
+                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+                if (value == null)
+                {
+                    Remove(index);
+                    return;
+                }
+                else
+                {
+                    //Blocks[index] = value;
 
-        public DateTime? Sent { get; set; }
+                    //Determine offset of block
+                    int offset = 0;
+                    if (index > 0) offset = 24 + (ReportBlock.Size * index);
+                    else offset = 24;
 
-        public DateTime? Created { get; set; }
-
-        public byte? Channel { get; set; }
+                    value.ToBytes().CopyTo(Payload, offset);
+                }
+            }
+        }
 
         #endregion
 
         #region Constructor
 
-        public SendersReport(uint ssrc)
-        {
-            SynchronizationSourceIdentifier = ssrc;
-            Created = DateTime.UtcNow;
-        }
+        public SendersReport(uint ssrc) : base(RtcpPacketType.SendersReport) { Payload = new byte[24]; SynchronizationSourceIdentifier = ssrc; }
 
-        public SendersReport(byte[] packet, int offset) 
-        {            
-            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
+        public SendersReport(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.SendersReport) { }
 
-            int packetLength = packet.Length;
-
-            if (packetLength > 8)
-            {
-                //Get the MSW
-                m_NtpMsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 4));
-
-                //Get the LSW
-                m_NtpLsw = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 8));
-
-                if (packetLength > 12) RtpTimestamp = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 12));
-                else return;
-
-                if (packetLength > 16) SendersPacketCount = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 16));
-                else return;
-
-                if (packetLength > 20) SendersOctetCount = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 20));
-                else return;
-
-                if (packetLength > 24) offset += 24;
-                else return;
-
-                //never trust block count :)
-                //while(Blocks.Count < blockCount)
-                while (offset + ReportBlock.Size < packet.Length)
-                {
-                    Blocks.Add(new ReportBlock(packet, ref offset));
-                }
-            }
-
-        }
-
-        //Should check Conflict avoidance type
-        public SendersReport(RtcpPacket packet) : this(packet.Payload, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); Created = packet.Created ?? DateTime.UtcNow; }
-
+        public SendersReport(RtcpPacket packet) : base(packet) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); }
+            
         #endregion
 
-        public RtcpPacket ToPacket(byte? channel = null)
+        #region Methods
+
+        public void Add(ReportBlock reportBlock) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(reportBlock.ToBytes()); Payload = temp.ToArray(); }
+
+        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
+
+        public void Remove(int index)
         {
-            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SendersReport, channel ?? Channel);            
-            output.Payload = ToBytes();
-            output.BlockCount = Blocks.Count;
-            return output;
+            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+
+            BlockCount--;
+
+            //Determine offset of block
+            int offset = 0;
+            if (index > 0) offset = 24 + (ReportBlock.Size * index);
+            else offset = 24;
+
+            List<byte> temp = new List<byte>(Payload);
+            temp.RemoveRange(offset, ReportBlock.Size);
+            Payload = temp.ToArray();
         }
 
-        public byte[] ToBytes(uint? ssrc = null)
+        public void Insert(int index, ReportBlock reportBlock)
         {
-            List<byte> result = new List<byte>();
-            // SSRC
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(ssrc ?? SynchronizationSourceIdentifier)));
-            
-            // NTP timestamp
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_NtpMsw)));
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_NtpLsw)));
+            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
 
-            // RTP timestamp
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(RtpTimestamp)));
-            // sender's packet count
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersPacketCount)));
-            // sender's octet count
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersOctetCount)));
-            
-            //Report Blocks
-            foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());
+            BlockCount++;
 
-            return result.ToArray();
+            //Determine offset of block
+            int offset = 0;
+            if (index > 0) offset = 24 + (ReportBlock.Size * index);
+            else offset = 24;
+
+            List<byte> temp = new List<byte>(Payload);
+            temp.InsertRange(offset, reportBlock.ToBytes());
+            Payload = temp.ToArray();
         }
 
-        public static implicit operator RtcpPacket(SendersReport report) { return report.ToPacket(); }
+        public System.Collections.IEnumerator GetEnumerator() { for (int i = 0; i < BlockCount; ++i) yield return this[i]; }
 
-        public static implicit operator SendersReport(RtcpPacket packet) { return new SendersReport(packet); }
-
-        public System.Collections.IEnumerator GetEnumerator()
-        {
-            return Blocks.GetEnumerator();
-        }
+        #endregion
     }
 }

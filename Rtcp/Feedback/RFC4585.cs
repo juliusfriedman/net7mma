@@ -44,7 +44,7 @@ namespace Media.Rtcp.Feedback
         public byte[] FeedbackControlInformation { get; set; }
         public byte Format { get; set; }
         public FeedbackControlInformationType FeedbackFormat { get { return (FeedbackControlInformationType)Format; } set { Format = (byte)value; } }
-        public RtcpPacket.RtcpPacketType PacketType { get { return m_PacketType; } set { if (value != RtcpPacket.RtcpPacketType.TransportLayerFeedback && value != RtcpPacket.RtcpPacketType.PayloadSpecificFeedback) throw new InvalidOperationException(); m_PacketType = value; } }
+        public RtcpPacket.RtcpPacketType PacketType { get { return m_PacketType; } set { if (value != RtcpPacket.RtcpPacketType.TransportLayerFeedback || value != RtcpPacket.RtcpPacketType.PayloadSpecificFeedback) throw new InvalidOperationException(); m_PacketType = value; } }
 
         #endregion
 

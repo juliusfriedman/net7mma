@@ -108,7 +108,7 @@ namespace Media
             //Determine what is actually being received by obtaining the TransportContext of the receiver            
             Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
             Console.WriteLine("-----------------------");
-            Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport.Blocks[0].CumulativePacketsLost + " Packets");
+            Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport[0].CumulativePacketsLost + " Packets");
 
             //Or by comparing packets received
             if (receiver.TotalRtpPacketsReceieved < sender.TotalRtpPacketsSent) throw new Exception("Did not receive all packets");
@@ -165,9 +165,9 @@ namespace Media
             Console.WriteLine(sr.NtpTimestamp);//MSW = d4 92 ce d4, LSW = 2c 49 ba 5e
             sr.NtpTimestamp = sr.NtpTimestamp;//Ensure setting the value through a setter is correct
             if (sr.RtpTimestamp != 3302006772) throw new Exception("RtpTimestamp Invalid!");
-            
+
             //Verify SendersReport byte for byte
-            var output = sr.ToPacket().ToBytes();//should be exactly equal to example
+            var output = sr.ToBytes();//should be exactly equal to example
             for (int i = 0; i < output.Length; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             //Recievers Report and Source Description
@@ -185,26 +185,26 @@ namespace Media
             asPacket = new Rtcp.RtcpPacket(example); // same as foundPackets[0]
             Rtcp.ReceiversReport rr = new Rtcp.ReceiversReport(asPacket);
             Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
-            Console.WriteLine(rr.Blocks.Count);//1
-            Console.WriteLine(rr.Blocks[0].SynchronizationSourceIdentifier);//1631032400
-            Console.WriteLine(rr.Blocks[0].FractionLost);//255/256 0xff
-            Console.WriteLine(rr.Blocks[0].CumulativePacketsLost);//-1, 0xff,0xff,0xff
-            Console.WriteLine(rr.Blocks[0].ExtendedHigestSequenceNumber);//65618, 00, 01, 00, 52
-            Console.WriteLine(rr.Blocks[0].InterArrivalJitter);//3771
-            Console.WriteLine(rr.Blocks[0].LastSendersReport);//3470051573
+            Console.WriteLine(rr.BlockCount);//1
+            Console.WriteLine(rr[0].SynchronizationSourceIdentifier);//1631032400
+            Console.WriteLine(rr[0].FractionLost);//255/256 0xff
+            Console.WriteLine(rr[0].CumulativePacketsLost);//-1, 0xff,0xff,0xff
+            Console.WriteLine(rr[0].ExtendedHigestSequenceNumber);//65618, 00, 01, 00, 52
+            Console.WriteLine(rr[0].InterArrivalJitter);//3771
+            Console.WriteLine(rr[0].LastSendersReport);//3470051573
 
             //next packet offset by Length + RtcpHeader
             asPacket = new Rtcp.RtcpPacket(example, asPacket.Length + Rtcp.RtcpPacket.RtcpHeaderLength); //same as foundPackets[1] or asPacket.PacketLength
             Rtcp.SourceDescription sd = new Rtcp.SourceDescription(asPacket); //1 Chunk, CName
 
             //Verify RecieversReport byte for byte
-            output = rr.ToPacket().ToBytes();//should be exactly equal to example
+            output = rr.ToBytes();//should be exactly equal to example
             for (int i = asPacket.PacketLength; i >= 0; --i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             int offset = output.Length;// +Rtcp.RtcpPacket.RtcpHeaderLength;
 
             //Verify Source Description byte for byte
-            output = sd.ToPacket().ToBytes();
+            output = sd.ToBytes();
             for (int i = 0; i < output.Length; i++, offset++)
             {
                 if (example[offset] != output[i]) throw new Exception();
@@ -222,9 +222,9 @@ namespace Media
 
             //Test making a packet with a known length in bytes
 
-            sd = new Rtcp.SourceDescription(0x1AB7C080); //4 Bytes
-            sd.Add(new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC")); // ItemType(1), Length(1), ItemValue(9), End(1) =  12 Bytes                        
-            asPacket = sd.ToPacket(); // Header = 4 Bytes
+            sd = new Rtcp.SourceDescription(); //4 Bytes
+            sd.Add(new Rtcp.SourceDescription.SourceDescriptionChunk(0x1AB7C080, new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC"))); // ItemType(1), Length(1), ItemValue(9), End(1) =  12 Bytes                        
+            asPacket = sd; // Header = 4 Bytes
 
             if (asPacket.Length != 16 || asPacket.ToBytes()[3] != 4) throw new Exception("Invalid Length");
         }
