@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public sealed class SourceDescription : System.Collections.IEnumerable
+    public sealed class SourceDescription : RtcpPacket, System.Collections.IEnumerable
     {
         #region Nested Types
 
@@ -22,7 +22,7 @@ namespace Media.Rtcp
             Private = 8
         }
 
-        public class SourceDescriptionItem
+        public sealed class SourceDescriptionItem
         {
             public readonly static SourceDescriptionItem Empty = new SourceDescriptionItem(SourceDescriptionType.End);
 
@@ -97,62 +97,94 @@ namespace Media.Rtcp
                         result.AddRange(Encoding.UTF8.GetBytes(m_Text));
                     }
                 }
+
                 return result.ToArray();
             }
 
             #endregion
         }
 
-        #endregion
+        public sealed class SourceDescriptionChunk
+        {
+            public SourceDescriptionChunk(uint ssrc, IEnumerable<SourceDescriptionItem> items)
+            {
+                SynchronizationSourceIdentifier = ssrc;
+                foreach (SourceDescriptionItem item in items) Items.Add(item);
+            }
 
-        #region Fields
+            public SourceDescriptionChunk(uint ssrc, SourceDescriptionItem item) : this(ssrc, new SourceDescriptionItem[] { item }) { }
 
-        List<SourceDescriptionItem> m_Items = new List<SourceDescriptionItem>();
+            public SourceDescriptionChunk(byte[] packet, ref int index)
+            {
+                SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, index));
+                index += 4;
+                //Items
+                while (index < packet.Length)
+                {
+                    SourceDescriptionItem item = new SourceDescriptionItem(packet, ref index);
+                    if (item.DescriptionType == SourceDescriptionType.End) break;
+                    Items.Add(item);
+                }
+            }
+
+            public int Length
+            {
+                get
+                {
+                    int result = 4;
+                    Items.ForEach(i => result += i.Length);
+                    return result;
+                }
+            }
+
+            public uint SynchronizationSourceIdentifier { get; set; }
+
+            public List<SourceDescriptionItem> Items = new List<SourceDescriptionItem>();
+
+            public byte[] ToBytes() { List<byte> result = new List<byte>(); result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier))); Items.ForEach(i => result.AddRange(i.ToBytes())); result.AddRange(SourceDescriptionItem.Empty.ToBytes()); while (result.Count % 4 != 0) result.Add(0); return result.ToArray(); }
+        }
 
         #endregion
 
         #region Properties
 
-        public uint SynchronizationSourceIdentifier { get; set; }
+        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
 
-        public System.Collections.ObjectModel.ReadOnlyCollection<SourceDescriptionItem> Items { get { return m_Items.AsReadOnly(); } }
+        public SourceDescription.SourceDescriptionChunk this[int index]
+        {
+            get
+            {
+                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
 
-        public DateTime? Created { get; set; }
+                SourceDescription.SourceDescriptionChunk result = null;
 
-        public DateTime? Sent { get; set; }
+                foreach (SourceDescription.SourceDescriptionChunk item in this)
+                {
+                    result = item;
+                    if (--index <= 0) break;
+                }
 
-        public byte? Channel { get; set; }
+                return result;
+            }
+            set
+            {
+                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+                Remove(index);
+                if (value != null) Insert(index, value);
+            }
+        }
 
         #endregion
 
         #region Constructor
 
-        public SourceDescription(byte[] packet, int offset) 
-        {
+        public SourceDescription(byte[] packet, int offset) :base( packet, offset, RtcpPacketType.SourceDescription){}
 
-            Created = DateTime.Now; 
-
-            SynchronizationSourceIdentifier = (uint)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt32(packet, offset));
-
-            offset = 4;
-
-            //To cache the value of the cast because we can't use == / != on SourceDescriptionType because of enum
-            byte SourceDescriptionEnd = (byte)SourceDescriptionType.End;
-
-            while (offset < packet.Length && packet[offset] != SourceDescriptionEnd)
-            {
-                m_Items.Add(new SourceDescriptionItem(packet, ref offset));
-            }
-
-        }
-
-        public SourceDescription(uint ssrc) { SynchronizationSourceIdentifier = ssrc; Created = DateTime.Now; }
+        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[0];}
 
         public SourceDescription(RtcpPacket packet)
-            : this(packet.Payload, 0)
+            : base(packet)
         {
-            Channel = packet.Channel;
-            Created = packet.Created ?? DateTime.UtcNow;
             if (packet.PacketType != RtcpPacket.RtcpPacketType.SourceDescription) throw new Exception("Invalid Packet Type, Expected SourceDescription. Found: '" + (byte)packet.PacketType + '\'');
         }
 
@@ -160,51 +192,51 @@ namespace Media.Rtcp
 
         #region Methods
 
-        public RtcpPacket ToPacket(byte? channel = null)
+        public void Add(SourceDescription.SourceDescriptionChunk item) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(item.ToBytes()); Payload = temp.ToArray(); }
+
+        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
+
+        public void Remove(int index)
         {
-            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.SourceDescription);
-            output.BlockCount = Items.Count;
-            output.Payload = ToBytes();
-            output.Channel = channel ?? Channel;
-            return output;
+            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+
+            BlockCount--;
+
+            //Determine offset of block
+            int offset = 0;
+            for (int i = 0; i < index; ++i) offset += this[i].Length;
+
+            List<byte> temp = new List<byte>(Payload);
+            temp.RemoveRange(offset, ReportBlock.Size);
+            Payload = temp.ToArray();
         }
 
-        public byte[] ToBytes()
+        public void Insert(int index, SourceDescription.SourceDescriptionChunk newItem)
         {
-            List<byte> result = new List<byte>();
+            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
 
-            //Add Ssrc
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
+            BlockCount++;
 
-            //Add Sded Items
-            foreach (SourceDescriptionItem item in Items) result.AddRange(item.ToBytes());
-                            
-            //Add terminator
-            result.AddRange(SourceDescriptionItem.Empty.ToBytes());
+            //Determine offset of block
+            int offset = 0;
+            for (int i = 0; i < index; ++i) offset += this[i].Length;
 
-            //Ensure header values right here but this is done when required in case some one wants to mangle with these fields for some reason
-            //m_Count = Items.Count;
-            //Length = (short)result.Count();
-
-            //Data is aligned to a multiple of 32 bits
-            while (result.Count % 4 != 0) result.Add(0);
-
-            return result.ToArray();
+            List<byte> temp = new List<byte>(Payload);
+            temp.InsertRange(offset, newItem.ToBytes());
+            Payload = temp.ToArray();
         }
 
-        public System.Collections.IEnumerator GetEnumerator() { return m_Items.GetEnumerator(); }
-
-        public void Add(SourceDescriptionItem item) { if (item != null) m_Items.Add(item); }
-
-        public bool Contains(SourceDescriptionItem item) { if (item != null) return m_Items.Contains(item); return false; }
-
-        public bool Remove(SourceDescriptionItem item) { return m_Items.Remove(item); }
+        public System.Collections.IEnumerator GetEnumerator() 
+        {
+            SourceDescription.SourceDescriptionChunk chunk = null;
+            for (int i = 0, offset = 0; i < BlockCount; ++i)
+            {
+                try { chunk = new SourceDescription.SourceDescriptionChunk(Payload, ref offset); }
+                catch { break; }
+                yield return chunk;
+            }
+        }
 
         #endregion
-
-        public static implicit operator RtcpPacket(SourceDescription description) { return description.ToPacket(description.Channel); }
-
-        public static implicit operator SourceDescription(RtcpPacket packet) { return new SourceDescription(packet); }
     }
 }

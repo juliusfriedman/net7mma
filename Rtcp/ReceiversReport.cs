@@ -5,65 +5,104 @@ using System.Text;
 
 namespace Media.Rtcp
 {
-    public sealed class ReceiversReport
+    public sealed class ReceiversReport : RtcpPacket, System.Collections.IEnumerable
     {
-        public List<ReportBlock> Blocks = new List<ReportBlock>();
-
-        public uint SynchronizationSourceIdentifier { get; set; }
-
-        public DateTime? Sent { get; set; }
-
-        public DateTime? Created { get; set; }
-
-        public byte? Channel { get; set; }
-
         #region Constructor
 
-        public ReceiversReport(uint ssrc) { SynchronizationSourceIdentifier = ssrc; }
-        
-        //Packet would have created property?
-        public ReceiversReport(RtcpPacket packet) : this(packet.Payload, 0) { if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception("Invalid Packet Type, Expected RecieversReport. Found: '" + (byte)packet.PacketType + '\''); Channel = packet.Channel; Created = packet.Created ?? DateTime.UtcNow; }
+        public ReceiversReport(uint ssrc) : base(RtcpPacketType.ReceiversReport) { Payload = new byte[4]; SynchronizationSourceIdentifier = ssrc; }
 
-        public ReceiversReport(byte[] packet, int offset) 
+        public ReceiversReport(RtcpPacket packet)
+            : base(packet)
         {
-            SynchronizationSourceIdentifier = Utility.ReverseUnsignedInt(BitConverter.ToUInt32(packet, offset + 0));
-            offset += 4; 
-            if (packet.Length > 4)
+            if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception("Invalid Packet Type, Expected RecieversReport. Found: '" + (byte)packet.PacketType + '\'');
+        }
+
+        public ReceiversReport(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.ReceiversReport) { }
+
+        #endregion
+
+        #region Properties
+        
+        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
+
+        public ReportBlock this[int index]
+        {
+            get
             {
-                while (offset < packet.Length)
+                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+
+                //Determine offset of block
+                int offset = 0;
+                if (index > 0) offset = 4 + (ReportBlock.Size * index);
+                else offset = 4;
+
+                return new ReportBlock(Payload, ref offset);
+            }
+            set
+            {
+                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+                if (value == null)
                 {
-                    Blocks.Add(new ReportBlock(packet, ref offset));
+                    Remove(index);
+                    return;
+                }
+                else
+                {
+                    //Blocks[index] = value;
+
+                    //Determine offset of block
+                    int offset = 0;
+                    if (index > 0) offset = 4 + (ReportBlock.Size * index);
+                    else offset = 4;
+
+                    value.ToBytes().CopyTo(Payload, offset);
                 }
             }
         }
 
         #endregion
 
-        public RtcpPacket ToPacket(byte? channel = null)
+        #region Methods
+
+        public void Add(ReportBlock reportBlock) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(reportBlock.ToBytes()); Payload = temp.ToArray(); }
+
+        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
+
+        public void Remove(int index)
         {
-            RtcpPacket output = new RtcpPacket(RtcpPacket.RtcpPacketType.ReceiversReport, channel ?? Channel);
-            output.Payload = ToBytes();
-            output.BlockCount = Blocks.Count;
-            return output;
+            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
+
+            BlockCount--;
+
+            //Determine offset of block
+            int offset = 0;
+            if (index > 0) offset = 4 + (ReportBlock.Size * index);
+            else offset = 4;
+
+            List<byte> temp = new List<byte>(Payload);
+            temp.RemoveRange(offset, ReportBlock.Size);
+            Payload = temp.ToArray();
         }
 
-        public byte[] ToBytes(uint? ssrc = null)
+        public void Insert(int index, ReportBlock reportBlock)
         {
-            List<byte> result = new List<byte>();
-            
-            // SSRC
-            //Should check endian before swapping
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((ssrc ?? SynchronizationSourceIdentifier))));
-            
-            //Report Blocks
-            foreach (ReportBlock block in Blocks) result.AddRange(block.ToBytes());
+            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
 
-            return result.ToArray();
+            BlockCount++;
+
+            //Determine offset of block
+            int offset = 0;
+            if (index > 0) offset = 4 + (ReportBlock.Size * index);
+            else offset = 4;
+
+            List<byte> temp = new List<byte>(Payload);
+            temp.InsertRange(offset, reportBlock.ToBytes());
+            Payload = temp.ToArray();
         }
 
-        public static implicit operator RtcpPacket(ReceiversReport report) { return report.ToPacket(report.Channel); }
+        public System.Collections.IEnumerator GetEnumerator() { for (int i = 0; i < BlockCount; ++i) yield return this[i]; }
 
-        public static implicit operator ReceiversReport(RtcpPacket packet) { return new ReceiversReport(packet); }
-
+        #endregion
     }
+
 }
