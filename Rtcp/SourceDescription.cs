@@ -72,11 +72,9 @@ namespace Media.Rtcp
             public SourceDescriptionItem(byte[] packet, ref int offset)
             {
                 m_Type = packet[offset ++];
+                if (DescriptionType == SourceDescriptionType.End) return;
                 m_Length = packet[offset ++];
-                if (m_Length > 0)
-                {
-                    m_Text = Encoding.UTF8.GetString(packet, offset, m_Length);
-                }
+                if (m_Length > 0) m_Text = Encoding.UTF8.GetString(packet, offset, m_Length);
                 offset += m_Length;
             }
 
