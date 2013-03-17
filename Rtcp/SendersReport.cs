@@ -7,7 +7,7 @@ namespace Media.Rtcp
 {
     public sealed class SendersReport : RtcpPacket, System.Collections.IEnumerable
     {
-        #region Fields
+        #region Properties
 
         public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
 
@@ -15,10 +15,6 @@ namespace Media.Rtcp
         internal uint m_NtpMsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 4)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 4); } }
         internal uint m_NtpLsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 8)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 8); } }
         public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
-
-        #endregion
-
-        #region Properties
 
         public uint RtpTimestamp { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 12)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 12); } }
 

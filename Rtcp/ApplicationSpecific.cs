@@ -13,7 +13,7 @@ namespace Media.Rtcp
         public string Name { get { return Encoding.ASCII.GetString(Payload, 4, 4); } set { if (value.Length > 4) throw new InvalidOperationException("Name can be only 4 characters long!"); Encoding.ASCII.GetBytes(value).CopyTo(Payload, 4); } }
         byte[] Data
         {
-            get { return Payload.Skip(8).ToArray(); }
+            get { if (Payload.Length < 8) return null; return Payload.Skip(8).ToArray(); }
             set
             {
                 if (value.Length % 4 != 0) throw new Exception("Data must be aligned to a multiple of 32 bits.");
@@ -30,7 +30,7 @@ namespace Media.Rtcp
 
         public ApplicationSpecific(byte[] packet, int index) : base(packet, 0, RtcpPacketType.ApplicationSpecific) { }
 
-        public ApplicationSpecific(uint ssrc, byte? channel = null) : base(RtcpPacket.RtcpPacketType.ApplicationSpecific, channel) { SynchronizationSourceIdentifier = ssrc;}
+        public ApplicationSpecific(uint ssrc, byte? channel = null) : base(RtcpPacket.RtcpPacketType.ApplicationSpecific, channel) { Payload = new byte[8]; SynchronizationSourceIdentifier = ssrc; }
 
         public ApplicationSpecific(RtcpPacket packet) : base(packet)
         {

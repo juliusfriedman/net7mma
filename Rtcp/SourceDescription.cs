@@ -176,9 +176,9 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public SourceDescription(byte[] packet, int offset) : base( packet, offset, RtcpPacketType.SourceDescription){ }
+        public SourceDescription(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.SourceDescription){ }
 
-        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[4];}
+        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[4]; }
 
         public SourceDescription(RtcpPacket packet)
             : base(packet)
