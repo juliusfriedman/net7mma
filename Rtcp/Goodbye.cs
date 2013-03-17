@@ -16,20 +16,26 @@ namespace Media.Rtcp
             get { return Encoding.UTF8.GetString(Payload, 5, Payload[4]); }
             set
             {
+                //If there is no reason
                 if (string.IsNullOrWhiteSpace(value))
                 {
-                    Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier));
+                    //If there was previous a reason erase it
+                    if (Payload.Length > 4) Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier));                    
                 }
                 else
                 {
+                    //Check the value in range
                     if (value.Length > 255) throw new ArgumentException("Reason cannot be longer than 255 characters.");
+                    //Get the bytes
                     byte[] values = Encoding.UTF8.GetBytes(value);
-                    if (value.Length == Reason.Length)
+                    //If there was no chance in length direct copy
+                    if (Payload.Length > 4 && value.Length == Payload[4])
                     {
                         values.CopyTo(Payload, 5);
                     }
                     else
                     {
+                        //Rebuild payload with new length and value
                         List<byte> temp = new List<byte>();
                         temp.AddRange(Payload, 0, 4);
                         temp.Add((byte)values.Length);
