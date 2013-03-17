@@ -24,15 +24,14 @@ namespace Media.Rtcp
                 {
                     if (value.Length > 255) throw new ArgumentException("Reason cannot be longer than 255 characters.");
                     byte[] values = Encoding.UTF8.GetBytes(value);
-                    int difference = value.Length - Reason.Length;
-                    if (difference == 0)
+                    if (value.Length == Reason.Length)
                     {
                         values.CopyTo(Payload, 5);
                     }
                     else
                     {
                         List<byte> temp = new List<byte>();
-                        temp.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)));
+                        temp.AddRange(Payload, 0, 4);
                         temp.Add((byte)values.Length);
                         temp.AddRange(Encoding.UTF8.GetBytes(value));
                         Payload = temp.ToArray();

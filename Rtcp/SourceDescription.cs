@@ -176,9 +176,9 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public SourceDescription(byte[] packet, int offset) :base( packet, offset, RtcpPacketType.SourceDescription){}
+        public SourceDescription(byte[] packet, int offset) : base( packet, offset, RtcpPacketType.SourceDescription){ }
 
-        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[0];}
+        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[4];}
 
         public SourceDescription(RtcpPacket packet)
             : base(packet)
@@ -190,7 +190,13 @@ namespace Media.Rtcp
 
         #region Methods
 
-        public void Add(SourceDescription.SourceDescriptionChunk item) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(item.ToBytes()); Payload = temp.ToArray(); }
+        public void Add(SourceDescription.SourceDescriptionChunk item)
+        {
+            BlockCount++; 
+            List<byte> temp = new List<byte>(Payload); 
+            temp.AddRange(item.ToBytes()); 
+            Payload = temp.ToArray();
+        }
 
         public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
 
@@ -201,11 +207,22 @@ namespace Media.Rtcp
             BlockCount--;
 
             //Determine offset of block
-            int offset = 0;
-            for (int i = 0; i < index; ++i) offset += this[i].Length;
+            int offset = 0, len = 0;
+            for (int i = 0; i < index; ++i)
+            {
+                if (i == index)
+                {
+                    offset += len = this[i].Length;
+                }
+                else
+                {
+
+                    offset += this[i].Length;
+                }
+            }
 
             List<byte> temp = new List<byte>(Payload);
-            temp.RemoveRange(offset, ReportBlock.Size);
+            temp.RemoveRange(offset, len);
             Payload = temp.ToArray();
         }
 
