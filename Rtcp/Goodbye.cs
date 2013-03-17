@@ -50,7 +50,7 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public Goodbye(uint ssrc, byte? channel = null) : base(RtcpPacketType.Goodbye, channel) { SynchronizationSourceIdentifier = ssrc; }
+        public Goodbye(uint ssrc, byte? channel = null) : base(RtcpPacketType.Goodbye, channel) { Payload = new byte[4]; SynchronizationSourceIdentifier = ssrc; }
 
         public Goodbye(RtcpPacket packet) : base(packet) { if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type, Expected Goodbye. Found: '" + (byte)packet.PacketType + '\''); }
 
