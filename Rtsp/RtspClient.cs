@@ -624,7 +624,7 @@ namespace Media.Rtsp
         #region Rtsp
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        internal RtspResponse SendRtspRequest(RtspRequest request)
+        internal RtspResponse SendRtspRequest(RtspRequest request, string realm = "//", string nonce = null, string nc = null, string cnonce = null, string qop = null, string opaque = null)
         {
             try
             {
@@ -641,7 +641,7 @@ namespace Media.Rtsp
                     if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
                     {
                         //Encoding should be a property on the Listener which defaults to utf8
-                        request.SetHeader(RtspHeaders.Authroization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
+                        request.SetHeader(RtspHeaders.Authorization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
                     }
                     else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
                     {
@@ -663,43 +663,41 @@ namespace Media.Rtsp
 
                         //Need to calculate based on hash  
 
-                        string username, realm, nonce, nc, cnonce, uri, qop, opaque, response;
+                        string usernamePart, uriPart, response;
 
-                        username = "username=" + Credential.UserName;
+                        usernamePart = Credential.UserName;
 
-                        realm = "/";
+                        nc =  nc ?? "00000001";
 
-                        nc = "nc=00000001";
-
+                        if(string.IsNullOrWhiteSpace(nonce))
                         {
                             int a = Utility.Random.Next(int.MaxValue);
-                            nonce = "nonce=" + (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
+                            nonce = (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
                         }
 
-                        cnonce = "cnonce=" + Utility.Random.Next(int.MaxValue).ToString("X");
+                        cnonce = cnonce ?? Utility.Random.Next(int.MaxValue).ToString("X");
 
-                        uri = "uri=\""+Location.PathAndQuery + '"';
+                        uriPart = "\"" + Location.AbsoluteUri + '"';
 
-                        qop = "qop=auth";
+                        qop = qop ?? "auth";
 
+                        if (string.IsNullOrWhiteSpace(opaque))
                         {
                             int a = Utility.Random.Next(int.MaxValue);
-                            opaque = "opaque=" + (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
+                            opaque = (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
                         }
 
                         //http://en.wikipedia.org/wiki/Digest_access_authentication
                         //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                        byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Credential.UserName + ':' + realm + ':' + Credential.Password));
+                        byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", Credential.UserName, realm, Credential.Password)));
 
                         //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                        byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(request.Method + ':' + uri));
+                        byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method , Location.AbsoluteUri)));
 
                         //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                        byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Convert.ToString(HA1).Replace("-", string.Empty) + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + Convert.ToString(HA2).Replace("-", string.Empty)));
+                        byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty), nonce, BitConverter.ToString(HA2).Replace("-", string.Empty), nc, cnonce, qop)));
 
-                        response = "response=" + Convert.ToString(ResponseHash).Replace("-", string.Empty);
-
-                        request.SetHeader(RtspHeaders.Authroization, "Digest " + string.Join(",", username, realm, nonce, uri, qop, nc, cnonce, response, opaque));
+                        request.SetHeader(RtspHeaders.Authorization, "Digest " + string.Join(",", "username=" + usernamePart, "realm=" + realm, "nonce=" + nonce, "uri=" + uriPart, "qop=" + qop, "nc=" + nc, "cnonce=" + cnonce, "response=" + BitConverter.ToString(ResponseHash).Replace("-", string.Empty), "opaque=" + opaque));
                     }
                 }
 
