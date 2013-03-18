@@ -1261,7 +1261,7 @@ namespace Media.Rtsp
 
         internal void ProcessAuthorizationRequired(ClientSession session)
         {
-            ProcessInvalidRtspRequest(session, session.LastRequest != null && !session.LastRequest.ContainsHeader(RtspHeaders.Authroization) ?  RtspStatusCode.Unauthorized : RtspStatusCode.Forbidden);
+            ProcessInvalidRtspRequest(session, session.LastRequest != null && !session.LastRequest.ContainsHeader(RtspHeaders.Authorization) ?  RtspStatusCode.Unauthorized : RtspStatusCode.Forbidden);
         }
 
         /// <summary>
@@ -2005,10 +2005,10 @@ namespace Media.Rtsp
             if (source.SourceAuthenticationScheme == AuthenticationSchemes.None || source.RemoteCredential == null) return true;
             
             //If the request does not have the authorization header then there is nothing else to determine
-            if (!request.ContainsHeader(RtspHeaders.Authroization)) return false;
+            if (!request.ContainsHeader(RtspHeaders.Authorization)) return false;
 
             //Get the Authroization Header
-            string header = request[RtspHeaders.Authroization].ToLower();
+            string header = request[RtspHeaders.Authorization].ToLower();
 
             //If the SourceAuthenticationScheme is Basic and the header contains the BASIC indication then validiate using BASIC authentication
             if (source.SourceAuthenticationScheme == AuthenticationSchemes.Basic && header.Contains("basic"))
@@ -2114,27 +2114,35 @@ namespace Media.Rtsp
 
                 nonce = parts.Where(p => p.StartsWith("nonce")).FirstOrDefault();
 
+                if (nonce == null) nonce = string.Empty;
+
                 cnonce = parts.Where(p => p.StartsWith("cnonce")).FirstOrDefault();
+
+                if (cnonce == null) cnonce = string.Empty;
 
                 uri = parts.Where(p => p.StartsWith("uri")).FirstOrDefault();
 
                 qop = parts.Where(p => p.StartsWith("qop")).FirstOrDefault();
 
+                if (qop == null) qop = string.Empty;
+
                 opaque = parts.Where(p => p.StartsWith("opaque")).FirstOrDefault();
+
+                if (opaque == null) opaque = string.Empty;
 
                 response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
 
-                if (string.IsNullOrEmpty(username) || username != source.RemoteCredential.UserName) return false;
+                if (string.IsNullOrEmpty(username) || username != source.RemoteCredential.UserName || string.IsNullOrWhiteSpace(realm) || string.IsNullOrWhiteSpace(uri) || string.IsNullOrWhiteSpace(response)) return false;                
 
                 //http://en.wikipedia.org/wiki/Digest_access_authentication
                 //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(source.RemoteCredential.UserName + ':' + realm + ':' + source.RemoteCredential.Password));
+                byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", source.RemoteCredential.UserName , realm.Replace("realm=", string.Empty), source.RemoteCredential.Password)));
                 
                 //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(request.Method +':' + uri));
-                
+                byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method, uri.Replace("uri=", string.Empty))));
+
                 //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(Convert.ToString(HA1).Replace("-", string.Empty) + ':' + nonce + ':' + nc + ':' + cnonce + ':' + qop + ':' + Convert.ToString(HA2).Replace("-", string.Empty)));
+                byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", Convert.ToString(HA1).Replace("-", string.Empty), nonce.Replace("nonce=", string.Empty), nc.Replace("nc=", string.Empty), cnonce.Replace("cnonce=", string.Empty), qop.Replace("qop=", string.Empty), Convert.ToString(HA2).Replace("-", string.Empty))));
 
                 //return the result of a mutal hash creation via comparison
                 return ResponseHash.SequenceEqual(Utility.HexStringToBytes(response.Replace("response=", string.Empty)));

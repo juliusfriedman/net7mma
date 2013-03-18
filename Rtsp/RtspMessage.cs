@@ -15,7 +15,7 @@ namespace Media.Rtsp
         public const string Accept = "Accept";
         public const string AcceptEncoding = "Accept-Encoding";
         public const string AcceptLanguage = "Accept-Language";
-        public const string Authroization = "Authorization";
+        public const string Authorization = "Authorization";
         public const string Connection = "Connection";
         public const string ContentBase = "Content-Base";
         public const string ContentEncoding = "Content-Encoding";

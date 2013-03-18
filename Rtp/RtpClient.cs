@@ -293,7 +293,12 @@ namespace Media.Rtp
             /// <param name="localRtcpPort"></param>
             /// <param name="remoteRtpPort"></param>
             /// <param name="remoteRtcpPort"></param>
-            public void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort, int remoteRtcpPort, bool wakeup = true)
+            /// <param name="wakeup"></param>
+            /// <notes>
+            /// Attention Freebox Stb Users!!!!
+            /// Please use 0 For remoteRtpPort and remoteRtcpPort as the Freebox Stb does not use the correct Rtp or Rtcp ports indicated in the Describe request.
+            /// </notes>
+            public void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort = 0, int remoteRtcpPort = 0, bool wakeup = true)
             {
 
                 Goodbye = null;
@@ -1418,13 +1423,6 @@ namespace Media.Rtp
                 {
                     //Recieve as many bytes as are available on the socket up to the buffer length (no frame bytes)
                     received = socket.Receive(m_Buffer, received, Math.Min(socket.Available,  m_Buffer.Length), SocketFlags.None, out error);
-
-                    /*
-                     * Freebox Stb Patch
-                    var tc = GetContextBySocketHandle(socket.Handle);
-                    EndPoint fbRtp = new IPEndPoint(tc.RemoteRtp.Address, 0);//Any port
-                    received = socket.ReceiveFrom(m_Buffer, SocketFlags.None, ref fbRtp);
-                    */
 
                     //If the send was not successful throw an error with the errorCode
                     if (error != SocketError.Success) throw new SocketException((int)error);
