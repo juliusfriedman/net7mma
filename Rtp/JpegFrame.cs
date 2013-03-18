@@ -845,7 +845,7 @@ namespace Media.Rtp
             if (Image != null)
             {
                 Image.Dispose();
-                Image = null;
+                Image = null;                
             }
         }
 

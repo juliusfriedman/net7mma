@@ -643,7 +643,7 @@ namespace Media.Rtsp
                         //Encoding should be a property on the Listener which defaults to utf8
                         request.SetHeader(RtspHeaders.Authorization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
                     }
-                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
+                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest && !string.IsNullOrWhiteSpace(nonce))
                     {
                         //Digest Impl
 
@@ -663,7 +663,7 @@ namespace Media.Rtsp
 
                         //Need to calculate based on hash  
 
-                        string usernamePart, uriPart, response;
+                        string usernamePart, uriPart;
 
                         usernamePart = Credential.UserName;
 
@@ -783,8 +783,62 @@ namespace Media.Rtsp
                 //We we have nothing to return
                 if (m_LastRtspResponse == null) return m_LastRtspResponse;
 
-                //Fire the event
-                Received(request, m_LastRtspResponse);
+                //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
+                if (string.IsNullOrWhiteSpace(nonce) && m_LastRtspResponse.StatusCode == RtspStatusCode.Unauthorized && m_LastRtspResponse.ContainsHeader(RtspHeaders.WWWAuthenticate))
+                {
+                    string authenticateHeader = m_LastRtspResponse[RtspHeaders.WWWAuthenticate];
+
+                    string[] parts = authenticateHeader.Split(',');
+
+                    string username, uri, response;
+
+                    username = parts.Where(p => p.StartsWith("username")).FirstOrDefault();
+
+                    if (username != null) username = username.Replace("username=", string.Empty);
+
+                    realm = parts.Where(p => p.StartsWith("realm")).FirstOrDefault();
+
+                    if (realm != null) realm = realm.Replace("realm=", string.Empty);
+
+                    nc = parts.Where(p => p.StartsWith("nc")).FirstOrDefault();
+
+                    if (nc != null) nc = nc.Replace("nc=", string.Empty);
+
+                    nonce = parts.Where(p => p.StartsWith("nonce")).FirstOrDefault();
+
+                    if (nonce != null) nonce = nonce.Replace("nonce=", string.Empty);
+
+                    cnonce = parts.Where(p => p.StartsWith("cnonce")).FirstOrDefault();
+
+                    if (cnonce != null) cnonce = cnonce.Replace("cnonce=", string.Empty);
+
+                    uri = parts.Where(p => p.StartsWith("uri")).FirstOrDefault();
+
+                    if (uri != null) uri = uri.Replace("uri=", string.Empty);
+
+                    qop = parts.Where(p => p.StartsWith("qop")).FirstOrDefault();
+
+                    if (qop != null) qop = qop.Replace("qop=", string.Empty);
+
+                    opaque = parts.Where(p => p.StartsWith("opaque")).FirstOrDefault();
+
+                    if (opaque != null) opaque = opaque.Replace("opaque=", string.Empty);
+
+                    response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
+
+                    if (response != null) response = response.Replace("response=", string.Empty);
+
+                    //Increment the CSeq
+                    request.CSeq++;
+
+                    //Recurse the call with the info from then authenticate header
+                    return SendRtspRequest(request, realm, nonce, nc, cnonce, qop, opaque);
+                }
+                else
+                {
+                    //Fire the event
+                    Received(request, m_LastRtspResponse);
+                }
 
                 //Return the result
                 return m_LastRtspResponse;
