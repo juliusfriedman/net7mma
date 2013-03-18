@@ -1244,10 +1244,17 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="ci">The client session to send the response on</param>
         /// <param name="code">The status code of the response if other than BadRequest</param>
-        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest)
-        {            
-            //Should allow a reason to be put into the response somehow
-            ProcessSendRtspResponse(session != null ? session.CreateRtspResponse(null, code) : new RtspResponse() { StatusCode = code }, session);
+        //Should allow a header to be put into the response or a KeyValuePair<string,string> headers
+        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, string authenticateHeader = null)
+        {
+
+            //Create a response
+            RtspResponse response = session != null ? session.CreateRtspResponse(null, code) : new RtspResponse() { StatusCode = code };
+
+            //If we need to include an authenticate header then do so
+            if (!string.IsNullOrWhiteSpace(authenticateHeader)) response.SetHeader(RtspHeaders.WWWAuthenticate, authenticateHeader);
+
+            ProcessSendRtspResponse(response, session);
         }
 
         /// <summary>
@@ -1261,7 +1268,28 @@ namespace Media.Rtsp
 
         internal void ProcessAuthorizationRequired(ClientSession session)
         {
-            ProcessInvalidRtspRequest(session, session.LastRequest != null && !session.LastRequest.ContainsHeader(RtspHeaders.Authorization) ?  RtspStatusCode.Unauthorized : RtspStatusCode.Forbidden);
+            RtpSource found = FindStreamByLocation(session.LastRequest.Location);
+
+            RtspStatusCode statusCode;
+
+            if (session.LastRequest != null && !session.LastRequest.ContainsHeader(RtspHeaders.Authorization))
+            {
+                statusCode = RtspStatusCode.Unauthorized;
+            }
+            else
+            {
+                statusCode = RtspStatusCode.Forbidden;
+            }
+
+            string authenticateHeader = null;
+
+            //If the stream used Digest authentication and the last request did not contain an Authorization header then indicate to the client it should
+            if (statusCode != RtspStatusCode.Forbidden && found.RemoteAuthenticationScheme == AuthenticationSchemes.Digest)
+            {
+                authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "username={0},realm={1},nc={2},nonce={3},cnonce={4}", found.RemoteCredential.UserName, "//", "00000001", (Utility.Random.Next(int.MaxValue) + (uint)(Utility.Random.Next(int.MaxValue))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));
+            }
+
+            ProcessInvalidRtspRequest(session, statusCode, authenticateHeader);
         }
 
         /// <summary>
