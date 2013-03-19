@@ -862,10 +862,13 @@ namespace Media.Rtp.RtpDump
                     {
                         Rtcp.SourceDescription sd = new Rtcp.SourceDescription(packet);
                         result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (SDES p=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
-                        result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (src=" + sd.SynchronizationSourceIdentifier.ToString("X") + ' '));
-                        foreach (Rtcp.SourceDescription.SourceDescriptionItem item in sd)
+                        foreach (Rtcp.SourceDescription.SourceDescriptionChunk chunk in sd)
                         {
-                            result.AddRange(System.Text.Encoding.ASCII.GetBytes(item.DescriptionType.ToString().ToUpperInvariant() + "=\"" + item.Text + "\" "));
+                            result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (src=" + chunk.SynchronizationSourceIdentifier.ToString("X") + ' '));
+                            foreach (Rtcp.SourceDescription.SourceDescriptionItem item in chunk)
+                            {
+                                result.AddRange(System.Text.Encoding.ASCII.GetBytes(item.DescriptionType.ToString().ToUpperInvariant() + "=\"" + item.Text + "\" "));
+                            }
                         }
                         result.Add((byte)')');
                         result.Add((byte)'\r');
