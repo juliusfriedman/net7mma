@@ -222,8 +222,8 @@ namespace Media
 
             //Test making a packet with a known length in bytes
 
-            sd = new Rtcp.SourceDescription(); //4 Bytes
-            sd.Add(new Rtcp.SourceDescription.SourceDescriptionChunk(0x1AB7C080, new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC"))); // ItemType(1), Length(1), ItemValue(9), End(1) =  12 Bytes                        
+            sd = new Rtcp.SourceDescription();
+            sd.Add(new Rtcp.SourceDescription.SourceDescriptionChunk(0x1AB7C080, new Rtcp.SourceDescription.SourceDescriptionItem(Rtcp.SourceDescription.SourceDescriptionType.CName, "FLABIA-PC"))); // SSRC(4) ItemType(1), Length(1), ItemValue(9), End(1) =  16 Bytes                        
             asPacket = sd; // Header = 4 Bytes
 
             if (asPacket.Length != 16 || asPacket.ToBytes()[3] != 4) throw new Exception("Invalid Length");

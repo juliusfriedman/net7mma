@@ -102,7 +102,7 @@ namespace Media.Rtcp
             #endregion
         }
 
-        public sealed class SourceDescriptionChunk
+        public sealed class SourceDescriptionChunk : System.Collections.IEnumerable
         {
             public SourceDescriptionChunk(uint ssrc, IEnumerable<SourceDescriptionItem> items)
             {
@@ -140,13 +140,13 @@ namespace Media.Rtcp
             public List<SourceDescriptionItem> Items = new List<SourceDescriptionItem>();
 
             public byte[] ToBytes() { List<byte> result = new List<byte>(); result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier))); Items.ForEach(i => result.AddRange(i.ToBytes())); result.AddRange(SourceDescriptionItem.Empty.ToBytes()); while (result.Count % 4 != 0) result.Add(0); return result.ToArray(); }
+
+            public System.Collections.IEnumerator GetEnumerator() { return Items.GetEnumerator(); }
         }
 
         #endregion
 
         #region Properties
-
-        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
 
         public SourceDescription.SourceDescriptionChunk this[int index]
         {
@@ -178,7 +178,7 @@ namespace Media.Rtcp
 
         public SourceDescription(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.SourceDescription){ }
 
-        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[4]; }
+        public SourceDescription(byte? channel = null) : base(RtcpPacketType.SourceDescription, channel) { Payload = new byte[0]; }
 
         public SourceDescription(RtcpPacket packet)
             : base(packet)
@@ -198,7 +198,7 @@ namespace Media.Rtcp
             Payload = temp.ToArray();
         }
 
-        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
+        public void Clear() { BlockCount = 0; Payload = new byte[0]; }
 
         public void Remove(int index)
         {
