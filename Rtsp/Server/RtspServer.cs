@@ -439,7 +439,6 @@ namespace Media.Rtsp
         /// <returns></returns>
         internal RtpSource FindStreamByLocation(Uri mediaLocation)
         {
-
             RtpSource found = null;
 
             string streamBase = null, streamName = null;
@@ -1245,17 +1244,13 @@ namespace Media.Rtsp
         /// <param name="ci">The client session to send the response on</param>
         /// <param name="code">The status code of the response if other than BadRequest</param>
         //Should allow a header to be put into the response or a KeyValuePair<string,string> headers
-        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, string authenticateHeader = null)
+        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest)
         {
-
-            //Create a response
-            RtspResponse response = session != null ? session.CreateRtspResponse(null, code) : new RtspResponse() { StatusCode = code };
-
-            //If we need to include an authenticate header then do so
-            if (!string.IsNullOrWhiteSpace(authenticateHeader)) response.SetHeader(RtspHeaders.WWWAuthenticate, authenticateHeader);
-
-            ProcessSendRtspResponse(response, session);
+            //Create and Send the response
+            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code) : new RtspResponse() { StatusCode = code }, session);
         }
+
+        internal void ProcessInvalidRtspRequest(RtspResponse response, ClientSession session) { ProcessSendRtspResponse(response, session); }
 
         /// <summary>
         /// Sends a Rtsp LocationNotFound Response
@@ -1266,30 +1261,86 @@ namespace Media.Rtsp
             ProcessInvalidRtspRequest(ci, RtspStatusCode.NotFound);
         }
 
-        internal void ProcessAuthorizationRequired(ClientSession session)
+        internal void ProcessAuthorizationRequired(SourceStream source, ClientSession session)
         {
-            RtpSource found = FindStreamByLocation(session.LastRequest.Location);
+
+            RtspResponse response = new RtspResponse();
+            response.CSeq = session.LastRequest.CSeq;
 
             RtspStatusCode statusCode;
 
+            //If the last request did not have an authorization header
             if (session.LastRequest != null && !session.LastRequest.ContainsHeader(RtspHeaders.Authorization))
             {
+                /*
+                 
+    qop
+     Indicates what "quality of protection" the client has applied to
+     the message. If present, its value MUST be one of the alternatives
+     the server indicated it supports in the WWW-Authenticate header.
+     These values affect the computation of the request-digest. Note
+     that this is a single token, not a quoted list of alternatives as
+     in WWW- Authenticate.  This directive is optional in order to
+     preserve backward compatibility with a minimal implementation of
+     RFC 2069 [6], but SHOULD be used if the server indicated that qop
+     is supported by providing a qop directive in the WWW-Authenticate
+     header field.
+
+   cnonce
+     This MUST be specified if a qop directive is sent (see above), and
+     MUST NOT be specified if the server did not send a qop directive in
+     the WWW-Authenticate header field.  The cnonce-value is an opaque
+     quoted string value provided by the client and used by both client
+     and server to avoid chosen plaintext attacks, to provide mutual
+     authentication, and to provide some message integrity protection.
+     See the descriptions below of the calculation of the response-
+     digest and request-digest values.     
+                 
+                 */
+
+                //Could retrieve values from last Request if needed..
+                //string realm = "//", nOnceCount = "00000001";
+
+                //Should store the nonce and cnonce values on the session
                 statusCode = RtspStatusCode.Unauthorized;
+
+                string authenticateHeader = null;
+
+                if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Digest)
+                {
+                    //Might need to store values qop nc, cnonce and nonce in session storage for later retrival
+                    authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", source.RemoteCredential.UserName, "//", ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));                    
+                }
+                else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Basic)
+                {
+                    authenticateHeader = "Basic realm=//";                    
+                }
+
+                if(!string.IsNullOrWhiteSpace(authenticateHeader))
+                { 
+                    response.SetHeader(RtspHeaders.WWWAuthenticate, authenticateHeader);
+                }
             }
-            else
+            else //Authorization header was present but data was incorrect
             {
+
+                //should check to ensure wrong type was not used e.g. basic in place of digest...
+
+                if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Digest)
+                {
+                    //Increment NonceCount
+                }
+
+                //Increment session attempts?
+
                 statusCode = RtspStatusCode.Forbidden;
             }
+            
+            //Set the status code
+            response.StatusCode = statusCode;
 
-            string authenticateHeader = null;
-
-            //If the stream used Digest authentication and the last request did not contain an Authorization header then indicate to the client it should
-            if (statusCode != RtspStatusCode.Forbidden && found.RemoteAuthenticationScheme == AuthenticationSchemes.Digest)
-            {
-                authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "username={0},realm={1},nc={2},nonce={3},cnonce={4}", found.RemoteCredential.UserName, "//", "00000001", (Utility.Random.Next(int.MaxValue) + (uint)(Utility.Random.Next(int.MaxValue))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));
-            }
-
-            ProcessInvalidRtspRequest(session, statusCode, authenticateHeader);
+            //Send the response
+            ProcessInvalidRtspRequest(response, session);
         }
 
         /// <summary>
@@ -1351,7 +1402,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessAuthorizationRequired(session);
+                ProcessAuthorizationRequired(found, session);
                 return;
             }
 
@@ -1376,6 +1427,8 @@ namespace Media.Rtsp
 
             resp.SetHeader(RtspHeaders.ContentType, "application/sdp");
             
+
+            //Should only do this if the source Transport Profile is Rtp or it requires a SDP...
 
             //Create the SDP from the found media
             session.CreateSessionDescription(found);
@@ -1420,7 +1473,7 @@ namespace Media.Rtsp
                 Sdp.SessionDescriptionLine attributeLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
                 if (attributeLine != null) 
                 {
-                    string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
+                    string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).First().Replace("control:", string.Empty);
                     if(actualTrack == track)
                     {
                         mediaDescription = md;
@@ -1443,7 +1496,7 @@ namespace Media.Rtsp
             sourceTransportChannel = found.RtpClient.TransportContexts.Where(c => c.MediaDescription.MediaType == mediaDescription.MediaType && c.MediaDescription.MediaFormat == mediaDescription.MediaFormat).First();
 
             //If the source has no transportChannel for that format(unlikely) or the source has not recieved a packet yet
-            if (sourceTransportChannel == null /*|| sourceInterleave.RtpBytesRecieved == 0*/) // Recieving is only relevent if the source is recieving :) Might need a different flag
+            if (sourceTransportChannel == null)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
@@ -1455,7 +1508,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessAuthorizationRequired(session);
+                ProcessAuthorizationRequired(found, session);
                 return;
             }
 
@@ -1512,6 +1565,10 @@ namespace Media.Rtsp
             //If there are two lines which match the criteria then disable Rtcp
             //Rtcp is disabled, RtcpEnabled is the logic inverse of this (!rtcpDisabled)
             rtcpDisabled = rtcpLines != null && rtcpLines.Count() == 2;
+
+            //Feedback check
+
+            //Xr Check
 
             //Ssrc could be generated here for the transportChannel created for this setup to be more like everyone else...
             uint ssrc = (uint)(DateTime.UtcNow.Ticks ^ session.m_RtspSocket.Handle.ToInt64());
@@ -1701,7 +1758,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessAuthorizationRequired(session);
+                ProcessAuthorizationRequired(found, session);
                 return;
             }                
             else if (!found.Ready)
@@ -1880,7 +1937,7 @@ namespace Media.Rtsp
 
             if (!AuthenticateRequest(request, found))
             {
-                ProcessAuthorizationRequired(session);
+                ProcessAuthorizationRequired(found, session);
                 return;
             }
 
@@ -1915,7 +1972,7 @@ namespace Media.Rtsp
 
                 if (!AuthenticateRequest(request, found))
                 {
-                    ProcessAuthorizationRequired(session);
+                    ProcessAuthorizationRequired(found, session);
                     return;
                 }
 
@@ -2038,8 +2095,10 @@ namespace Media.Rtsp
             //Get the Authroization Header
             string header = request[RtspHeaders.Authorization].ToLower();
 
+            //Wouldn't have to have a RemoteAuthenticationScheme if we stored the Nonce and CNonce on the session... then allowed either or here based on the header
+
             //If the SourceAuthenticationScheme is Basic and the header contains the BASIC indication then validiate using BASIC authentication
-            if (source.SourceAuthenticationScheme == AuthenticationSchemes.Basic && header.Contains("basic"))
+            if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Basic && header.Contains("basic"))
             {
                 //Remove the parts
                 header = header.Replace("basic", string.Empty).Trim();
@@ -2053,7 +2112,7 @@ namespace Media.Rtsp
                 //If enough return the determination by comparison as the result
                 return parts.Length > 1 && (parts[0].Equals(source.RemoteCredential.UserName) && parts[2].Equals(source.RemoteCredential.Password));
             }
-            else if (source.SourceAuthenticationScheme == AuthenticationSchemes.Digest && header.Contains("digest"))
+            else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Digest && header.Contains("digest"))
             {
                 //Digest RFC2069
                 /* Example header -
@@ -2168,6 +2227,10 @@ namespace Media.Rtsp
                 
                 //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
                 byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method, uri.Replace("uri=", string.Empty))));
+
+                //No QOP No NC
+                //See http://en.wikipedia.org/wiki/Digest_access_authentication
+                //http://tools.ietf.org/html/rfc2617
 
                 //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
                 byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", Convert.ToString(HA1).Replace("-", string.Empty), nonce.Replace("nonce=", string.Empty), nc.Replace("nc=", string.Empty), cnonce.Replace("cnonce=", string.Empty), qop.Replace("qop=", string.Empty), Convert.ToString(HA2).Replace("-", string.Empty))));
