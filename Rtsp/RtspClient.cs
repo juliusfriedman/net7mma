@@ -134,7 +134,12 @@ namespace Media.Rtsp
         /// <summary>
         /// The amount of time in seconds in which the RtspClient will switch protocols if no Packets have been recieved.
         /// </summary>
-        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; } }
+        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; if (m_ProtocolSwitchTimer != null) if (value == 0) m_ProtocolSwitchTimer.Dispose(); else m_ProtocolSwitchTimer.Change(0, m_ProtocolSwitchSeconds * 1000); } }
+
+        /// <summary>
+        /// The amount of time in seconds the KeepAlive request will be sent to the server after connected
+        /// </summary>
+        public int TimeoutSeconds { get { return m_RtspTimeoutSeconds; } set { m_RtspTimeoutSeconds = value; if (m_KeepAliveTimer != null) if (value == 0) m_KeepAliveTimer.Dispose(); else m_KeepAliveTimer.Change(0, m_RtspTimeoutSeconds * 1000); } }
 
         /// <summary>
         /// The amount of times each RtspRequest will be sent if a response is not recieved in ReadTimeout
@@ -825,15 +830,12 @@ namespace Media.Rtsp
             }
             finally
             {
-                //Should only do this if we dont have a session id and or timeout...
-
-                //Check for a SessionId or Updated unless this is a Teardown
-                if (request.Method != RtspMethod.TEARDOWN && m_LastRtspResponse != null)
+                //Check for a SessionId and Timeout unless this is a GET_PARAMETER or TEARDOWN
+                if (request.Method != RtspMethod.TEARDOWN && m_LastRtspResponse != null && m_LastRtspResponse.ContainsHeader(RtspHeaders.Session))
                 {
-                    //Check for SessionId if the response contains it
                     string sessionHeader = m_LastRtspResponse[RtspHeaders.Session];
                     //If there is a session header it may contain the option timeout
-                    if (!string.IsNullOrEmpty(sessionHeader))
+                    if (string.IsNullOrWhiteSpace(m_SessionId) && !string.IsNullOrWhiteSpace(sessionHeader))
                     {
                         if (sessionHeader.Contains(';'))
                         {
@@ -849,8 +851,12 @@ namespace Media.Rtsp
                                 //Check for a timeout
                                 if (temp.Length > 1 && temp[1].StartsWith("timeout="))
                                 {
-                                    //If there is a timeout we may want to setup a timer on these seconds to send a GET_PARAMETER
-                                    m_RtspTimeoutSeconds = Convert.ToInt32(temp[1].Replace("timeout=", string.Empty));
+                                    int value = Convert.ToInt32(temp[1].Replace("timeout=", string.Empty));
+
+                                    if (m_RtspTimeoutSeconds != value)
+                                    {
+                                        m_RtspTimeoutSeconds = value;
+                                    }
                                 }
                             }
                         }
@@ -1420,7 +1426,7 @@ namespace Media.Rtsp
                 if (m_RtspTimeoutSeconds != 0 && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeoutSeconds * 1000 / 2, m_RtspTimeoutSeconds * 1000 / 2);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeoutSeconds * 1000, m_RtspTimeoutSeconds * 1000);
                 }
 
                 //Connect the client (if already connected this will not do anything, might want to change the semantic though)
