@@ -75,7 +75,7 @@ namespace Media.Rtsp.Server.Streams
         public virtual NetworkCredential RemoteCredential { get { return m_RemoteCred; } set { m_RemoteCred = value; } }
 
         /// <summary>
-        /// The type of Authentication to use when remote connections occur
+        /// The type of Authentication to use when remote connections occur from clients
         /// </summary>
         public virtual AuthenticationSchemes RemoteAuthenticationScheme { get; set; }
 

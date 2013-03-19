@@ -624,7 +624,7 @@ namespace Media.Rtsp
         #region Rtsp
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        internal RtspResponse SendRtspRequest(RtspRequest request, string realm = "//", string nonce = null, string nc = null, string cnonce = null, string qop = null, string opaque = null)
+        public RtspResponse SendRtspRequest(RtspRequest request)
         {
             try
             {
@@ -638,66 +638,14 @@ namespace Media.Rtsp
                 //If there is an AuthenticationScheme utilize the information in the Credential
                 if (m_AuthenticationScheme != AuthenticationSchemes.None && Credential != null)
                 {
+                    //Basic
                     if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
                     {
-                        //Encoding should be a property on the Listener which defaults to utf8
-                        request.SetHeader(RtspHeaders.Authorization, "Basic " + Convert.ToBase64String(request.Encoding.GetBytes(Credential.UserName + ':' + Credential.Password)));
+                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
                     }
-                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest && !string.IsNullOrWhiteSpace(nonce))
+                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)//Digest
                     {
-                        //Digest Impl
-
-                        //Digest RFC2069
-                        /* Example header -
-                         * 
-                         Authorization: Digest username="Mufasa",
-                             realm="testrealm@host.com",
-                             nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093",
-                             uri="/dir/index.html",
-                             qop=auth,
-                             nc=00000001,
-                             cnonce="0a4f113b",
-                             response="6629fae49393a05397450978507c4ef1",
-                             opaque="5ccc069c403ebaf9f0171e9517f40e41"
-                         */
-
-                        //Need to calculate based on hash  
-
-                        string usernamePart, uriPart;
-
-                        usernamePart = Credential.UserName;
-
-                        nc =  nc ?? "00000001";
-
-                        if(string.IsNullOrWhiteSpace(nonce))
-                        {
-                            int a = Utility.Random.Next(int.MaxValue);
-                            nonce = (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
-                        }
-
-                        cnonce = cnonce ?? Utility.Random.Next(int.MaxValue).ToString("X");
-
-                        uriPart = "\"" + Location.AbsoluteUri + '"';
-
-                        qop = qop ?? "auth";
-
-                        if (string.IsNullOrWhiteSpace(opaque))
-                        {
-                            int a = Utility.Random.Next(int.MaxValue);
-                            opaque = (a + (uint)(a - Utility.Random.Next(int.MaxValue))).ToString("X");
-                        }
-
-                        //http://en.wikipedia.org/wiki/Digest_access_authentication
-                        //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                        byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", Credential.UserName, realm, Credential.Password)));
-
-                        //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                        byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method , Location.AbsoluteUri)));
-
-                        //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                        byte[] ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty), nonce, BitConverter.ToString(HA2).Replace("-", string.Empty), nc, cnonce, qop)));
-
-                        request.SetHeader(RtspHeaders.Authorization, "Digest " + string.Join(",", "username=" + usernamePart, "realm=" + realm, "nonce=" + nonce, "uri=" + uriPart, "qop=" + qop, "nc=" + nc, "cnonce=" + cnonce, "response=" + BitConverter.ToString(ResponseHash).Replace("-", string.Empty), "opaque=" + opaque));
+                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, AuthenticationScheme, Credential, null, null, null, null, null));
                     }
                 }
 
@@ -784,55 +732,79 @@ namespace Media.Rtsp
                 if (m_LastRtspResponse == null) return m_LastRtspResponse;
 
                 //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
-                if (string.IsNullOrWhiteSpace(nonce) && m_LastRtspResponse.StatusCode == RtspStatusCode.Unauthorized && m_LastRtspResponse.ContainsHeader(RtspHeaders.WWWAuthenticate))
+                if (m_LastRtspResponse.StatusCode == RtspStatusCode.Unauthorized && m_LastRtspResponse.ContainsHeader(RtspHeaders.WWWAuthenticate))
                 {
                     string authenticateHeader = m_LastRtspResponse[RtspHeaders.WWWAuthenticate];
 
-                    string[] parts = authenticateHeader.Split(',');
+                    string[] baseParts = authenticateHeader.Split(' ');
 
-                    string username, uri, response;
+                    if (baseParts[0].ToLowerInvariant().Trim() == "basic")
+                    {
+                        AuthenticationScheme = AuthenticationSchemes.Basic;
 
-                    username = parts.Where(p => p.StartsWith("username")).FirstOrDefault();
+                        //Increment the CSeq
+                        request.CSeq++;
 
-                    if (username != null) username = username.Replace("username=", string.Empty);
+                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
 
-                    realm = parts.Where(p => p.StartsWith("realm")).FirstOrDefault();
+                        //Recurse the call with the info from then authenticate header
+                        return SendRtspRequest(request);
 
-                    if (realm != null) realm = realm.Replace("realm=", string.Empty);
+                    }
+                    else if (baseParts[0].ToLowerInvariant().Trim() == "digest")
+                    {
+                        AuthenticationScheme = AuthenticationSchemes.Digest;
 
-                    nc = parts.Where(p => p.StartsWith("nc")).FirstOrDefault();
+                        string[] parts = baseParts[1].Split(',');
 
-                    if (nc != null) nc = nc.Replace("nc=", string.Empty);
+                        string username, uri, response;
 
-                    nonce = parts.Where(p => p.StartsWith("nonce")).FirstOrDefault();
+                        username = parts.Where(p => p.StartsWith("username")).FirstOrDefault();
 
-                    if (nonce != null) nonce = nonce.Replace("nonce=", string.Empty);
+                        if (username != null) username = username.Replace("username=", string.Empty);
 
-                    cnonce = parts.Where(p => p.StartsWith("cnonce")).FirstOrDefault();
+                        string realm = parts.Where(p => p.StartsWith("realm")).FirstOrDefault();
 
-                    if (cnonce != null) cnonce = cnonce.Replace("cnonce=", string.Empty);
+                        if (realm != null) realm = realm.Replace("realm=", string.Empty);
 
-                    uri = parts.Where(p => p.StartsWith("uri")).FirstOrDefault();
+                        string nc = parts.Where(p => p.StartsWith("nc")).FirstOrDefault();                        
 
-                    if (uri != null) uri = uri.Replace("uri=", string.Empty);
+                        string nonce = parts.Where(p => p.StartsWith("nonce")).FirstOrDefault();
 
-                    qop = parts.Where(p => p.StartsWith("qop")).FirstOrDefault();
+                        if (nonce != null) nonce = nonce.Replace("nonce=", string.Empty);
 
-                    if (qop != null) qop = qop.Replace("qop=", string.Empty);
+                        string cnonce = parts.Where(p => p.StartsWith("cnonce")).FirstOrDefault();
 
-                    opaque = parts.Where(p => p.StartsWith("opaque")).FirstOrDefault();
+                        if (cnonce != null) cnonce = cnonce.Replace("cnonce=", string.Empty);
 
-                    if (opaque != null) opaque = opaque.Replace("opaque=", string.Empty);
+                        uri = parts.Where(p => p.StartsWith("uri")).FirstOrDefault();
 
-                    response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
+                        if (uri != null) uri = uri.Replace("uri=", string.Empty);
 
-                    if (response != null) response = response.Replace("response=", string.Empty);
+                        string qop = parts.Where(p => p.StartsWith("qop")).FirstOrDefault();
 
-                    //Increment the CSeq
-                    request.CSeq++;
+                        if (qop != null)
+                        {
+                            qop = qop.Replace("qop=", string.Empty);
+                            if (nc != null) nc = nc.Replace("nc=", string.Empty);
+                        }
 
-                    //Recurse the call with the info from then authenticate header
-                    return SendRtspRequest(request, realm, nonce, nc, cnonce, qop, opaque);
+                        string opaque = parts.Where(p => p.StartsWith("opaque")).FirstOrDefault();
+
+                        if (opaque != null) opaque = opaque.Replace("opaque=", string.Empty);
+
+                        response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
+
+                        if (response != null) response = response.Replace("response=", string.Empty);
+
+                        //Increment the CSeq
+                        request.CSeq++;
+
+                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, AuthenticationScheme, Credential, qop, nc, nonce, cnonce, opaque));
+
+                        //Recurse the call with the info from then authenticate header
+                        return SendRtspRequest(request);
+                    }
                 }
                 else
                 {
@@ -853,6 +825,8 @@ namespace Media.Rtsp
             }
             finally
             {
+                //Should only do this if we dont have a session id and or timeout...
+
                 //Check for a SessionId or Updated unless this is a Teardown
                 if (request.Method != RtspMethod.TEARDOWN && m_LastRtspResponse != null)
                 {

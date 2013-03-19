@@ -19,6 +19,11 @@ namespace Media.Rtsp
 
         #region Fields
 
+        //Session storage
+        internal System.Collections.Hashtable Storage = System.Collections.Hashtable.Synchronized(new System.Collections.Hashtable());
+
+        //Counters for authenticate and attempts
+
         internal List<RtpClient.TransportContext> SourceChannels = new List<RtpClient.TransportContext>();
 
         internal List<RtpSource> m_Attached = new List<RtpSource>();
@@ -47,10 +52,10 @@ namespace Media.Rtsp
         //Sockets
         internal Socket m_RtspSocket;
 
-        //Used for Rtsp over Udp
+        //Used for Rtsp over Udp (Todo Use Socket)
         internal UdpClient m_Udp;
 
-        //Used for Rtsp over Http
+        //Used for Rtsp over Http (Todo Use Socket)
         internal HttpListenerContext m_Http;
         internal RtspResponse m_LastResponse;
 
