@@ -640,8 +640,8 @@ namespace Media.Rtsp
                     request.SetHeader(RtspHeaders.UserAgent, m_UserAgent);
                 }
 
-                //If there is an AuthenticationScheme utilize the information in the Credential
-                if (m_AuthenticationScheme != AuthenticationSchemes.None && Credential != null)
+                //If there not already an Authorization header and there is an AuthenticationScheme utilize the information in the Credential
+                if (!request.ContainsHeader(RtspHeaders.Authorization) && m_AuthenticationScheme != AuthenticationSchemes.None && Credential != null)
                 {
                     //Basic
                     if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
@@ -970,6 +970,8 @@ namespace Media.Rtsp
                     if (controlPart.StartsWith(RtspMessage.ReliableTransport) || controlPart.StartsWith(RtspMessage.UnreliableTransport))
                     {
                         location = new Uri(controlPart);
+
+                        //Check if Transport needs to change to Reliable to Unreliable based on control part?
                     }
                     else //Or Relative
                     {
