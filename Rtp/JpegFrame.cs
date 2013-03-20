@@ -514,7 +514,7 @@ namespace Media.Rtp
                 //The current packet
                 RtpPacket currentPacket = new RtpPacket( temp.Length <  BytesInPacket ? (int)temp.Length : BytesInPacket);
                 SynchronizationSourceIdentifier = currentPacket.SynchronizationSourceIdentifier = (ssrc ?? (uint)SynchronizationSourceIdentifier);
-                currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNtpTimestamp(DateTime.UtcNow));
+                currentPacket.TimeStamp = (uint)(timeStamp ?? Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
                 currentPacket.SequenceNumber = (ushort)(sequenceNo ?? 1);
                 currentPacket.PayloadType = JpegFrame.RtpJpegPayloadType;
 

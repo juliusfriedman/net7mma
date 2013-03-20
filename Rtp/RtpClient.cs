@@ -192,7 +192,7 @@ namespace Media.Rtp
             public void UpdateJitter(RtpPacket packet)
             {
                 // RFC 3550 A.8.
-                ulong transit = (Utility.DateTimeToNtpTimestamp(DateTime.UtcNow) - packet.TimeStamp);
+                ulong transit = (Utility.DateTimeToNptTimestamp(DateTime.UtcNow) - packet.TimeStamp);
                 int d = (int)(transit - RtpTransit);
                 RtpTransit = (uint)transit;
                 if (d < 0) d = -d;
@@ -1055,7 +1055,7 @@ namespace Media.Rtp
                     FractionLost = (uint)fraction,
                     InterArrivalJitter = context.RtpJitter,
                     //The middle 32 bits out of 64 in the NTP timestamp (as explained in Section 4) received as part of the most recent RTCP sender report (SR) packet from source SSRC_n. If no SR has been received yet, the field is set to zero.
-                    LastSendersReport = (uint)(lastSent.HasValue ? Utility.DateTimeToNtpTimestamp32(lastSent.Value) : 0),
+                    LastSendersReport = (uint)(lastSent.HasValue ? Utility.DateTimeToNptTimestamp32(lastSent.Value) : 0),
                     //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
                     DelaySinceLastSendersReport = (uint)(lastSent.HasValue ? ((now - lastSent.Value).TotalSeconds / 65536) : 0),
                     ExtendedHigestSequenceNumber = (uint)context.SequenceNumber
@@ -1108,7 +1108,7 @@ namespace Media.Rtp
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
                     InterArrivalJitter = context.RtpJitter,
-                    LastSendersReport = (uint)(context.SendersReport != null ? Utility.DateTimeToNtpTimestamp(context.SendersReport.Created.Value) : 0),
+                    LastSendersReport = (uint)(context.SendersReport != null ? Utility.DateTimeToNptTimestamp(context.SendersReport.Created.Value) : 0),
                     DelaySinceLastSendersReport = (uint)(context.SendersReport != null ? ((now - context.SendersReport.Created.Value).Milliseconds / 65535) * 1000 : 0),
                     ExtendedHigestSequenceNumber = (uint)context.SequenceNumber
                 });

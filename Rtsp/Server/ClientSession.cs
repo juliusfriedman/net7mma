@@ -205,7 +205,7 @@ namespace Media.Rtsp
 
             if (m_SessionDescription != null) return;
 
-            string sessionId = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow).ToString(), sessionVersion = Utility.DateTimeToNtpTimestamp(DateTime.UtcNow).ToString();
+            string sessionId = Utility.DateTimeToNptTimestamp(DateTime.UtcNow).ToString(), sessionVersion = Utility.DateTimeToNptTimestamp(DateTime.UtcNow).ToString();
                                         
             string originatorString = "ASTI-Media-Server " + sessionId + " " + sessionVersion + " IN IP4 " + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 

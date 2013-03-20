@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Net;
 using System.Net.Sockets;
-using System.Drawing;
-using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 
 namespace Media
 {
@@ -111,8 +107,10 @@ namespace Media
                 else if (ep.Port == port + 1) port += 2;
             }
 
+            int remainder = port % 2;
+
             //If we only want even ports and we found an even one return it
-            if (even && port % 2 == 0 || !even && port %2 != 0) return port;
+            if (even && remainder == 0 || !even && remainder != 0) return port;
 
             //We found an even and we wanted odd or vice versa
             return ++port;
@@ -142,24 +140,23 @@ namespace Media
         #region Npt
 
         /// <summary>
-        /// Converts specified DateTime value to short NTP time. Note: NTP time is in UTC.
+        /// Converts specified DateTime value to short NPT time.
         /// </summary>
-        /// <param name="value">DateTime value to convert. This value must be in local time.</param>
-        /// <returns>Returns NTP value.</returns>
+        /// <param name="value">DateTime value to convert.</param>
+        /// <returns>Returns NPT value.</returns>
         /// <notes>
         /// In some fields where a more compact representation is
         /// appropriate, only the middle 32 bits are used; that is, the low 16
         /// bits of the integer part and the high 16 bits of the fractional part.
-        /// The high 16 bits of the integer part must be determined
-        /// independently.
+        /// The high 16 bits of the integer part must be determined independently.
         /// </notes>
-        public static uint DateTimeToNtpTimestamp32(DateTime value) { return (uint)((DateTimeToNtpTimestamp(value) >> 16) & 0xFFFFFFFF); }
+        public static uint DateTimeToNptTimestamp32(DateTime value) { return (uint)((DateTimeToNptTimestamp(value) >> 16) & 0xFFFFFFFF); }
 
         /// <summary>
-        /// Converts specified DateTime value to long NTP time. Note: NTP time is in UTC.
+        /// Converts specified DateTime value to long NPT time.
         /// </summary>
         /// <param name="value">DateTime value to convert. This value must be in local time.</param>
-        /// <returns>Returns NTP value.</returns>
+        /// <returns>Returns NPT value.</returns>
         /// <notes>
         /// Wallclock time (absolute date and time) is represented using the
         /// timestamp format of the Network Time Protocol (NTP), which is in
@@ -169,10 +166,9 @@ namespace Media
         /// last 32 bits. In some fields where a more compact representation is
         /// appropriate, only the middle 32 bits are used; that is, the low 16
         /// bits of the integer part and the high 16 bits of the fractional part.
-        /// The high 16 bits of the integer part must be determined
-        /// independently.
+        /// The high 16 bits of the integer part must be determined independently.
         /// </notes>
-        public static ulong DateTimeToNtpTimestamp(DateTime value)
+        public static ulong DateTimeToNptTimestamp(DateTime value)
         {
             DateTime baseDate = value >= UtcEpoch2036 ? UtcEpoch2036 : UtcEpoch1900;
             
