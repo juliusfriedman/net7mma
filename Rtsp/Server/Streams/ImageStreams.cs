@@ -244,7 +244,7 @@ namespace Media.Rtsp.Server.Streams
                     DateTime now = DateTime.UtcNow;
 
                     //Updated values on the transportChannel
-                    transportContext.NtpTimestamp = Utility.DateTimeToNtpTimestamp(now);
+                    transportContext.NtpTimestamp = Utility.DateTimeToNptTimestamp(now);
                     transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
                     //Keep the Current and LastFrame updated if we disabled events
