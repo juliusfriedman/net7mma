@@ -132,6 +132,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     //Wrong Credentails etc...
                     //Swallow, Stream still 'Started'?
+                    return;
                 }
                 catch
                 {

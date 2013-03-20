@@ -24,7 +24,7 @@ namespace Media.Rtsp
 
         //Counters for authenticate and attempts
 
-        internal List<RtpClient.TransportContext> SourceChannels = new List<RtpClient.TransportContext>();
+        internal List<RtpClient.TransportContext> SourceContexts = new List<RtpClient.TransportContext>();
 
         internal List<RtpSource> m_Attached = new List<RtpSource>();
 

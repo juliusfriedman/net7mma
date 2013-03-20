@@ -1222,7 +1222,7 @@ namespace Media.Rtp
             int sent = SendData(packet.ToBytes(), transportContext.ControlChannel, transportContext.RtcpSocket);
 
             //If we actually sent anything
-            if (sent == packet.PacketLength)
+            if (sent >= packet.PacketLength)
             {
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine("Successfuly Sent RtcpPacket: " + packet.PacketType + " To: " + transportContext.RemoteRtcp);
@@ -1322,7 +1322,7 @@ namespace Media.Rtp
             int sent = SendData(packet.ToBytes(transportContext.SynchronizationSourceIdentifier), transportContext.DataChannel, transportContext.RtpSocket);
 
             //If we sent anything
-            if (sent == packet.Length)
+            if (sent >= packet.Length)
             {
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine("Successfully Sent RtpPacket To: " + transportContext.RemoteRtp);
