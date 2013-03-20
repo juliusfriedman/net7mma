@@ -747,9 +747,6 @@ namespace Media.Rtsp
                     {
                         AuthenticationScheme = AuthenticationSchemes.Basic;
 
-                        //Increment the CSeq
-                        request.CSeq++;
-
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
 
                         //Recurse the call with the info from then authenticate header
@@ -801,9 +798,6 @@ namespace Media.Rtsp
                         response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
 
                         if (response != null) response = response.Replace("response=", string.Empty);
-
-                        //Increment the CSeq
-                        request.CSeq++;
 
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, AuthenticationScheme, Credential, qop, nc, nonce, cnonce, opaque));
 
