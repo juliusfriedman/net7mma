@@ -1221,7 +1221,7 @@ namespace Media.Rtp
             //Send the packet
             int sent = SendData(packet.ToBytes(), transportContext.ControlChannel, transportContext.RtcpSocket);
 
-            //If we actually sent anything
+            //If we actually sent anything (Tcp will be + 4 bytes)
             if (sent >= packet.PacketLength)
             {
 #if DEBUG
@@ -1321,7 +1321,7 @@ namespace Media.Rtp
             //Send the bytes
             int sent = SendData(packet.ToBytes(transportContext.SynchronizationSourceIdentifier), transportContext.DataChannel, transportContext.RtpSocket);
 
-            //If we sent anything
+            //If we sent anything (Tcp will be + 4 bytes)
             if (sent >= packet.Length)
             {
 #if DEBUG
@@ -1708,7 +1708,7 @@ namespace Media.Rtp
                         foreach (RtcpPacket packet in toSend)
                         {
                             //If the entire packet was sent
-                            if (SendRtcpPacket(packet) == packet.PacketLength)
+                            if (SendRtcpPacket(packet) >= packet.PacketLength)
                             {
                                 //If we have received or sent a goodbyte
                                 TransportContext context = GetContextForPacket(packet);
@@ -1738,7 +1738,7 @@ namespace Media.Rtp
                         foreach (RtpPacket packet in toSend)
                         {
                             //If the entire packet was sent
-                            if (SendRtpPacket(packet) == packet.Length)
+                            if (SendRtpPacket(packet) >= packet.Length)
                             {
                                 //If we sent or received a goodbye
                                 //If we send a goodebye
