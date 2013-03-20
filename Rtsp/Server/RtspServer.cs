@@ -218,7 +218,7 @@ namespace Media.Rtsp
         {
             get
             {
-                return Streams.Sum(s => s.RtpClient.TotalRtpBytesReceieved);
+                return Streams.Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesReceieved : 0);
             }
         }
 
@@ -229,7 +229,7 @@ namespace Media.Rtsp
         {
             get
             {
-                return Streams.Sum(s => s.RtpClient.TotalRtpBytesSent);
+                return Streams.Sum(s => s.RtpClient != null ?s.RtpClient.TotalRtpBytesSent : 0);
             }
         }
 
@@ -1504,7 +1504,7 @@ namespace Media.Rtsp
             }
           
             //Add the sourceInterleave
-            session.SourceChannels.Add(sourceTransportChannel);
+            session.SourceContexts.Add(sourceTransportChannel);
 
             if (!AuthenticateRequest(request, found))
             {
@@ -1668,10 +1668,10 @@ namespace Media.Rtsp
                 else if (session.m_RtpClient != null && session.m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching From Udp to Tcp
                 {
                     //Has Udp source from before switch must clear
-                    session.SourceChannels.Clear();
+                    session.SourceContexts.Clear();
 
                     //Re-add the source
-                    session.SourceChannels.Add(sourceTransportChannel);
+                    session.SourceContexts.Add(sourceTransportChannel);
 
                     //Switch the client to Tcp manually
                     session.m_RtpClient.m_SocketOwner = false;
@@ -1890,7 +1890,7 @@ namespace Media.Rtsp
             response.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
            
             //Create the Rtp-Info RtpHeader as required by RFC2326
-            session.SourceChannels.ForEach( c=> {
+            session.SourceContexts.ForEach( c=> {
                 string actualTrack = string.Empty;
 
                 Sdp.SessionDescriptionLine attributeLine = c.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).First();
@@ -1985,32 +1985,33 @@ namespace Media.Rtsp
 
                     Sdp.MediaDescription mediaDescription = null;
 
-                    RtpClient.TransportContext sourceInterleave = null;
+                    RtpClient.TransportContext sourceContext = null;
 
-                    session.SourceChannels.ForEach(c =>
+                    session.SourceContexts.ForEach(c =>
                     {
-                        if (mediaDescription != null) return;
+                        if (mediaDescription != null || sourceContext != null) return;
                         Sdp.SessionDescriptionLine attributeLine = c.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
                         if (attributeLine != null)
                         {
                             string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
                             if (actualTrack == track)
                             {
-                                sourceInterleave = c;
+                                mediaDescription = c.MediaDescription;
+                                sourceContext = c;
                                 return;
                             }
                         }
                     });
 
                     //Cannot teardown media because we can't find the track they are asking to tear down
-                    if (mediaDescription == null || !session.SourceChannels.Contains(sourceInterleave))
+                    if (mediaDescription == null || !session.SourceContexts.Contains(sourceContext))
                     {
                         ProcessLocationNotFoundRtspRequest(session);
                         return;
                     }
 
                     //Remove related transportChannels from found Client in session
-                    session.SourceChannels.Remove(sourceInterleave);
+                    session.SourceContexts.Remove(sourceContext);
 
                     //Todo
                     //session.Detach(mediaDescription);
@@ -2028,7 +2029,7 @@ namespace Media.Rtsp
                     }
 
                     //Remove related transportChannels from found Client in session
-                    found.RtpClient.TransportContexts.ForEach(c => session.SourceChannels.Remove(c));
+                    found.RtpClient.TransportContexts.ForEach(c => session.SourceContexts.Remove(c));
                 }
 
                 //Send the response
