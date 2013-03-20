@@ -291,7 +291,8 @@ namespace Media.Rtsp
         /// Dictionary containing the headers of the RtspMessage
         /// </summary>
         Dictionary<string, string> m_Headers = new Dictionary<string, string>();
-       
+
+        public DateTime Created = DateTime.Now;
 
         #endregion
 

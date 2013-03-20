@@ -124,15 +124,24 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
+                    //Start listening
                     RtspClient.StartListening();
+                    
+                    //Set the time for stats
                     m_Started = DateTime.UtcNow;
+                    
+                    //Add handler for frame events
                     if (RtpClient != null) RtpClient.RtpFrameChanged += DecodeFrame;
+                    
+                    //Call base to set started etc.
+                    base.Start();
                 }
                 catch (RtspClient.RtspClientException)
                 {
                     //Wrong Credentails etc...
-                    //Swallow, Stream still 'Started'?
-                    return;
+
+                    //Call base to set to stopped
+                    base.Stop();
                 }
                 catch
                 {
@@ -140,8 +149,6 @@ namespace Media.Rtsp.Server.Streams
                     throw;
                 }
             }
-            //Call base
-            base.Start();
         }
 
         /// <summary>

@@ -134,12 +134,12 @@ namespace Media.Rtsp
         /// <summary>
         /// The amount of time in seconds in which the RtspClient will switch protocols if no Packets have been recieved.
         /// </summary>
-        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; if (m_ProtocolSwitchTimer != null) if (value == 0) m_ProtocolSwitchTimer.Dispose(); else m_ProtocolSwitchTimer.Change(0, m_ProtocolSwitchSeconds * 1000); } }
+        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; if (m_ProtocolSwitchTimer != null) if (value == 0) m_ProtocolSwitchTimer.Dispose(); else m_ProtocolSwitchTimer.Change(m_LastRtspResponse != null ?(int)(1000 * (m_ProtocolSwitchSeconds - (DateTime.Now - m_LastRtspResponse.Created).TotalSeconds)) : m_ProtocolSwitchSeconds * 1000, m_ProtocolSwitchSeconds * 1000); } }
 
         /// <summary>
         /// The amount of time in seconds the KeepAlive request will be sent to the server after connected
         /// </summary>
-        public int TimeoutSeconds { get { return m_RtspTimeoutSeconds; } set { m_RtspTimeoutSeconds = value; if (m_KeepAliveTimer != null) if (value == 0) m_KeepAliveTimer.Dispose(); else m_KeepAliveTimer.Change(0, m_RtspTimeoutSeconds * 1000); } }
+        public int TimeoutSeconds { get { return m_RtspTimeoutSeconds; } set { m_RtspTimeoutSeconds = value; if (m_KeepAliveTimer != null) if (value == 0) m_KeepAliveTimer.Dispose(); else m_KeepAliveTimer.Change(m_LastRtspResponse != null ? (int)(1000 * (m_RtspTimeoutSeconds - (DateTime.Now - m_LastRtspResponse.Created).TotalSeconds)) : m_RtspTimeoutSeconds * 1000, m_RtspTimeoutSeconds * 1000); } }
 
         /// <summary>
         /// The amount of times each RtspRequest will be sent if a response is not recieved in ReadTimeout
@@ -855,15 +855,14 @@ namespace Media.Rtsp
 
                                     if (m_RtspTimeoutSeconds != value)
                                     {
-                                        m_RtspTimeoutSeconds = value;
+                                        TimeoutSeconds = value;
                                     }
                                 }
                             }
                         }
                         else
                         {
-                            m_SessionId = sessionHeader;
-                            m_RtspTimeoutSeconds = 60;
+                            m_SessionId = sessionHeader.Trim();
                         }
                     }
                 }
@@ -954,16 +953,32 @@ namespace Media.Rtsp
 
         public RtspResponse SendSetup(MediaDescription mediaDescription)
         {
-            SessionDescriptionLine attributeLine = mediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
-            if(attributeLine == null)
+            SessionDescriptionLine controlLine = mediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+            Uri location = null;
+            //If there is a control line in the SDP it contains the URI used to setup and control the media
+            if (controlLine != null)
             {
-                throw new RtspClientException("Unable to find control directive in the given MediaDesription");
-            }
-            
-            Uri location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
+                string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
 
+                //If there is a controlPart in the controlLine
+                if (!string.IsNullOrWhiteSpace(controlPart))
+                {
+                    //Prepare the part
+                    controlPart = controlPart.Replace("control:", string.Empty).Trim();
+
+                    //Determine if its a Absolute Uri
+                    if (controlPart.StartsWith(RtspMessage.ReliableTransport) || controlPart.StartsWith(RtspMessage.UnreliableTransport))
+                    {
+                        location = new Uri(controlPart);
+                    }
+                    else //Or Relative
+                    {
+                        location = new Uri(Location.OriginalString + '/' + controlPart);
+                    }
+                }
+            }
             //Send the setup
-            return SendSetup(location, mediaDescription);
+            return SendSetup(location ?? Location, mediaDescription);
         }
 
         internal RtspResponse SendSetup(Uri location, MediaDescription mediaDescription, bool useMediaProtocol = true)//False to use manually set protocol
