@@ -750,7 +750,7 @@ a=mpeg4-esid:101");
             //The server will take in RtspSourceStreams and make them available locally
 
             //H264 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://fms.zulu.mk/zulu/alsat_2", Rtsp.RtspClient.ClientProtocolType.Tcp);
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://46.105.53.11/metro/metro", Rtsp.RtspClient.ClientProtocolType.Tcp);
             
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
