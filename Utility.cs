@@ -159,9 +159,9 @@ namespace Media
         /// <returns>Returns NPT value.</returns>
         /// <notes>
         /// Wallclock time (absolute date and time) is represented using the
-        /// timestamp format of the Network Time Protocol (NTP), which is in
+        /// timestamp format of the Network Time Protocol (NPT), which is in
         /// seconds relative to 0h UTC on 1 January 1900 [4].  The full
-        /// resolution NTP timestamp is a 64-bit unsigned fixed-point number with
+        /// resolution NPT timestamp is a 64-bit unsigned fixed-point number with
         /// the integer part in the first 32 bits and the fractional part in the
         /// last 32 bits. In some fields where a more compact representation is
         /// appropriate, only the middle 32 bits are used; that is, the low 16
@@ -177,7 +177,7 @@ namespace Media
             return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / TimeSpan.TicksPerSecond * 0x100000000L);
         }
 
-        public static DateTime NptTimestampToDateTime(ulong ntpTimestamp) { return NptTimestampToDateTime((uint)((ntpTimestamp >> 32) & 0xFFFFFFFF), (uint)(ntpTimestamp & 0xFFFFFFFF)); }
+        public static DateTime NptTimestampToDateTime(ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> 32) & 0xFFFFFFFF), (uint)(nptTimestamp & 0xFFFFFFFF)); }
 
         public static DateTime NptTimestampToDateTime(uint seconds, uint fractions)
         {

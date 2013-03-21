@@ -885,7 +885,10 @@ namespace Media.Rtp.RtpDump
                     {
                         Rtcp.Goodbye gb = new Rtcp.Goodbye(packet);
                         result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (BYE p=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
-                        result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (ssrc=" + gb.SynchronizationSourceIdentifier.ToString("X") + (!string.IsNullOrWhiteSpace(gb.Reason) ? "reason=\"" + gb.Reason + '"' : string.Empty) + " )\r\n"));
+                        foreach(Rtcp.Goodbye.GoodbyeChunk chunk in gb)
+                        {
+                            result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (ssrc=" + chunk.SynchronizationSourceIdentifier.ToString("X") + (!string.IsNullOrWhiteSpace(chunk.Reason) ? "reason=\"" + chunk.Reason + '"' : string.Empty) + " )\r\n"));
+                        }
                     }
                     else
                     {

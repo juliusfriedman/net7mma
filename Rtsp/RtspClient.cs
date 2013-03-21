@@ -134,12 +134,12 @@ namespace Media.Rtsp
         /// <summary>
         /// The amount of time in seconds in which the RtspClient will switch protocols if no Packets have been recieved.
         /// </summary>
-        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; if (m_ProtocolSwitchTimer != null) if (value == 0) m_ProtocolSwitchTimer.Dispose(); else m_ProtocolSwitchTimer.Change(m_LastRtspResponse != null ?(int)(1000 * (m_ProtocolSwitchSeconds - (DateTime.Now - m_LastRtspResponse.Created).TotalSeconds)) : m_ProtocolSwitchSeconds * 1000, m_ProtocolSwitchSeconds * 1000); } }
+        public int ProtocolSwitchSeconds { get { return m_ProtocolSwitchSeconds; } set { m_ProtocolSwitchSeconds = value; if (m_ProtocolSwitchTimer != null) if (m_ProtocolSwitchSeconds == 0) m_ProtocolSwitchTimer.Dispose(); else m_ProtocolSwitchTimer.Change(m_LastRtspResponse != null ? (int)(1000 * (m_ProtocolSwitchSeconds - (DateTime.Now - m_LastRtspResponse.Created).TotalSeconds)) : m_ProtocolSwitchSeconds * 1000, m_ProtocolSwitchSeconds * 1000); } }
 
         /// <summary>
         /// The amount of time in seconds the KeepAlive request will be sent to the server after connected
         /// </summary>
-        public int TimeoutSeconds { get { return m_RtspTimeoutSeconds; } set { m_RtspTimeoutSeconds = value; if (m_KeepAliveTimer != null) if (value == 0) m_KeepAliveTimer.Dispose(); else m_KeepAliveTimer.Change(m_LastRtspResponse != null ? (int)(1000 * (m_RtspTimeoutSeconds - (DateTime.Now - m_LastRtspResponse.Created).TotalSeconds)) : m_RtspTimeoutSeconds * 1000, m_RtspTimeoutSeconds * 1000); } }
+        public int TimeoutSeconds { get { return m_RtspTimeoutSeconds; } set { m_RtspTimeoutSeconds = value; if (m_KeepAliveTimer != null) if (m_RtspTimeoutSeconds == 0) m_KeepAliveTimer.Dispose(); else m_KeepAliveTimer.Change(m_LastRtspResponse != null ? (int)(1000 * (m_RtspTimeoutSeconds - (DateTime.Now - m_LastRtspResponse.Created).TotalSeconds)) : m_RtspTimeoutSeconds * 1000, m_RtspTimeoutSeconds * 1000); } }
 
         /// <summary>
         /// The amount of times each RtspRequest will be sent if a response is not recieved in ReadTimeout
@@ -739,6 +739,9 @@ namespace Media.Rtsp
                 //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
                 if (m_LastRtspResponse.StatusCode == RtspStatusCode.Unauthorized && m_LastRtspResponse.ContainsHeader(RtspHeaders.WWWAuthenticate))
                 {
+                    //Example
+                    //WWW-Authenticate: Digest realm="GeoVision", nonce="b923b84614fc11c78c712fb0e88bc525"\r\n
+
                     string authenticateHeader = m_LastRtspResponse[RtspHeaders.WWWAuthenticate];
 
                     string[] baseParts = authenticateHeader.Split(' ');
@@ -988,7 +991,7 @@ namespace Media.Rtsp
                 //If we need to use Tcp
                 if ((useMediaProtocol && mediaDescription.MediaProtocol.Contains("TCP")) || m_RtpProtocol == ProtocolType.Tcp)
                 {
-                    //Ask for an transportChannel
+                    //If there is already a RtpClient with at-least 1 TransportContext
                     if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
                     {
                         RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
@@ -1008,7 +1011,7 @@ namespace Media.Rtsp
                     if (openPort == -1) throw new RtspClientException("Could not find open Udp Port");
                     //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
                     //{
-                        //Handle port out of range
+                    //    throw new RtspClientException("Found Udp Port > MaximumUdp. Found: " + openPort);
                     //}    
                     setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";unicast;client_port=" + openPort + '-' + (openPort + 1));
                 }
@@ -1286,7 +1289,26 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspResponse SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "ntp", string rangeFormat = null)
+        //http://www.ietf.org/rfc/rfc2326.txt 10.5 PLAY
+
+        /*
+          C->S: PLAY rtsp://audio.example.com/audio RTSP/1.0
+           CSeq: 835
+           Session: 12345678
+           Range: npt=10-15
+
+         C->S: PLAY rtsp://audio.example.com/audio RTSP/1.0
+               CSeq: 836
+               Session: 12345678
+               Range: npt=20-25
+
+         C->S: PLAY rtsp://audio.example.com/audio RTSP/1.0
+               CSeq: 837
+               Session: 12345678
+               Range: npt=30-
+         */
+
+        public RtspResponse SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
         {
             try
             {
