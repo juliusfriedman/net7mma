@@ -586,6 +586,9 @@ namespace Media.Rtp
 #endif
                         //Assign the ssrc
                         transportContext.SynchronizationSourceIdentifier = transportContext.SendersReport.SynchronizationSourceIdentifier;
+
+                        //Get rid of the Goodbye if there was one
+                        transportContext.Goodbye = null;
                     }
 
                     //asssign the timestamps
