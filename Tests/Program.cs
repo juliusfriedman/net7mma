@@ -17,9 +17,14 @@ namespace Media
             RunTest(TestRtpDump);
             RunTest(TestSdp);
             RunTest(TestRtpClient);
-            RunTest(TestRtspClient);
+            RunTest(RtspClientTests);
             RunTest(TestServer);
-        }      
+        }
+
+        public static void RtspClientTests()
+        {
+            TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1");            
+        }
 
         /// <summary>
         /// Tests the RtpClient.
@@ -543,18 +548,21 @@ namespace Media
             }
         }
 
-        static void TestRtspClient()
+        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null)
         {
 
-            Console.WriteLine("Test #1. Press a key to continue. Press Q to Skip");
+            Console.WriteLine("Location = \"" + location + "\" Press a key to continue. Press Q to Skip");
+            Rtsp.RtspClient client = null;
+            //Make a client
+            //This host uses Udp but also supports Tcp if Nat fails
+            //rtsp://195.252.113.40:554/rts - Weird Server with no supported methods
+        StartTest:
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
+                client = new Rtsp.RtspClient(location);
 
-                //Make a client
-                //This host uses Udp but also supports Tcp if Nat fails
-                //rtsp://195.252.113.40:554/rts - Weird Server with no supported methods
-                Rtsp.RtspClient client = new Rtsp.RtspClient("rtsp://178.218.212.102:1935/live/Stream1");
-            StartTest:
+                if (cred != null) client.Credential = cred;
+
                 //Assign some events (Could log each packet to a dump here)
                 client.OnConnect += (sender, args) => { Console.WriteLine("Connected to :" + client.Location); };
                 client.OnRequest += (sender, request) => { Console.WriteLine("Client Requested :" + request.Location + " " + request.Method); };
@@ -639,28 +647,6 @@ namespace Media
                     //All done with the client
                     client.StopListening();
                 }
-
-                //All done
-                Console.WriteLine("Exiting RtspClient Test");
-
-                //Perform another test if we need to
-                if (client.Location.ToString() != "rtsp://fms.zulu.mk/zulu/alsat_2")
-                {
-                    //Do another test
-                    Console.WriteLine("Press a Key to Start Test #2 (Q to Skip)");
-                    if (System.Console.ReadKey().Key != ConsoleKey.Q)
-                    {
-
-                        //Try another host (this one uses Tcp and forces the client to switch from Udp because Udp packets usually never arrive)
-                        //We will not specify Tcp we will allow the client to switch over automatically
-                        client = new Rtsp.RtspClient("rtsp://fms.zulu.mk/zulu/alsat_2");
-                        //Switch in 5 seconds rather than the default of 10
-                        client.ProtocolSwitchSeconds = 5;
-                        Console.WriteLine("Performing 2nd Client test");
-                        goto StartTest;
-                    }
-                }
-                
             }
         }
 

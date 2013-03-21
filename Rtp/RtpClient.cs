@@ -546,11 +546,11 @@ namespace Media.Rtp
 
         }
 
-        internal static void RtpClient_RtcpPacketReceieved(RtpClient sender, RtcpPacket packet)
+        internal static void RtpClient_RtcpPacketReceieved(RtpClient rtpClient, RtcpPacket packet)
         {
             if (packet == null) return;
 
-            TransportContext transportContext = sender.GetContextForPacket(packet);
+            TransportContext transportContext = rtpClient.GetContextForPacket(packet);
 
             //If there is no coresponding transportChannel or Rtcp is not enabled then return
             if (transportContext == null || !transportContext.RtcpEnabled) return;
@@ -570,26 +570,35 @@ namespace Media.Rtp
                     //Store the senders report
                     transportContext.SendersReport = new SendersReport(packet);
 
-                    //The first senders report recieved will assign the SynchronizationSourceIdentifier if not already assigned
-                    if (transportContext.SynchronizationSourceIdentifier == 0)
+                    if (transportContext.SynchronizationSourceIdentifier != transportContext.SendersReport.SynchronizationSourceIdentifier)
                     {
+
+#if DEBUG
+                        //The first senders report recieved will assign the SynchronizationSourceIdentifier if not already assigned
+                        if (transportContext.SynchronizationSourceIdentifier == 0)
+                        {
+                            System.Diagnostics.Debug.WriteLine("Assigned First SSRC = " + transportContext.SendersReport.SynchronizationSourceIdentifier);
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine("Sender Changed SSRC = " + transportContext.SendersReport.SynchronizationSourceIdentifier);
+                        }               
+#endif
+                        //Assign the ssrc
                         transportContext.SynchronizationSourceIdentifier = transportContext.SendersReport.SynchronizationSourceIdentifier;
                     }
-                    //else if (transportContext.SynchronizationSourceIdentifier != transportContext.SendersReport.SynchronizationSourceIdentifier)
-                    //{
-                    //    //sender changed ssrc...
-                    //}
 
+                    //asssign the timestamps
                     transportContext.NtpTimestamp = transportContext.SendersReport.NtpTimestamp;
                     transportContext.RtpTimestamp = transportContext.SendersReport.RtpTimestamp;
 
                     //Should be scheduled
 
                     //Create a corresponding RecieversReport
-                    sender.SendReceiversReport(transportContext);
+                    rtpClient.SendReceiversReport(transportContext);
 
                     //Should also send source description
-                    sender.SendSourceDescription(transportContext);
+                    rtpClient.SendSourceDescription(transportContext);
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport || (byte)packet.PacketType == 73)
                 {
@@ -598,7 +607,7 @@ namespace Media.Rtp
                     //Should be scheduled
 
                     //Send a senders report
-                    sender.SendSendersReport(transportContext);
+                    rtpClient.SendSendersReport(transportContext);
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription || (byte)packet.PacketType == 74)
                 {
@@ -610,8 +619,20 @@ namespace Media.Rtp
                     //Maybe the server should be aware when this happens?
                     transportContext.Goodbye = new Goodbye(packet);
 
-                    //TODO THIS SHOULD ONLY OCCUR IF TransportContexts.All(i=> i.Goodbye != null)
-                    sender.Disconnect();
+                    if (transportContext.Goodbye.BlockCount > 0)
+                    {
+                        foreach (Rtcp.Goodbye.GoodbyeChunk chunk in transportContext.Goodbye)
+                        {
+                            if (transportContext.SynchronizationSourceIdentifier == chunk.SynchronizationSourceIdentifier)
+                            {
+
+                                //Should check chunk.Reason... if Reason.Contains("collision") ....
+
+                                //TODO THIS SHOULD ONLY OCCUR IF TransportContexts.All(i=> i.Goodbye != null)
+                                rtpClient.SendGoodbye(transportContext);
+                            }
+                        }
+                    }
                 }
                 //else if (packet.PacketType == RtcpPacket.RtcpPacketType.ApplicationSpecific || (int)packet.PacketType == 76)
                 //{
@@ -991,7 +1012,9 @@ namespace Media.Rtp
         internal void SendGoodbye(TransportContext context)
         {
             //Make a Goodbye
-            context.Goodbye = new Rtcp.Goodbye((uint)context.SynchronizationSourceIdentifier, context.ControlChannel);
+            context.Goodbye = new Rtcp.Goodbye(context.ControlChannel);
+
+            context.Goodbye.Add(new Goodbye.GoodbyeChunk(context.SynchronizationSourceIdentifier));
 
             if (context.RtcpSocket != null)
             {
