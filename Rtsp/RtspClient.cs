@@ -739,6 +739,8 @@ namespace Media.Rtsp
                 //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
                 if (m_LastRtspResponse.StatusCode == RtspStatusCode.Unauthorized && m_LastRtspResponse.ContainsHeader(RtspHeaders.WWWAuthenticate))
                 {
+                    //http://tools.ietf.org/html/rfc2617
+                    //3.2.1 The WWW-Authenticate Response Header
                     //Example
                     //WWW-Authenticate: Digest realm="GeoVision", nonce="b923b84614fc11c78c712fb0e88bc525"\r\n
 
@@ -1064,6 +1066,7 @@ namespace Media.Rtsp
                     //Get rid of the beginning
                     ssrcPart = ssrcPart.Replace("ssrc=", string.Empty).Trim();
 
+                    //Was making collisions... don't have to know the ssrc, this value is the Senders SSRC
                     if (!ssrcPart.StartsWith("0x") && !int.TryParse(ssrcPart, out ssrc)) //plain int                        
                         ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
                 }
@@ -1464,6 +1467,9 @@ namespace Media.Rtsp
 
                 //Connect the client (if already connected this will not do anything, might want to change the semantic though)
                 m_RtpClient.Connect();
+
+                m_RtpClient.SendReceiversReports();
+                m_RtpClient.SendSourceDescriptions();
 
                 //Raise the playing event
                 Playing();

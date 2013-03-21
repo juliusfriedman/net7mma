@@ -89,7 +89,12 @@ namespace Media.Rtp
             //The id of the channel 0 - 255
             public readonly byte DataChannel, ControlChannel;
 
-            //The ssrc packets are sent out with under this channel
+            /// <summary>
+            /// The ssrc created when initializing sockets to identify this TransportContext remotely
+            /// </summary>
+            public uint LocalSynchronizationSourceIdentifier { get; internal set; }
+
+            //The ssrc which identifies remote senders
             public uint SynchronizationSourceIdentifier { get; internal set; }
 
             //Any frames for this channel
@@ -369,6 +374,9 @@ namespace Media.Rtp
                         }
 
                     }
+
+                    LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & RtpSocket.Handle.ToInt64() ^ (DataChannel | ControlChannel));
+
                 }
                 catch
                 {
@@ -393,6 +401,9 @@ namespace Media.Rtp
                 RtpSocket = RtcpSocket = socket;
                 //Disable Nagle
                 RtpSocket.NoDelay = true;
+                
+                LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & RtpSocket.Handle.ToInt64() ^ (DataChannel | ControlChannel));
+
             }
 
             public void CloseSockets()
@@ -570,26 +581,7 @@ namespace Media.Rtp
                     //Store the senders report
                     transportContext.SendersReport = new SendersReport(packet);
 
-                    if (transportContext.SynchronizationSourceIdentifier != transportContext.SendersReport.SynchronizationSourceIdentifier)
-                    {
-
-#if DEBUG
-                        //The first senders report recieved will assign the SynchronizationSourceIdentifier if not already assigned
-                        if (transportContext.SynchronizationSourceIdentifier == 0)
-                        {
-                            System.Diagnostics.Debug.WriteLine("Assigned First SSRC = " + transportContext.SendersReport.SynchronizationSourceIdentifier);
-                        }
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine("Sender Changed SSRC = " + transportContext.SendersReport.SynchronizationSourceIdentifier);
-                        }               
-#endif
-                        //Assign the ssrc
-                        transportContext.SynchronizationSourceIdentifier = transportContext.SendersReport.SynchronizationSourceIdentifier;
-
-                        //Get rid of the Goodbye if there was one
-                        transportContext.Goodbye = null;
-                    }
+                    transportContext.SynchronizationSourceIdentifier = transportContext.SendersReport.SendersSynchronizationSourceIdentifier;
 
                     //asssign the timestamps
                     transportContext.NtpTimestamp = transportContext.SendersReport.NtpTimestamp;
@@ -606,7 +598,7 @@ namespace Media.Rtp
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport || (byte)packet.PacketType == 73)
                 {
                     transportContext.RecieversReport = new ReceiversReport(packet);
-
+                   
                     //Should be scheduled
 
                     //Send a senders report
@@ -1093,7 +1085,7 @@ namespace Media.Rtp
 
         internal ReceiversReport CreateReceiversReport(TransportContext context, bool includeBlocks = true)
         {
-            ReceiversReport result = new ReceiversReport(context.SynchronizationSourceIdentifier)
+            ReceiversReport result = new ReceiversReport(context.LocalSynchronizationSourceIdentifier)
             {
                 Channel = context.ControlChannel
             };
@@ -1129,7 +1121,8 @@ namespace Media.Rtp
                 DateTime now = DateTime.UtcNow;
 
                 //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-                result.Add(new ReportBlock((uint)context.SynchronizationSourceIdentifier)
+
+                result.Add(new ReportBlock(context.SynchronizationSourceIdentifier)
                 {
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
@@ -1162,7 +1155,7 @@ namespace Media.Rtp
             }
 
             //First report include no blocks (No last senders report)
-            context.SendersReport = CreateSendersReport(context, context.SendersReport != null);
+            context.SendersReport = CreateSendersReport(context, context.RecieversReport != null);
             SendRtcpPacket(context.SendersReport);
             context.SendersReport.Sent = DateTime.UtcNow;
         }
@@ -1174,7 +1167,7 @@ namespace Media.Rtp
 
         internal void SendReceiversReport(TransportContext context)
         {
-            context.RecieversReport = CreateReceiversReport(context, context.RecieversReport != null);
+            context.RecieversReport = CreateReceiversReport(context, context.SendersReport != null);
             SendRtcpPacket(context.RecieversReport);
             context.RecieversReport.Sent = DateTime.UtcNow;
         }
@@ -1193,9 +1186,13 @@ namespace Media.Rtp
 
         internal SourceDescription CreateSourceDescription(TransportContext context)
         {
+            uint ssrc = context.SendersReport != null ? 
+                    context.SendersReport.SendersSynchronizationSourceIdentifier : 
+                        context.RecieversReport != null ? 
+                            context.RecieversReport.SendersSynchronizationSourceIdentifier : context.SynchronizationSourceIdentifier;
             return new SourceDescription(context.ControlChannel) 
             { 
-                new SourceDescription.SourceDescriptionChunk(context.SynchronizationSourceIdentifier, SourceDescription.SourceDescriptionItem.CName)
+                new SourceDescription.SourceDescriptionChunk(ssrc, SourceDescription.SourceDescriptionItem.CName)
             };
         }
 

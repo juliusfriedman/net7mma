@@ -9,7 +9,7 @@ namespace Media.Rtcp
     {
         #region Constructor
 
-        public ReceiversReport(uint ssrc) : base(RtcpPacketType.ReceiversReport) { Payload = new byte[4]; SynchronizationSourceIdentifier = ssrc; }
+        public ReceiversReport(uint ssrc) : base(RtcpPacketType.ReceiversReport) { Payload = new byte[4]; SendersSynchronizationSourceIdentifier = ssrc; }
 
         public ReceiversReport(RtcpPacket packet)
             : base(packet)
@@ -23,7 +23,7 @@ namespace Media.Rtcp
 
         #region Properties
         
-        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
+        public uint SendersSynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
 
         public ReportBlock this[int index]
         {
@@ -66,7 +66,7 @@ namespace Media.Rtcp
 
         public void Add(ReportBlock reportBlock) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(reportBlock.ToBytes()); Payload = temp.ToArray(); }
 
-        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
+        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersSynchronizationSourceIdentifier)); }
 
         public void Remove(int index)
         {

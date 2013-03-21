@@ -825,7 +825,7 @@ namespace Media.Rtp.RtpDump
                     else if (PayloadType == (byte)Rtcp.RtcpPacket.RtcpPacketType.SendersReport)
                     {
                         Rtcp.SendersReport sr = new Rtcp.SendersReport(packet);
-                        result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (SR ssrc=" + sr.SynchronizationSourceIdentifier.ToString("X") + " pad=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
+                        result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (SR ssrc=" + sr.SendersSynchronizationSourceIdentifier.ToString("X") + " pad=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
                         result.Add((byte)'\r');
                         result.Add((byte)'\n');
                         result.AddRange(System.Text.Encoding.ASCII.GetBytes(" ntp=" + sr.NtpTimestamp + " ts=" + sr.RtpTimestamp + " psent=" + sr.SendersPacketCount + " osent=" + sr.SendersOctetCount));
@@ -845,7 +845,7 @@ namespace Media.Rtp.RtpDump
                     else if (PayloadType == (byte)Rtcp.RtcpPacket.RtcpPacketType.ReceiversReport)
                     {
                         Rtcp.ReceiversReport rr = new Rtcp.ReceiversReport(packet);
-                        result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (RR ssrc=" + rr.SynchronizationSourceIdentifier.ToString("X") + " p=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
+                        result.AddRange(System.Text.Encoding.ASCII.GetBytes(" (RR ssrc=" + rr.SendersSynchronizationSourceIdentifier.ToString("X") + " p=" + (packet.Padding ? "1" : "0") + " count=" + packet.BlockCount + " len=" + packet.Length));
                         result.Add((byte)'\r');
                         result.Add((byte)'\n');
                         foreach (Rtcp.ReportBlock rb in rr)

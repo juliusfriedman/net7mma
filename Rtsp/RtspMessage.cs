@@ -71,6 +71,8 @@ namespace Media.Rtsp
             }
             else if (scheme == System.Net.AuthenticationSchemes.Digest) //Digest
             {
+                //http://www.ietf.org/rfc/rfc2617.txt
+
                 //Example 
                 //Authorization: Digest username="admin", realm="GeoVision", nonce="b923b84614fc11c78c712fb0e88bc525", uri="rtsp://203.11.64.27:8554/CH001.sdp", response="d771e4e5956e3d409ce5747927db10af"\r\n
 

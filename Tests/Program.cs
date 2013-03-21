@@ -23,7 +23,8 @@ namespace Media
 
         public static void RtspClientTests()
         {
-            TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1");            
+            TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1");
+            TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"));
         }
 
         /// <summary>
@@ -113,7 +114,10 @@ namespace Media
             //Determine what is actually being received by obtaining the TransportContext of the receiver            
             Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
             Console.WriteLine("-----------------------");
-            Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport[0].CumulativePacketsLost + " Packets");
+            if (receiversContext.RecieversReport.BlockCount > 0)
+            {
+                Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport[0].CumulativePacketsLost + " Packets");
+            }
 
             //Or by comparing packets received
             if (receiver.TotalRtpPacketsReceieved < sender.TotalRtpPacketsSent) throw new Exception("Did not receive all packets");
@@ -166,7 +170,7 @@ namespace Media
             byte[] example = new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
             Rtcp.RtcpPacket asPacket = new Rtcp.RtcpPacket(example);
             Rtcp.SendersReport sr = new Rtcp.SendersReport(asPacket);
-            Console.WriteLine(sr.SynchronizationSourceIdentifier);//1928947603
+            Console.WriteLine(sr.SendersSynchronizationSourceIdentifier);//1928947603
             Console.WriteLine(sr.NtpTimestamp);//MSW = d4 92 ce d4, LSW = 2c 49 ba 5e
             sr.NtpTimestamp = sr.NtpTimestamp;//Ensure setting the value through a setter is correct
             if (sr.RtpTimestamp != 3302006772) throw new Exception("RtpTimestamp Invalid!");
@@ -189,7 +193,7 @@ namespace Media
             //Or manually for some reason
             asPacket = new Rtcp.RtcpPacket(example); // same as foundPackets[0]
             Rtcp.ReceiversReport rr = new Rtcp.ReceiversReport(asPacket);
-            Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
+            Console.WriteLine(rr.SendersSynchronizationSourceIdentifier);//1777498448
             Console.WriteLine(rr.BlockCount);//1
             Console.WriteLine(rr[0].SynchronizationSourceIdentifier);//1631032400
             Console.WriteLine(rr[0].FractionLost);//255/256 0xff
