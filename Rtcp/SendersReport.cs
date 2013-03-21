@@ -9,7 +9,7 @@ namespace Media.Rtcp
     {
         #region Properties
 
-        public uint SynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
+        public uint SendersSynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
 
         //2 Words which make up the NtpTimestamp
         internal uint m_NtpMsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 4)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 4); } }
@@ -61,7 +61,7 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public SendersReport(uint ssrc) : base(RtcpPacketType.SendersReport) { Payload = new byte[24]; SynchronizationSourceIdentifier = ssrc; }
+        public SendersReport(uint ssrc) : base(RtcpPacketType.SendersReport) { Payload = new byte[24]; SendersSynchronizationSourceIdentifier = ssrc; }
 
         public SendersReport(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.SendersReport) { }
 
@@ -73,7 +73,7 @@ namespace Media.Rtcp
 
         public void Add(ReportBlock reportBlock) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(reportBlock.ToBytes()); Payload = temp.ToArray(); }
 
-        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SynchronizationSourceIdentifier)); }
+        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersSynchronizationSourceIdentifier)); }
 
         public void Remove(int index)
         {

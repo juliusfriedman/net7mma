@@ -1272,7 +1272,7 @@ namespace Media.Rtsp
             //If the last request did not have an authorization header
             if (session.LastRequest != null && !session.LastRequest.ContainsHeader(RtspHeaders.Authorization))
             {
-                /*
+                /* -- http://tools.ietf.org/html/rfc2617
                  
     qop
      Indicates what "quality of protection" the client has applied to
@@ -1282,7 +1282,7 @@ namespace Media.Rtsp
      that this is a single token, not a quoted list of alternatives as
      in WWW- Authenticate.  This directive is optional in order to
      preserve backward compatibility with a minimal implementation of
-     RFC 2069 [6], but SHOULD be used if the server indicated that qop
+     RFC 2617 [6], but SHOULD be used if the server indicated that qop
      is supported by providing a qop directive in the WWW-Authenticate
      header field.
 
@@ -2115,7 +2115,8 @@ namespace Media.Rtsp
             }
             else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Digest && header.Contains("digest"))
             {
-                //Digest RFC2069
+                //http://tools.ietf.org/html/rfc2617
+                //Digest RFC2617
                 /* Example header -
                  * 
                  Authorization: Digest username="Mufasa",
@@ -2188,8 +2189,6 @@ namespace Media.Rtsp
                  * 
                  */
 
-                //Need to calculate based on hash  
-
                 string[] parts = header.Split(',');
 
                 string username, realm, nonce, nc, cnonce, uri, qop, opaque, response;
@@ -2240,6 +2239,11 @@ namespace Media.Rtsp
                 return ResponseHash.SequenceEqual(Utility.HexStringToBytes(response.Replace("response=", string.Empty)));
                 //return Comparer<byte[]>.Default.Compare(ResponseHash, Utility.HexStringToBytes(response.Replace("response=", string.Empty))) == 0;
             }
+            //else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.IntegratedWindowsAuthentication && (header.Contains("ntlm") || header.Contains("integrated")))
+            //{
+            //    //Check windows creds
+            //    throw new NotImplementedException();
+            //}
 
             //Did not authenticate
             return false;
