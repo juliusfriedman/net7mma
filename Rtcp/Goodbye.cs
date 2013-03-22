@@ -104,6 +104,20 @@ namespace Media.Rtcp
             }
         }
 
+        public IEnumerable<GoodbyeChunk> Chunks { get { return (IEnumerable<GoodbyeChunk>)GetEnumerator(); } }
+
+        #endregion
+
+        #region Constructor
+
+        public Goodbye(byte? channel = null) : base(RtcpPacketType.Goodbye, channel) { Payload = new byte[0]; }
+
+        public Goodbye(RtcpPacket packet) : base(packet) { if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type, Expected Goodbye. Found: '" + (byte)packet.PacketType + '\''); }
+
+        public Goodbye(byte[] packet, int index) : base(packet, index, RtcpPacketType.Goodbye) { }
+
+        #endregion
+
         public void Remove(int index)
         {
             if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException("index", "Cannot be less than 0 or greater than BlockCount");
@@ -154,18 +168,6 @@ namespace Media.Rtcp
             }
             Payload = temp.ToArray();
         }
-
-        #endregion
-
-        #region Constructor
-
-        public Goodbye(byte? channel = null) : base(RtcpPacketType.Goodbye, channel) { Payload = new byte[0]; }
-
-        public Goodbye(RtcpPacket packet) : base(packet) { if (packet.PacketType != RtcpPacket.RtcpPacketType.Goodbye) throw new Exception("Invalid Packet Type, Expected Goodbye. Found: '" + (byte)packet.PacketType + '\''); }
-
-        public Goodbye(byte[] packet, int index) : base(packet, index, RtcpPacketType.Goodbye) { }
-
-        #endregion
 
         public System.Collections.IEnumerator GetEnumerator() { for (int i = 0; i < BlockCount; ++i) yield return this[i]; }
     }

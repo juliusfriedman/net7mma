@@ -92,7 +92,9 @@ namespace Media.Rtp
             /// <summary>
             /// The ssrc created when initializing sockets to identify this TransportContext remotely
             /// </summary>
-            public readonly uint LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
+            public uint LocalSynchronizationSourceIdentifier { get { return m_LocalSynchronizationSourceIdentifier; } internal set { m_LocalSynchronizationSourceIdentifier = value; } }
+
+            uint m_LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
 
             //The ssrc which identifies remote senders
             public uint SynchronizationSourceIdentifier { get; internal set; }
@@ -595,7 +597,6 @@ namespace Media.Rtp
                     transportContext.RecieversReport = new ReceiversReport(packet);
                    
                     //Should be scheduled
-
                     if (transportContext.SendersReport == null || (DateTime.UtcNow - transportContext.SendersReport.Sent.Value).TotalSeconds > 30)
                     {
                         //Send a senders report
@@ -606,7 +607,6 @@ namespace Media.Rtp
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription || (byte)packet.PacketType == 74)
                 {
-                    //Might record ssrc here
                     transportContext.SourceDescription = new SourceDescription(packet);
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.Goodbye || (byte)packet.PacketType == 75)
@@ -618,13 +618,34 @@ namespace Media.Rtp
                     {
                         foreach (Rtcp.Goodbye.GoodbyeChunk chunk in transportContext.Goodbye)
                         {
+                            //If the chunk corresponds to the transportContext
                             if (transportContext.SynchronizationSourceIdentifier == chunk.SynchronizationSourceIdentifier)
                             {
 
-                                //Should check chunk.Reason... if Reason.Contains("collision") ....
+                                string reason = chunk.Reason.ToLowerInvariant();
 
-                                //TODO THIS SHOULD ONLY OCCUR IF TransportContexts.All(i=> i.Goodbye != null)
                                 rtpClient.SendGoodbye(transportContext);
+
+                                if (reason.Contains("ssrc"))
+                                {
+                                    transportContext.LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
+                                }
+
+                                if (transportContext.RecieversReport != null)
+                                {
+                                    //Send a receivers report
+                                    rtpClient.SendReceiversReport(transportContext);
+
+                                    rtpClient.SendSourceDescription(transportContext);
+                                }
+                                else if (transportContext.SendersReport != null)
+                                {
+                                    //Send a senders report
+                                    rtpClient.SendSendersReport(transportContext);
+
+                                    rtpClient.SendSourceDescription(transportContext);
+                                }
+
                             }
                         }
                     }
@@ -1446,7 +1467,7 @@ namespace Media.Rtp
                 if (m_TransportProtocol == ProtocolType.Udp)
                 {                    
                     //Recieve as many bytes as are available on the socket up to the buffer length (no frame bytes)
-                    received = socket.Receive(m_Buffer, received, m_Buffer.Length, SocketFlags.None, out error);
+                    received = socket.Receive(m_Buffer, 0, m_Buffer.Length, SocketFlags.None, out error);
 
                     //If the send was not successful throw an error with the errorCode
                     if (error != SocketError.Success && error != SocketError.ConnectionReset) throw new SocketException((int)error);
@@ -1675,36 +1696,6 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Sends a RtcpGoodbye Immediately if we have not recieved a packet in the required time.
-        /// </summary>
-        /// <param name="lastActivity">The time the lastActivity has occured on the context (sending or recieving)</param>
-        /// <param name="context">The context to check against</param>
-        /// <returns>True if the connection is inactive and a Goodebye was attempted to be sent to the remote party</returns>
-        internal bool SendGoodbyeIfInactive(DateTime lastActivity, TransportContext context)
-        {
-            bool inactive = false;
-
-            if (context.RtcpEnabled)
-            {
-                //Check SR, RR last recieved / sent the same as below
-                //if (true)
-                //{
-                //    //SendGoodbye(context);
-                //    //inactive = true;
-                //}
-            }
-
-            //If we have our own InactivityTimeout then enforce it (If Rtcp is disabled and the remote party does not send a Goodbye this may never happen)
-            if (inactive || InactivityTimeoutSeconds.HasValue && InactivityTimeoutSeconds > 0 && (DateTime.UtcNow - lastActivity).TotalSeconds >= InactivityTimeoutSeconds)
-            {
-                SendGoodbye(context);
-                inactive = true;
-            }
-
-            return inactive;
-        }
-
-        /// <summary>
         /// Entry point of the m_WorkerThread. Handles sending out RtpPackets and RtcpPackets in buffer and handling any incoming RtcpPackets.
         /// Sends a Goodbye and exits if no packets are sent of recieved in a certain amount of time
         /// </summary>
@@ -1724,6 +1715,7 @@ namespace Media.Rtp
                     {
                         lock (m_OutgoingRtcpPackets)
                         {
+                            //Might want to use a TakeWhile p=> p.PacketType != SourceDescription || ReceiversReport) to ensure blocks of 2 to emulate compound... could even join then and send the bytes at once...
                             int remove = Math.Min(m_OutgoingRtpPackets.Count, RtpFrame.MaxPackets);
                             toSend = m_OutgoingRtcpPackets.GetRange(0, remove);
                             m_OutgoingRtcpPackets.RemoveRange(0, remove);
@@ -1731,14 +1723,7 @@ namespace Media.Rtp
 
                         foreach (RtcpPacket packet in toSend)
                         {
-                            //If the entire packet was sent
-                            if (SendRtcpPacket(packet) >= packet.PacketLength)
-                            {
-                                //If we have received or sent a goodbyte
-                                TransportContext context = GetContextForPacket(packet);
-                                if (context.Goodbye != null) break;
-                                else if (SendGoodbyeIfInactive(DateTime.UtcNow, context)) break;                                
-                            }
+                            SendRtcpPacket(packet);
                         }
 
                         toSend = null;
@@ -1761,15 +1746,12 @@ namespace Media.Rtp
 
                         foreach (RtpPacket packet in toSend)
                         {
-                            //If the entire packet was sent
-                            if (SendRtpPacket(packet) >= packet.Length)
-                            {
-                                //If we sent or received a goodbye
-                                //If we send a goodebye
-                                TransportContext context = GetContextForPacket(packet);
-                                if (context.Goodbye != null) break;
-                                else if (SendGoodbyeIfInactive(DateTime.UtcNow, context)) break;
-                            }
+                            TransportContext context = GetContextForPacket(packet);
+
+                            //If (Sender changed ssrc and) context has recieved a goodbye and it was not due to collision then continue
+                            if (/*packet.SynchronizationSourceIdentifier != context.SynchronizationSourceIdentifier &&*/ context.Goodbye != null && context.Goodbye.Chunks.Any(c => c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier)) continue;
+
+                            SendRtpPacket(packet);
                         }
 
                         toSend = null;
@@ -1793,11 +1775,23 @@ namespace Media.Rtp
                             if (RecieveData(tc.DataChannel, tc.RtpSocket) <= 0 && RecieveData(tc.ControlChannel, tc.RtcpSocket) <= 0)
                             {
                                 //If we have our own InactivityTimeout then enforce it
-                                inactive = SendGoodbyeIfInactive(DateTime.UtcNow, tc);
+                                inactive = true;
                             }
                         }
 
-                        if (inactive) break;
+                        toSend = null;
+
+                        //If there was inactivity...
+                        if (inactive)
+                        {
+                            //Check and see if all contexts have disconnected
+                            if (TransportContexts.All(tc => tc.Goodbye != null && tc.Goodbye.Chunks.All(c => c.SynchronizationSourceIdentifier == tc.SynchronizationSourceIdentifier)))
+                            {
+                                //If so stop
+                                break;
+                            }
+                            
+                        }
                     }
                     catch (SocketException)
                     {
@@ -1805,10 +1799,6 @@ namespace Media.Rtp
                         //If this is happening often the Udp client disconnected
                         //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
                     }
-
-                    
-                    toSend = null;
-                    
 
                     #endregion
 

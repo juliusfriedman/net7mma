@@ -73,6 +73,7 @@ namespace Media.Rtsp
             {
                 try
                 {
+                    //OPTIONS * ?
                     StatusCode = (RtspStatusCode)int.Parse(m_FirstLine.Split(' ')[1], System.Globalization.CultureInfo.InvariantCulture);
                     //parts[2] is the Textual Convention for the Status Code
                 }
