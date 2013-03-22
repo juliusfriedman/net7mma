@@ -23,8 +23,20 @@ namespace Media
 
         public static void RtspClientTests()
         {
+            TestRtspClient("rtsp://46.105.53.11/metro/metro");
+            TestRtspClient("rtsp://46.105.53.11/metro/metro", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
+
             TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1");
+            TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
+            
+            TestRtspClient("rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov");
+            TestRtspClient("rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
+            
+            TestRtspClient("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
+            TestRtspClient("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
+
             TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"));
+            TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"), Rtsp.RtspClient.ClientProtocolType.Tcp);
         }
 
         /// <summary>
@@ -96,8 +108,7 @@ namespace Media
             Console.WriteLine("Sending Encoded Frame");
 
             //Send it
-            foreach (Media.Rtp.RtpPacket packet in testFrame) sender.SendRtpPacket(packet);
-
+            sender.SendRtpFrame(testFrame);
             Console.WriteLine("Sent, Sending Reports and Goodbye");
 
             //Send another report
@@ -560,10 +571,10 @@ namespace Media
             }
         }
 
-        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null)
+        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Rtsp.RtspClient.ClientProtocolType? protocol = null)
         {
 
-            Console.WriteLine("Location = \"" + location + "\" Press a key to continue. Press Q to Skip");
+            Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + " Press a key to continue. Press Q to Skip");
             Rtsp.RtspClient client = null;
             //Make a client
             //This host uses Udp but also supports Tcp if Nat fails
@@ -571,7 +582,7 @@ namespace Media
         StartTest:
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
-                client = new Rtsp.RtspClient(location);/*, Rtsp.RtspClient.ClientProtocolType.Tcp);*/
+                client = new Rtsp.RtspClient(location, protocol);
 
                 if (cred != null) client.Credential = cred;
 

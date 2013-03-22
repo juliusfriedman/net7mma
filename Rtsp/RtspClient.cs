@@ -513,6 +513,8 @@ namespace Media.Rtsp
 
                             if (!string.IsNullOrWhiteSpace(parts[1])) end = TimeSpan.FromSeconds(double.Parse(parts[1]));
 
+                            //Todo find out why some end ranges are parsed wrong.. mayeb use TimeSpan.FromHours ?
+
                             //Send the play with the indicated start and end time
                             SendPlay(Location, start, end, rangeType);
                         }
@@ -678,12 +680,14 @@ namespace Media.Rtsp
                 {
                     //Reset the transportChannel event
                     m_InterleaveEvent.Reset();
-                    
+
+                    m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
+
                     int attempt = 1;
 
                 Resend:
-                    //Write the message on the transportChanneld socket
-                    
+                    //Write the message on the socket
+
                     //Send the data
                     m_RtspSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
 
@@ -695,34 +699,34 @@ namespace Media.Rtsp
 
                     //Wait for the event as long we we are allowed, if we didn't recieve a response try again
                     if (!m_InterleaveEvent.WaitOne(Math.Max(5000, ReadTimeout)) && (m_RetryCount > 0 && ++attempt <= m_RetryCount)) goto Resend;
+
+                    m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;
+
                 }
                 else// If we are not yet interleaving or using Udp just use the socket
                 {
-                    lock (m_RtspSocket)
+                    int attempt = 0;
+                Resend:
+                    try
                     {
-                        int attempt = 0;
-                    Resend:
-                        try
-                        {
 
-                            //Send the bytes
-                            m_RtspSocket.Send(buffer);
+                        //Send the bytes
+                        m_RtspSocket.Send(buffer);
 
-                            //Fire the event
-                            Requested(request);
+                        //Fire the event
+                        Requested(request);
 
-                            //Increment our byte counters for Rtsp
-                            m_SentBytes += buffer.Length;
+                        //Increment our byte counters for Rtsp
+                        m_SentBytes += buffer.Length;
 
-                            m_RecievedBytes += m_RtspSocket.Receive(m_Buffer, SocketFlags.None);
+                        m_RecievedBytes += m_RtspSocket.Receive(m_Buffer, 0, m_Buffer.Length, SocketFlags.None);
 
-                            m_LastRtspResponse = new RtspResponse(m_Buffer);
-                        }
-                        catch
-                        {
-                            if (m_RetryCount > 0 && ++attempt <= m_RetryCount) goto Resend;
-                            m_LastRtspResponse = null;
-                        }
+                        m_LastRtspResponse = new RtspResponse(m_Buffer);
+                    }
+                    catch
+                    {
+                        if (m_RetryCount > 0 && ++attempt <= m_RetryCount) goto Resend;
+                        m_LastRtspResponse = null;
                     }
                 }
 

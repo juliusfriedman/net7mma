@@ -108,7 +108,8 @@ namespace Media.Rtcp
             Created = DateTime.UtcNow;
 
             //Frame Header {$,/0x,/0x,/0x}
-            if (packetReference.Array[packetReference.Offset + offset] == Rtp.RtpClient.MAGIC) offset += 4;
+            //If the first byte is magic then some servers actually pad in between compound packets
+            if (packetReference.Array.Count() > 0 && packetReference.Array[0] == Rtp.RtpClient.MAGIC || packetReference.Array[packetReference.Offset + offset] == Rtp.RtpClient.MAGIC) offset += 4;
 
             //Ensure correct length
             if (packetReference.Count <= RtcpHeaderLength) throw new ArgumentException("The packet does not conform to the Real Time Protocol. Packets must exceed 4 bytes in length.", "packetReference");
@@ -117,7 +118,10 @@ namespace Media.Rtcp
             m_Version = packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] >> 6;
 
             //Double check to make sure we are parsing a known format
-            if (m_Version != 2) throw new ArgumentException("Only Version 2 is Defined");
+            if (m_Version != 2)
+            {
+                throw new ArgumentException("Only Version 2 is Defined");
+            }
 
             m_Padding = (0x1 & (packetReference.Array[packetReference.Offset + offset + RtcpHeaderLength - 4] >> 5));
 

@@ -46,13 +46,9 @@ namespace Media.Rtsp
 
         private RtspHeaders() { }
 
-        //Ensure this format is correct
-        internal const string NtpFormat = "h'.'fff";
-
         public static string RangeHeader(TimeSpan? start, TimeSpan? end, string type = "npt", string format = null)
         {
-            if (string.IsNullOrWhiteSpace(format)) format = NtpFormat;
-            return type +"=" + (start.HasValue ? start.Value.ToString(NtpFormat) : "now") + '-' + (end.HasValue ? end.Value.ToString(NtpFormat) : string.Empty);
+            return type + "=" + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
         }
 
         public static string BasicAuthorizationHeader(Encoding encoding, System.Net.NetworkCredential credential) { return AuthorizationHeader(encoding, RtspMethod.UNKNOWN, null, System.Net.AuthenticationSchemes.Basic, credential); }
@@ -384,9 +380,6 @@ namespace Media.Rtsp
                 m_FirstLine = Message.Substring(offset, endFistLinePosn);
 
                 int miLen = MessageIdentifier.Length;
-
-                //Missing the first byte for some reason....
-                if (m_FirstLine.StartsWith("TSP")) m_FirstLine = 'R' + m_FirstLine;
 
                 if (m_FirstLine.Contains(MessageIdentifier))
                 {
