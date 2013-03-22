@@ -60,6 +60,40 @@ namespace Media.Rtcp
             }
         }
 
+        public bool HasExtensionData { get { return Payload.Length > 24 + ReportBlock.Size * BlockCount; } }
+
+        public byte[] ExtensionData
+        {
+            get
+            {
+                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
+                if (Payload.Length > requiredOffset)
+                {
+                    int len = Payload.Length - requiredOffset;
+                    byte[] data = new byte[len];
+                    System.Array.Copy(Payload, requiredOffset, data, 0, len);
+                    return data;
+                }
+                return null;
+            }
+            set
+            {
+                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
+                if (Payload.Length > requiredOffset)
+                {
+                    int len = Payload.Length - requiredOffset;
+                    //Already contains extension data
+                    System.Array.Copy(Payload, requiredOffset, value, 0, len);
+                }
+                else
+                {
+                    List<byte> temp = new List<byte>(Payload);
+                    temp.AddRange(value);
+                    Payload = temp.ToArray();
+                }
+            }
+        }
+
         #endregion
 
         #region Methods

@@ -1468,8 +1468,8 @@ namespace Media.Rtsp
                 //Connect the client (if already connected this will not do anything, might want to change the semantic though)
                 m_RtpClient.Connect();
 
-                m_RtpClient.SendReceiversReports();
-                m_RtpClient.SendSourceDescriptions();
+                //m_RtpClient.SendReceiversReports();
+                //m_RtpClient.SendSourceDescriptions();
 
                 //Raise the playing event
                 Playing();

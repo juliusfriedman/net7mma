@@ -56,19 +56,26 @@ namespace Media
             //Create and Add the required TransportContext's
 
             Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]),
-                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]);
+                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, sendersContext.SynchronizationSourceIdentifier + 1, SessionDescription.MediaDescriptions[0]);
+
+            Console.WriteLine("Senders SSRC = " + sendersContext.SynchronizationSourceIdentifier);
+
+            Console.WriteLine("Recievers SSRC = " + receiversContext.SynchronizationSourceIdentifier);
 
             //Find open ports, 1 for Rtp, 1 for Rtcp
             int rtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17777, false), rtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17778);
 
-            receiversContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, rtpPort, rtcpPort);
+            //When using different ports the test fails... check networking logic
+            int xrtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10777, false), xrtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10778);
+
+            receiversContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, xrtpPort, xrtcpPort);
 
             receiver.AddTransportContext(receiversContext);
 
             //Connect the reciver
             receiver.Connect();
 
-            sendersContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, rtpPort, rtcpPort);
+            sendersContext.InitializeSockets(localIp, localIp, xrtpPort, xrtcpPort, rtpPort, rtcpPort);
 
             sender.AddTransportContext(sendersContext);
 
@@ -77,7 +84,9 @@ namespace Media
 
             //Send an initial report
             sender.SendSendersReports();
-            receiver.SendReceiversReports();
+            
+            //Above call triggers this when recieved
+            //receiver.SendReceiversReports();
 
             Console.WriteLine("Connection Established,  Encoding Frame");
 
@@ -87,31 +96,25 @@ namespace Media
             Console.WriteLine("Sending Encoded Frame");
 
             //Send it
-            sender.SendRtpFrame(testFrame);
+            foreach (Media.Rtp.RtpPacket packet in testFrame) sender.SendRtpPacket(packet);
 
             Console.WriteLine("Sent, Sending Reports and Goodbye");
 
             //Send another report
             sender.SendSendersReports();
 
-            //Send the receivers report
+            //Above call triggers this when recieved
             receiver.SendReceiversReports();
-
-            Console.WriteLine("Waiting 5 seconds for all packets to arrive");
-            System.Threading.Thread.Sleep(TimeSpan.FromSeconds(5));
-
-            //Check values
-            if (sender.TotalRtpPacketsSent != testFrame.Count) throw new Exception("Did not send entire frame");
-
-            //Send a goodbye
-            sender.SendGoodbyes();
 
             //Measure QoE / QoS based on sent / received ratio.
             Console.WriteLine("Since : " + sendersContext.SendersReport.Sent);
             Console.WriteLine("-----------------------");
             Console.WriteLine("Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
+            System.Threading.Thread.Yield();
+
             //Determine what is actually being received by obtaining the TransportContext of the receiver            
+            //In a real world program you would not have access to the receiversContext so you would look at the sendersContext.RecieverReport
             Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
             Console.WriteLine("-----------------------");
             if (receiversContext.RecieversReport.BlockCount > 0)
@@ -119,10 +122,15 @@ namespace Media
                 Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport[0].CumulativePacketsLost + " Packets");
             }
 
+            System.Threading.Thread.Yield();
+
             //Or by comparing packets received
             if (receiver.TotalRtpPacketsReceieved < sender.TotalRtpPacketsSent) throw new Exception("Did not receive all packets");
 
             Console.WriteLine("Test Passed");
+
+            //Send a goodbye
+            //sender.SendGoodbyes();
 
             sender.Disconnect();
 
