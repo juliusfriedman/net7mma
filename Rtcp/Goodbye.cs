@@ -104,8 +104,6 @@ namespace Media.Rtcp
             }
         }
 
-        public IEnumerable<GoodbyeChunk> Chunks { get { return (IEnumerable<GoodbyeChunk>)GetEnumerator(); } }
-
         #endregion
 
         #region Constructor

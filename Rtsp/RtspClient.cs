@@ -553,7 +553,7 @@ namespace Media.Rtsp
                 if (Connected) return;
                 else if (m_RtspProtocol ==  ClientProtocolType.Http || m_RtspProtocol == ClientProtocolType.Reliable)
                 {
-                    m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);                    
                 }
                 else if (m_RtspProtocol == ClientProtocolType.Unreliable)
                 {
@@ -673,14 +673,11 @@ namespace Media.Rtsp
                 //Erase last response
                 m_LastRtspResponse = null;
 
-                //If we are Interleaving we must recieve with respect with data which is being transportChanneld
-                if (request.Method == RtspMethod.PLAY || request.Method == RtspMethod.TEARDOWN && m_RtpClient != null && m_RtpClient.Connected && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
+                //If we are Interleaving we must recieve with respect with data which is being transported
+                if (request.Method == RtspMethod.TEARDOWN && m_RtpClient != null && m_RtpClient.Connected && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
                 {
                     //Reset the transportChannel event
                     m_InterleaveEvent.Reset();
-
-                    //Assign an event for transportChanneld data before we write
-                    m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
                     
                     int attempt = 1;
 
@@ -698,9 +695,6 @@ namespace Media.Rtsp
 
                     //Wait for the event as long we we are allowed, if we didn't recieve a response try again
                     if (!m_InterleaveEvent.WaitOne(Math.Max(5000, ReadTimeout)) && (m_RetryCount > 0 && ++attempt <= m_RetryCount)) goto Resend;
-
-                    //Remove the event
-                    m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;                    
                 }
                 else// If we are not yet interleaving or using Udp just use the socket
                 {
@@ -720,7 +714,7 @@ namespace Media.Rtsp
                             //Increment our byte counters for Rtsp
                             m_SentBytes += buffer.Length;
 
-                            m_RecievedBytes += m_RtspSocket.Receive(m_Buffer);
+                            m_RecievedBytes += m_RtspSocket.Receive(m_Buffer, SocketFlags.None);
 
                             m_LastRtspResponse = new RtspResponse(m_Buffer);
                         }

@@ -321,7 +321,7 @@ namespace Media.Rtp
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
                     RtpSocket.SendTimeout = 0;
-                    RtpSocket.ReceiveTimeout = 0;
+                    RtpSocket.ReceiveTimeout = 1000;
 
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
@@ -356,7 +356,7 @@ namespace Media.Rtp
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
                         RtcpSocket.SendTimeout = 0;
-                        RtcpSocket.ReceiveTimeout = 0;
+                        RtcpSocket.ReceiveTimeout = 1000;
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
@@ -1398,6 +1398,7 @@ namespace Media.Rtp
 
             //Create the workers thread and start it.
             m_WorkerThread = new Thread(new ThreadStart(SendRecieve));
+            m_WorkerThread.Priority = ThreadPriority.AboveNormal;
             m_WorkerThread.Name = "RtpClient-" + m_RemoteAddress.ToString();
             m_WorkerThread.Start();
 
@@ -1470,7 +1471,8 @@ namespace Media.Rtp
                     received = socket.Receive(m_Buffer, 0, m_Buffer.Length, SocketFlags.None, out error);
 
                     //If the send was not successful throw an error with the errorCode
-                    if (error != SocketError.Success && error != SocketError.ConnectionReset) throw new SocketException((int)error);
+                    if (error == SocketError.TimedOut) return 0;
+                    else if (error != SocketError.Success && error != SocketError.ConnectionReset) throw new SocketException((int)error);
 
                     //Determine what kind of packet this is 
                     //The type to check for RTP or RTCP
@@ -1749,7 +1751,13 @@ namespace Media.Rtp
                             TransportContext context = GetContextForPacket(packet);
 
                             //If (Sender changed ssrc and) context has recieved a goodbye and it was not due to collision then continue
-                            if (/*packet.SynchronizationSourceIdentifier != context.SynchronizationSourceIdentifier &&*/ context.Goodbye != null && context.Goodbye.Chunks.Any(c => c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier)) continue;
+                            if (/*packet.SynchronizationSourceIdentifier != context.SynchronizationSourceIdentifier &&*/ context.Goodbye != null)
+                            {
+                                foreach(Goodbye.GoodbyeChunk chunk in context.Goodbye)
+                                {
+                                    if (chunk.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier) continue;
+                                }
+                            }
 
                             SendRtpPacket(packet);
                         }
@@ -1785,8 +1793,9 @@ namespace Media.Rtp
                         if (inactive)
                         {
                             //Check and see if all contexts have disconnected
-                            if (TransportContexts.All(tc => tc.Goodbye != null && tc.Goodbye.Chunks.All(c => c.SynchronizationSourceIdentifier == tc.SynchronizationSourceIdentifier)))
+                            if (TransportContexts.All(tc => tc.Goodbye != null))
                             {
+                                //Should check the chunks=> ssrc to the transportCOntext ssrc
                                 //If so stop
                                 break;
                             }
