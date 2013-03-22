@@ -22,6 +22,40 @@ namespace Media.Rtcp
 
         public uint SendersOctetCount { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 20)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 20); } }
 
+        public bool HasExtensionData { get { return Payload.Length > 24 + ReportBlock.Size * BlockCount; } }
+
+        public byte[] ExtensionData
+        {
+            get
+            {
+                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
+                if (Payload.Length > requiredOffset)
+                {
+                    int len = Payload.Length - requiredOffset;
+                    byte[] data = new byte[len];
+                    System.Array.Copy(Payload, requiredOffset, data, 0, len);
+                    return data;
+                }
+                return null;
+            }
+            set
+            {
+                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
+                if (Payload.Length > requiredOffset)
+                {
+                    int len = Payload.Length - requiredOffset;
+                    //Already contains extension data
+                    System.Array.Copy(Payload, requiredOffset, value, 0, len);
+                }
+                else
+                {
+                    List<byte> temp = new List<byte>(Payload);
+                    temp.AddRange(value);
+                    Payload = temp.ToArray();
+                }
+            }
+        }
+
         public ReportBlock this[int index]
         {
             get

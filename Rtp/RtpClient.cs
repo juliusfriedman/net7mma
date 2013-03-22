@@ -92,7 +92,7 @@ namespace Media.Rtp
             /// <summary>
             /// The ssrc created when initializing sockets to identify this TransportContext remotely
             /// </summary>
-            public uint LocalSynchronizationSourceIdentifier { get; internal set; }
+            public readonly uint LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
 
             //The ssrc which identifies remote senders
             public uint SynchronizationSourceIdentifier { get; internal set; }
@@ -282,9 +282,8 @@ namespace Media.Rtp
                 else
                 {
                     /* duplicate or reordered packet */
-                    //return false;
+                    return false;
                 }
-                RtpPacketsReceieved++;
                 
                 return true;
             }
@@ -319,8 +318,9 @@ namespace Media.Rtp
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
-                    RtpSocket.SendTimeout  = RtpSocket.ReceiveTimeout = 0;
-                    
+                    RtpSocket.SendTimeout = 0;
+                    RtpSocket.ReceiveTimeout = 0;
+
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
 
@@ -353,7 +353,8 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
-                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = 0;
+                        RtcpSocket.SendTimeout = 0;
+                        RtcpSocket.ReceiveTimeout = 0;
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
@@ -374,9 +375,6 @@ namespace Media.Rtp
                         }
 
                     }
-
-                    LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & RtpSocket.Handle.ToInt64() ^ (DataChannel | ControlChannel));
-
                 }
                 catch
                 {
@@ -401,9 +399,6 @@ namespace Media.Rtp
                 RtpSocket = RtcpSocket = socket;
                 //Disable Nagle
                 RtpSocket.NoDelay = true;
-                
-                LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & RtpSocket.Handle.ToInt64() ^ (DataChannel | ControlChannel));
-
             }
 
             public void CloseSockets()
@@ -581,19 +576,19 @@ namespace Media.Rtp
                     //Store the senders report
                     transportContext.SendersReport = new SendersReport(packet);
 
-                    transportContext.SynchronizationSourceIdentifier = transportContext.SendersReport.SendersSynchronizationSourceIdentifier;
-
                     //asssign the timestamps
                     transportContext.NtpTimestamp = transportContext.SendersReport.NtpTimestamp;
                     transportContext.RtpTimestamp = transportContext.SendersReport.RtpTimestamp;
 
                     //Should be scheduled
+                    if (transportContext.RecieversReport == null || (DateTime.UtcNow - transportContext.RecieversReport.Sent.Value).TotalSeconds > 30)
+                    {
+                        //Create a corresponding RecieversReport
+                        rtpClient.SendReceiversReport(transportContext);
 
-                    //Create a corresponding RecieversReport
-                    rtpClient.SendReceiversReport(transportContext);
-
-                    //Should also send source description
-                    rtpClient.SendSourceDescription(transportContext);
+                        //Should also send source description
+                        rtpClient.SendSourceDescription(transportContext);
+                    }
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.ReceiversReport || (byte)packet.PacketType == 73)
                 {
@@ -601,8 +596,13 @@ namespace Media.Rtp
                    
                     //Should be scheduled
 
-                    //Send a senders report
-                    rtpClient.SendSendersReport(transportContext);
+                    if (transportContext.SendersReport == null || (DateTime.UtcNow - transportContext.SendersReport.Sent.Value).TotalSeconds > 30)
+                    {
+                        //Send a senders report
+                        rtpClient.SendSendersReport(transportContext);
+
+                        rtpClient.SendSourceDescription(transportContext);
+                    }
                 }
                 else if (packet.PacketType == RtcpPacket.RtcpPacketType.SourceDescription || (byte)packet.PacketType == 74)
                 {
@@ -1122,7 +1122,7 @@ namespace Media.Rtp
 
                 //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
 
-                result.Add(new ReportBlock(context.SynchronizationSourceIdentifier)
+                result.Add(new ReportBlock(context.SendersReport.SendersSynchronizationSourceIdentifier)
                 {
                     CumulativePacketsLost = lost,
                     FractionLost = (uint)fraction,
@@ -1186,6 +1186,7 @@ namespace Media.Rtp
 
         internal SourceDescription CreateSourceDescription(TransportContext context)
         {
+            //If this is a reciever then it have a senders report and vice versa... fall back to context.SynchronizationSourceIdentifier if all else fails
             uint ssrc = context.SendersReport != null ? 
                     context.SendersReport.SendersSynchronizationSourceIdentifier : 
                         context.RecieversReport != null ? 
@@ -1435,7 +1436,7 @@ namespace Media.Rtp
             try
             {
                 //If there is no socket or there are no bytes to be recieved
-                if (socket == null || socket != null && !socket.Connected || socket.Available <= 0)
+                if (socket == null /*|| socket != null && !socket.Connected || socket.Available <= 0*/)
                 {
                     //Return 
                     return 0;
@@ -1443,12 +1444,12 @@ namespace Media.Rtp
 
                 //For Udp we can just recieve and incrmement
                 if (m_TransportProtocol == ProtocolType.Udp)
-                {
+                {                    
                     //Recieve as many bytes as are available on the socket up to the buffer length (no frame bytes)
-                    received = socket.Receive(m_Buffer, received, Math.Min(socket.Available,  m_Buffer.Length), SocketFlags.None, out error);
+                    received = socket.Receive(m_Buffer, received, m_Buffer.Length, SocketFlags.None, out error);
 
                     //If the send was not successful throw an error with the errorCode
-                    if (error != SocketError.Success) throw new SocketException((int)error);
+                    if (error != SocketError.Success && error != SocketError.ConnectionReset) throw new SocketException((int)error);
 
                     //Determine what kind of packet this is 
                     //The type to check for RTP or RTCP
@@ -1736,7 +1737,7 @@ namespace Media.Rtp
                                 //If we have received or sent a goodbyte
                                 TransportContext context = GetContextForPacket(packet);
                                 if (context.Goodbye != null) break;
-                                else if (SendGoodbyeIfInactive(DateTime.UtcNow, context)) break;
+                                else if (SendGoodbyeIfInactive(DateTime.UtcNow, context)) break;                                
                             }
                         }
 
@@ -1780,29 +1781,34 @@ namespace Media.Rtp
 
                     lock (TransportContexts)
                     {
-                        try
-                        {
-                            bool inactive = false;
-
-                            //Enumerate each context and receive data, if received update the lastActivity
-                            TransportContexts.ForEach(c =>
-                            {
-                                if (RecieveData(c.DataChannel, c.RtpSocket) <= 0 || RecieveData(c.ControlChannel, c.RtcpSocket) <= 0)
-                                {
-                                    //If we have our own InactivityTimeout then enforce it
-                                    inactive = SendGoodbyeIfInactive(DateTime.UtcNow, c);
-                                }
-                            });
-                            
-                            if(inactive) break;
-                        }
-                        catch (SocketException)
-                        {
-                            //The remote host something or other
-                            //If this is happening often the Udp client disconnected
-                            //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
-                        }
+                        toSend = TransportContexts.ToArray();
                     }
+                    try
+                    {
+                        bool inactive = false;
+
+                        //Enumerate each context and receive data, if received update the lastActivity
+                        foreach (TransportContext tc in toSend)
+                        {
+                            if (RecieveData(tc.DataChannel, tc.RtpSocket) <= 0 && RecieveData(tc.ControlChannel, tc.RtcpSocket) <= 0)
+                            {
+                                //If we have our own InactivityTimeout then enforce it
+                                inactive = SendGoodbyeIfInactive(DateTime.UtcNow, tc);
+                            }
+                        }
+
+                        if (inactive) break;
+                    }
+                    catch (SocketException)
+                    {
+                        //The remote host something or other
+                        //If this is happening often the Udp client disconnected
+                        //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
+                    }
+
+                    
+                    toSend = null;
+                    
 
                     #endregion
 
