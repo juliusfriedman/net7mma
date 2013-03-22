@@ -671,8 +671,15 @@ namespace Media.Rtsp
         internal virtual void StartStreams()
         {
             foreach (RtpSource stream in Streams)
-            {                             
-                stream.Start();
+            {
+                try
+                {
+                    stream.Start();
+                }
+                catch
+                {
+                    continue;
+                }
             }
         }
 
@@ -682,8 +689,15 @@ namespace Media.Rtsp
         internal virtual void StopStreams()
         {
             foreach (RtpSource stream in Streams)
-            {                
-                stream.Stop();
+            {
+                try
+                {
+                    stream.Stop();
+                }
+                catch
+                {
+                    continue;
+                }
             }
         }        
 

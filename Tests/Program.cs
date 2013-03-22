@@ -571,7 +571,7 @@ namespace Media
         StartTest:
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
-                client = new Rtsp.RtspClient(location);
+                client = new Rtsp.RtspClient(location);/*, Rtsp.RtspClient.ClientProtocolType.Tcp);*/
 
                 if (cred != null) client.Credential = cred;
 

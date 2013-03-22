@@ -402,6 +402,7 @@ namespace Media.Rtsp
         /// <param name="slice"></param>
         void m_RtpClient_InterleavedData(RtpClient sender, ArraySegment<byte> slice)
         {
+            if (sender != m_RtpClient) return;
             //If the slice begins with R (which is what all RTSP messages begin with
             if (slice.Array[0] == 'R')
             {
@@ -559,7 +560,7 @@ namespace Media.Rtsp
                     m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                 }
                 m_RtspSocket.Connect(m_RemoteRtsp);
-                ReadTimeout = 5000;
+                WriteTimeout = ReadTimeout = 0;
 
                 OnConnected();
             }
@@ -673,7 +674,7 @@ namespace Media.Rtsp
                 m_LastRtspResponse = null;
 
                 //If we are Interleaving we must recieve with respect with data which is being transportChanneld
-                if (request.Method != RtspMethod.SETUP && request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY && m_RtpClient != null && m_RtpClient.Connected && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
+                if (request.Method == RtspMethod.PLAY || request.Method == RtspMethod.TEARDOWN && m_RtpClient != null && m_RtpClient.Connected && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
                 {
                     //Reset the transportChannel event
                     m_InterleaveEvent.Reset();
@@ -685,11 +686,9 @@ namespace Media.Rtsp
 
                 Resend:
                     //Write the message on the transportChanneld socket
-                    lock (m_RtspSocket)
-                    {
-                        //Send the data
-                        m_RtspSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
-                    }
+                    
+                    //Send the data
+                    m_RtspSocket.Send(buffer, 0, buffer.Length, SocketFlags.None);
 
                     //Raise the event
                     Requested(request);
@@ -698,7 +697,7 @@ namespace Media.Rtsp
                     m_SentBytes += buffer.Length;
 
                     //Wait for the event as long we we are allowed, if we didn't recieve a response try again
-                    if (!m_InterleaveEvent.WaitOne(ReadTimeout) && (m_RetryCount > 0 && ++attempt <= m_RetryCount)) goto Resend;
+                    if (!m_InterleaveEvent.WaitOne(Math.Max(5000, ReadTimeout)) && (m_RetryCount > 0 && ++attempt <= m_RetryCount)) goto Resend;
 
                     //Remove the event
                     m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;                    
@@ -1022,14 +1021,14 @@ namespace Media.Rtsp
                 RtspResponse response = SendRtspRequest(setup);
 
                 //Response not OK
-                if (response.StatusCode != RtspStatusCode.OK)
+                if (response == null || response.StatusCode != RtspStatusCode.OK)
                 {
                     //Transport requested not valid
-                    if (response.StatusCode == RtspStatusCode.UnsupportedTransport && m_RtpProtocol != ProtocolType.Tcp)
+                    if (response != null && response.StatusCode == RtspStatusCode.UnsupportedTransport && m_RtpProtocol != ProtocolType.Tcp)
                     {
                         goto SetupTcp;
                     }
-                    else if (response.StatusCode == RtspStatusCode.SessionNotFound)
+                    else if (response != null && response.StatusCode == RtspStatusCode.SessionNotFound)
                     {
                         //StopListening(); 
                         //return null;
@@ -1039,7 +1038,7 @@ namespace Media.Rtsp
                     }
                     else
                     {
-                        throw new RtspClientException("Unable to setup media: " + response.m_FirstLine);
+                        throw new RtspClientException(response == null ? "Unable to setup media, No Response" : "Unable to setup media: " + response.m_FirstLine);
                     }
                 }
 
