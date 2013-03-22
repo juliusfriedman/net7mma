@@ -68,12 +68,12 @@ namespace Media.Rtsp
 
         public RtspResponse(byte[] packet, int offset = 0) : base(packet, offset)
         {
-            if (m_FirstLine == null || MessageType == RtspMessageType.Invalid) StatusCode = RtspStatusCode.Unknown;
+            if (m_FirstLine == null || MessageType == RtspMessageType.Invalid || MessageType == RtspMessageType.Request) StatusCode = RtspStatusCode.Unknown;
             else
             {
                 try
                 {
-                    //OPTIONS * ?
+                    //"OPTIONS * RTSP/1.0" ??
                     StatusCode = (RtspStatusCode)int.Parse(m_FirstLine.Split(' ')[1], System.Globalization.CultureInfo.InvariantCulture);
                     //parts[2] is the Textual Convention for the Status Code
                 }

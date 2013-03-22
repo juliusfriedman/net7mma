@@ -1466,7 +1466,7 @@ namespace Media.Rtp
 
                 //For Udp we can just recieve and incrmement
                 if (m_TransportProtocol == ProtocolType.Udp)
-                {                    
+                {
                     //Recieve as many bytes as are available on the socket up to the buffer length (no frame bytes)
                     received = socket.Receive(m_Buffer, 0, m_Buffer.Length, SocketFlags.None, out error);
 
@@ -1516,7 +1516,7 @@ namespace Media.Rtp
                         else
                         {
                             context = GetContextByPayloadType((byte)(payload & 0x7f));
-                            
+
                             if (context == null) return received;
 
                             RtpPacket packet = new RtpPacket(new ArraySegment<byte>(m_Buffer, offset, received - offset));
@@ -1532,10 +1532,13 @@ namespace Media.Rtp
                             goto ProcessBuffer;
                         }
                     }
-                    
+
                 }
                 else
                 {
+
+                    //If there is nothing to recieve then return 0
+                    if (socket.Available == 0) return 0;
 
                     //For Tcp we must recieve the frame headers if we are using RTP
 
@@ -1798,8 +1801,7 @@ namespace Media.Rtp
                                 //Should check the chunks=> ssrc to the transportCOntext ssrc
                                 //If so stop
                                 break;
-                            }
-                            
+                            }                            
                         }
                     }
                     catch (SocketException)
