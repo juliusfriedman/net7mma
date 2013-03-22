@@ -370,7 +370,7 @@ namespace Media.Rtsp
 
                 //Should check the first few bytes before doing this?
 
-                string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);
+                string Message = Encoding.GetString(packet, offset, offset > 0 ? packet.Length - offset : packet.Length);                
 
                 int endFistLinePosn = Message.IndexOf(CRLF, offset);
 
@@ -385,7 +385,10 @@ namespace Media.Rtsp
 
                 int miLen = MessageIdentifier.Length;
 
-                if (Message.Contains(MessageIdentifier))
+                //Missing the first byte for some reason....
+                if (m_FirstLine.StartsWith("TSP")) m_FirstLine = 'R' + m_FirstLine;
+
+                if (m_FirstLine.Contains(MessageIdentifier))
                 {
                     //Get the message type
                     MessageType = m_FirstLine.Substring(offset, miLen) == MessageIdentifier ? RtspMessageType.Response : RtspMessageType.Request;
@@ -405,7 +408,7 @@ namespace Media.Rtsp
                     Version = double.Parse(m_FirstLine.Split(' ')[2].Replace(MessageIdentifier + '/', string.Empty), System.Globalization.CultureInfo.InvariantCulture);
                 }
                 else
-                {
+                {                    
                     //S->C[0]RTSP/1.0[1]200[2]OK
                     Version = double.Parse(m_FirstLine.Split(' ')[0].Replace(MessageIdentifier + '/', string.Empty), System.Globalization.CultureInfo.InvariantCulture);
                 }

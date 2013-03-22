@@ -111,7 +111,7 @@ namespace Media
             Console.WriteLine("-----------------------");
             Console.WriteLine("Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
-            System.Threading.Thread.Yield();
+            System.Threading.Thread.Sleep(500);
 
             //Determine what is actually being received by obtaining the TransportContext of the receiver            
             //In a real world program you would not have access to the receiversContext so you would look at the sendersContext.RecieverReport
@@ -777,8 +777,6 @@ a=mpeg4-esid:101");
             //If you add more streams they will be started once the server is started
 
             Console.WriteLine("Listening on: " + server.LocalEndPoint);
-
-            Console.WriteLine("Active Streams :" + server.ActiveStreamCount);
 
             Console.WriteLine("Waiting for input................");
             Console.WriteLine("Press 'U' to Enable Udp on RtspServer");

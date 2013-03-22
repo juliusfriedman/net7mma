@@ -233,6 +233,13 @@ namespace Media.Rtsp.Server.Streams
         {
             while (State == StreamState.Started)
             {
+
+                if (m_RtpClient.m_OutgoingRtpPackets.Count > 60)
+                {
+                    System.Threading.Thread.Sleep(m_Frames.Count);
+                    continue;
+                };
+
                 try
                 {
                     //Dequeue a frame or die

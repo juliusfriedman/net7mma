@@ -478,6 +478,7 @@ namespace Media.Rtsp
             {
                 foreach (RtpSource stream in Streams)
                 {
+
                     //If the name matches the streamName or stream Id then we found it
                     if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString() == streamName)
                     {
