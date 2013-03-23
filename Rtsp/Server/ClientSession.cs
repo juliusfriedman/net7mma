@@ -217,6 +217,17 @@ namespace Media.Rtsp
             m_SessionDescription.SessionName = sessionName;
             m_SessionDescription.OriginatorAndSessionIdentifier = originatorString;
 
+            string protcol = "rtsp", controlLineBase = "a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address.ToString() + "/live/" + stream.Id;
+            //check for rtspu later...
+
+            Media.Sdp.SessionDescriptionLine controlLine = m_SessionDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+
+            if (controlLine != null)
+            {
+                m_SessionDescription.RemoveLine(m_SessionDescription.Lines.IndexOf(controlLine));
+                m_SessionDescription.Add(new Sdp.SessionDescriptionLine(controlLineBase));
+            }
+
             //As noted in [RTP3550], the use of RTP without RTCP is strongly discouraged.            
             if (stream.m_DisableQOS)
             {
@@ -226,20 +237,33 @@ namespace Media.Rtsp
                     md.Add(new Sdp.SessionDescriptionLine("b=RS:0"));
                     md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
 
-                    Media.Sdp.SessionDescriptionLine controlLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+                    controlLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
 
                     if (controlLine != null)
                     {
                         md.RemoveLine(md.Lines.IndexOf(controlLine));
-
-                        string protcol = "rtsp";
-                        //check for rtspu later...
-
-                        md.Add(new Sdp.SessionDescriptionLine("a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + stream.Id));
+                        md.Add(new Sdp.SessionDescriptionLine(controlLineBase + '/' + md.MediaType));
                     }
 
                 }
             }
+            else
+            {
+                //However, if a sender does not wish to send RTCP packets in a media session, the sender MUST add the lines "b=RS:0" AND "b=RR:0" to the media description (from [RFC3556]).
+                foreach (Sdp.MediaDescription md in m_SessionDescription.MediaDescriptions)
+                {
+                    controlLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+
+                    if (controlLine != null)
+                    {
+                        md.RemoveLine(md.Lines.IndexOf(controlLine));
+                        md.Add(new Sdp.SessionDescriptionLine(controlLineBase + '/' + md.MediaType));
+                    }
+                }
+            }
+
+            
+
 
             SessionId = sessionId;
             //m_SDPVersion = sessionVersion; //Should be retrieved from  OriginatorAndSessionIdentifier after setting?
