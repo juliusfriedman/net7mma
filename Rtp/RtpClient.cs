@@ -90,8 +90,14 @@ namespace Media.Rtp
             public readonly byte DataChannel, ControlChannel;
 
 
-            //The ssrc which identifies remote senders
             public uint SynchronizationSourceIdentifier { get; internal set; }
+
+            /// <summary>
+            /// The ssrc created when initializing sockets to identify this TransportContext remotely
+            /// </summary>
+            public uint LocalSynchronizationSourceIdentifier { get { return m_LocalSynchronizationSourceIdentifier; } internal set { m_LocalSynchronizationSourceIdentifier = value; } }
+
+            uint m_LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
 
             //Any frames for this channel
             internal volatile RtpFrame CurrentFrame, LastFrame;
@@ -639,7 +645,7 @@ namespace Media.Rtp
 
                                 if (reason.Contains("ssrc"))
                                 {
-                                    transportContext.SynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
+                                    transportContext.LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
                                 }
 
                                 if (transportContext.RecieversReport != null)
@@ -708,13 +714,6 @@ namespace Media.Rtp
 
                 //If we recieved a packet before we have identified who it is coming from
                 if (transportContext.SynchronizationSourceIdentifier == 0)
-                {
-                    transportContext.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
-                }
-
-                //This occurs when you disconnect and re-connect again mostly.
-                //Eventually might not want to accept this... right now prior sessions sometime use the same ssrc if not timed out so this is allowing it
-                if (transportContext.SynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier)
                 {
                     transportContext.SynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
                 }
@@ -1119,7 +1118,7 @@ namespace Media.Rtp
 
         internal ReceiversReport CreateReceiversReport(TransportContext context, bool includeBlocks = true)
         {
-            ReceiversReport result = new ReceiversReport(context.SynchronizationSourceIdentifier)
+            ReceiversReport result = new ReceiversReport(context.LocalSynchronizationSourceIdentifier)
             {
                 Channel = context.ControlChannel
             };
@@ -1419,6 +1418,7 @@ namespace Media.Rtp
 
             //Create the workers thread and start it.
             m_WorkerThread = new Thread(new ThreadStart(SendRecieve));
+            m_WorkerThread.Priority = ThreadPriority.Lowest;
             m_WorkerThread.Name = "RtpClient-" + m_RemoteAddress.ToString();
             m_WorkerThread.Start();
 
