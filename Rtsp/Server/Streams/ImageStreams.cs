@@ -289,8 +289,10 @@ namespace Media.Rtsp.Server.Streams
                         //If we are keeping track of everything we should increment the counters so the server can send correct Rtcp Reports
                         if (!RtpClient.m_OutgoingPacketEventsEnabled)
                         {
-                            transportContext.RtpPacketsSent++;
-                            transportContext.RtpBytesSent += packet.Length;
+                            //transportContext.RtpPacketsSent++;
+                            //transportContext.RtpBytesSent += packet.Length;
+                            System.Threading.Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
+                            System.Threading.Interlocked.Increment(ref transportContext.RtpPacketsSent);
                         }
                     }
 

@@ -83,16 +83,16 @@ namespace Media
             receiversContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, xrtpPort, xrtcpPort);
 
             receiver.AddTransportContext(receiversContext);
-
-            //Connect the reciver
-            receiver.Connect();
-
+            
             sendersContext.InitializeSockets(localIp, localIp, xrtpPort, xrtcpPort, rtpPort, rtcpPort);
 
             sender.AddTransportContext(sendersContext);
 
             //Connect the sender
             sender.Connect();
+
+            //Connect the reciver
+            receiver.Connect();
 
             //Send an initial report
             sender.SendSendersReports();
@@ -113,9 +113,6 @@ namespace Media
 
             //Send another report
             sender.SendSendersReports();
-
-            //Above call triggers this when recieved
-            receiver.SendReceiversReports();
 
             //Measure QoE / QoS based on sent / received ratio.
             Console.WriteLine("Since : " + sendersContext.SendersReport.Sent);

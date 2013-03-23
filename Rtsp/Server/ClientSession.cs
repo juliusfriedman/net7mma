@@ -225,6 +225,19 @@ namespace Media.Rtsp
                 {
                     md.Add(new Sdp.SessionDescriptionLine("b=RS:0"));
                     md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
+
+                    Media.Sdp.SessionDescriptionLine controlLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+
+                    if (controlLine != null)
+                    {
+                        md.RemoveLine(md.Lines.IndexOf(controlLine));
+
+                        string protcol = "rtsp";
+                        //check for rtspu later...
+
+                        md.Add(new Sdp.SessionDescriptionLine("a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + stream.Id));
+                    }
+
                 }
             }
 
