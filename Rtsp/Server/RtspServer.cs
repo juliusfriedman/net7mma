@@ -1489,7 +1489,7 @@ namespace Media.Rtsp
                 if (attributeLine != null) 
                 {
                     string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).First().Replace("control:", string.Empty);
-                    if(actualTrack == track)
+                    if(actualTrack == track || actualTrack.Contains(track))
                     {
                         mediaDescription = md;
                         break;
