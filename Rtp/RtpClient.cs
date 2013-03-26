@@ -1770,146 +1770,150 @@ namespace Media.Rtp
             try
             {
 
-                DateTime lastOperation = DateTime.UtcNow;
-
-                //Until aborted
-                while (m_WorkerThread != null && !m_WorkerThread.ThreadState.HasFlag(ThreadState.StopRequested))
+                using (ManualResetEvent timer = new ManualResetEvent(false))
                 {
-                    //Everything we send is IEnumerable
-                    System.Collections.IEnumerable toSend;
 
-                    #region Handle Outgoing RtcpPackets
+                    DateTime lastOperation = DateTime.UtcNow;
 
-                    if (m_OutgoingRtcpPackets.Count > 0)
+                    //Until aborted
+                    while (m_WorkerThread != null && !m_WorkerThread.ThreadState.HasFlag(ThreadState.StopRequested))
                     {
-                        lock (m_OutgoingRtcpPackets)
+                        //Everything we send is IEnumerable
+                        System.Collections.IEnumerable toSend;
+
+                        #region Handle Outgoing RtcpPackets
+
+                        if (m_OutgoingRtcpPackets.Count > 0)
                         {
-                            int remove = Math.Min(m_OutgoingRtpPackets.Count, RtpFrame.MaxPackets);
-                            toSend = m_OutgoingRtcpPackets.GetRange(0, remove);
-                            m_OutgoingRtcpPackets.RemoveRange(0, remove);
-                        }
-
-                        foreach (RtcpPacket packet in toSend)
-                        {
-                            //If we sent or received a goodbye
-                            //If we send a goodebye
-                            TransportContext context = GetContextForPacket(packet);
-
-                            if (context == null) continue;
-
-                            //If the entire packet was sent
-                            if (SendRtcpPacket(packet) >= packet.PacketLength)
+                            lock (m_OutgoingRtcpPackets)
                             {
-                                lastOperation = DateTime.UtcNow;
+                                int remove = Math.Min(m_OutgoingRtpPackets.Count, RtpFrame.MaxPackets);
+                                toSend = m_OutgoingRtcpPackets.GetRange(0, remove);
+                                m_OutgoingRtcpPackets.RemoveRange(0, remove);
                             }
-                            else
+
+                            foreach (RtcpPacket packet in toSend)
                             {
-                                if (context.Goodbye != null)
+                                //If we sent or received a goodbye
+                                //If we send a goodebye
+                                TransportContext context = GetContextForPacket(packet);
+
+                                if (context == null) continue;
+
+                                //If the entire packet was sent
+                                if (SendRtcpPacket(packet) >= packet.PacketLength)
                                 {
-                                    foreach (Goodbye.GoodbyeChunk chunk in context.Goodbye)
-                                    {
-                                        if (chunk.SynchronizationSourceIdentifier == context.LocalSynchronizationSourceIdentifier) return;
-                                    }
+                                    lastOperation = DateTime.UtcNow;
                                 }
-                                else if (SendGoodbyeIfInactive(lastOperation, context)) break;
-                            }
-                        }
-
-                        toSend = null;
-                    }
-
-                    #endregion
-
-                    #region Handle Outgoing RtpPackets
-
-                    if (m_OutgoingRtpPackets.Count > 0)
-                    {
-                        lock (m_OutgoingRtpPackets)
-                        {
-                            //Could check for timestamp more recent then packet at 0  on transporContext and discard...
-                            //Send only A few at a time to share with rtcp
-                            int remove = Math.Min(m_OutgoingRtpPackets.Count, RtpFrame.MaxPackets);
-                            toSend = m_OutgoingRtpPackets.GetRange(0, remove);
-                            m_OutgoingRtpPackets.RemoveRange(0, remove);
-                        }
-
-                        foreach (RtpPacket packet in toSend)
-                        {
-                            //If we sent or received a goodbye
-                            //If we send a goodebye
-                            TransportContext context = GetContextForPacket(packet);
-
-                            if (context == null) continue;
-
-                            //If the entire packet was sent
-                            if (SendRtpPacket(packet) >= packet.Length)
-                            {
-                                lastOperation = DateTime.UtcNow;
-
-                            }
-                            else
-                            {
-                                
-                                if (context.Goodbye != null)
+                                else
                                 {
-                                    foreach (Goodbye.GoodbyeChunk chunk in context.Goodbye)
+                                    if (context.Goodbye != null)
                                     {
-                                        if (chunk.SynchronizationSourceIdentifier == context.LocalSynchronizationSourceIdentifier) return;
+                                        foreach (Goodbye.GoodbyeChunk chunk in context.Goodbye)
+                                        {
+                                            if (chunk.SynchronizationSourceIdentifier == context.LocalSynchronizationSourceIdentifier) return;
+                                        }
                                     }
+                                    else if (SendGoodbyeIfInactive(lastOperation, context)) break;
                                 }
-                                else if (SendGoodbyeIfInactive(lastOperation, context)) break;
                             }
+
+                            toSend = null;
                         }
 
-                        toSend = null;
-                    }
+                        #endregion
 
-                    #endregion
+                        #region Handle Outgoing RtpPackets
 
-                    #region Recieve Incoming Data
-
-                    lock (TransportContexts)
-                    {
-                        toSend = TransportContexts.ToArray();
-                    }
-
-                    try
-                    {
-                        //Enumerate each context and receive data, if received update the lastActivity
-                        foreach (TransportContext tc in toSend)
+                        if (m_OutgoingRtpPackets.Count > 0)
                         {
-                            if (RecieveData(tc.DataChannel, tc.RtpSocket) <= 0 || tc.RtpSocket.ProtocolType != ProtocolType.Tcp && RecieveData(tc.ControlChannel, tc.RtcpSocket) <= 0)
+                            lock (m_OutgoingRtpPackets)
                             {
-                                //If we have our own InactivityTimeout then enforce it
-                                if (SendGoodbyeIfInactive(lastOperation, tc)) return;
-                                else if (tc.Goodbye != null)
+                                //Could check for timestamp more recent then packet at 0  on transporContext and discard...
+                                //Send only A few at a time to share with rtcp
+                                int remove = Math.Min(m_OutgoingRtpPackets.Count, RtpFrame.MaxPackets);
+                                toSend = m_OutgoingRtpPackets.GetRange(0, remove);
+                                m_OutgoingRtpPackets.RemoveRange(0, remove);
+                            }
+
+                            foreach (RtpPacket packet in toSend)
+                            {
+                                //If we sent or received a goodbye
+                                //If we send a goodebye
+                                TransportContext context = GetContextForPacket(packet);
+
+                                if (context == null) continue;
+
+                                //If the entire packet was sent
+                                if (SendRtpPacket(packet) >= packet.Length)
                                 {
-                                    foreach (Goodbye.GoodbyeChunk chunk in tc.Goodbye)
-                                    {
-                                        if (chunk.SynchronizationSourceIdentifier == tc.LocalSynchronizationSourceIdentifier) return;
-                                    }
+                                    lastOperation = DateTime.UtcNow;
+
                                 }
-                                else Thread.Sleep(1); // Wait for other threads because we have nothing to receive
+                                else
+                                {
+
+                                    if (context.Goodbye != null)
+                                    {
+                                        foreach (Goodbye.GoodbyeChunk chunk in context.Goodbye)
+                                        {
+                                            if (chunk.SynchronizationSourceIdentifier == context.LocalSynchronizationSourceIdentifier) return;
+                                        }
+                                    }
+                                    else if (SendGoodbyeIfInactive(lastOperation, context)) break;
+                                }
                             }
-                            else
-                            {
-                                lastOperation = DateTime.UtcNow;
-                            }
+
+                            toSend = null;
                         }
 
-                        toSend = null;
+                        #endregion
+
+                        #region Recieve Incoming Data
+
+                        lock (TransportContexts)
+                        {
+                            toSend = TransportContexts.ToArray();
+                        }
+
+                        try
+                        {
+                            //Enumerate each context and receive data, if received update the lastActivity
+                            foreach (TransportContext tc in toSend)
+                            {
+                                if (RecieveData(tc.DataChannel, tc.RtpSocket) <= 0 || tc.RtpSocket.ProtocolType != ProtocolType.Tcp && RecieveData(tc.ControlChannel, tc.RtcpSocket) <= 0)
+                                {
+                                    //If we have our own InactivityTimeout then enforce it
+                                    if (SendGoodbyeIfInactive(lastOperation, tc)) return;
+                                    else if (tc.Goodbye != null)
+                                    {
+                                        foreach (Goodbye.GoodbyeChunk chunk in tc.Goodbye)
+                                        {
+                                            if (chunk.SynchronizationSourceIdentifier == tc.LocalSynchronizationSourceIdentifier) return;
+                                        }
+                                    }
+                                    else timer.WaitOne(1); // Wait for other threads because we have nothing to receive
+                                }
+                                else
+                                {
+                                    lastOperation = DateTime.UtcNow;
+                                }
+                            }
+
+                            toSend = null;
+
+                        }
+                        catch (Exception ex)
+                        {
+                            if (!(ex is SocketException)) break;
+                            //The remote host something or other
+                            //If this is happening often the Udp client disconnected
+                            //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
+                        }
+
+                        #endregion
 
                     }
-                    catch (Exception ex)
-                    {
-                        if (!(ex is SocketException)) break;
-                        //The remote host something or other
-                        //If this is happening often the Udp client disconnected
-                        //Should eventually be disconnected at the server level but might want to add logic here for better standalone operation
-                    }
-
-                    #endregion
-
                 }
             }
             catch { }

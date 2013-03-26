@@ -1538,8 +1538,6 @@ namespace Media.Rtsp
                             //Just one stream gets torn down
                             SendTeardown(c.MediaDescription);
 
-                            System.Threading.Thread.Sleep(ReadTimeout / 2);
-
                             //Setup 
                             SendSetup(c.MediaDescription);
 
@@ -1550,8 +1548,6 @@ namespace Media.Rtsp
                         {
                             //Indicate total so we don't try again if this happens the first time
                             total = true;
-
-                            System.Threading.Thread.Sleep(ReadTimeout / 2);
 
                             //The server might not support disconnecting a single stream so stop all of them and try again
                             Disconnect();
