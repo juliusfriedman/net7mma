@@ -16,7 +16,7 @@ namespace Media
             RunTest(TestRtcpPacket);
             RunTest(TestRtpDump);
             RunTest(TestSdp);
-            RunTest(TestRtpClient);
+            RunTest(TestRtpClient, 77);
             RunTest(RtspClientTests);
             RunTest(TestServer);
         }
@@ -146,34 +146,70 @@ namespace Media
             receiver.Disconnect();
         }
 
-        private static void RunTest(Action test)
+        static void writeError(Exception ex)
+        {
+            Console.BackgroundColor = ConsoleColor.Red;
+            Console.WriteLine("Test Failed!");
+            Console.WriteLine("Exception.Message: " + ex.Message);
+            Console.WriteLine("Press (A) to try again or any other key to continue.");
+            Console.BackgroundColor = ConsoleColor.Black;
+        }
+
+        static void writeSuccess(bool auto = true, string message = null)
+        {
+            Console.BackgroundColor = ConsoleColor.Green;
+            Console.WriteLine("Test Passed!");
+            if (!auto) Console.WriteLine("Press (A) to run again, (D) to debug or any other key to continue.");
+            if (!string.IsNullOrWhiteSpace(message)) Console.WriteLine(message);
+            Console.BackgroundColor = ConsoleColor.Black;
+        }
+
+        private static void RunTest(Action test, int count = 1)
         {
             System.Console.Clear();
             Console.BackgroundColor = ConsoleColor.Blue;
             Console.WriteLine("About to run test: " + test.Method.Name);
             Console.WriteLine("Press Q to skip or any other key to continue.");
             Console.BackgroundColor = ConsoleColor.Black;
-            if (Console.ReadKey().Key == ConsoleKey.Q)return;
+            if (Console.ReadKey().Key == ConsoleKey.Q) return;
             else
             {
+                Dictionary<int, Exception> log = null;
+
+                int run = count, failures = 0, successes = 0; bool multipleTests = count > 1;
+
+                if (multipleTests) log = new Dictionary<int, Exception>();
+
             Test:
                 try
                 {
+                    System.Threading.Interlocked.Decrement(ref run);
                     test();
-                    Console.BackgroundColor = ConsoleColor.Green;
-                    Console.WriteLine("Test Passed!");
-                    Console.WriteLine("Press (A) to run again or any other key to continue.");
-                    Console.BackgroundColor = ConsoleColor.Black;                    
+                    writeSuccess(run <= 0);
+                    System.Threading.Interlocked.Increment(ref successes);
                 }
                 catch (Exception ex)
                 {
-                    Console.BackgroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Test Failed!");
-                    Console.WriteLine("Exception.Message: " + ex.Message);
-                    Console.WriteLine("Press (A) to try again or any other key to continue.");
-                    Console.BackgroundColor = ConsoleColor.Black;                    
+                    System.Threading.Interlocked.Increment(ref failures);
+                    writeError(ex);
+                    if (multipleTests)
+                    {
+                        log.Add(run, ex);
+                        System.Threading.Thread.Yield();
+                    }
                 }
-                if (Console.ReadKey().Key == ConsoleKey.A) goto Test;
+                
+                if (run >= 0) goto Test;
+                else if (multipleTests)
+                {
+                    if (failures > successes) writeError(new Exception("More Failures then Successes"));
+                    else writeSuccess(false, failures + " Failures, " + successes + " Successes");
+                }
+
+                ConsoleKey input = Console.ReadKey().Key;
+
+                if (input == ConsoleKey.A) goto Test;
+                else if (input == ConsoleKey.D) System.Diagnostics.Debugger.Break();
             }
         }
 

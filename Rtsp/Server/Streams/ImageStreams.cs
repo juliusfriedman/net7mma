@@ -233,11 +233,11 @@ namespace Media.Rtsp.Server.Streams
 
         internal virtual void SendPackets()
         {
-            using (System.Threading.ManualResetEvent framer = new System.Threading.ManualResetEvent(false))
+            using (System.Threading.ManualResetEvent timer = new System.Threading.ManualResetEvent(false))
             {
                 while (State == StreamState.Started)
                 {
-                    framer.Reset();
+                    timer.Reset();
                     try
                     {
                         lock (m_Frames)
@@ -277,10 +277,10 @@ namespace Media.Rtsp.Server.Streams
                                     System.Threading.Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
                                     System.Threading.Interlocked.Increment(ref transportContext.RtpPacketsSent);
                                 }
-                                framer.WaitOne(1);
+                                timer.WaitOne(1);
                             }
 
-                            framer.Set();
+                            timer.Set();
 
                             //If we are to loop images then add it back at the end
                             if (Loop)
@@ -308,7 +308,7 @@ namespace Media.Rtsp.Server.Streams
                                 RtpClient.OnRtpFrameChanged(transportContext.CurrentFrame);
                             }
 
-                            System.Threading.Thread.Sleep(TimeSpan.FromTicks(TimeSpan.TicksPerSecond / clockRate));//    TotalMilliseconds: 0.1111
+                            timer.WaitOne((TimeSpan.FromTicks(Math.Max(1, TimeSpan.TicksPerSecond / clockRate))));//    TotalMilliseconds: 0.1111
 
                         }
                     }
