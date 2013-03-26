@@ -233,7 +233,7 @@ namespace Media.Rtsp.Server.Streams
 
         internal virtual void SendPackets()
         {
-            using (System.Threading.ManualResetEvent timer = new System.Threading.ManualResetEvent(false))
+            using (System.Threading.AutoResetEvent timer = new System.Threading.AutoResetEvent(false))
             {
                 while (State == StreamState.Started)
                 {
@@ -257,7 +257,8 @@ namespace Media.Rtsp.Server.Streams
                             transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
 
                             //Iterate each packet and put it into the next frame (Todo In clock cycles)
-                            foreach (Rtp.RtpPacket packet in frame)
+                            //Again nothing to much to gain here in terms of parallelism (unless you want multiple pictures in the same buffer on the client)
+                            foreach (Rtp.RtpPacket packet in frame.AsParallel())
                             {
                                 //Copy the values before we signal the server
                                 packet.Channel = transportContext.DataChannel;

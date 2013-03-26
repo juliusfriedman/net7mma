@@ -46,7 +46,7 @@ namespace Media.Rtsp
 
         ClientProtocolType m_RtspProtocol;
 
-        ManualResetEvent m_InterleaveEvent = new ManualResetEvent(false);
+        AutoResetEvent m_InterleaveEvent = new AutoResetEvent(false);
 
         RtspResponse m_LastRtspResponse;
 

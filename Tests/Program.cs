@@ -185,7 +185,7 @@ namespace Media
                 {
                     System.Threading.Interlocked.Decrement(ref run);
                     test();
-                    writeSuccess(run <= 0);
+                    writeSuccess(multipleTests);
                     System.Threading.Interlocked.Increment(ref successes);
                 }
                 catch (Exception ex)

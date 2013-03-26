@@ -1770,7 +1770,7 @@ namespace Media.Rtp
             try
             {
 
-                using (ManualResetEvent timer = new ManualResetEvent(false))
+                using (AutoResetEvent timer = new AutoResetEvent(false))
                 {
 
                     DateTime lastOperation = DateTime.UtcNow;
