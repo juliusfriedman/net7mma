@@ -94,7 +94,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Used to signal the server to recieve new clients
         /// </summary>
-        ManualResetEvent allDone = new ManualResetEvent(false);
+        AutoResetEvent allDone = new AutoResetEvent(false);
 
         //Handles the Restarting of streams which needs to be and disconnects clients which are inactive.
         internal Timer m_Maintainer;
