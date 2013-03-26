@@ -79,11 +79,11 @@ namespace Media.Rtcp
             set
             {
                 int requiredOffset = 24 + ReportBlock.Size * BlockCount;
-                if (Payload.Length > requiredOffset)
+                if (value == null || value.Length == 0 || m_Data.Length > requiredOffset)
                 {
-                    int len = Payload.Length - requiredOffset;
-                    //Already contains extension data
-                    System.Array.Copy(Payload, requiredOffset, value, 0, len);
+                    Array.Resize(ref m_Data, requiredOffset);
+                    Length = (short)m_Data.Length;
+                    return;
                 }
                 else
                 {

@@ -44,7 +44,7 @@ namespace Media.Rtcp
 
         byte m_Type;
 
-        byte[] m_Data;
+        protected byte[] m_Data;
 
         #endregion
 

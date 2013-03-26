@@ -97,7 +97,7 @@ namespace Media
 
         #region Hex Functions
 
-        public static byte HexCharToByte(char c) { /*c = char.ToUpperInvariant(c);*/ return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
+        public static byte HexCharToByte(char c) { c = char.ToUpperInvariant(c); return (byte)(c > '9' ? c - 'A' + 10 : c - '0'); }
 
         /// <summary>
         /// Converts a String in the form 0011AABB to a Byte[] using the chars in the string as bytes to caulcate the decimal value.
