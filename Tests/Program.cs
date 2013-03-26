@@ -159,12 +159,12 @@ namespace Media
         {
             Console.BackgroundColor = ConsoleColor.Green;
             Console.WriteLine("Test Passed!");
-            if (!auto) Console.WriteLine("Press (A) to run again, (D) to debug or any other key to continue.");
+            if (!auto) Console.WriteLine("Press (W) to run again, (D) to debug or any other key to continue.");
             if (!string.IsNullOrWhiteSpace(message)) Console.WriteLine(message);
             Console.BackgroundColor = ConsoleColor.Black;
         }
 
-        private static void RunTest(Action test, int count = 1)
+        private static void RunTest(Action test, int count = 0)
         {
             System.Console.Clear();
             Console.BackgroundColor = ConsoleColor.Blue;
@@ -176,7 +176,7 @@ namespace Media
             {
                 Dictionary<int, Exception> log = null;
 
-                int run = count, failures = 0, successes = 0; bool multipleTests = count > 1;
+                int run = count, failures = 0, successes = 0; bool multipleTests = count > 0;
 
                 if (multipleTests) log = new Dictionary<int, Exception>();
 
@@ -208,7 +208,7 @@ namespace Media
 
                 ConsoleKey input = Console.ReadKey().Key;
 
-                if (input == ConsoleKey.A) goto Test;
+                if (input == ConsoleKey.W) goto Test;
                 else if (input == ConsoleKey.D) System.Diagnostics.Debugger.Break();
             }
         }
@@ -855,6 +855,8 @@ a=mpeg4-esid:101");
                 {
                     System.Diagnostics.Debugger.Break();
                 }
+
+                System.Threading.Thread.Yield();
             }
 
             server.DisableHttp();
@@ -872,11 +874,6 @@ a=mpeg4-esid:101");
             Console.WriteLine("Stopping Server");            
 
             server.Stop();
-
-            Console.WriteLine("Waiting for input to Exit................ (Press any key)");
-
-            Console.ReadKey();
-
         }
         
         /// <summary>
