@@ -28,6 +28,19 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public override Rtp.RtpClient RtpClient { get { return RtspClient.Client; } }
 
+        public override NetworkCredential SourceCredential
+        {
+            get
+            {
+                return base.SourceCredential;
+            }
+            set
+            {
+                if (RtspClient != null) RtspClient.Credential = value;
+                base.SourceCredential = value;
+            }
+        }
+
         /// <summary>
         /// SessionDescription from the source RtspClient
         /// </summary>
@@ -71,20 +84,11 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        /// <summary>
-        /// Constructs a RtspStream for use in a RtspServer
-        /// </summary>
-        /// <param name="name">The name given to the stream on the RtspServer</param>
-        /// <param name="sourceLocation">The rtsp uri to the media</param>
-        public RtspSourceStream(string name, string sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null) : this(name, new Uri(sourceLocation), rtpProtocolType) { }
-        
-        /// <summary>
-        /// Constructs a RtspStream for use in a RtspServer
-        /// </summary>
-        /// <param name="name">The name given to the stream on the RtspServer</param>
-        /// <param name="sourceLocation">The rtsp uri to the media</param>
-        /// <param name="credential">The network credential the stream requires</param>
-        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential) : this(name, new Uri(sourceLocation), credential) { }
+        public RtspSourceStream(string name, string location, RtspClient.ClientProtocolType rtpProtocolType)
+            : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType) { }
+
+        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
+            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -93,16 +97,7 @@ namespace Media.Rtsp.Server.Streams
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
-        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential, AuthenticationSchemes authType = AuthenticationSchemes.Basic)
-            : this(name, sourceLocation)
-        {
-            //Set the creds
-            RtspClient.Credential = SourceCredential = credential;
-            RtspClient.AuthenticationScheme = SourceAuthenticationScheme = authType;
-        }
-
-
-        internal RtspSourceStream(string name, Uri sourceLocation, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
+        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
             : base(name, sourceLocation)
         {
             //Create the listener if we are the top level stream (Parent)
@@ -111,7 +106,16 @@ namespace Media.Rtsp.Server.Streams
                 RtspClient = new RtspClient(m_Source, rtpProtocolType);
             }
             //else it is already assigned via the child
+
+            if (credential != null)
+            {
+                RtspClient.Credential = SourceCredential = credential;
+
+                if (authType != AuthenticationSchemes.None) RtspClient.AuthenticationScheme = SourceAuthenticationScheme = authType;
+            }
         }
+
+      
 
         #endregion
 
@@ -174,7 +178,7 @@ namespace Media.Rtsp.Server.Streams
             if (RtspClient.Client == null || RtspClient.Client != sender) return;
             try
             {
-                //Get the MediaDescription
+                //Get the MediaDescription (by ssrc so dynamic payload types don't conflict
                 Media.Sdp.MediaDescription mediaDescription = this.RtspClient.Client.GetContextBySourceId(frame.SynchronizationSourceIdentifier).MediaDescription;
                 if (mediaDescription.MediaType == Sdp.MediaType.audio)
                 {
@@ -194,7 +198,7 @@ namespace Media.Rtsp.Server.Streams
                     }
                     else
                     {
-                        //0 - 95
+                        //0 - 95 || >= 128
                         //throw new NotImplementedException();
                     }
                 }

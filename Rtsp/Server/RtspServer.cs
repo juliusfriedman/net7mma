@@ -160,7 +160,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspServer is listening for requests on the ServerPort
         /// </summary>
-        public bool Listening { get { return m_ServerThread != null; /*&& m_ServerThread.ThreadState == ThreadState.Running;*/ } }
+        public bool Listening { get { return m_ServerThread != null && m_ServerThread.ThreadState.HasFlag(ThreadState.Running); } }
 
         /// <summary>
         /// The port in which the RtspServer is listening for requests
@@ -1603,8 +1603,6 @@ namespace Media.Rtsp
                     //Create a sender
                     session.m_RtpClient = RtpClient.Sender(((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address);
 
-
-
                     //Starts worker thread... 
                     session.m_RtpClient.Connect();
                 }
@@ -1638,7 +1636,7 @@ namespace Media.Rtsp
                 session.m_RtpClient.AddTransportContext(currentContext);
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentContext.ClientRtpPort + "-" + currentContext.ClientRtcpPort + ";source=" + ((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + currentContext.SynchronizationSourceIdentifier.ToString("X"); 
+                returnTransportHeader = "RTP/AVP/UDP;unicast;client_port=" + clientPortDirective + ";server_port=" + currentContext.ClientRtpPort + "-" + currentContext.ClientRtcpPort + ";source=" + ((IPEndPoint)session.m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + currentContext.LocalSynchronizationSourceIdentifier.ToString("X"); 
                 
             }
             else if (clientPorts != null && clientPorts.Length > 1 && found.m_ForceTCP)//Requested Udp and Tcp was forced
@@ -1727,7 +1725,7 @@ namespace Media.Rtsp
                     currentContext.InitializeSockets(session.m_RtspSocket);
                 }
 
-                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentContext.DataChannel + '-' + currentContext.ControlChannel +";ssrc=" + currentContext.SynchronizationSourceIdentifier.ToString("X");
+                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + currentContext.DataChannel + '-' + currentContext.ControlChannel +";ssrc=" + currentContext.LocalSynchronizationSourceIdentifier.ToString("X");
             }
 
             //Update the values
@@ -2041,6 +2039,7 @@ namespace Media.Rtsp
                     else
                     {
                         session.Detach(found);
+                        session.m_RtpClient.Disconnect();
                     }
 
                     //Remove related transportChannels from found Client in session
