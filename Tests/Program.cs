@@ -117,7 +117,7 @@ namespace Media
             Console.WriteLine("-----------------------");
             Console.WriteLine("Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
-            System.Threading.Thread.Sleep(500);
+            System.Threading.Thread.Yield();
 
             if (receiversContext.RecieversReport != null)
             {
