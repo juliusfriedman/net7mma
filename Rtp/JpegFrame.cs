@@ -62,7 +62,7 @@ namespace Media.Rtp
         /// <param name="l">optional last bit (defaults to 1)</param>
         /// <param name="count">optional number of restart markers (defaults to 0x3FFF)</param>
         /// <returns>Rst Marker</returns>
-        static byte[] CreateRtpDataRestartIntervalMarker(int dri, int f = 1, int l = 1, int count = 0x3FFF)
+        static byte[] CreateRtpDataRestartIntervalMarker(ushort dri, int f = 1, int l = 1, int count = 0x3FFF)
         {
             //     0                   1                   2                   3
             //0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -141,7 +141,7 @@ namespace Media.Rtp
             return RtpJpegHeader.ToArray();
         }
 
-        static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, uint dri)
+        static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, ushort dri)
         {
             List<byte> result = new List<byte>();
             result.Add(Tags.Prefix);
@@ -158,7 +158,7 @@ namespace Media.Rtp
             result.Add(0x00);
 
             result.Add(0x01);//Version Major
-            result.Add(0x02);//Version Minor
+            result.Add(0x01);//Version Minor
 
             result.Add(0x00);//Units
 
@@ -195,14 +195,14 @@ namespace Media.Rtp
             result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Horizontal or Vertical Sample  
           
             result.Add(0x00);//Matrix Number (Quant Table Id)?
-
             result.Add(0x02);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
-            result.Add(1);//Matrix Number
+
+            result.Add((byte)(tables.Count > 64 ? 0x01 : 0x00));//Matrix Number
 
             result.Add(0x03);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
-            result.Add(1);//Matrix Number      
+            result.Add((byte)(tables.Count > 64 ? 0x01 : 0x00));//Matrix Number      
 
             //Huffman Tables
             result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
@@ -394,7 +394,7 @@ namespace Media.Rtp
             return result.ToArray();
         }
 
-        static byte[] CreateDataRestartIntervalMarker(uint dri)
+        static byte[] CreateDataRestartIntervalMarker(ushort dri)
         {
             return new byte[] { Tags.Prefix, Tags.DataRestartInterval, 0x00, 0x04, (byte)(dri >> 8), (byte)(dri) };
         }        
@@ -583,9 +583,8 @@ namespace Media.Rtp
                         else if (Tag == Tags.DataRestartInterval) //RestartInterval is copied
                         {
                             //Make DRI?      
-                            //Type = 64;
-                            //RestartInterval = CreateRtpDataRestartIntervalMarker((int)temp.Length, 1, 1, 0x3fff);
-                            throw new NotImplementedException();
+                            Type = 65; //Should flag?
+                            RestartInterval = CreateRtpDataRestartIntervalMarker((ushort)(temp.ReadByte() * 256 + temp.ReadByte()), 1, 1, 0x3fff);
                         }                        
                         //Last Marker in Header before EntroypEncodedScan
                         else if (Tag == Tags.StartOfScan)
@@ -689,7 +688,8 @@ namespace Media.Rtp
         /// </summary>
         internal void ProcessPackets()
         {
-            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height, RestartInterval = 0, RestartCount = 0;
+            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height;
+            ushort RestartInterval = 0, RestartCount = 0;
             ArraySegment<byte> tables = default(ArraySegment<byte>);
 
             //Using a new MemoryStream for a Buffer
@@ -720,32 +720,31 @@ namespace Media.Rtp
                     Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
                     //It is worth noting Rtp does not care what you send and more tags such as comments and or higher resolution pictures may be sent and these values will simply be ignored.
 
-                    //Only occur in the first packet
+                    //Restart Interval
+                    if (Type > 63)//= 64 && Type <= 127)
+                    {
+                        /*
+                           This header MUST be present immediately after the main JPEG header
+                           when using types 64-127.  It provides the additional information
+                           required to properly decode a data stream containing restart markers.
+
+                            0                   1                   2                   3
+                            0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+                           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                           |       Restart Interval        |F|L|       Restart Count       |
+                           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                         */
+                        RestartInterval = (ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                        RestartCount = (ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                        //Get first last bits and flag out
+                        bool first = (RestartInterval & 1) == RestartInterval, last = (RestartCount & 0x3fff) == RestartCount;
+                        //Remove bits (first and last)
+                        RestartInterval &= 1 | 0x3fff;
+                    }
+
+                    //QTables Only occur in the first packet
                     if (FragmentOffset == 0)
                     {
-                        if (Type >= 64 && Type <= 127)
-                        {
-                            /*
-                               This header MUST be present immediately after the main JPEG header
-                               when using types 64-127.  It provides the additional information
-                               required to properly decode a data stream containing restart markers.
-
-                                0                   1                   2                   3
-                                0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                               |       Restart Interval        |F|L|       Restart Count       |
-                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                             */
-                            RestartInterval = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                            RestartCount = (uint)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                            //Get first last bits and flag out
-                            bool first = (RestartInterval & 1) == RestartInterval, last = (RestartCount & 32768) == RestartCount;
-                            //Remove bit
-                            RestartInterval &= 1;
-                            //Remove bit
-                            RestartCount &= (uint)32768;
-                        }
-
                         //If the quality > 127 there are usually Quantization Tables
                         if (Quality > 127)
                         {

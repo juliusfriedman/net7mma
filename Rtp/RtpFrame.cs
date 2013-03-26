@@ -117,6 +117,8 @@ namespace Media.Rtp
         /// <param name="packet">The RtpPacket to Add</param>
         public virtual void Add(RtpPacket packet)
         {
+            if (m_Ssrc == 0) m_Ssrc = packet.SynchronizationSourceIdentifier;
+            if (Timestamp == 0) Timestamp = packet.TimeStamp;
             if (Count >= MaxPackets) throw new InvalidOperationException("The amount of packets contained in a RtpFrame cannot exceed: " + RtpFrame.MaxPackets);
             if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
             if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
