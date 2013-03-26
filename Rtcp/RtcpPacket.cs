@@ -175,13 +175,13 @@ namespace Media.Rtcp
                 || suspect >= (byte)RtcpPacket.RtcpPacketType.SendersReport && suspect <= (byte)RtcpPacket.RtcpPacketType.ReceiverSummaryInformation; 
         }
 
-        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference)
+        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, byte? channel = null)
         {
             int offset = bufferReference.Offset;
-            return GetPackets(bufferReference, ref offset);
+            return GetPackets(bufferReference, ref offset, channel);
         }
 
-        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, ref int offset)
+        public static RtcpPacket[] GetPackets(ArraySegment<byte> bufferReference, ref int offset, byte? channel = null)
         {
             List<RtcpPacket> packets = new List<RtcpPacket>();
 
@@ -192,6 +192,7 @@ namespace Media.Rtcp
                 try
                 {
                     Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(bufferReference, offset);
+                    packet.Channel = channel;
                     if (packet.Length == 0) break;
                     packets.Add(packet);
                     offset += packet.PacketLength;

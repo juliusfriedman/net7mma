@@ -92,7 +92,7 @@ namespace Media.Rtsp.Server.Streams
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
-            m_RtpClient.AddTransportContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false));
+            m_RtpClient.AddTransportContext(new Rtp.RtpClient.TransportContext(0, 1, 0, SessionDescription.MediaDescriptions[0], false, sourceId));
 
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
@@ -105,6 +105,8 @@ namespace Media.Rtsp.Server.Streams
 
             //Make the thread
             m_Worker = new System.Threading.Thread(SendPackets);
+            m_Worker.IsBackground = true;
+            m_Worker.Priority = System.Threading.ThreadPriority.AboveNormal;
             m_Worker.Name = "ImageStream" + Id;
 
             //If we are watching and there are already files in the directory then add them to the Queue
@@ -234,76 +236,88 @@ namespace Media.Rtsp.Server.Streams
             while (State == StreamState.Started)
             {
 
-                if (m_RtpClient.m_OutgoingRtpPackets.Count > 60)
+                if (m_RtpClient != null && m_RtpClient.m_OutgoingRtpPackets.Count > 0 || m_Frames.Count == 0)
                 {
-                    System.Threading.Thread.Sleep(m_Frames.Count);
-                    continue;
+                    if (System.Threading.Thread.Yield()) continue;
                 };
 
                 try
                 {
-                    //Dequeue a frame or die
-                    Rtp.JpegFrame frame = m_Frames.Dequeue();
-
-                    //Get the transportChannel for the packet
-                    Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
-
-                    DateTime now = DateTime.UtcNow;
-
-                    //Updated values on the transportChannel
-                    transportContext.NtpTimestamp = Utility.DateTimeToNptTimestamp(now);
-                    transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
-
-                    //Keep the Current and LastFrame updated if we disabled events
-                    if (!RtpClient.m_IncomingPacketEventsEnabled)
+                    lock (m_Frames)
                     {
-                        //Update frames on transportContext incase there is a UI somewhere showing frames from this source
-                        if (transportContext.CurrentFrame == null)
+
+                        //Dequeue a frame or die
+                        Rtp.JpegFrame frame = m_Frames.Dequeue();
+
+                        //Get the transportChannel for the packet
+                        Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
+
+                        DateTime now = DateTime.UtcNow;
+
+                        //Updated values on the transportChannel
+                        transportContext.NtpTimestamp = Utility.DateTimeToNptTimestamp(now);
+                        transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerSecond * clockRate);
+
+                        //Iterate each packet and put it into the next frame (Todo In clock cycles)
+                        foreach (Rtp.RtpPacket packet in frame)
                         {
-                            transportContext.CurrentFrame = frame;
+                            //Copy the values before we signal the server
+                            packet.Channel = transportContext.DataChannel;
+                            packet.SynchronizationSourceIdentifier = sourceId;
+                            packet.TimeStamp = transportContext.RtpTimestamp;
+                            //Increment the sequence number on the transportChannel and assign the result to the packet
+                            packet.SequenceNumber = ++transportContext.SequenceNumber;
+
+                            //Fire an event so the server sends a packet to all clients connected to this source
+                            RtpClient.OnRtpPacketReceieved(packet);
+
+                            //If we are keeping track of everything we should increment the counters so the server can send correct Rtcp Reports
+                            if (!RtpClient.m_OutgoingPacketEventsEnabled)
+                            {
+                                //transportContext.RtpPacketsSent++;
+                                //transportContext.RtpBytesSent += packet.Length;
+                                System.Threading.Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
+                                System.Threading.Interlocked.Increment(ref transportContext.RtpPacketsSent);
+                            }
+
+                            System.Threading.Thread.Sleep(frame.Count);
+
                         }
-                        else
+
+                        //If we are to loop images then add it back at the end
+                        if (Loop)
                         {
-                            transportContext.LastFrame = transportContext.CurrentFrame;
-                            transportContext.CurrentFrame = frame;
+                            m_Frames.Enqueue(frame);
                         }
-                        //We should also raise an event to let the UI know
-                        //Normally this would be fired for us when the marker was seen through raising OnRtpPacketReceieved
-                        //But as a Sender we have disabled this event
-                        RtpClient.OnRtpFrameChanged(transportContext.CurrentFrame);
-                    }
 
-                    //Iterate each packet and put it into the next frame
-                    foreach (Rtp.RtpPacket packet in frame)
-                    {
-                        //Copy the values before we signal the server
-                        packet.Channel = transportContext.DataChannel;
-                        packet.SynchronizationSourceIdentifier = sourceId;
-                        packet.TimeStamp = transportContext.RtpTimestamp;
-                        //Increment the sequence number on the transportChannel and assign the result to the packet
-                        packet.SequenceNumber = ++transportContext.SequenceNumber;
-                        
-                        //Fire an event so the server sends a packet to all clients connected to this source
-                        RtpClient.OnRtpPacketReceieved(packet);
-
-                        //If we are keeping track of everything we should increment the counters so the server can send correct Rtcp Reports
-                        if (!RtpClient.m_OutgoingPacketEventsEnabled)
+                        //Keep the Current and LastFrame updated if we disabled events
+                        if (!RtpClient.m_IncomingPacketEventsEnabled)
                         {
-                            //transportContext.RtpPacketsSent++;
-                            //transportContext.RtpBytesSent += packet.Length;
-                            System.Threading.Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
-                            System.Threading.Interlocked.Increment(ref transportContext.RtpPacketsSent);
+                            //Update frames on transportContext incase there is a UI somewhere showing frames from this source
+                            if (transportContext.CurrentFrame == null)
+                            {
+                                transportContext.CurrentFrame = frame;
+                            }
+                            else
+                            {
+                                transportContext.LastFrame = transportContext.CurrentFrame;
+                                transportContext.CurrentFrame = frame;
+                            }
+
+                            //We should also raise an event to let the UI know
+                            //Normally this would be fired for us when the marker was seen through raising OnRtpPacketReceieved
+                            //But as a Sender we have disabled this event
+                            RtpClient.OnRtpFrameChanged(transportContext.CurrentFrame);
+
                         }
-                    }
 
-                    //If we are to loop images then add it back at the end
-                    if (Loop)
-                    {
-                        m_Frames.Enqueue(frame);
                     }
-
                 }
-                catch { break; }
+                catch (Exception ex)
+                {
+                    if (ex is System.Threading.ThreadAbortException) return;
+                    continue;
+                }
             }
         }
 

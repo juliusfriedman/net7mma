@@ -23,9 +23,6 @@ namespace Media
 
         public static void RtspClientTests()
         {
-            TestRtspClient("rtsp://46.105.53.11/metro/metro");
-            TestRtspClient("rtsp://46.105.53.11/metro/metro", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
-
             TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1");
             TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
             
@@ -37,6 +34,8 @@ namespace Media
 
             TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"));
             TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"), Rtsp.RtspClient.ClientProtocolType.Tcp);
+            
+            TestRtspClient("rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp");
         }
 
         /// <summary>
@@ -68,16 +67,15 @@ namespace Media
             //Create and Add the required TransportContext's
 
             Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, (uint)DateTime.UtcNow.Ticks, SessionDescription.MediaDescriptions[0]),
-                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, sendersContext.SynchronizationSourceIdentifier + 1, SessionDescription.MediaDescriptions[0]);
+                receiversContext = new Rtp.RtpClient.TransportContext(0, 1, sendersContext.LocalSynchronizationSourceIdentifier + 1, SessionDescription.MediaDescriptions[0]);
 
-            Console.WriteLine("Senders SSRC = " + sendersContext.SynchronizationSourceIdentifier);
+            Console.WriteLine("Senders SSRC = " + sendersContext.LocalSynchronizationSourceIdentifier);
 
-            Console.WriteLine("Recievers SSRC = " + receiversContext.SynchronizationSourceIdentifier);
+            Console.WriteLine("Recievers SSRC = " + receiversContext.LocalSynchronizationSourceIdentifier);
 
             //Find open ports, 1 for Rtp, 1 for Rtcp
             int rtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17777, false), rtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17778);
 
-            //When using different ports the test fails... check networking logic
             int xrtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10777, false), xrtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10778);
 
             receiversContext.InitializeSockets(localIp, localIp, rtpPort, rtcpPort, xrtpPort, xrtcpPort);
@@ -103,7 +101,7 @@ namespace Media
             Console.WriteLine("Connection Established,  Encoding Frame");
 
             //Make a frame
-            Rtp.JpegFrame testFrame = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"), 100, sendersContext.SynchronizationSourceIdentifier, 1);
+            Rtp.JpegFrame testFrame = new Rtp.JpegFrame(System.Drawing.Image.FromFile("video.jpg"), 100, sendersContext.LocalSynchronizationSourceIdentifier, 1);
 
             Console.WriteLine("Sending Encoded Frame");
 
@@ -121,13 +119,16 @@ namespace Media
 
             System.Threading.Thread.Sleep(500);
 
-            //Determine what is actually being received by obtaining the TransportContext of the receiver            
-            //In a real world program you would not have access to the receiversContext so you would look at the sendersContext.RecieverReport
-            Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
-            Console.WriteLine("-----------------------");
-            if (receiversContext.RecieversReport.BlockCount > 0)
+            if (receiversContext.RecieversReport != null)
             {
-                Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport[0].CumulativePacketsLost + " Packets");
+                //Determine what is actually being received by obtaining the TransportContext of the receiver            
+                //In a real world program you would not have access to the receiversContext so you would look at the sendersContext.RecieverReport
+                Console.WriteLine("Since : " + receiversContext.RecieversReport.Created);
+                Console.WriteLine("-----------------------");
+                if (receiversContext.RecieversReport.BlockCount > 0)
+                {
+                    Console.WriteLine("Receiver Lost : " + receiversContext.RecieversReport[0].CumulativePacketsLost + " Packets");
+                }
             }
 
             System.Threading.Thread.Yield();
@@ -152,30 +153,27 @@ namespace Media
             Console.WriteLine("About to run test: " + test.Method.Name);
             Console.WriteLine("Press Q to skip or any other key to continue.");
             Console.BackgroundColor = ConsoleColor.Black;
-            if (Console.ReadKey().Key == ConsoleKey.Q)
-            {
-                return;
-            }
+            if (Console.ReadKey().Key == ConsoleKey.Q)return;
             else
             {
+            Test:
                 try
                 {
                     test();
                     Console.BackgroundColor = ConsoleColor.Green;
                     Console.WriteLine("Test Passed!");
-                    Console.WriteLine("Press a key to continue.");
-                    Console.BackgroundColor = ConsoleColor.Black;
-                    Console.ReadKey();
+                    Console.WriteLine("Press (A) to run again or any other key to continue.");
+                    Console.BackgroundColor = ConsoleColor.Black;                    
                 }
                 catch (Exception ex)
                 {
                     Console.BackgroundColor = ConsoleColor.Red;
                     Console.WriteLine("Test Failed!");
                     Console.WriteLine("Exception.Message: " + ex.Message);
-                    Console.WriteLine("Press a key to continue.");
-                    Console.BackgroundColor = ConsoleColor.Black;
-                    Console.ReadKey();
+                    Console.WriteLine("Press (A) to try again or any other key to continue.");
+                    Console.BackgroundColor = ConsoleColor.Black;                    
                 }
+                if (Console.ReadKey().Key == ConsoleKey.A) goto Test;
             }
         }
 
@@ -755,8 +753,8 @@ a=mpeg4-esid:101");
 
             //The server will take in RtspSourceStreams and make them available locally
 
-            //H264 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://46.105.53.11/metro/metro", Rtsp.RtspClient.ClientProtocolType.Tcp);
+            //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Rtsp Uri to any YouTube video)
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp");
             
             //If the stream had a username and password
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
@@ -765,15 +763,19 @@ a=mpeg4-esid:101");
             server.AddStream(source);
 
             //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://178.218.212.102:1935/live/Stream1"));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Gamma through Udp and Tcp
+            ////H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Gamma through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov"));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            //H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
+            ////H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("DeltaTcp", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access")));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("OmegaTcp", "rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"), System.Net.AuthenticationSchemes.Basic, Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.JpegRtpImageSource("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
