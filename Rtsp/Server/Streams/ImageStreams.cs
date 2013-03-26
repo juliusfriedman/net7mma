@@ -237,7 +237,6 @@ namespace Media.Rtsp.Server.Streams
             {
                 while (State == StreamState.Started)
                 {
-                    timer.Reset();
                     try
                     {
                         lock (m_Frames)

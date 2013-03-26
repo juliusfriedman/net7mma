@@ -682,9 +682,6 @@ namespace Media.Rtsp
                 //If we are Interleaving we must recieve with respect with data which is being transportChanneld
                 if (m_Playing && m_RtpClient.m_TransportProtocol != ProtocolType.Udp)
                 {
-                    //Reset the transportChannel event
-                    m_InterleaveEvent.Reset();
-
                     //Assign an event for transportChanneld data before we write
                     m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
 

@@ -714,9 +714,6 @@ namespace Media.Rtsp
                 //If we can accept
                 if (m_Clients.Count < m_MaximumClients)
                 {
-                    //Reset the state of the event to blocking
-                    allDone.Reset();
-
                     //Get the timeout from the socket
                     timeOut = m_TcpServerSocket.ReceiveTimeout;
 
@@ -726,11 +723,11 @@ namespace Media.Rtsp
                     //Start acceping
                     m_TcpServerSocket.BeginAccept(new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
-                    //Wait using the event
+                    //Wait half using the event
                     while (!allDone.WaitOne(timeOut / 2))
-                    {
-                        //Wait some more busily
-                        System.Threading.Thread.SpinWait(timeOut / 2);
+                    {                        
+                        //Wait the other half
+                        if (allDone.WaitOne(timeOut / 2)) break;
                     }
                 }
             }
