@@ -337,6 +337,8 @@ namespace Media.Rtp
                     //Set type of service
                     RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
+                    RtpSocket.Blocking = false;
+
                     if (wakeup)
                     {
                         //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
@@ -371,6 +373,8 @@ namespace Media.Rtp
                         RtcpSocket.SetIPProtectionLevel(IPProtectionLevel.Unrestricted);
                         //Set type of service
                         RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+
+                        RtcpSocket.Blocking = false;
 
                         if (wakeup)
                         {
@@ -1712,10 +1716,9 @@ namespace Media.Rtp
                 else
                 {
                     //Under Tcp we must frame the data for the given channel
-                    byte[] frame = new byte[] { MAGIC, channel, 0, 0 };
-                    BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)data.Length)).CopyTo(frame, 2);
+                    byte[] frameHeader = new byte[] { MAGIC, channel };
                     //Send the frame keeping track of the bytes sent
-                    sent = socket.Send(frame.Concat(data).ToArray());
+                    sent = socket.Send(frameHeader.Concat(BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)data.Length))).Concat(data).ToArray(), 0, 4 + data.Length, SocketFlags.None, out error);
                 }
 
                 //If the send was not successful throw an error with the errorCode
