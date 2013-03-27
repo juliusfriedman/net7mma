@@ -1712,13 +1712,10 @@ namespace Media.Rtp
                 else
                 {
                     //Under Tcp we must frame the data for the given channel
-                    byte[] frame = new byte[4 + data.Length];
-                    frame[0] = MAGIC;
-                    frame[1] = channel;
+                    byte[] frame = new byte[] { MAGIC, channel, 0, 0 };
                     BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)data.Length)).CopyTo(frame, 2);
-                    data.CopyTo(frame, 4);
                     //Send the frame keeping track of the bytes sent
-                    sent = socket.Send(frame, sent, frame.Length - sent, SocketFlags.None, out error);
+                    sent = socket.Send(frame.Concat(data).ToArray());
                 }
 
                 //If the send was not successful throw an error with the errorCode

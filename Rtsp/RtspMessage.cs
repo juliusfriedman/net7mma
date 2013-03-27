@@ -53,9 +53,9 @@ namespace Media.Rtsp
 
         public static string BasicAuthorizationHeader(Encoding encoding, System.Net.NetworkCredential credential) { return AuthorizationHeader(encoding, RtspMethod.UNKNOWN, null, System.Net.AuthenticationSchemes.Basic, credential); }
 
-        public static string DigestAuthorizationHeader(Encoding encoding, RtspMethod method, Uri location, System.Net.AuthenticationSchemes scheme, System.Net.NetworkCredential credential, string qopPart = null, string ncPart = null, string nOncePart = null, string cnOncePart = null, string opaquePart = null) { return AuthorizationHeader(encoding, method, location, scheme, credential, qopPart, ncPart, nOncePart, cnOncePart, opaquePart); }
+        public static string DigestAuthorizationHeader(Encoding encoding, RtspMethod method, Uri location, System.Net.NetworkCredential credential, string qopPart = null, string ncPart = null, string nOncePart = null, string cnOncePart = null, string opaquePart = null, bool rfc2069 = false, string algorithmPart = null, string bodyPart = null) { return AuthorizationHeader(encoding, method, location, System.Net.AuthenticationSchemes.Digest, credential, qopPart, ncPart, nOncePart, cnOncePart, opaquePart, rfc2069, algorithmPart, bodyPart); }
 
-        internal static string AuthorizationHeader(Encoding encoding, RtspMethod method, Uri location, System.Net.AuthenticationSchemes scheme, System.Net.NetworkCredential credential, string qopPart = null, string ncPart = null, string nOncePart = null, string cnOncePart = null, string opaquePart = null)
+        internal static string AuthorizationHeader(Encoding encoding, RtspMethod method, Uri location, System.Net.AuthenticationSchemes scheme, System.Net.NetworkCredential credential, string qopPart = null, string ncPart = null, string nOncePart = null, string cnOncePart = null, string opaquePart = null, bool rfc2069 = false, string algorithmPart = null, string bodyPart = null)
         {
             if (scheme != System.Net.AuthenticationSchemes.Basic && scheme != System.Net.AuthenticationSchemes.Digest) throw new ArgumentException("Must be either None, Basic or Digest", "scheme");
             string result = string.Empty;
@@ -63,7 +63,7 @@ namespace Media.Rtsp
             //Basic 
             if (scheme == System.Net.AuthenticationSchemes.Basic)
             {
-                result = "Basic " + Convert.ToBase64String(encoding.GetBytes(credential.UserName + ':' + credential.Password));
+                result = "Basic " + (!string.IsNullOrWhiteSpace(credential.Domain) ? credential.Domain + ' ' : string.Empty)  + Convert.ToBase64String(encoding.GetBytes(credential.UserName + ':' + credential.Password));
             }
             else if (scheme == System.Net.AuthenticationSchemes.Digest) //Digest
             {
@@ -81,14 +81,11 @@ namespace Media.Rtsp
                     nOncePart = ((long)(Utility.Random.Next(int.MaxValue)  << 32 | Utility.Random.Next(int.MaxValue))).ToString("X");
                 }
 
-                if (string.IsNullOrWhiteSpace(ncPart) && !string.IsNullOrWhiteSpace(qopPart))
+                if (!string.IsNullOrWhiteSpace(qopPart))
                 {
-                    ncPart = "00000001";
-                }
-
-                if (string.IsNullOrWhiteSpace(cnOncePart))
-                {
-                    cnOncePart = Utility.Random.Next(int.MaxValue).ToString("X");
+                    if (!string.IsNullOrWhiteSpace(ncPart)) ncPart = (int.Parse(ncPart) + 1).ToString();
+                    else ncPart = "00000001";
+                    if (string.IsNullOrWhiteSpace(cnOncePart)) cnOncePart = Utility.Random.Next(int.MaxValue).ToString("X");
                 }
 
                 //http://en.wikipedia.org/wiki/Digest_access_authentication
@@ -96,7 +93,7 @@ namespace Media.Rtsp
                 byte[] HA1 = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", credential.UserName, realmPart, credential.Password)));
 
                 //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                byte[] HA2 = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", method, location.AbsoluteUri)));
+                byte[] HA2 = null;
 
                 //Need to format based on presence of fields qop...
                 byte[] ResponseHash;
@@ -106,20 +103,26 @@ namespace Media.Rtsp
                 {
                     if (qopPart == "auth")
                     {
+                        HA2 = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", method, location.AbsoluteUri)));
                         //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                        ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty), ncPart, cnOncePart, qopPart)));
-                        result = "Digest " + string.Join(",", "username=" + usernamePart, "realm=" + realmPart, "nonce=" + nOncePart, "uri=" + uriPart, "qop=" + qopPart, "nc=" + ncPart, "cnonce=" + cnOncePart, "response=" + BitConverter.ToString(ResponseHash).Replace("-", string.Empty), "opaque=" + opaquePart);
+                        ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty).ToLowerInvariant(), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty).ToLowerInvariant(), ncPart, cnOncePart, qopPart)));
+                        result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", qop=\"{4}\" nc=\"{5} cnonce=\"{6}\"", usernamePart, realmPart, nOncePart, uriPart, qopPart, ncPart, cnOncePart);
+                        if (!string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
                     }
                     else if (qopPart == "auth-int")
                     {
-                        //Todo.. use body etc..
-                        throw new NotImplementedException();
+                        HA2 = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{3}", method, location.AbsoluteUri, Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(bodyPart)))));
+                        //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
+                        ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty).ToLowerInvariant(), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty).ToLowerInvariant(), ncPart, cnOncePart, qopPart)));
+                        result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", qop=\"{4}\" nc=\"{5} cnonce=\"{6}\"", usernamePart, realmPart, nOncePart, uriPart, qopPart, ncPart, cnOncePart);
+                        if (!string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
                     }
                 }
                 else // No Quality of Protection
                 {
-                    ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}", BitConverter.ToString(HA1).Replace("-", string.Empty), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty), cnOncePart)));
-                    result = "Digest " + string.Join(",", "username=" + usernamePart, "realm=" + realmPart, "nonce=" + nOncePart, "uri=" + uriPart, "cnonce=" + cnOncePart, "response=" + BitConverter.ToString(ResponseHash).Replace("-", string.Empty));
+                    HA2 = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", method, location.AbsoluteUri)));
+                    ResponseHash = Utility.MD5HashAlgorithm.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", BitConverter.ToString(HA1).Replace("-", string.Empty).ToLowerInvariant(), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty).ToLowerInvariant())));
+                    result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", response=\"{4}\"", usernamePart, realmPart, nOncePart, uriPart, BitConverter.ToString(ResponseHash).Replace("-", string.Empty).ToLowerInvariant());
                 }
             }
             return result;

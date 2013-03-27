@@ -109,7 +109,7 @@ namespace Media
         /// </notes>
         /// <param name="str"></param>
         /// <returns></returns>
-        public unsafe static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
+        public static byte[] HexStringToBytes(string str, int start = 0, int length = -1)
         {
             if (length == 0) return null;
             if (length <= -1) length = str.Length;
@@ -119,19 +119,14 @@ namespace Media
             //Dont check the results for overflow
             unchecked
             {
-                //So we don't have to substring get a pointer to the first char
-                fixed (char* pChar = str)
+                //Iterate the pointer using the managed length ....
+                for (int i = start, e = length; i < e; i += 2)
                 {
-                    //Iterate the pointer using the managed length ....
-                    for (int i = start, e = length; i < e; i += 2)
-                    {
-                        //(maybe check for if(pChar[i] == '-' ) ++i to reduce string manipulations pre call)
+                    //to reduce string manipulations pre call
+                    //while (str[i] == '-') i++;
 
-                        //Add a byte which is parsed from the string representation of the char* 2 chars long from the current index
-                        //result.Add(byte.Parse(new String(pChar, i, 2), System.Globalization.NumberStyles.HexNumber));
-                        //Conver 2 Chars to a byte
-                        result.Add((byte)(HexCharToByte(pChar[i]) << 4 | HexCharToByte(pChar[i + 1])));
-                    }
+                    //Conver 2 Chars to a byte
+                    result.Add((byte)(HexCharToByte(str[i]) << 4 | HexCharToByte(str[i + 1])));
                 }
             }
             //Return the bytes
