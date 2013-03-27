@@ -118,11 +118,11 @@ namespace Media.Rtp
         public virtual void Add(RtpPacket packet)
         {
             if (m_Ssrc == 0) m_Ssrc = packet.SynchronizationSourceIdentifier;
+            else if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
             if (Timestamp == 0) Timestamp = packet.TimeStamp;
+            else if (packet.TimeStamp != Timestamp) throw new ArgumentException("packet.TimeStamp must match frame TimeStamp", "packet");
             if (Count >= MaxPackets) throw new InvalidOperationException("The amount of packets contained in a RtpFrame cannot exceed: " + RtpFrame.MaxPackets);
             if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
-            if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
-            if (packet.TimeStamp != Timestamp) throw new ArgumentException("packet.TimeStamp must match frame TimeStamp", "packet");
             lock (m_Packets)
             {
                 //If the frame is complete or the packet is contained return
