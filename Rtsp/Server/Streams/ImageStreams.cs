@@ -257,7 +257,7 @@ namespace Media.Rtsp.Server.Streams
 
                             //Iterate each packet and put it into the next frame (Todo In clock cycles)
                             //Again nothing to much to gain here in terms of parallelism (unless you want multiple pictures in the same buffer on the client)
-                            foreach (Rtp.RtpPacket packet in frame.AsParallel())
+                            foreach (Rtp.RtpPacket packet in frame)
                             {
                                 //Copy the values before we signal the server
                                 packet.Channel = transportContext.DataChannel;

@@ -987,23 +987,23 @@ a=mpeg4-esid:101");
                 jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
 
-            //Create a JpegFrame from an existing RtpFrame (No Encoding / Decoding Performed)
-            Rtp.JpegFrame t = new Rtp.JpegFrame(f);
+            //Create a JpegFrame from an existing RtpFrame (Encoding performed)
+            Rtp.JpegFrame t = new Rtp.JpegFrame(f.ToImage());
+            
             using (System.Drawing.Image jpeg = t)
             {
                 jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
 
             //Create a JpegFrame from an existing RtpFrame by (Decoding Performed)                
-            t = new Rtp.JpegFrame();
+            Rtp.JpegFrame x = new Rtp.JpegFrame();
             foreach (Rtp.RtpPacket p in f)
             {
-                t.Add(p);
+                x.Add(p);
             }
 
             //Save JpegFrame as Image
-            //Todo find out why this fails... (System.Interop.ExternalException - Generic Error in GDI+ has occured.)
-            using (System.Drawing.Image jpeg = t)
+            using (System.Drawing.Image jpeg = x)
             {
                 jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
             }
@@ -1028,6 +1028,8 @@ a=mpeg4-esid:101");
                 {
                     jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
                 }
+
+            if (System.IO.File.Exists("result.jpg")) System.IO.File.Delete("result.jpg");
 
         }
     }

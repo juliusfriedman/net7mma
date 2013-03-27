@@ -155,13 +155,13 @@ namespace Media.Rtp
             }
             set
             {
-                if (value == null)
+                if (value == null || value.Length == 0)
                 {
                     m_ExtensionFlags = m_ExtensionLength = m_Extensions = 0;
                 }
+                else if (value.Length <= 4) throw new ArgumentException("ExtensionData must preceeded with ExtensionFlags (2 Bytes) and the ExtensionLength (2 Bytes), both should be in Host Byte Order");
                 else
                 {
-
                     m_ExtensionFlags = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 0));
 
                     //Take the length in 32 bit words

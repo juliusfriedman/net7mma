@@ -78,9 +78,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="flip.jpg">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="flip.jpg" />
     <Content Include="video.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

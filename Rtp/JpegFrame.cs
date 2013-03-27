@@ -62,7 +62,7 @@ namespace Media.Rtp
         /// <param name="l">optional last bit (defaults to 1)</param>
         /// <param name="count">optional number of restart markers (defaults to 0x3FFF)</param>
         /// <returns>Rst Marker</returns>
-        static byte[] CreateRtpDataRestartIntervalMarker(ushort dri, int f = 1, int l = 1, int count = 0x3FFF)
+        static byte[] CreateRtpJpegDataRestartIntervalMarker(ushort dri, int f = 1, int l = 1, int count = 0x3FFF)
         {
             //     0                   1                   2                   3
             //0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -91,7 +91,7 @@ namespace Media.Rtp
         /// <param name="dri"></param>
         /// <param name="qTables"></param>
         /// <returns></returns>
-        static byte[] CreateRtpJpegHeader(uint typeSpecific, long fragmentOffset, uint type, uint quality, uint width, uint height, byte[] dri, List<byte> qTables)
+        static byte[] CreateRtpJpegHeader(uint typeSpecific, long fragmentOffset, uint type, uint quality, uint width, uint height, byte[] dri, byte precisionTable, List<byte> qTables)
         {
             List<byte> RtpJpegHeader = new List<byte>();
 
@@ -110,8 +110,8 @@ namespace Media.Rtp
 
             //Three byte fragment offset
             RtpJpegHeader.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((uint)fragmentOffset)), 1, 3);
-            
-            RtpJpegHeader.Add((byte)type);
+
+            RtpJpegHeader.Add((byte)(dri != null ? type | 0x40 : type));
             RtpJpegHeader.Add((byte)quality);
             RtpJpegHeader.Add((byte)(width / 8));
             RtpJpegHeader.Add((byte)(height / 8));
@@ -122,17 +122,15 @@ namespace Media.Rtp
                 //Handle Restart Interval
                 if (type > 63 && dri != null)
                 {
-                    //Create a Restart Marker with the count of blocks, the first bit and the size of each block
-                    //CreateRtpDataRestartIntervalMarker(256, 1, 0);
-                    //RtpJpegHeader.AddRange(dri);
-                    throw new NotImplementedException();
+                    //Create a Rtp Restart Marker
+                    RtpJpegHeader.AddRange(CreateRtpJpegDataRestartIntervalMarker(0x3fff, 1, 1));
                 }
 
                 //Handle quality
                 if (quality > 127 && qTables != null)
                 {
-                    RtpJpegHeader.Add(0); //Must Be Zero
-                    RtpJpegHeader.Add(0x00);//Precision (Only 8 Bit Supported) (Should set two bits for 2 tables here per RFC but not many implementations follow)
+                    RtpJpegHeader.Add(0); //Must Be Zero                    
+                    RtpJpegHeader.Add(precisionTable);//Precision (Only 8 Bit Supported) (Should set two bits for 2 tables here per RFC but not many implementations follow)
                     RtpJpegHeader.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)qTables.Count)));
                     RtpJpegHeader.AddRange(qTables);               
                 }
@@ -141,7 +139,7 @@ namespace Media.Rtp
             return RtpJpegHeader.ToArray();
         }
 
-        static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, ushort dri)
+        static byte[] CreateJFIFHeader(uint type, uint width, uint height, ArraySegment<byte> tables, byte precision, ushort dri)
         {
             List<byte> result = new List<byte>();
             result.Add(Tags.Prefix);
@@ -177,7 +175,7 @@ namespace Media.Rtp
             }
 
             //Quantization Tables
-            result.AddRange(CreateQuantizationTablesMarker(tables));
+            result.AddRange(CreateQuantizationTablesMarker(tables, precision));
 
             //Start Of Frame
             result.Add(Tags.Prefix);
@@ -191,18 +189,21 @@ namespace Media.Rtp
             result.Add((byte)width);
 
             result.Add(0x03);//Number of components
-            result.Add(0x01);//Component Number
+            result.Add(0x00);//Component Number
             result.Add((byte)(type > 0 ? 0x22 : 0x21)); //Horizontal or Vertical Sample  
           
             result.Add(0x00);//Matrix Number (Quant Table Id)?
+            result.Add(0x01);//Component Number
+            result.Add(0x11);//Horizontal or Vertical Sample
+
+            //ToDo - Handle 16 Bit Precision
+            result.Add(1);//Matrix Number
+
             result.Add(0x02);//Component Number
             result.Add(0x11);//Horizontal or Vertical Sample
-
-            result.Add((byte)(tables.Count > 64 ? 0x01 : 0x00));//Matrix Number
-
-            result.Add(0x03);//Component Number
-            result.Add(0x11);//Horizontal or Vertical Sample
-            result.Add((byte)(tables.Count > 64 ? 0x01 : 0x00));//Matrix Number      
+            
+            //ToDo - Handle 16 Bit Precision
+            result.Add(1);//Matrix Number      
 
             //Huffman Tables
             result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
@@ -216,14 +217,14 @@ namespace Media.Rtp
             result.Add(0x00); //Length
             result.Add(0x0c); //Length - 12
             result.Add(0x03); //Number of components
-            result.Add(0x01); //Component Number
+            result.Add(0x00); //Component Number
             result.Add(0x00); //Matrix Number
+            result.Add(0x01); //Component Number
+            result.Add(0x11); //Horizontal or Vertical Sample
             result.Add(0x02); //Component Number
             result.Add(0x11); //Horizontal or Vertical Sample
-            result.Add(0x03); //Component Number
-            result.Add(0x11); //Horizontal or Vertical Sample
             result.Add(0x00); //Start of spectral
-            result.Add(0x3f); //End of spectral
+            result.Add(0x3f); //End of spectral (63)
             result.Add(0x00); //Successive approximation bit position (high, low)
 
             return result.ToArray();
@@ -257,8 +258,10 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="Q">The quality factor</param>
         /// <returns>64 luma bytes and 64 chroma</returns>
-        static byte[] CreateQuantizationTables(uint Q)
-        {            
+        static byte[] CreateQuantizationTables(uint type, uint Q, byte precision)
+        {
+            Q &= 128;
+
             //Factor restricted to range of 1 and 99
             int factor = (int)Math.Max(Math.Min(1, Q), 99);
 
@@ -270,11 +273,24 @@ namespace Media.Rtp
             byte[] resultTables = new byte[tableSize * 2];
             for (int i = 0, j = tableSize; i < tableSize; ++i, ++j)
             {
-                                        //Clamp with Min, Max
-                //Luma
-                resultTables[i] = (byte)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), byte.MaxValue);
-                //Chroma
-                resultTables[j] = (byte)Math.Min(Math.Max((defaultQuantizers[j] * q + 50) / 100, 1), byte.MaxValue);
+                if (precision == 0)
+                {
+                    //Clamp with Min, Max
+                    //Luma
+                    resultTables[i] = (byte)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), byte.MaxValue);
+                    //Chroma
+                    resultTables[j] = (byte)Math.Min(Math.Max((defaultQuantizers[j] * q + 50) / 100, 1), byte.MaxValue);
+                }
+                else
+                {
+                    //Luma
+                    BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, i);
+                    i++;
+                    
+                    //Chroma
+                    BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)Math.Min(Math.Max((defaultQuantizers[i] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, j);
+                    j++;
+                }
             }
 
             return resultTables;
@@ -285,22 +301,25 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="tables">The tables verbatim, either 1 or 2 (Lumiance and Chromiance)</param>
         /// <returns>The table with marker and perfix/returns>
-        static byte[] CreateQuantizationTablesMarker(ArraySegment<byte> tables, int tableCount = 2)
+        static byte[] CreateQuantizationTablesMarker(ArraySegment<byte> tables, byte precision)
         {
             //List<byte> result = new List<byte>();
-
+            
+            int tableCount = tables.Count / (precision > 0 ? 128 : 64);
+            
+            //??Some might have more then 2?
             if (tableCount > 2) throw new ArgumentOutOfRangeException("tableCount");
 
             int tableSize = tables.Count / tableCount;
             
             //Each tag is 4 bytes (prefix and tag) + 2 for len = 4 + 1 for Precision and TableId 
-            byte[] result = new byte[5 * (tables.Count / tableSize) + tableSize * tableCount];
+            byte[] result = new byte[(5 * tableCount) + (tableSize * tableCount)];
 
             result[0] = Tags.Prefix;
             result[1] = Tags.QuantizationTable;
             result[2] = 0;//Len
             result[3] = (byte)(tableSize + 3);
-            result[4] = 0; // Precision and TableId
+            result[4] = (byte)(precision << 4 | 0); // Precision and TableId
 
             //First table. Type - Lumiance usually when two
             System.Array.Copy(tables.Array, tables.Offset, result, 5, tableSize);
@@ -311,11 +330,11 @@ namespace Media.Rtp
                 result[tableSize + 6] = Tags.QuantizationTable;
                 result[tableSize + 7] = 0;//Len
                 result[tableSize + 8] = (byte)(tableSize + 3);
-                result[tableSize + 9] = 1;//Precision 0, and table Id
+                result[tableSize + 9] = (byte)(precision << 4 | 1);//Precision 0, and table Id
 
                 //Second Table. Type - Chromiance usually when two
-                System.Array.Copy(tables.Array, tables.Offset + tableSize, result, tableSize + 5 + 5, tableSize);
-            }
+                System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 10 + tableSize, tableSize);
+            }            
 
             return result;
         }
@@ -428,8 +447,13 @@ namespace Media.Rtp
         {
             //Must calculate correctly the Type, Quality, FragmentOffset and Dri
             uint TypeSpecific = 0, Type = 0, Quality = quality, Width = (uint)source.Width, Height = (uint)source.Height;
+           
+            byte Precision = 0;
+            byte[] RestartInterval = null, PrecisionTableData = new byte[1]; List<byte> QTables = new List<byte>();
 
-            byte[] RestartInterval = null; List<byte> QTables = new List<byte>();
+             //Might need to build the precisionByte
+            System.Collections.BitArray precisionTable = new System.Collections.BitArray(PrecisionTableData);
+            int precisionIndex = 0;
 
             //Save the image in Jpeg format and request the PropertyItems from the Jpeg format of the Image
             using(System.IO.MemoryStream temp = new System.IO.MemoryStream())
@@ -479,13 +503,12 @@ namespace Media.Rtp
                 temp.Seek(0, System.IO.SeekOrigin.Begin);
 
                 //Read the JPEG Back from the stream so it's pixel format is JPEG
+                //DO NOT USE THE EMBEDDED COLOR MANGEMENT
                 Image = System.Drawing.Image.FromStream(temp, false, true);
 
                 //Determine if there are Quantization Tables which must be sent
                 if (Image.PropertyIdList.Contains(0x5090) && Image.PropertyIdList.Contains(0x5091))
                 {
-                    //QTables.AddRange((byte[])Image.GetPropertyItem(0x5090).Value); //16 bit
-                    //QTables.AddRange((byte[])Image.GetPropertyItem(0x5091).Value); //16 bit
                     //This is causing the QTables to be read on the reciever side
                     Quality |= 128;
                 }
@@ -569,22 +592,86 @@ namespace Media.Rtp
                         //QTables are copied when Quality is > 127
                         if (Tag == Tags.QuantizationTable && Quality > 127)
                         {
-                            //byte Precision = (byte)temp.ReadByte();//Discard Precision
-                            //if (Precision != 0) throw new Exception("Only 8 Bit Precision is Supported");
                             
-                            temp.ReadByte();//Discard Table Id (And Precision which is in the same byte)
+                            byte compound = (byte)temp.ReadByte();//Read Table Id (And Precision which is in the same byte)
+
+                            byte precision = (byte)(compound >> 4);
+
+                            byte tableId = (byte)(compound & 0xf);
 
                             byte[] table = new byte[TagSize - 1];
-                            
+
+                            //Set a bit in the precision table to indicate 16 bit coefficients
+                            precisionTable[precisionIndex++] = precision > 0;
+
+                            //Read the remainder of the data into the table array
                             temp.Read(table, 0, TagSize - 1);
 
+                            //Copy the updated precisionTable to the PrecisionTableData
+                            precisionTable.CopyTo(PrecisionTableData, 0);
+
+                            //Get the Precision byte for the RtpJpegHeader from the PrecisionTableData
+                            Precision = PrecisionTableData[0];
+
+                            if (precision > 0)
+                            {
+                                //For 16 bit tables, the coefficients are  must be presented in network byte order.
+                                for (int i = 0; i < table.Length - 1; i+=2)
+                                {
+                                    byte swap = table[i];
+                                    table[i] = table[i + 1];
+                                    table[i + 1] = swap;
+                                }
+                            }
+
+                            //Add the table array to the table blob
                             QTables.AddRange(table);
                         }
                         else if (Tag == Tags.DataRestartInterval) //RestartInterval is copied
                         {
-                            //Make DRI?      
-                            Type = 65; //Should flag?
-                            RestartInterval = CreateRtpDataRestartIntervalMarker((ushort)(temp.ReadByte() * 256 + temp.ReadByte()), 1, 1, 0x3fff);
+                            #region RFC2435 - Restart Marker Header
+
+                            /*
+                             
+    3.1.7.  Restart Marker header
+
+   This header MUST be present immediately after the main JPEG header
+   when using types 64-127.  It provides the additional information
+   required to properly decode a data stream containing restart markers.
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |       Restart Interval        |F|L|       Restart Count       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   The Restart Interval field specifies the number of MCUs that appear
+   between restart markers.  It is identical to the 16 bit value that
+   would appear in the DRI marker segment of a JFIF header.  This value
+   MUST NOT be zero.
+
+   If the restart intervals in a frame are not guaranteed to be aligned
+   with packet boundaries, the F (first) and L (last) bits MUST be set
+   to 1 and the Restart Count MUST be set to 0x3FFF.  This indicates
+   that a receiver MUST reassemble the entire frame before decoding it.
+
+   To support partial frame decoding, the frame is broken into "chunks"
+   each containing an integral number of restart intervals. The Restart
+   Count field contains the position of the first restart interval in
+   the current "chunk" so that receivers know which part of the frame
+   this data corresponds to.  A Restart Interval value SHOULD be chosen
+   to allow a "chunk" to completely fit within a single packet.  In this
+   case, both the F and L bits of the packet are set to 1.  However, if
+   a chunk needs to be spread across multiple packets, the F bit will be
+   set to 1 in the first packet of the chunk (and only that one) and the
+   L bit will be set to 1 in the last packet of the chunk (and only that
+   one).
+                             
+                             */
+
+                            #endregion
+                            Type = 65;
+                            RestartInterval = CreateRtpJpegDataRestartIntervalMarker((ushort)(temp.ReadByte() * 256 + temp.ReadByte()), 1, 1, 0x3fff);
                         }                        
                         //Last Marker in Header before EntroypEncodedScan
                         else if (Tag == Tags.StartOfScan)
@@ -595,7 +682,7 @@ namespace Media.Rtp
 
                             //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                             {
-                                byte[] data = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, QTables);
+                                byte[] data = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, Precision, QTables);
 
                                 data.CopyTo(currentPacket.Payload, currentPacketOffset);
 
@@ -609,7 +696,7 @@ namespace Media.Rtp
                             long streamRemains = endOffset - temp.Position;
 
                             //A RtpJpegHeader which must be in the Payload of each Packet (8 Bytes without QTables and RestartInterval)
-                            byte[] RtpJpegHeader = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, null);
+                            byte[] RtpJpegHeader = CreateRtpJpegHeader(TypeSpecific, 0, Type, Quality, Width, Height, RestartInterval, Precision, null);
 
                             //While we are not done reading
                             while (temp.Position < endOffset)
@@ -668,6 +755,7 @@ namespace Media.Rtp
 
                 //To allow the stream to be closed
                 Image = new System.Drawing.Bitmap(Image);
+
             }
         }
 
@@ -688,8 +776,10 @@ namespace Media.Rtp
         /// </summary>
         internal void ProcessPackets()
         {
-            uint TypeSpecific, FragmentOffset, Type, Quality, Width, Height;
+            uint TypeSpecific, FragmentOffset, Type, type, Quality, Width, Height;
             ushort RestartInterval = 0, RestartCount = 0;
+            //A byte which is bit mapped
+            byte PrecisionTable = 0;
             ArraySegment<byte> tables = default(ArraySegment<byte>);
 
             //Using a new MemoryStream for a Buffer
@@ -712,16 +802,102 @@ namespace Media.Rtp
                     }
 
                     //Decode RtpJpeg Header
+
                     TypeSpecific = (uint)(packet.Payload[offset++]);
                     FragmentOffset = (uint)(packet.Payload[offset++] << 16 | packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                    Type = (uint)(packet.Payload[offset++]); //&1 for type
+
+                    #region RFC2435 -  The Type Field
+
+                    /*
+                     4.1.  The Type Field
+
+   The Type field defines the abbreviated table-specification and
+   additional JFIF-style parameters not defined by JPEG, since they are
+   not present in the body of the transmitted JPEG data.
+
+   Three ranges of the type field are currently defined. Types 0-63 are
+   reserved as fixed, well-known mappings to be defined by this document
+   and future revisions of this document. Types 64-127 are the same as
+   types 0-63, except that restart markers are present in the JPEG data
+   and a Restart Marker header appears immediately following the main
+   JPEG header. Types 128-255 are free to be dynamically defined by a
+   session setup protocol (which is beyond the scope of this document).
+
+   Of the first group of fixed mappings, types 0 and 1 are currently
+   defined, along with the corresponding types 64 and 65 that indicate
+   the presence of restart markers.  They correspond to an abbreviated
+   table-specification indicating the "Baseline DCT sequential" mode,
+   8-bit samples, square pixels, three components in the YUV color
+   space, standard Huffman tables as defined in [1, Annex K.3], and a
+   single interleaved scan with a scan component selector indicating
+   components 1, 2, and 3 in that order.  The Y, U, and V color planes
+   correspond to component numbers 1, 2, and 3, respectively.  Component
+   1 (i.e., the luminance plane) uses Huffman table number 0 and
+   quantization table number 0 (defined below) and components 2 and 3
+   (i.e., the chrominance planes) use Huffman table number 1 and
+   quantization table number 1 (defined below).
+
+   Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications
+   based on previous versions of this document (RFC 2035) should be
+   updated to indicate the presence of restart markers with type 64 or
+   65 and the Restart Marker header.
+
+   The two RTP/JPEG types currently defined are described below:
+
+                            horizontal   vertical   Quantization
+           types  component samp. fact. samp. fact. table number
+         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+         |       |  1 (Y)  |     2     |     1     |     0     |
+         | 0, 64 |  2 (U)  |     1     |     1     |     1     |
+         |       |  3 (V)  |     1     |     1     |     1     |
+         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+         |       |  1 (Y)  |     2     |     2     |     0     |
+         | 1, 65 |  2 (U)  |     1     |     1     |     1     |
+         |       |  3 (V)  |     1     |     1     |     1     |
+         +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   These sampling factors indicate that the chrominance components of
+   type 0 video is downsampled horizontally by 2 (often called 4:2:2)
+   while the chrominance components of type 1 video are downsampled both
+   horizontally and vertically by 2 (often called 4:2:0).
+
+   Types 0 and 1 can be used to carry both progressively scanned and
+   interlaced image data.  This is encoded using the Type-specific field
+   in the main JPEG header.  The following values are defined:
+
+      0 : Image is progressively scanned.  On a computer monitor, it can
+          be displayed as-is at the specified width and height.
+
+      1 : Image is an odd field of an interlaced video signal.  The
+          height specified in the main JPEG header is half of the height
+          of the entire displayed image.  This field should be de-
+          interlaced with the even field following it such that lines
+          from each of the images alternate.  Corresponding lines from
+          the even field should appear just above those same lines from
+          the odd field.
+
+      2 : Image is an even field of an interlaced video signal.
+
+      3 : Image is a single field from an interlaced video signal, but
+          it should be displayed full frame as if it were received as
+          both the odd & even fields of the frame.  On a computer
+          monitor, each line in the image should be displayed twice,
+          doubling the height of the image.
+                     */
+
+                    #endregion
+
+                    Type = (uint)(packet.Payload[offset++]);
+                    type = Type & 1;
+                    if (type > 3 || type > 6) throw new ArgumentException("Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications on RFC 2035 should be updated to indicate the presence of restart markers with type 64 or 65 and the Restart Marker header.");
+
                     Quality = (uint)packet.Payload[offset++];
                     Width = (uint)(packet.Payload[offset++] * 8); // This should have been 128 or > and the standard would have worked for all resolutions
                     Height = (uint)(packet.Payload[offset++] * 8);// Now in certain highres profiles you will need an OnVif extension before the RtpJpeg Header
                     //It is worth noting Rtp does not care what you send and more tags such as comments and or higher resolution pictures may be sent and these values will simply be ignored.
 
-                    //Restart Interval
-                    if (Type > 63)//= 64 && Type <= 127)
+                    //Restart Interval 64 - 127
+                    if (Type > 63 && Type < 128)
                     {
                         /*
                            This header MUST be present immediately after the main JPEG header
@@ -734,12 +910,8 @@ namespace Media.Rtp
                            |       Restart Interval        |F|L|       Restart Count       |
                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                          */
-                        RestartInterval = (ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                        RestartCount = (ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
-                        //Get first last bits and flag out
-                        bool first = (RestartInterval & 1) == RestartInterval, last = (RestartCount & 0x3fff) == RestartCount;
-                        //Remove bits (first and last)
-                        RestartInterval &= 1 | 0x3fff;
+                        RestartInterval =(ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
+                        RestartCount = (ushort)((packet.Payload[offset++] << 8 | packet.Payload[offset++]) & 0x3fff);
                     }
 
                     //QTables Only occur in the first packet
@@ -750,20 +922,47 @@ namespace Media.Rtp
                         {
                             if ((packet.Payload[offset++]) != 0)
                             {
-                                //Must be Zero is Not Zero
+                                //Must Be Zero is Not Zero
+                                if (System.Diagnostics.Debugger.IsAttached)
+                                {
+                                    System.Diagnostics.Debugger.Break();
+                                }
                             }
 
-                            //Precision and TableId
-                            //If nibble of byte == 1 then this is a 16 bit table...
+                            //Precision
+                            PrecisionTable = (packet.Payload[offset++]);
                             
-                            //Also each bit in this byte should be checked to determine the number of tables present...
-                            //E.g. the byte should be set bit by bit but a lot of implementations including VLC do not handle this properly
-                            byte Precision = (packet.Payload[offset++]);
-                            if (Precision > 0)
-                            {
-                                //Not Supported
-                                throw new NotSupportedException("Found a Quantization Table with 16 Bit Precision");
-                            }
+                            #region RFC2435 Length Field
+
+                            /*
+                                 
+   The Length field is set to the length in bytes of the quantization
+   table data to follow.  The Length field MAY be set to zero to
+   indicate that no quantization table data is included in this frame.
+   See section 4.2 for more information.  If the Length field in a
+   received packet is larger than the remaining number of bytes, the
+   packet MUST be discarded.
+
+   When table data is included, the number of tables present depends on
+   the JPEG type field.  For example, type 0 uses two tables (one for
+   the luminance component and one shared by the chrominance
+   components).  Each table is an array of 64 values given in zig-zag
+   order, identical to the format used in a JFIF DQT marker segment.
+
+   For each quantization table present, a bit in the Precision field
+   specifies the size of the coefficients in that table.  If the bit is
+   zero, the coefficients are 8 bits yielding a table length of 64
+   bytes.  If the bit is one, the coefficients are 16 bits for a table
+   length of 128 bytes.  For 16 bit tables, the coefficients are
+   presented in network byte order.  The rightmost bit in the Precision
+   field (bit 15 in the diagram above) corresponds to the first table
+   and each additional table uses the next bit to the left.  Bits beyond
+   those corresponding to the tables needed by the type in use MUST be
+   ignored.
+                                 
+                                 */
+
+                            #endregion
 
                             //Length of all tables
                             ushort Length = (ushort)(packet.Payload[offset++] << 8 | packet.Payload[offset++]);
@@ -774,20 +973,24 @@ namespace Media.Rtp
                                 tables = new ArraySegment<byte>(packet.Payload, offset, (int)Length);
                                 offset += (int)Length;
                             }
+                            else if (Length > packet.Payload.Length - offset)
+                            {
+                                continue; // The packet must be discarded
+                            }
                             else // Create it from the Quality
                             {
-                                tables = new ArraySegment<byte>(CreateQuantizationTables(Quality & 128));
+                                tables = new ArraySegment<byte>(CreateQuantizationTables(Quality, type, PrecisionTable));
                             }
                         }
                         else // Create from the Quality
                         {
-                            tables = new ArraySegment<byte>(CreateQuantizationTables(Quality));
+                            tables = new ArraySegment<byte>(CreateQuantizationTables(type, Quality, PrecisionTable));
                         }
 
                         //Write the header to the buffer if there are no Extensions
                         if (!packet.Extensions)
                         {
-                            byte[] header = CreateJFIFHeader(Type, Width, Height, tables, RestartInterval);
+                            byte[] header = CreateJFIFHeader(type, Width, Height, tables, PrecisionTable, RestartInterval);
                             Buffer.Write(header, 0, header.Length);
                         }
                         //else
@@ -795,6 +998,8 @@ namespace Media.Rtp
                         //    //Write header using Extensions...
                         //}
                     }
+
+                    
 
                     //Write the Payload data from the offset
                     Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
@@ -810,11 +1015,12 @@ namespace Media.Rtp
                 }
 
                 //Go back to the beginning
-                Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+                Buffer.Position = 0;
 
                 //This article explains in detail what exactly happens: http://support.microsoft.com/kb/814675
                 //In short, for a lifetime of an Image constructed from a stream, the stream must not be destroyed.
-                //Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, false, true));
+                //Image = new System.Drawing.Bitmap(System.Drawing.Image.FromStream(Buffer, true, true));
+                //DO NOT USE THE EMBEDDED COLOR MANGEMENT
                 Image = System.Drawing.Image.FromStream(Buffer, false, true);
             }
         }
@@ -830,7 +1036,6 @@ namespace Media.Rtp
             try
             {
                 if (Image == null) ProcessPackets();
-                //return new System.Drawing.Bitmap(Image);
                 return Image.GetThumbnailImage(Image.Width, Image.Height, null, IntPtr.Zero);
             }
             catch
