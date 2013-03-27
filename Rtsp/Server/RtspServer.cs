@@ -996,7 +996,7 @@ namespace Media.Rtsp
                 //http://cgit.freedesktop.org/gstreamer/gst-plugins-base/tree/gst-libs/gst/rtsp/gstrtspconnection.c?id=88110ea67e7d5240a7262dbb9c4e5d8db565cccf
                 //http://www.live555.com/liveMedia/doxygen/html/RTSPClient_8cpp-source.html
                 //https://developer.apple.com/quicktime/icefloe/dispatch028.html
-                //Can't find anythingin RFC except one example
+                //Can't find anything in the RFC except one example
                 //MAY ALSO NEED ICE AND STUN?
 
                 #endregion
@@ -1321,11 +1321,11 @@ namespace Media.Rtsp
                 if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Digest)
                 {
                     //Might need to store values qop nc, cnonce and nonce in session storage for later retrival
-                    authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", source.RemoteCredential.UserName, "//", ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));                    
+                    authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", source.RemoteCredential.UserName, source.RemoteCredential.Domain ?? "//", ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));                    
                 }
                 else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.Basic)
                 {
-                    authenticateHeader = "Basic realm=//";                    
+                    authenticateHeader = "Basic realm=" + source.RemoteCredential.Domain ?? "//";                    
                 }
 
                 if(!string.IsNullOrWhiteSpace(authenticateHeader))

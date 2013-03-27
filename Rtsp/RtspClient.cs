@@ -20,6 +20,8 @@ namespace Media.Rtsp
     {
         internal static char[] TimeSplit = new char[] { '-', ';' };
 
+        internal static char[] SpaceSplit = new char[] { ' ', ',' };
+
         #region Nested Types
 
         public class RtspClientException : Exception
@@ -655,9 +657,11 @@ namespace Media.Rtsp
                     {
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
                     }
-                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)//Digest
+                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
                     {
-                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, AuthenticationScheme, Credential, null, null, null, null, null));
+                        //Digest
+                        request.SetHeader(RtspHeaders.Authorization, 
+                            RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, Credential, null, null, null, null, null, false, null, request.Body));
                     }
                 }
 
@@ -750,7 +754,7 @@ namespace Media.Rtsp
 
                     string authenticateHeader = m_LastRtspResponse[RtspHeaders.WWWAuthenticate];
 
-                    string[] baseParts = authenticateHeader.Split(' ');
+                    string[] baseParts = authenticateHeader.Split(SpaceSplit, 1);
 
                     if (baseParts[0].ToLowerInvariant().Trim() == "basic")
                     {
@@ -766,33 +770,36 @@ namespace Media.Rtsp
                     {
                         AuthenticationScheme = AuthenticationSchemes.Digest;
 
-                        string[] parts = baseParts[1].Split(',');
+                        string[] parts = authenticateHeader.Replace(baseParts[0], string.Empty).Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
 
-                        string username, uri, response;
+                        string algorithm = "MD5";
 
-                        username = parts.Where(p => p.StartsWith("username")).FirstOrDefault();
-
+                        string username = parts.Where(p => string.Compare("username", p, true) == 0).FirstOrDefault();
                         if (username != null) username = username.Replace("username=", string.Empty);
 
-                        string realm = parts.Where(p => p.StartsWith("realm")).FirstOrDefault();
-
+                        string realm = parts.Where(p => string.Compare("realm", p, true) == 0).FirstOrDefault();
                         if (realm != null) realm = realm.Replace("realm=", string.Empty);
 
-                        string nc = parts.Where(p => p.StartsWith("nc")).FirstOrDefault();
+                        string nc = parts.Where(p => string.Compare("nc", p, true) == 0).FirstOrDefault();
+                        if (nc != null) nc = realm.Replace("nc=", string.Empty);
 
-                        string nonce = parts.Where(p => p.StartsWith("nonce")).FirstOrDefault();
+                        string nonce = parts.Where(p => string.Compare("nonce", p, true) == 0).FirstOrDefault();
+                        if (nonce != null) nonce = realm.Replace("nonce=", string.Empty);
 
-                        if (nonce != null) nonce = nonce.Replace("nonce=", string.Empty);
-
-                        string cnonce = parts.Where(p => p.StartsWith("cnonce")).FirstOrDefault();
-
+                        string cnonce = parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
                         if (cnonce != null) cnonce = cnonce.Replace("cnonce=", string.Empty);
 
-                        uri = parts.Where(p => p.StartsWith("uri")).FirstOrDefault();
+                        string uri = parts.Where(p => p.Contains("uri")).FirstOrDefault();
 
-                        if (uri != null) uri = uri.Replace("uri=", string.Empty);
+                        bool rfc2069 = !string.IsNullOrWhiteSpace(uri) && !uri.Contains('-');
 
-                        string qop = parts.Where(p => p.StartsWith("qop")).FirstOrDefault();
+                        if (uri != null)
+                        {
+                            if (rfc2069) uri = uri.Replace("uri=", string.Empty);
+                            else uri = uri.Replace("digest-uri=", string.Empty);                            
+                        }
+
+                        string qop = parts.Where(p => string.Compare("qop", p, true) == 0).FirstOrDefault();
 
                         if (qop != null)
                         {
@@ -800,15 +807,13 @@ namespace Media.Rtsp
                             if (nc != null) nc = nc.Replace("nc=", string.Empty);
                         }
 
-                        string opaque = parts.Where(p => p.StartsWith("opaque")).FirstOrDefault();
-
+                        string opaque = parts.Where(p => string.Compare("opaque", p, true) == 0).FirstOrDefault();
                         if (opaque != null) opaque = opaque.Replace("opaque=", string.Empty);
 
-                        response = parts.Where(p => p.StartsWith("response")).FirstOrDefault();
+                        //string response = parts.Where(p => string.Compare("response", p, true) == 0).FirstOrDefault();
+                        //if (response != null) response = response.Replace("response=", string.Empty);
 
-                        if (response != null) response = response.Replace("response=", string.Empty);
-
-                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, AuthenticationScheme, Credential, qop, nc, nonce, cnonce, opaque));
+                        request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, Credential, qop, nc, nonce, cnonce, opaque, rfc2069, algorithm, request.Body));
 
                         //Recurse the call with the info from then authenticate header
                         return SendRtspRequest(request);
