@@ -12,6 +12,10 @@ namespace Media.Rtcp
         public uint SynchronizationSourceIdentifier, FractionLost, ExtendedHigestSequenceNumber, InterArrivalJitter, LastSendersReport, DelaySinceLastSendersReport;
         public int CumulativePacketsLost;
 
+        public uint SequenceNumberCyclesCount { get { return ExtendedHigestSequenceNumber & 0xFFFF0000; } }
+
+        public uint HighestSequenceNuberReceived { get { return ExtendedHigestSequenceNumber & 0x0000FFFF; } }
+
         public ReportBlock(uint ssrc)
         {
             SynchronizationSourceIdentifier = ssrc;
