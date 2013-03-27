@@ -169,10 +169,8 @@ namespace Media.Rtp
             result.Add(0x00);//No thumb
             result.Add(0x00);//Thumb Data
 
-            if (dri > 0)
-            {
-                result.AddRange(CreateDataRestartIntervalMarker(dri));
-            }
+            //Data Restart Invertval
+            if (dri > 0) result.AddRange(CreateDataRestartIntervalMarker(dri));
 
             //Quantization Tables
             result.AddRange(CreateQuantizationTablesMarker(tables, precision));
@@ -774,7 +772,7 @@ namespace Media.Rtp
         /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
         /// Assigns Image from the result
         /// </summary>
-        internal void ProcessPackets()
+        internal virtual void ProcessPackets()
         {
             uint TypeSpecific, FragmentOffset, Type, type, Quality, Width, Height;
             ushort RestartInterval = 0, RestartCount = 0;
@@ -792,14 +790,14 @@ namespace Media.Rtp
                     int offset = 0;
 
                     //Handle Extension Headers
-                    if (packet.Extensions)
-                    {
-                        //This could be OnVif extension
-                        //http://www.onvif.org/specs/stream/ONVIF-Streaming-Spec-v220.pdf
-
-                        //Decode
-                        //packet.ExtensionBytes;
-                    }
+                    //if (packet.Extensions)
+                    //{
+                    //    This could be OnVif extension etc
+                    //    http://www.onvif.org/specs/stream/ONVIF-Streaming-Spec-v220.pdf
+                    //    Decode
+                    //    packet.ExtensionBytes;
+                    //    In a Derived Implementation
+                    //}
 
                     //Decode RtpJpeg Header
 
@@ -987,19 +985,9 @@ namespace Media.Rtp
                             tables = new ArraySegment<byte>(CreateQuantizationTables(type, Quality, PrecisionTable));
                         }
 
-                        //Write the header to the buffer if there are no Extensions
-                        if (!packet.Extensions)
-                        {
-                            byte[] header = CreateJFIFHeader(type, Width, Height, tables, PrecisionTable, RestartInterval);
-                            Buffer.Write(header, 0, header.Length);
-                        }
-                        //else
-                        //{
-                        //    //Write header using Extensions...
-                        //}
+                        byte[] header = CreateJFIFHeader(type, Width, Height, tables, PrecisionTable, RestartInterval);
+                        Buffer.Write(header, 0, header.Length);
                     }
-
-                    
 
                     //Write the Payload data from the offset
                     Buffer.Write(packet.Payload, offset, packet.Payload.Length - offset);
@@ -1067,6 +1055,17 @@ namespace Media.Rtp
             DisposeImage();
             return base.Remove(sequenceNumber);
         }
+
+        #region Jpeg 
+
+        //Maybe
+        //public byte[] GetQuantizationTable(int index) { }
+        //....
+
+        //Allow conversion to and from 8/16 bit
+        //Allow setting of QTables
+
+        #endregion
 
         #endregion
 
