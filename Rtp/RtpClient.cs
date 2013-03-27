@@ -656,7 +656,7 @@ namespace Media.Rtp
 
                             if (reason.Contains("ssrc"))
                             {
-                                transportContext.LocalSynchronizationSourceIdentifier = (uint)DateTime.UtcNow.Ticks;
+                                transportContext.LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks >> transportContext.DataChannel | transportContext.RtpSocket.Handle.ToInt64() << transportContext.ControlChannel);
 
                                 if (transportContext.RecieversReport != null)
                                 {
@@ -1188,7 +1188,7 @@ namespace Media.Rtp
             {
                 // Guaranteed to be unique per session
                 // Does not follow RFC Generation guidelines but is more performant and just as unique
-                context.LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & context.RtpSocket.Handle.ToInt64() ^ (context.DataChannel | context.ControlChannel));
+                context.LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks >> context.DataChannel | context.RtpSocket.Handle.ToInt64() << context.ControlChannel);
             }
 
             //First report include no blocks (No last senders report)
@@ -1213,7 +1213,7 @@ namespace Media.Rtp
             {
                 // Guaranteed to be unique per session
                 // Does not follow RFC Generation guidelines but is more performant and just as unique
-                context.LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks & context.RtpSocket.Handle.ToInt64() ^ (context.DataChannel | context.ControlChannel));
+                context.LocalSynchronizationSourceIdentifier = (uint)(DateTime.UtcNow.Ticks >> context.DataChannel | context.RtpSocket.Handle.ToInt64() << context.ControlChannel);
             }
 
             context.RecieversReport = CreateReceiversReport(context, context.SendersReport != null);
@@ -1238,10 +1238,10 @@ namespace Media.Rtp
 
         internal SourceDescription CreateSourceDescription(TransportContext context)
         {
-            uint ssrc = context.SendersReport.Sent.HasValue ?
-                    context.SendersReport.SendersSynchronizationSourceIdentifier :
-                        context.RecieversReport.Sent.HasValue ?
-                            context.RecieversReport.SendersSynchronizationSourceIdentifier : 0;
+            uint ssrc = context.RtpBytesSent > 0 || context.SendersReport.Sent.HasValue ?
+                     context.SendersReport.SendersSynchronizationSourceIdentifier :
+                        context.RtpBytesRecieved > 0 || context.RecieversReport.Sent.HasValue ?
+                            context.RecieversReport.SendersSynchronizationSourceIdentifier : context.LocalSynchronizationSourceIdentifier;
             return new SourceDescription(context.ControlChannel) 
             { 
                 new SourceDescription.SourceDescriptionChunk(ssrc, SourceDescription.SourceDescriptionItem.CName)
