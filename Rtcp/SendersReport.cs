@@ -1,148 +1,200 @@
-﻿using System;
+﻿#region Copyright
+/*
+Copyright (c) 2013 juliusfriedman@gmail.com
+  
+ SR. Software Engineer ASTI Transportation Inc.
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+#endregion
+
+#region Using Statements
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Octet = System.Byte;
+using OctetSegment = System.ArraySegment<byte>;
+using Media.Common;
 
+#endregion
 namespace Media.Rtcp
 {
-    public sealed class SendersReport : RtcpPacket, System.Collections.IEnumerable
+    #region SendersReport
+
+    /// <summary>
+    /// Provides a managed implemenation of the SendersReport abstraction outlined in http://tools.ietf.org/html/rfc3550#section-6.4.1
+    /// </summary>
+    public class SendersReport : RtcpReport
     {
-        #region Properties
+        #region Constants and Statics
 
-        public uint SendersSynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
+        public const int SendersInformationSize = 20;
 
-        //2 Words which make up the NtpTimestamp
-        internal uint m_NtpMsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 4)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 4); } }
-        internal uint m_NtpLsw { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 8)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 8); } }
-        public ulong NtpTimestamp { get { return (ulong)m_NtpMsw << 32 | m_NtpLsw; } set { m_NtpLsw = (uint)(value & uint.MaxValue); m_NtpMsw = (uint)(value >> 32); } }
-
-        public uint RtpTimestamp { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 12)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 12); } }
-
-        public uint SendersPacketCount { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 16)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 16); } }
-
-        public uint SendersOctetCount { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 20)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 20); } }
-
-        public bool HasExtensionData { get { return Payload.Length > 24 + ReportBlock.Size * BlockCount; } }
-
-        public byte[] ExtensionData
-        {
-            get
-            {
-                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
-                if (Payload.Length > requiredOffset)
-                {
-                    int len = Payload.Length - requiredOffset;
-                    byte[] data = new byte[len];
-                    System.Array.Copy(Payload, requiredOffset, data, 0, len);
-                    return data;
-                }
-                return null;
-            }
-            set
-            {
-                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
-                if (value == null || value.Length == 0 || m_Data.Length > requiredOffset)
-                {
-                    Array.Resize(ref m_Data, requiredOffset);
-                    Length = (short)m_Data.Length;
-                    return;
-                }
-                else
-                {
-                    List<byte> temp = new List<byte>(Payload);
-                    temp.AddRange(value);
-                    Payload = temp.ToArray();
-                }
-            }
-        }
-
-        public ReportBlock this[int index]
-        {
-            get
-            {
-                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-
-                //Determine offset of block
-                int offset = 0;
-                if (index > 0) offset = 24 + (ReportBlock.Size * index);
-                else offset = 24;
-
-                return new ReportBlock(Payload, ref offset);
-            }
-            set
-            {
-                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-                if (value == null)
-                {
-                    Remove(index);
-                    return;
-                }
-                else
-                {
-                    //Blocks[index] = value;
-
-                    //Determine offset of block
-                    int offset = 0;
-                    if (index > 0) offset = 24 + (ReportBlock.Size * index);
-                    else offset = 24;
-
-                    value.ToBytes().CopyTo(Payload, offset);
-                }
-            }
-        }
+        new public const int PayloadType = 200;
 
         #endregion
 
         #region Constructor
 
-        public SendersReport(uint ssrc) : base(RtcpPacketType.SendersReport) { Payload = new byte[24]; SendersSynchronizationSourceIdentifier = ssrc; }
-
-        public SendersReport(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.SendersReport) { }
-
-        public SendersReport(RtcpPacket packet) : base(packet) { if (packet.PacketType != RtcpPacket.RtcpPacketType.SendersReport) throw new Exception("Invalid Packet Type, Expected SendersReport. Found: '" + (byte)packet.PacketType + '\''); }
+        public SendersReport(int version, bool padding, int reportBlocks, int ssrc)
+            : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize)
+        {
             
+        }
+
+        public SendersReport(RtcpPacket reference)
+            : base(reference.Header, reference.Payload)
+        {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
+        }
+
         #endregion
 
-        #region Methods
+        #region Properties
 
-        public void Add(ReportBlock reportBlock) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(reportBlock.ToBytes()); Payload = temp.ToArray(); }
+        #region Senders Information Properties
 
-        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersSynchronizationSourceIdentifier)); }
-
-        public void Remove(int index)
+        /// <summary>
+        /// The Most Significant Word (32 bit value) of the NTP Timestamp
+        /// </summary>
+        public int NtpMSW
         {
-            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-
-            BlockCount--;
-
-            //Determine offset of block
-            int offset = 0;
-            if (index > 0) offset = 24 + (ReportBlock.Size * index);
-            else offset = 24;
-
-            List<byte> temp = new List<byte>(Payload);
-            temp.RemoveRange(offset, ReportBlock.Size);
-            Payload = temp.ToArray();
+            get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value); }
         }
 
-        public void Insert(int index, ReportBlock reportBlock)
+        /// <summary>
+        /// The Least Significant Word (32 bit value) of the NTP Timestamp
+        /// </summary>
+        public int NtpLSW
         {
-            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-
-            BlockCount++;
-
-            //Determine offset of block
-            int offset = 0;
-            if (index > 0) offset = 24 + (ReportBlock.Size * index);
-            else offset = 24;
-
-            List<byte> temp = new List<byte>(Payload);
-            temp.InsertRange(offset, reportBlock.ToBytes());
-            Payload = temp.ToArray();
+            get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian, (uint)value); }
         }
 
-        public System.Collections.IEnumerator GetEnumerator() { for (int i = 0; i < BlockCount; ++i) yield return this[i]; }
+        /// <summary>            
+        ///Corresponds to the same time as the NTP timestamp (above), but in the same units and with the same random offset as the RTP timestamps in data packets.  
+        ///This correspondence may be used for intra- and inter-media synchronization for sources whose NTP timestamps are synchronized, and may be used by media-independent receivers to estimate the nominal RTP clock frequency.  
+        ///
+        ///Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet.  
+        ///Rather, it MUST be calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.              
+        /// </summary>
+        public int RtpTimestamp
+        {
+            get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
+        }
 
+        /// <summary>
+        ///  The total number of RTP data packets transmitted by the sender since starting transmission up until the time this SR packet was generated.  
+        ///  The count SHOULD be reset if the sender changes its SSRC identifier.
+        /// </summary>
+        public int SendersPacketCount
+        {
+            get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
+        }
+
+        /// <summary>
+        /// The total number of payload octets (i.e., not including header or padding) transmitted in RTP data packets by the sender since starting transmission up until the time this SR packet was generated.  
+        /// The count SHOULD be reset if the sender changes its SSRC identifier. 
+        /// This field can be used to estimate the average payload data rate.
+        /// </summary>
+        public int SendersOctetCount
+        {
+            get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
+        }
+
+        /// <summary>
+        /// Calculates the system endian representation of the NtpTimestamp.
+        /// </summary>
+        /// <remarks>
+        /// The value is stored in Network Byte Order
+        /// </remarks>
+        public long NtpTimestamp
+        {
+            get
+            {
+                if (BitConverter.IsLittleEndian) return (long)((ulong)NtpLSW << 32 | (uint)NtpMSW);
+                return (long)((ulong)NtpMSW << 32 | (uint)NtpLSW);
+            }
+            internal protected set
+            {
+
+                //We need an unsigned representation of the value
+                ulong unsigned = (ulong)value;
+
+                //Truncate the last 32 bits of the value, put the result in the MSW
+                NtpMSW = (int)unsigned;
+
+                //Move the value right 32 bits and put the result in the LSW
+                NtpLSW = (int)(unsigned >>= 32);
+            }
+        }
+
+        /// <summary>
+        /// Calculates a DateTime representation of the NtpTimestamp.
+        /// If the NtpTimestamp would be 0 then DateTime UtcNow is returned.
+        /// </summary>
+        public DateTime NtpTime
+        {
+            get { return Utility.NptTimestampToDateTime((ulong)NtpTimestamp); }
+            internal protected set { NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(value); }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Retrieves the the segment of data which corresponds to any ReportBlocks contained in the SendersReport after the SendersInformation.
+        /// </summary>
+        public override IEnumerable<byte> ReportData
+        {
+            get { if (!HasReports) return Enumerable.Empty<byte>(); return Payload.Array.Skip(Payload.Offset + SendersInformationSize).Take(ReportBlockOctets); }
+        }
+
+        /// <summary>
+        /// Generates a sequence of octets from the Payload which consist of the binary data contained in the Payload which corresponds to the SendersInformation.
+        /// These sequence generates is constantly <see cref="SendersInformationSize"/> octets.
+        /// </summary>
+        public IEnumerable<byte> SendersInformation
+        {
+            get { return Payload.Array.Skip(Payload.Offset).Take(SendersInformationSize); }
+        }
+
+      
         #endregion
     }
+
+    #endregion
 }

@@ -26,14 +26,17 @@ namespace Media.Sdp
     public sealed class SessionDescription
     {
         #region Statics
+        
+        public const string MimeType = "application/sdp";
 
         const string CR = "\r";
         const string LF = "\n";
         internal const string CRLF = CR + LF;
 
-        internal static string CleanValue(string value)
+        internal static string CleanLineValue(string value)
         {
             if (string.IsNullOrWhiteSpace(value)) return value;
+            //Trims the whitespace and removes CR, LF from everywhere in the value...
             return value.Trim().Replace(CR, string.Empty).Replace(LF, string.Empty);
         }
 
@@ -157,11 +160,11 @@ namespace Media.Sdp
 
             SessionName = other.SessionName;
 
-            TimeDescriptions = other.TimeDescriptions;
+            m_TimeDescriptions = new List<TimeDescription>(other.TimeDescriptions);
 
-            MediaDescriptions = other.MediaDescriptions;
+            m_MediaDescriptions = new List<MediaDescription>(other.m_MediaDescriptions);
 
-            Lines = other.Lines;
+            m_Lines = new List<SessionDescriptionLine>(other.Lines);
         }
 
         #endregion
@@ -232,9 +235,9 @@ namespace Media.Sdp
                 buffer.Append(l.ToString());
             }
 
-            m_TimeDescriptions.ForEach(td => buffer.Append(td.ToString()));
+            m_TimeDescriptions.ForEach(td => buffer.Append(td.ToString(this)));
 
-            m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString()));
+            m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString(this)));
 
             //End of SDP
             buffer.Append(default(char) + CRLF); 
@@ -279,6 +282,8 @@ namespace Media.Sdp
         //OR
         //Maybe add methods for Get rtpmap, fmtp etc
 
+        //LinesByType etc...
+
         //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
         internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
@@ -307,13 +312,13 @@ namespace Media.Sdp
 
             if (parts.Length != 4) throw new SessionDescriptionException("Invalid Media Description");
 
-            MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanValue(parts[0].ToLowerInvariant()));
+            MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanLineValue(parts[0].ToLowerInvariant()));
 
-            MediaPort = int.Parse(SessionDescription.CleanValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture); //Listener should probably verify ports with this
+            MediaPort = int.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture); //Listener should probably verify ports with this
 
             MediaProtocol = parts[2]; //Listener should probably be using this to decide port
 
-            MediaFormat = byte.Parse(SessionDescription.CleanValue(parts[3]), System.Globalization.CultureInfo.InvariantCulture);
+            MediaFormat = byte.Parse(SessionDescription.CleanLineValue(parts[3]), System.Globalization.CultureInfo.InvariantCulture);
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e;)
@@ -347,12 +352,38 @@ namespace Media.Sdp
             m_Lines.RemoveAt(index);
         }
 
-        public override string ToString()
+        public string ToString(SessionDescription sdp = null)
         {
             StringBuilder buffer = new StringBuilder();
+        
+            if (sdp != null)
+            {
+                /*
+                If multiple addresses are specified in the "c=" field and multiple
+                ports are specified in the "m=" field, a one-to-one mapping from
+                port to the corresponding address is implied.  For example:
+                
+                  c=IN IP4 224.2.1.1/127/2
+                  m=video 49170/2 RTP/AVP 31
+                */
 
-            buffer.Append("m=" + string.Join(" ", MediaType , MediaPort.ToString() , MediaProtocol , MediaFormat) + SessionDescription.CRLF);
+                Sdp.Lines.SessionConnectionLine connectionLine = sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault();
 
+                if (connectionLine != null)
+                {
+                    int? portSpecifier = connectionLine.Ports;
+
+                    if (portSpecifier.HasValue)
+                    {
+                        buffer.Append("m=" + string.Join(" ", MediaType, MediaPort.ToString() + '/' + connectionLine.Parts.Last().Split('/').Last(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+                        goto LinesOnly;
+                    }
+                }
+            }
+            
+            buffer.Append("m=" + string.Join(" ", MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+
+        LinesOnly:
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != 'b' && l.Type != 'a'))
                 buffer.Append(l.ToString());
 
@@ -392,10 +423,10 @@ namespace Media.Sdp
 
             if (!sdpLine.StartsWith("t=")) throw new SessionDescriptionException("Invalid Time Description");
 
-            sdpLine = SessionDescription.CleanValue(sdpLine.Replace("t=", string.Empty));
+            sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("t=", string.Empty));
             string[] parts = sdpLine.Split(' ');
-            SessionStartTime = long.Parse(SessionDescription.CleanValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
-            SessionStopTime = long.Parse(SessionDescription.CleanValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
+            SessionStartTime = long.Parse(SessionDescription.CleanLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
+            SessionStopTime = long.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
             RepeatTimes = new List<long>();
             //Iterate remaining lines
             for (; index < sdpLines.Length; ++index)
@@ -409,7 +440,7 @@ namespace Media.Sdp
                 //Parse and add the repeat time
                 try
                 {
-                    RepeatTimes.Add(long.Parse(SessionDescription.CleanValue(sdpLine.Replace("r=", string.Empty)), System.Globalization.CultureInfo.InvariantCulture));
+                    RepeatTimes.Add(long.Parse(SessionDescription.CleanLineValue(sdpLine.Replace("r=", string.Empty)), System.Globalization.CultureInfo.InvariantCulture));
                 }
                 catch (Exception ex)
                 {
@@ -419,7 +450,7 @@ namespace Media.Sdp
 
         }
 
-        public override string ToString()
+        public string ToString(SessionDescription sdp = null)
         {
             string result = "t=" + SessionStartTime.ToString() + " " + SessionStopTime.ToString() + SessionDescription.CRLF;
             foreach (long repeatTime in RepeatTimes)
@@ -460,6 +491,7 @@ namespace Media.Sdp
     /// <summary>
     /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
     /// </summary>
+    /// <remarks>Should use byte[] and should have Encoding as a property</remarks>
     public class SessionDescriptionLine
     {
         static char[] ValueSplit = new char[] { ';' };
@@ -482,9 +514,10 @@ namespace Media.Sdp
         /// <summary>
         /// Constructs a new SessionDescriptionLine with the given type
         /// <param name="type">The type of the line</param>
-        public SessionDescriptionLine(char type)
+        public SessionDescriptionLine(char type, int partCount = 0)
         {
-            m_Parts = new List<string>();
+            m_Parts = new List<string>(partCount);
+            EnsureParts(partCount);
             Type = type;
         }
 
@@ -579,7 +612,7 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("v=")) throw new SessionDescriptionException("Invalid Version");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("v=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("v=", string.Empty));
 
                     m_Parts.Add(sdpLine);
                 }
@@ -629,7 +662,7 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("o=")) throw new SessionDescriptionException("Invalid Owner");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("o=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("o=", string.Empty));
 
                     m_Parts = new List<string>(sdpLine.Split(' '));
 
@@ -673,7 +706,7 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("s=")) throw new SessionDescriptionException("Invalid Session Name");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("s=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("s=", string.Empty));
 
                     m_Parts.Add(sdpLine);
                 }
@@ -714,7 +747,7 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("p=")) throw new SessionDescriptionException("Invalid PhoneNumber");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("p=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("p=", string.Empty));
 
                     m_Parts.Add(sdpLine);
                 }
@@ -755,7 +788,7 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("e=")) throw new SessionDescriptionException("Invalid Email");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("e=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("e=", string.Empty));
 
                     m_Parts.Add(sdpLine);
                 }
@@ -774,7 +807,16 @@ namespace Media.Sdp
         internal class SessionUriLine : SessionDescriptionLine
         {
 
-            public Uri Location { get { return m_Parts.Count > 0 ? (new Uri(m_Parts[0])) : null; } set { m_Parts.Clear(); m_Parts.Add(value.ToString()); } }
+            public Uri Location
+            {
+                get
+                {
+                    Uri result;
+                    Uri.TryCreate(m_Parts[0], UriKind.RelativeOrAbsolute, out result);
+                    return result;
+                }
+                set { m_Parts.Clear(); m_Parts.Add(value.ToString()); }
+            }
 
             public SessionUriLine()
                 : base('u')
@@ -809,11 +851,9 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("u=")) throw new SessionDescriptionException("Invalid Uri");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("u=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("u=", string.Empty));
 
                     m_Parts.Add(sdpLine);
-
-                    Location = new Uri(sdpLine);
                 }
                 catch
                 {
@@ -825,13 +865,35 @@ namespace Media.Sdp
 
         internal class SessionConnectionLine : SessionDescriptionLine
         {
-            string NetworkType { get { return GetPart(0); } set { SetPart(0, value); } }
-            string AddressType { get { return GetPart(1); } set { SetPart(1, value); } }
-            string Address { get { return GetPart(2); } set { SetPart(2, value); } }
+            internal string NetworkType { get { return GetPart(0); } set { SetPart(0, value); } }
+            internal string AddressType { get { return GetPart(1); } set { SetPart(1, value); } }
+            internal string Address { get { return GetPart(2); } set { SetPart(2, value); } }
+
+            internal bool MultipleAddresses
+            {
+                get
+                {
+                    return Address.Contains('/');
+                }
+            }
+
+            public int? Ports
+            {
+                get
+                {
+                    if (!string.IsNullOrWhiteSpace(Address)) 
+                    {
+                        int portIndex = Address.LastIndexOf('/');
+                        if (portIndex >= 0) return int.Parse(Address.Substring(portIndex + 1, Address.Length - (portIndex + 1)), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                    return null;
+                }
+            }
 
             public SessionConnectionLine()
-                : base('c')
+                : base('c', 3)
             {
+
             }
 
             public SessionConnectionLine(string[] sdpLines, ref int index)
@@ -843,7 +905,7 @@ namespace Media.Sdp
 
                     if (!sdpLine.StartsWith("c=")) throw new SessionDescriptionException("Invalid Session Connection Line");
 
-                    sdpLine = SessionDescription.CleanValue(sdpLine.Replace("c=", string.Empty));
+                    sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("c=", string.Empty));
 
                     m_Parts.Add(sdpLine);
 

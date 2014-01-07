@@ -7,7 +7,7 @@ using System.Net;
 namespace Media.Rtsp.Server.Streams
 {
     /// <summary>
-    /// A Source Stream which is a facade` to another
+    /// A Source Stream which is a facade` to another.
     /// </summary>
     public class ChildStream : SourceStream
     {
@@ -16,13 +16,11 @@ namespace Media.Rtsp.Server.Streams
         public ChildStream(SourceStream source)
             :base(source.Name, source.Source)
         {
-            if (!source.IsParent) throw new Exception("Cannot make a Child of a Child");
+            if (!source.IsParent) throw new ArgumentException("Cannot make a Child of a Child.");
             m_Parent = source;
             m_Child = true;
         }
 
         public override Uri Source { get { return m_Parent.Source; } set { m_Parent.Source = value; } }
-
-        public override NetworkCredential SourceCredential { get { return m_Parent.SourceCredential; } set { m_Parent.SourceCredential = value; } }
     }
 }

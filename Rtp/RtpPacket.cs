@@ -1,353 +1,654 @@
-﻿using System;
+﻿#region Copyright
+/*
+Copyright (c) 2013 juliusfriedman@gmail.com
+  
+ SR. Software Engineer ASTI Transportation Inc.
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+#endregion
+
+#region Using Statements
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using Octet = System.Byte;
+using OctetSegment = System.ArraySegment<byte>;
+using Media.Common;
+
+#endregion
 
 namespace Media.Rtp
 {
+
+    #region RtpPacket
+
     /// <summary>
-    /// http://www.ietf.org/rfc/rfc3550.txt
+    /// A managed implemenation of the Rtp abstraction found in RFC3550.
+    /// <see cref="http://tools.ietf.org/html/rfc3550"> RFC3550 </see> for more information
     /// </summary>
-    public class RtpPacket
+    public class RtpPacket : Utility.BaseDisposable, IPacket
     {
-        /// <summary>
-        /// The header length (and subsequently) the minimum size of any given RtpPacket
-        /// </summary>
-        public const int RtpHeaderLength = 12;
-
-        /// <summary>
-        /// The maximum size of any given RtpPacket including header overhead and framing bytes
-        /// </summary>
-        public const int MaxPacketSize = 1500;
-
-        /// <summary>
-        /// The maximum size of any given RtpPacket minus the header overhead
-        /// </summary>
-        public const int MaxPayloadSize = MaxPacketSize - RtpHeaderLength;
-
         #region Fields
 
-        byte m_PayloadType;
+        /// <summary>
+        /// Provides a storage location for bytes which are owned by this instance.
+        /// </summary>
+        byte[] m_OwnedOctets;
 
-        //Make list for easier writing (.Net 4.5 ArraySegment is IEnumerable)
-        internal byte[] m_Payload;// = new List<byte>();
+        /// <summary>
+        /// The RtpHeader assoicated with this RtpPacket instance.
+        /// </summary>
+        /// <remarks>
+        /// readonly attempts to ensure no race conditions when accessing this field e.g. during property access when using the Dispose method.
+        /// </remarks>
+        public readonly RtpHeader Header;
 
-        byte m_Version, m_Padding, m_Extensions, m_Csc, m_Marker;
-        ushort m_SequenceNumber;
-
-        uint m_TimeStamp, m_Ssrc;
-
-        List<uint> m_ContributingSources = new List<uint>();
-
-        #region Extensions
-
-        internal ushort m_ExtensionFlags, m_ExtensionLength;
-        internal byte[] m_ExtensionData;
-
-        #endregion
+        bool m_OwnsHeader;
 
         #endregion
 
         #region Properties
 
         /// <summary>
-        /// The Version of the RTP Protocol this packet conforms to
+        /// The binary data of the RtpPacket which may contain a ContributingSourceList and RtpExtension.
         /// </summary>
-        public int Version { get { return m_Version; } set { m_Version = (byte)value; } }
+        public OctetSegment Payload { get; protected set; }
 
         /// <summary>
-        /// Indicates if the RTPPacket contains padding at the end which is not part of the payload
+        /// Determines the amount of unsigned integers which must be contained in the ContributingSourcesList to make the payload complete.
+        /// <see cref="RtpHeader.ContributingSourceCount"/>
         /// </summary>
-        public bool Padding { get { return m_Padding > 0; } set { m_Padding = value ? (byte)1 : (byte)0; } }
+        /// <remarks>
+        /// Obtained by performing a Multiply against 4 from the high quartet in the first octet of the RtpHeader.
+        /// This number can never be larger than 60 given by the mask `0x0f` (15) used to obtain the ContributingSourceCount.
+        /// Subsequently >15 * 4  = 60
+        /// Clamped with Min(60, Max(0, N)) where N = ContributingSourceCount * 4;
+        /// </remarks>
+        public int ContributingSourceListOctets { get { if (Disposed) return 0; return Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4)); } }
 
         /// <summary>
-        /// Indicates if the RTPPacket contains extensions
+        /// Determines the amount of octets in the RtpExtension in this RtpPacket.
+        /// The maximum value this property can return is 65535.
+        /// <see cref="RtpExtension.LengthInWords"/> for more information.
         /// </summary>
-        public bool Extensions { get { return m_Extensions > 0; } set { m_Extensions = value ? (byte)1 : (byte)0; } }
+        public int ExtensionOctets { get { if (Disposed || !Header.Extension) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
 
         /// <summary>
-        /// Indicates the amount of contributing sources
+        /// The amount of octets which belong either to the SourceList or the RtpExtension.
+        /// This amount does not reflect any padding which may be present.
         /// </summary>
-        public int ContributingSourceCount { get { return m_Csc; } internal set { m_Csc = (byte)value; if (value == 0) m_ContributingSources.Clear(); } }
+        internal int NonPayloadOctets { get { if (Disposed) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
 
         /// <summary>
-        /// The list of contributing sources
+        /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
+        /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
+        /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public List<uint> ContributingSources { get { return m_ContributingSources; } set { m_ContributingSources = value; m_Csc = (byte)value.Count; } }
+        public int PaddingOctets { get { if (Disposed || !Header.Padding) return 0; return RFC3550.ReadPadding(Payload, NonPayloadOctets); } }
 
         /// <summary>
-        /// Indicates if the RTPPacket contains a Marker flag
+        /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
+        /// This is dertermined by performing checks against the RtpHeader and data in the Payload to validate the SouceList and Extension if present.
+        /// <see cref="SourceList"/> and <see cref="RtpExtension"/> for further information.
         /// </summary>
-        public bool Marker { get { return m_Marker > 0; } set { m_Marker = value ? (byte)1 : (byte)0; } }
-
-        /// <summary>
-        /// Indicates the format of the data within the Payload
-        /// </summary>
-        public byte PayloadType
-        {
-            get { return m_PayloadType; }
-            set
-            {
-                if (value > 127)
-                {
-                    throw new ArgumentOutOfRangeException("PayloadType" + " is a seven bit structure, and can hold values between 0 and 127");
-                }
-                else
-                {
-                    m_PayloadType = (byte)(value & 0x7f);
-                }
-            }
-        }
-
-        /// <summary>
-        /// The sequence number of the RtpPacket
-        /// </summary>
-        public ushort SequenceNumber { get { return m_SequenceNumber; } set { m_SequenceNumber = value; } }
-
-        /// <summary>
-        /// The Timestamp of the RtpPacket
-        /// </summary>
-        public uint TimeStamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
-
-        /// <summary>
-        /// Identifies the Source Id for this RtpPacket (Ssrc)
-        /// </summary>
-        public uint SynchronizationSourceIdentifier { get { return m_Ssrc; } set { m_Ssrc = value; } }
-
-        /// <summary>
-        /// The payload of the RtpPacket
-        /// </summary>
-        public byte[] Payload { get { return m_Payload; } set { m_Payload = value; } }
-
-        /// <summary>
-        /// The Extension Data of the RtpPacket (Must be aligned to a multiple of 32 bits, only available when Extensions is true)
-        /// </summary>
-        public byte[] ExtensionData { get { return m_ExtensionData; } set { Extensions = value != null; if (value != null && value.Length % 4 != 0) throw new InvalidOperationException("Extension data must be aligned to a multiple of 32"); m_ExtensionData = value; m_ExtensionLength = (value == null ? ushort.MinValue : (ushort)(value.Length / 4)); } }
-
-        /// <summary>
-        /// The Extension flags of the RtpPacket
-        /// </summary>
-        public ushort ExtensionFlags { get { return m_ExtensionFlags; } set { m_ExtensionFlags = value; } }
-
-        /// <summary>
-        /// Gets or sets the Length of the ExtensionData in bytes. (Must be a multiple of 32)
-        /// </summary>
-        public ushort ExtensionLength { get { return (ushort)(m_ExtensionLength * 4); } set { if (value % 4 != 0) throw new InvalidOperationException("Value must be a multiple of 32"); m_ExtensionLength = (ushort)(value / 4); } }
-
-        /// <summary>
-        /// Gets the ExtensionData of the RtpPacket including Flags and Length
-        /// </summary>
-        public byte[] ExtensionBytes
+        public bool IsComplete
         {
             get
             {
+                //Invalidate certain conditions in an attempt to determine if the instance contains all data required.
 
-                if (!Extensions) return null;
+                //if the instance is disposed then there is no data to verify
+                int octetsContained = Payload.Count;
 
-                List<byte> result = new List<byte>();
+                //Check the ContributingSourceCount in the header, if set the payload must contain at least ContributingSourceListOctets
+                octetsContained -= ContributingSourceListOctets;
 
-                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_ExtensionFlags)));
+                //If there are not enough octets return false
+                if (octetsContained < 0) return false;
 
-                result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_ExtensionLength)));
+                //Check the Extension bit in the header, if set the RtpExtension must be complete
+                if (Header.Extension) using (var extension = GetExtension())
+                    {
+                        if (extension == null || !extension.IsComplete) return false;
 
-                result.AddRange(m_ExtensionData);
+                        //Reduce the number of octets in the payload by the number of octets which make up the extension
+                        octetsContained -= extension.Size;
+                    }
 
-                return result.ToArray();
-            }
-            set
-            {
-                if (value == null || value.Length == 0)
-                {
-                    m_ExtensionFlags = m_ExtensionLength = m_Extensions = 0;
-                }
-                else if (value.Length <= 4) throw new ArgumentException("ExtensionData must preceeded with ExtensionFlags (2 Bytes) and the ExtensionLength (2 Bytes), both should be in Host Byte Order");
-                else
-                {
-                    m_ExtensionFlags = Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 0));
+                //If there is no padding there must be at least 0 octetsContained.
+                if (!Header.Padding) return octetsContained >= 0;
 
-                    //Take the length in 32 bit words
-                    ExtensionLength = (ushort)(Utility.ReverseUnsignedShort(BitConverter.ToUInt16(value, 2)));
+                //Otherwise calulcate the amount of padding in the Payload
+                int paddingOctets = PaddingOctets;
 
-                    //Use the property to get the length in bytes which is m_ExtensionLength * 4 though the getter ExtensionLength
-                    m_ExtensionData = new byte[ExtensionLength];
-
-                    System.Array.Copy(value, 4, m_ExtensionData, 0, ExtensionLength);
-                }
+                //The result of completion is that the amount of paddingOctets found were >= 0
+                return paddingOctets >= 0 && octetsContained >= paddingOctets;
             }
         }
 
         /// <summary>
-        /// The length of the packet in bytes including the RtpHeader
+        /// Indicates the length in bytes of this RtpPacket instance. (Including the RtpHeader as well as SourceList and Extension if present.)
         /// </summary>
-        public int Length { get { return RtpHeaderLength + (ContributingSources.Count > 0 ? ContributingSources.Count * 4 : 0) + (m_ExtensionData != null ? 4 + m_ExtensionData.Length : 0) + (Payload != null ? Payload.Length : 0); } }
+        public int Length { get { if (Disposed) return 0; return RtpHeader.Length + Payload.Count; } }
 
         /// <summary>
-        /// The channel to send the RtpPacket on or the channel it was received from
+        /// Gets the data in the Payload which does not belong to the ContributingSourceList or RtpExtension or Padding.
+        /// The data if present usually contains data related to signal codification,
+        /// the coding of which can be determined by a combination of the PayloadType and SDP information which was used to being the participation 
+        /// which resulted in the transfer of this RtpPacket instance.
         /// </summary>
-        public byte? Channel { get; set;}
-
-        /// <summary>
-        /// The time the packet instance was created
-        /// </summary>
-        public DateTime? Created { get; set; }
+        public IEnumerable<byte> Coefficients
+        {
+            get
+            {
+                if (Disposed || !IsComplete) return Utility.Empty;
+                int nonPayloadOctets = NonPayloadOctets;
+                return Payload.Array.Skip(Payload.Offset + nonPayloadOctets).Take(Payload.Count - nonPayloadOctets - PaddingOctets);
+            }
+        }
 
         #endregion
 
         #region Constructor
 
-        public RtpPacket(int payloadSize = MaxPayloadSize, int version = 2) { m_Payload = new byte[payloadSize]; Created = DateTime.UtcNow; Version = version; }
-
-        public RtpPacket(ArraySegment<byte> packetReference, byte? channel = null)
+        /// <summary>
+        /// Creates a RtpPacket instance by projecting the given sequence to an array which is subsequently owned by the instance.
+        /// </summary>
+        /// <param name="header">The header to utilize. When Dispose is called this header will be diposed.</param>
+        /// <param name="octets">The octets to project</param>
+        public RtpPacket(RtpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
         {
-            //Ensure correct length
-            if (packetReference.Count < RtpHeaderLength) throw new ArgumentException("The packet does not conform to the Real Time Protocol. Packets must at least 12 bytes in length.", "packet");
+            if (header == null) throw new ArgumentNullException("header");
 
-            Created = DateTime.UtcNow;
+            //Assign the header (maybe referenced elsewhere, when dispose is called the given header will be disposed.)
+            Header = header;
 
-            Channel = channel;
+            m_OwnsHeader = ownsHeader;
 
-            int localOffset = 0, payloadLen = -1;
+            //Project the octets in the sequence
+            m_OwnedOctets = octets.ToArray();
 
-            //Handle tcp frame headers if required
-            if (packetReference.Array[packetReference.Offset] == RtpClient.MAGIC)
-            {
-                localOffset = 4;
-                payloadLen = (ushort)System.Net.IPAddress.NetworkToHostOrder(BitConverter.ToInt16(packetReference.Array, packetReference.Offset + 2)) - RtpHeaderLength;
-            }
-
-            //Extract fields
-            byte compound = packetReference.Array[localOffset + packetReference.Offset];
-
-            //Version, Padding flag, Extension flag, and Contribuing Source Count
-            m_Version = (byte)(compound >> 6);
-
-            //We only parse version 2
-            if (m_Version != 2) throw new ArgumentException("Only Version 2 is Defined");
-
-            m_Padding = (byte)(0x1 & (compound >> 5));
-            m_Extensions = (byte)(0x1 & (compound >> 4));
-            m_Csc = (byte)(0x0F & compound);
-
-            //Extract Marker flag and payload type
-            compound = packetReference.Array[localOffset + packetReference.Offset + 1];
-
-            Marker = ((compound >> 7) == 1);
-            m_PayloadType = (byte)(compound & 0x7f);
-
-            //Extract Sequence Number
-            SequenceNumber = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + 2));
-
-            //Extract Time Stamp
-            m_TimeStamp = Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + 4));
-
-            m_Ssrc = Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + 8));
-
-            if (packetReference.Count <= RtpHeaderLength) return;
-
-            int position = localOffset + RtpHeaderLength;
-
-            //Extract Contributing Sources
-            for (int i = 0; i < m_Csc; ++i, position += 4) m_ContributingSources.Add(Utility.ReverseUnsignedInt(System.BitConverter.ToUInt32(packetReference.Array, localOffset + packetReference.Offset + position)));
-
-            //Extract Extensions
-            if (Extensions)
-            {
-                m_ExtensionFlags = Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position));
-                m_ExtensionLength = (ushort)(Utility.ReverseUnsignedShort(System.BitConverter.ToUInt16(packetReference.Array, localOffset + packetReference.Offset + position + 2)));
-                m_ExtensionData = new byte[ExtensionLength];
-                Array.Copy(packetReference.Array, localOffset + packetReference.Offset + position + 4, m_ExtensionData, 0, ExtensionLength);
-                position += 4 + ExtensionLength;
-            }
-
-            //ToDo Reorder and optomize this section to prevent unrequired subtraction operation
-
-            //Determine payload length
-            int payloadSize = packetReference.Count - localOffset - position;
-            
-            //If the payloadSize is negitive and we were not given a payloadLen
-            if (payloadSize == -1)
-            {
-                //The real size is the size of the slice in total
-                payloadSize = packetReference.Array.Length - localOffset - position; /* - RtpHeaderLength*/
-            }
-            
-            //If we had a known length we will use it here to prevent resizing later
-            if (payloadLen != -1)
-            {
-                payloadSize = payloadLen;
-            }
-
-            //Create the payload
-            m_Payload = new byte[payloadSize];
-
-            //Array segment needs to be enumerable
-            //m_Payload.AddRange(new ArraySegment<byte>(packet.Array, packet.Offset + position, payloadSize));
-
-            //Copy the data to the payload
-            Array.Copy(packetReference.Array, packetReference.Offset + position, m_Payload, 0, payloadSize);
+            //The Payload property must be assigned otherwise the properties will not function in the instance.
+            Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
         }
-
-        public RtpPacket(byte[] packet, int offset = 0)
-            : this (new ArraySegment<byte>(packet, offset, packet.Length - offset))
-        {
-            
-        }
-
-        #endregion
-
-        #region Methods        
 
         /// <summary>
-        /// Encodes the RTPHeader and Payload into a RTPPacket
+        /// Creates a RtpPacket instance from an existing RtpHeader and payload.
+        /// Check the IsValid property to see if the RtpPacket is well formed.
         /// </summary>
-        /// <returns></returns>
-        public byte[] ToBytes(uint? ssrc = null)
+        /// <param name="header">The existing RtpHeader</param>
+        /// <param name="payload">The data contained in the payload</param>
+        public RtpPacket(RtpHeader header, OctetSegment payload, bool ownsHeader = true)
         {
-            List<byte> result = new List<byte>();
+            if (header == null) throw new ArgumentNullException("header");
 
-            //Add the version
-            result.Add((byte)(m_Version << 6));
+            Header = header;
 
-            //Flag in Padding if required
-            if (Padding) result[0] = (byte)(result[0] | 0x20);
+            m_OwnsHeader = ownsHeader;
 
-            //Flag in Extensions if required
-            if (Extensions) result[0] = (byte)(result[0] | 0x10);
-
-            //Flag in the ContributingSourceCount
-            result[0] = (byte)(result[0] | m_Csc & 0xff);
-
-            //Add the PayloadType
-            result.Add((byte)( ((Marker ? 1 : 0) << 7) | m_PayloadType));
-
-            //Add the SequenceNumber
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort(m_SequenceNumber)));
-
-            //Add the Timestamp
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(m_TimeStamp)));
-
-            //Add the SynchonrizationSourceIdentifier
-            result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((ssrc ?? m_Ssrc))));
-
-            if (ContributingSourceCount > 0)
-            {
-                //Loop the sources and add them to the header
-                m_ContributingSources.ForEach(cs => result.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt(cs))));
-            }
-
-            //If extensions were flagged then include the extensions
-            if (Extensions)
-            {
-                result.AddRange(ExtensionBytes);
-            }
-
-            //Include the payload
-            result.AddRange(m_Payload);
-
-            //Return the array
-            return result.ToArray();
+            Payload = payload;
         }
+
+        /// <summary>
+        /// Creates a RtpPacket instance by copying data from the given buffer at the given offset.
+        /// </summary>
+        /// <param name="buffer">The buffer which contains the binary RtpPacket to decode</param>
+        /// <param name="offset">The offset to start copying</param>
+        public RtpPacket(byte[] buffer, int offset)
+        {
+            //Read the header
+            Header = new RtpHeader(buffer, offset);
+
+            m_OwnsHeader = true;
+
+            //Advance the pointer
+            offset += RtpHeader.Length;
+
+            int ownedOctets = buffer.Length - offset;
+            m_OwnedOctets = new byte[ownedOctets];
+            Array.Copy(buffer, offset, m_OwnedOctets, 0, ownedOctets);
+
+            //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
+            Payload = new OctetSegment(m_OwnedOctets, 0, ownedOctets);
+        }
+
+        /// <summary>
+        /// Creates a RtpPacket instance from the given segment of memory.
+        /// The instance will depend on the memory in the given buffer.
+        /// </summary>
+        /// <param name="buffer">The segment containing the binary data to decode.</param>
+        public RtpPacket(OctetSegment buffer) : this(buffer.Array, buffer.Offset) { }
 
         #endregion
 
-    }    
+        #region Properties
+
+        /// <summary>
+        /// <see cref="RtpHeader.Version"/>
+        /// </summary>
+        public int Version
+        {
+            get { return Header.Version; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("Version can only be set when IsReadOnly is false.");
+                Header.Version = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.Padding"/>
+        /// </summary>
+        public bool Padding
+        {
+            get { return Header.Padding; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("Padding can only be set when IsReadOnly is false.");
+                Header.Padding = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.Extension"/>
+        /// </summary>
+        public bool Extension
+        {
+            get { return Header.Extension; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("Extension can only be set when IsReadOnly is false.");
+                Header.Extension = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.Marker"/>
+        /// </summary>
+        public bool Marker
+        {
+            get { return Header.Marker; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("Marker can only be set when IsReadOnly is false.");
+                Header.Marker = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.ContributingSourceCount"/>
+        /// </summary>
+        public int ContributingSourceCount
+        {
+            get { return Header.ContributingSourceCount; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("ContributingSourceCount can only be set when IsReadOnly is false.");
+                Header.ContributingSourceCount = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.PayloadType"/>
+        /// </summary>
+        public int PayloadType
+        {
+            get { return Header.PayloadType; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("PayloadType can only be set when IsReadOnly is false.");
+                Header.PayloadType = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.SequenceNumber"/>
+        /// </summary>
+        public int SequenceNumber
+        {
+            get { return Header.SequenceNumber; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("SequenceNumber can only be set when IsReadOnly is false.");
+                Header.SequenceNumber = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.Timestamp"/>
+        /// </summary>
+        public int Timestamp 
+        {
+            get { return Header.Timestamp; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("Timestamp can only be set when IsReadOnly is false.");
+                Header.Timestamp = value;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="RtpHeader.SynchronizationSourceIdentifier"/>
+        /// </summary>
+        public int SynchronizationSourceIdentifier
+        {
+            get { return Header.SynchronizationSourceIdentifier; }
+            internal protected set
+            {
+                if (IsReadOnly) throw new InvalidOperationException("SynchronizationSourceIdentifier can only be set when IsReadOnly is false.");
+                Header.SynchronizationSourceIdentifier = value;
+            }
+        }
+
+        public bool IsReadOnly { get { return m_OwnedOctets == null; } }
+
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Gets an Enumerator which can be used to read the contribuing sources contained in this RtpPacket.
+        /// <see cref="SourceList"/> for more information.
+        /// </summary>
+        public SourceList GetSourceList() { if (Disposed) return null; return new SourceList(this); }
+
+        /// <summary>
+        /// Gets the RtpExtension which would be created as a result of reading the data from the RtpPacket's payload which would be contained after any contained ContributingSourceList.
+        /// If the RtpHeader does not have the Extension bit set then null will be returned.
+        /// <see cref="RtpHeader.Extension"/> for more information.
+        /// </summary>
+        [CLSCompliant(false)]
+        public RtpExtension GetExtension()
+        {
+            return Header.Extension && (Payload.Count - ContributingSourceListOctets) > RtpExtension.MinimumSize ? new RtpExtension(this) : null;
+        }
+
+        /// <summary>
+        /// Provides the logic for cloning a RtpPacket instance.
+        /// The RtpPacket class does not have a Copy Constructor because of the variations in which a RtpPacket can be cloned.
+        /// </summary>
+        /// <param name="includeSourceList">Indicates if the SourceList should be copied.</param>
+        /// <param name="includeExtension">Indicates if the Extension should be copied.</param>
+        /// <param name="includePadding">Indicates if the Padding should be copied.</param>
+        /// <param name="selfReference">Indicates if the new instance should reference the data contained in this instance.</param>
+        /// <returns>The RtpPacket cloned as result of calling this function</returns>
+        public RtpPacket Clone(bool includeSourceList, bool includeExtension, bool includePadding, bool includeCoeffecients, bool selfReference)
+        {
+            //Get the bytes which correspond to the header
+            IEnumerable<byte> binarySequence = Enumerable.Empty<byte>();
+
+            //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
+            if (includeSourceList && includeExtension && selfReference) return new RtpPacket(Header.Clone(true), Payload);
+
+            bool hasSourceList = ContributingSourceCount > 0;
+
+            //If the source list is included then include it.
+            if (includeSourceList && hasSourceList) binarySequence = GetSourceList().AsBinaryEnumerable();
+
+            //Determine if the clone should have extenison
+            bool hasExtension = Header.Extension;
+
+            //If there is a header extension to be included in the clone
+            if (hasExtension && includeExtension)
+            {
+                //Get the Extension
+                using (RtpExtension extension = GetExtension())
+                {
+                    //If an extension could be obtained include it
+                    if (extension != null) binarySequence = binarySequence.Concat(extension);
+                }
+            }
+
+            //if the video data is required in the clone then include it
+            if (includeCoeffecients) binarySequence = binarySequence.Concat(Coefficients); //Add the binary data to the packet except any padding
+
+            //Determine if padding is present
+            bool hasPadding = Header.Padding;
+
+            //if padding is to be included in the clone then obtain the original padding directly from the packet
+            if (includePadding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Offset + Payload.Count - PaddingOctets)); //If just the padding is required the skip the Coefficients
+
+            //Return the result of creating the new instance with the given binary
+            return new RtpPacket(new RtpHeader(Header.Version, includePadding && hasPadding, includeExtension && hasExtension)
+            {
+                ContributingSourceCount = includeSourceList ? Header.ContributingSourceCount : 0
+            }.Concat(binarySequence).ToArray(), 0);
+        }
+
+        /// <summary>
+        /// Generates a sequence of bytes containing the RtpHeader and any data contained in Payload.
+        /// (Including the SourceList and RtpExtension if present)
+        /// </summary>
+        /// <param name="other">The optional other RtpHeader to utilize in the preperation</param>
+        /// <returns>The sequence created.</returns>
+        public IEnumerable<byte> Prepare(RtpHeader other = null) { return Enumerable.Concat<byte>(other ?? Header, Payload.Array.Skip(Payload.Offset).Take(Payload.Count)); }
+
+        /// <summary>
+        /// Generates a sequence of bytes containing the RtpHeader with the provided parameters and any data contained in the Payload.
+        /// The sequence generated includes the SourceList and RtpExtension if present.
+        /// </summary>
+        /// <param name="payloadType">The optional payloadType to use</param>
+        /// <param name="ssrc">The optional identifier to use</param>
+        /// <param name="timestamp">The optional Timestamp to use</param>
+        /// <returns>The binary seqeuence created.</returns>
+        /// <remarks>
+        /// To create the sequence a new RtpHeader is generated and eventually disposed.
+        /// </remarks>
+        public IEnumerable<byte> Prepare(int? payloadType, int? ssrc, int? sequenceNumber = null, int? timestamp = null)
+        {
+            try
+            {
+                return Prepare(new RtpHeader(Version, Padding, Extension, Marker, payloadType ?? PayloadType, ContributingSourceCount, ssrc ?? SynchronizationSourceIdentifier, sequenceNumber ?? SequenceNumber, timestamp ?? Timestamp));
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+
+
+        /// <summary>
+        /// Disposes of any private data this instance utilized.
+        /// </summary>
+        public override void Dispose()
+        {
+            //If the instance was previously disposed return
+            if (Disposed) return;
+
+            //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
+            base.Dispose();
+
+            //If there is a referenced RtpHeader
+            if (m_OwnsHeader && Header != null && !Header.Disposed)
+            {
+                //Dispose it
+                Header.Dispose();
+            }
+
+            //Payload goes away when Disposing
+            Payload = default(OctetSegment);
+
+            //The private data goes away after calling Dispose
+            m_OwnedOctets = null;
+        }
+
+        /// <summary>
+        /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
+        /// </summary>
+        public virtual void CompleteFrom(System.Net.Sockets.Socket socket)
+        {
+            if (IsReadOnly) throw new InvalidOperationException("Cannot modify a RtpPacket when IsReadOnly is false.");
+
+            //If the packet is complete then return
+            if (Disposed || IsComplete) return;
+
+            // Cache the size of the original payload
+            int payloadCount = Payload.Count,
+                octetsRemaining = payloadCount, //Cache how many octets remain in the payload
+                offset = Payload.Offset,//Cache the offset in parsing 
+                sourceListOctets = ContributingSourceListOctets,//Cache the amount of octets required in the ContributingSourceList.
+                extensionSize = Header.Extension ? 4 : 0; //Cache the amount of octets required to read the ExtensionHeader
+
+            //If the ContributingSourceList is not complete
+            if (payloadCount < sourceListOctets)
+            {
+                //Calulcate the amount of octets to receive
+                octetsRemaining = payloadCount - sourceListOctets;
+
+                //Allocte the memory for the required data
+                if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
+                else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
+
+                //Read from the stream, decrementing from octetsRemaining what was read.
+                while (octetsRemaining > 0)
+                {
+                    //Receive octetsRemaining or less
+                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+
+                    //Move the offset
+                    offset += justReceived;
+
+                    //Decrement how many octets were receieved
+                    octetsRemaining -= justReceived;
+                }
+            }
+
+            //At the end of the sourceList
+            offset = sourceListOctets;
+
+            //ContribuingSourceList is now Complete
+
+            //If there is a RtpExtension indicated by the RtpHeader
+            if (Header.Extension)
+            {
+                //Determine if the extension header was read
+                octetsRemaining = RtpExtension.MinimumSize - (payloadCount - offset);
+
+                //If the extension header is not yet read
+                if (octetsRemaining > 0) 
+                {
+                    //Allocte the memory for the extension header
+                    if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
+                    else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
+
+                    //Read from the socket, decrementing from octetsRemaining what was read.
+                    while (octetsRemaining > 0)
+                    {
+                        //Receive octetsRemaining or less
+                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+
+                        //Move the offset
+                        offset += justReceived;
+
+                        //Decrement how many octets were receieved
+                        octetsRemaining -= justReceived;
+                    }
+                }
+
+                //at least 4 octets are now present in Payload @ Payload.Offset
+
+                //Use a RtpExtension instance to read the Extension Header and data.
+                using (RtpExtension extension = GetExtension())
+                {
+                    //Cache the size of the RtpExtension (not including the Flags and LengthInWords [The Extension Header])
+                    extensionSize = extension.Size - RtpExtension.MinimumSize;
+
+                    //The amount of octets required for for completion are indicated by the Size property of the RtpExtension.
+                    //Calulcate the amount of octets to receive
+                    octetsRemaining = offset - (sourceListOctets + extensionSize);
+
+                    //Allocte the memory for the required data
+                    if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
+                    else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
+
+                    //Read from the stream, decrementing from octetsRemaining what was read.
+                    while (octetsRemaining > 0)
+                    {
+                        //Receive octetsRemaining or less
+                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+
+                        //Move the offset
+                        offset += justReceived;
+
+                        //Decrement how many octets were receieved
+                        octetsRemaining -= justReceived;
+                    }
+                }
+            }
+
+            //RtpExtension is now Complete
+
+            //If the header indicates the payload has padding
+            if (Header.Padding)
+            {
+                //If the amount of bytes read in the padding is NOT equal to the last byte in the segment the RtpPacket is NOT complete
+                while (PaddingOctets == 0)
+                {
+                    //Allocte the memory for the required data
+                    if (m_OwnedOctets == null) m_OwnedOctets = new byte[1];
+                    else m_OwnedOctets = m_OwnedOctets.Concat(new byte[1]).ToArray();
+
+                    //Receive 1 byte
+                    //Receive octetsRemaining or less
+                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, 1, socket);
+
+                    //Move the offset
+                    offset += justReceived;
+                }
+            }
+
+            //Padding is now complete
+
+            //Re allocate the payload segment to include any completed data
+            Payload = new OctetSegment(m_OwnedOctets, Payload.Offset, m_OwnedOctets.Length);
+
+            //RtpPacket is complete
+        }      
+
+        #endregion
+
+        #region IPacket
+
+        public readonly DateTime Created = DateTime.UtcNow;
+
+        DateTime IPacket.Created { get { return Created; } }
+
+        public DateTime? Transferred { get; set; }
+
+        #endregion
+    }
+
+    #endregion
 }

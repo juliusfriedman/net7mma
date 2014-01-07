@@ -1,142 +1,81 @@
-﻿using System;
+﻿#region Copyright
+/*
+Copyright (c) 2013 juliusfriedman@gmail.com
+  
+ SR. Software Engineer ASTI Transportation Inc.
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+#endregion
+
+#region Using Statements
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Octet = System.Byte;
+using OctetSegment = System.ArraySegment<byte>;
+using Media.Common;
 
+#endregion
 namespace Media.Rtcp
 {
-    public sealed class ReceiversReport : RtcpPacket, System.Collections.IEnumerable
-    {
-        #region Constructor
+    #region ReceiversReport
 
-        public ReceiversReport(uint ssrc) : base(RtcpPacketType.ReceiversReport) { Payload = new byte[4]; SendersSynchronizationSourceIdentifier = ssrc; }
-
-        public ReceiversReport(RtcpPacket packet)
-            : base(packet)
+        /// <summary>
+        /// Provides a managed implemenation of the ReceiversReport defined in http://tools.ietf.org/html/rfc3550#section-6.4.2
+        /// </summary>
+        public class ReceiversReport : RtcpReport
         {
-            if (packet.PacketType != RtcpPacket.RtcpPacketType.ReceiversReport) throw new Exception("Invalid Packet Type, Expected RecieversReport. Found: '" + (byte)packet.PacketType + '\'');
-        }
+            #region Constants and Statics
 
-        public ReceiversReport(byte[] packet, int offset) : base(packet, offset, RtcpPacketType.ReceiversReport) { }
+            new public const int PayloadType = 201;
 
-        #endregion
+            #endregion
 
-        #region Properties
-        
-        public uint SendersSynchronizationSourceIdentifier { get { return Utility.ReverseUnsignedInt(BitConverter.ToUInt32(Payload, 0)); } set { BitConverter.GetBytes(Utility.ReverseUnsignedInt(value)).CopyTo(Payload, 0); } }
+            #region Constructor
 
-        public ReportBlock this[int index]
-        {
-            get
+            public ReceiversReport(int version, bool padding, int reportBlocks, int ssrc)
+                : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize) { }
+
+            public ReceiversReport(RtcpPacket reference)
+                :base(reference.Header, reference.Payload)
             {
-                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-
-                //Determine offset of block
-                int offset = 0;
-                if (index > 0) offset = 4 + (ReportBlock.Size * index);
-                else offset = 4;
-
-                return new ReportBlock(Payload, ref offset);
+                if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 201.", "reference");
             }
-            set
-            {
-                if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-                if (value == null)
-                {
-                    Remove(index);
-                    return;
-                }
-                else
-                {
-                    //Blocks[index] = value;
 
-                    //Determine offset of block
-                    int offset = 0;
-                    if (index > 0) offset = 4 + (ReportBlock.Size * index);
-                    else offset = 4;
+            #endregion
 
-                    value.ToBytes().CopyTo(Payload, offset);
-                }
-            }
-        }
-
-        public bool HasExtensionData { get { return Payload.Length > 24 + ReportBlock.Size * BlockCount; } }
-
-        public byte[] ExtensionData
-        {
-            get
-            {
-                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
-                if (Payload.Length > requiredOffset)
-                {
-                    int len = Payload.Length - requiredOffset;
-                    byte[] data = new byte[len];
-                    System.Array.Copy(Payload, requiredOffset, data, 0, len);
-                    return data;
-                }
-                return null;
-            }
-            set
-            {
-                int requiredOffset = 24 + ReportBlock.Size * BlockCount;
-                if (value == null || value.Length == 0 || m_Data.Length > requiredOffset)
-                {
-                    Array.Resize(ref m_Data, requiredOffset);
-                    Length = (short)m_Data.Length;
-                    return;
-                }
-                else
-                {
-                    List<byte> temp = new List<byte>(Payload);
-                    temp.AddRange(value);
-                    Payload = temp.ToArray();
-                }
-            }
         }
 
         #endregion
-
-        #region Methods
-
-        public void Add(ReportBlock reportBlock) { BlockCount++; List<byte> temp = new List<byte>(Payload); temp.AddRange(reportBlock.ToBytes()); Payload = temp.ToArray(); }
-
-        public void Clear() { BlockCount = 0; Payload = BitConverter.GetBytes(Utility.ReverseUnsignedInt(SendersSynchronizationSourceIdentifier)); }
-
-        public void Remove(int index)
-        {
-            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-
-            BlockCount--;
-
-            //Determine offset of block
-            int offset = 0;
-            if (index > 0) offset = 4 + (ReportBlock.Size * index);
-            else offset = 4;
-
-            List<byte> temp = new List<byte>(Payload);
-            temp.RemoveRange(offset, ReportBlock.Size);
-            Payload = temp.ToArray();
-        }
-
-        public void Insert(int index, ReportBlock reportBlock)
-        {
-            if (index < 0 || index > BlockCount) throw new ArgumentOutOfRangeException();
-
-            BlockCount++;
-
-            //Determine offset of block
-            int offset = 0;
-            if (index > 0) offset = 4 + (ReportBlock.Size * index);
-            else offset = 4;
-
-            List<byte> temp = new List<byte>(Payload);
-            temp.InsertRange(offset, reportBlock.ToBytes());
-            Payload = temp.ToArray();
-        }
-
-        public System.Collections.IEnumerator GetEnumerator() { for (int i = 0; i < BlockCount; ++i) yield return this[i]; }
-
-        #endregion
-    }
-
 }

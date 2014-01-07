@@ -5,33 +5,39 @@ using System.Net;
 
 namespace Media.Rtsp.Server.Streams
 {
-    //Might need a lower level class Stream with no events and just the basic info
-
     /// <summary>
-    /// The base class of all Streams, Should eventually be exposed on RtspServer not RtspStream
+    /// The base class of all sources the RtspServer can service.
     /// </summary>
+    /// <remarks>
+    /// Provides a way to augment all classes from one place.
+    /// </remarks>
     public abstract class SourceStream
     {
+        const string UriScheme = "rtspserver://";
+
+        #region StreamState Enumeration
+
         public enum StreamState
         {
             Stopped,
-            Started
+            Started,
+            //Faulted
         }
+
+        #endregion
 
         #region Fields
 
-        internal DateTime? m_Started;
+        internal DateTime? m_StartedTimeUtc;
         internal Guid m_Id = Guid.NewGuid();
         internal string m_Name;
         internal Uri m_Source;
         internal NetworkCredential m_SourceCred;
-        //internal CredentialCache m_CredentalCache = new CredentialCache();
-        internal NetworkCredential m_RemoteCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
         
         //Maybe should be m_AllowUdp?
-        internal bool m_ForceTCP;// = true; // To force clients to utilize TCP, Interleaved in Rtsp or Rtp
+        internal bool m_ForceTCP;//= true; // To force clients to utilize TCP, Interleaved in Rtsp or Rtp
 
         internal bool m_DisableQOS; //Disabled optional quality of service, In Rtp this is Rtcp
 
@@ -42,12 +48,12 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// The amount of time the Stream has been Started
         /// </summary>
-        public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.UtcNow - m_Started.Value; return TimeSpan.MinValue; } }
+        public TimeSpan Uptime { get { if (m_StartedTimeUtc.HasValue) return DateTime.UtcNow - m_StartedTimeUtc.Value; return TimeSpan.MinValue; } }
 
         /// <summary>
         /// The unique Id of the RtspStream
         /// </summary>
-        public virtual Guid Id { get { return m_Id; } set { m_Id = value; } }
+        public Guid Id { get { return m_Id; } private set { m_Id = value; } }
 
         /// <summary>
         /// The name of this stream, also used as the location on the server
@@ -65,19 +71,14 @@ namespace Media.Rtsp.Server.Streams
         public virtual NetworkCredential SourceCredential { get { return m_SourceCred; } set { m_SourceCred = value; } }
 
         /// <summary>
-        /// The type of Authentication the source requires
+        /// The type of Authentication the source requires for the SourceCredential
         /// </summary>
         public virtual AuthenticationSchemes SourceAuthenticationScheme { get; set; }
-        
-        /// <summary>
-        /// The credential of the stream which will be exposed to clients
-        /// </summary>
-        public virtual NetworkCredential RemoteCredential { get { return m_RemoteCred; } set { m_RemoteCred = value; } }
 
         /// <summary>
-        /// The type of Authentication to use when remote connections occur from clients
+        /// Gets a Uri which indicates to the RtspServer the name of this stream reguardless of alias
         /// </summary>
-        public virtual AuthenticationSchemes RemoteAuthenticationScheme { get; set; }
+        public virtual Uri ServerLocation { get { return new Uri(UriScheme + Id.ToString()); } }
 
         /// <summary>
         /// State of the stream 
@@ -118,13 +119,6 @@ namespace Media.Rtsp.Server.Streams
             m_SourceCred = sourceCredential;
         }
 
-        public SourceStream(string name, Uri source, NetworkCredential sourceCredential, NetworkCredential remoteCredential)
-            :this(name, source, sourceCredential)
-        {
-            m_RemoteCred = remoteCredential;
-            //m_CredentalCache.Add(source, "Basic", remoteCredential);
-        }
-
         #endregion
 
         #region Events
@@ -133,17 +127,17 @@ namespace Media.Rtsp.Server.Streams
 
         public event FrameDecodedHandler FrameDecoded;
 
-        internal void OnFrameDecoded(System.Drawing.Image decoded) { if (FrameDecoded != null) FrameDecoded(this, decoded); }
+        internal void OnFrameDecoded(System.Drawing.Image decoded) { if (decoded != null && FrameDecoded != null) FrameDecoded(this, decoded); }
 
         #endregion
 
         #region Methods
 
         //Sets the State = StreamState.Started
-        public virtual void Start() { State = StreamState.Started; }
+        public virtual void Start() { State = StreamState.Started; m_StartedTimeUtc = DateTime.UtcNow; }
 
         //Sets the State = StreamState.Stopped
-        public virtual void Stop() { State = StreamState.Stopped; }
+        public virtual void Stop() { State = StreamState.Stopped; m_StartedTimeUtc = null; }
 
         public void AddAlias(string name)
         {
@@ -155,6 +149,8 @@ namespace Media.Rtsp.Server.Streams
         {
             m_Aliases.Remove(alias);
         }
+
+        public void ClearAliases() { m_Aliases.Clear(); }
 
         #endregion
     }
