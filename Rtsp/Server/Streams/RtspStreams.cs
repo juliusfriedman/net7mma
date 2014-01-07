@@ -7,14 +7,14 @@ using System.Net;
 namespace Media.Rtsp.Server.Streams
 {
     /// <summary>
-    /// Each source stream the RtspServer encapsulates and can be played by clients
+    /// A remote stream the RtspServer aggregates and can be played by clients.
     /// </summary>    
     public class RtspSourceStream : RtpSource
     {
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious
         public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
 
-        System.Drawing.Image m_lastFrame;
+        
 
         #region Properties
 
@@ -38,6 +38,19 @@ namespace Media.Rtsp.Server.Streams
             {
                 if (RtspClient != null) RtspClient.Credential = value;
                 base.SourceCredential = value;
+            }
+        }
+
+        public override AuthenticationSchemes SourceAuthenticationScheme
+        {
+            get
+            {
+                return base.SourceAuthenticationScheme;
+            }
+            set
+            {
+                if (RtspClient != null) RtspClient.AuthenticationScheme = value;
+                base.SourceAuthenticationScheme = value;
             }
         }
 
@@ -132,10 +145,7 @@ namespace Media.Rtsp.Server.Streams
                     RtspClient.StartListening();
                     
                     //Set the time for stats
-                    m_Started = DateTime.UtcNow;
-                    
-                    //Add handler for frame events
-                    if (RtpClient != null) RtpClient.RtpFrameChanged += DecodeFrame;
+                    m_StartedTimeUtc = DateTime.UtcNow;                                        
                     
                     //Call base to set started etc.
                     base.Start();
@@ -164,50 +174,15 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
-                    RtspClient.StopListening();
-                    if (RtpClient != null) RtpClient.RtpFrameChanged -= DecodeFrame;
+                    RtspClient.StopListening();                    
                 }
                 catch { }
             }
             base.Stop();
-            m_Started = null;
+            m_StartedTimeUtc = null;
         }
 
-        internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
-        {
-            if (RtspClient.Client == null || RtspClient.Client != sender) return;
-            try
-            {
-                //Get the MediaDescription (by ssrc so dynamic payload types don't conflict
-                Media.Sdp.MediaDescription mediaDescription = this.RtspClient.Client.GetContextBySourceId(frame.SynchronizationSourceIdentifier).MediaDescription;
-                if (mediaDescription.MediaType == Sdp.MediaType.audio)
-                {
-                    //Could have generic byte[] handlers OnAudioData OnVideoData OnEtc
-                    //throw new NotImplementedException();
-                }
-                else if (mediaDescription.MediaType == Sdp.MediaType.video)
-                {
-                    if (mediaDescription.MediaFormat == 26)
-                    {
-                       OnFrameDecoded(m_lastFrame = (new Rtp.JpegFrame(frame)).ToImage());
-                    }
-                    else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
-                    {
-                        //Dynamic..
-                        //throw new NotImplementedException();
-                    }
-                    else
-                    {
-                        //0 - 95 || >= 128
-                        //throw new NotImplementedException();
-                    }
-                }
-            }
-            catch
-            {
-                return;
-            }
-        }
+        
     }
 
     /// <summary>

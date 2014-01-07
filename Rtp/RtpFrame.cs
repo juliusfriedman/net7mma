@@ -7,36 +7,46 @@ namespace Media.Rtp
     /// <summary>
     /// A collection of RtpPackets
     /// </summary>
-    public class RtpFrame : System.Collections.IEnumerable, IEnumerable<RtpPacket>
+    public class RtpFrame : IDisposable, System.Collections.IEnumerable, IEnumerable<RtpPacket>
     {
         /// <summary>
         /// The maximum amount of packets which can be contained in a frame
         /// </summary>
-        internal static int MaxPackets = 1024;
+        internal protected int MaxPackets = 1024;
 
         #region Fields
 
-        uint m_TimeStamp, m_Ssrc;
+        int m_Timestamp, m_Ssrc;
 
-        byte m_PayloadType;
+        byte m_PayloadByte;
 
-        protected SortedList<uint, RtpPacket> m_Packets = new SortedList<uint, RtpPacket>();
+        /// <summary>
+        /// Using a SortedList is fast than using a SortedDictionary and allows the value to be removed in state if it is contained more than once.
+        /// </summary>
+        protected SortedList<int, RtpPacket> m_Packets = new SortedList<int, RtpPacket>();
 
         #endregion
 
         #region Properties
 
-        public DateTime? Created { get; set; }
+        //SourceList which should be added to each packet int the frame?
+
+        public DateTime Created { get; set; }
 
         /// <summary>
-        /// The SynchronizationSourceIdentifier of All Packets Contained
+        /// Indicates if all contained RtpPacket instances have a Sent Value.
         /// </summary>
-        public virtual uint SynchronizationSourceIdentifier
+        public bool Transferred { get { return m_Packets.All(p => p.Value.Transferred.HasValue); } }
+
+        /// <summary>
+        /// Gets or sets the SynchronizationSourceIdentifier of All Packets Contained
+        /// </summary>
+        public virtual int SynchronizationSourceIdentifier
         {
-            get { return m_Ssrc; }
+            get { return (int)m_Ssrc; }
             set
             {
-                m_Ssrc = (uint)value;
+                m_Ssrc = value;
                 foreach (RtpPacket p in m_Packets.Values)
                 {
                     p.SynchronizationSourceIdentifier = m_Ssrc;
@@ -47,22 +57,30 @@ namespace Media.Rtp
         /// <summary>
         /// The PayloadType of All Packets Contained
         /// </summary>
-        public virtual byte PayloadType { get { return m_PayloadType; } }
+        public virtual byte PayloadTypeByte { get { return m_PayloadByte; } }
 
         /// <summary>
         /// The Timestamp of All Packets Contained
         /// </summary>
-        public virtual uint Timestamp { get { return m_TimeStamp; } set { m_TimeStamp = value; } }
+        public virtual int Timestamp { get { return m_Timestamp; } set { m_Timestamp = value; } }
 
         /// <summary>
-        /// Indicated if a Contained Packet has the Marker Bit Set
+        /// Indicates if the RtpFrame is NotEmpty, or contained a RtpPacket which has the Marker Bit Set
         /// </summary>
-        public virtual bool Complete { get; protected set; }
+        public virtual bool Complete { get { return !IsEmpty && HasMarker; } }
 
         /// <summary>
-        /// Indicates if All Contained Packets are sequential
+        /// Indicates if all contained packets are sequential up the Highest Sequence Number contained in the RtpFrame.
         /// </summary>
-        public virtual bool IsMissingPackets { get { return m_Packets.Count == 0 || !m_Packets.All(a => a.Value.Marker || m_Packets.ContainsKey(a.Key + 1)); } }
+        public virtual bool IsMissingPackets
+        {
+            get { return m_Packets.Count == 0 || m_Packets.Count > 1 && !m_Packets.All(a => a.Value.SequenceNumber < HighestSequenceNumber && m_Packets.ContainsKey(a.Key + 1)); }
+        }
+
+        /// <summary>
+        /// Indicates if any packets have a marker
+        /// </summary>
+        public virtual bool HasMarker { get { return m_Packets.Any(a => a.Value.Marker); } }
 
         /// <summary>
         /// The amount of Packets in the RtpFrame
@@ -72,31 +90,58 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if there are packets in the RtpFrame
         /// </summary>
-        public bool Empty { get { return m_Packets.Count == 0; } }
+        public bool IsEmpty { get { return m_Packets.Count == 0; } }
 
         /// <summary>
         /// The HighestSequenceNumber in the contained Packets or 0 if no Packets are contained
         /// </summary>
-        public ushort HighestSequenceNumber { get { return (ushort)(Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); } }
+        public int HighestSequenceNumber { get { return (Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); } }
 
         #endregion
 
         #region Constructor
 
-        public RtpFrame(byte payloadType)
+        public RtpFrame(int payloadType)
         {
-            m_PayloadType = payloadType;
+            //Indicate when this instance was created
             Created = DateTime.UtcNow;
+
+
+            if (payloadType > byte.MaxValue) throw Common.Binary.CreateOverflowException("payloadType", payloadType, byte.MinValue.ToString(), byte.MaxValue.ToString());
+
+            //Assign the type of RtpFrame
+            m_PayloadByte = (byte)payloadType;
         }
 
-        public RtpFrame(byte payloadType, uint timeStamp, uint ssrc) 
+        public RtpFrame(int payloadType, int timeStamp, int ssrc) 
             :this(payloadType)
         {
+            //Assign the Synconrization Source Identifier
             m_Ssrc = ssrc;
-            m_TimeStamp = timeStamp;    
+
+            //Assign the Timestamp
+            m_Timestamp = timeStamp;    
         }
 
-        public RtpFrame(RtpFrame f) : this(f.PayloadType) { m_Ssrc = f.m_Ssrc; m_TimeStamp = f.m_TimeStamp; m_Packets = f.m_Packets; }
+        /// <summary>
+        /// Clone and existing RtpFrame
+        /// </summary>
+        /// <param name="f">The frame to clonse</param>
+        /// <param name="referencePackets">Indicate if contained packets should be referenced</param>
+        public RtpFrame(RtpFrame f, bool referencePackets = false)
+            : this(f.PayloadTypeByte)
+        {
+            m_Ssrc = f.m_Ssrc; m_Timestamp = f.m_Timestamp;
+
+            //If this is a shallow clone then just use the reference
+            if (!referencePackets) m_Packets = f.m_Packets;
+            else foreach (RtpPacket p in f) m_Packets.Add(p.SequenceNumber, p); //Otherwise make a new reference to each RtpPacket
+        }
+
+        /// <summary>
+        /// Destructor.
+        /// </summary>
+        ~RtpFrame() { Dispose(); } 
 
         #endregion
 
@@ -106,30 +151,38 @@ namespace Media.Rtp
         /// Gets an enumerator of All Contained Packets at the time of the call
         /// </summary>
         /// <returns>A Yield around Packets</returns>
-        public IEnumerator<RtpPacket> GetEnumerator()
-        {
-            return m_Packets.Values.GetEnumerator();
-        }
+        public IEnumerator<RtpPacket> GetEnumerator() { return m_Packets.Values.GetEnumerator(); }
 
         /// <summary>
-        /// Adds a RtpPacket to the RtpFrame, if the packet has a Marker then the frame will be Complete and no allow addition or removal of packets
+        /// Adds a RtpPacket to the RtpFrame. The first packet added sets the SynchronizationSourceIdentifier and Timestamp if not already set.
         /// </summary>
         /// <param name="packet">The RtpPacket to Add</param>
         public virtual void Add(RtpPacket packet)
         {
-            if (m_Ssrc == 0) m_Ssrc = packet.SynchronizationSourceIdentifier;
-            else if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
-            if (Timestamp == 0) Timestamp = packet.TimeStamp;
-            else if (packet.TimeStamp != Timestamp) throw new ArgumentException("packet.TimeStamp must match frame TimeStamp", "packet");
-            if (Count >= MaxPackets) throw new InvalidOperationException("The amount of packets contained in a RtpFrame cannot exceed: " + RtpFrame.MaxPackets);
-            if (packet.PayloadType != m_PayloadType) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
-            lock (m_Packets)
-            {
-                //If the frame is complete or the packet is contained return
-                if (Complete || Contains(packet)) return;
-                m_Packets.Add(packet.SequenceNumber, packet);
-                Complete = packet.Marker;
-            }
+            //The first packet sets the ssrc
+            if (Count == 0 && m_Ssrc != packet.SynchronizationSourceIdentifier) m_Ssrc = packet.SynchronizationSourceIdentifier;
+
+            if (Count == 0 && m_Timestamp != packet.Timestamp) m_Timestamp = packet.Timestamp;
+
+            if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
+            
+            if (packet.Timestamp != Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
+
+            if (Count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
+
+            if (packet.PayloadType != m_PayloadByte) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
+
+            //If the frame is complete or the packet is contained return
+            //Note that there is no lock utilized, 
+            //This is because multiple threads may very well be adding packets to the same frame and is acceptible behavior.
+            //It is up to the implementation to add packets to the RtpFrame in a manner which is consistent with the state of the frame. 
+            
+            //E.g with respect to the above checks and finally the check below 
+            //Which determineres if the RtpFrame is already complete that the packet will not be added to this frame.
+            if (Complete || Contains(packet)) return;
+
+            //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.
+            m_Packets.Add(packet.SequenceNumber, packet);
         }
 
         /// <summary>
@@ -137,67 +190,77 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="sequenceNumber">The RtpPacket to check</param>
         /// <returns>True if the packet is contained, otherwise false.</returns>
-        public virtual bool Contains(RtpPacket packet)
-        {
-            return Contains(packet.SequenceNumber);
-        }
+        public virtual bool Contains(RtpPacket packet) { return m_Packets.ContainsKey(packet.SequenceNumber); }
 
         /// <summary>
         /// Indicates if the RtpFrame contains a RtpPacket based on the given sequence number
         /// </summary>
         /// <param name="sequenceNumber">The sequence number to check</param>
         /// <returns>True if the packet is contained, otherwise false.</returns>
-        public virtual bool Contains(uint sequenceNumber)
+        public virtual bool Contains(int sequenceNumber)
         {
             return m_Packets.ContainsKey(sequenceNumber);
         }
 
         /// <summary>
-        /// Removes a RtpPacket from the RtpFrame by the given Sequence Number if the frame is not Complete
+        /// Removes a RtpPacket from the RtpFrame by the given Sequence Number.
         /// </summary>
-        /// <param name="sequenceNumber">The sequence number to remove</param>
+        /// <param name="sequenceNumber">The sequence number of the RtpPacket to remove</param>
         /// <returns>A RtpPacket with the sequence number if removed, otherwise null</returns>
-        public virtual RtpPacket Remove(uint sequenceNumber)
+        public virtual RtpPacket Remove(int sequenceNumber)
         {
-            if (Complete) return null;
             RtpPacket removed;
-            if (m_Packets.TryGetValue(sequenceNumber, out removed))
+            try
             {
-                lock (m_Packets)
+                //Checks for the packet to be contained in the SortedList and obtains a reference to the RtpPacket
+                if (m_Packets.TryGetValue(sequenceNumber, out removed))
                 {
+                    //Remove it from the SortedList
                     m_Packets.Remove(sequenceNumber);
                 }
+                //Return the RtpPacket removed
+                return removed;
             }
-            return removed;
+            catch { throw; }
+            finally 
+            {
+                //Remove the reference obtained to the RtpPacket
+                removed = null;
+            }
         }
 
         /// <summary>
-        /// Empties the frame
+        /// Empties the RtpFrame by clearing the SortedList of contained RtpPackets
         /// </summary>
-        public virtual void RemoveAllPackets() { Complete = false;  lock (m_Packets) { m_Packets.Clear(); } }
+        public virtual void RemoveAllPackets() { m_Packets.Clear(); }
 
         /// <summary>
         /// Assembles the RtpFrame into a byte[] by combining the ExtensionBytes and Payload of all contained RtpPackets into a single byte array (excluding the RtpHeader)
         /// </summary>
         /// <returns>The byte array containing the assembled frame</returns>
-        public virtual byte[] Assemble()
+        public virtual IEnumerable<byte> Assemble(bool useExtensions = false)
         {
-            List<byte> result = new List<byte>();
+            //The sequence
+            IEnumerable<byte> sequence = Enumerable.Empty<byte>();
+
+            //Iterate the packets
             foreach (RtpPacket packet in this)
             {
-                //If there are extensions as is
-                //Should be handled by derived implementation
-                if (packet.Extensions)
+                //Should be handled by derived implementation because it is known if the flags are relevent to the data.
+                if (useExtensions && packet.Extension)
                 {
-                    result.AddRange(packet.ExtensionBytes);
+                    using (RtpExtension extension = packet.GetExtension())
+                    {
+                        /*if (extension.IsComplete) */
+                        sequence = sequence.Concat(extension.Data);
+
+                    }
                 }
 
-                //If the packet has padding
-                //Should be handled by derived implementation
-                result.AddRange(packet.Payload);
+                sequence = sequence.Concat(packet.Coefficients);
             }
 
-            return result.ToArray();
+            return sequence;
         }
 
         #endregion
@@ -205,6 +268,11 @@ namespace Media.Rtp
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        public virtual void Dispose()
+        {
+            RemoveAllPackets();
         }
     }
 }

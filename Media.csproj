@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -10,12 +10,13 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Media</RootNamespace>
     <AssemblyName>Media</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -26,6 +27,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -35,6 +37,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -56,6 +59,7 @@
     <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
     <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
     <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
@@ -73,6 +77,7 @@
     <CodeAnalysisRuleDirectories>;C:\Program Files (x86)\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
     <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -80,34 +85,47 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\Binary.cs" />
+    <Compile Include="Common\CommonHeaderBits.cs" />
+    <Compile Include="Common\IPacket.cs" />
+    <Compile Include="Common\SourceList.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Rtcp\ApplicationSpecific.cs" />
-    <Compile Include="Rtcp\Goodbye.cs" />
-    <Compile Include="Rtcp\Draft\IEEE1733.cs" />
+    <Compile Include="RFC3550.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Rtcp\AppplicationSpecificReport.cs" />
+    <Compile Include="Rtcp\GoodbyeChunk.cs" />
+    <Compile Include="Rtcp\GoodbyeReport.cs" />
+    <Compile Include="Rtcp\IReportBlock.cs" />
     <Compile Include="Rtcp\ReceiversReport.cs" />
     <Compile Include="Rtcp\ReportBlock.cs" />
-    <Compile Include="Rtcp\Extensions\RFC2032.cs" />
-    <Compile Include="Rtcp\Extensions\RFC3611.cs" />
-    <Compile Include="Rtcp\Feedback\RFC4585.cs" />
-    <Compile Include="Rtcp\Extensions\RFC5450.cs" />
-    <Compile Include="Rtcp\Extensions\RFC5760.cs" />
+    <Compile Include="Rtcp\RtcpHeader.cs" />
     <Compile Include="Rtcp\RtcpPacket.cs" />
+    <Compile Include="Rtcp\RtcpReport.cs" />
     <Compile Include="Rtcp\SendersReport.cs" />
-    <Compile Include="Rtcp\SourceDescription.cs" />
-    <Compile Include="Rtp\JpegFrame.cs" />
+    <Compile Include="Rtcp\SourceDescriptionReport.cs" />
+    <Compile Include="Rtcp\SourceDescriptionChunk.cs" />
+    <Compile Include="Rtcp\SourceDescriptionItem.cs" />
+    <Compile Include="Rtcp\SourceDescriptionItemList.cs" />
+    <Compile Include="Rtp\Conference.cs" />
+    <Compile Include="Rtp\RFC2435Frame.cs" />
     <Compile Include="Rtp\RtpClient.cs" />
     <Compile Include="Rtp\RtpDump.cs" />
+    <Compile Include="Rtp\RtpExtension.cs" />
     <Compile Include="Rtp\RtpFrame.cs" />
-    <Compile Include="Rtp\RtpPacket.cs" />
+    <Compile Include="Rtp\RtpHeader.cs" />
+    <Compile Include="Rtp\RtpPacket.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Rtsp\RtspClient.cs" />
     <Compile Include="Rtsp\RtspMessage.cs" />
-    <Compile Include="Rtsp\RtspRequest.cs" />
-    <Compile Include="Rtsp\RtspResponse.cs" />
     <Compile Include="Rtsp\Server\RtspServer.cs" />
+    <Compile Include="Rtsp\Server\RtspServerDebuggingLogger.cs" />
     <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
     <Compile Include="Rtsp\Server\ClientSession.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\ImageStreams.cs" />
+    <Compile Include="Rtsp\Server\Streams\ISource.cs" />
+    <Compile Include="Rtsp\Server\Streams\RFC2435Stream.cs" />
     <Compile Include="Rtsp\Server\Streams\RtpStreams.cs" />
     <Compile Include="Rtsp\Server\Streams\RtspStreams.cs" />
     <Compile Include="Rtsp\Server\Streams\SourceStream.cs" />
@@ -116,6 +134,10 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Rtcp\Expansion\" />
+    <Folder Include="Secure\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

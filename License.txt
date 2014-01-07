@@ -1,6 +1,6 @@
-Managed Media Aggregation
+Managed Media Aggregation RC 2 `Flawless`
 
-Copyright 2012 
+Copyright 2014
 
 Julius R. Friedman - juliusfriedman@gmail.com 
 Sr. Software Engineer ASTI Transportation Inc. www.asti-trans.com
