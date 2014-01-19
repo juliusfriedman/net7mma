@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -55,7 +55,7 @@ namespace Media.Rtcp
     /// A managed implemenation of the Rtcp abstraction found in RFC3550.
     /// <see cref="http://tools.ietf.org/html/rfc3550"> RFC3550 </see> for more information
     /// </summary>
-    public class RtcpPacket : Utility.BaseDisposable, IPacket
+    public class RtcpPacket : BaseDisposable, IPacket
     {
         #region Constants and Statics
 
@@ -88,7 +88,8 @@ namespace Media.Rtcp
         /// <returns>A pointer to each packet found</returns>
         public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int index, int count, int version = 2, int? payloadType = null, int? ssrc = null)
         {
-            int lowerBound = array.GetLowerBound(0), upperBound = array.Length;
+            //array.GetLowerBound(0) for VB, UpperBound(0) is then the index of the last element
+            int lowerBound = 0, upperBound = array.Length; 
 
             if (index < lowerBound || index > upperBound) throw new ArgumentOutOfRangeException("index", "Must refer to an accessible position in the given array");
 
@@ -96,26 +97,22 @@ namespace Media.Rtcp
 
             if (count > upperBound) throw new ArgumentOutOfRangeException("count", "Must refer to an accessible position in the given array");
 
-            if (count + index > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
+            //Would overflow the array
+            //if (count + index > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
 
             //Start parsing at the given offset
-            int offset = index, parsedPackets = 0;
+            int offset = index;
+
+            OctetSegment parsing = new OctetSegment(array, offset, count);
 
             //While  a 32 bit value remains to be read in the vector
             while (offset + 4 < count)
             {
-                //Get the header of the packet to verify if it is wanted or not
-                using (var header = new RtcpHeader(array, offset))
-                {
-                    //if The first packet must be valid according to RFC3550 and it is not then break
-                    //if (parsedPackets == 0 && !RFC3550.IsValidRtcpHeader(header, version)) yield break;
-                    
-                    //Create a packet by copying the bytes from the buffer past the header
+                //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
+                using (var header =  new RtcpHeader(parsing, offset))  ///new RtcpHeader(array, offset))
+                {                                 
                     using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length)))
                     {
-                        //Increase the amount of packets parsed
-                        ++parsedPackets;
-
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;
 
@@ -129,9 +126,8 @@ namespace Media.Rtcp
                             //Skip the packet
                             continue;
                         }
-                        else if (GetImplementationForPayloadType(headerPayloadType) == null) yield break;//Check for unknown implementation
                         
-                        //Yield the packet
+                        //Yield the packet, disposed afterwards
                         yield return newPacket;
                     }
                 }
@@ -178,9 +174,6 @@ namespace Media.Rtcp
             //Assign the header
             Header = header;
 
-            //If there are no bytes in the payload return
-            if (header.LengthInWordsMinusOne == 0) return;
-
             //Convert words to octets
             //If there are any octets in the Payload they do not NOT consist of the octets in the header in which the LengthInWords does calculate.
             int packetLength = Math.Abs(RtcpHeader.Length - ((ushort)((header.LengthInWordsMinusOne + 1) * 4)));
@@ -200,11 +193,11 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The existing RtpHeader</param>
         /// <param name="payload">The data contained in the payload</param>
-        public RtcpPacket(RtcpHeader header, OctetSegment payload, bool ownsHeader = true)
+        public RtcpPacket(RtcpHeader header, OctetSegment payload, bool shouldDispose = true)
         {
             if (header == null) throw new ArgumentNullException("header");
 
-            m_OwnsHeader = ownsHeader;
+            ShouldDispose = shouldDispose;
 
             Header = header;
 
@@ -285,6 +278,11 @@ namespace Media.Rtcp
         public bool IsReadOnly { get { return !m_OwnsHeader; } }
 
         /// <summary>
+        /// Indicates if there is data past the Payload which is not accounted for by the <see cref="Header"/>
+        /// </summary>
+        public bool IsCompound { get { return Disposed || Header.Disposed ? false : Payload.Count > ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)); } }
+
+        /// <summary>
         /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
@@ -292,12 +290,12 @@ namespace Media.Rtcp
         public int PaddingOctets { get { if (Disposed || !Header.Padding || Payload.Count == 0) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
 
         /// <summary>
-        /// The length in bytes of this RtcpPacket including the header and any padding.
+        /// The length in bytes of this RtcpPacket including the header and any padding. <see cref="IsCompound"/>
         /// </summary>
         public int Length { get { return RtcpHeader.Length + Payload.Count; } }
 
         /// <summary>
-        /// Indicates if the RtcpPacket needs any more data to be considered complete.
+        /// Indicates if the RtcpPacket needs any more data to be considered complete. <see cref="IsCompound"/>
         /// </summary>
         public bool IsComplete { get { return Disposed || Header.Disposed ? true : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)); } }
 
@@ -382,9 +380,9 @@ namespace Media.Rtcp
             int lengthInOctets = Length;
 
             //If there are no bytes in the payload then ensure LengthInWords is 0
-            if (lengthInOctets <= 8)
+            if (lengthInOctets == 8)
             {
-                Header.LengthInWordsMinusOne = 0;
+                Header.LengthInWordsMinusOne = 65535;
                 return;
             }
 
@@ -421,24 +419,20 @@ namespace Media.Rtcp
             //Build a seqeuence from the existing octets and the data in the ReportBlock
 
             //If there are existing owned octets (which may include padding)
-            if (m_OwnedOctets != null)
+            if (Padding)
             {
-                //If there is padding
-                if (Padding)
-                {
-                    //Determine the amount of bytes in the payload
-                    int payloadCount = Payload.Count, 
-                        //Determine the padding octets offset
-                        paddingOctets = PaddingOctets, 
-                        //Determine the amount of octets in the payload
-                        payloadOctets = payloadCount - paddingOctets;
+                //Determine the amount of bytes in the payload
+                int payloadCount = Payload.Count,
+                    //Determine the padding octets offset
+                    paddingOctets = PaddingOctets,
+                    //Determine the amount of octets in the payload
+                    payloadOctets = payloadCount - paddingOctets;
 
-                    //The owned octets is a projection of the Payload existing, without the padding combined with the given octets from offset to count and subsequently the paddingOctets after the payload
-                    m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset)).Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
-                }
-                else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
+                //The owned octets is a projection of the Payload existing, without the padding combined with the given octets from offset to count and subsequently the paddingOctets after the payload
+                m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset)).Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
             }
-            else m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
+            else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
+            else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
 
             //Create a pointer to the owned octets.
             Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
@@ -557,7 +551,9 @@ namespace Media.Rtcp
         DateTime IPacket.Created { get { return Created; } }
 
         public DateTime? Transferred { get; set; }
-        
+
+        long Common.IPacket.Length { get { return (long)Length; } }
+
         #endregion
         
         #region Expansion

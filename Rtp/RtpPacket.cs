@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -57,7 +57,7 @@ namespace Media.Rtp
     /// A managed implemenation of the Rtp abstraction found in RFC3550.
     /// <see cref="http://tools.ietf.org/html/rfc3550"> RFC3550 </see> for more information
     /// </summary>
-    public class RtpPacket : Utility.BaseDisposable, IPacket
+    public class RtpPacket : BaseDisposable, IPacket
     {
         #region Fields
 
@@ -95,27 +95,27 @@ namespace Media.Rtp
         /// Subsequently >15 * 4  = 60
         /// Clamped with Min(60, Max(0, N)) where N = ContributingSourceCount * 4;
         /// </remarks>
-        public int ContributingSourceListOctets { get { if (Disposed) return 0; return Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4)); } }
+        public int ContributingSourceListOctets { get { if (Disposed || Payload.Count == 0) return 0; return Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4)); } }
 
         /// <summary>
         /// Determines the amount of octets in the RtpExtension in this RtpPacket.
         /// The maximum value this property can return is 65535.
         /// <see cref="RtpExtension.LengthInWords"/> for more information.
         /// </summary>
-        public int ExtensionOctets { get { if (Disposed || !Header.Extension) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
+        public int ExtensionOctets { get { if (Disposed || !Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
 
         /// <summary>
         /// The amount of octets which belong either to the SourceList or the RtpExtension.
         /// This amount does not reflect any padding which may be present.
         /// </summary>
-        internal int NonPayloadOctets { get { if (Disposed) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
+        internal int NonPayloadOctets { get { if (Disposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
 
         /// <summary>
         /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (Disposed || !Header.Padding) return 0; return RFC3550.ReadPadding(Payload, NonPayloadOctets); } }
+        public int PaddingOctets { get { if (Disposed || !Header.Padding || Payload.Count == 0) return 0; return RFC3550.ReadPadding(Payload, NonPayloadOctets); } }
 
         /// <summary>
         /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
@@ -454,6 +454,8 @@ namespace Media.Rtp
         /// <returns>The sequence created.</returns>
         public IEnumerable<byte> Prepare(RtpHeader other = null) { return Enumerable.Concat<byte>(other ?? Header, Payload.Array.Skip(Payload.Offset).Take(Payload.Count)); }
 
+        public IEnumerable<byte> Prepare() { return Prepare(null); }
+
         /// <summary>
         /// Generates a sequence of bytes containing the RtpHeader with the provided parameters and any data contained in the Payload.
         /// The sequence generated includes the SourceList and RtpExtension if present.
@@ -646,6 +648,8 @@ namespace Media.Rtp
         DateTime IPacket.Created { get { return Created; } }
 
         public DateTime? Transferred { get; set; }
+
+        long Common.IPacket.Length { get { return (long)Length; } }
 
         #endregion
     }

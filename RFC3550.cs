@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -57,6 +57,50 @@ namespace Media
     {
         #region Constants and Statics
 
+        public static int Random32(int type = 0)
+        {
+
+            /*
+               gettimeofday(&s.tv, 0);
+               uname(&s.name);
+               s.type = type;
+               s.cpu  = clock();
+               s.pid  = getpid();
+               s.hid  = gethostid();
+               s.uid  = getuid();
+               s.gid  = getgid();
+             */
+
+            byte[] structure = BitConverter.GetBytes(type).//int     type;
+                Concat(BitConverter.GetBytes(DateTime.UtcNow.Ticks)).Concat(BitConverter.GetBytes(Environment.TickCount)).//struct  timeval tv;
+                Concat(BitConverter.GetBytes(TimeSpan.TicksPerMillisecond)).//clock_t cpu;
+                Concat(BitConverter.GetBytes(System.Diagnostics.Process.GetCurrentProcess().Id)).//pid_t   pid;
+                Concat(BitConverter.GetBytes(42)).//u_long  hid;
+                Concat(BitConverter.GetBytes(7)).//uid_t   uid;
+                Concat(Guid.NewGuid().ToByteArray()).//gid_t   gid;
+                Concat(System.Text.Encoding.Default.GetBytes(Environment.OSVersion.VersionString)).ToArray();//struct  utsname name;
+
+            //UtsName equivelant information would be
+
+            //char  sysname[]  name of this implementation of the operating system
+            //char  nodename[] name of this node within an implementation-dependent                 communications network
+            //char  release[]  current release level of this implementation
+            //char  version[]  current version level of this release
+            //char  machine[]  name of the hardware type on which the system is running
+
+            //Perform MD5 on structure per 3550
+
+            byte[] digest = Utility.MD5HashAlgorithm.ComputeHash(structure);
+
+            //Complete hash
+            uint r = 0;
+            r ^= BitConverter.ToUInt32(digest, 0);
+            r ^= BitConverter.ToUInt32(digest, 4);
+            r ^= BitConverter.ToUInt32(digest, 8);
+            r ^= BitConverter.ToUInt32(digest, 12);
+            return (int)r;
+        }
+
         public const int RtcpValidMask = 0xc000 | 0x2000 | 0xfe;
 
         /// <summary>
@@ -66,11 +110,22 @@ namespace Media
         /// <param name="version">The version of the RtcpPacket to validate</param>
         /// <param name="payloadType">The optional payloadType to use in the calulcation. Defaults to 201</param>
         /// <returns>The value calulcated</returns>
-        public static int RtcpValidValue(int version, int payloadType = Rtcp.SendersReport.PayloadType) { return (version << 14 | payloadType); }
+        public static int RtcpValidValue(int version, int payloadType = Rtcp.SendersReport.PayloadType)
+        {
+            //Always calulated in Big Endian
+            return (version << 14 | payloadType);
+        }
 
         public static bool IsValidRtcpHeader(Rtcp.RtcpHeader header, int version = 2)
         {
-            return (header.ToInt32() & RtcpValidMask) == RtcpValidValue(version);
+            //ToInt32 return a 32 bit value in System Endian
+            ushort headerCast = BitConverter.ToUInt16(header.ToArray(), 0);
+
+            //If Little Endian the value must be reversed
+            if (BitConverter.IsLittleEndian) headerCast = Common.Binary.ReverseU16(headerCast);
+
+            //perform the check
+            return (headerCast & RtcpValidMask) == RtcpValidValue(version);
         }
 
         /// <summary>
@@ -82,17 +137,17 @@ namespace Media
         /// </summary>
         /// <param name="packets">The packets to compound</param>
         /// <returns>The sequence of bytes which represent the compound RtcpPacket.</returns>
-        public static IEnumerable<byte> ToCompoundBytes(params RtcpPacket[] packets)
+        public static IEnumerable<byte> ToCompoundBytes(IEnumerable<RtcpPacket> packets)
         {
             if (packets == null) throw new ArgumentNullException("packets");
 
-            if (packets.Length < 2) throw new InvalidOperationException("packets must contain at least 2 RtcpPackets");
+            //if (packets.Length < 2) throw new InvalidOperationException("packets must contain at least 2 RtcpPackets");
 
             RtcpPacket first = packets.First();
 
             if (first.Padding) throw new InvalidOperationException("Only the last packet in a compound RtcpPacket may have padding");
 
-            int firstPayloadType = first.PayloadType, ssrc = first.SynchronizationSourceIdentifier, totalLength = first.Length;
+            int firstPayloadType = first.PayloadType, ssrc = first.SynchronizationSourceIdentifier, totalLength = (int)first.Length;
 
             if (firstPayloadType != Rtcp.SendersReport.PayloadType && firstPayloadType != Rtcp.ReceiversReport.PayloadType) throw new InvalidOperationException("A Compound packet must start with either a SendersReport or a ReceiversReport.");
 
@@ -103,7 +158,7 @@ namespace Media
             foreach (RtcpPacket packet in packets.Skip(1))
             {
                 //Summize the length
-                totalLength += packet.Length;
+                totalLength += (int)packet.Length;
 
                 //New ssrc resets the required packets in the sequence
                 if (packet.SynchronizationSourceIdentifier != ssrc) hasSourceDescription = hasCName = false;
@@ -114,11 +169,8 @@ namespace Media
                     //The packets contained a SourceDescription Report.
                     hasSourceDescription = true;
 
-                    //Check for the CName Item in all chunks
-                    using (SourceDescriptionReport asReport = new SourceDescriptionReport(packet, false))
-                    {
-                        foreach (SourceDescriptionChunk chunk in asReport) if ((hasCName = chunk.Any(i => i.ItemType == SourceDescriptionItem.SourceDescriptionItemType.CName))) break;
-                    }
+                    //if not already checked for a cname check now
+                    if (!hasCName && packet.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(packet, false)) if ((hasCName = asReport.HasCName)) break;
                 }                
             }
 
@@ -202,55 +254,41 @@ namespace Media
         /// <param name="count"></param>
         /// <param name="skipUnknownTypes"></param>
         /// <returns></returns>
-        public static IEnumerable<RtcpPacket> FromCompoundBytes(byte[] array, int offset, int count, bool skipUnknownTypes = false, int version = 2, int? ssrc = null)
+        public static IEnumerable<RtcpPacket> FromCompoundBytes(byte[] array, int offset, int count, bool skipUnknownTypes = true, int version = 2, int? ssrc = null)
         {
             //Keep track of how many packets were parsed.
             int parsedPackets = 0;
+
+            //Each Compound RtcpPacket must have a SourceDescription with a CName and may have a goodbye
+            bool hasSourceDescription = false, hasCName = false;
 
             //Get all packets contained in the buffer.
             foreach (RtcpPacket currentPacket in RtcpPacket.GetPackets(array, offset, count, version, null, ssrc)) 
             {
 
-                //Determine who the packet is from and who type it is.
+                //Determine who the packet is from and what type it is.
                 int firstPayloadType = currentPacket.PayloadType;
 
-                //Check the packet to be valid to RFC3550 rules for compound packets.
-                
-                //An Empty SR / RR Will have a block count of 0 and not be valid....
+                //The first packet in a compound packet needs to be validated
+                if (parsedPackets == 0 && !IsValidRtcpHeader(currentPacket.Header, currentPacket.Version)) yield break;
 
-                //If the next packet should be a Goodbye
-
-                if (parsedPackets == 0 && currentPacket.BlockCount > 0 && !IsValidRtcpHeader(currentPacket.Header, currentPacket.Version)) yield break;
-
-                yield return currentPacket;
-
+                //Count the packets parsed
                 ++parsedPackets;
-
-                //Each Compound RtcpPacket must have a SourceDescription with a CName and may have a goodbye
-                bool hasSourceDescription = false, hasCName = false;
-
-                if (currentPacket.SynchronizationSourceIdentifier != ssrc)
-                {
-                    hasSourceDescription = hasCName = false;
-                }
+                
+                //If only packets which have been implmented should be returned
+                if (skipUnknownTypes && RtcpPacket.GetImplementationForPayloadType((byte)currentPacket.PayloadType) != null) yield break;
 
                 //if the packet is a SourceDescriptionReport ensure a CName is present.
-                if (currentPacket.PayloadType == SourceDescriptionReport.PayloadType && !hasCName)
+                if (!hasCName && currentPacket.PayloadType == SourceDescriptionReport.PayloadType)
                 {
                     //The packets contained a SourceDescription Report.
                     hasSourceDescription = true;
 
-                    //Check for the CName Item in all chunks
-                    SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket);
-                    foreach (SourceDescriptionChunk chunk in asReport)
-                    {
-                        hasCName = chunk.Any(i => i.ItemType == SourceDescriptionItem.SourceDescriptionItemType.CName);
-                        if (!hasCName) throw new InvalidOperationException("A Compound RtcpPacket must have a SourceDescriptionReport with a SourceDescriptionChunk with a CName item.");
-                    }
+                    //if not already checked for a cname check now
+                    if (!hasCName && currentPacket.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket, false)) if ((hasCName = asReport.HasCName)) break;
                 }
 
-                //If only packets which have been implmented should be returned
-                if (skipUnknownTypes && RtcpPacket.GetImplementationForPayloadType((byte)currentPacket.PayloadType) != null) continue;
+                if (hasSourceDescription && !hasCName) Common.ExceptionExtensions.CreateAndRaiseException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
 
                 yield return currentPacket;
             }
@@ -295,8 +333,10 @@ namespace Media
               or for carrying several RTP packets in a lower-layer protocol data unit.
           */
 
+            int endSegment = segment.Count;
+
             //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
-            for (int e = segment.Count; position < e; ++position)
+            for (; position < endSegment; ++position)
             {
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
                 if (segment.Array[position] != 0)
@@ -306,7 +346,7 @@ namespace Media
                 }
             }
 
-
+            if (position == endSegment) return 0;
             //Return the amount of bytes in the padding.
             return segment.Array[position];
         }

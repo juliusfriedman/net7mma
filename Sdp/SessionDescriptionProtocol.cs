@@ -1,4 +1,40 @@
-﻿using System;
+﻿/*
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
+  
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -107,7 +143,7 @@ namespace Media.Sdp
         {
             string[] lines = sdpContents.Split(CRLF.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 
-            if (lines.Length < 3) throw new SessionDescriptionException("Invalid Session Description");
+            if (lines.Length < 3) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Session Description");
 
             //Parse remaining optional entries
             for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
@@ -305,12 +341,12 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (!sdpLine.StartsWith("m=")) throw new SessionDescriptionException("Invalid Media Description");
+            if (!sdpLine.StartsWith("m=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
             else sdpLine = sdpLine.Replace("m=", string.Empty);
 
             string[] parts = sdpLine.Split(' ');
 
-            if (parts.Length != 4) throw new SessionDescriptionException("Invalid Media Description");
+            if (parts.Length != 4) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
 
             MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanLineValue(parts[0].ToLowerInvariant()));
 
@@ -421,7 +457,7 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (!sdpLine.StartsWith("t=")) throw new SessionDescriptionException("Invalid Time Description");
+            if (!sdpLine.StartsWith("t=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Time Description");
 
             sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("t=", string.Empty));
             string[] parts = sdpLine.Split(' ');
@@ -444,7 +480,7 @@ namespace Media.Sdp
                 }
                 catch (Exception ex)
                 {
-                    throw new SessionDescriptionException("Invalid Repeat Time", ex);
+                    Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Repeat Time", ex);
                 }
             }
 
@@ -481,12 +517,7 @@ namespace Media.Sdp
     /// <summary>
     /// Thrown when a SessionDescription does not conform to the RFC 4566 outline
     /// </summary>
-    public class SessionDescriptionException : Exception
-    {
-        public SessionDescriptionException(string message) : base(message) { }
-
-        public SessionDescriptionException(string message, Exception innerException) : base(message, innerException) { }
-    }
+  
 
     /// <summary>
     /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
@@ -527,7 +558,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line.Length < 2 || line[1] != '=') throw new SessionDescriptionException("Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line.Length < 2 || line[1] != '=') Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -610,7 +641,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("v=")) throw new SessionDescriptionException("Invalid Version");
+                    if (!sdpLine.StartsWith("v=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Version");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("v=", string.Empty));
 
@@ -660,7 +691,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("o=")) throw new SessionDescriptionException("Invalid Owner");
+                    if (!sdpLine.StartsWith("o=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Owner");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("o=", string.Empty));
 
@@ -704,7 +735,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("s=")) throw new SessionDescriptionException("Invalid Session Name");
+                    if (!sdpLine.StartsWith("s=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Session Name");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("s=", string.Empty));
 
@@ -745,7 +776,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("p=")) throw new SessionDescriptionException("Invalid PhoneNumber");
+                    if (!sdpLine.StartsWith("p=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid PhoneNumber");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("p=", string.Empty));
 
@@ -786,7 +817,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("e=")) throw new SessionDescriptionException("Invalid Email");
+                    if (!sdpLine.StartsWith("e=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Email");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("e=", string.Empty));
 
@@ -849,7 +880,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("u=")) throw new SessionDescriptionException("Invalid Uri");
+                    if (!sdpLine.StartsWith("u=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Uri");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("u=", string.Empty));
 
@@ -903,7 +934,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (!sdpLine.StartsWith("c=")) throw new SessionDescriptionException("Invalid Session Connection Line");
+                    if (!sdpLine.StartsWith("c=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Session Connection Line");
 
                     sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("c=", string.Empty));
 

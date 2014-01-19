@@ -33,16 +33,28 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.RtpTools
 {
-    public interface ISource
+    /// <summary>
+    /// Represents the possible formats available from <see cref="http://www.cs.columbia.edu/irt/software/rtptools/#rtpdump">rtpdump</see>.
+    /// </summary>
+    public enum FileFormat : byte
     {
-        //Todo
+        Unknown = 0,
+        Header = 1,
+        Binary = 2,
+        Payload = 3,
+        Ascii = 4,
+        Text = Ascii, //Maybe should allow non ascii formats in a unknown encoding or standardize header etc, but will probably just use pcap
+        Hex = 5,
+        Rtcp = 6,
+        Rtp = 7,
+        Short = 8
     }
 }

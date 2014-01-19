@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -59,34 +59,34 @@ namespace Media.Common
     /// Not a struct because: 
     ///     1) bit fields are utilized, structures can only be offset in bytes with a whole integer number. (Double precision would be required in FieldOffset this get to work or a BitFieldOffset which takes double.)
     ///     2) structures must be passed by reference and would force this abstraction to be copied unless every call took reference.
-    ///     3) You cannot set a remove manually references to a value type or set a structure to null which then causes the GC to maintin the pointer and refrerence count for more time and would lead to more memory leaks.
+    ///     3) You cannot manually remove references to a value type or set a structure to null which then causes the GC to maintin the pointer and refrerence count for more time and would lead to more memory leaks.
     ///     4) You can't inherit a struct and subsequently any derived implementation would need to redudantly store reference to something it can't be rid of manually.
     ///     
     /// public to allow derived implementation, hence not sealed.
     /// 
     /// This instance only declares 2 fields which are value types and owns no other references.
     /// </remarks>
-    public class CommonHeaderBits : Utility.BaseDisposable, IEnumerable<byte>
+    public class CommonHeaderBits : BaseDisposable, IEnumerable<byte>
     {
         #region Statics and Constants
 
         /// <summary>
-        /// 3 << 6 produces a 8 bit value of 11000000
+        /// 3 SHL 6 produces a 8 bit value of 11000000
         /// </summary>
         public const byte VersionMask = 192;
 
         /// <summary>
-        /// 1 << 7 produces a 8 bit value of 1000000 (127) Decimal
+        /// 1 SHL 7 produces a 8 bit value of 1000000 (127) Decimal
         /// </summary>
         public const int RtpMarkerMask = Binary.SevenBitMaxValue;
 
         /// <summary>
-        /// 1 << 5 produces a 8 bit value of 00100000 (32 Decimal)
+        /// 1 SHL 5 produces a 8 bit value of 00100000 (32 Decimal)
         /// </summary>
         public const byte PaddingMask = 32;
 
         /// <summary>
-        /// 1 << 4 produces a 8 bit value of 00010000 (16) Decimal
+        /// 1 SHL 4 produces a 8 bit value of 00010000 (16) Decimal
         /// </summary>
         internal static byte ExtensionMask = 16;
 
@@ -99,8 +99,7 @@ namespace Media.Common
         /// <param name="extension">Indicates the value of the 3rd Bit</param>
         /// <param name="remainingBits">Bits 4, 5, 6, 7 and 8</param>
         /// <returns>The octet which has been composed as a result of packing the bit fields</returns>
-        [CLSCompliant(false)]
-        public static byte PackOctet(uint version, bool padding, bool extension, uint remainingBits = 0)
+        public static byte PackOctet(int version, bool padding, bool extension, int remainingBits = 0)
         {
             //Ensure the version is valid in a quarter bit
             if (version > 3) throw Binary.QuarterBitOverflow;
@@ -122,22 +121,13 @@ namespace Media.Common
                 remainingBits |= 16;
             }
 
-            //Pack the results into an octet which is stored the same in all endians.
-            return (byte)(version << 6 | (byte)remainingBits);            
+            //Pack the results into an octet
+            return PacketOctet(version, remainingBits);
         }
 
-        /// <summary>
-        /// Provided for CLS Complaince.
-        /// <see cref="CommonHeaderBits.PackOctet"/>
-        /// </summary>
-        /// <param name="version">a 2 bit value, 0, 1, 2 or 3.</param>
-        /// <param name="padding">Indicates the value of the 2nd Bit</param>
-        /// <param name="extension">Indicates the value of the 3rd Bit</param>
-        /// <param name="remainingBits">Bits 4, 5, 6, 7 and 8</param>
-        /// <returns>The octet which has been composed as a result of packing the bit fields</returns>
-        public static byte PacketOctetCompliant(int version, bool padding, bool extension, int remainingBits)
+        public static byte PacketOctet(int version, int remainingBits)
         {
-            return PackOctet((uint)version, padding, extension, (uint)remainingBits);
+            return (byte)((byte)(BitConverter.IsLittleEndian ? version << 6 : version >> 6) | (byte)remainingBits);
         }
 
         /// <summary>
@@ -156,6 +146,11 @@ namespace Media.Common
         #region Fields
 
         /// <summary>
+        /// If created from memory existing
+        /// </summary>
+        OctetSegment? m_Memory;
+
+        /// <summary>
         /// The first and octets themselves, utilized by both Rtp and Rtcp.
         /// Seperated to prevent checks on endian.
         /// </summary>
@@ -165,13 +160,44 @@ namespace Media.Common
 
         #region Properties
 
+        internal byte First8Bits
+        {
+            get { return m_Memory.HasValue ? m_Memory.Value.Array[m_Memory.Value.Offset] : leastSignificant; }
+            set 
+            {
+                if (m_Memory.HasValue)
+                {
+                    m_Memory.Value.Array[m_Memory.Value.Offset] = value;
+                }
+                else 
+                {
+                    leastSignificant = value;
+                }
+            }
+        }
+
+        internal byte Last8Bits
+        {
+            get { return m_Memory.HasValue ? m_Memory.Value.Array[m_Memory.Value.Offset + 1] : mostSignificant; }
+            set 
+            {
+                if (m_Memory.HasValue)
+                {
+                    m_Memory.Value.Array[m_Memory.Value.Offset + 1] = value;
+                }
+                else
+                {
+                    mostSignificant = value;
+                }
+            }
+        }
+
         /// <summary>
         /// Converts the 16 bits utilized in this implemention into a 32 bit integer
         /// </summary>
         /// <returns>The 32 bit value created as a result of interpreting the 16 bits as a 32 bit value</returns>
         internal int ToInt32()
         {
-            //Not using Binary.ReadInteger to save call overhead.
             return Binary.ReadU16(this, 0, BitConverter.IsLittleEndian);
         }
 
@@ -181,11 +207,11 @@ namespace Media.Common
         /// </summary>
         public int Version
         {
-            //Only 8 bits in a byte, moved 6 right yeilds a base 2 value of 0, 1, 2 or 3
-            get { return (byte)(leastSignificant > 0 ? (leastSignificant >> 6) : 0); }
+            //Only 1 shift is required to read the version
+            get { return BitConverter.IsLittleEndian ? First8Bits >> 6 : First8Bits << 6; }
             set
             {
-                //Unsigned to prevent 2 checks
+                //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
                 byte unsigned = (byte)value;
 
                 //Only 2 bits 4 possible values 0, 1, 2, 3, Compliments of two
@@ -200,7 +226,7 @@ namespace Media.Common
                 //3 << 7 - 1 = 192 = 11 000000
                 //Where 7 is the amount of `addressable` bits based on a 0 index
                 //leastSignificant = (byte)((value << 7 - 1) | (Padding ? PaddingMask : 0) | (Extension ? ExtensionMask : 0) | RtpContributingSourceCount);
-                leastSignificant = PackOctet(unsigned, Padding, Extension, (byte)RtpContributingSourceCount);
+                First8Bits = PackOctet(unsigned, Padding, Extension, (byte)RtpContributingSourceCount);
             }
         }
 
@@ -209,18 +235,15 @@ namespace Media.Common
         /// </summary>
         public bool Padding
         {
-            get
-            {
-                //Example 223 & 32 == 0
-                //Where 32 == PaddingMask and 223 == (11011111) Binary and would indicate a version 3 header with no padding, extension set and 15 CC
-                return leastSignificant > 0 && (leastSignificant & PaddingMask) > 0;
-            }
+            //Example 223 & 32 == 0
+            //Where 32 == PaddingMask and 223 == (11011111) Binary and would indicate a version 3 header with no padding, extension set and 15 CC
+            get { return (First8Bits & PaddingMask) > 0; }
             internal set
             {
                 //Comprise an octet with the required Version, Padding and Extension bit set
                 //Where 6 is the amount of unnecessary bits which preceeded the reqired value in the byte
                 //leastSignificant = (byte)((byte)Version << 6 | (value ? (PaddingMask) : 0) | (Extension ? (byte)(ExtensionMask) : 0) | RtpContributingSourceCount);
-                leastSignificant = PackOctet((byte)Version, value, Extension, (byte)RtpContributingSourceCount);
+                First8Bits = PackOctet((byte)Version, value, Extension, (byte)RtpContributingSourceCount);
             }
         }
 
@@ -232,11 +255,9 @@ namespace Media.Common
             //There are 8 bits in a byte.
             //Where 3 is the amount of unnecessary bits preceeding the Extension bit
             //and 7 is amount of bits to discard to place the extension bit at the highest indicie of the octet (8)
-            get { return leastSignificant > 0 && ((byte)(leastSignificant << 3) >> 7) > 0; }
-            set
-            {
-                leastSignificant = PackOctet((byte)Version, Padding, value, (byte)RtpContributingSourceCount);
-            }
+            //get { return First8Bits > 0 && (Common.Binary.ReadBitsWithShift(First8Bits, 3, 7, !BitConverter.IsLittleEndian) & ExtensionMask) > 0; }
+            get { return (First8Bits & ExtensionMask) > 0; }
+            set { First8Bits = PackOctet((byte)Version, Padding, value, (byte)RtpContributingSourceCount); }
         }
 
         /// <summary>
@@ -249,20 +270,17 @@ namespace Media.Common
             //Where 3 | PaddingMask = 224 (decimal) 11100000
             //Example 255 & 244 = 31 which is the Maximum value which is able to be stored in this field.
             //Where 255 = byte.MaxValue
-            get { return (byte)((leastSignificant << 3)) >> 3; }
+            get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 3)) : Common.Binary.ReverseU8((byte)(First8Bits >> 3)); }
             set
             {
-                //Get a unsigned copy to prevent two checks
-                byte unsigned = (byte)value;
+                if (value > Binary.FiveBitMaxValue)
+                    throw Binary.CreateOverflowException("RtcpBlockCount", value, byte.MinValue.ToString(), Binary.FiveBitMaxValue.ToString());
 
-                if (unsigned > Binary.FiveBitMaxValue)
-                    throw Binary.CreateOverflowException("RtcpBlockCount", unsigned, byte.MinValue.ToString(), Binary.FiveBitMaxValue.ToString());
-
-                byte blockCount = (byte)RtcpBlockCount;
-
-                if (blockCount > 0) leastSignificant ^= blockCount;
-
-                leastSignificant |= unsigned;
+                //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
+                byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 3) : (byte)(value << 3);
+                
+                //Re pack the octet
+                First8Bits = PacketOctet(Version, Padding ? PaddingMask | unsigned : unsigned);
             }
         }
 
@@ -274,16 +292,20 @@ namespace Media.Common
         {
             //Contributing sources only exist in the highest half of the `leastSignificant` octet.
             //Example 240 = 11110000 and would indicate 0 Contributing Sources etc.
-            get { return leastSignificant > 0 ? leastSignificant & 0x0f : 0; }
+            //get { return Common.Binary.ReverseU8((byte)Common.Binary.ReadBitsWithShift(First8Bits, 0, 4, BitConverter.IsLittleEndian)); }
+            get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
             internal set
             {
-                byte unsigned = (byte)value;
 
                 //If the value exceeds the highest value which can be stored in the bit field throw an overflow exception
-                if (unsigned > Binary.FourBitMaxValue)
-                    throw Binary.CreateOverflowException("RtpContributingSourceCount", unsigned, byte.MinValue.ToString(), Binary.FourBitMaxValue.ToString());
+                if (value > Binary.FourBitMaxValue)
+                    throw Binary.CreateOverflowException("RtpContributingSourceCount", value, byte.MinValue.ToString(), Binary.FourBitMaxValue.ToString());
 
-                leastSignificant = PackOctet((uint)Version, Padding, Extension, unsigned);
+                //Get a unsigned copy to prevent two checks, the value is only 4 bits and must be aligned to this boundary in the octet
+                byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
+
+                //re pack the octet
+                First8Bits = PackOctet(Version, Padding, Extension, unsigned);
             }
         }
 
@@ -292,8 +314,8 @@ namespace Media.Common
         /// </summary>
         public bool RtpMarker
         {
-            get { return mostSignificant > 0 && (mostSignificant >> 7) > 0; }
-            set { mostSignificant = PackOctet(value, (byte)RtpPayloadType); }
+            get { return Last8Bits > 0 && Common.Binary.ReadBitsWithShift(First8Bits, 0, 7, BitConverter.IsLittleEndian) > 0; }
+            set { Last8Bits = PackOctet(value, (byte)RtpPayloadType); }
         }
 
         /// <summary>
@@ -301,7 +323,7 @@ namespace Media.Common
         /// </summary>
         public int RtpPayloadType
         {
-            get { return mostSignificant > 0 ? (byte)((mostSignificant << 1)) >> 1 : 0; }
+            get { return Last8Bits > 0 ? (byte)((Last8Bits << 1)) >> 1 : 0; }
             set
             {
                 //Get an unsigned copy of the value to prevent 2 checks 
@@ -311,7 +333,7 @@ namespace Media.Common
                 if (unsigned > Binary.SevenBitMaxValue)
                     throw Binary.CreateOverflowException("RtpPayloadType", unsigned, byte.MinValue.ToString(), sbyte.MaxValue.ToString());
 
-                mostSignificant = PackOctet(RtpMarker, (byte)unsigned);
+                Last8Bits = PackOctet(RtpMarker, (byte)unsigned);
             }
         }
 
@@ -321,8 +343,8 @@ namespace Media.Common
         /// </summary>
         public int RtcpPayloadType
         {
-            get { return mostSignificant; }
-            set { mostSignificant = (byte)value; } //Check Marker before setting?
+            get { return Last8Bits; }
+            set { Last8Bits = (byte)value; } //Check Marker before setting?
         }
 
         #endregion
@@ -340,7 +362,7 @@ namespace Media.Common
         }
 
         /// <summary>
-        /// Constructs a managed representation around the given two octets
+        /// Constructs a managed representation around a copy of the given two octets
         /// </summary>
         /// <param name="lsb">The least significant 8 bits</param>
         /// <param name="msb">The most significant 8 bits</param>
@@ -353,6 +375,13 @@ namespace Media.Common
             mostSignificant = msb;
         }
 
+        public CommonHeaderBits(OctetSegment memory, int additionalOffset = 0)
+        {
+            if (memory.Count - additionalOffset < 2) throw new InvalidOperationException("at least two octets are required in memory");
+
+            m_Memory = new OctetSegment(memory.Array, memory.Offset + additionalOffset, 2);
+        }
+
         /// <summary>
         /// Constructs a new instance of the CommonHeaderBits with the given values packed into the bit fields.
         /// </summary>
@@ -362,7 +391,7 @@ namespace Media.Common
         public CommonHeaderBits(int version, bool padding, bool extension)
         {
             //Pack the bit fields in the first octet wich belong there
-            leastSignificant = CommonHeaderBits.PackOctet((uint)version, padding, extension);
+            leastSignificant = CommonHeaderBits.PackOctet(version, padding, extension);
         }
 
         /// <summary>
@@ -387,13 +416,29 @@ namespace Media.Common
 
         public IEnumerator<byte> GetEnumerator()
         {
-            return Enumerable.Concat<byte>(leastSignificant.Yield(), mostSignificant.Yield()).GetEnumerator();
+            if (m_Memory.HasValue)
+            {
+                OctetSegment segment = m_Memory.Value;
+
+                byte[] array = segment.Array;
+
+                int offset = segment.Offset;
+
+                yield return array[offset++];
+
+                yield return array[offset];
+            }
+            else
+            {
+                yield return leastSignificant;
+
+                yield return mostSignificant;
+            }
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            //Duplicated logic here to save casting
-            return Enumerable.Concat<byte>(leastSignificant.Yield(), mostSignificant.Yield()).GetEnumerator();
+            return GetEnumerator();
         }
 
         #endregion

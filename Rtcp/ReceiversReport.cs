@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -67,8 +67,8 @@ namespace Media.Rtcp
             public ReceiversReport(int version, bool padding, int reportBlocks, int ssrc)
                 : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize) { }
 
-            public ReceiversReport(RtcpPacket reference)
-                :base(reference.Header, reference.Payload)
+            public ReceiversReport(RtcpPacket reference, bool shouldDispose)
+                : base(reference.Header, reference.Payload, shouldDispose)
             {
                 if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 201.", "reference");
             }

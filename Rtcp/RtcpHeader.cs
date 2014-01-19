@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -74,7 +74,7 @@ namespace Media.Rtcp
     /// Futher information can be found at http://tools.ietf.org/html/rfc3550#section-6.4.1
     /// Note in certain situations the <see cref="CommonHeaderBits.RtcpBlockCount"/> is used for application specific purposes.
     /// </summary>
-    public class RtcpHeader : Utility.BaseDisposable, IEnumerable<byte>
+    public class RtcpHeader : BaseDisposable, IEnumerable<byte>
     {
         #region Constants and Statics
 
@@ -82,24 +82,6 @@ namespace Media.Rtcp
         /// The length of every RtcpHeader.
         /// </summary>
         public const int Length = 8;
-
-        /// <summary>
-        /// Based on the information given @ http://tools.ietf.org/html/rfc3550#appendix-A.
-        /// Calculates a mask and value which can be used to validate a RtcpHeader of any version and any payloadType
-        /// </summary>
-        /// <param name="version">The version of the RtcpPacket</param>
-        /// <param name="payloadType">The <see cref="RtcpPacket.PayloadType"/> of the RtcpPacket</param>
-        /// <param name="blockCount">The <see cref="RtcpPacket.BlockCount"/> of the RtcpPacket</param>
-        /// <param name="validValue">The place to store the valid value</param>
-        /// <returns>Calculates a mask which can validate a RtcpHeader.</returns>
-        public static int CreateRtcpValidMask(int version, int payloadType, out int validValue)
-        {
-            //Mask consists of the version, padding and payloadType
-            int mask = (version << 14) | 0x2000 | payloadType;
-            //Value consists of only the version and payloadType
-            validValue = (version << 14) | (byte)payloadType;
-            return mask;
-        }
 
         #endregion
 
@@ -115,6 +97,8 @@ namespace Media.Rtcp
         /// </summary>
         byte[] Last6Bytes;
 
+        OctetSegment PointerToLast6Bytes;
+
         #endregion
 
         #region Properties
@@ -123,37 +107,24 @@ namespace Media.Rtcp
         /// Creates a 32 bit value which can be used to detect validity of the RtcpHeader when used in conjunction with the CreateRtcpValidMask function.
         /// </summary>
         /// <returns>The 32 bit value which is interpreted as a result of reading the RtcpHeader as a 32bit integer</returns>
-        internal int ToInt32() { return First16Bits.ToInt32(); }
+        internal int ToInt32()
+        {
+            //Create a 32 bit system endian value
+            return (int)Common.Binary.ReadU32(this, 0, BitConverter.IsLittleEndian);
+        }
 
         /// <summary>
-        /// Indicates if the RtcpPacket is valid by checking the header using a variation of the alorigthm given in http://tools.ietf.org/html/rfc3550#appendix-A.2
+        /// Indicates if the RtcpPacket is valid by checking the header for the given parameters.
         /// </summary>
-        public bool IsValid(int? version = 0, int? payloadType = 0)
+        public bool IsValid(int? version = 0, int? payloadType = 0, bool? padding = false)
         {
-            //Store a value which is given from the CreateRtcpValidMask function.
-            int validValue,
-                mask = CreateRtcpValidMask(version ?? Version, payloadType ?? PayloadType, out validValue); //Create the mask based on the Version field in the RtcpHeader
+            if (version.HasValue && version != Version) return false;
 
-            /* NOTE THIS IS NOT indicated in http://tools.ietf.org/html/rfc3550#appendix-A.2 because the version is given dynamically
-             * 
-              The following checks should be applied to RTCP packets.
+            if (payloadType.HasValue && payloadType != PayloadType) return false;
 
-               o  RTP version field must equal 2. ** In this implementation version is given as a parameter **
+            if (padding.HasValue && Padding != padding) return false;
 
-               o  The payload type field of the first RTCP packet in a compound
-                  packet must be equal to SR or RR. *** This logic is performed in the FromCompoundBytes function
-
-               o  The padding bit (P) should be zero for the first packet of a
-                  compound RTCP packet because padding should only be applied, if it
-                  is needed, to the last packet. *** This logic is performed in the FromCompoundBytes function
-
-               o  The length fields of the individual RTCP packets must add up to
-                  the overall length of the compound RTCP packet as received.  This
-                  is a fairly strong check. *** This logic is performed in the FromCompoundBytes function
-             */
-
-            //The RtcpHeader is valid if the bits if the resulting mask are calulcated to match the valid value.
-            return (ToInt32() & mask) == validValue;
+            return true;
         }
 
         /// <summary>
@@ -213,8 +184,10 @@ namespace Media.Rtcp
             {
                 CheckDisposed();
 
+                if (PointerToLast6Bytes.Count < 5) return ushort.MaxValue;
+
                 //Read the value
-                return Binary.ReadU16(Last6Bytes, 0, true);
+                return Binary.ReadU16(PointerToLast6Bytes, PointerToLast6Bytes.Offset, true);
             }
             //Set the value
             set
@@ -222,7 +195,7 @@ namespace Media.Rtcp
                 CheckDisposed();
 
                 if (value > ushort.MaxValue) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
-                Binary.Write16(Last6Bytes, 0, BitConverter.IsLittleEndian, (ushort)value);
+                Binary.WriteNetwork16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
             }
         }
 
@@ -231,8 +204,8 @@ namespace Media.Rtcp
         /// </summary>
         public int SendersSynchronizationSourceIdentifier
         {
-            get { CheckDisposed(); return (int)Binary.ReadU32(Last6Bytes, 2, BitConverter.IsLittleEndian); }
-            set { CheckDisposed(); Binary.Write32(Last6Bytes, 2, BitConverter.IsLittleEndian, (uint)value); }
+            get { CheckDisposed(); return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian); }
+            set { CheckDisposed(); Binary.WriteNetwork32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         #endregion
@@ -249,24 +222,27 @@ namespace Media.Rtcp
             if (octets == null) throw new ArgumentNullException("octets");
 
             //Determine the length of the array
-            int octetsLength = octets.Length;
+            int octetsLength = octets.Length, availableOctets = octetsLength - offset;
 
             //Check range
             if (offset > octetsLength) throw new ArgumentOutOfRangeException("offset", "Cannot be greater than the length of octets");
 
             //Check for the amount of octets required to build a RtcpHeader given by the delination of the offset
-            if (octetsLength == 0 || octetsLength - offset < 4) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
+            if (octetsLength == 0 || availableOctets < 4) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
 
             //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
             First16Bits = new CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
 
-            //Allocate space for the other 6 octets  which consist of the 
+            //Allocate space for the other 6 octets which consist of the 
             //LengthInWordsMinusOne (16 bits)
             //SynchronizationSourceIdentifier (32 bits)
             Last6Bytes = new byte[6];
 
             //Copy the remaining bytes of the header which consist of the aformentioned properties
-            Array.Copy(octets, offset + 2, Last6Bytes, 0, Math.Min(6, octetsLength - 2));
+            Array.Copy(octets, offset + 2, Last6Bytes, 0, Math.Min(6, availableOctets - 2));
+
+            //Make a pointer to the last 6 bytes
+            PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
         }
 
         /// <summary>
@@ -280,22 +256,33 @@ namespace Media.Rtcp
             {
                 First16Bits = other.First16Bits;
                 Last6Bytes = other.Last6Bytes;
+                PointerToLast6Bytes = other.PointerToLast6Bytes;
             }
             else
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last6Bytes = new byte[6];
                 other.Last6Bytes.CopyTo(Last6Bytes, 0);
+                PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
             }
+        }
+
+        public RtcpHeader(OctetSegment memory, int additionalOffset = 0) 
+        {
+            if (memory.Count - additionalOffset < 4) throw new ArgumentException("memory must contain at least 4 elements", "memory");
+
+            First16Bits = new CommonHeaderBits(memory, additionalOffset);
+
+            PointerToLast6Bytes = new OctetSegment(memory.Array, additionalOffset + 2, Math.Min(4, memory.Count - additionalOffset - 2));
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
         {
             First16Bits = new CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
             Last6Bytes = new byte[6];
-
-            //The default value must be set into the LengthInWords field otherwise it will reflect 1
-            LengthInWordsMinusOne = 0;
+            PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
+            //The default value must be set into the LengthInWords field otherwise it will reflect 65535.
+            LengthInWordsMinusOne = ushort.MaxValue;
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc)
@@ -315,15 +302,12 @@ namespace Media.Rtcp
         #region Instance Methods
 
         /// <summary>
-        /// Creates a sequence containing  only the octets of the <see cref="SendersSynchronizationSourceIdentifier"/>.        
+        /// Creates a sequence containing  only the octets of the <see cref="SendersSynchronizationSourceIdentifier"/>. 
         /// </summary>
         /// <returns>The sequence created</returns>
-        /// <remarks>
-        /// Provided because the function is performed more than once and creating a seqeunce of the entire header when only the last 4 octets are requried is wasteful.
-        /// </remarks>
         internal IEnumerable<byte> GetSendersSynchronizationSourceIdentifierSequence()
         {
-            return Last6Bytes.Skip(2);
+            return PointerToLast6Bytes.Skip(2);
         }
 
         public override void Dispose()
@@ -333,14 +317,20 @@ namespace Media.Rtcp
 
             base.Dispose();
 
-            //Dispose the instance
-            First16Bits.Dispose();
+            if (ShouldDispose) 
+            {
+                //Dispose the instance
+                First16Bits.Dispose();
 
-            //Remove the reference to the CommonHeaderBits instance
-            First16Bits = null;
+                //Remove the reference to the CommonHeaderBits instance
+                First16Bits = null;
 
-            //Remove the reference to the allocated array.
-            Last6Bytes = null;
+                //Invalidate the pointer
+                PointerToLast6Bytes = default(OctetSegment);
+
+                //Remove the reference to the allocated array.
+                Last6Bytes = null;
+            }
         }
 
         /// <summary>
@@ -353,12 +343,10 @@ namespace Media.Rtcp
 
         internal IEnumerable<byte> GetEnumerableImplementation()
         {
-             return Enumerable.Concat<byte>(First16Bits, Last6Bytes);
+             return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes);
         }
 
         #endregion
-
-
         
 
         IEnumerator<Octet> IEnumerable<Octet>.GetEnumerator()

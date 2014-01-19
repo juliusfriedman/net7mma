@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-/*
-Copyright (c) 2013 juliusfriedman@gmail.com
+﻿/*
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -36,6 +33,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace Media.Rtp
 {
     /// <summary>
@@ -158,7 +160,11 @@ namespace Media.Rtp
 
             //Three byte fragment offset
             //http://tools.ietf.org/search/rfc2435#section-3.1.2
-            RtpJpegHeader.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedInt((uint)fragmentOffset)), 1, 3);
+
+            if (BitConverter.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
+
+            RtpJpegHeader.AddRange(BitConverter.GetBytes((uint)fragmentOffset), 1, 3);                        
+                
 
             //(Jpeg)Type
             //http://tools.ietf.org/search/rfc2435#section-3.1.3
@@ -197,7 +203,7 @@ namespace Media.Rtp
                     RtpJpegHeader.Add(precisionTable);//PrecisionTable may be bit flagged to indicate 16 bit tables
 
                     //Add the Length field
-                    if (BitConverter.IsLittleEndian) RtpJpegHeader.AddRange(BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)qTables.Count)));
+                    if (BitConverter.IsLittleEndian) RtpJpegHeader.AddRange(BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)qTables.Count)));
                     else RtpJpegHeader.AddRange(BitConverter.GetBytes((ushort)qTables.Count));
                     
                     //here qTables may have 16 bit precision and may need to be reversed if BitConverter.IsLittleEndian
@@ -385,7 +391,7 @@ namespace Media.Rtp
                 //8 Bit tables
                 if (precision == 0)
                 {
-                    //Clamp with Min, Max
+                    //Clamp with Min, Max (Should be left in tact but endian is unknown on receiving side)
                     //Luma
                     resultTables[lumaIndex] = (byte)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue);
                     //Chroma
@@ -394,10 +400,16 @@ namespace Media.Rtp
                 else //16 bit tables
                 {
                     //Luma
-                    BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
+                    if(BitConverter.IsLittleEndian)
+                        BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
+                    else
+                        BitConverter.GetBytes((ushort)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, lumaIndex++);
                     
                     //Chroma
-                    BitConverter.GetBytes(Utility.ReverseUnsignedShort((ushort)Math.Min(Math.Max((defaultQuantizers[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
+                    if (BitConverter.IsLittleEndian)
+                        BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((defaultQuantizers[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
+                    else
+                        BitConverter.GetBytes((ushort)Math.Min(Math.Max((defaultQuantizers[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, chromaIndex++);
                 }
             }
 
@@ -943,7 +955,7 @@ namespace Media.Rtp
                                 };
 
                                 //Correct FragmentOffset in the RtpJpegHeader already created.
-                                if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Utility.ReverseUnsignedInt((uint)temp.Position)), 1, RtpJpegHeader, 1, 3);
+                                if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)temp.Position)), 1, RtpJpegHeader, 1, 3);
                                 else System.Array.Copy(BitConverter.GetBytes((uint)temp.Position), 1, RtpJpegHeader, 1, 3);
 
                                 //Copy header

@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -55,7 +55,7 @@ namespace Media.Rtcp
     /// Provides a construct to enumerate <see cref="SourceDescriptionItem"/>'s from a contigous allocation of memory.
     /// Is effectively a fixed sized read only list.
     /// </summary>
-    internal class SourceDescriptionItemList : Utility.BaseDisposable, IEnumerator<SourceDescriptionItem>, IEnumerable<SourceDescriptionItem>
+    internal class SourceDescriptionItemList : BaseDisposable, IEnumerator<SourceDescriptionItem>, IEnumerable<SourceDescriptionItem>
     {        
         #region Fields
 

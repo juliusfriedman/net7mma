@@ -38,11 +38,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.RtpTools
 {
-    public interface ISource
+    public class RtpPlay
     {
-        //Todo
+        public const string RtpPlayFormat = @"rtpplay";
+
+        public static byte[] RtpPlayAscii = Encoding.ASCII.GetBytes(RtpPlay.RtpPlayFormat);
+
+        //Would be preceeded by #! and contain rtpplay
+        internal const int RtpPlayBinaryIndex = 2, RtpPlayFormatLength = 7;
     }
 }

@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -87,7 +87,7 @@ namespace Media.Rtp
     /// <remarks>
     /// Is IDisposeable because the class OWNS a reference to the CommonHeaderBits and a byte[].
     /// </remarks>
-    public class RtpHeader : Utility.BaseDisposable, IEnumerable<byte>
+    public class RtpHeader : BaseDisposable, IEnumerable<byte>
     {
         #region Implementation Notes and Reference
 
@@ -142,9 +142,11 @@ namespace Media.Rtp
         CommonHeaderBits First16Bits;
 
         /// <summary>
-        /// A copy of the last 10 octets of the RtpHeader.
+        /// A the last 10 octets of the RtpHeader.
         /// </summary>
         byte[] Last10Bytes;
+
+        OctetSegment PointerToLast10Bytes;
 
         #endregion
 
@@ -233,19 +235,8 @@ namespace Media.Rtp
         public int SequenceNumber
         {
             //The sequence number is stored in Netword Byte Order @ + 0x00 from the second octet (relative offset of 0x02 from the beginning of any header pointer)
-            get { CheckDisposed(); return Binary.ReadU16(Last10Bytes, 0, BitConverter.IsLittleEndian); }
-            set
-            {
-                CheckDisposed();
-
-                ushort unsigned = (ushort)value;
-                //Check for overflow
-                if (unsigned > ushort.MaxValue)
-                    throw Binary.CreateOverflowException("SequenceNumber", unsigned, short.MinValue.ToString(), ushort.MaxValue.ToString());
-
-                //Write the BigEndian value to the Last10Bytes, written in reverse only if the system is little endian
-                Binary.Write16(Last10Bytes, 0, BitConverter.IsLittleEndian, unsigned);
-            }
+            get { CheckDisposed(); return (ushort)Binary.ReadU16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
+            set { CheckDisposed(); Binary.WriteNetwork16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
         }
 
         /// <summary>
@@ -257,8 +248,8 @@ namespace Media.Rtp
         public int Timestamp
         {
             //The sequence number is stored in Netword Byte Order  @ + 0x02 from the second octet (relative offset of 0x04 from the beginning of any header pointer)
-            get { CheckDisposed(); return (int)Binary.ReadU32(Last10Bytes, 2, BitConverter.IsLittleEndian); } //Always read in reverse
-            set { CheckDisposed(); Binary.Write32(Last10Bytes, 2, BitConverter.IsLittleEndian, (uint)value); }
+            get { CheckDisposed(); return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
+            set { CheckDisposed(); Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -267,8 +258,8 @@ namespace Media.Rtp
         public int SynchronizationSourceIdentifier
         {
             //The sequence number is stored in Netword Byte Order @ + 0x06 from the second octet (relative offset of 0x08 from the beginning of any header pointer)
-            get { CheckDisposed(); return (int)Binary.ReadU32(Last10Bytes, 6, BitConverter.IsLittleEndian); }
-            set { CheckDisposed(); Binary.Write32(Last10Bytes, 6, BitConverter.IsLittleEndian, (uint)value); }
+            get { CheckDisposed(); return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
+            set { CheckDisposed(); Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         #endregion
@@ -306,6 +297,17 @@ namespace Media.Rtp
             //Timestamp (4 octets / U32)
             //SSRC (4 octets / U32)
             Array.Copy(octets, offset + 2, Last10Bytes, 0, Math.Min(10, octetsLength - 2));
+
+            PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, 10);
+        }
+
+        public RtpHeader(OctetSegment memory, int additionalOffset = 0) 
+        {
+            if (memory.Count - additionalOffset < 12) throw new ArgumentException("memory must contain at least 12 elements", "memory");
+
+            First16Bits = new CommonHeaderBits(memory, additionalOffset);
+
+            PointerToLast10Bytes = new OctetSegment(memory.Array, memory.Offset + additionalOffset + 2, 10);
         }
 
         /// <summary>
@@ -319,11 +321,13 @@ namespace Media.Rtp
             {
                 First16Bits = other.First16Bits;
                 Last10Bytes = other.Last10Bytes;
+                PointerToLast10Bytes = other.PointerToLast10Bytes;
             }
             else
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last10Bytes = new byte[10];
+                PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, 10);
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
             }
         }
@@ -334,6 +338,8 @@ namespace Media.Rtp
             
             //Allocate space for the other 10 octets
             Last10Bytes = new byte[10];
+
+            PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, 10);
 
             Version = version;
 
@@ -374,14 +380,20 @@ namespace Media.Rtp
 
             base.Dispose();
 
-            //Call dispose
-            First16Bits.Dispose();
+            if (ShouldDispose) 
+            {
+                //Call dispose
+                First16Bits.Dispose();
 
-            //Remove the reference to the CommonHeaderBits instance
-            First16Bits = null;
+                //Remove the reference to the CommonHeaderBits instance
+                First16Bits = null;
 
-            //Remove the reference to the allocated array.
-            Last10Bytes = null;
+                //Invalidate the pointer
+                PointerToLast10Bytes = default(OctetSegment);
+
+                //Remove the reference to the allocated array.
+                Last10Bytes = null;
+            }
         }
 
         /// <summary>
@@ -392,18 +404,23 @@ namespace Media.Rtp
         /// <returns>The new instance</returns>
         public RtpHeader Clone(bool reference = false) { return new RtpHeader(this, reference); }
 
+        internal IEnumerable<byte> GetEnumerableImplementation()
+        {
+            return Enumerable.Concat<byte>(First16Bits, PointerToLast10Bytes);
+        }
+
         #endregion
 
         #region IEnumerable Implementations
 
         IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
-            return Enumerable.Concat<byte>(First16Bits, Last10Bytes).GetEnumerator();
+            return GetEnumerableImplementation().GetEnumerator();
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return ((IEnumerable<byte>)this).GetEnumerator();
+            return GetEnumerableImplementation().GetEnumerator();
         }
 
         #endregion

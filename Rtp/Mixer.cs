@@ -38,11 +38,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtp
 {
-    public interface ISource
+    class Mixer
     {
-        //Todo
     }
 }

@@ -1,4 +1,40 @@
-﻿using System;
+﻿/*
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
+  
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -144,6 +180,145 @@ namespace Media.Rtsp
         }        
     }
 
+    #region Reference
+
+    //    11 Status Code Definitions
+
+    //   Where applicable, HTTP status [H10] codes are reused. Status codes
+    //   that have the same meaning are not repeated here. See Table 1 for a
+    //   listing of which status codes may be returned by which requests.
+
+    //11.1 Success 2xx
+
+    //11.1.1 250 Low on Storage Space
+
+    //   The server returns this warning after receiving a RECORD request that
+    //   it may not be able to fulfill completely due to insufficient storage
+    //   space. If possible, the server should use the Range header to
+    //   indicate what time period it may still be able to record. Since other
+    //   processes on the server may be consuming storage space
+    //   simultaneously, a client should take this only as an estimate.
+
+    //11.2 Redirection 3xx
+
+    //   See [H10.3].
+
+    //   Within RTSP, redirection may be used for load balancing or
+    //   redirecting stream requests to a server topologically closer to the
+    //   client.  Mechanisms to determine topological proximity are beyond the
+    //   scope of this specification.
+
+
+
+
+
+
+
+
+
+    //Schulzrinne, et. al.        Standards Track                    [Page 41]
+ 
+    //RFC 2326              Real Time Streaming Protocol            April 1998
+
+
+    //11.3 Client Error 4xx
+
+    //11.3.1 405 Method Not Allowed
+
+    //   The method specified in the request is not allowed for the resource
+    //   identified by the request URI. The response MUST include an Allow
+    //   header containing a list of valid methods for the requested resource.
+    //   This status code is also to be used if a request attempts to use a
+    //   method not indicated during SETUP, e.g., if a RECORD request is
+    //   issued even though the mode parameter in the Transport header only
+    //   specified PLAY.
+
+    //11.3.2 451 Parameter Not Understood
+
+    //   The recipient of the request does not support one or more parameters
+    //   contained in the request.
+
+    //11.3.3 452 Conference Not Found
+
+    //   The conference indicated by a Conference header field is unknown to
+    //   the media server.
+
+    //11.3.4 453 Not Enough Bandwidth
+
+    //   The request was refused because there was insufficient bandwidth.
+    //   This may, for example, be the result of a resource reservation
+    //   failure.
+
+    //11.3.5 454 Session Not Found
+
+    //   The RTSP session identifier in the Session header is missing,
+    //   invalid, or has timed out.
+
+    //11.3.6 455 Method Not Valid in This State
+
+    //   The client or server cannot process this request in its current
+    //   state.  The response SHOULD contain an Allow header to make error
+    //   recovery easier.
+
+    //11.3.7 456 Header Field Not Valid for Resource
+
+    //   The server could not act on a required request header. For example,
+    //   if PLAY contains the Range header field but the stream does not allow
+    //   seeking.
+
+
+
+
+
+
+
+    //Schulzrinne, et. al.        Standards Track                    [Page 42]
+ 
+    //RFC 2326              Real Time Streaming Protocol            April 1998
+
+
+    //11.3.8 457 Invalid Range
+
+    //   The Range value given is out of bounds, e.g., beyond the end of the
+    //   presentation.
+
+    //11.3.9 458 Parameter Is Read-Only
+
+    //   The parameter to be set by SET_PARAMETER can be read but not
+    //   modified.
+
+    //11.3.10 459 Aggregate Operation Not Allowed
+
+    //   The requested method may not be applied on the URL in question since
+    //   it is an aggregate (presentation) URL. The method may be applied on a
+    //   stream URL.
+
+    //11.3.11 460 Only Aggregate Operation Allowed
+
+    //   The requested method may not be applied on the URL in question since
+    //   it is not an aggregate (presentation) URL. The method may be applied
+    //   on the presentation URL.
+
+    //11.3.12 461 Unsupported Transport
+
+    //   The Transport field did not contain a supported transport
+    //   specification.
+
+    //11.3.13 462 Destination Unreachable
+
+    //   The data transmission channel could not be established because the
+    //   client address could not be reached. This error will most likely be
+    //   the result of a client attempt to place an invalid Destination
+    //   parameter in the Transport field.
+
+    //11.3.14 551 Option not supported
+
+    //   An option given in the Require or the Proxy-Require fields was not
+    //   supported. The Unsupported header should be returned stating the
+    //   option for which there is no support.
+
+    #endregion
+
     /// <summary>
     /// The status codes utilized in RFC2326 Messages given in response to a request
     /// </summary>
@@ -176,7 +351,8 @@ namespace Media.Rtsp
         ProxyAuthenticationRequired = 407,
         PreconditionFailed = 412,
         SessionNotFound = 454,
-        MethodNotValidInThisState,
+        MethodNotValidInThisState = 455,
+        HeaderFieldNotValidForResource = 456,
         InvalidRange = 457,
         UnsupportedTransport = 461,
 
@@ -222,7 +398,7 @@ namespace Media.Rtsp
     /// <summary>
     /// Base class of RtspRequest and RtspResponse
     /// </summary>
-    public class RtspMessage : Utility.BaseDisposable, Common.IPacket
+    public class RtspMessage : Common.BaseDisposable, Common.IPacket
     {
         #region RtspMessageException
 
@@ -398,6 +574,11 @@ namespace Media.Rtsp
         public double Version { get { return m_Version; } set { m_Version = value; } }
 
         /// <summary>
+        /// The length of the RtspMessage in bytes.
+        /// </summary>
+        public int Length { get { throw new NotImplementedException(); } }
+
+        /// <summary>
         /// The body of the RtspMessage
         /// </summary>
         public string Body
@@ -556,7 +737,7 @@ namespace Media.Rtsp
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
-            endFirstLine = Utility.FoundBytes(packet.Array, ref start, ref count, encodedEnd, 0, requiredEndLength);
+            endFirstLine = Utility.ContainsBytes(packet.Array, ref start, ref count, encodedEnd, 0, requiredEndLength);
 
             //Assume everything is the first line...
             if (endFirstLine == -1) endFirstLine = packet.Count;
@@ -567,7 +748,7 @@ namespace Media.Rtsp
             //Check for RTSP
 
             //If RTSP was found in the encoding of the message (which is unknown so far)
-            if ((previous = Utility.FoundBytes(packet.Array, ref start, ref count, encodedIdentifier, 0, encodedIdentifierLength)) < start)
+            if ((previous = Utility.ContainsBytes(packet.Array, ref start, ref count, encodedIdentifier, 0, encodedIdentifierLength)) < start)
             {
                 //This has to be a request because responses contain RTSP at the beginning of the first line
                 MessageType = RtspMessageType.Request;
@@ -858,6 +1039,8 @@ namespace Media.Rtsp
             return result.ToArray();
         }
 
+        public IEnumerable<byte> Prepare() { return ToBytes(); }
+
         /// <summary>
         /// Disposes of all resourced used by the RtspMessage
         /// </summary>
@@ -886,6 +1069,11 @@ namespace Media.Rtsp
         bool Common.IPacket.IsReadOnly
         {
             get { return false; }
+        }
+
+        long Common.IPacket.Length 
+        {
+            get { return (long)Length; }
         }
 
         public virtual void CompleteFrom(System.Net.Sockets.Socket socket)

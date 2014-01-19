@@ -85,8 +85,12 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\ASCII.cs" />
+    <Compile Include="Common\BaseDisposable.cs" />
     <Compile Include="Common\Binary.cs" />
     <Compile Include="Common\CommonHeaderBits.cs" />
+    <Compile Include="Common\ConcurrentThesaurus.cs" />
+    <Compile Include="Common\Exception.cs" />
     <Compile Include="Common\IPacket.cs" />
     <Compile Include="Common\SourceList.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -107,16 +111,24 @@
     <Compile Include="Rtcp\SourceDescriptionChunk.cs" />
     <Compile Include="Rtcp\SourceDescriptionItem.cs" />
     <Compile Include="Rtcp\SourceDescriptionItemList.cs" />
+    <Compile Include="RtpTools\FileFormat.cs" />
+    <Compile Include="RtpTools\RtpDump.cs" />
+    <Compile Include="RtpTools\RtpMix.cs" />
+    <Compile Include="RtpTools\RtpPlay.cs" />
+    <Compile Include="RtpTools\RtpSend.cs" />
+    <Compile Include="RtpTools\RtpToolEntry.cs" />
+    <Compile Include="RtpTools\RtpTrans.cs" />
     <Compile Include="Rtp\Conference.cs" />
+    <Compile Include="Rtp\Mixer.cs" />
     <Compile Include="Rtp\RFC2435Frame.cs" />
     <Compile Include="Rtp\RtpClient.cs" />
-    <Compile Include="Rtp\RtpDump.cs" />
     <Compile Include="Rtp\RtpExtension.cs" />
     <Compile Include="Rtp\RtpFrame.cs" />
     <Compile Include="Rtp\RtpHeader.cs" />
     <Compile Include="Rtp\RtpPacket.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Rtp\Translator.cs" />
     <Compile Include="Rtsp\RtspClient.cs" />
     <Compile Include="Rtsp\RtspMessage.cs" />
     <Compile Include="Rtsp\Server\RtspServer.cs" />

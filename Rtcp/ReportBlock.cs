@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -87,7 +87,7 @@ namespace Media.Rtcp
         public int SendersSynchronizationSourceIdentifier
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset, true); }
-            protected set { Binary.Write32(Memory.Array, Memory.Offset, !BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.WriteNetwork32(Memory.Array, Memory.Offset, !BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Media.Rtcp
         public byte FractionsLost
         {
             get { return Binary.ReadU8(Memory.Array, Memory.Offset + 4, false); }
-            protected set { Binary.WriteU8(Memory.Array, Memory.Offset + 4, false, value); }
+            protected set { Binary.WriteNetworkU8(Memory.Array, Memory.Offset + 4, false, value); }
         }
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace Media.Rtcp
         public int CumulativePacketsLost
         {
             get { return (int)Binary.ReadU24(Memory.Array, Memory.Offset + 5, true); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 5, !BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 5, !BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -117,7 +117,7 @@ namespace Media.Rtcp
         public int ExtendedHighestSequenceNumberReceived
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 8, true); }
-            protected set { Binary.Write32(Memory.Array, Memory.Offset + 8, !BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.WriteNetwork32(Memory.Array, Memory.Offset + 8, !BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -126,7 +126,7 @@ namespace Media.Rtcp
         public int InterarrivalJitterEstimate
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 12, true); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 12, !BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 12, !BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -135,7 +135,7 @@ namespace Media.Rtcp
         public int LastSendersReportTimestamp
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 16, true); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 16, !BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 16, !BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -144,7 +144,7 @@ namespace Media.Rtcp
         public int DelaySinceLastSendersReport
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 20, true); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 20, !BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 20, !BitConverter.IsLittleEndian, (uint)value); }
         }
 
         int IReportBlock.BlockIdentifier

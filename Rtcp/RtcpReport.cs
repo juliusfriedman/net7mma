@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -124,8 +124,8 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The <see cref="RtcpHeader"/> of the instance</param>
         /// <param name="payload">The <see cref="RtcpPacket.Payload"/> of the instance.</param>
-        public RtcpReport(RtcpHeader header, IEnumerable<byte> payload, bool ownsHeader = true)
-            : base(header, payload, ownsHeader)
+        public RtcpReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDispose = true)
+            : base(header, payload, shouldDispose)
         {
 
         }
@@ -136,8 +136,8 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The <see cref="RtcpHeader"/> of the instance</param>
         /// <param name="payload">The <see cref="RtcpPacket.Payload"/> of the instance.</param>
-        public RtcpReport(RtcpHeader header, OctetSegment payload, bool ownsHeader = true)
-            : base(header, payload, ownsHeader)
+        public RtcpReport(RtcpHeader header, OctetSegment payload, bool shouldDispose = true)
+            : base(header, payload, shouldDispose)
         {
 
         }
@@ -208,10 +208,11 @@ namespace Media.Rtcp
         {
             if (!Disposed && HasReports)
             {
-                for (int offset = Payload.Offset, count = ReportBlockOctets; offset < count; )
+                for (int offset = Payload.Offset, count = Payload.Count - offset; offset < count;)
                 {
-                    ReportBlock current = new ReportBlock(new OctetSegment(Payload.Array, offset, Payload.Count));
+                    ReportBlock current = new ReportBlock(new OctetSegment(Payload.Array, offset, count));
                     offset += current.Size;
+                    count -= current.Size;
                     yield return current;
                 }
             }
