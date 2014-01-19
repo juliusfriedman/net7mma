@@ -1,4 +1,42 @@
-﻿using System;
+﻿#region Copyright
+/*
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
+  
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+#endregion
+
+using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Net;
@@ -36,7 +74,7 @@ namespace Media.Rtsp
         /// <summary>
         /// A one to many collection which is keyed by the source media's SSRC to which subsequently the values are packets which also came from the source
         /// </summary>
-        internal Utility.ConcurrentThesaurus<int, RtpPacket> PacketBuffer = new Utility.ConcurrentThesaurus<int, RtpPacket>();
+        internal Common.ConcurrentThesaurus<int, RtpPacket> PacketBuffer = new Common.ConcurrentThesaurus<int, RtpPacket>();
 
         /// <summary>
         /// This is used to take packets from a source (SourceContexts) and detmerine the TransportContext of the RtpClient to send it to.
@@ -183,45 +221,48 @@ namespace Media.Rtsp
                 if (packet.Header.PayloadType == Rtcp.GoodbyeReport.PayloadType)
                 {
                     //Decode the Goodbye further to determine who the Goodbye was addressed to
-                    GoodbyeReport received = new GoodbyeReport(packet);
-
-                    //Go through the chunks to determine 
-
-                    //SourceList
-                    foreach (int participantId in received.GetSourceList())
+                    using (GoodbyeReport received = new GoodbyeReport(packet, false)) 
                     {
-                        int routedSourceId;
-                        //If the chunk is addressed to the source then the media will stop so our client should 
-                        if (RouteDictionary.TryGetValue(participantId, out routedSourceId))
-                            m_RtpClient.SendGoodbye(m_RtpClient.GetContextBySourceId(routedSourceId));//Disconnect the client from our source
+                        //Go through the chunks to determine 
+
+                        //SourceList
+                        foreach (int participantId in received.GetSourceList())
+                        {
+                            int routedSourceId;
+                            //If the chunk is addressed to the source then the media will stop so our client should 
+                            if (RouteDictionary.TryGetValue(participantId, out routedSourceId))
+                                m_RtpClient.SendGoodbye(m_RtpClient.GetContextBySourceId(routedSourceId));//Disconnect the client from our source
+                        }
                     }
+                   
                 }
                 else if (packet.Header.PayloadType == Rtcp.SendersReport.PayloadType)
                 {
 
                     //The source stream recieved a senders report                
                     //Update the RtpTimestamp and NtpTimestamp for our clients also
-                    SendersReport sr = new SendersReport(packet);
-
-                    //Iterate the blocks of the senders report
-                    foreach (Rtcp.ReportBlock rb in sr)
+                    using (SendersReport sr = new SendersReport(packet, false)) 
                     {
-                        //Determine if report was addressed to a routed source
-                        int routedSourceId;
-
-                        //If the chunk is addressed to the source then the media will stop so our client should 
-                        if (RouteDictionary.TryGetValue(rb.SendersSynchronizationSourceIdentifier, out routedSourceId))
+                        //Iterate the blocks of the senders report
+                        foreach (Rtcp.ReportBlock rb in sr)
                         {
-                            //Determine if there is a routingContext for the routedId
-                            RtpClient.TransportContext routingContext = m_RtpClient.GetContextBySourceId(routedSourceId);
+                            //Determine if report was addressed to a routed source
+                            int routedSourceId;
 
-                            //If the routingContext is not null
-                            if (routingContext != null)
+                            //If the chunk is addressed to the source then the media will stop so our client should 
+                            if (RouteDictionary.TryGetValue(rb.SendersSynchronizationSourceIdentifier, out routedSourceId))
                             {
-                                //Update the routingContext values
-                                //The values are in the SendersInformation
-                                routingContext.NtpTimestamp = sr.NtpTimestamp;
-                                routingContext.RtpTimestamp = sr.RtpTimestamp;
+                                //Determine if there is a routingContext for the routedId
+                                RtpClient.TransportContext routingContext = m_RtpClient.GetContextBySourceId(routedSourceId);
+
+                                //If the routingContext is not null
+                                if (routingContext != null)
+                                {
+                                    //Update the routingContext values
+                                    //The values are in the SendersInformation
+                                    routingContext.NtpTimestamp = sr.NtpTimestamp;
+                                    routingContext.RtpTimestamp = sr.RtpTimestamp;
+                                }
                             }
                         }
                     }
@@ -414,7 +455,7 @@ namespace Media.Rtsp
             //Prepare the RtpInfo header
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
 
-            foreach (RtpClient.TransportContext tc in source.RtpClient.TransportContexts.ToArray()) //Projected here in case modified at during the call
+            foreach (RtpClient.TransportContext tc in source.RtpClient.TransportContexts.DefaultIfEmpty()) //Projected here in case modified at during the call
             {
                 //Only augment the header for the Sources routed to this ClientSession
                 if (!RouteDictionary.ContainsKey(tc.SynchronizationSourceIdentifier)) continue;
@@ -468,7 +509,7 @@ namespace Media.Rtsp
             IList<RtpPacket> packets;            
 
             //Iterate all TransportContext's in the Source
-            foreach (RtpClient.TransportContext sourceContext in source.RtpClient.TransportContexts.ToArray())
+            foreach (RtpClient.TransportContext sourceContext in source.RtpClient.TransportContexts.DefaultIfEmpty())
             {
                 if (!PacketBuffer.ContainsKey((int)sourceContext.RemoteSynchronizationSourceIdentifier)) continue;
 
@@ -546,7 +587,7 @@ namespace Media.Rtsp
             string returnTransportHeader = null;
 
             //Create a unique 32 bit id
-            int ssrc = Utility.Random32();
+            int ssrc = RFC3550.Random32();
 
             //We need to make an TransportContext in response to a setup
             RtpClient.TransportContext setupContext = null;

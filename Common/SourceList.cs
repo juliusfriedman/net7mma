@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -56,18 +56,27 @@ namespace Media.Common
     /// <summary>
     /// Provides a managed implementation around reading the SourceList from the binary present in a RtpPacket.
     /// Marked IDisposable incase derived and to indicate when the implementation is no longer required.
+    /// 
+    /// Note a mixer which is making a new SourceList should account for the fact that only 15 sources per RtpPacket can be indicated in a single RtpPacket,
+    /// for more information see
+    /// <see href="http://tools.ietf.org/html/rfc3550">Page 15, paragraph `CSRC list`</see>
     /// </summary>
-    public class SourceList : Utility.BaseDisposable, IEnumerator<uint>, IEnumerable<uint>
+    public class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>
     {
+        #region Constants / Statics
 
         /// <summary>
         /// The size in octets of each element in the SourceList
         /// </summary>
         public const int ItemSize = 4;
 
+        //Maybe choose to allow creation of a FixedSizedList
+
+        #endregion
+
         #region Fields
 
-        readonly byte[] m_OwnedOctets;
+        byte[] m_OwnedOctets;
 
         /// <summary>
         /// The memory which contains the SourceList
@@ -87,9 +96,15 @@ namespace Media.Common
 
         #region Constructor
 
+        /// <summary>
+        /// Creates a new source list from the given parameters.
+        /// The SourceList owns ownly it's own resources and always should be disposed immediately.
+        /// </summary>
+        /// <param name="header">The <see cref="RtpHeader"/> to read the <see cref="RtpHeader.ContributingSourceCount"/> from</param>
+        /// <param name="buffer">The buffer (which is vector of 32 bit values e.g. it will be read in increments of 32 bits per read)</param>
         public SourceList(RtpHeader header, byte[] buffer)
         {
-            if (header == null) throw new ArgumentNullException("header");
+            if (header == null) throw new ArgumentNullException("header");            
 
             //Assign the count (don't read it again)
             m_SourceCount = header.ContributingSourceCount;
@@ -105,6 +120,11 @@ namespace Media.Common
             }
         }
 
+        /// <summary>
+        /// Creates a new source list from the given parameters.
+        /// The SourceList owns ownly it's own resources and always should be disposed immediately.
+        /// </summary>
+        /// <param name="packet">The <see cref="RtpPacket"/> to create a SourceList from</param>
         public SourceList(RtpPacket packet)
             : this(packet.Header, packet.Payload.Array)
         {
@@ -220,7 +240,7 @@ namespace Media.Common
             m_CurrentSource = (uint)id;
 
             //Write the given value to the correct position
-            Binary.Write32(m_Binary.Array, m_CurrentOffset, !BitConverter.IsLittleEndian, m_CurrentSource);
+            Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, !BitConverter.IsLittleEndian, m_CurrentSource);
 
             //Move the offset
             m_CurrentOffset += 4;
@@ -322,7 +342,25 @@ namespace Media.Common
             catch { return false; }
         }
 
+        public override void Dispose()
+        {
+
+            if (Disposed) return;
+
+            base.Dispose();
+
+            //Should always happen
+            if (ShouldDispose) 
+            {
+                m_OwnedOctets = null;
+
+                m_Binary = default(OctetSegment);
+            }
+        }
+
         #endregion
+
+        #region Interface Implementation Stubs
 
         IEnumerator<uint> IEnumerable<uint>.GetEnumerator()
         {
@@ -333,6 +371,8 @@ namespace Media.Common
         {
             return this;
         }
+
+        #endregion 
     }
 
     #endregion

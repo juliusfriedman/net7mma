@@ -2,8 +2,7 @@ Managed Media Aggregation RC 2 `Flawless`
 
 Copyright 2014
 
-Julius R. Friedman - juliusfriedman@gmail.com 
-Sr. Software Engineer ASTI Transportation Inc. www.asti-trans.com
+Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

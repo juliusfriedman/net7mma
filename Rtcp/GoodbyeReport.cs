@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -133,8 +133,8 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header"></param>
         /// <param name="payload"></param>
-        public GoodbyeReport(RtcpHeader header, OctetSegment payload)
-            : base(header, payload)
+        public GoodbyeReport(RtcpHeader header, OctetSegment payload, bool shouldDipose)
+            : base(header, payload, shouldDipose)
         {
         }
 
@@ -144,7 +144,7 @@ namespace Media.Rtcp
         /// Throws an ArgumentException if the <see cref="RtcpHeader.PayloadType"/> is not GoodbyeReport (203)
         /// </summary>
         /// <param name="reference">The packet containing the GoodbyeReport</param>
-        public GoodbyeReport(RtcpPacket reference)
+        public GoodbyeReport(RtcpPacket reference, bool shouldDispose)
             :this(reference.Header, reference.Payload)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 203.", "reference");

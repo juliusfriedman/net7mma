@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -57,7 +57,7 @@ namespace Media.Rtp
     /// Marked IDisposable for derived implementations and to indicate when the implementation is no longer required.
     /// </summary>
     [CLSCompliant(false)]
-    public class RtpExtension : Utility.BaseDisposable, IEnumerable<byte>
+    public class RtpExtension : BaseDisposable, IEnumerable<byte>
     {
         #region Constants And Statics
 
@@ -84,7 +84,7 @@ namespace Media.Rtp
         public ushort Flags
         {
             get { if (Disposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian); }
-            protected set { if (Disposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, value); }
+            protected set { if (Disposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>
@@ -93,7 +93,7 @@ namespace Media.Rtp
         public ushort LengthInWords
         {
             get { if (Disposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian); }
-            protected set { if (Disposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, value); }
+            protected set { if (Disposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>

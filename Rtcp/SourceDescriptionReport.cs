@@ -1,8 +1,8 @@
 ﻿#region Copyright
 /*
-Copyright (c) 2013 juliusfriedman@gmail.com
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
- SR. Software Engineer ASTI Transportation Inc.
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
 Permission is hereby granted, free of charge, 
  * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
@@ -129,8 +129,8 @@ namespace Media.Rtcp
         /// Constructs a SourceDescription from an existing RtcpPacket reference.
         /// </summary>
         /// <param name="reference">The existing RtcpPacket instance to create a SourceDescription instance from.</param>
-        public SourceDescriptionReport(RtcpPacket reference, bool ownsHeader = true) :
-            base(reference.Header, reference.Payload, ownsHeader)
+        public SourceDescriptionReport(RtcpPacket reference, bool shouldDispose = true) :
+            base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 202.", "reference");
         }
@@ -154,6 +154,20 @@ namespace Media.Rtcp
         public bool HasChunks { get { return Header.BlockCount > 0; } }
 
         /// <summary>
+        /// Determines if ANY of the the contained SourceDescriptionChunks has a CName entry.
+        /// </summary>
+        /// <returns>True </returns>
+        public bool HasCName
+        {
+            get
+            {
+                if (!HasChunks) return false;
+                foreach (SourceDescriptionChunk chunk in GetChunkIterator()) foreach (SourceDescriptionItem item in chunk) if (item.ItemType == SourceDescriptionItem.SourceDescriptionItemType.CName) return true;
+                return false;
+            }
+        }
+
+        /// <summary>
         /// The binary data of the all <see cref="SourceDescriptionChunks"/>.
         /// Obtained by using <see cref="ReportBlockOctets"/>
         /// </summary>
@@ -162,8 +176,7 @@ namespace Media.Rtcp
             get
             {
                 if (!HasChunks) return Enumerable.Empty<byte>();
-                return Enumerable.Concat(Header.GetSendersSynchronizationSourceIdentifierSequence(), Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets));
-                
+                return Enumerable.Concat(Header.GetSendersSynchronizationSourceIdentifierSequence(), Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets));                
             }
         }
 
@@ -177,7 +190,8 @@ namespace Media.Rtcp
         public override void Add(IReportBlock reportBlock)
         {
             //Will throw an InvalidCastException is the given reportBlock is not a SourceDescriptionChunk
-            Add(reportBlock as SourceDescriptionChunk);
+            if (reportBlock is SourceDescriptionChunk) Add(reportBlock as SourceDescriptionChunk);
+            else base.Add(reportBlock);
         }
 
         public void Add(SourceDescriptionChunk chunk)
@@ -200,6 +214,9 @@ namespace Media.Rtcp
 
                 //Build a seqeuence from the data in the ReportBlock without the chunk identifer
                 chunkData = chunkData.Skip(SourceDescriptionChunk.IdentifierSize);
+
+                //Remove any other data in the payload
+                m_OwnedOctets = Utility.Empty;
             }
             
             //Add the bytes to the payload
@@ -310,7 +327,7 @@ namespace Media.Rtcp
             IEnumerable<byte> ChunkData = Payload.Array;
 
             //While there is a chunk to iterate
-            while (++logicalChunkIndex < Header.BlockCount)
+            while (++logicalChunkIndex < Header.BlockCount && offset < Payload.Count)
             {
                 //Instantiate the chunk and return the current item skipping previous data
                 yield return current = new SourceDescriptionChunk(ChunkData.Skip(offset));
@@ -334,7 +351,7 @@ namespace Media.Rtcp
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetChunkEnumerator();
-        }
+        }        
     }
 
     #endregion

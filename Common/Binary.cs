@@ -1,7 +1,52 @@
-﻿using System;
+﻿#region Copyright
+/*
+This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
+  
+ Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
+
+Permission is hereby granted, free of charge, 
+ * to any person obtaining a copy of this software and associated documentation files (the "Software"), 
+ * to deal in the Software without restriction, 
+ * including without limitation the rights to :
+ * use, 
+ * copy, 
+ * modify, 
+ * merge, 
+ * publish, 
+ * distribute, 
+ * sublicense, 
+ * and/or sell copies of the Software, 
+ * and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+ * 
+ * 
+ * JuliusFriedman@gmail.com should be contacted for further details.
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+ * 
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+ * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+ * TORT OR OTHERWISE, 
+ * ARISING FROM, 
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ * v//
+ */
+#endregion
+
+#region Using Statements
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Octet = System.Byte;
+using OctetSegment = System.ArraySegment<byte>;
+using Media.Common;
+
+#endregion
 
 namespace Media.Common
 {
@@ -10,7 +55,7 @@ namespace Media.Common
     /// <summary>
     /// Provides methods which are useful when working with binary data
     /// </summary>
-    [CLSCompliant(false)]
+    [CLSCompliant(true)]
     public static class Binary
     {
         #region Exceptions
@@ -103,9 +148,9 @@ namespace Media.Common
         /// <param name="shiftLeft">The amount of bits to shift left</param>
         /// <param name="shiftRight">The amount of bits to shift right</param>
         /// <returns>The 32 bit value remanining in the register after shifting.</returns>
-        public static int ReadBitsWithShift(byte octet, int shiftLeft, int shiftRight)
+        public static int ReadBitsWithShift(byte octet, int shiftLeft, int shiftRight, bool reverse = false)
         {
-            return octet == 0 ? 0 : ((octet << shiftLeft) >> shiftRight);
+            return octet == 0 ? 0 : reverse ? ((octet >> shiftLeft) << shiftRight) : ((octet << shiftLeft) >> shiftRight);
         }
 
         /// <summary>
@@ -115,9 +160,9 @@ namespace Media.Common
         /// <param name="shiftLeft">The amount of shifting requried to put the bit at index 0</param>
         /// <param name="shiftRight">The amount of shifting requried to put the bit at index 7</param>
         /// <returns>True if the bit field is set, otherwise false.</returns>
-        public static bool ReadBitWithShift(ref byte octet, int shiftLeft, int shiftRight)
+        public static bool ReadBitWithShift(ref byte octet, int shiftLeft, int shiftRight, bool reverse = false)
         {
-            return octet == 0 ? false : ReadBitsWithShift(octet, shiftLeft, shiftRight) > 0;
+            return octet == 0 ? false : (reverse ? ReadBitsWithShift(octet, shiftRight, shiftLeft) : ReadBitsWithShift(octet, shiftLeft, shiftRight)) > 0;
         }
 
         /// <summary>
@@ -128,7 +173,10 @@ namespace Media.Common
         /// <returns>True if the bit field is set, otherwise false.</returns>
         public static bool GetBit(ref byte octet, int index)
         {
-            return ReadBitsWithShift(octet, BitSize - index, BitSize - index) > 0;
+
+            if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
+
+            return octet == 0 ? false : ReadBitsWithShift(octet, BitSize - index, BitSize - index) > 0;
         }
 
         /// <summary>
@@ -142,6 +190,9 @@ namespace Media.Common
         /// <returns>The value which was previously set in the bit where true = 1 and false = 0</returns>
         internal static bool SetBit(ref byte octet, int index, bool newValue)
         {
+
+            if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
+
             //Allows writes to be read (performs two shifts to measure the value)
             bool oldValue = GetBit(ref octet, index);
 
@@ -157,24 +208,36 @@ namespace Media.Common
             //Combine with the octet shifted right to the index to obtain the previously set higher bits
             octet = (byte)((octet << index) | (octet >> index));
 
-            //Obtain the mask for the index with 1 << index if there is a value to be set
-            if (newValue) octet |= (byte)(1 << index);
+            //Set the bit at the index because it is not already set
+            if (newValue) SetBit(ref octet, index);
 
             //Return the old value
             return oldValue;
         }
 
         /// <summary>
-        /// Directly sets the bit in the given octet at the given index to 1.
+        /// Sets the index of the given bit to 1 if not already set
         /// </summary>
-        /// <remarks>
-        /// http://stackoverflow.com/questions/2605913/invert-1-bit-in-c-sharp
-        /// </remarks>
-        /// <param name="octet">The reference of the octet to modify</param>
-        /// <param name="index">The index in the octet of the bit to set</param>
-        internal static void SetBit(ref byte octet, int index) { octet ^= (byte)index; }
+        /// <param name="octet"></param>
+        /// <param name="index"></param>
+        internal static void SetBit(ref byte octet, int index)
+        {
+            if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-        public static void ClearBit(ref byte octet, int index) { SetBit(ref octet, index, false); }
+            SetBit(ref octet, index, true);
+        }
+
+        /// <summary>
+        /// Sets the index of the given bit to 0 if not already set
+        /// </summary>
+        /// <param name="octet"></param>
+        /// <param name="index"></param>
+        public static void ClearBit(ref byte octet, int index)
+        {
+            if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
+
+            SetBit(ref octet, index, false);
+        }
 
         /// <summary>
         /// Provides a method of setting a bit with XOR
@@ -184,20 +247,24 @@ namespace Media.Common
         /// <remarks>
         /// http://stackoverflow.com/questions/2605913/invert-1-bit-in-c-sharp
         /// </remarks>
-        public static void ToggleBit(byte octet, int index) { octet ^= (byte)(1 << index); }
+        public static void ToggleBit(byte octet, int index)
+        {
+            if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
+
+            octet ^= (byte)index;
+        }
 
         /// <summary>
-        /// Combines two integers into a single byte using the binary | operator.
+        /// Combines two integers into a single byte using the binary | operator truncating the higher 24 bits.
         /// </summary>
         public static byte Or(int lsb, int msb) { return (byte)(lsb | msb); }
 
         /// <summary>
-        /// Combines two integers into a single byte using binary & operator
+        /// Combines two integers into a single byte using binary & operator truncating the higher 24 bits.
         /// </summary>
-        /// <param name="lowQuarterByte"></param>
-        /// <param name="highQuarterByte"></param>
-        /// <returns></returns>
         public static byte And(int lsb, int msb) { return (byte)(lsb & msb); }
+
+        //public static int Nand, Nor
 
         #region Reading
 
@@ -213,52 +280,48 @@ namespace Media.Common
         /// <returns>The calculated result</returns>
         public static long ReadInteger(IEnumerable<byte> octets, int offset, int sizeInBytes, bool reverse)
         {
-            //Negitive values yei
-            if(sizeInBytes == 0) throw new ArgumentException("sizeInBytes","Must be at least 1.");
-
-            int count = octets.Count();
-
-            if (offset > count) throw new ArgumentOutOfRangeException("offset", "Cannot be greater than the amount of elements contained in the given sequence.");
-
-            var integerOctets = octets.Skip(offset).Take(sizeInBytes);
-
-            if (sizeInBytes > count) throw new ArgumentOutOfRangeException("sizeInBytes", "Cannot be greater than the amount of elements contained in the given sequence");
-            
-            if (sizeInBytes > 8) throw new NotSupportedException("Only sizes up to 8 octets are supported.");
-
-            //Reverse the seqeuence if indicated.
-            if (reverse) integerOctets = integerOctets.Reverse();
-
-            //Get the first octet, the placeHolder is 0
-            ulong result = integerOctets.First();
-
-            //If there is more than 1 octet in the integer representation
-            if (sizeInBytes > 1)
+            unchecked
             {
-                //Use an unchecked block to calculate the result which is faster than keeping track of the sign.
-                unchecked
+                if (sizeInBytes == 0) throw new ArgumentException("sizeInBytes", "Must be at least 1.");
+
+                if (sizeInBytes > 8) throw new NotSupportedException("Only sizes up to 8 octets are supported.");
+
+                var integerOctets = octets.Skip(offset).Take(sizeInBytes);
+
+                //One byte only
+                if (sizeInBytes == 1) return reverse ? ReverseU8(integerOctets.First()) : integerOctets.First();
+
+                //Reverse the seqeuence if indicated.
+                if (reverse) integerOctets = integerOctets.Reverse();
+
+                //Get the first octet, the placeHolder is 0
+                ulong result = integerOctets.First();
+
+                //Faster
+
+                //Calulcate the placeHolder value which is equal to the largest size storable in the signed representation plus 1
+                ulong placeHolder = (byte.MaxValue + 1); // base 2 = 2 * (ulong)(-sbyte.MaxValue) = 256;
+
+                //Iterate each byte in the sequence skipping the first octet.
+                foreach (byte b in integerOctets.Skip(1))
                 {
-                    //Calulcate the placeHolder value which is equal to the largest size storable in the signed representation plus 1
-                    ulong placeHolder = (byte.MaxValue + 1); // base 2 = 2 * (ulong)(-sbyte.MaxValue) = 256;
-
-                    //Iterate each byte in the sequence skipping the first octet.
-                    foreach (byte b in integerOctets.Skip(1))
+                    //If the byte is greater than 0
+                    if (b > 0)
                     {
-                        //If the byte is greater than 0
-                        if (b > 0)
-                        {
-                            //Combine the result of the calculation of the base two value with the binary representation.
-                            result |= b * placeHolder;
-                        }
-
-                        //Move the placeholder 8 bits left (This equates to a multiply by 4, [where << 4 would be a multiply of 3 etc])
-                        placeHolder <<= 8; // placeHolder *= 4;
+                        //Combine the result of the calculation of the base two value with the binary representation.
+                        result |= b * placeHolder;
                     }
-                }
-            }
 
-            return (long)result;
+                    //Move the placeholder 8 bits left (This equates to a multiply by 4, [where << 4 would be a multiply of 3 etc])
+                    placeHolder <<= 8; // placeHolder *= 4;
+                }
+
+                //Return the result
+                return (long)result;
+            }
         }
+
+      
 
         /// <summary>
         /// Reads a unsigned 8 bit value from the buffer at the given index.
@@ -280,6 +343,12 @@ namespace Media.Common
             return (byte)Binary.ReadInteger(buffer, index, 1, reverse);
         }
 
+        [CLSCompliant(false)]
+        public static sbyte Read8(IEnumerable<byte> buffer, int index, bool reverse)
+        {
+            return (sbyte)Binary.ReadInteger(buffer, index, 1, reverse);
+        }
+
         /// <summary>
         /// Reads an unsigned 16 bit value type from the given buffer.
         /// </summary>
@@ -290,9 +359,15 @@ namespace Media.Common
         /// <summary>
         /// The <paramref name="reverse"/> is typically utilized when creating Big Endian \ Network Byte Order or encrypted values.
         /// </summary>
+        [CLSCompliant(false)]
         public static ushort ReadU16(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (ushort)Binary.ReadInteger(buffer, index, 2, reverse);
+        }
+
+        public static short Read16(IEnumerable<byte> buffer, int index, bool reverse)
+        {
+            return (short)Binary.ReadInteger(buffer, index, 2, reverse);
         }
 
         /// <summary>
@@ -302,9 +377,15 @@ namespace Media.Common
         /// <param name="index">The index in the buffer to Read the value from</param>
         /// <param name="reverse">A value which indicates if the value should be reversed</param>
         /// <returns>The unsigned 24 bit value in the form of a 32 bit unsigned integer</returns>
+        [CLSCompliant(false)]
         public static uint ReadU24(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (uint)Binary.ReadInteger(buffer, index, 3, reverse);
+        }
+
+        public static int Read24(IEnumerable<byte> buffer, int index, bool reverse)
+        {
+            return (int)Binary.ReadInteger(buffer, index, 3, reverse);
         }
 
         /// <summary>
@@ -317,14 +398,26 @@ namespace Media.Common
         /// <summary>
         /// The <paramref name="reverse"/> is typically utilized when creating Big Endian \ Network Byte Order or encrypted values.
         /// </summary>
+        [CLSCompliant(false)]
         public static uint ReadU32(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (uint)Binary.ReadInteger(buffer, index, 4, reverse);
         }
 
+        public static int Read32(IEnumerable<byte> buffer, int index, bool reverse)
+        {
+            return (int)Binary.ReadInteger(buffer, index, 4, reverse);
+        }
+
+        [CLSCompliant(false)]
         public static ulong ReadU64(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (ulong)Binary.ReadInteger(buffer, index, 8, reverse);
+        }
+
+        public static long Read64(IEnumerable<byte> buffer, int index, bool reverse)
+        {
+            return (long)Binary.ReadInteger(buffer, index, 8, reverse);
         }
 
         #endregion
@@ -333,7 +426,7 @@ namespace Media.Common
 
         #region Writing (Provided to reduce unsafe transition when using BitConverter)
 
-        public static void WriteU8(byte[] buffer, int index, bool reverse, byte value)
+        public static void WriteNetworkU8(byte[] buffer, int index, bool reverse, byte value)
         {
             buffer[index] = reverse ? ReverseU8(value) : value;
         }
@@ -345,62 +438,50 @@ namespace Media.Common
         /// <param name="index"></param>
         /// <param name="reverse"></param>
         /// <param name="value"></param>
-        public static void Write16(byte[] buffer, int index, bool reverse, ushort value)
+        public static void WriteNetwork16(byte[] buffer, int index, bool reverse, short value)
         {
-            //If writing in reverse
-            if (reverse)
-            {
-                //Start at the highest index
-                buffer[index + 1] = (byte)(value & 0xff);
-                buffer[index] = (byte)(value >> 8 & 0xff);
-            }
-            else
-            {
-                //Start at the lowest index
-                buffer[index] = (byte)(value & 0xff);
-                buffer[index + 1] = (byte)(value >> 8 & 0xff);
-            }
+            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
         }
 
-        public static void Write24(byte[] buffer, int index, bool reverse, uint value)
+        public static void WriteNetwork16(byte[] buffer, int index, bool reverse, ushort value)
         {
-            //If writing in reverse
-            if (reverse)
-            {
-                //Start at the highest index
-                buffer[index + 2] = (byte)(value & 0xff);
-                buffer[index + 1] = (byte)(value >> 8 & 0xff);
-                buffer[index] = (byte)(value >> 16 & 0xff);
-            }
-            else
-            {
-                //Start at the lowest index
-                buffer[index] = (byte)(value & 0xff);
-                buffer[index + 1] = (byte)(value >> 8 & 0xff);
-                buffer[index + 2] = (byte)(value >> 16 & 0xff);
-            }
+            WriteNetwork16(buffer, index, reverse, (short)value);
         }
 
 
-        public static void Write32(byte[] buffer, int index, bool reverse, uint value)
+        public static void WriteNetwork24(byte[] buffer, int index, bool reverse, uint value)
+        {
+            WriteNetwork24(buffer, index, reverse, (int)value);
+        }
+
+        public static void WriteNetwork24(byte[] buffer, int index, bool reverse, int value)
         {
             //If writing in reverse
             if (reverse)
             {
                 //Start at the highest index
-                buffer[index + 3] = (byte)(value & 0xff);
-                buffer[index + 2] = (byte)(value >> 8 & 0xff);
-                buffer[index + 1] = (byte)(value >> 16 & 0xff);
-                buffer[index] = (byte)(value >> 24 & 0xff);
+                buffer[index + 2] = (byte)(value & byte.MaxValue);
+                buffer[index + 1] = (byte)(value >> 8 & byte.MaxValue);
+                buffer[index] = (byte)(value >> 16 & byte.MaxValue);
             }
             else
             {
                 //Start at the lowest index
-                buffer[index] = (byte)(value & 0xff);
-                buffer[index + 1] = (byte)(value >> 8 & 0xff);
-                buffer[index + 2] = (byte)(value >> 16 & 0xff);
-                buffer[index + 3] = (byte)(value >> 24 & 0xff);
+                buffer[index] = (byte)(value & byte.MaxValue);
+                buffer[index + 1] = (byte)(value >> 8 & byte.MaxValue);
+                buffer[index + 2] = (byte)(value >> 16 & byte.MaxValue);
             }
+        }
+
+
+        public static void WriteNetwork32(byte[] buffer, int index, bool reverse, uint value)
+        {
+            WriteNetwork32(buffer, index, reverse, (int)value);
+        }
+
+        public static void WriteNetwork32(byte[] buffer, int index, bool reverse, int value)
+        {
+            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
         }
 
         /// <summary>
@@ -410,21 +491,14 @@ namespace Media.Common
         /// <param name="index"></param>
         /// <param name="reverse">A value indicating if the given value should be written in reverse</param>
         /// <param name="value"></param>
-        public static void Write64(byte[] buffer, int index, bool reverse, ulong value)
+        public static void WriteNetwork64(byte[] buffer, int index, bool reverse, ulong value)
         {
-            if (reverse)
-            {
-                //Write the highest 32 bits first
-                Write32(buffer, index + 4, reverse, (uint)(value >> 32));
-                Write32(buffer, index, reverse, (uint)value);
+            WriteNetwork64(buffer, index, reverse, (long)value);
+        }
 
-            }
-            else
-            {
-                //Otherwise write the lower 32 bits first
-                Write32(buffer, index, reverse, (uint)value);
-                Write32(buffer, index + 4, reverse, (uint)(value >> 32));
-            }
+        public static void WriteNetwork64(byte[] buffer, int index, bool reverse, long value)
+        {
+            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
         }
 
 
@@ -439,24 +513,40 @@ namespace Media.Common
         /// <returns>The reversed unsigned 8 bit value</returns>
         public static byte ReverseU8(byte source)
         {
-            //If no reversal is required return the value
-            if (source == byte.MaxValue) return source;
-            
-            //If the value is greater then or equal to 127 the reverse is obtained by 127 - source
-            if (source >= sbyte.MaxValue) return (byte)(sbyte.MaxValue - source);
-
-            //If the value is less the reverse if obtained with 127 + source
-            return (byte)(sbyte.MaxValue + source);
+            http://graphics.stanford.edu/~seander/bithacks.html
+            //per Rich Schroeppel in the Programming Hacks section of  Beeler, M., Gosper, R. W., and Schroeppel, R. HAKMEM. MIT AI Memo 239, Feb. 29, 1972. 
+            return (byte)((source * 0x0202020202UL & 0x010884422010UL) % 1023);
         }
+
+        [CLSCompliant(false)]
+        public static sbyte Reverse8(sbyte source)
+        {
+            return (sbyte)ReverseU8((byte)source);
+        }
+
+        [CLSCompliant(false)]
+        public static ushort ReverseUnsignedShort(ref ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
+
+        [CLSCompliant(false)]
+        public static uint ReverseUnsignedInt(ref uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
 
         /// <summary>
         /// Reverses the given unsigned 16 bit value via left and right shift and casting to a unsigned 64 bit value.
         /// </summary>
         /// <param name="source">The unsigned 16 bit value which is required to be reversed</param>
         /// <returns>The reversed unsigned 16 bit value</returns>
+        [CLSCompliant(false)]
         public static ushort ReverseU16(ushort source)
         {
-            return (ushort)RollU64((ulong)source, 16);
+            if (source == 0 || source == ushort.MaxValue) return source;
+            return ReverseUnsignedShort(ref source);
+        }
+        
+        public static short Reverse16(short source)
+        {
+            if (source == 0 || source == short.MaxValue) return source;
+            ushort unsigned = (ushort) source;
+            return (short)ReverseUnsignedShort(ref unsigned);
         }
 
         /// <summary>
@@ -464,13 +554,35 @@ namespace Media.Common
         /// </summary>
         /// <param name="source">The unsigned 32 bit value which is requried to be reversed</param>
         /// <returns>The reversed unsigned 32 bit value</returns>            
+        [CLSCompliant(false)]
         public static uint ReverseU32(uint source)
         {
-            return (uint)RollU64((ulong)source, 32);
+            if (source == 0 || source == uint.MaxValue) return source;
+            return ReverseUnsignedInt(ref source);
+        }
+
+        public static int Reverse32(int source)
+        {
+            if (source == 0 || source == int.MaxValue) return source;
+            uint unsigned = (uint)source;
+            return (int)ReverseUnsignedInt(ref unsigned);
+        }
+
+        [CLSCompliant(false)]
+        public static ulong ReverseU64(ulong source)
+        {
+            if (source == 0 || source == ulong.MaxValue) return source;
+            return RollU64(source, 32);
+        }
+
+        public static long Reverse64(long source)
+        {
+            if (source == 0 || source == long.MaxValue) return source;
+            return Roll64(source, 32);
         }
 
         /// <summary>
-        /// Reverses the given unsigned 64 bit value via left and right shift and on the register(s) in use to perform this operation.
+        /// Reverses the given unsigned 64 bit value via left and right shift on the register(s) in use to perform this operation.
         /// </summary>
         /// <param name="source">The unsgined 64 bit value to reverse</param>
         /// <param name="amount">The amount of shifting left and right to perform</param>
@@ -478,8 +590,16 @@ namespace Media.Common
         /// <remarks>
         /// On 32 bit Architectures two registers are beging used to perform this operation
         /// </remarks>
+        [CLSCompliant(false)]
         public static ulong RollU64(ulong source, int amount)
         {
+            if (source == 0 || source == ulong.MaxValue) return source;
+            return source >> amount | source << amount;
+        }
+
+        public static long Roll64(long source, int amount)
+        {
+            if (source == 0 || source == long.MaxValue) return source;
             return source >> amount | source << amount;
         }
 
