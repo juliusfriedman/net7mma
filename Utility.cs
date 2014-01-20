@@ -284,8 +284,11 @@ namespace Media
                 //Loop the buffer from start to count
                 while (start < count && checkedBytes < octetCount)
                 {
+
+                    int position = start + checkedBytes;
+
                     //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
-                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], start + checkedBytes, Math.Abs((start + checkedBytes) - count))) >= start)
+                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position,  count - position)) >= start)
                     {
                         //Check for completion
                         if (++checkedBytes == octetCount) break;
@@ -322,36 +325,43 @@ namespace Media
         /// <param name="amount">The 0 based amount of bytes to receive, 0 will have no result</param>
         /// <param name="socket">The socket to receive on</param>
         /// <returns>The amount of bytes recieved which will be equal to the amount paramter unless the data was unable to fit in the given buffer</returns>
-        public static int AlignedReceive(byte[] buffer, int offset, int amount, Socket socket)
+        public static int AlignedReceive(byte[] buffer, int offset, int amount, Socket socket, out SocketError error)
         {
+            //Store any socket errors here incase non-blocking sockets are being used.
+            error = SocketError.SocketError;
+
             //Return the amount if its negitive;
             if (amount <= 0) return amount;
             try
             {
                 //To hold what was received and the maximum amount to receive
-                int received = 0, max = buffer.Length - offset;
-
-                //Store any socket errors here incase non-blocking sockets are being used.
-                SocketError error = SocketError.SocketError;
+                int totalReceived = 0, max = buffer.Length - offset;
 
                 //While there is something to receive
                 while (amount > 0 && offset <= max)
                 {
                     //Receive it into the buffer at the given offset taking into account what was already received
-                    received += socket.Receive(buffer, offset + received, amount, SocketFlags.None, out error);
+                    int justReceived = socket.Receive(buffer, offset, amount, SocketFlags.None, out error);
 
                     //decrease the amount by what was received
-                    amount -= received;
+                    amount -= justReceived;
                     //Increase the offset by what was received
-                    offset += received;
+                    offset += justReceived;
+                    //Increase total received
+                    totalReceived += justReceived;
 
                     //Break on any error besides WouldBlock, Could use Poll here
-                    if (error != SocketError.WouldBlock) break;
+                    if (error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset)
+                    {
+                        //Set the total to the amount given because something bad happened
+                        totalReceived = amount;
+                        break;
+                    }
                     else if (offset > max) break;
                 }
 
                 //Return the result
-                return received;
+                return totalReceived;
             }
             catch { throw; }
         }

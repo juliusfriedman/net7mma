@@ -732,8 +732,10 @@ namespace Media.Rtsp
             //RTSP in the encoding of the request
             byte[] encodedIdentifier = Encoding.GetBytes(MessageIdentifier); int encodedIdentifierLength = encodedIdentifier.Length;
 
-            // \r\n in the encoding of the request
-            byte[] encodedEnd = Encoding.GetBytes(CRLF); int encodedEndLength = encodedEnd.Length, requiredEndLength = encodedEndLength / 2;
+            // \r\n in the encoding of the request (Network Order)
+            byte[] encodedEnd = (BitConverter.IsLittleEndian ? Common.ASCII.NewLine.Yield().Concat(Common.ASCII.LineFeed.Yield()) : Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray();
+
+            int encodedEndLength = 2, requiredEndLength = 1;
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
@@ -1099,10 +1101,12 @@ namespace Media.Rtsp
                 //Allocate memory
                 byte[] buffer = new byte[remaining];
 
+                System.Net.Sockets.SocketError error;
+
                 while (remaining > 0)
                 {
                     //Receive max more
-                    int received = Utility.AlignedReceive(buffer, 0, remaining, socket);
+                    int received = Utility.AlignedReceive(buffer, 0, remaining, socket, out error);
 
                     //Concatenate the result into the body
                     m_Body += Encoding.GetString(buffer, 0, received);

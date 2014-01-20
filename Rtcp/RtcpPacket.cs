@@ -529,10 +529,12 @@ namespace Media.Rtcp
             if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
             else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
 
+            System.Net.Sockets.SocketError error;
+
             //Read from the stream, decrementing from octetsRemaining what was read.
             while (octetsRemaining > 0)
             {
-                offset += Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+                offset += Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
                 octetsRemaining -= offset;
             }
 
