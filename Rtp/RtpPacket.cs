@@ -533,11 +533,13 @@ namespace Media.Rtp
                 if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
                 else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
 
+                System.Net.Sockets.SocketError error;
+
                 //Read from the stream, decrementing from octetsRemaining what was read.
                 while (octetsRemaining > 0)
                 {
                     //Receive octetsRemaining or less
-                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                     //Move the offset
                     offset += justReceived;
@@ -565,11 +567,13 @@ namespace Media.Rtp
                     if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
                     else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
 
+                    System.Net.Sockets.SocketError error;
+
                     //Read from the socket, decrementing from octetsRemaining what was read.
                     while (octetsRemaining > 0)
                     {
                         //Receive octetsRemaining or less
-                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                         //Move the offset
                         offset += justReceived;
@@ -595,11 +599,13 @@ namespace Media.Rtp
                     if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
                     else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
 
+                    System.Net.Sockets.SocketError error;
+
                     //Read from the stream, decrementing from octetsRemaining what was read.
                     while (octetsRemaining > 0)
                     {
                         //Receive octetsRemaining or less
-                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket);
+                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                         //Move the offset
                         offset += justReceived;
@@ -622,9 +628,11 @@ namespace Media.Rtp
                     if (m_OwnedOctets == null) m_OwnedOctets = new byte[1];
                     else m_OwnedOctets = m_OwnedOctets.Concat(new byte[1]).ToArray();
 
+                    System.Net.Sockets.SocketError error;
+
                     //Receive 1 byte
                     //Receive octetsRemaining or less
-                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, 1, socket);
+                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, 1, socket, out error);
 
                     //Move the offset
                     offset += justReceived;

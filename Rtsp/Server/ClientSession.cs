@@ -741,7 +741,7 @@ namespace Media.Rtsp
             setupContext.RtpTimestamp = sourceContext.RtpTimestamp;
 
             //Add the route
-            RouteDictionary.Add(sourceContext.SynchronizationSourceIdentifier, setupContext.RemoteSynchronizationSourceIdentifier);
+            RouteDictionary.Add(sourceContext.SynchronizationSourceIdentifier, setupContext.RemoteSynchronizationSourceIdentifier ?? 0);
                     
             //Add the source context to this session
             SourceContexts.Add(sourceContext);

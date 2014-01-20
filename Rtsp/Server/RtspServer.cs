@@ -307,7 +307,7 @@ namespace Media.Rtsp
         {
             //Handle this according to RFC
             RtspClientInactivityTimeoutSeconds = 60;
-            ServerName = "ASTI Media Server";
+            ServerName = "ASTI Media Server, RTSP";
             m_ServerPort = listenPort;
             RequiredCredentials = new CredentialCache();
         }
