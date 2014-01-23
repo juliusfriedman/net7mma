@@ -197,13 +197,14 @@ namespace Media.Rtsp
                 //If the packet is null or not allowed then return
                 if (packet == null) return;
                 else if (PacketBuffer.ContainsKey(packet.SynchronizationSourceIdentifier)) //If the media is paused or in a buffered state
-                {                    
+                {
                     PacketBuffer.Add(packet.SynchronizationSourceIdentifier, packet);
                 }
-                else if(RouteDictionary.ContainsKey(packet.SynchronizationSourceIdentifier))//If there is a route for the packet here
+                else if (RouteDictionary.ContainsKey(packet.SynchronizationSourceIdentifier))//If there is a route for the packet here
                 {
-                    m_RtpClient.EnquePacket(packet);//Enque the packet to go out
+                    m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare().ToArray(), 0));//Enque the packet to go out
                 }
+                else m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare().ToArray(), 0));//Enque the packet to go out
             }
             catch { throw; }
         }
@@ -215,6 +216,9 @@ namespace Media.Rtsp
         /// <param name="packet">The packet which arrived</param>
         internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet)
         {
+
+            if (packet.Disposed) return;
+
             try
             {
                 //If the source received a goodbye 
@@ -225,14 +229,14 @@ namespace Media.Rtsp
                     {
                         //Go through the chunks to determine 
 
-                        //SourceList
-                        foreach (int participantId in received.GetSourceList())
-                        {
-                            int routedSourceId;
-                            //If the chunk is addressed to the source then the media will stop so our client should 
-                            if (RouteDictionary.TryGetValue(participantId, out routedSourceId))
-                                m_RtpClient.SendGoodbye(m_RtpClient.GetContextBySourceId(routedSourceId));//Disconnect the client from our source
-                        }
+                        ////SourceList
+                        //foreach (int participantId in received.GetSourceList())
+                        //{
+                        //    int routedSourceId;
+                        //    //If the chunk is addressed to the source then the media will stop so our client should 
+                        //    if (RouteDictionary.TryGetValue(participantId, out routedSourceId))
+                        //        m_RtpClient.SendGoodbye(m_RtpClient.GetContextBySourceId(routedSourceId));//Disconnect the client from our source
+                        //}
                     }
                    
                 }
@@ -619,6 +623,8 @@ namespace Media.Rtsp
 
                     //Starts worker thread... 
                     m_RtpClient.Connect();
+
+                    m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(60);
                 }
 
                 //Find an open port to send on (might want to reserve this port with a socket)
@@ -675,6 +681,8 @@ namespace Media.Rtsp
 
                     m_RtpClient.Connect();
 
+                    m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(60);
+
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 
                     //Create a new Interleave
@@ -713,6 +721,9 @@ namespace Media.Rtsp
 
                     //Initialize the Interleaved Socket
                     setupContext.InitializeSockets(m_RtspSocket);
+
+                    m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(60);
+
                 }
                 else //Is Tcp not Switching
                 {
@@ -741,7 +752,7 @@ namespace Media.Rtsp
             setupContext.RtpTimestamp = sourceContext.RtpTimestamp;
 
             //Add the route
-            RouteDictionary.Add(sourceContext.SynchronizationSourceIdentifier, setupContext.RemoteSynchronizationSourceIdentifier ?? 0);
+            //RouteDictionary.Add(sourceContext.RemoteSynchronizationSourceIdentifier ?? 0, setupContext.RemoteSynchronizationSourceIdentifier ?? 0);
                     
             //Add the source context to this session
             SourceContexts.Add(sourceContext);

@@ -187,7 +187,7 @@ namespace Media.Rtcp
                 if (PointerToLast6Bytes.Count < 5) return ushort.MaxValue;
 
                 //Read the value
-                return Binary.ReadU16(PointerToLast6Bytes, PointerToLast6Bytes.Offset, true);
+                return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian);
             }
             //Set the value
             set
@@ -273,7 +273,8 @@ namespace Media.Rtcp
 
             First16Bits = new CommonHeaderBits(memory, additionalOffset);
 
-            PointerToLast6Bytes = new OctetSegment(memory.Array, additionalOffset + 2, Math.Min(4, memory.Count - additionalOffset - 2));
+            //das infamous clamp max min
+            PointerToLast6Bytes = new OctetSegment(memory.Array, additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)

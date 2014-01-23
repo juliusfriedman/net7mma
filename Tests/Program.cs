@@ -1544,7 +1544,9 @@ namespace Media
 
                 if (matched == null)
                 {
-                    Console.WriteLine("****Unknown context: " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " \t Ssrc = " + rtpPacket.SynchronizationSourceIdentifier + " Length = " + rtpPacket.Length);
+                    Console.WriteLine("****Unknown context: " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType +  " \t Ssrc = " + rtpPacket.SynchronizationSourceIdentifier + " Length = " + rtpPacket.Length);
+
+                    //System.Diagnostics.Debug.WriteLine(Encoding.UTF8.GetString(rtpPacket.Prepare().ToArray()));
 
                     Rtp.RtpClient.TransportContext contextOther = client.GetContextBySourceId(rtpPacket.SynchronizationSourceIdentifier);
 
@@ -1552,17 +1554,17 @@ namespace Media
                     {
                         Console.WriteLine(string.Format(TestingFormat, "Matches Context (By Id):", "*******\n\t*********** Local Id: " + contextOther.SynchronizationSourceIdentifier + " Remote Id:" + contextOther.RemoteSynchronizationSourceIdentifier));
                     }
-                    else
-                    {
-                        Console.WriteLine(string.Format(TestingFormat, "Availables Contexts:", "*******\n\t***********"));
-                        foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
-                        {
-                            Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
-                            Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
-                            Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
-                            Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
-                        }
-                    }
+                    //else
+                    //{
+                    //    Console.WriteLine(string.Format(TestingFormat, "Availables Contexts:", "*******\n\t***********"));
+                    //    foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    //    {
+                    //        Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                    //        Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                    //        Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                    //        Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
+                    //    }
+                    //}
                 }
                 else
                 {
@@ -1580,11 +1582,26 @@ namespace Media
                 if (packet == null || packet.Disposed) return;
 
                 if (packet.IsComplete) if(packet.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
-                else Console.ForegroundColor = ConsoleColor.DarkRed;
-                
-                if (((Rtp.RtpClient)sender).GetContextForPacket(rtcpPacket) == null) Console.WriteLine("****Unknown context :");
+                else Console.ForegroundColor = ConsoleColor.Yellow;
+
+                Rtp.RtpClient client = ((Rtp.RtpClient)sender);
+
+                Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtcpPacket);
 
                 Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
+
+                if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
+                else
+                {
+                    Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet-> " + rtcpPacket.PayloadType + "Availables Contexts:", "*******\n\t***********"));
+                    foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    {
+                        Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                        Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                        Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                        Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
+                    }
+                }
 
                 if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
             }
@@ -1621,22 +1638,22 @@ namespace Media
                         //Connection event
                         client.OnConnect += (sender, args) =>
                         {
-                            //Set an additional reading timeout if required once connected
-                            client.SocketReadTimeout = 777;
 
-                            //Same with writing
-                            client.SocketWriteTimeout = 777;
-
-                            consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
-
-                            //Try to start listening
-                            try
+                            if (client.Connected)
                             {
-                                consoleWriter.WriteLine("\t*****************\nStartedListening to :" + client.Location);
-                                client.StartListening();
-                            }
-                            catch (Exception ex) { writeError(ex); shouldStop = true; }
+                                //Set a timeout to wait for responses (in milliseconds), they will be recalulcated when the Setup is performed according to information in the SDP.
+                                client.SocketWriteTimeout = client.SocketReadTimeout = 0;
 
+                                consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
+
+                                //Try to start listening
+                                try
+                                {
+                                    client.StartListening();
+                                    consoleWriter.WriteLine("\t*****************\nStartedListening to :" + client.Location);
+                                }
+                                catch (Exception ex) { writeError(ex); shouldStop = true; }
+                            }
                         };
 
                         //Define handles once playing
@@ -1697,7 +1714,6 @@ namespace Media
                             {
                                 ++rtspIn;
                                 if (response.StatusCode == Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
-                                consoleWriter.WriteLine("\t**********\t*******\nClient got NO RESPOONSE, for request: " + request.Location + " " + request.Method);
                             }
                             else
                             {
@@ -1758,23 +1774,27 @@ namespace Media
 
                         client.Connect();
 
+                        client.ProtocolSwitchTime = TimeSpan.FromSeconds(10);
+
                         //Indicate waiting
                         Console.WriteLine("Waiting for connection... Press Q to exit");
 
-                        DateTime startedConnecting = DateTime.UtcNow;
-
-                        while (!client.Connected && !shouldStop)
-                        {
-                            System.Threading.Thread.Sleep(7);
-
-                            shouldStop = DateTime.UtcNow - startedConnecting > client.Timeout;
-
-                            System.Threading.Thread.Sleep(7);
-                        }
-
                         //Wait for a key press of 'Q' once playing
-                        ConsoleKey press;
-                        while (!shouldStop && (press = Console.ReadKey(true).Key) != ConsoleKey.Q) System.Threading.Thread.Yield();
+                        while (!shouldStop)
+                        {
+                            System.Threading.Thread.Sleep(client.Timeout.Seconds + 1 * 1000);
+
+                            if (client.Playing)
+                            {
+                                Console.WriteLine("Client Playing.... for :" + (DateTime.UtcNow - client.StartedListening).ToString());
+
+                                if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + (DateTime.UtcNow - client.StartedListening.Value).Subtract(client.EndTime.Value).ToString());
+                            }
+
+                            if (client.Connected == false) Console.WriteLine("Client Not connected Waiting for (Q)");
+
+                            shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
+                        }
 
                         //if the client is connected still
                         if (client.Connected)
@@ -1813,26 +1833,32 @@ namespace Media
                             }
                         }
 
-                        //Print out some information about our program
-                        Console.BackgroundColor = ConsoleColor.Blue;
-                        consoleWriter.WriteLine("RTCP".PadRight(Console.BufferWidth - 7, '▓'));
-                        consoleWriter.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
-                        consoleWriter.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
-                        consoleWriter.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
-                        consoleWriter.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
-                        Console.BackgroundColor = ConsoleColor.Magenta;
-                        consoleWriter.WriteLine("RTP".PadRight(Console.BufferWidth - 7, '▓'));
-                        consoleWriter.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
-                        consoleWriter.WriteLine("Frames with missing packets: " + incompleteFrames);
-                        consoleWriter.WriteLine("Empty Frames: " + emptyFrames);
-                        Console.BackgroundColor = ConsoleColor.Cyan;
-                        consoleWriter.WriteLine("RTSP".PadRight(Console.BufferWidth - 7, '▓'));
-                        consoleWriter.WriteLine("Rtsp Requets Sent: " + rtspIn);
-                        consoleWriter.WriteLine("Rtsp Responses Receieved: " + rtspOut);
-                        consoleWriter.WriteLine("Rtsp Missing : " + (client.ClientSequenceNumber - rtspIn));
-                        consoleWriter.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
-                        consoleWriter.WriteLine("Rtsp Unknown: " + rtspUnknown);
-                        Console.BackgroundColor = ConsoleColor.Black;
+                        //Output test info before ending
+                        if (client.Client != null)
+                        {
+
+                            //Print out some information about our program
+                            Console.BackgroundColor = ConsoleColor.Blue;
+                            consoleWriter.WriteLine("RTCP".PadRight(Console.BufferWidth - 7, '▓'));
+                            consoleWriter.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
+                            consoleWriter.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
+                            consoleWriter.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
+                            consoleWriter.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+                            Console.BackgroundColor = ConsoleColor.Magenta;
+                            consoleWriter.WriteLine("RTP".PadRight(Console.BufferWidth - 7, '▓'));
+                            consoleWriter.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
+                            consoleWriter.WriteLine("Frames with missing packets: " + incompleteFrames);
+                            consoleWriter.WriteLine("Empty Frames: " + emptyFrames);
+                            Console.BackgroundColor = ConsoleColor.Cyan;
+                            consoleWriter.WriteLine("RTSP".PadRight(Console.BufferWidth - 7, '▓'));
+                            consoleWriter.WriteLine("Rtsp Requets Sent: " + rtspIn);
+                            consoleWriter.WriteLine("Rtsp Responses Receieved: " + rtspOut);
+                            consoleWriter.WriteLine("Rtsp Missing : " + (client.ClientSequenceNumber - rtspIn));
+                            consoleWriter.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
+                            consoleWriter.WriteLine("Rtsp Unknown: " + rtspUnknown);
+                            Console.BackgroundColor = ConsoleColor.Black;
+                        }
+
                     }
                 }
             }
@@ -1927,7 +1953,7 @@ a=mpeg4-esid:101");
             //The server will take in RtspSourceStreams and make them available locally
 
             //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Rtsp Uri to any YouTube video)
-            //Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
 
             //server.AddCredential(source, new System.Net.NetworkCredential("test", "test"), "Basic");
 
@@ -1935,13 +1961,13 @@ a=mpeg4-esid:101");
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             
             //Add the stream to the server
-            //server.AddStream(source);
+            server.AddStream(source);
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp"));
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://178.218.212.102:1935/live/Stream1", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             ////H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
             //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
@@ -1951,7 +1977,7 @@ a=mpeg4-esid:101");
             //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("OmegaTcp", "rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"), System.Net.AuthenticationSchemes.Basic, Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
+            server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
 
             Rtsp.Server.Streams.RFC2435Stream imageStream = new Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 

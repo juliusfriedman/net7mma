@@ -335,7 +335,7 @@ namespace Media
             try
             {
                 //To hold what was received and the maximum amount to receive
-                int totalReceived = 0, max = buffer.Length - offset;
+                int totalReceived = 0, max = buffer.Length - offset, attempt = 0;
 
                 //While there is something to receive
                 while (amount > 0 && offset <= max)
@@ -350,14 +350,24 @@ namespace Media
                     //Increase total received
                     totalReceived += justReceived;
 
+                    //If nothing was received
+                    if (justReceived == 0)
+                    {
+                        //error = SocketError.TimedOut;
+                        //Try again maybe
+                        ++attempt;
+                        //Only if the attempts in operations were greater then the amount of bytes requried
+                        if (attempt > amount) error = SocketError.TimedOut;
+                    }
+
                     //Break on any error besides WouldBlock, Could use Poll here
                     if (error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset)
                     {
                         //Set the total to the amount given because something bad happened
-                        totalReceived = amount;
+                        //totalReceived = amount;
                         break;
                     }
-                    else if (offset > max) break;
+                    else if (offset > max) break;                    
                 }
 
                 //Return the result

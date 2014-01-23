@@ -98,20 +98,22 @@ namespace Media.Rtcp
             if (count > upperBound) throw new ArgumentOutOfRangeException("count", "Must refer to an accessible position in the given array");
 
             //Would overflow the array
-            //if (count + index > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
+            if (count + index > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
 
             //Start parsing at the given offset
-            int offset = index;
+            int offset = 0;
 
-            OctetSegment parsing = new OctetSegment(array, offset, count);
+            OctetSegment parsing = new OctetSegment(array, index, count);
 
             //While  a 32 bit value remains to be read in the vector
             while (offset + 4 < count)
             {
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
                 using (var header =  new RtcpHeader(parsing, offset))  ///new RtcpHeader(array, offset))
-                {                                 
-                    using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length)))
+                {
+
+                    //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(count, header.BlockCount))))
                     {
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;
@@ -169,7 +171,7 @@ namespace Media.Rtcp
             if (header == null) throw new ArgumentNullException("header");
 
             //The instance owns the header
-            m_OwnsHeader = ownsHeader;
+            ShouldDispose = m_OwnsHeader = ownsHeader;
 
             //Assign the header
             Header = header;
@@ -197,7 +199,8 @@ namespace Media.Rtcp
         {
             if (header == null) throw new ArgumentNullException("header");
 
-            ShouldDispose = shouldDispose;
+            //The instance owns the header
+            ShouldDispose = m_OwnsHeader = shouldDispose;
 
             Header = header;
 
@@ -466,21 +469,24 @@ namespace Media.Rtcp
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
-            //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.Disposed)
+            if (ShouldDispose)
             {
-                //Dispose it
-                Header.Dispose();
+                //If there is a referenced RtpHeader
+                if (m_OwnsHeader && Header != null && !Header.Disposed)
+                {
+                    //Dispose it
+                    Header.Dispose();
 
-                //Remove of the reference
-                //Header = null;
+                    //Remove of the reference
+                    //Header = null;
+                }
+
+                //Payload goes away when disposing
+                Payload = default(OctetSegment);
+
+                //The private data goes away after calling Dispose
+                m_OwnedOctets = null;
             }
-
-            //Payload goes away when disposing
-            Payload = default(OctetSegment);
-
-            //The private data goes away after calling Dispose
-            m_OwnedOctets = null;
         }
 
         /// <summary>
@@ -522,13 +528,23 @@ namespace Media.Rtcp
             //If the packet is complete then return
             if (Disposed || IsComplete) return;
 
-            //Calulcate the amount of octets remaining in the RtcpPacket
-            int octetsRemaining = Length - (RtcpHeader.Length - Payload.Count), offset = 0;
+            //Calulcate the amount of octets remaining in the RtcpPacket including the header
+            int octetsRemaining = (ushort)(Header.LengthInWordsMinusOne + 1) * 4/*Length - (RtcpHeader.Length - Payload.Count)*/, offset = 0;
 
-            //Allocte the memory for the required data
-            if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
-            else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
+            //There is not enough room in the array to finish the packet
+            if (Payload.Array.Length < octetsRemaining)
+            {
+                //Allocte the memory for the required data
+                if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
+                else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
+            }
+            else //There is already enough room to finish the packet in the buffer which contains it.
+            {
+                Payload = new OctetSegment(Payload.Array, Payload.Offset, octetsRemaining);
+                if (IsComplete) return;
+            }
 
+           
             System.Net.Sockets.SocketError error;
 
             //Read from the stream, decrementing from octetsRemaining what was read.
@@ -539,7 +555,7 @@ namespace Media.Rtcp
             }
 
             //Re-allocate the segment around the received data.
-            Payload = new OctetSegment(Payload.Array, Payload.Offset, Length);
+            Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 
             //The RtcpPacket is now complete.
         }

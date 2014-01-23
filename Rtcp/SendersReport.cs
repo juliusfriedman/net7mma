@@ -69,7 +69,7 @@ namespace Media.Rtcp
         public SendersReport(int version, bool padding, int reportBlocks, int ssrc)
             : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize)
         {
-            
+
         }
 
         public SendersReport(RtcpPacket reference, bool shouldDispose)
