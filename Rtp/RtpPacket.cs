@@ -115,7 +115,7 @@ namespace Media.Rtp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (Disposed || !Header.Padding || Payload.Count == 0) return 0; return RFC3550.ReadPadding(Payload, NonPayloadOctets); } }
+        public int PaddingOctets { get { if (Disposed || !Header.Padding) return 0; return RFC3550.ReadPadding(Payload, NonPayloadOctets); } }
 
         /// <summary>
         /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
@@ -527,7 +527,7 @@ namespace Media.Rtp
             if (payloadCount < sourceListOctets)
             {
                 //Calulcate the amount of octets to receive
-                octetsRemaining = payloadCount - sourceListOctets;
+                octetsRemaining = Math.Abs(payloadCount - sourceListOctets);
 
                 //Allocte the memory for the required data
                 if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
@@ -593,7 +593,7 @@ namespace Media.Rtp
 
                     //The amount of octets required for for completion are indicated by the Size property of the RtpExtension.
                     //Calulcate the amount of octets to receive
-                    octetsRemaining = offset - (sourceListOctets + extensionSize);
+                    octetsRemaining = Math.Abs(offset - (sourceListOctets + extensionSize));
 
                     //Allocte the memory for the required data
                     if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];

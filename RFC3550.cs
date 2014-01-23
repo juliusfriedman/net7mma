@@ -149,7 +149,8 @@ namespace Media
 
             int firstPayloadType = first.PayloadType, ssrc = first.SynchronizationSourceIdentifier, totalLength = (int)first.Length;
 
-            if (firstPayloadType != Rtcp.SendersReport.PayloadType && firstPayloadType != Rtcp.ReceiversReport.PayloadType) throw new InvalidOperationException("A Compound packet must start with either a SendersReport or a ReceiversReport.");
+            //When respecting RFC3550 the first packet must be a SendersReport or Receivers report with the version of 2, the version is implicit from the header at this point.
+            if (IsValidRtcpHeader(first.Header, first.Version)) throw new InvalidOperationException("A Compound packet must start with either a SendersReport or a ReceiversReport.");
 
             //Each Compound RtcpPacket must have a SourceDescription with a CName and may have a goodbye
             bool hasSourceDescription = false, hasCName = false;
@@ -271,12 +272,10 @@ namespace Media
 
                 //The first packet in a compound packet needs to be validated
                 if (parsedPackets == 0 && !IsValidRtcpHeader(currentPacket.Header, currentPacket.Version)) yield break;
-
+                else if (skipUnknownTypes && RtcpPacket.GetImplementationForPayloadType((byte)currentPacket.PayloadType) == null || currentPacket.Version != version) yield break;
+                
                 //Count the packets parsed
                 ++parsedPackets;
-                
-                //If only packets which have been implmented should be returned
-                if (skipUnknownTypes && RtcpPacket.GetImplementationForPayloadType((byte)currentPacket.PayloadType) != null) yield break;
 
                 //if the packet is a SourceDescriptionReport ensure a CName is present.
                 if (!hasCName && currentPacket.PayloadType == SourceDescriptionReport.PayloadType)
@@ -322,7 +321,7 @@ namespace Media
         {
 
             //If there are no more bytes to parse we cannot continue
-            if (segment.Count == 0) return 0;
+            if (segment.Count == 0 || position > segment.Count) return 0;
 
             /*
               If the padding bit is set, the packet contains one or more

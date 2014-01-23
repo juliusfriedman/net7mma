@@ -48,6 +48,9 @@ using Media.Common;
 
 #endregion
 
+//See
+//http://tools.ietf.org/html/rfc5285#page-5
+
 namespace Media.Rtp
 {
     #region RtpExtension
@@ -113,7 +116,7 @@ namespace Media.Rtp
         /// <summary>
         /// Gets the size in bytes of this RtpExtension including the Flags and LengthInWords fields.
         /// </summary>
-        public int Size { get { if (Disposed) return 0; return MinimumSize + LengthInWords * 4; } }
+        public int Size { get { if (Disposed) return 0; return (ushort)(MinimumSize + LengthInWords * 4); } }
 
         #endregion
 

@@ -114,9 +114,9 @@ namespace Media.Common
             //Keep a reference to the buffer and the amount of bytes required
             if (m_SourceCount > 0)
             {
-                //Source lists are only inserted by a mixer and come directly after the header and would be present the payload,
+                //Source lists are only inserted by a mixer and come directly after the header and would be present in the payload,
                 //before the RtpExtension (if present) and before the RtpPacket's actual binary data
-                m_Binary = new OctetSegment(buffer, 0, m_SourceCount * 4);
+                m_Binary = new OctetSegment(buffer, 0, Math.Min(buffer.Length, m_SourceCount * 4));
             }
         }
 
