@@ -148,6 +148,7 @@
     <Content Include="License.txt" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Compression\" />
     <Folder Include="Rtcp\Expansion\" />
     <Folder Include="Secure\" />
   </ItemGroup>

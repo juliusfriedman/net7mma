@@ -126,6 +126,9 @@ namespace Media.Rtp
         {
             get
             {
+
+                if (Header.IsCompressed) return true;
+
                 //Invalidate certain conditions in an attempt to determine if the instance contains all data required.
 
                 //if the instance is disposed then there is no data to verify
@@ -227,20 +230,27 @@ namespace Media.Rtp
         /// <param name="offset">The offset to start copying</param>
         public RtpPacket(byte[] buffer, int offset)
         {
+            if (buffer == null || buffer.Length == 0) throw new ArgumentException("Must have data in a RtpPacket");
+
+            int bufferLength = buffer.Length;
+
             //Read the header
             Header = new RtpHeader(buffer, offset);
-
+            
             m_OwnsHeader = true;
 
-            //Advance the pointer
-            offset += RtpHeader.Length;
+            if (bufferLength > RtpHeader.Length && !Header.IsCompressed)
+            {
+                //Advance the pointer
+                offset += RtpHeader.Length;
 
-            int ownedOctets = buffer.Length - offset;
-            m_OwnedOctets = new byte[ownedOctets];
-            Array.Copy(buffer, offset, m_OwnedOctets, 0, ownedOctets);
+                int ownedOctets = Math.Abs(buffer.Length - offset);
+                m_OwnedOctets = new byte[ownedOctets];
+                Array.Copy(buffer, offset, m_OwnedOctets, 0, ownedOctets);
 
-            //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
-            Payload = new OctetSegment(m_OwnedOctets, 0, ownedOctets);
+                //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
+                Payload = new OctetSegment(m_OwnedOctets, 0, ownedOctets);
+            }
         }
 
         /// <summary>

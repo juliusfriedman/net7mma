@@ -47,10 +47,8 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>    
     public class RtspSourceStream : RtpSource
     {
-        //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious
-        public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }
-
-        
+        //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious, e.g. archiving / caching etc.
+        public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }        
 
         #region Properties
 
