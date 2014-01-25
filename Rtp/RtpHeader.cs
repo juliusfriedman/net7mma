@@ -229,6 +229,11 @@ namespace Media.Rtp
 
         #endregion
 
+        public bool IsCompressed
+        {
+            get { return PointerToLast10Bytes.Count < 10; }
+        }
+
         /// <summary>
         /// Gets or Sets the unsigned 16 bit SequenceNumber field in the RtpHeader.
         /// </summary>
@@ -284,30 +289,36 @@ namespace Media.Rtp
             if (offset > octetsLength) throw new ArgumentOutOfRangeException("offset", "Cannot be greater than the length of octets");
 
             //Check for the amount of octets required to build a RtpHeader given by the delination of the offset
-            if (octetsLength == 0 || octetsLength - offset < Length) throw new ArgumentException("octets must contain at least 12 elements given the deleniation of the offset parameter.", "octets");
+            //if (octetsLength == 0 || octetsLength - offset < Length) throw new ArgumentException("octets must contain at least 12 elements given the deleniation of the offset parameter.", "octets");
+            if (octetsLength == 0) throw new ArgumentException("octets must contain at least 1 element given the deleniation of the offset parameter.", "octets");
 
-            //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
-            First16Bits = new CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
+            bool hasMoreThanOnebyte = octetsLength > 1;
 
-            //Allocate space for the other 10 octets
-            Last10Bytes = new byte[10];
+            if (hasMoreThanOnebyte)
+            {
 
-            //Copy the remaining bytes of the header which consist of the 
-            //SequenceNumber (2 octets / U16)
-            //Timestamp (4 octets / U32)
-            //SSRC (4 octets / U32)
-            Array.Copy(octets, offset + 2, Last10Bytes, 0, Math.Min(10, octetsLength - 2));
+                //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
+                First16Bits = new CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
 
-            PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, 10);
-        }
+                //Allocate space for the other 10 octets
+                Last10Bytes = hasMoreThanOnebyte ? new byte[10] : Utility.Empty;
 
-        public RtpHeader(OctetSegment memory, int additionalOffset = 0) 
-        {
-            if (memory.Count - additionalOffset < 12) throw new ArgumentException("memory must contain at least 12 elements", "memory");
+                //Copy the remaining bytes of the header which consist of the 
+                //SequenceNumber (2 octets / U16)
+                //Timestamp (4 octets / U32)
+                //SSRC (4 octets / U32)
+                Array.Copy(octets, offset + 2, Last10Bytes, 0, Math.Min(10, octetsLength - 2));
+            }
+            else
+            {
+                //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
+                First16Bits = new CommonHeaderBits(octets[offset + 0], default(byte));
 
-            First16Bits = new CommonHeaderBits(memory, additionalOffset);
+                //Allocate space for the other 10 octets
+                Last10Bytes =  Utility.Empty;
+            }
 
-            PointerToLast10Bytes = new OctetSegment(memory.Array, memory.Offset + additionalOffset + 2, 10);
+            PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, Last10Bytes.Length);
         }
 
         /// <summary>

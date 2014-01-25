@@ -364,7 +364,7 @@ namespace Media
                     if (error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset)
                     {
                         //Set the total to the amount given because something bad happened
-                        //totalReceived = amount;
+                        totalReceived = amount;
                         break;
                     }
                     else if (offset > max) break;                    

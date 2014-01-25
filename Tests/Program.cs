@@ -188,23 +188,64 @@ namespace Media
 
         public static void RtspClientTests()
         {
-            //TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1");
-            //TestRtspClient("rtsp://178.218.212.102:1935/live/Stream1", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
+            var theTests = new[] 
+            {
+                new
+                {
+                    Uri = "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", //Continious source
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                    LegacyFraming = false
+                },
+                new
+                {
+                    Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                    LegacyFraming = false
 
-            TestRtspClient("rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp");
-            TestRtspClient("rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
-            //TestRtspClient("rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", null, Rtsp.RtspClient.ClientProtocolType.Tcp, true);
-            
-            //TestRtspClient("rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
-            
-            TestRtspClient("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
-            TestRtspClient("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", null, Rtsp.RtspClient.ClientProtocolType.Tcp);
-            TestRtspClient("rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", null, Rtsp.RtspClient.ClientProtocolType.Tcp, true);
+                },
+                new
+                {
+                    Uri = "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                    LegacyFraming = false
+                },
 
-            TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"));
-            TestRtspClient("rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"), Rtsp.RtspClient.ClientProtocolType.Tcp);
-            
-            TestRtspClient("rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp");
+            };
+
+            foreach (var test in theTests)
+            {
+
+                Rtsp.RtspClient.ClientProtocolType? proto = test.Proto;
+
+                bool legacyFraming = test.LegacyFraming;
+
+            TestStart:
+                try
+                {
+                    TestRtspClient(test.Uri, test.Creds, proto, legacyFraming);
+                }
+                catch (Exception ex)
+                {
+                    writeError(ex);
+                }
+
+
+                Console.WriteLine("Done. Press (L) to test again using legacy framing. (T) to test again forcing TCP, Press (W) to run again, Press (Q) or anything else to progress to the next test.");
+
+                ConsoleKey next = Console.ReadKey(true).Key;
+
+                switch (next)
+                {
+                    case ConsoleKey.L: legacyFraming = true; goto case ConsoleKey.W;
+                    case ConsoleKey.T: { proto = Rtsp.RtspClient.ClientProtocolType.Tcp; goto case ConsoleKey.W; }
+                    default:
+                    case ConsoleKey.Q: continue;
+                    case ConsoleKey.W: goto TestStart;
+                }
+            }
         }
 
         /// <summary>
@@ -228,7 +269,9 @@ namespace Media
                     Sdp.SessionDescription SessionDescription = new Sdp.SessionDescription(1);
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 17777, Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Rtp.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 17777, "TCP/" +Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Rtp.RFC2435Frame.RtpJpegPayloadType));
+
+                    sender.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
 
                     sender.RtcpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
                     sender.RtcpPacketReceieved += (s, p) => TryPrintClientPacket(s, true, p);
@@ -237,6 +280,10 @@ namespace Media
                     //Using a receiver
                     using (var receiver = Rtp.RtpClient.Participant(Utility.GetFirstV4IPAddress()))
                     {
+
+                        //Set tcp 
+                        receiver.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
+
                         //Determine when the sender and receive should time out
                         //sender.InactivityTimeout = receiver.InactivityTimeout = TimeSpan.FromSeconds(7);
 
@@ -1544,27 +1591,14 @@ namespace Media
 
                 if (matched == null)
                 {
-                    Console.WriteLine("****Unknown context: " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType +  " \t Ssrc = " + rtpPacket.SynchronizationSourceIdentifier + " Length = " + rtpPacket.Length);
-
-                    //System.Diagnostics.Debug.WriteLine(Encoding.UTF8.GetString(rtpPacket.Prepare().ToArray()));
-
-                    Rtp.RtpClient.TransportContext contextOther = client.GetContextBySourceId(rtpPacket.SynchronizationSourceIdentifier);
-
-                    if (contextOther != null)
+                    Console.WriteLine("****Unknown RtpPacket context: " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty :  "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
+                    foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
                     {
-                        Console.WriteLine(string.Format(TestingFormat, "Matches Context (By Id):", "*******\n\t*********** Local Id: " + contextOther.SynchronizationSourceIdentifier + " Remote Id:" + contextOther.RemoteSynchronizationSourceIdentifier));
+                        Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                        Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                        Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                        Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
                     }
-                    //else
-                    //{
-                    //    Console.WriteLine(string.Format(TestingFormat, "Availables Contexts:", "*******\n\t***********"));
-                    //    foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
-                    //    {
-                    //        Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
-                    //        Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
-                    //        Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
-                    //        Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
-                    //    }
-                    //}
                 }
                 else
                 {
@@ -1593,7 +1627,7 @@ namespace Media
                 if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
                 else
                 {
-                    Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet-> " + rtcpPacket.PayloadType + "Availables Contexts:", "*******\n\t***********"));
+                    Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
                     foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
@@ -1621,7 +1655,7 @@ namespace Media
             //For allow the test to run in an automated manner
             bool shouldStop = false;
 
-
+            StartTest:
             Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + " LegacyFraming = " + legacyFraming + "\n Press a key to continue. Press Q to Skip");
             Rtsp.RtspClient client = null;
             if (Console.ReadKey().Key != ConsoleKey.Q)
@@ -1724,12 +1758,12 @@ namespace Media
                         //Playing event
                         client.OnPlay += (sender, args) =>
                         {
-                            //If you need legacy framing set it now, the RtspClient(client)'s RtpClient(Client) should NOT be null.
-                            client.Client.LegacyFraming = legacyFraming;
-
                             //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
                             client.Client.MaximumRtcpBandwidthPercentage = Math.E;
                             ///SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
+
+                            //If you need legacy framing set it now, the RtspClient(client)'s RtpClient(Client) should NOT be null.
+                            client.Client.LegacyFraming = legacyFraming;
 
                             //Add events now that we are playing
                             client.Client.RtpPacketReceieved += rtpPacketReceived;
@@ -1782,16 +1816,15 @@ namespace Media
                         //Wait for a key press of 'Q' once playing
                         while (!shouldStop)
                         {
-                            System.Threading.Thread.Sleep(client.Timeout.Seconds + 1 * 1000);
+                            System.Threading.Thread.Sleep(client.Timeout.Seconds + 1 * 5000);
 
-                            if (client.Playing)
-                            {
-                                Console.WriteLine("Client Playing.... for :" + (DateTime.UtcNow - client.StartedListening).ToString());
+                            TimeSpan playingfor = (DateTime.UtcNow - client.StartedListening.Value);
 
-                                if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + (DateTime.UtcNow - client.StartedListening.Value).Subtract(client.EndTime.Value).ToString());
-                            }
+                            if (client.Playing) Console.WriteLine("Client Playing.... for :" + playingfor.ToString());
 
-                            if (client.Connected == false) Console.WriteLine("Client Not connected Waiting for (Q)");
+                            if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).ToString());
+
+                            if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
 
                             shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
                         }
@@ -1948,7 +1981,7 @@ a=mpeg4-esid:101");
             Rtsp.RtspServer server = new Rtsp.RtspServer();
             server.Logger = new Rtsp.Server.RtspServerDebuggingLogger();
             
-            server.EnableUdp();
+            //server.EnableUdp();
 
             //The server will take in RtspSourceStreams and make them available locally
 
@@ -1963,26 +1996,19 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp"));
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-            ////H264 Stream -> Udp available but causes switch to TCP if NAT Fails - Exposed @ rtsp://localhost/live/Delta through Udp and Tcp
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov"));
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("DeltaTcp", "rtsp://mediasrv.oit.umass.edu/densmore/nenf-boston.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-           // server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access")));
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("OmegaTcp", "rtsp://195.191.142.77/axis-media/media.amp?videocodec=h264&streamprofile=Bandwidth", new System.Net.NetworkCredential("jay", "access"), System.Net.AuthenticationSchemes.Basic, Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
+            //server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
 
-            Rtsp.Server.Streams.RFC2435Stream imageStream = new Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            //Rtsp.Server.Streams.RFC2435Stream imageStream = new Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/SamplePictures through Udp and Tcp
-            server.AddStream(imageStream);
+            //server.AddStream(imageStream);
 
             //server.RequestReceived event
 
@@ -1997,7 +2023,7 @@ a=mpeg4-esid:101");
             Console.WriteLine("Press 'U' to Enable Udp on RtspServer");
             Console.WriteLine("Press 'H' to Enable Http on RtspServer");
             Console.WriteLine("Press 'T' to Perform Load SubTest on RtspServer");
-            Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
+            //Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
             while (true)
             {
@@ -2017,8 +2043,8 @@ a=mpeg4-esid:101");
                 else if (keyInfo.Key == ConsoleKey.F)
                 {
                     Console.WriteLine("======= RFC2435 Stream Information =======");
-                    Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
-                    Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
+                    //Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
+                    //Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
                     Console.WriteLine("==============");
                 }
                 else if (keyInfo.Key == ConsoleKey.T)
