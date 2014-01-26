@@ -1772,6 +1772,8 @@ namespace Media
                             client.Client.RtcpPacketSent += rtcpPacketSent;
                             client.Client.InterleavedData += rtpInterleave;
 
+                            System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
+
                             //Indicate if LivePlay
                             if (client.LivePlay)
                             {
@@ -1790,10 +1792,18 @@ namespace Media
                             {
                                 consoleWriter.WriteLine("\t*****************Media End Time:" + client.EndTime);
                             }
+
+                            foreach (Rtp.RtpClient.TransportContext tc in client.Client.TransportContexts)
+                            {
+                                consoleWriter.WriteLine("\t*****************Local Id " + tc.SynchronizationSourceIdentifier);
+                                consoleWriter.WriteLine("\t*****************Remote Id " + tc.RemoteSynchronizationSourceIdentifier);
+                            }
+
                         };
 
                         client.OnStop += (sender, args) =>
                         {
+
                             //Remove events now that we are Disconnected
                             client.Client.RtpPacketReceieved -= rtpPacketReceived;
                             client.Client.RtpFrameComplete -= rtpFrameReceived;
@@ -1804,6 +1814,8 @@ namespace Media
                             shouldStop = true;
 
                             consoleWriter.WriteLine("\t*****************Stopping Playback (Press Q To Exit)");
+
+                            if (System.IO.File.Exists("current.sdp")) System.IO.File.Delete("current.sdp");
                         };
 
                         client.Connect();
@@ -1981,7 +1993,8 @@ a=mpeg4-esid:101");
             Rtsp.RtspServer server = new Rtsp.RtspServer();
             server.Logger = new Rtsp.Server.RtspServerDebuggingLogger();
             
-            //server.EnableUdp();
+            //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
+            server.EnableUdp();
 
             //The server will take in RtspSourceStreams and make them available locally
 
@@ -1996,11 +2009,13 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp"));
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp"));
+            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
             //server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });

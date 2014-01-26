@@ -278,6 +278,7 @@ namespace Media.Sdp
             //End of SDP
             buffer.Append(default(char) + CRLF); 
 
+            //Strings in .Net are Unicode code points ( subsequently the characters only are addressable by their 16 bit code point representation).
             return buffer.ToString();
         }
 
@@ -297,22 +298,22 @@ namespace Media.Sdp
         /// <summary>
         /// The MediaType of the MediaDescription
         /// </summary>
-        public MediaType MediaType { get; private set; }
+        public MediaType MediaType { get; set; }
 
         /// <summary>
         /// The MediaPort of the MediaDescription
         /// </summary>
-        public int MediaPort { get; private set; }
+        public int MediaPort { get; set; }
 
         /// <summary>
         /// The MediaProtocol of the MediaDescription
         /// </summary>
-        public string MediaProtocol { get; private set; }
+        public string MediaProtocol { get; set; }
 
         /// <summary>
         /// The MediaFormat of the MediaDescription
         /// </summary>
-        public byte MediaFormat { get; private set; }
+        public byte MediaFormat { get; set; }
 
         //Maybe add a few Computed properties such as SampleRate
         //OR

@@ -111,7 +111,6 @@ namespace Media.Rtcp
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
                 using (var header =  new RtcpHeader(parsing, offset))  ///new RtcpHeader(array, offset))
                 {
-
                     //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
                     using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(Math.Abs(count - index), (ushort)((header.LengthInWordsMinusOne + 1) * 4)))))
                     {
