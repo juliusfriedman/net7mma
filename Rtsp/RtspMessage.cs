@@ -88,7 +88,13 @@ namespace Media.Rtsp
         public const string UserAgent = "User-Agent";
         public const string Via = "Via";
         public const string WWWAuthenticate = "WWW-Authenticate";
-        
+
+        #region Draft 2.0
+
+        public const string TerminateReason = "Terminate-Reason";
+
+        #endregion
+
         private RtspHeaders() { }
 
         public static string RangeHeader(TimeSpan? start, TimeSpan? end, string type = "npt", string format = null)
@@ -380,6 +386,7 @@ namespace Media.Rtsp
         GET_PARAMETER,
         SET_PARAMETER,
         PLAY,
+        PLAY_NOTIFY,
         PAUSE,
         RECORD,
         TEARDOWN
@@ -437,6 +444,9 @@ namespace Media.Rtsp
         
         //The scheme of Uri's of RtspMessage's which are usually being transported via udp
         public const string UnreliableTransport = "rtspu";
+
+        //`Secure` RTSP...
+        public const string SecureTransport = "rtps";
 
         //The maximum amount of bytes any RtspMessage can contain.
         public const int MaximumLength = 4096;
@@ -727,6 +737,8 @@ namespace Media.Rtsp
                 throw new RtspMessageException("The given packet exceeds the length of the maximum size of a RtspMessage");
             }
 
+            //Syntax, what syntax? there is no syntax ;)
+
             int start = packet.Offset, count = packet.Count, endFirstLine = -1;
 
             //RTSP in the encoding of the request
@@ -735,7 +747,7 @@ namespace Media.Rtsp
             // \r\n in the encoding of the request (Network Order)
             byte[] encodedEnd = (BitConverter.IsLittleEndian ? Common.ASCII.NewLine.Yield().Concat(Common.ASCII.LineFeed.Yield()) : Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray();
 
-            int encodedEndLength = 2, requiredEndLength = 1;
+            int encodedEndLength = 2, requiredEndLength = 1; //2.0 specifies that CR and LF must be present
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
@@ -764,17 +776,20 @@ namespace Media.Rtsp
             int messageStart = start - previous;
 
             //Get what we believe to be the first line
-            string m_FirstLine = Encoding.GetString(packet.Array, messageStart, endFirstLine);
+            //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
+            string m_RequestLine = Encoding.GetString(packet.Array, messageStart, endFirstLine);
 
-            MessageType = m_FirstLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
+            MessageType = m_RequestLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
             #region FirstLine Version, (Method / Location or StatusCode)
+
+            //Must either inspect the btyes or make a string to have enum parse do the work...
 
             //Could assign version, then assign Method and Location
             if (MessageType == RtspMessageType.Request)
             {
                 //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
-                string[] parts = m_FirstLine.Split(' ');
+                string[] parts = m_RequestLine.Split(' ');
 
                 if (parts.Length < 2 || !Enum.TryParse<RtspMethod>(parts[0], true, out Method) || !Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) || !double.TryParse(parts[2].Substring(parts[2].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
@@ -785,7 +800,7 @@ namespace Media.Rtsp
             else if (MessageType == RtspMessageType.Response)
             {
                 //S->C[0]RTSP/1.0[1]200[2]OK
-                string[] parts = m_FirstLine.Split(' ');
+                string[] parts = m_RequestLine.Split(' ');
 
                 if (parts.Length < 2 || !double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || !int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
                 {
@@ -810,6 +825,10 @@ namespace Media.Rtsp
             //If the scalar is valid
             if (headerBytes > 0 && headerStart + headerBytes <= packet.Count)
             {
+                //One empty line (CRLF) to indicate the end of the header section;
+
+                //Just keep track of the end and refer only to this pointer for the representation of the body, subsequently headers will be parsed based on this max offset.
+
                 //Create the vector
                 string[] ordinals = Encoding.GetString(packet.Array, headerStart, headerBytes).Split(HeaderSplit, StringSplitOptions.None);
 

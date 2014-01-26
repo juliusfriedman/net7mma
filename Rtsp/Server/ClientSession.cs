@@ -175,7 +175,7 @@ namespace Media.Rtsp
                 while (sent < m_SendBuffer.Length && error != SocketError.ConnectionAborted)
                     sent += m_RtspSocket.Send(m_SendBuffer, sent, m_SendBuffer.Length - sent, SocketFlags.None, out error);
             }
-            else m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
+            else if(m_RtspSocket.Connected) m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
         }
 
         RtpClient.TransportContext GetSourceContextForPacket(RtpPacket packet)
@@ -199,7 +199,6 @@ namespace Media.Rtsp
 
                 //Enque a clone of the packet
                 m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare().ToArray(), 0));
-                
             }
             catch { throw; }
         }
@@ -239,7 +238,7 @@ namespace Media.Rtsp
                    
                 //}
 
-                if (packet.Header.PayloadType == Rtcp.SendersReport.PayloadType)
+                if (packet.PayloadType == Rtcp.SendersReport.PayloadType || packet.PayloadType == 72) //Reduced Size
                 {
 
                     //Determine if report was addressed to a routed source
@@ -256,22 +255,21 @@ namespace Media.Rtsp
                         {
                             System.Diagnostics.Debug.WriteLine("Rewriting SR:" + packet.SynchronizationSourceIdentifier + " to" + routingContext.SynchronizationSourceIdentifier);
 
-                            routingContext.SendersReport = new SendersReport(new RtcpPacket(packet.Prepare().ToArray(), 0), true);
+                            //routingContext.SendersReport = m_RtpClient.CreateSendersReport(routingContext, true);
 
-                            routingContext.SendersReport.SynchronizationSourceIdentifier = routingContext.RemoteSynchronizationSourceIdentifier.Value;
-                            
-                            //Update the routingContext values
-                            //The values are in the SendersInformation
-                            //routingContext.NtpTimestamp = sr.NtpTimestamp;
-                            //routingContext.RtpTimestamp = sr.RtpTimestamp;
+                            using (var sr = new SendersReport(packet, false))
+                            {
+                                //Update the routingContext values
+                                //The values are in the SendersInformation
+                                //routingContext.NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(Utility.NptTimestampToDateTime((ulong)sr.NtpTimestamp).Add(DateTime.UtcNow - packet.Created)); //(long)Utility.DateTimeToNptTimestamp(packet.Created.Add(DateTime.UtcNow - Utility.NptTimestampToDateTime((ulong)sr.NtpTimestamp)));
+
+                                routingContext.NtpTimestamp = sr.NtpTimestamp;
+                                routingContext.RtpTimestamp = sr.RtpTimestamp;
+                                routingContext.RtpPacketsSent = sr.SendersOctetCount;
+                                routingContext.RtpBytesSent = sr.SendersOctetCount;
+                            }
                         }
                     }
-                    
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine("Queued Rtcp:" + packet.PayloadType + " Len=" + packet.Length);
-                    m_RtpClient.EnquePacket(packet.Clone(true, true, false));
                 }
             }
             catch { throw; }
@@ -479,7 +477,7 @@ namespace Media.Rtsp
             if (!m_RtpClient.Connected) m_RtpClient.Connect();
 
             //Send the SendersReport over Rtcp
-            else m_RtpClient.SendSendersReports();
+            //else m_RtpClient.SendSendersReports();
 
 
             if (!AttachedSources.Contains(source))
@@ -581,7 +579,7 @@ namespace Media.Rtsp
             
             if (clientPorts != null && sourceStream.ForceTCP)//The client wanted Udp and Tcp was forced
             {
-                return CreateRtspResponse(request, RtspStatusCode.BadRequest);
+                return CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
             }
 
             //We also have to send one back
@@ -656,6 +654,7 @@ namespace Media.Rtsp
             }            
             else if(channels.Length == 2) /// Rtsp / Tcp (Interleaved)
             {
+
                 int rtpChannel = 0, rtcpChannel = 1;
 
                 if (!int.TryParse(channels[0].Trim(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out rtpChannel)
@@ -752,11 +751,14 @@ namespace Media.Rtsp
             setupContext.NtpTimestamp = sourceContext.NtpTimestamp;
             setupContext.RtpTimestamp = sourceContext.RtpTimestamp;
 
-            //Add the route
-            RouteDictionary.Add(sourceContext.RemoteSynchronizationSourceIdentifier ?? 0, ssrc);
-                    
-            //Add the source context to this session
-            SourceContexts.Add(sourceContext);
+            if (!SourceContexts.Contains(sourceContext))
+            {
+                //Add the route
+                RouteDictionary.Add(sourceContext.RemoteSynchronizationSourceIdentifier ?? 0, ssrc);
+
+                //Add the source context to this session
+                SourceContexts.Add(sourceContext);
+            }
 
         End:
             //Set the returnTransportHeader to the value above 
@@ -974,8 +976,8 @@ namespace Media.Rtsp
             //Indicate a port in the sdp, setup should also use this port, this should essentially reserve the port for the setup process...
             if (!stream.m_ForceTCP)
                 addressString += "/" + Utility.FindOpenPort(ProtocolType.Udp, m_Server.MinimumUdpPort ?? 10000);
-            else 
-                addressString += "/" + ((IPEndPoint)RemoteEndPoint).Port;
+            //else 
+                //addressString += + ((IPEndPoint)RemoteEndPoint).Port;
 
             connectionLine = new Sdp.Lines.SessionConnectionLine()
             {
@@ -1022,8 +1024,10 @@ namespace Media.Rtsp
 
                 if (stream.m_ForceTCP)
                 {
-                    
-                    //fmt should be the same                    
+                    //VLC `Blows up` when this happens
+                    //bad SDP "m=" line: m=audio 0/40563 TCP/RTP/AVP 96
+                    //md.MediaProtocol = "TCP/RTP/AVP";
+                    //fmt should be the same           
                 }
                 else if (stream.m_DisableQOS)
                 {

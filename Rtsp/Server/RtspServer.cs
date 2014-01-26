@@ -307,7 +307,7 @@ namespace Media.Rtsp
         {
             //Handle this according to RFC
             RtspClientInactivityTimeoutSeconds = 60;
-            ServerName = "ASTI Media Server"; //, RTSP " + Version; //Google does this, should trick a few people using regex.
+            ServerName = "ASTI  Media " + Version; //, RTSP " + Version; //Google does this, but it causes unintended results with VLC and other players in some cases (which may be needed to get crappy software revamped)
             m_ServerPort = listenPort;
             RequiredCredentials = new CredentialCache();
         }
@@ -637,7 +637,7 @@ namespace Media.Rtsp
                         //There is a rtpclient...
                         foreach (RtpClient.TransportContext sessionContext in session.m_RtpClient.TransportContexts.DefaultIfEmpty())
                         {
-                            if (sessionContext.RtcpEnabled && sessionContext.SendersReport.Transferred.HasValue &&
+                            if (sessionContext.RtcpEnabled && sessionContext.SendersReport != null && sessionContext.SendersReport.Transferred.HasValue &&
                                 (maintenanceStarted - sessionContext.SendersReport.Transferred.Value).TotalSeconds > RtspClientInactivityTimeoutSeconds)
                             {
                                 session.Disconnect();
@@ -932,16 +932,20 @@ namespace Media.Rtsp
         internal ClientSession CreateOrObtainSession(Socket rtspSocket)
         {
 
+            //Handle the transient sockets which may come from clients which close theirs previoulsy, this should only occur for the first request or a request after play.
+
             //Iterate clients looking for the socket handle
             foreach (ClientSession cs in Clients)
             {
+                //If there is already a socket then use that one
+
                 if (cs.RemoteEndPoint == rtspSocket.RemoteEndPoint)
                 {
                     return cs;
                 }
             }
 
-            //Create a new session
+            //Create a new session with the new socket
             ClientSession session = new ClientSession(this, rtspSocket);
 
             //Add the session
@@ -976,7 +980,7 @@ namespace Media.Rtsp
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
                 //If we received anything
-                if (received > 4)
+                if (received > RtpClient.TCP_OVERHEAD)
                 {
                     //Count for the server
                     Interlocked.Add(ref m_Recieved, received);
@@ -1000,17 +1004,8 @@ namespace Media.Rtsp
                 else if(session.Interleaving)
                 {
                     //This data doesn't belong to us
-                    session.m_RtpClient.Connect();
+                    //session.m_RtpClient.Connect();
                     return;
-
-                    //Determine how much is remaining in the frame
-                    //int offset = session.m_BufferOffset, remainingRfc = session.m_RtpClient.ParseRFC4751Frame(session.m_Buffer, ref offset, received);
-
-                    //while (remainingRfc > 0 && !Utility.FoundValidUniversalTextFormat(session.m_Buffer, ref offset, ref received))
-                    //{
-                    //    //Determine if still waiting while reading
-                    //    remainingRfc = session.m_RtpClient.ParseRFC4751Frame(session.m_Buffer, ref offset, Utility.AlignedReceive(session.m_Buffer, ref offset, remainingRfc, session.m_RtspSocket));
-                    //}
                 }
                 else
                 {
@@ -1105,6 +1100,7 @@ namespace Media.Rtsp
                 //Determine if we support what the client requests in `Require` Header
                 if (request.ContainsHeader(RtspHeaders.Require))
                 {
+                    //Certain features are requried... tcp etc.
                     //Todo ProcessRequired(
                 }
 
@@ -1124,9 +1120,17 @@ namespace Media.Rtsp
                     return;
                 }
 
+                //Minor version reflects changes made to the protocol but not the 'general message parsing' `algorithm`
+
+                //Thus, RTSP/2.4 is a lower version than RTSP/2.13, which in turn is lower than RTSP/12.3.
+               //Leading zeros SHALL NOT be sent and MUST be ignored by recipients.
+
                 //Version
                 if (request.Version > Version)
                 {
+
+                    //ConvertToMessage
+
                     ProcessInvalidRtspRequest(session, RtspStatusCode.VersionNotSupported);
                     return;
                 }
@@ -1134,6 +1138,11 @@ namespace Media.Rtsp
                 //Determine the handler for the request and process it
                 switch (request.Method)
                 {
+                    case RtspMethod.ANNOUNCE:
+                        {
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.MethodNotAllowed);
+                            break;
+                        }
                     case RtspMethod.OPTIONS:
                         {
                             ProcessRtspOptions(request, session);
@@ -1155,6 +1164,7 @@ namespace Media.Rtsp
                     case RtspMethod.PLAY:
                         {
                             ProcessRtspPlay(request, session);
+                            //Check for previously pipelined
                             break;
                         }
                     case RtspMethod.RECORD:
@@ -1180,8 +1190,8 @@ namespace Media.Rtsp
                     case RtspMethod.UNKNOWN:
                     default:
                         {
-                            //Check other methods given...
-                            ProcessInvalidRtspRequest(session, RtspStatusCode.MethodNotAllowed);
+                            //Per 2.0 Draft
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.NotImplemented);                                                        
                             break;
                         }
                 }
@@ -1191,7 +1201,6 @@ namespace Media.Rtsp
                 //Log it
                 if (Logger != null) Logger.LogException(ex);
             }
-
             finally
             {
                 //Log it
@@ -1220,7 +1229,11 @@ namespace Media.Rtsp
                 {
                     if (response != null)
                     {
+                        //AddServerHeaders()->
+
                         if (!response.ContainsHeader(RtspHeaders.Server)) response.SetHeader(RtspHeaders.Server, ServerName);
+
+                        //if (!response.ContainsHeader(RtspHeaders.Date)) response.SetHeader(RtspHeaders.Date, ...);
 
                         if (RtspClientInactivityTimeoutSeconds > 0) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
                         
@@ -1374,10 +1387,11 @@ namespace Media.Rtsp
                 return;
             }
 
+            //Check for additional options of the stream... e.g. allow recording or not
+
             RtspMessage resp = session.CreateRtspResponse(request);
             
-            resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN, GET_PARAMETER"); //Causes VLC to try options again and again
-            //resp.SetHeader(RtspHeaders.Public, " DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER"/*, OPTIONS"*/); //Options is really not needed anyway            
+            resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN, GET_PARAMETER"); //RECORD etc
 
             //Should allow server to have certain options removed from this result
             //ClientSession.ProcessOptions
@@ -1426,14 +1440,29 @@ namespace Media.Rtsp
 
         internal void ProcessRtspInterleaveData(object sender, ArraySegment<byte> slice)
         {
+
+            ClientSession sessionFrom = sender as ClientSession;
+
+            if(sessionFrom == null) 
+
             try
             {
                 RtspMessage created = new RtspMessage(slice);
 
                 if (created.MessageType != RtspMessageType.Invalid)
                 {
-                    //Sender should be a ClientSession
-                    ProcessRtspRequest(created, GetSession(created.GetHeader(RtspHeaders.Session)));
+                    //Persistently suspicious behavior: 2326 p 74
+                    ClientSession referredTo = GetSession(created.GetHeader(RtspHeaders.Session));
+                    
+                    //Check the the session being reffered to comes from the session it was received from...
+                    //if (sessionFrom != referredTo) 
+                    //{
+                    //    ProcessInvalidRtspRequest(sessionFrom, RtspStatusCode.Forbidden);
+                    //    return;
+                    //}
+                    
+                    //All should be well....
+                    ProcessRtspRequest(created, referredTo);
                 }
             }
             catch(Exception ex)
