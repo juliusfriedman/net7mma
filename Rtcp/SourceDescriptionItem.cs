@@ -128,7 +128,7 @@ namespace Media.Rtcp
         /// <summary>
         ///  The CNAME item SHOULD have the format "user@host
         /// </summary>
-        public static SourceDescriptionItem CName = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.CName, Encoding.Default.GetBytes(Environment.UserName + '@' + Environment.MachineName));
+        public static SourceDescriptionItem CName = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.CName, Encoding.UTF8.GetBytes(Environment.UserName + '@' + Environment.MachineName));
 
         /// <summary>
         /// The value representing null

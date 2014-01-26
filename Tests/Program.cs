@@ -1994,12 +1994,16 @@ a=mpeg4-esid:101");
             server.Logger = new Rtsp.Server.RtspServerDebuggingLogger();
             
             //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
-            server.EnableUdp();
+            //server.EnableUdp();
 
             //The server will take in RtspSourceStreams and make them available locally
 
             //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Rtsp Uri to any YouTube video)
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov");
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov")
+            {
+                //Will force VLC et al to connect over TCP
+                //                m_ForceTCP = true
+            };
 
             //server.AddCredential(source, new System.Net.NetworkCredential("test", "test"), "Basic");
 
@@ -2009,13 +2013,21 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp)
+            {
+                //m_ForceTCP = true
+            });
 
             //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
             //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp"));
             //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp")
+            {
+                m_ForceTCP = true
+            });
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
             //server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });

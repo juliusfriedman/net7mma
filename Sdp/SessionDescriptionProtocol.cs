@@ -72,8 +72,8 @@ namespace Media.Sdp
         internal static string CleanLineValue(string value)
         {
             if (string.IsNullOrWhiteSpace(value)) return value;
-            //Trims the whitespace and removes CR, LF from everywhere in the value...
-            return value.Trim().Replace(CR, string.Empty).Replace(LF, string.Empty);
+            //Trims the whitespace  removes CR, LF from everywhere in the value...
+            return value.Trim();   // .Replace(CR, string.Empty).Replace(LF, string.Empty);
         }
 
         #endregion
@@ -418,7 +418,7 @@ namespace Media.Sdp
                 }
             }
             
-            buffer.Append("m=" + string.Join(" ", MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+            buffer.Append("m=" + string.Join(" ", MediaType,  MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
 
         LinesOnly:
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != 'b' && l.Type != 'a'))

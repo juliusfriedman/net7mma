@@ -72,7 +72,8 @@ namespace Media.Rtsp
             Reliable = Tcp,
             Udp = ProtocolType.Udp,
             Unreliable = Udp,
-            Http = 2
+            Http = 2,
+            Secure = 4
         }
 
         #endregion
@@ -351,6 +352,9 @@ namespace Media.Rtsp
 
             if (!UriParser.IsKnownScheme(RtspMessage.UnreliableTransport))
                 UriParser.Register(new HttpStyleUriParser(), RtspMessage.UnreliableTransport, 555);
+
+            if (!UriParser.IsKnownScheme(RtspMessage.UnreliableTransport))
+                UriParser.Register(new HttpStyleUriParser(), RtspMessage.SecureTransport, 322);
         }
 
         /// <summary>
@@ -456,7 +460,8 @@ namespace Media.Rtsp
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int offset = memory.Offset, sliceCount = memory.Count, received = 0;
 
-            if (Utility.ContainsBytes(memory.Array, ref offset, ref sliceCount, (Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray(), 0, 2) >= 0)  //Utility.FoundValidUniversalTextFormat(memory.Array, ref offset, ref sliceCount))
+            //Check for letter
+            if (char.IsLetter((char)memory.Array[memory.Offset]))//Utility.ContainsBytes(memory.Array, ref offset, ref sliceCount, (Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray(), 0, 2) >= 0)  //Utility.FoundValidUniversalTextFormat(memory.Array, ref offset, ref sliceCount))
             {
                 try
                 {
@@ -467,7 +472,11 @@ namespace Media.Rtsp
                     switch (interleaved.MessageType)
                     {
                         //If the message is invalid 
-                        case RtspMessageType.Invalid: System.Diagnostics.Debug.WriteLine("RtspClient->ProcessInterleaveData" + BitConverter.ToString(memory.Array, memory.Offset, memory.Count)); goto SetEvent;
+                        case RtspMessageType.Invalid:
+                            {
+                                System.Diagnostics.Debug.WriteLine("RtspClient->ProcessInterleaveData" + BitConverter.ToString(memory.Array, memory.Offset, memory.Count)); 
+                                goto SetEvent;
+                            }
                         case RtspMessageType.Request: //Event for pushed messages?
                         case RtspMessageType.Response:
                             {
@@ -479,6 +488,9 @@ namespace Media.Rtsp
                                 {
                                     interleaved.CompleteFrom(m_RtspSocket);
                                 }
+
+                                System.Diagnostics.Debug.WriteLine("RtspClient->ProcessInterleaveData = " + interleaved);
+
                                 break;
                             }
                     }
@@ -817,6 +829,8 @@ namespace Media.Rtsp
                 #endregion
 
                 sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
+
+                
 
                 //Fire the event
                 Requested(request);
@@ -1301,7 +1315,7 @@ namespace Media.Rtsp
                     SocketReadTimeout = reportReceivingEvery;
                     ProtocolSwitchTime = contextReportInterval;
                 }
-                else contextReportInterval = TimeSpan.MaxValue;
+                else contextReportInterval = TimeSpan.FromMilliseconds(reportReceivingEvery + reportSendingEvery);
                 
                 //Cache this to prevent having to go to get it every time down the line
                 IPAddress sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
@@ -1365,7 +1379,7 @@ namespace Media.Rtsp
                     {
 
                         //In tcp rtcp is disabled for now, 
-                        rtcpDisabled = true;
+                        //rtcpDisabled = true;
 
                         //Should only be for Tcp
                         string[] channels = part.Substring(12).Split(TimeSplit[0]);
@@ -1712,7 +1726,7 @@ namespace Media.Rtsp
             if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, m_RtspTimeout);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, 0, m_RtspTimeout.Milliseconds);
                 }
 
                 //Set the value of the timeout before connected
@@ -1749,7 +1763,10 @@ namespace Media.Rtsp
                 {
                     SendOptions();
                 }
-                
+
+
+                m_KeepAliveTimer.Change(m_RtspTimeout.Subtract(TimeSpan.FromSeconds(7)), System.Threading.Timeout.InfiniteTimeSpan);
+
                 //To make this happen faster then it currently does perform the following.
 
                 //It will normally happen anyway it will just take longer, the reason for this is how some multicast streams are demultiplex but great software.
