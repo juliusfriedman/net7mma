@@ -197,19 +197,7 @@ namespace Media.Rtsp
                 //If the packet is null or not allowed then return
                 if (packet == null) return;              
 
-                RtpClient.TransportContext context = m_RtpClient.GetContextForPacket(packet);
-
-                if (context == null) return;
-
-                //if (packet.SequenceNumber > context.RtpTimestamp)
-                //{
-                //    context.RtpTimestamp = packet.Timestamp;
-
-                //    context.SequenceNumber = packet.SequenceNumber;
-                //}
-
-                //m_RtpClient.SendRtpPacket(packet);
-
+                //Enque a clone of the packet
                 m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare().ToArray(), 0));
                 
             }
@@ -250,37 +238,41 @@ namespace Media.Rtsp
                 //    }
                    
                 //}
-                //if (packet.Header.PayloadType == Rtcp.SendersReport.PayloadType)
-                //{
 
-                //    //The source stream recieved a senders report                
-                //    //Update the RtpTimestamp and NtpTimestamp for our clients also
-                //    using (SendersReport sr = new SendersReport(packet, false)) 
-                //    {
-                //        //Iterate the blocks of the senders report
-                //        foreach (Rtcp.ReportBlock rb in sr)
-                //        {
-                //            //Determine if report was addressed to a routed source
-                //            int routedSourceId;
+                if (packet.Header.PayloadType == Rtcp.SendersReport.PayloadType)
+                {
 
-                //            //If the chunk is addressed to the source then the media will stop so our client should 
-                //            if (RouteDictionary.TryGetValue(rb.SendersSynchronizationSourceIdentifier, out routedSourceId))
-                //            {
-                //                //Determine if there is a routingContext for the routedId
-                //                RtpClient.TransportContext routingContext = m_RtpClient.GetContextBySourceId(routedSourceId);
+                    //Determine if report was addressed to a routed source
+                    int routedSourceId;
 
-                //                //If the routingContext is not null
-                //                if (routingContext != null)
-                //                {
-                //                    //Update the routingContext values
-                //                    //The values are in the SendersInformation
-                //                    routingContext.NtpTimestamp = sr.NtpTimestamp;
-                //                    routingContext.RtpTimestamp = sr.RtpTimestamp;
-                //                }
-                //            }
-                //        }
-                //    }
-                //}
+                    //If the chunk is addressed to the source then the media will stop so our client should 
+                    if (RouteDictionary.TryGetValue(packet.SynchronizationSourceIdentifier, out routedSourceId))
+                    {
+
+                        //Determine if there is a routingContext for the routedId
+                        RtpClient.TransportContext routingContext = m_RtpClient.GetContextBySourceId(routedSourceId);
+
+                        if (routingContext != null)
+                        {
+                            System.Diagnostics.Debug.WriteLine("Rewriting SR:" + packet.SynchronizationSourceIdentifier + " to" + routingContext.SynchronizationSourceIdentifier);
+
+                            routingContext.SendersReport = new SendersReport(new RtcpPacket(packet.Prepare().ToArray(), 0), true);
+
+                            routingContext.SendersReport.SynchronizationSourceIdentifier = routingContext.RemoteSynchronizationSourceIdentifier.Value;
+                            
+                            //Update the routingContext values
+                            //The values are in the SendersInformation
+                            //routingContext.NtpTimestamp = sr.NtpTimestamp;
+                            //routingContext.RtpTimestamp = sr.RtpTimestamp;
+                        }
+                    }
+                    
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Queued Rtcp:" + packet.PayloadType + " Len=" + packet.Length);
+                    m_RtpClient.EnquePacket(packet.Clone(true, true, false));
+                }
             }
             catch { throw; }
         }
@@ -487,17 +479,21 @@ namespace Media.Rtsp
             if (!m_RtpClient.Connected) m_RtpClient.Connect();
 
             //Send the SendersReport over Rtcp
-            m_RtpClient.SendSendersReports();
+            else m_RtpClient.SendSendersReports();
 
-            //Ensure events are removed later
-            AttachedSources.Add(source);
 
-            //Push out buffered packets first
-            ProcessPacketBuffer(source);
+            if (!AttachedSources.Contains(source))
+            {
+                //Ensure events are removed later
+                AttachedSources.Add(source);
 
-            //Attach events (make tcp optional?)
-            //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
-            source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+                //Push out buffered packets first
+                ProcessPacketBuffer(source);
+
+                //Attach events (make tcp optional?)
+                source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+                source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+            }
 
             //Return the response
             return playResponse;
@@ -542,7 +538,7 @@ namespace Media.Rtsp
         {
             Sdp.MediaDescription mediaDescription = sourceContext.MediaDescription;
 
-            bool rtcpDisabled = true;
+            bool rtcpDisabled = false;
 
             //Get the transport header
             string transportHeader = request[RtspHeaders.Transport];
@@ -639,13 +635,13 @@ namespace Media.Rtsp
                 if (m_RtpClient.TransportContexts.Count == 0)
                 {
                     //Use default data and control channel
-                    setupContext = new RtpClient.TransportContext(0, 1, sourceContext.SynchronizationSourceIdentifier, mediaDescription, !rtcpDisabled);
+                    setupContext = new RtpClient.TransportContext(0, 1, ssrc, mediaDescription, !rtcpDisabled);
                 }
                 else
                 {
                     //Have to calculate next data and control channel
                     RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                    setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), sourceContext.SynchronizationSourceIdentifier, mediaDescription, !rtcpDisabled);
+                    setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);
                 }
 
                 //Initialize the Udp sockets
@@ -655,7 +651,7 @@ namespace Media.Rtsp
                 m_RtpClient.AddTransportContext(setupContext);
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP;unicast;client_port=" + clientPorts[0] + RtspClient.TimeSplit[0] + clientPorts +";server_port=" + setupContext.ClientRtpPort + "-" + setupContext.ClientRtcpPort + ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + setupContext.SynchronizationSourceIdentifier.ToString("X");                
+                returnTransportHeader = "RTP/AVP;unicast;client_port=" + string.Join("-", clientPorts) +";server_port=" + setupContext.ClientRtpPort + "-" + setupContext.ClientRtcpPort + ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address + ";ssrc=" + setupContext.SynchronizationSourceIdentifier.ToString("X");                
 
             }            
             else if(channels.Length == 2) /// Rtsp / Tcp (Interleaved)
@@ -684,7 +680,7 @@ namespace Media.Rtsp
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 
                     //Create a new Interleave
-                    setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, sourceContext.SynchronizationSourceIdentifier, mediaDescription, m_RtspSocket, !rtcpDisabled);
+                    setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.AddTransportContext(setupContext);
@@ -712,7 +708,7 @@ namespace Media.Rtsp
                     lock (m_RtpClient.m_OutgoingRtcpPackets) m_RtpClient.m_OutgoingRtcpPackets.Clear();
 
                     //Add the transportChannel the client requested
-                    setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, sourceContext.SynchronizationSourceIdentifier, mediaDescription, m_RtspSocket, !rtcpDisabled);
+                    setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.AddTransportContext(setupContext);
@@ -727,7 +723,7 @@ namespace Media.Rtsp
                 {
                     //Have to calculate next data and control channel
                     RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                    setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), sourceContext.SynchronizationSourceIdentifier, mediaDescription);
+                    setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.AddTransportContext(setupContext);
@@ -736,16 +732,14 @@ namespace Media.Rtsp
                     setupContext.InitializeSockets(m_RtspSocket);
                 }
                 
-                //Backwards from rfc2326 but as cited from Thompson and RFC4571
+                //Backwards from rfc2326 but as cited from
                 //http://tools.ietf.org/search/rfc4571
                 /*In this memo, we restrict our focus to the Audio/Video Profile (AVP,
                [RFC3551]).  Below, we define a token value ("TCP/RTP/AVP") that
                signals the use of RTP/AVP in a TCP session.  We also define the
                operational procedures that a TCP/RTP/AVP stream MUST follow.*/
 
-                returnTransportHeader = "TCP/RTP/AVP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel + ";ssrc=" + setupContext.SynchronizationSourceIdentifier.ToString("X");
-                
-                //returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel + ";ssrc=" + setupContext.SynchronizationSourceIdentifier.ToString("X");////
+                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel + ";ssrc=" + ssrc.ToString("X");////
             }
             else//The Transport field did not contain a supported transport specification.
             {
@@ -759,7 +753,7 @@ namespace Media.Rtsp
             setupContext.RtpTimestamp = sourceContext.RtpTimestamp;
 
             //Add the route
-            //RouteDictionary.Add(sourceContext.SynchronizationSourceIdentifier, setupContext.SynchronizationSourceIdentifier);
+            RouteDictionary.Add(sourceContext.RemoteSynchronizationSourceIdentifier ?? 0, ssrc);
                     
             //Add the source context to this session
             SourceContexts.Add(sourceContext);
@@ -779,7 +773,7 @@ namespace Media.Rtsp
                 foreach (RtpClient.TransportContext sourceContext in source.RtpClient.TransportContexts)
                 {
                     //Adding the id will stop the packets from being enqueued into the RtpClient
-                    PacketBuffer.Add((int)sourceContext.RemoteSynchronizationSourceIdentifier);
+                    PacketBuffer.Add((int)sourceContext.SynchronizationSourceIdentifier);
                 }
 
                 //Return the response
@@ -810,7 +804,7 @@ namespace Media.Rtsp
                     }
 
                     //Attach events
-                    //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
+                    rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
                     rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
                 }
                 //Ensure events are removed later
@@ -842,29 +836,18 @@ namespace Media.Rtsp
             //Determine if this is for only a single track or the entire shebang
             if (!AttachedSources.Contains(source)) return CreateRtspResponse(request, RtspStatusCode.BadRequest);
 
-            //For a single track
-            if (request.Location.ToString().Contains("track"))
-            {
-                //Determine if we have the track
-                string track = request.Location.Segments.Last();
+            //Determine if we have the track
+            string track = request.Location.Segments.Last();
 
+            Sdp.MediaType mediaType;
+
+            //For a single track
+            if (Enum.TryParse <Sdp.MediaType>(track, true, out mediaType))
+            {
                 Sdp.MediaDescription mediaDescription = null;
 
                 //bool GetContextBySdpControlLine... out mediaDescription
-                RtpClient.TransportContext sourceContext = SourceContexts.FirstOrDefault(c =>
-                {
-                    Sdp.SessionDescriptionLine attributeLine = c.MediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
-                    if (attributeLine != null)
-                    {
-                        string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty);
-                        if (actualTrack == track)
-                        {
-                            mediaDescription = c.MediaDescription;
-                            return true;
-                        }
-                    }
-                    return false;
-                });
+                RtpClient.TransportContext sourceContext = SourceContexts.FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
 
                 //Cannot teardown media because we can't find the track they are asking to tear down
                 if (mediaDescription == null)
@@ -953,23 +936,15 @@ namespace Media.Rtsp
 
             Sdp.SessionDescription sdp;
 
+            RtpClient sourceClient;
+
             if (stream is RtpSource)
             {
                 RtpSource rtpSource = stream as RtpSource;
                 //Make the new SessionDescription
-                sdp = new Sdp.SessionDescription(rtpSource.SessionDescription); //Copying the lines and it shouldnt be
+                sdp = new Sdp.SessionDescription(rtpSource.SessionDescription.ToString());
 
-                foreach (var line in sdp.Lines.ToArray())
-                {
-
-                    if (!line.Parts.Any(p => p.Contains("control") || p.Contains("range")))
-                    {
-                        int lineIndex = sdp.Lines.IndexOf(line);
-                        sdp.RemoveLine(lineIndex);
-                    }
-
-                }
-
+                sourceClient = rtpSource.RtpClient;
             }
             else sdp = new Sdp.SessionDescription(1);
             sdp.SessionName = sessionName;
@@ -981,23 +956,26 @@ namespace Media.Rtsp
             //Find an existing control line
             Media.Sdp.SessionDescriptionLine controlLine = sdp.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
 
-            //If there was one rewrite it
-            if (controlLine != null)
-            {
-                sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));
-                sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
-            }
+            //If there was one remove it
+            if (controlLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));      
 
+            //Top level stream control line
+            sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
+
+            //Find an existing connection line
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault();
 
             //Remove the old connection line
-            if (connectionLine != null)
-                sdp.RemoveLine(sdp.Lines.IndexOf(connectionLine));
+            if (connectionLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(connectionLine));
 
             //Rewrite a new connection line
             string addressString = LocalEndPoint.Address.ToString();
 
-            if (!stream.m_ForceTCP) addressString += "/" + Utility.FindOpenPort(ProtocolType.Udp, m_Server.MinimumUdpPort ?? 10000);
+            //Indicate a port in the sdp, setup should also use this port, this should essentially reserve the port for the setup process...
+            if (!stream.m_ForceTCP)
+                addressString += "/" + Utility.FindOpenPort(ProtocolType.Udp, m_Server.MinimumUdpPort ?? 10000);
+            else 
+                addressString += "/" + ((IPEndPoint)RemoteEndPoint).Port;
 
             connectionLine = new Sdp.Lines.SessionConnectionLine()
             {
@@ -1011,38 +989,47 @@ namespace Media.Rtsp
 
             IEnumerable<Sdp.SessionDescriptionLine> bandwithLines;
 
-            //Iterate the source MediaDescriptions
+            //Iterate the source MediaDescriptions, could just create a new one with the fmt which contains the profile level information
             foreach (Sdp.MediaDescription md in sdp.MediaDescriptions)
             {               
                 //Find a control line
                 controlLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
 
                 //Rewrite it if present to reflect the appropriate MediaDescription
-                if (controlLine != null)
-                {
-                    md.RemoveLine(md.Lines.IndexOf(controlLine));
-                    md.Add(new Sdp.SessionDescriptionLine(controlLineBase + '/' + md.MediaType));                                        
-                }
+                if (controlLine != null) md.RemoveLine(md.Lines.IndexOf(controlLine));
 
                 //Remove old bandwith lines
                 bandwithLines = md.Lines.Where(l => l.Type == 'b' && l.Parts[0].StartsWith("RR") || l.Parts[0].StartsWith("RS"));
 
-                foreach (Sdp.SessionDescriptionLine line in bandwithLines.ToArray())
-                    md.RemoveLine(md.Lines.IndexOf(line));
+                //Remove existing bandwidth information
+                //foreach (Sdp.SessionDescriptionLine line in bandwithLines.ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
 
-                if (!stream.m_ForceTCP)
+
+                //Remove all other information
+                foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
+                    
+
+                //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
+                md.Add(new Sdp.SessionDescriptionLine(controlLineBase + '/' + md.MediaType));                                        
+
+                //For rtcp...
+                if (bandwithLines.Count() == 0)
                 {
                     md.Add(new Sdp.SessionDescriptionLine("b=RS:96"));
                     md.Add(new Sdp.SessionDescriptionLine("b=RR:96"));
+                }
+
+
+                if (stream.m_ForceTCP)
+                {
+                    
+                    //fmt should be the same                    
                 }
                 else if (stream.m_DisableQOS)
                 {
                     md.Add(new Sdp.SessionDescriptionLine("b=RS:0"));
                     md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
                 }
-
-                foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l=>l.Parts.Any(p=>p.Contains("alt"))).ToArray())
-                    md.RemoveLine(md.Lines.IndexOf(line));
 
             }
 

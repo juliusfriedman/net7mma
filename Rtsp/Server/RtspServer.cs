@@ -307,7 +307,7 @@ namespace Media.Rtsp
         {
             //Handle this according to RFC
             RtspClientInactivityTimeoutSeconds = 60;
-            ServerName = "ASTI Media Server, RTSP";
+            ServerName = "ASTI Media Server"; //, RTSP " + Version; //Google does this, should trick a few people using regex.
             m_ServerPort = listenPort;
             RequiredCredentials = new CredentialCache();
         }
@@ -627,6 +627,14 @@ namespace Media.Rtsp
                 {
                     if (session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created).TotalSeconds > RtspClientInactivityTimeoutSeconds)
                     {
+                        if (session.m_RtpClient == null)
+                        {
+                            session.Disconnect();
+                            RemoveSession(session);
+                            continue;
+                        }
+
+                        //There is a rtpclient...
                         foreach (RtpClient.TransportContext sessionContext in session.m_RtpClient.TransportContexts.DefaultIfEmpty())
                         {
                             if (sessionContext.RtcpEnabled && sessionContext.SendersReport.Transferred.HasValue &&
@@ -1466,22 +1474,22 @@ namespace Media.Rtsp
             //Determine if we have the track
             string track = request.Location.Segments.Last();
 
-            Sdp.MediaDescription mediaDescription = null;
+            Sdp.MediaDescription mediaDescription = found.SessionDescription.MediaDescriptions.FirstOrDefault(md=> string.Compare(track, md.MediaType.ToString(), true, System.Globalization.CultureInfo.InvariantCulture) == 0);
 
-            //Find the MediaDescription for the request based on the track variable
-            foreach (Sdp.MediaDescription md in found.SessionDescription.MediaDescriptions)
-            {
-                Sdp.SessionDescriptionLine attributeLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
-                if (attributeLine != null) 
-                {
-                    string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).First().Replace("control:", string.Empty);
-                    if(actualTrack == track || actualTrack.Contains(track))
-                    {
-                        mediaDescription = md;
-                        break;
-                    }
-                }
-            }
+            ////Find the MediaDescription for the request based on the track variable
+            //foreach (Sdp.MediaDescription md in found.SessionDescription.MediaDescriptions)
+            //{
+            //    Sdp.SessionDescriptionLine attributeLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+            //    if (attributeLine != null) 
+            //    {
+            //        string actualTrack = attributeLine.Parts.Where(p => p.Contains("control")).First().Replace("control:", string.Empty);
+            //        if(actualTrack == track || actualTrack.Contains(track))
+            //        {
+            //            mediaDescription = md;
+            //            break;
+            //        }
+            //    }
+            //}
 
             //Cannot setup media
             if (mediaDescription == null)

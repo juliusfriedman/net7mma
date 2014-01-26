@@ -431,7 +431,7 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnStop;
 
-        internal void OnStopping(MediaDescription mediaDescription = null) { m_Playing = false; if (OnStop != null) OnStop(this, mediaDescription); }
+        internal void OnStopping(MediaDescription mediaDescription = null) { m_Playing = mediaDescription == null; if (OnStop != null) OnStop(this, mediaDescription); }
 
         #endregion
 
@@ -1120,6 +1120,8 @@ namespace Media.Rtsp
 
                 OnStopping(mediaDescription);
 
+                if (mediaDescription == null && m_RtpClient != null) m_RtpClient.Disconnect();
+
                 m_SessionId = null;
 
                 return SendRtspRequest(new RtspMessage(RtspMessageType.Request)
@@ -1302,7 +1304,7 @@ namespace Media.Rtsp
                 else contextReportInterval = TimeSpan.MaxValue;
                 
                 //Cache this to prevent having to go to get it every time down the line
-                IPAddress sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address; ;
+                IPAddress sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
                 ///The transport header contains the following information, this needs to be trimmed
                 for (int i = 0, e = parts.Length; i < e; ++i)
@@ -1312,7 +1314,7 @@ namespace Media.Rtsp
 
                     if (string.IsNullOrWhiteSpace(part)) continue;
                     else if (string.Compare(part, "unicast", true, System.Globalization.CultureInfo.InvariantCulture) == 0) { continue; }
-                    if(part.StartsWith("source=", true, System.Globalization.CultureInfo.InvariantCulture))
+                    else if(part.StartsWith("source=", true, System.Globalization.CultureInfo.InvariantCulture))
                     {
                         string sourcePart = part.Substring(7, part.Length - 7);
 
@@ -1331,7 +1333,7 @@ namespace Media.Rtsp
                             ssrc = int.Parse(ssrcPart.Substring(2), System.Globalization.NumberStyles.HexNumber); //hex
                     }
                     //Handle the ones we need as they occur
-                    if (string.Compare(part, "RTP/AVP", true) == 0) m_RtpProtocol = ProtocolType.Udp;
+                    else if (string.Compare(part, "RTP/AVP", true) == 0) m_RtpProtocol = ProtocolType.Udp;
                     else if (string.Compare(part, "UDP/RTP/AVP") == 0 || string.Compare(part, "RTP/AVP/UDP") == 0) m_RtpProtocol = ProtocolType.Udp;
                     else if (string.Compare(part, "TCP/RTP/AVP") == 0 || string.Compare(part, "RTP/AVP/TCP") == 0) m_RtpProtocol = ProtocolType.Tcp;
                     else if (string.Compare(part, "multicast") == 0)
@@ -1362,7 +1364,7 @@ namespace Media.Rtsp
                     else if (part.StartsWith("interleaved=", true, System.Globalization.CultureInfo.InvariantCulture))
                     {
 
-                        //In tcp rtcp is disabled
+                        //In tcp rtcp is disabled for now, 
                         rtcpDisabled = true;
 
                         //Should only be for Tcp
