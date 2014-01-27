@@ -1310,12 +1310,12 @@ namespace Media.Rtsp
                 //If Rtcp is not disabled then this will set the read and write timeouts.
                 if (!rtcpDisabled)
                 {
-                    contextReportInterval = TimeSpan.FromMilliseconds(reportReceivingEvery + reportSendingEvery);
+                    contextReportInterval = TimeSpan.FromMilliseconds((reportReceivingEvery + reportSendingEvery));
                     SocketWriteTimeout = reportSendingEvery;
                     SocketReadTimeout = reportReceivingEvery;
                     ProtocolSwitchTime = contextReportInterval;
                 }
-                else contextReportInterval = TimeSpan.FromMilliseconds(reportReceivingEvery + reportSendingEvery);
+                else contextReportInterval = TimeSpan.MaxValue;
                 
                 //Cache this to prevent having to go to get it every time down the line
                 IPAddress sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;

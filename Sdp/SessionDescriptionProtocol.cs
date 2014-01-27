@@ -49,9 +49,20 @@ namespace Media.Sdp
         unknown = 0,
         audio,
         video,
+        text,
         application,
+        message,
+        //
         data,
-        control
+        control,
+        //http://tools.ietf.org/html/rfc3840#section-10
+        //automata,
+        //Class, (business, personal, busipersonal)
+        //Duplex,
+        //Extensions,
+        //mobility,
+        //description,
+        whiteboard //never specified in 4566 but referenced 3 total times
     }
 
     /// <summary>

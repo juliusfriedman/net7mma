@@ -190,13 +190,13 @@ namespace Media
         {
             var theTests = new[] 
             {
-                new
-                {
-                    Uri = "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", //Continious source
-                    Creds = default(System.Net.NetworkCredential),
-                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
-                    LegacyFraming = false
-                },
+                //new
+                //{
+                //    Uri = "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", //Continious source
+                //    Creds = default(System.Net.NetworkCredential),
+                //    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                //    LegacyFraming = false
+                //},
                 new
                 {
                     Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", //Single media item
@@ -348,18 +348,22 @@ namespace Media
                         consoleWriter.WriteLine("\t -----------------------");
                         consoleWriter.WriteLine("\t Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
-                        //Determine what is actually being received by obtaining the TransportContext of the receiver            
-                        //In a real world program you would not have access to the receiversContext so you would look at the sendersContext.RecieverReport
-                        consoleWriter.WriteLine("\t Since : " + receiversContext.ReceiversReport.Created);
-                        consoleWriter.WriteLine("\t -----------------------");
-                        consoleWriter.WriteLine("\t Receiver Received : " + receiver.TotalRtpPacketsReceieved + " RtpPackets");
-
-                        //Write ReceptionReport information if contained
-                        foreach (Rtcp.ReportBlock reportBlock in receiversContext.ReceiversReport)
+                        if (receiversContext.ReceiversReport != null)
                         {
-                            consoleWriter.WriteLine("\t Receiver  : " + reportBlock.SendersSynchronizationSourceIdentifier);
-                            consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
-                        }                        
+                            //Determine what is actually being received by obtaining the TransportContext of the receiver            
+                            //In a real world program you would not have access to the receiversContext so you would look at the sendersContext.RecieverReport
+                            consoleWriter.WriteLine("\t Since : " + receiversContext.ReceiversReport.Created);
+                            consoleWriter.WriteLine("\t -----------------------");
+                            consoleWriter.WriteLine("\t Receiver Received : " + receiver.TotalRtpPacketsReceieved + " RtpPackets");
+
+                            //Write ReceptionReport information if contained
+                            foreach (Rtcp.ReportBlock reportBlock in receiversContext.ReceiversReport)
+                            {
+                                consoleWriter.WriteLine("\t Receiver  : " + reportBlock.SendersSynchronizationSourceIdentifier);
+                                consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
+                            }      
+                        }
+                                          
                     }//Disposes the receiver
                 }//Disposes the sender
                 consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Exit");
@@ -1838,7 +1842,7 @@ namespace Media
 
                             if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
 
-                            shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
+                            shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false || playingfor > client.EndTime;
                         }
 
                         //if the client is connected still

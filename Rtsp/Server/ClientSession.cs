@@ -989,6 +989,9 @@ namespace Media.Rtsp
             //Add the new line
             sdp.Add(connectionLine, false);
 
+            //Add the information line if not present
+            if (sdp.Lines.Where(l => l.Type == 'i').Count() == 0) sdp.Add(new Sdp.SessionDescriptionLine("i=" + stream.Name));
+
             IEnumerable<Sdp.SessionDescriptionLine> bandwithLines;
 
             //Iterate the source MediaDescriptions, could just create a new one with the fmt which contains the profile level information
@@ -1004,30 +1007,41 @@ namespace Media.Rtsp
                 bandwithLines = md.Lines.Where(l => l.Type == 'b' && l.Parts[0].StartsWith("RR") || l.Parts[0].StartsWith("RS"));
 
                 //Remove existing bandwidth information
-                //foreach (Sdp.SessionDescriptionLine line in bandwithLines.ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
+                foreach (Sdp.SessionDescriptionLine line in bandwithLines.ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
 
 
-                //Remove all other information
+                //Remove all other alternate information
                 foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
                     
 
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
-                md.Add(new Sdp.SessionDescriptionLine(controlLineBase + '/' + md.MediaType));                                        
+                md.Add(new Sdp.SessionDescriptionLine(controlLineBase + '/' + md.MediaType));
 
-                //For rtcp...
-                if (bandwithLines.Count() == 0)
-                {
-                    md.Add(new Sdp.SessionDescriptionLine("b=RS:96"));
-                    md.Add(new Sdp.SessionDescriptionLine("b=RR:96"));
-                }
+                md.Add(new Sdp.SessionDescriptionLine("b=RS:96"));
+                md.Add(new Sdp.SessionDescriptionLine("b=RR:96"));
 
 
                 if (stream.m_ForceTCP)
                 {
                     //VLC `Blows up` when this happens
-                    //bad SDP "m=" line: m=audio 0/40563 TCP/RTP/AVP 96
+                    //bad SDP "m=" line: m=audio 40563 TCP/RTP/AVP 96
                     //md.MediaProtocol = "TCP/RTP/AVP";
-                    //fmt should be the same           
+                    //fmt should be the same     
+
+                    //This mainly implies that stand-alone RTP over TCP is occuring anyway.
+
+                    //Since this code supports the RtspServer this is fine for now.
+
+                    //The RtpClient also deals with the framing from RTSP when used in conjunction with so..
+                    //This needs to be addressed in the RtpClient which allows currently allows Rtp and Rtcp to be duplexed in TCP and UDP
+                    //but does not handle the case of TCP when a sender wants to connect with 2 seperate TCP sockets as per RFC4571.
+
+                    //a=setup:passive
+                    //a=connection:new
+
+                    //The RtpClient would then need to have a RtcpSocket ready on the 'standby' just in case the remote end point connected and began sending the data.
+
+                    //The other way to hanle this would be use only a single socket in both cases and change the remote endpoint = 0.... and decypher the data based on the end point... e.g. the port.
                 }
                 else if (stream.m_DisableQOS)
                 {
