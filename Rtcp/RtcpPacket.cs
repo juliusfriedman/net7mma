@@ -112,7 +112,7 @@ namespace Media.Rtcp
                 using (var header =  new RtcpHeader(parsing, offset))  ///new RtcpHeader(array, offset))
                 {
                     //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(Math.Abs(count - index), (ushort)((header.LengthInWordsMinusOne + 1) * 4)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(Math.Abs(count - index), Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
                     {
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;

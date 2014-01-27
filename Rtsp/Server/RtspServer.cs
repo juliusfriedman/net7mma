@@ -307,7 +307,7 @@ namespace Media.Rtsp
         {
             //Handle this according to RFC
             RtspClientInactivityTimeoutSeconds = 60;
-            ServerName = "ASTI  Media " + Version; //, RTSP " + Version; //Google does this, but it causes unintended results with VLC and other players in some cases (which may be needed to get crappy software revamped)
+            ServerName = "ASTI Media Server RTSP " + Version; //, RTSP " + Version; //Google does this, but it causes unintended results with VLC and other players in some cases (which may be needed to get crappy software revamped)
             m_ServerPort = listenPort;
             RequiredCredentials = new CredentialCache();
         }

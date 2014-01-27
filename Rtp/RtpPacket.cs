@@ -251,6 +251,11 @@ namespace Media.Rtp
                 //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
                 Payload = new OctetSegment(m_OwnedOctets, 0, ownedOctets);
             }
+            else
+            {                
+                m_OwnedOctets = Utility.Empty; //IsReadOnly should be false
+                Payload = new OctetSegment(m_OwnedOctets, 0, 0);
+            }
         }
 
         /// <summary>
@@ -381,7 +386,7 @@ namespace Media.Rtp
             }
         }
 
-        public bool IsReadOnly { get { return m_OwnedOctets == null; } }
+        public bool IsReadOnly { get { return !m_OwnsHeader || m_OwnedOctets == null; } }
 
         #endregion
 
