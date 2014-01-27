@@ -339,9 +339,13 @@ namespace Media.Rtsp
             //}
         }
 
-        //Impove this
-        int m_UdpPort = -1;
         
+        /*
+         2.0 Draft specifies that servers now respond with a 501 to any rtspu request, we can blame that on lack of interest...
+         */
+
+        //Impove this...
+        int m_UdpPort = -1;
 
         public void EnableUdp(int port = 555, bool ipV6 = false) 
         {
@@ -364,6 +368,7 @@ namespace Media.Rtsp
                         m_UdpServerSocket.Bind(inBound = new IPEndPoint(Utility.GetFirstV4IPAddress(), port));
                     }
 
+                    //Include the IP Header
                     m_UdpServerSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
 
                     m_UdpServerSocket.BeginReceiveFrom(Utility.Empty, 0, 0, SocketFlags.Partial, ref inBound, ProcessAccept, m_UdpServerSocket);
@@ -898,7 +903,7 @@ namespace Media.Rtsp
                     //The client socket is the server socket under Udp
                     clientSocket = server;
                 }
-                else if(server.Handle == m_TcpServerSocket.Handle || server.ProtocolType == ProtocolType.Tcp) //Tcp
+                else if(server.ProtocolType == ProtocolType.Tcp) //Tcp
                 {
                     //The clientSocket is obtained from the EndAccept call
                     clientSocket = server.EndAccept(ar);
@@ -924,6 +929,9 @@ namespace Media.Rtsp
 
         End:
             allDone.Set();
+
+            created = null;
+
             //Thread exit 0
             return;
         }
@@ -933,19 +941,20 @@ namespace Media.Rtsp
         {
 
             //Handle the transient sockets which may come from clients which close theirs previoulsy, this should only occur for the first request or a request after play.
+            //In UDP all connections are such
 
             //Iterate clients looking for the socket handle
             foreach (ClientSession cs in Clients)
             {
                 //If there is already a socket then use that one
-
                 if (cs.RemoteEndPoint == rtspSocket.RemoteEndPoint)
                 {
                     return cs;
                 }
             }
 
-            //Create a new session with the new socket
+            //Create a new session with the new socket, there may be an existing session from another port or address at this point....
+            //So long as that session does not attempt to access resources in another session given by 'sessionId' of that session then everything should be okay.
             ClientSession session = new ClientSession(this, rtspSocket);
 
             //Add the session
