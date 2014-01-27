@@ -630,34 +630,34 @@ namespace Media.Rtsp
 
                         m_RtspSocket.NoDelay = true;
 
-                        m_RtspSocket.UseOnlyOverlappedIO = true;
+                        //m_RtspSocket.UseOnlyOverlappedIO = true;
                         
-                        try
-                        {
+                        //try
+                        //{
 
-                        http://msdn.microsoft.com/en-us/library/windows/desktop/dd877220(v=vs.85).aspx
+                        //http://msdn.microsoft.com/en-us/library/windows/desktop/dd877220(v=vs.85).aspx
 
-                            /* Argument structure for SIO_KEEPALIVE_VALS */
-                            /*struct tcp_keepalive {
-                                u_long  onoff;
-                                u_long  keepalivetime;
-                                u_long  keepaliveinterval;
-                            };*/
+                        //    /* Argument structure for SIO_KEEPALIVE_VALS */
+                        //    /*struct tcp_keepalive {
+                        //        u_long  onoff;
+                        //        u_long  keepalivetime;
+                        //        u_long  keepaliveinterval;
+                        //    };*/
 
-                            //It is assumed the provider also understands the endian of the machine in which it is providing the data in...
+                        //    //It is assumed the provider also understands the endian of the machine in which it is providing the data in...
 
-                            byte[] tcp_keepalive =
-                            BitConverter.GetBytes((ulong)1)
-                            .Concat(BitConverter.GetBytes((ulong)96)) //Milliseconds
-                            .Concat(BitConverter.GetBytes((ulong)96))
-                            .ToArray();
+                        //    byte[] tcp_keepalive =
+                        //    BitConverter.GetBytes((ulong)1)
+                        //    .Concat(BitConverter.GetBytes((ulong)96)) //Milliseconds
+                        //    .Concat(BitConverter.GetBytes((ulong)96))
+                        //    .ToArray();
 
-                            //m_RtspSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.KeepAlive, 1);
-                            if (m_RtspSocket.IOControl(IOControlCode.KeepAliveValues, tcp_keepalive, tcp_keepalive) != 0) Common.ExceptionExtensions.CreateAndRaiseException(this, "Cannot set Keep Alive");
+                        //    //m_RtspSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.KeepAlive, 1);
+                        //    if (m_RtspSocket.IOControl(IOControlCode.KeepAliveValues, tcp_keepalive, tcp_keepalive) != 0) Common.ExceptionExtensions.CreateAndRaiseException(this, "Cannot set Keep Alive");
 
-                            tcp_keepalive = null;
-                        }
-                        catch { }//Not supported 
+                        //    tcp_keepalive = null;
+                        //}
+                        //catch { }//Not supported 
 
 
                         m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0;

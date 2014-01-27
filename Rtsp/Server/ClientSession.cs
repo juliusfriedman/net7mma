@@ -139,7 +139,15 @@ namespace Media.Rtsp
         public ClientSession(RtspServer server, Socket rtspSocket, ArraySegment<byte> buffer = default(ArraySegment<byte>))
         {
             Id = Guid.NewGuid();
+
+            //The RtspSession ID should be set here to prevent this session from accessing another session,
+            //The only problem with this is that is how the nature of TCP may work also... e.g. the client may open and close connections at will in between requests.
+            //This means any TCP connection can technially just as in UDP access another session so long as the SessionID is known.
+            //Agents will attempt to check the EndPoint however if the packet was forged [and successfully transmitted] then the session is obtained through that mechanism...
+            //TCP provides a `stronger` protection against this type of attack (forging) by default where as UDP does not and most large entities are their own provider and thus...
+
             m_Server = server;
+
             m_RtspSocket = rtspSocket;
 
             if (buffer == default(ArraySegment<byte>))
@@ -151,7 +159,7 @@ namespace Media.Rtsp
                 m_BufferLength = buffer.Count;
             }
 
-            //Assign the remote endPoint
+            //Assign the remote endPoint, IPPacketInformation provides thus for UDP
             RemoteEndPoint = rtspSocket.RemoteEndPoint;
 
             //Begin to receive what is available
@@ -488,9 +496,15 @@ namespace Media.Rtsp
                 //Push out buffered packets first
                 ProcessPacketBuffer(source);
 
-                //Attach events (make tcp optional?)
+                //Attach events
                 source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
                 source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+
+                //Never gets raised... although VLC complains that RTCP_MAX_SIZE needs to be increased..
+                //m_RtpClient.RtcpPacketSent += (s, p) =>
+                //{
+                //    System.Diagnostics.Debug.WriteLine("Sent Rtcp to" + p.SynchronizationSourceIdentifier + " Len =" + p.Length);
+                //};
             }
 
             //Return the response
@@ -731,13 +745,6 @@ namespace Media.Rtsp
                     setupContext.InitializeSockets(m_RtspSocket);
                 }
                 
-                //Backwards from rfc2326 but as cited from
-                //http://tools.ietf.org/search/rfc4571
-                /*In this memo, we restrict our focus to the Audio/Video Profile (AVP,
-               [RFC3551]).  Below, we define a token value ("TCP/RTP/AVP") that
-               signals the use of RTP/AVP in a TCP session.  We also define the
-               operational procedures that a TCP/RTP/AVP stream MUST follow.*/
-
                 returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel + ";ssrc=" + ssrc.ToString("X");////
             }
             else//The Transport field did not contain a supported transport specification.

@@ -873,8 +873,7 @@ namespace Media.Rtp
         internal List<RtcpPacket> m_OutgoingRtcpPackets = new List<RtcpPacket>();
 
         //Created from an existing socket we should not close.
-        internal bool m_SocketOwner = true,
-            m_LegacyFraming; //Indicates if RFC4571 framing semantics should be used.. e.g. more then 1 packet in a frame
+        internal bool m_SocketOwner = true;
 
         //Unless I missed something that damn HashSet is good for nothing except hashing.
         internal IList<TransportContext> TransportContexts = new List<TransportContext>();
@@ -1255,11 +1254,6 @@ namespace Media.Rtp
         #region Properties
 
         /// <summary>
-        /// Indicates if the RtpClient should attempt to parse more than one packet per frame as consistent with <see href="http://tools.ietf.org/search/rfc4571">RFC4571</see>
-        /// </summary>
-        public bool LegacyFraming { get { return m_LegacyFraming; } set { m_LegacyFraming = value; } }
-
-        /// <summary>
         /// The maximum amount of bandwidth Rtcp can utilize (of the overall bandwidth available to the RtpClient) during reports
         /// </summary>
         public double MaximumRtcpBandwidthPercentage { get; set; }
@@ -1430,7 +1424,6 @@ namespace Media.Rtp
         {
             m_RemoteAddress = ((IPEndPoint)existing.RemoteEndPoint).Address;
             m_SocketOwner = false;
-            m_LegacyFraming = legacyFraming;
             m_TransportProtocol = existing.ProtocolType;
         }
 
@@ -1653,8 +1646,11 @@ namespace Media.Rtp
             context.SendersReport = CreateSendersReport(context, false);
 
             //Only if the bandwidth is not exceeded or absolutely required
-            if (context.SendersReport.BlockCount == 0 || (DateTime.UtcNow - context.SourceDescription.Transferred) > InactivityTimeout) return SendRtcpPackets(context.SendersReport.Yield<RtcpPacket>().Concat((context.SourceDescription = CreateSourceDescription(context)).Yield()));
-            return SendRtcpPackets(context.SendersReport.Yield<RtcpPacket>());
+            //if (context.SendersReport.BlockCount == 0 || (DateTime.UtcNow - context.SourceDescription.Transferred) > InactivityTimeout) return SendRtcpPackets(context.SendersReport.Yield<RtcpPacket>().Concat((context.SourceDescription = CreateSourceDescription(context)).Yield()));
+            //return SendRtcpPackets(context.SendersReport.Yield<RtcpPacket>());
+
+            //Always send compound for now
+            return SendRtcpPackets(context.SendersReport.Yield<RtcpPacket>().Concat((context.SourceDescription = CreateSourceDescription(context)).Yield()));
         }
 
         /// <summary>
@@ -2019,7 +2015,7 @@ namespace Media.Rtp
             //IMHO IF THE ORIGINAL SSRC CHANGES before the packet reached the application THIS HAS DIRE CONSEQUENCES when the IDENTITY IS EXPECTED to be a particular value...
             //The application would have no way to verify that the data is indeed from Middle box X, Y or Z without using some form of verification i.e encryption.
 
-            //Last but not least using 2 tcp sockets would be more performant but would require double the overhead from the provider, almost double the bandwidth and definitely double the security issues.
+            //Last but not least using 2 tcp sockets would be more performant but would require double the overhead from the provider, almost double the bandwidth (in protocol overhead) and definitely double the security issues.
 
             //RFC4571 - Out-of-band semantics
             //Section 2 does not define the RTP or RTCP semantics for closing a
@@ -2028,14 +2024,21 @@ namespace Media.Rtp
 
             //With respect to Rtcp the sender should eventually timeout in the application, but the problem here lies in the fact the middle box has no control over that.
             //Thus the middle box it self will become conjested waiting for the timeout...
-            //Lastly RTCP may not be enabled... if this is the case there would be no `Goodbye`
+            //Additionally RTCP may not be enabled... if this is the case there would be no `Goodbye`
             //If RTCP was enabled then
             //Since the return route may not involve the same middle box which 'helped' it[the middlebox] may not get the `Goodbye` indication from the application participant,
             //Thus they would only timeout with respect to their own implementation rules for such,
             //BUT COULD ALSO receive another packet from another session which just happens to have the same SSRC
             //I / We would hope in such a case that the EndPoint would be different FROM the application's EndPoint because if it was not then that packet would subsequently routed to the application....
             
+            //Lastly if the middle box compressed the data in any such way the payload indication would possibly be modified (and should be if the format changed)... thus breaking the compatability with the receiving application.
+            //This implies that the Payload indication cannot change but the timestamp possibly could to reflect more delay if required but that should be handled by the application anyway.... not a middle box
 
+            //Thus RTCP may be better suited for this type of 'change' e.g. each middle box could handle RtcpPackets to reflect the delay without changing the data within the rtp packet at all
+            //upon receving a RtcpPacket The BlockCount could be incremented and an additional block could be added to indicate the metrics e.g. delay and jitter introduced by said middle box.
+            //This would allow the receiving application to essentially ask that theat middle box not route packets any more or ask that it expedite routing et al.
+
+            
 
         ///ReadLengthOnly:
 
@@ -2166,7 +2169,7 @@ namespace Media.Rtp
                 {
                 
                     //If rtcp should be parsed
-                    if (parseRtcp || m_LegacyFraming)
+                    if (parseRtcp)
                     {
                         //Copy valid RtcpPackets out of the buffer now, if any packet is not complete it will be completed only if required.
                         foreach (RtcpPacket rtcp in RtcpPacket.GetPackets(memory.Array, offset + index, remaining))
@@ -2183,22 +2186,13 @@ namespace Media.Rtp
                         remaining -= index;
 
                         //Only 1 packet per frame when not legacy framing
-                        if (parseRtcp && !m_LegacyFraming) return;
+                        if (parseRtcp) return;
                     }
 
                     //If rtp is parsed
-                    if (parseRtp || m_LegacyFraming) 
+                    if (parseRtp) 
                     {
                         int packetSize = memory.Count;
-
-                        //Look for more than one packet
-                        if (m_LegacyFraming)
-                        {
-                            packetSize = Array.IndexOf<byte>(memory.Array, BigEndianFrameControl, index, memory.Count);
-
-                            if (packetSize == -1 || packetSize > count) packetSize = memory.Count;
-                            else packetSize -= memory.Offset;
-                        }
 
                         if (packetSize == 0) return;
 
@@ -2214,8 +2208,6 @@ namespace Media.Rtp
 
                         //Calculate the amount of octets remaining in the segment.
                         remaining = count - index;
-
-                        if (!m_LegacyFraming) return;
                     }
                 }
             }
@@ -2292,7 +2284,7 @@ namespace Media.Rtp
                     {
 
                         //Determine to parse one or both
-                        expectRtp = m_LegacyFraming || !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                        expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
 
                         System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
 
@@ -2519,19 +2511,7 @@ namespace Media.Rtp
 
                         var rtcpPackets = m_OutgoingRtcpPackets.GetRange(0, remove);
 
-                        SendRtcpPackets(rtcpPackets);
-
-                        //foreach (RtcpPacket packet in toSend)
-                        //{
-                        //    //If we sent or received a goodbye
-                        //    //If we send a goodebye
-                        //    TransportContext context = GetContextForPacket(packet);
-
-                        //    //For some reason the clientsession only has one context...
-                        //    if (context == null) continue;
-
-                        //    if (SendRtcpPackets(packet.Yield()) >= packet.Length) lastOperation = DateTime.UtcNow;
-                        //}
+                        if (SendRtcpPackets(rtcpPackets) > 0) lastOperation = DateTime.UtcNow;
 
                         m_OutgoingRtcpPackets.RemoveRange(0, remove);
 

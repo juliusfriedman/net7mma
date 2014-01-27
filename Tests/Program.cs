@@ -195,14 +195,12 @@ namespace Media
                 //    Uri = "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", //Continious source
                 //    Creds = default(System.Net.NetworkCredential),
                 //    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
-                //    LegacyFraming = false
                 //},
                 new
                 {
                     Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
-                    LegacyFraming = false
 
                 },
                 new
@@ -210,7 +208,6 @@ namespace Media
                     Uri = "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
-                    LegacyFraming = false
                 },
 
             };
@@ -220,12 +217,10 @@ namespace Media
 
                 Rtsp.RtspClient.ClientProtocolType? proto = test.Proto;
 
-                bool legacyFraming = test.LegacyFraming;
-
             TestStart:
                 try
                 {
-                    TestRtspClient(test.Uri, test.Creds, proto, legacyFraming);
+                    TestRtspClient(test.Uri, test.Creds, proto);
                 }
                 catch (Exception ex)
                 {
@@ -233,13 +228,13 @@ namespace Media
                 }
 
 
-                Console.WriteLine("Done. Press (L) to test again using legacy framing. (T) to test again forcing TCP, Press (W) to run again, Press (Q) or anything else to progress to the next test.");
+                Console.WriteLine("Done. (T) to test again forcing TCP, (U) to test again forcing UDP Press (W) to run the same test again, Press (Q) or anything else to progress to the next test.");
 
                 ConsoleKey next = Console.ReadKey(true).Key;
 
                 switch (next)
                 {
-                    case ConsoleKey.L: legacyFraming = true; goto case ConsoleKey.W;
+                    case ConsoleKey.U: { proto = Rtsp.RtspClient.ClientProtocolType.Udp; goto case ConsoleKey.W; }
                     case ConsoleKey.T: { proto = Rtsp.RtspClient.ClientProtocolType.Tcp; goto case ConsoleKey.W; }
                     default:
                     case ConsoleKey.Q: continue;
@@ -1649,7 +1644,7 @@ namespace Media
             
         }
 
-        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Rtsp.RtspClient.ClientProtocolType? protocol = null, bool legacyFraming = false)
+        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Rtsp.RtspClient.ClientProtocolType? protocol = null)
         {
 
 
@@ -1660,7 +1655,7 @@ namespace Media
             bool shouldStop = false;
 
             StartTest:
-            Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + " LegacyFraming = " + legacyFraming + "\n Press a key to continue. Press Q to Skip");
+            Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
             Rtsp.RtspClient client = null;
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
@@ -1765,9 +1760,6 @@ namespace Media
                             //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
                             client.Client.MaximumRtcpBandwidthPercentage = Math.E;
                             ///SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
-
-                            //If you need legacy framing set it now, the RtspClient(client)'s RtpClient(Client) should NOT be null.
-                            client.Client.LegacyFraming = legacyFraming;
 
                             //Add events now that we are playing
                             client.Client.RtpPacketReceieved += rtpPacketReceived;
