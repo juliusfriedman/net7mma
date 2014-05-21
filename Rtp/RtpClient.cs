@@ -704,7 +704,7 @@ namespace Media.Rtp
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
-                    RtpSocket.Blocking = true;
+                    RtpSocket.Blocking = false;
                     RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
 
                     //RtpSocket.UseOnlyOverlappedIO = true;
@@ -750,7 +750,7 @@ namespace Media.Rtp
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
                         RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
-                        RtcpSocket.Blocking = true;
+                        RtcpSocket.Blocking = false;
 
                         RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultTimeout.Milliseconds;
 
@@ -2369,7 +2369,7 @@ namespace Media.Rtp
                         received -= TCP_OVERHEAD;
 
                         //Use the data received to parse and complete any recieved packets, should take a parseState
-                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset, Math.Min(received,frameLength)), expectRtcp, expectRtp, frameLength);
+                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset, Math.Min(received,frameLength)), expectRtcp, expectRtp, Math.Min(received, frameLength));
 
                         return received + TCP_OVERHEAD + frameLength;
 
@@ -2517,8 +2517,8 @@ namespace Media.Rtp
                 bytesSent += SendReceiversReport(context);
             }
 
-            //Update the sent interval.
-            //context.m_SendInterval = context.m_SendInterval.Add(TimeSpan.FromMilliseconds(context.RtcpBytesSent / Uptime.TotalSeconds));
+            //Update the sent interval with backoff.
+            context.m_SendInterval = context.m_SendInterval.Add(TimeSpan.FromMilliseconds(context.RtcpBytesSent / Uptime.TotalSeconds));
 
             //Indicate if reports were sent in this interval
             return bytesSent > 0;
@@ -2540,7 +2540,7 @@ namespace Media.Rtp
             }
 
             //Calulcate for the currently inactive time period
-            if (context.LastRtcpReportReceived > context.m_ReceiveInterval && context.LastRtpPacketReceived > context.m_ReceiveInterval)
+            if (context.Goodbye == null && context.LastRtcpReportReceived > context.m_ReceiveInterval && context.LastRtpPacketReceived > context.m_ReceiveInterval)
             {
                 SendGoodbye(context);
                 inactive = true;
@@ -2656,13 +2656,14 @@ namespace Media.Rtp
                     }
 
                     if (SendReports(context)) lastOperation = DateTime.UtcNow;
-                    else if (SendGoodbyeIfInactive(lastOperation, context)) throw new Common.Exception<RtpClient>(this, "Goodbye Sent");
+                    else if (context.Goodbye == null && SendGoodbyeIfInactive(lastOperation, context)) throw new Common.Exception<RtpClient>(this, "Goodbye Sent");
                 }
 
             }
-            catch (ObjectDisposedException) { return; }
+            catch (ObjectDisposedException) { m_StopRequested = true; return; }
             catch
             {
+                m_StopRequested = true;
                 throw;
             }
         }
