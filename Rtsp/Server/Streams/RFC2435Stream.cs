@@ -200,12 +200,7 @@ namespace Media.Rtsp.Server.Streams
 
             Ready = false;
 
-            if (m_RtpClient.m_WorkerThread != null)
-            {
-                try { m_RtpClient.m_WorkerThread.Abort(); }
-                catch { }
-                m_RtpClient.m_WorkerThread = null;
-            }
+            Utility.Abort(ref m_RtpClient.m_WorkerThread);
 
             if (m_Watcher != null)
             {

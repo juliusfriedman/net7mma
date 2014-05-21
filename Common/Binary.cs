@@ -313,7 +313,10 @@ namespace Media.Common
                     }
 
                     //Move the placeholder 8 bits left (This equates to a multiply by 4, [where << 4 would be a multiply of 3 etc])
-                    placeHolder <<= 8; // placeHolder *= 4;
+                    if (BitConverter.IsLittleEndian)
+                        placeHolder <<= 8;
+                    else
+                        placeHolder >>= 8;
                 }
 
                 //Return the result

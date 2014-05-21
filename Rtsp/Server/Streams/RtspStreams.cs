@@ -125,7 +125,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready { get { return RtspClient != null && RtspClient.Connected && RtspClient.Listening && RtpClient != null && RtpClient.Connected && RtpClient.TotalRtpBytesReceieved >= 0;} }
+        public override bool Ready { get { return RtspClient != null && RtspClient.Playing /*&& RtspClient.m_RtpClient.TransportContexts.All(tc=>tc.LastFrame != null)*/; } }
 
         #endregion
 

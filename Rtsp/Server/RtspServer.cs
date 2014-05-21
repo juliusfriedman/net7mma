@@ -753,10 +753,7 @@ namespace Media.Rtsp
             m_StopRequested = true;
 
             //Abort the thread
-            m_ServerThread.Abort();
-
-            //Free the member so we can start again
-            m_ServerThread = null;
+            Utility.Abort(ref m_ServerThread);
 
             if (m_Maintainer != null)
             {
@@ -1540,7 +1537,7 @@ namespace Media.Rtsp
             RtpClient.TransportContext sourceContext = found.RtpClient.GetContextForMediaDescription(mediaDescription);
 
             //If the source has no TransportContext for that format or the source has not recieved a packet yet
-            if (sourceContext == null)
+            if (sourceContext == null || sourceContext.SynchronizationSourceIdentifier == 0)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
