@@ -452,11 +452,15 @@ namespace Media.Rtp
             bool hasPadding = Header.Padding;
 
             //if padding is to be included in the clone then obtain the original padding directly from the packet
-            if (includePadding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Offset + Payload.Count - PaddingOctets)); //If just the padding is required the skip the Coefficients
+            if (hasPadding && includePadding) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Offset + Payload.Count - PaddingOctets)); //If just the padding is required the skip the Coefficients
 
             //Return the result of creating the new instance with the given binary
             return new RtpPacket(new RtpHeader(Header.Version, includePadding && hasPadding, includeExtension && hasExtension)
             {
+                Timestamp = Header.Timestamp,
+                SequenceNumber = Header.SequenceNumber,
+                SynchronizationSourceIdentifier = Header.SynchronizationSourceIdentifier,
+                PayloadType = Header.PayloadType,
                 ContributingSourceCount = includeSourceList ? Header.ContributingSourceCount : 0
             }.Concat(binarySequence).ToArray(), 0);
         }
@@ -493,8 +497,6 @@ namespace Media.Rtp
                 throw;
             }
         }
-
-
 
         /// <summary>
         /// Disposes of any private data this instance utilized.

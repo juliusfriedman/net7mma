@@ -99,7 +99,7 @@ namespace Media.Common
         /// <param name="extension">Indicates the value of the 3rd Bit</param>
         /// <param name="remainingBits">Bits 4, 5, 6, 7 and 8</param>
         /// <returns>The octet which has been composed as a result of packing the bit fields</returns>
-        public static byte PackOctet(int version, bool padding, bool extension, int remainingBits = 0)
+        public static byte PackOctet(int version, bool padding, bool extension, byte remainingBits = 0)
         {
             //Ensure the version is valid in a quarter bit
             if (version > 3) throw Binary.QuarterBitOverflow;
@@ -107,25 +107,27 @@ namespace Media.Common
             //Check if the value can be packed into an octet.
             if (padding && extension)//Only 4 bits are available if padding and extensions are set
             {
-                if (remainingBits > Binary.FiveBitMaxValue) throw new ArgumentException("Padding and Extensions cannot be set when remaining bits is greater than 31");
-                remainingBits |= 48;
+                //if (remainingBits > Binary.FiveBitMaxValue) throw new ArgumentException("Padding and Extensions cannot be set when remaining bits is greater than 31");
+                remainingBits |= (byte)(CommonHeaderBits.ExtensionMask | CommonHeaderBits.PaddingMask);
             }
             else if (padding)// 5 bits are available when Padding is set
             {
-                if (remainingBits > Binary.FiveBitMaxValue) throw new ArgumentException("Padding cannot be set when remaining bits is greater than 31");
-                remainingBits |= 32;
+                //if (remainingBits > Binary.FiveBitMaxValue) throw new ArgumentException("Padding cannot be set when remaining bits is greater than 31");
+                remainingBits |= CommonHeaderBits.PaddingMask;
             }
             else if (extension)// Could be considered to be the sign bit if not utilized when packing (Occupies the 5 bit)
             {
-                if (remainingBits > Binary.FourBitMaxValue) throw new ArgumentException("Extensions cannot be set when remaining bits is greater than 15");
-                remainingBits |= 16;
+                //if (remainingBits > Binary.FourBitMaxValue) throw new ArgumentException("Extensions cannot be set when remaining bits is greater than 15");
+                remainingBits |= CommonHeaderBits.ExtensionMask;
             }
+
+            //if (BitConverter.IsLittleEndian) remainingBits = Common.Binary.ReverseU8((byte)remainingBits);
 
             //Pack the results into an octet
             return PacketOctet(version, remainingBits);
         }
 
-        public static byte PacketOctet(int version, int remainingBits)
+        public static byte PacketOctet(int version, byte remainingBits)
         {
             return (byte)((byte)(BitConverter.IsLittleEndian ? version << 6 : version >> 6) | (byte)remainingBits);
         }
@@ -226,7 +228,8 @@ namespace Media.Common
                 //3 << 7 - 1 = 192 = 11 000000
                 //Where 7 is the amount of `addressable` bits based on a 0 index
                 //leastSignificant = (byte)((value << 7 - 1) | (Padding ? PaddingMask : 0) | (Extension ? ExtensionMask : 0) | RtpContributingSourceCount);
-                First8Bits = PackOctet(unsigned, Padding, Extension, (byte)RtpContributingSourceCount);
+                //use the block count which encompasses the RtpContributingSourceCount
+                First8Bits = PackOctet(unsigned, Padding, Extension, (byte)RtcpBlockCount);
             }
         }
 
@@ -278,9 +281,12 @@ namespace Media.Common
 
                 //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
                 byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 3) : (byte)(value << 3);
+
+                //Include the padding bit if it was set prior
+                if (Padding) unsigned |= PaddingMask;
                 
                 //Re pack the octet
-                First8Bits = PacketOctet(Version, Padding ? PaddingMask | unsigned : unsigned);
+                First8Bits = PacketOctet(Version, unsigned);
             }
         }
 
@@ -302,10 +308,10 @@ namespace Media.Common
                     throw Binary.CreateOverflowException("RtpContributingSourceCount", value, byte.MinValue.ToString(), Binary.FourBitMaxValue.ToString());
 
                 //Get a unsigned copy to prevent two checks, the value is only 4 bits and must be aligned to this boundary in the octet
-                byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
+                //byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
 
                 //re pack the octet
-                First8Bits = PackOctet(Version, Padding, Extension, unsigned);
+                First8Bits = PackOctet(Version, Padding, Extension, BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4));
             }
         }
 
@@ -314,7 +320,7 @@ namespace Media.Common
         /// </summary>
         public bool RtpMarker
         {
-            get { return Last8Bits > 0 && Common.Binary.ReadBitsWithShift(First8Bits, 0, 7, BitConverter.IsLittleEndian) > 0; }
+            get { return Last8Bits > Binary.SevenBitMaxValue; }
             set { Last8Bits = PackOctet(value, (byte)RtpPayloadType); }
         }
 
@@ -341,6 +347,9 @@ namespace Media.Common
         /// Gets or sets the 8 bit value associated with the RtcpPayloadType.
         /// Note that in RtpPackets that this field is shared with the Marker bit and if the value has Bit 0 set then the RtpMarker property will be true.
         /// </summary>
+        /// <remarks>
+        /// A SendersReport has the RtpPayloadType of 72.
+        /// </remarks>
         public int RtcpPayloadType
         {
             get { return Last8Bits; }

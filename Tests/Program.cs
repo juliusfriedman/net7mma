@@ -190,15 +190,15 @@ namespace Media
         {
             var theTests = new[] 
             {
-                //new
-                //{
-                //    Uri = "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", //Continious source
-                //    Creds = default(System.Net.NetworkCredential),
-                //    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
-                //},
                 new
                 {
-                    Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", //Single media item
+                    Uri = "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", //Continous Stream
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
 
@@ -220,6 +220,7 @@ namespace Media
             TestStart:
                 try
                 {
+                    ///Allow for disable of GetParameter (set m_RtspTimeout = 0)
                     TestRtspClient(test.Uri, test.Creds, proto);
                 }
                 catch (Exception ex)
@@ -1168,9 +1169,12 @@ namespace Media
             //Set a few values
             p.Timestamp = 987654321;
             p.SequenceNumber = 7;
-            if ((int)p.SequenceNumber != 7) throw sequenceNumberException;
+            p.ContributingSourceCount = 7;
+            if (p.SequenceNumber != 7) throw sequenceNumberException;
 
-            if ((int)p.Timestamp != 987654321) throw timestampException;
+            if (p.Timestamp != 987654321) throw timestampException;
+
+            if (p.ContributingSourceCount != 7) throw contributingSourceException;
 
             //Recreate the packet from the bytes of the result of calling the methods ToArray on the Prepare instance method.
             p = new Rtp.RtpPacket(p.Prepare().ToArray(), 0);
@@ -1178,6 +1182,8 @@ namespace Media
             //Perform the same tests... (Todo condense tests into seperate functions)
 
             if (p.SequenceNumber != 7) throw sequenceNumberException;
+
+            if (p.ContributingSourceCount != 7) throw contributingSourceException;
 
             if (p.Timestamp != 987654321) throw timestampException;
 
@@ -1602,7 +1608,7 @@ namespace Media
                 else
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
-                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " PayloadType = " + rtpPacket.PayloadType + " " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
+                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
                         rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount 
                         + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
                 }
@@ -1711,7 +1717,7 @@ namespace Media
                             }
                             else
                             {
-                                Console.BackgroundColor = ConsoleColor.Blue; consoleWriter.WriteLine("\tGot a RTPFrame PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.BackgroundColor = ConsoleColor.Blue; consoleWriter.WriteLine("\tGot a RTPFrame("+ rtpFrame.PayloadTypeByte +") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
                         };
 
@@ -1758,12 +1764,12 @@ namespace Media
                         client.OnPlay += (sender, args) =>
                         {
                             //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
-                            client.Client.MaximumRtcpBandwidthPercentage = Math.E;
+                            client.Client.MaximumRtcpBandwidthPercentage = 25;
                             ///SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
 
                             //Add events now that we are playing
                             client.Client.RtpPacketReceieved += rtpPacketReceived;
-                            client.Client.RtpFrameComplete += rtpFrameReceived;
+                            client.Client.RtpFrameChanged += rtpFrameReceived;
                             client.Client.RtcpPacketReceieved += rtcpPacketReceived;
                             client.Client.RtcpPacketSent += rtcpPacketSent;
                             client.Client.InterleavedData += rtpInterleave;
@@ -1802,7 +1808,7 @@ namespace Media
 
                             //Remove events now that we are Disconnected
                             client.Client.RtpPacketReceieved -= rtpPacketReceived;
-                            client.Client.RtpFrameComplete -= rtpFrameReceived;
+                            client.Client.RtpFrameChanged -= rtpFrameReceived;
                             client.Client.RtcpPacketReceieved -= rtcpPacketReceived;
                             client.Client.RtcpPacketSent -= rtcpPacketSent;
                             client.Client.InterleavedData -= rtpInterleave;
@@ -1994,8 +2000,8 @@ a=mpeg4-esid:101");
 
             //The server will take in RtspSourceStreams and make them available locally
 
-            //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Rtsp Uri to any YouTube video)
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov")
+            //http://www.wowza.com/html/mobile.html
+            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov")
             {
                 //Will force VLC et al to connect over TCP
                 //                m_ForceTCP = true
@@ -2014,15 +2020,23 @@ a=mpeg4-esid:101");
                 //m_ForceTCP = true
             });
 
-            //MPEG4 Stream Tcp Exposed @ rtsp://localhost/live/Beta through Udp and Tcp
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp"));
-            //server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.87/broadcast/deutschewelle-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
+            {
+                //m_ForceTCP = true
+            });
+
+            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp)
+            {
+                //m_ForceTCP = true
+            });
+
+            //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Rtsp Uri to any YouTube video)
 
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
             server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp")
             {
-                m_ForceTCP = true
+                //m_ForceTCP = true
             });
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp

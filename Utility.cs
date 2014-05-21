@@ -209,6 +209,27 @@ namespace Media
 
         #region Static Helper Functions
 
+        public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
+        {
+            //If the worker is running
+            if (thread != null && thread.ThreadState.HasFlag(state))
+            {
+                //Attempt to join
+                if (!thread.Join(timeout))
+                {
+                    try
+                    {
+                        //Abort
+                        thread.Abort();
+                    }
+                    catch { return; } //Cancellation not supported
+                }
+
+                //Reset the state of the thread to indicate success
+                thread = null;
+            }
+        }
+
         public static int IndexOfAny<T>(this T[] array, params T[] delemits)
         {
             int o = -1, //Offset

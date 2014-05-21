@@ -444,6 +444,14 @@ namespace Media.Sdp
             return buffer.ToString();
         }
 
+        public SessionDescriptionLine RtpMap
+        {
+            get
+            {
+                return m_Lines.FirstOrDefault(l => l.Type == 'a' && string.Compare(l.Parts[0], "rtpmap", true) >= 0);
+            }
+        }
+
     }
 
     /// <summary>
