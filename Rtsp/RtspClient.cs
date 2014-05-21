@@ -1393,6 +1393,8 @@ namespace Media.Rtsp
                                 m_RtpClient.InactivityTimeout = contextReportInterval;                                
                             }
 
+                            m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
+
                             //try to add the transportChannel
                             m_RtpClient.AddTransportContext(transportContext);
 
