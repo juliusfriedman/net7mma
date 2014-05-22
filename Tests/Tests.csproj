@@ -59,9 +59,18 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="WinRtspInspector.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="WinRtspInspector.Designer.cs">
+      <DependentUpon>WinRtspInspector.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -84,6 +93,11 @@
       <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
       <Name>Media</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="WinRtspInspector.resx">
+      <DependentUpon>WinRtspInspector.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -96,7 +96,7 @@ namespace Media.Rtsp
         Uri m_Location;
 
         /// <summary>
-        /// The buffer this client uses for all requests 4MB
+        /// The buffer this client uses for all requests 4MB * 2
         /// </summary>
         byte[] m_Buffer = new byte[2 * RtspMessage.MaximumLength];
 
