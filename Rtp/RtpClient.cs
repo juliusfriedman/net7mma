@@ -2277,7 +2277,7 @@ namespace Media.Rtp
             catch //Any exception
             {
                 //Return immediately
-                throw;
+                return;
             }
         }
 

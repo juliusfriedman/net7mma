@@ -40,6 +40,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Windows.Forms;
 
 namespace Media
 {
@@ -60,6 +61,8 @@ namespace Media
             RunTest(TestRtpClient, 777);
 
             RunTest(RtspClientTests);
+
+            RunTest(WinRtspInspector);
 
             RunTest(TestServer);
         }
@@ -2294,6 +2297,13 @@ a=mpeg4-esid:101");
 
                 System.IO.File.Delete("result.jpg");
             }
+        }
+
+        static void WinRtspInspector()
+        {
+            var f = new Tests.WinRtspInspector();
+
+            Application.Run(f);
         }
     }
 }
