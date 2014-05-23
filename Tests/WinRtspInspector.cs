@@ -67,8 +67,14 @@ namespace Tests
 
                 ClientThreadProc = new Thread(() =>
                 {
-
-                    Client.Connect();
+                    try
+                    {
+                        Client.Connect();
+                    }
+                    catch(Exception ex)
+                    {
+                        MessageBox.Show(ex.Message);
+                    }
 
                 });
 
@@ -93,8 +99,9 @@ namespace Tests
             sender.OnPlay += sender_OnPlay;
 
             sender.OnResponse += sender_OnResponse;
-            sender.StartListening();          
 
+            if (numericUpDown1.Value == 0) sender.StartListening();
+            else sender.StartListening(TimeSpan.FromSeconds((double)numericUpDown1.Value));    
         }
 
         void sender_OnResponse(RtspClient sender, RtspMessage request, RtspMessage response)
@@ -111,8 +118,7 @@ namespace Tests
                 }
                 else
                 {
-
-                    textBox2.AppendText(request.ToString() + "Response = " + response.ToString());
+                    textBox2.AppendText(string.Format(Program.TestingFormat, request.ToString(), response.ToString()));
                 }
             }
         }
@@ -122,6 +128,8 @@ namespace Tests
             sender.OnDisconnect += sender_OnDisconnect;
             sender.m_RtpClient.RtpPacketReceieved += m_RtpClient_RtpPacketReceieved;
             sender.m_RtpClient.RtcpPacketReceieved += m_RtpClient_RtcpPacketReceieved;
+
+            sender.m_RtpClient.MaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
 
             sender.OnStop += sender_OnStop;            
         }
@@ -168,45 +176,49 @@ namespace Tests
             catch { }
         }
 
-        Bitmap b = new Bitmap(798, 50);
+        Bitmap BandwidthBitmap = new Bitmap(798, 50);
 
-        DateTime lastWrite = DateTime.UtcNow;
+        DateTime LastDrawTime = DateTime.UtcNow;
 
         public void DrawBandwidth(Color? c = null)
         {
-            var x = DateTime.UtcNow - lastWrite;
-            
-            Color C;
-
-            if (c == null)
-            {
-                Random randomGen = new Random();
-                KnownColor[] names = (KnownColor[])Enum.GetValues(typeof(KnownColor));
-                KnownColor randomColorName = names[randomGen.Next(names.Length)];
-                Color randomColor = Color.FromKnownColor(randomColorName);
-                C = randomColor;
-            }
-            else
-            {
-                C = c.Value;
-            }
-            
-            b.SetPixel(Math.Max(0, Math.Min(b.Width - 1, (int)x.TotalSeconds - 1)), Math.Max(0, Math.Min(b.Height - 1, (int)x.TotalSeconds - 1)), C);
-            b.SetPixel(Math.Max(0,Math.Min(b.Width - 1, (int)x.TotalMilliseconds - 1)), Math.Max(0,Math.Min(b.Height - 1, (int)x.TotalMilliseconds - 1)), C);
-
-            pictureBox1.Image = b;
-            pictureBox1.Refresh();
             try
             {
-                label4.Text = lastWrite.ToString() + " - " + x.TotalMilliseconds.ToString() + " - " + Client.m_RtpClient.TotalBytesReceieved / Client.m_RtpClient.Uptime.Milliseconds;
+                if (Client == null || !Client.Connected) return;
+
+                var x = DateTime.UtcNow - LastDrawTime;
+
+                Color C;
+
+                if (c == null)
+                {
+                    Random randomGen = new Random();
+                    KnownColor[] names = (KnownColor[])Enum.GetValues(typeof(KnownColor));
+                    KnownColor randomColorName = names[randomGen.Next(names.Length)];
+                    Color randomColor = Color.FromKnownColor(randomColorName);
+                    C = randomColor;
+                }
+                else
+                {
+                    C = c.Value;
+                }
+
+                BandwidthBitmap.SetPixel(Math.Max(0, Math.Min(BandwidthBitmap.Width - 1, (int)x.TotalSeconds - 1)), Math.Max(0, Math.Min(BandwidthBitmap.Height - 1, (int)x.TotalSeconds - 1)), C);
+                BandwidthBitmap.SetPixel(Math.Max(0, Math.Min(BandwidthBitmap.Width - 1, (int)x.TotalMilliseconds - 1)), Math.Max(0, Math.Min(BandwidthBitmap.Height - 1, (int)x.TotalMilliseconds - 1)), C);
+
+                pictureBox1.Image = BandwidthBitmap;
+
+                pictureBox1.Image.RotateFlip(RotateFlipType.RotateNoneFlipX);
+
+                pictureBox1.Refresh();
+                label4.Text = LastDrawTime.ToString() + " (Delay =) " + x.TotalMilliseconds.ToString() + " @ " + Client.m_RtpClient.TotalBytesReceieved / Client.m_RtpClient.Uptime.TotalSeconds + " /Sec";
+
+                LastDrawTime = DateTime.UtcNow;
             }
             catch
             {
 
             }
-
-            lastWrite = DateTime.UtcNow;
-            
         }
 
         public void UpdateRtsp(Media.Rtsp.RtspMessage p)
@@ -247,11 +259,13 @@ namespace Tests
 
         private void button2_Click(object sender, EventArgs e)
         {
-            b = new Bitmap(b.Width, b.Height);
+            BandwidthBitmap = new Bitmap(BandwidthBitmap.Width, BandwidthBitmap.Height);
             RTPPacketBinding.Clear();
             RTCPPacketBinding.Clear();
             textBox2.Clear();
             label2.Text = label4.Text = string.Empty;
+            pictureBox1.Image = BandwidthBitmap;
+            pictureBox1.Refresh();
         }
 
     }

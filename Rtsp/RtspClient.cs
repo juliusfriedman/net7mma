@@ -517,7 +517,7 @@ namespace Media.Rtsp
         /// </summary>
         internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
-        public void StartListening()
+        public void StartListening(TimeSpan? start = null)
         {
 
             // If already listening and we have started to receive then there is nothing to do 
