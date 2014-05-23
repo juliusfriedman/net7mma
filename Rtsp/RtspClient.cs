@@ -1722,10 +1722,10 @@ namespace Media.Rtsp
                 }
 
                 //If there is a timeout ensure it gets utilized
-            if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
+                if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtpClient.InactivityTimeout.Milliseconds, m_RtspTimeout.Milliseconds);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, 0, m_RtspTimeout.Milliseconds);
                 }
 
                 //Set the value of the timeout before connected
@@ -1741,15 +1741,9 @@ namespace Media.Rtsp
 
         internal void SendKeepAlive(object state)
         {
+
             try
             {
-
-                if (m_StartedListening != null && !Playing)
-                {
-                    Disconnect();
-                    return;
-                }
-                else if (!m_RtspSocket.Connected) Connect();
 
                 //Darwin DSS and other servers might not support GET_PARAMETER
                 if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
