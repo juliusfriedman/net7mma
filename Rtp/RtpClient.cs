@@ -1381,13 +1381,13 @@ namespace Media.Rtp
                 if (amountOfContexts == 0) return true;
 
                 //Obtain the summation of the total bytes sent over the amount of context's
-                long totalReceived = TotalBytesReceieved + TotalBytesSent;
+                long totalReceived = TotalBytesSent;
 
                 if (totalReceived == 0) return false;
 
                 totalReceived /= amountOfContexts;
 
-                long totalSent = TotalRtcpBytesReceieved + TotalRtcpBytesSent;
+                long totalSent = TotalRtcpBytesSent;
 
                 totalSent /= amountOfContexts;
 

@@ -192,7 +192,7 @@ namespace Media.Rtcp
         /// Creates a RtcpPacket instance from an existing RtcpHeader and payload.
         /// Check the IsValid property to see if the RtcpPacket is well formed.
         /// </summary>
-        /// <param name="header">The existing RtpHeader</param>
+        /// <param name="header">The existing RtpHeader (which is now owned by this instance)</param>
         /// <param name="payload">The data contained in the payload</param>
         public RtcpPacket(RtcpHeader header, OctetSegment payload, bool shouldDispose = true)
         {

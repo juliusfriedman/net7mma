@@ -36,18 +36,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
+using Media;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-namespace Media
+namespace Tests
 {
     public class Program
     {
 
-        static string TestingFormat = "{0}:=>{1}";
+        internal static string TestingFormat = "{0}:=>{1}";
 
         static Action[] Tests = new Action[] { TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, /*TestRtpFrame,*/ TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestSdp, TestRtspMessage };
 
@@ -107,13 +108,13 @@ namespace Media
         {
 
             //Test bit 0
-            byte one = 1, testBits = Common.Binary.ReverseU8(one);
+            byte one = 1, testBits = Media.Common.Binary.ReverseU8(one);
 
             if (testBits != 128) throw new Exception("Bit 0 Not Correct");
 
-            if (Common.Binary.GetBit(ref testBits, 0) != true) throw new Exception("GetBit Does not Work");
+            if (Media.Common.Binary.GetBit(ref testBits, 0) != true) throw new Exception("GetBit Does not Work");
 
-            if (Common.Binary.SetBit(ref testBits, 0, true) != true) throw new Exception("SetBit Does not Work");
+            if (Media.Common.Binary.SetBit(ref testBits, 0, true) != true) throw new Exception("SetBit Does not Work");
 
             //Test Bit Methods from 1 - 8
             for (int i = 1, e = 8; i <= e; ++i)
@@ -122,13 +123,13 @@ namespace Media
                 byte bits = (byte)i;
 
                 //Test readomg the bit
-                if (Common.Binary.GetBit(ref bits, i) != true) throw new Exception("GetBit Does not Work");
+                if (Media.Common.Binary.GetBit(ref bits, i) != true) throw new Exception("GetBit Does not Work");
 
                 //Set the same bit
-                if (Common.Binary.SetBit(ref bits, i, true) != true) throw new Exception("SetBit Does not Work");
+                if (Media.Common.Binary.SetBit(ref bits, i, true) != true) throw new Exception("SetBit Does not Work");
 
                 //If the value is not exactly the same then throw an exception
-                if (bits != i || Common.Binary.GetBit(ref bits, i) != true) throw new Exception("GetBit Does not Work");
+                if (bits != i || Media.Common.Binary.GetBit(ref bits, i) != true) throw new Exception("GetBit Does not Work");
             }
 
             //Use 8 octets, each write over-writes the previous written value
@@ -191,40 +192,38 @@ namespace Media
 
         public static void RtspClientTests()
         {
-            var theTests = new[] 
+            foreach (var TestObject in new[] 
             {
                 new
                 {
                     Uri = "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", //Continous Stream
                     Creds = default(System.Net.NetworkCredential),
-                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
                     Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov", //Single media item
                     Creds = default(System.Net.NetworkCredential),
-                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
 
                 },
                 new
                 {
                     Uri = "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp", //Single media item
                     Creds = default(System.Net.NetworkCredential),
-                    Proto = (Rtsp.RtspClient.ClientProtocolType?)null,
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
 
-            };
-
-            foreach (var test in theTests)
+            })
             {
 
-                Rtsp.RtspClient.ClientProtocolType? proto = test.Proto;
+                Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
 
             TestStart:
                 try
                 {
                     ///Allow for disable of GetParameter (set m_RtspTimeout = 0)
-                    TestRtspClient(test.Uri, test.Creds, proto);
+                    TestRtspClient(TestObject.Uri, TestObject.Creds, proto);
                 }
                 catch (Exception ex)
                 {
@@ -238,8 +237,8 @@ namespace Media
 
                 switch (next)
                 {
-                    case ConsoleKey.U: { proto = Rtsp.RtspClient.ClientProtocolType.Udp; goto case ConsoleKey.W; }
-                    case ConsoleKey.T: { proto = Rtsp.RtspClient.ClientProtocolType.Tcp; goto case ConsoleKey.W; }
+                    case ConsoleKey.U: { proto = Media.Rtsp.RtspClient.ClientProtocolType.Udp; goto case ConsoleKey.W; }
+                    case ConsoleKey.T: { proto = Media.Rtsp.RtspClient.ClientProtocolType.Tcp; goto case ConsoleKey.W; }
                     default:
                     case ConsoleKey.Q: continue;
                     case ConsoleKey.W: goto TestStart;
@@ -262,13 +261,13 @@ namespace Media
                 System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
 
                 //Using a sender
-                using (var sender = Rtp.RtpClient.Sender(localIp))
+                using (var sender = Media.Rtp.RtpClient.Sender(localIp))
                 {
                     //Create a Session Description
-                    Sdp.SessionDescription SessionDescription = new Sdp.SessionDescription(1);
+                    Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 17777, "TCP/" +Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Rtp.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, "TCP/" + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtp.RFC2435Frame.RtpJpegPayloadType));
 
                     sender.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
 
@@ -277,7 +276,7 @@ namespace Media
                     sender.RtpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
 
                     //Using a receiver
-                    using (var receiver = Rtp.RtpClient.Participant(Utility.GetFirstV4IPAddress()))
+                    using (var receiver = Media.Rtp.RtpClient.Participant(Utility.GetFirstV4IPAddress()))
                     {
 
                         //Set tcp 
@@ -292,22 +291,22 @@ namespace Media
 
                         //Create and Add the required TransportContext's
 
-                        int sendersId = RFC3550.Random32(Rtcp.SendersReport.PayloadType), receiversId = sendersId + 1;
+                        int sendersId = RFC3550.Random32(Media.Rtcp.SendersReport.PayloadType), receiversId = sendersId + 1;
 
                         //Create two transport contexts, one for the sender and one for the receiver.
                         //The Id of the parties must be known in advance in this stand alone example. (A conference would support more then 1 participant)
-                        Rtp.RtpClient.TransportContext sendersContext = new Rtp.RtpClient.TransportContext(0, 1, sendersId, SessionDescription.MediaDescriptions[0], true, receiversId),
-                            receiversContext = new Rtp.RtpClient.TransportContext(0, 1, receiversId, SessionDescription.MediaDescriptions[0], true, sendersId);
+                        Media.Rtp.RtpClient.TransportContext sendersContext = new Media.Rtp.RtpClient.TransportContext(0, 1, sendersId, SessionDescription.MediaDescriptions[0], true, receiversId),
+                            receiversContext = new Media.Rtp.RtpClient.TransportContext(0, 1, receiversId, SessionDescription.MediaDescriptions[0], true, sendersId);
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - " + sender.m_Id + " - Senders SSRC = " + sendersContext.SynchronizationSourceIdentifier);
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - " + receiver.m_Id + " - Recievers SSRC = " + receiversContext.SynchronizationSourceIdentifier);
 
-                        //Find open ports, 1 for Rtp, 1 for Rtcp
+                        //Find open ports, 1 for Rtp, 1 for Media.Rtcp
                         int incomingRtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17777, false), rtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17778),
                         ougoingRtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10777, false), xrtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10778);
 
-                        //Initialzie the sockets required and add the context so the RtpClient can maintin it's state, once for the receiver and once for the sender in this example...
+                        //Initialzie the sockets required and add the context so the RtpClient can maintin it's state, once for the receiver and once for the sender in this example.
                         //Most application would only have one or the other.
 
                         receiversContext.InitializeSockets(localIp, localIp, incomingRtpPort, rtcpPort, ougoingRtpPort, xrtcpPort);
@@ -327,7 +326,7 @@ namespace Media
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Rtp.RFC2435Frame testFrame = new Rtp.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtp.RFC2435Frame testFrame = new Media.Rtp.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
@@ -356,7 +355,7 @@ namespace Media
                             consoleWriter.WriteLine("\t Receiver Received : " + receiver.TotalRtpPacketsReceieved + " RtpPackets");
 
                             //Write ReceptionReport information if contained
-                            foreach (Rtcp.ReportBlock reportBlock in receiversContext.ReceiversReport)
+                            foreach (Media.Rtcp.ReportBlock reportBlock in receiversContext.ReceiversReport)
                             {
                                 consoleWriter.WriteLine("\t Receiver  : " + reportBlock.SendersSynchronizationSourceIdentifier);
                                 consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
@@ -508,8 +507,8 @@ namespace Media
             //Keep a copy of these exceptions to throw in case some error occurs.
             Exception invalidLength = new Exception("Invalid Length"), invalidData = new Exception("Invalid Data in packet"), invalidPadding = new Exception("Invalid Padding"), incompleteFalse = new Exception("Packet IsComplete is false");
 
-            //Create a RtcpPacket with only a header (results in 8 octets of 0x00 which make up the header)
-            Rtcp.RtcpPacket rtcpPacket = new Rtcp.RtcpPacket(0, 0, 0, 0, 0, 0);
+            //Create a Media.RtcpPacket with only a header (results in 8 octets of 0x00 which make up the header)
+            Media.Rtcp.RtcpPacket rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, 0, 0, 0, 0);
 
             //Prepare a sequence which contains the data in the packet including the header
             IEnumerable<byte> preparedPacket = rtcpPacket.Prepare();
@@ -543,10 +542,10 @@ namespace Media
             {
 
                 //Write information for the test to the console
-                Console.WriteLine(string.Format(TestingFormat, "Making RtcpPacket with Padding", paddingAmount));
+                Console.WriteLine(string.Format(TestingFormat, "Making Media.RtcpPacket with Padding", paddingAmount));
 
                 //Try to make a padded packet with the given amount
-                rtcpPacket = new Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
+                rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
 
                 //A a 4 bytes which are not padding related
                 rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4), 0, 1);
@@ -565,9 +564,9 @@ namespace Media
             }
 
             //Create a new SendersReport with no blocks
-            using (Rtcp.RtcpReport testReport = new Rtcp.SendersReport(2, false, 0, 7)) 
+            using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, false, 0, 7)) 
             {
-                //The RtcpData property contains all data which in the RtcpPacket without padding
+                //The Media.RtcpData property contains all data which in the Media.RtcpPacket without padding
                 if (testReport.RtcpData.Count() != 20 && testReport.Length != 20) throw invalidLength;
 
                 output = testReport.Prepare().ToArray();//should be exactly equal to example
@@ -582,11 +581,11 @@ namespace Media
                             0x00,0x00,0x00,0x00
                          };
 
-             rtcpPacket= new Rtcp.RtcpPacket(example, 0);
+             rtcpPacket= new Media.Rtcp.RtcpPacket(example, 0);
             if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Length.");
 
             //Make a SendersReport to access the SendersInformation and ReportBlocks, do not dispose the packet when done with the report
-            using (Rtcp.SendersReport sr = new Rtcp.SendersReport(rtcpPacket, false)) 
+            using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(rtcpPacket, false)) 
             {
                 //Check the invalid block count
                 if (sr.BlockCount != 16) throw new Exception("Invalid Block Count!");
@@ -605,12 +604,12 @@ namespace Media
                 else Console.WriteLine(sr.RtpTimestamp);//0
 
                 //Data in report (Should only be 1)
-                foreach (Rtcp.IReportBlock rb in sr)
+                foreach (Media.Rtcp.IReportBlock rb in sr)
                 {
                     if ((uint)rb.BlockIdentifier != 3567693669) throw new Exception("Invalid Source SSRC");
-                    else if (rb is Rtcp.ReportBlock)
+                    else if (rb is Media.Rtcp.ReportBlock)
                     {
-                        Rtcp.ReportBlock asReportBlock = (Rtcp.ReportBlock)rb;
+                        Media.Rtcp.ReportBlock asReportBlock = (Media.Rtcp.ReportBlock)rb;
 
                         Console.WriteLine(asReportBlock.SendersSynchronizationSourceIdentifier);//0
                         Console.WriteLine(asReportBlock.FractionsLost);//0
@@ -629,7 +628,7 @@ namespace Media
                 for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
             }
 
-            if (rtcpPacket.Header.Disposed || rtcpPacket.Disposed) throw new Exception("Disposed the RtcpPacket");
+            if (rtcpPacket.Header.Disposed || rtcpPacket.Disposed) throw new Exception("Disposed the Media.RtcpPacket");
            
             //Now the packet can be disposed
             rtcpPacket.Dispose();
@@ -638,7 +637,7 @@ namespace Media
             //Next Sub Test
             /////
 
-            using (var testReport = new Rtcp.GoodbyeReport(2, 7)) 
+            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7)) 
             {
                 output = testReport.Prepare().ToArray();
 
@@ -651,7 +650,7 @@ namespace Media
 
             //Add a Reason For Leaving
 
-            using (var testReport = new Rtcp.GoodbyeReport(2, 7, Encoding.ASCII.GetBytes("v"))) 
+            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, Encoding.ASCII.GetBytes("v"))) 
             {
                 output = testReport.Prepare().ToArray();
 
@@ -681,13 +680,13 @@ namespace Media
             };
 
 
-            //Could check for multiple packets with a function without having to keep track of the offset with the RtcpPacket.GetPackets Function
-            Rtcp.RtcpPacket[] foundPackets = Rtcp.RtcpPacket.GetPackets(example, 0, example.Length).ToArray();
+            //Could check for multiple packets with a function without having to keep track of the offset with the Media.RtcpPacket.GetPackets Function
+            Media.Rtcp.RtcpPacket[] foundPackets = Media.Rtcp.RtcpPacket.GetPackets(example, 0, example.Length).ToArray();
             Console.WriteLine(foundPackets.Length);
 
             //Or manually for some reason
-            rtcpPacket = new Rtcp.RtcpPacket(example, 0); // The same as foundPackets[0]
-            using (Rtcp.ReceiversReport rr = new Rtcp.ReceiversReport(rtcpPacket, false))
+            rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0); // The same as foundPackets[0]
+            using (Media.Rtcp.ReceiversReport rr = new Media.Rtcp.ReceiversReport(rtcpPacket, false))
             {
                 Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
 
@@ -702,10 +701,10 @@ namespace Media
                         Console.WriteLine("Current IReportBlock Identifier: " + enumerator.Current.BlockIdentifier);//1631032400
 
                         //If the instance boxed in the Interface is a ReportBlock
-                        if (enumerator.Current is Rtcp.ReportBlock)
+                        if (enumerator.Current is Media.Rtcp.ReportBlock)
                         {
                             //Unbox the Interface as it's ReportBlock Instance
-                            Rtcp.ReportBlock asReportBlock = enumerator.Current as Rtcp.ReportBlock;
+                            Media.Rtcp.ReportBlock asReportBlock = enumerator.Current as Media.Rtcp.ReportBlock;
 
                             Console.WriteLine("Found a ReportBlock");
 
@@ -730,17 +729,17 @@ namespace Media
 
             }
 
-            if (rtcpPacket.Header.Disposed || rtcpPacket.Disposed) throw new Exception("Disposed the RtcpPacket");
+            if (rtcpPacket.Header.Disposed || rtcpPacket.Disposed) throw new Exception("Disposed the Media.RtcpPacket");
 
             //Now the packet can be disposed
             rtcpPacket.Dispose();
             rtcpPacket = null;
 
             //Make another packet instance from the rest of the example data.
-            rtcpPacket = new Rtcp.RtcpPacket(example, output.Length);
+            rtcpPacket = new Media.Rtcp.RtcpPacket(example, output.Length);
 
             //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
-            using (Rtcp.SourceDescriptionReport sourceDescription = new Rtcp.SourceDescriptionReport(rtcpPacket, false)) 
+            using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false)) 
             {
 
                 foreach (var chunk in sourceDescription.GetChunkIterator())
@@ -748,7 +747,7 @@ namespace Media
                     Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
                     //Use a SourceDescriptionItemList to access the items within the Chunk
                     //This is performed auto magically when using the foreach pattern
-                    foreach (Rtcp.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
+                    foreach (Media.Rtcp.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
                         Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
@@ -770,10 +769,10 @@ namespace Media
 
             example = new byte[] { 0x81, 0xcc, 0x00, 0x06, 0x4e, 0xc8, 0x79, 0x50, 0x71, 0x74, 0x73, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x61, 0x74, 0x00, 0x04, 0x00, 0x00, 0x00, 0x14 };
 
-            rtcpPacket = new Rtcp.RtcpPacket(example, 0);
+            rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0);
 
             //Make a ApplicationSpecificReport instance
-            Rtcp.ApplicationSpecificReport app = new Rtcp.ApplicationSpecificReport(rtcpPacket);
+            Media.Rtcp.ApplicationSpecificReport app = new Media.Rtcp.ApplicationSpecificReport(rtcpPacket);
             
             //Check the name to be equal to qtsi
             if (!app.Name.SequenceEqual(Encoding.UTF8.GetBytes("qtsi"))) throw new Exception("Invalid App Packet Type");
@@ -786,9 +785,9 @@ namespace Media
             for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             //Test making a packet with a known length in bytes
-            Rtcp.SourceDescriptionReport sd = new Rtcp.SourceDescriptionReport(2, false, 1, 0x0007);
+            Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2, false, 1, 0x0007);
             byte[] itemData = Encoding.UTF8.GetBytes("FLABIA-PC");
-            sd.Add((Rtcp.IReportBlock)new Rtcp.SourceDescriptionChunk((int)0x1AB7C080, new Rtcp.SourceDescriptionItem(Rtcp.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
+            sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionItem(Media.Rtcp.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
             rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
             //asPacket now contains 11 octets in the payload.
             //asPacket now has 1 block (1 chunk of 15 bytes)
@@ -799,7 +798,7 @@ namespace Media
             if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
         }
 
-        static void PrintRtcpInformation(Rtcp.RtcpPacket p)
+        static void PrintRtcpInformation(Media.Rtcp.RtcpPacket p)
         {
             Console.BackgroundColor = ConsoleColor.Blue;
             TryPrintPacket(true, p);
@@ -809,11 +808,11 @@ namespace Media
             //Dissect the packet
             switch (p.PayloadType)
             {
-                case Rtcp.SendersReport.PayloadType:
+                case Media.Rtcp.SendersReport.PayloadType:
                     {
                         Console.WriteLine(string.Format(TestingFormat, "SendersReport From", p.SynchronizationSourceIdentifier));
 
-                        using (Rtcp.SendersReport sr = new Rtcp.SendersReport(p, false))
+                        using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(p, false))
                         {
                             Console.WriteLine(string.Format(TestingFormat, "NtpTime", sr.NtpTime));
 
@@ -828,7 +827,7 @@ namespace Media
                             {
                                 while (enumerator.MoveNext())
                                 {
-                                    Rtcp.ReportBlock asReportBlock = enumerator.Current as Rtcp.ReportBlock;
+                                    Media.Rtcp.ReportBlock asReportBlock = enumerator.Current as Media.Rtcp.ReportBlock;
 
                                     Console.WriteLine("Found a ReportBlock");
 
@@ -843,10 +842,10 @@ namespace Media
 
                         break;
                     }
-                case Rtcp.SourceDescriptionReport.PayloadType:
+                case Media.Rtcp.SourceDescriptionReport.PayloadType:
                     {
                         //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
-                        using (Rtcp.SourceDescriptionReport sourceDescription = new Rtcp.SourceDescriptionReport(p, false))
+                        using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(p, false))
                         {
 
                             Console.WriteLine(string.Format(TestingFormat, "SourceDescription From", sourceDescription.SynchronizationSourceIdentifier));
@@ -856,7 +855,7 @@ namespace Media
                                 Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
                                 //Use a SourceDescriptionItemList to access the items within the Chunk
                                 //This is performed auto magically when using the foreach pattern
-                                foreach (Rtcp.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
+                                foreach (Media.Rtcp.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
                                 {
                                     Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
                                     Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
@@ -870,10 +869,10 @@ namespace Media
             }
         }
 
-        static void TestRtpDumpReader(string path, RtpTools.FileFormat? knownFormat = null)
+        static void TestRtpDumpReader(string path, Media.RtpTools.FileFormat? knownFormat = null)
         {
             //Always use an unknown format for the reader allows each item to be formatted differently
-            using (RtpTools.RtpDump.DumpReader reader = new RtpTools.RtpDump.DumpReader(path))
+            using (Media.RtpTools.RtpDump.DumpReader reader = new Media.RtpTools.RtpDump.DumpReader(path))
             {
 
                 Console.WriteLine(string.Format(TestingFormat, "Successfully Opened", path));
@@ -882,7 +881,7 @@ namespace Media
                 {
                     Console.WriteLine(string.Format(TestingFormat, "ReaderPosition", reader.Position));
 
-                    using (RtpTools.RtpToolEntry entry = reader.ReadNext())
+                    using (Media.RtpTools.RtpToolEntry entry = reader.ReadNext())
                     {
 
                         //Empty entry
@@ -914,8 +913,8 @@ namespace Media
                         //Determine further action based on the PacketLength, Version etc.
                         if (entry.PacketLength == 0)
                         {
-                            //Attempt to get any packets which correspond to a Rtcp Payload Type which is implemented
-                            foreach (Rtcp.RtcpPacket p in Rtcp.RtcpPacket.GetPackets(data, offset, max))
+                            //Attempt to get any packets which correspond to a Media.Rtcp Payload Type which is implemented
+                            foreach (Media.Rtcp.RtcpPacket p in Media.Rtcp.RtcpPacket.GetPackets(data, offset, max))
                             {
 
                                 //Use Rtp parsing (Special case in the first set of packets where only the Rtp Header is present with a Version 0 header)
@@ -927,7 +926,7 @@ namespace Media
                                 //Move the offset for the packet
                                 offset += p.Length;                              
 
-                            }//Done with the Rtcp portion
+                            }//Done with the Media.Rtcp portion
 
                             //To find another RtpToolEntry
                             continue;
@@ -943,14 +942,14 @@ namespace Media
 
                     PrintRtpOrVatPacketInformation:
                         //Create a RtpHeaer from the Pointer
-                        using (Rtp.RtpHeader header = new Rtp.RtpHeader(data, offset))
+                        using (Media.Rtp.RtpHeader header = new Media.Rtp.RtpHeader(data, offset))
                         {
                             //Move the offrset
-                            offset += Rtp.RtpHeader.Length;
+                            offset += Media.Rtp.RtpHeader.Length;
                             //If there are more bytes then that of the RtpHeader
 
                             if (offset < max) //Use the created packet so it can be disposed
-                                using (Rtp.RtpPacket p = new Rtp.RtpPacket(header, new ArraySegment<byte>(data, offset, max - offset), false))
+                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new ArraySegment<byte>(data, offset, max - offset), false))
                                 {
                                     //Write information about the packet to the console
                                     Console.BackgroundColor = ConsoleColor.Green;
@@ -972,20 +971,20 @@ namespace Media
         /// </summary>
         /// <param name="path">The path to write the packets to</param>
         /// <param name="format">The format the packets should be written in</param>
-        static void TestRtpDumpWriter(string path, RtpTools.FileFormat format)
+        static void TestRtpDumpWriter(string path, Media.RtpTools.FileFormat format)
         {
             //Use a write to write a RtpPacket
-            using (RtpTools.RtpDump.DumpWriter dumpWriter = new RtpTools.RtpDump.DumpWriter(path, RtpTools.FileFormat.Header, testingEndPoint))
+            using (Media.RtpTools.RtpDump.DumpWriter dumpWriter = new Media.RtpTools.RtpDump.DumpWriter(path, Media.RtpTools.FileFormat.Header, testingEndPoint))
             {
                 //Create a RtpPacket and
-                using (var rtpPacket = new Rtp.RtpPacket(new Rtp.RtpHeader(2, true, true, true, 7, 7, 7, 7, 7), new byte[0x01]))
+                using (var rtpPacket = new Media.Rtp.RtpPacket(new Media.Rtp.RtpHeader(2, true, true, true, 7, 7, 7, 7, 7), new byte[0x01]))
                 {
                     //Write it
                     dumpWriter.WritePacket(rtpPacket);
                 }
 
-                //Create a  RtcpPacket and
-                using (var rtcpPacket = new Rtcp.RtcpPacket(new Rtcp.RtcpHeader(2, 207, true, 7, 7, 7), new byte[0x01]))
+                //Create a  Media.RtcpPacket and
+                using (var rtcpPacket = new Media.Rtcp.RtcpPacket(new Media.Rtcp.RtcpHeader(2, 207, true, 7, 7, 7), new byte[0x01]))
                 {
                     //Write it
                     dumpWriter.WritePacket(rtcpPacket);
@@ -995,7 +994,7 @@ namespace Media
                 //----Write some more examples
 
                 //Senders Report
-                using (Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket(new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0))
+                using (Media.Rtcp.RtcpPacket packet = new Media.Rtcp.RtcpPacket(new byte[] { 0x80, 0xc8, 0x00, 0x06, 0x43, 0x4a, 0x5f, 0x93, 0xd4, 0x92, 0xce, 0xd4, 0x2c, 0x49, 0xba, 0x5e, 0xc4, 0xd0, 0x9f, 0xf4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0))
                 {
                     //Write it
                     dumpWriter.WritePacket(packet);
@@ -1003,7 +1002,7 @@ namespace Media
 
 
                 //Recievers Report and Source Description
-                using (Rtcp.RtcpPacket packet = new Rtcp.RtcpPacket
+                using (Media.Rtcp.RtcpPacket packet = new Media.Rtcp.RtcpPacket
                     (new byte[] { 
                                    //RR
                                    0x81,0xc9,0x00,0x07,
@@ -1036,36 +1035,36 @@ namespace Media
 
             #region Test Reader with Unknown format on example file with expected format
 
-            //Should find RtpTools.FileFormat.Binary
-            TestRtpDumpReader(currentPath + @"\bark.rtp", RtpTools.FileFormat.Binary);
+            //Should find Media.RtpTools.FileFormat.Binary
+            TestRtpDumpReader(currentPath + @"\bark.rtp", Media.RtpTools.FileFormat.Binary);
 
             #endregion
 
             #region Test Writer on various formats
 
-            TestRtpDumpWriter(currentPath + @"\BinaryDump.rtpdump", RtpTools.FileFormat.Binary);
+            TestRtpDumpWriter(currentPath + @"\BinaryDump.rtpdump", Media.RtpTools.FileFormat.Binary);
 
-            TestRtpDumpWriter(currentPath + @"\Header.rtpdump", RtpTools.FileFormat.Header);
+            TestRtpDumpWriter(currentPath + @"\Header.rtpdump", Media.RtpTools.FileFormat.Header);
 
-            TestRtpDumpWriter(currentPath + @"\AsciiDump.rtpdump", RtpTools.FileFormat.Ascii);
+            TestRtpDumpWriter(currentPath + @"\AsciiDump.rtpdump", Media.RtpTools.FileFormat.Ascii);
 
-            TestRtpDumpWriter(currentPath + @"\HexDump.rtpdump", RtpTools.FileFormat.Hex);
+            TestRtpDumpWriter(currentPath + @"\HexDump.rtpdump", Media.RtpTools.FileFormat.Hex);
 
-            TestRtpDumpWriter(currentPath + @"\ShortDump.rtpdump", RtpTools.FileFormat.Short);
+            TestRtpDumpWriter(currentPath + @"\ShortDump.rtpdump", Media.RtpTools.FileFormat.Short);
 
             #endregion
 
             #region Test Reader on those expected formats
 
-            TestRtpDumpReader(currentPath + @"\BinaryDump.rtpdump", RtpTools.FileFormat.Binary);
+            TestRtpDumpReader(currentPath + @"\BinaryDump.rtpdump", Media.RtpTools.FileFormat.Binary);
 
-            TestRtpDumpReader(currentPath + @"\Header.rtpdump", RtpTools.FileFormat.Header);
+            TestRtpDumpReader(currentPath + @"\Header.rtpdump", Media.RtpTools.FileFormat.Header);
 
-            TestRtpDumpReader(currentPath + @"\AsciiDump.rtpdump", RtpTools.FileFormat.Ascii);
+            TestRtpDumpReader(currentPath + @"\AsciiDump.rtpdump", Media.RtpTools.FileFormat.Ascii);
 
-            TestRtpDumpReader(currentPath + @"\HexDump.rtpdump", RtpTools.FileFormat.Text);
+            TestRtpDumpReader(currentPath + @"\HexDump.rtpdump", Media.RtpTools.FileFormat.Text);
 
-            TestRtpDumpReader(currentPath + @"\ShortDump.rtpdump", RtpTools.FileFormat.Short);
+            TestRtpDumpReader(currentPath + @"\ShortDump.rtpdump", Media.RtpTools.FileFormat.Short);
 
             #endregion
 
@@ -1074,13 +1073,13 @@ namespace Media
             //Maintain a count of how many packets were written for next test
             int writeCount;
 
-            using (RtpTools.RtpDump.DumpReader reader = new RtpTools.RtpDump.DumpReader(currentPath + @"\bark.rtp"))
+            using (Media.RtpTools.RtpDump.DumpReader reader = new Media.RtpTools.RtpDump.DumpReader(currentPath + @"\bark.rtp"))
             {
                 //Each item will be returned as a byte[] reguardless of format
                 //reader.ReadBinaryFileHeader();
 
                 //Write a file with the same attributes as the example file, needs to use DateTimeOffset
-                using (RtpTools.RtpDump.DumpWriter writer = new RtpTools.RtpDump.DumpWriter(currentPath + @"\mybark.rtp", reader.Format, null))
+                using (Media.RtpTools.RtpDump.DumpWriter writer = new Media.RtpTools.RtpDump.DumpWriter(currentPath + @"\mybark.rtp", reader.Format, null))
                 {
 
                     Console.WriteLine("Successfully opened bark.rtpdump");
@@ -1089,7 +1088,7 @@ namespace Media
                     {
                         Console.WriteLine(string.Format(TestingFormat, "ReaderPosition", reader.Position));
 
-                        using (RtpTools.RtpToolEntry entry = reader.ReadNext())
+                        using (Media.RtpTools.RtpToolEntry entry = reader.ReadNext())
                         {
 
                             //Show the format of the item found
@@ -1098,17 +1097,17 @@ namespace Media
                             //Show the string representation of the entry
                             Console.WriteLine(string.Format(TestingFormat, "Entry", entry.ToString()));
 
-                            //Check for RtcpPackets first
+                            //Check for Media.RtcpPackets first
                             if (entry.PacketLength == 0)
                             {
                                 //Reading compound packets out of a single item
-                                foreach (Rtcp.RtcpPacket rtcpPacket in Rtcp.RtcpPacket.GetPackets(entry.Blob, 0, entry.Blob.Length))
+                                foreach (Media.Rtcp.RtcpPacket rtcpPacket in Media.Rtcp.RtcpPacket.GetPackets(entry.Blob, 0, entry.Blob.Length))
                                 {
-                                    Console.WriteLine("Found Rtcp Packet: Type=" + rtcpPacket.PayloadType + " , Length=" + rtcpPacket.Length);
+                                    Console.WriteLine("Found Media.Rtcp Packet: Type=" + rtcpPacket.PayloadType + " , Length=" + rtcpPacket.Length);
 
-                                    //Writing an item for each packet not the compound...
+                                    //Writing an item for each packet not the compound.
 
-                                    //Might need facilites for writing multiple RtcpPackets as a single packet
+                                    //Might need facilites for writing multiple Media.RtcpPackets as a single packet
 
                                     //WritePackets(RtcpPacket[])
                                     //WritePackets(RtcPacket[])
@@ -1118,7 +1117,7 @@ namespace Media
                             }
                             else
                             {
-                                Rtp.RtpPacket rtpPacket = new Rtp.RtpPacket(entry.Blob, 0);
+                                Media.Rtp.RtpPacket rtpPacket = new Media.Rtp.RtpPacket(entry.Blob, 0);
                                 Console.WriteLine("Found Rtp Packet: SequenceNum=" + rtpPacket.SequenceNumber + " , Timestamp=" + rtpPacket.Timestamp + (rtpPacket.Marker ? " MARKER" : string.Empty));
                                 writer.WritePacket(rtpPacket);
                             }
@@ -1167,7 +1166,7 @@ namespace Media
         static void TestRtpPacket()
         {
             //Create a RtpPacket instance
-            Rtp.RtpPacket p = new Rtp.RtpPacket(new Rtp.RtpHeader(0, false, false), Enumerable.Empty<byte>());
+            Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(new Media.Rtp.RtpHeader(0, false, false), Enumerable.Empty<byte>());
 
             //Set a few values
             p.Timestamp = 987654321;
@@ -1180,9 +1179,9 @@ namespace Media
             if (p.ContributingSourceCount != 7) throw contributingSourceException;
 
             //Recreate the packet from the bytes of the result of calling the methods ToArray on the Prepare instance method.
-            p = new Rtp.RtpPacket(p.Prepare().ToArray(), 0);
+            p = new Media.Rtp.RtpPacket(p.Prepare().ToArray(), 0);
 
-            //Perform the same tests... (Todo condense tests into seperate functions)
+            //Perform the same tests. (Todo condense tests into seperate functions)
 
             if (p.SequenceNumber != 7) throw sequenceNumberException;
 
@@ -1267,7 +1266,7 @@ namespace Media
                             if (p.Extension != bitValue) throw extensionException;
 
                             ///////////////Serialize the packet
-                            p = new Rtp.RtpPacket(p.Prepare().ToArray(), 0);
+                            p = new Media.Rtp.RtpPacket(p.Prepare().ToArray(), 0);
                             /////////////
 
                             //Ensure the version remains after modification
@@ -1320,14 +1319,14 @@ namespace Media
                                           0x45, 0x0A, 0x87, 0x75, // .
                                           0xEC, 0x5B, 0x7D, 0xDE, // .
                                           0x82, 0x31, 0xD0, 0xE9, // .
-                                          0xBE, 0xE5, 0x39, 0x8D, // etc... 
+                                          0xBE, 0xE5, 0x39, 0x8D, // etc. 
                                       };
 
-            Rtp.RtpPacket testPacket = new Rtp.RtpPacket(m_SamplePacketBytes, 0);
+            Media.Rtp.RtpPacket testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
 
             if (testPacket.Extension)
             {
-                using (Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
+                using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
                 {
                     // The extension data length is (3 words / 12 bytes) 
                     // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
@@ -1356,15 +1355,15 @@ namespace Media
         private static void TestRtcpPacket()
         {
             //Write all Abstrractions to the console
-            foreach (var abstraction in Rtcp.RtcpPacket.GetImplementedAbstractions())
+            foreach (var abstraction in Media.Rtcp.RtcpPacket.GetImplementedAbstractions())
                 Console.WriteLine(string.Format(TestingFormat, "\tFound Abstraction" ,"Implemented By" + abstraction.Name));
 
             //Write all Implementations to the console
-            foreach (var implementation in Rtcp.RtcpPacket.GetImplementations())
+            foreach (var implementation in Media.Rtcp.RtcpPacket.GetImplementations())
                 Console.WriteLine(string.Format(TestingFormat, "\tPayloadType " + implementation.Key, "Implemented By" + implementation.Value.Name));
 
             //Create a RtpPacket instance
-            Rtcp.RtcpPacket p = new Rtcp.RtcpPacket(new Rtcp.RtcpHeader(0, 0, false, 0), Enumerable.Empty<byte>());
+            Media.Rtcp.RtcpPacket p = new Media.Rtcp.RtcpPacket(new Media.Rtcp.RtcpHeader(0, 0, false, 0), Enumerable.Empty<byte>());
 
             //Set a values
             p.SynchronizationSourceIdentifier = 7;
@@ -1439,7 +1438,7 @@ namespace Media
                             if (p.Padding != bitValue) throw paddingException;
 
                             ///////////////Serialize the packet
-                            p = new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0);
+                            p = new Media.Rtcp.RtcpPacket(p.Prepare().ToArray(), 0);
                             /////////////
 
                             //Ensure the version remains after modification
@@ -1467,100 +1466,100 @@ namespace Media
 
         static void TestRtspMessage()
         {
-            Rtsp.RtspMessage request = new Rtsp.RtspMessage(Rtsp.RtspMessageType.Request);
+            Media.Rtsp.RtspMessage request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
             request.Location = new Uri("rtsp://someServer.com");
-            request.Method = Rtsp.RtspMethod.REDIRECT;
+            request.Method = Media.Rtsp.RtspMethod.REDIRECT;
             request.Version = 7;
             request.CSeq = 2;
             
             byte[] bytes = request.ToBytes();
 
-            Rtsp.RtspMessage fromBytes = new Rtsp.RtspMessage(bytes);
+            Media.Rtsp.RtspMessage fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.Method == request.Method && fromBytes.Location == request.Location && fromBytes.CSeq == request.CSeq))
             {
                 throw new Exception("Request Testing Failed!");
             }
 
-            Rtsp.RtspMessage response = new Rtsp.RtspMessage(Rtsp.RtspMessageType.Response)
+            Media.Rtsp.RtspMessage response = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response)
             {
                 Version = 7
             };
 
-            response.StatusCode = Rtsp.RtspStatusCode.SeeOther;
+            response.StatusCode = Media.Rtsp.RtspStatusCode.SeeOther;
             response.CSeq = fromBytes.CSeq;
             response.Version = fromBytes.Version;
 
             bytes = response.ToBytes();
 
-            fromBytes = new Rtsp.RtspMessage(bytes);
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.StatusCode == response.StatusCode && fromBytes.CSeq == request.CSeq))
             {
                 throw new Exception("Response Testing Failed!");
             }
 
-            //Check without Headers....
+            //Check without Headers.
 
-            request = new Rtsp.RtspMessage(Rtsp.RtspMessageType.Request);
+            request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
             request.Location = new Uri("rtsp://someServer.com");
-            request.Method = Rtsp.RtspMethod.REDIRECT;
+            request.Method = Media.Rtsp.RtspMethod.REDIRECT;
             request.Version = 7;
             
             bytes = request.ToBytes();
 
-            fromBytes = new Rtsp.RtspMessage(bytes);
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.Method == request.Method && fromBytes.Location == request.Location && fromBytes.Version == response.Version))
             {
                 throw new Exception("Request Testing Failed!");
             }
 
-            response = new Rtsp.RtspMessage(Rtsp.RtspMessageType.Response)
+            response = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response)
             {
                 Version = 7
             };
 
-            response.StatusCode = Rtsp.RtspStatusCode.SeeOther;
+            response.StatusCode = Media.Rtsp.RtspStatusCode.SeeOther;
             response.Version = fromBytes.Version;
 
             bytes = response.ToBytes();
 
-            fromBytes = new Rtsp.RtspMessage(bytes);
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.StatusCode == response.StatusCode && fromBytes.Version == response.Version))
             {
                 throw new Exception("Response Testing Failed!");
             }
 
-            //Check With Body...
+            //Check With Body.
 
-            request = new Rtsp.RtspMessage(Rtsp.RtspMessageType.Request);
+            request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
             request.Location = new Uri("rtsp://someServer.com");
-            request.Method = Rtsp.RtspMethod.REDIRECT;
+            request.Method = Media.Rtsp.RtspMethod.REDIRECT;
             request.Version = 7;
             request.Body = "Testing";
 
             bytes = request.ToBytes();
 
-            fromBytes = new Rtsp.RtspMessage(bytes);
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.Method == request.Method && fromBytes.Location == request.Location && fromBytes.Version == response.Version && fromBytes.Body == "Testing\r\n"))
             {
                 throw new Exception("Request Testing Failed!");
             }
 
-            response = new Rtsp.RtspMessage(Rtsp.RtspMessageType.Response)
+            response = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response)
             {
                 Version = 7
             };
 
-            response.StatusCode = Rtsp.RtspStatusCode.SeeOther;
+            response.StatusCode = Media.Rtsp.RtspStatusCode.SeeOther;
             response.Version = fromBytes.Version;
 
             bytes = response.ToBytes();
             
-            fromBytes = new Rtsp.RtspMessage(bytes);
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.StatusCode == response.StatusCode && fromBytes.Version == response.Version && fromBytes.Body == response.Body))
             {
@@ -1575,7 +1574,7 @@ namespace Media
 
         static void TryPrintClientPacket (object sender,  bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false)
         {
-            if (sender is Rtp.RtpClient && (sender as Rtp.RtpClient).Disposed) return;            
+            if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).Disposed) return;            
 
             ConsoleColor previousForegroundColor = Console.ForegroundColor,
                     previousBackgroundColor = Console.BackgroundColor;
@@ -1584,23 +1583,23 @@ namespace Media
 
             Type packetType = packet.GetType();
 
-            if (packet is Rtp.RtpPacket)
+            if (packet is Media.Rtp.RtpPacket)
             {
-                Rtp.RtpPacket rtpPacket = packet as Rtp.RtpPacket;
+                Media.Rtp.RtpPacket rtpPacket = packet as Media.Rtp.RtpPacket;
                 
                 if (packet == null || packet.Disposed) return;
 
                 if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
                 else Console.ForegroundColor = ConsoleColor.Red;
 
-                Rtp.RtpClient client = ((Rtp.RtpClient)sender);
+                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
 
-                Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtpPacket);
+                Media.Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtpPacket);
 
                 if (matched == null)
                 {
-                    Console.WriteLine("****Unknown RtpPacket context: " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty :  "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
-                    foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty :  "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
+                    foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                         Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -1611,7 +1610,7 @@ namespace Media
                 else
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
-                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
+                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
                         rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount 
                         + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
                 }
@@ -1619,16 +1618,16 @@ namespace Media
             }
             else
             {
-                Rtcp.RtcpPacket rtcpPacket = packet as Rtcp.RtcpPacket;
+                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
                 
                 if (packet == null || packet.Disposed) return;
 
                 if (packet.IsComplete) if(packet.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
                 else Console.ForegroundColor = ConsoleColor.Yellow;
 
-                Rtp.RtpClient client = ((Rtp.RtpClient)sender);
+                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
 
-                Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtcpPacket);
+                Media.Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtcpPacket);
 
                 Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
 
@@ -1636,7 +1635,7 @@ namespace Media
                 else
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
-                    foreach (Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                         Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -1653,7 +1652,7 @@ namespace Media
             
         }
 
-        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Rtsp.RtspClient.ClientProtocolType? protocol = null)
+        static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Media.Rtsp.RtspClient.ClientProtocolType? protocol = null)
         {
 
 
@@ -1665,13 +1664,13 @@ namespace Media
 
             StartTest:
             Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
-            Rtsp.RtspClient client = null;
+            Media.Rtsp.RtspClient client = null;
             if (Console.ReadKey().Key != ConsoleKey.Q)
             {
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
-                    //Using a new RtspClient
-                    using (client = new Rtsp.RtspClient(location, protocol))
+                    //Using a new Media.RtspClient
+                    using (client = new Media.Rtsp.RtspClient(location, protocol))
                     {                        
 
                         //Use the credential specified
@@ -1699,12 +1698,12 @@ namespace Media
                         };
 
                         //Define handles once playing
-                        Rtp.RtpClient.RtpPacketHandler rtpPacketReceived = (sender, rtpPacket) =>
+                        Media.Rtp.RtpClient.RtpPacketHandler rtpPacketReceived = (sender, rtpPacket) =>
                         {
-                            TryPrintClientPacket(sender, true, (Common.IPacket)rtpPacket);
+                            TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
                         };
 
-                        Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
+                        Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
                         {
 
                             if (rtpFrame.IsEmpty)
@@ -1724,11 +1723,11 @@ namespace Media
                             }
                         };
 
-                        Rtp.RtpClient.RtcpPacketHandler rtcpPacketReceived = (sender, rtcpPacket) => TryPrintClientPacket(sender, true, (Common.IPacket)rtcpPacket);
+                        Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketReceived = (sender, rtcpPacket) => TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtcpPacket);
 
-                        Rtp.RtpClient.RtcpPacketHandler rtcpPacketSent = (sender, rtcpPacket) => TryPrintClientPacket(sender, false, (Common.IPacket)rtcpPacket);
+                        Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketSent = (sender, rtcpPacket) => TryPrintClientPacket(sender, false, (Media.Common.IPacket)rtcpPacket);
 
-                        Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data) =>
+                        Media.Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data) =>
                         {
                             ++rtspInterleaved;
                             Console.BackgroundColor = ConsoleColor.Cyan;
@@ -1748,14 +1747,14 @@ namespace Media
                             consoleWriter.WriteLine("\t*****************Disconnected from :" + client.Location);                            
                         };
 
-                        //Hanle Rtsp Responses
+                        //Hanle Media.Rtsp Responses
                         client.OnResponse += (sender, request, response) =>
                         {
                             //Track null and unknown responses
                             if (response != null)
                             {
                                 ++rtspIn;
-                                if (response.StatusCode == Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
+                                if (response.StatusCode == Media.Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
                             }
                             else
                             {
@@ -1798,7 +1797,7 @@ namespace Media
                                 consoleWriter.WriteLine("\t*****************Media End Time:" + client.EndTime);
                             }
 
-                            foreach (Rtp.RtpClient.TransportContext tc in client.Client.TransportContexts)
+                            foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.TransportContexts)
                             {
                                 consoleWriter.WriteLine("\t*****************Local Id " + tc.SynchronizationSourceIdentifier);
                                 consoleWriter.WriteLine("\t*****************Remote Id " + tc.RemoteSynchronizationSourceIdentifier);
@@ -1828,7 +1827,7 @@ namespace Media
                         client.ProtocolSwitchTime = TimeSpan.FromSeconds(10);
 
                         //Indicate waiting
-                        Console.WriteLine("Waiting for connection... Press Q to exit");
+                        Console.WriteLine("Waiting for connection. Press Q to exit");
 
                         //Wait for a key press of 'Q' once playing
                         while (!shouldStop)
@@ -1837,7 +1836,7 @@ namespace Media
 
                             TimeSpan playingfor = (DateTime.UtcNow - client.StartedListening.Value);
 
-                            if (client.Playing) Console.WriteLine("Client Playing.... for :" + playingfor.ToString());
+                            if (client.Playing) Console.WriteLine("Client Playing. for :" + playingfor.ToString());
 
                             if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).ToString());
 
@@ -1853,10 +1852,10 @@ namespace Media
                             try
                             {
 
-                                Rtsp.RtspMessage one = null, two = null;
+                                Media.Rtsp.RtspMessage one = null, two = null;
 
                                 //Send a few requests just because
-                                if (client.SupportedMethods.Contains(Rtsp.RtspMethod.GET_PARAMETER))
+                                if (client.SupportedMethods.Contains(Media.Rtsp.RtspMethod.GET_PARAMETER))
                                     one = client.SendGetParameter();
                                 else one = client.SendOptions();
 
@@ -1867,7 +1866,7 @@ namespace Media
                                 //All done with the client
                                 client.StopListening();
 
-                                if (one == null && two == null) Common.ExceptionExtensions.CreateAndRaiseException(client, "Sending In Play Failed");//Must get a response to at least one of these
+                                if (one == null && two == null) Media.Common.ExceptionExtensions.CreateAndRaiseException(client, "Sending In Play Failed");//Must get a response to at least one of these
                                 else Console.WriteLine("Sending Requests In Play Success");
 
                                 if (one != null) consoleWriter.WriteLine(one);
@@ -1916,7 +1915,7 @@ namespace Media
 
         static void TestSdp()
         {
-            Sdp.SessionDescription sd = new Sdp.SessionDescription(@"v=0
+            Media.Sdp.SessionDescription sd = new Media.Sdp.SessionDescription(@"v=0
 o=jdoe 2890844526 2890842807 IN IP4 10.47.16.5
 s=SDP Seminar
 i=A Seminar on the session description protocol
@@ -1931,7 +1930,7 @@ a=rtpmap:99 h263-1998/90000");
 
             Console.WriteLine(sd.ToString());
 
-            sd = new Sdp.SessionDescription(@"v=0
+            sd = new Media.Sdp.SessionDescription(@"v=0
 o=- 1183588701 6 IN IP4 10.3.1.221
 s=Elecard NWRenderer
 i=Elecard streaming
@@ -1956,13 +1955,13 @@ a=mpeg4-esid:101");
 
             //Get a few attributes
 
-            Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p=>p.Contains("mpeg4-iod"))).FirstOrDefault();
+            Media.Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("mpeg4-iod"))).FirstOrDefault();
 
-            Sdp.SessionDescriptionLine connectionLine = sd.Lines.Where(l => l.Type == 'c').FirstOrDefault();
+            Media.Sdp.SessionDescriptionLine connectionLine = sd.Lines.Where(l => l.Type == 'c').FirstOrDefault();
 
             //make a new Sdp using the media descriptions from the old but a new name
 
-            sd = new Sdp.SessionDescription(0)
+            sd = new Media.Sdp.SessionDescription(0)
             {
                 //OriginatorAndSessionIdentifier = sd.OriginatorAndSessionIdentifier,
                 SessionName = sd.SessionName,
@@ -1983,28 +1982,28 @@ a=mpeg4-esid:101");
 
             Console.WriteLine(connectionLine.ToString());
 
-            sd = new Sdp.SessionDescription("v=0\r\no=StreamingServer 3219006789 1223277283000 IN IP4 10.8.127.4\r\ns=/sample_100kbit.mp4\r\nu=http:///\r\ne=admin@\r\nc=IN IP4 0.0.0.0\r\nb=AS:96\r\nt=0 0\r\na=control:*\r\na=mpeg4-iod:\"data:application/mpeg4-iod;base64,AoJrAE///w/z/wOBdgABQNhkYXRhOmF\"");
+            sd = new Media.Sdp.SessionDescription("v=0\r\no=StreamingServer 3219006789 1223277283000 IN IP4 10.8.127.4\r\ns=/sample_100kbit.mp4\r\nu=http:///\r\ne=admin@\r\nc=IN IP4 0.0.0.0\r\nb=AS:96\r\nt=0 0\r\na=control:*\r\na=mpeg4-iod:\"data:application/mpeg4-iod;base64,AoJrAE///w/z/wOBdgABQNhkYXRhOmF\"");
 
             Console.WriteLine(sd);
 
         }
 
         /// <summary>
-        /// Tests the RtspServer by creating a server, loading/exposing a stream and waiting for a keypress to terminate
+        /// Tests the Media.RtspServer by creating a server, loading/exposing a stream and waiting for a keypress to terminate
         /// </summary>
         static void TestServer()
         {
-            //Setup a RtspServer on port 554
-            Rtsp.RtspServer server = new Rtsp.RtspServer();
-            server.Logger = new Rtsp.Server.RtspServerDebuggingLogger();
+            //Setup a Media.RtspServer on port 554
+            Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer();
+            server.Logger = new Media.Rtsp.Server.RtspServerDebuggingLogger();
             
             //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
             //server.EnableUdp();
 
-            //The server will take in RtspSourceStreams and make them available locally
+            //The server will take in Media.RtspSourceStreams and make them available locally
 
             //http://www.wowza.com/html/mobile.html
-            Rtsp.Server.Streams.RtspSourceStream source = new Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov")
+            Media.Rtsp.Server.Streams.RtspSourceStream source = new Media.Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov")
             {
                 //Will force VLC et al to connect over TCP
                 //                m_ForceTCP = true
@@ -2018,34 +2017,34 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Rtsp.RtspClient.ClientProtocolType.Tcp)
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
             {
                 //m_ForceTCP = true
             });
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
             {
                 //m_ForceTCP = true
             });
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", Rtsp.RtspClient.ClientProtocolType.Tcp)
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
             {
                 //m_ForceTCP = true
             });
 
-            //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Rtsp Uri to any YouTube video)
+            //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Media.Rtsp Uri to any YouTube video)
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-            server.AddStream(new Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp")
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp")
             {
                 //m_ForceTCP = true
             });
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            //server.AddStream(new Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
+            //server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
 
-            //Rtsp.Server.Streams.RFC2435Stream imageStream = new Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            //Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/SamplePictures through Udp and Tcp
             //server.AddStream(imageStream);
@@ -2059,10 +2058,10 @@ a=mpeg4-esid:101");
 
             Console.WriteLine("Listening on: " + server.LocalEndPoint);
 
-            Console.WriteLine("Waiting for input................");
-            Console.WriteLine("Press 'U' to Enable Udp on RtspServer");
-            Console.WriteLine("Press 'H' to Enable Http on RtspServer");
-            Console.WriteLine("Press 'T' to Perform Load SubTest on RtspServer");
+            Console.WriteLine("Waiting for input...");
+            Console.WriteLine("Press 'U' to Enable Udp on Media.RtspServer");
+            Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
+            Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
             //Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
             while (true)
@@ -2118,9 +2117,9 @@ a=mpeg4-esid:101");
         }
         
         /// <summary>
-        /// Tests the Rtp and RtspClient in various modes (Against the server)
+        /// Tests the Rtp and Media.RtspClient in various modes (Against the server)
         /// </summary>
-        static void SubTestLoad(Rtsp.RtspServer server)
+        static void SubTestLoad(Media.Rtsp.RtspServer server)
         {
             //100 times about a GB in total
 
@@ -2137,12 +2136,12 @@ a=mpeg4-esid:101");
                 //Create a client
                 if (server.HttpEnabled && i % 2 == 0) 
                 {
-                    //Use Rtsp / Http
-                    using (Rtsp.RtspClient httpClient = new Rtsp.RtspClient("http://localhost/live/Alpha"))
+                    //Use Media.Rtsp / Http
+                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://localhost/live/Alpha"))
                     {
                         try
                         {
-                            Console.WriteLine("Performing Http / Rtsp Test");
+                            Console.WriteLine("Performing Http / Media.Rtsp Test");
 
                             httpClient.StartListening();
 
@@ -2163,12 +2162,12 @@ a=mpeg4-esid:101");
                 }
                 else if (server.UdpEnabled && i % 3 == 0) 
                 {
-                    //Use Rtsp / Udp
-                    using (Rtsp.RtspClient udpClient = new Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
+                    //Use Media.Rtsp / Udp
+                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
                     {
                         try
                         {
-                            Console.WriteLine("Performing Udp / Rtsp Test");
+                            Console.WriteLine("Performing Udp / Media.Rtsp Test");
 
                             udpClient.StartListening();
 
@@ -2189,12 +2188,12 @@ a=mpeg4-esid:101");
                 }
                 else
                 {
-                    //Use Rtsp / Tcp
-                    using (Rtsp.RtspClient tcpClient = new Rtsp.RtspClient("rtsp://localhost/live/Alpha"))
+                    //Use Media.Rtsp / Tcp
+                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://localhost/live/Alpha"))
                     {
                         try
                         {
-                            Console.WriteLine("Performing Rtsp / Tcp Test");
+                            Console.WriteLine("Performing Media.Rtsp / Tcp Test");
 
                             tcpClient.StartListening();
 
@@ -2220,13 +2219,13 @@ a=mpeg4-esid:101");
 
         static void TestJpegFrame()
         {
-            Rtp.RFC2435Frame f;
+            Media.Rtp.RFC2435Frame f;
 
             //Create a RFC2435 Jpeg from a (RFC2035) Jpeg, Any `valid` JPEG should do.
             using (var jpegStream = new System.IO.FileStream("video.jpg", System.IO.FileMode.Open))
             {
                 //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
-                f = new Rtp.RFC2435Frame(jpegStream, 25);
+                f = new Media.Rtp.RFC2435Frame(jpegStream, 25);
 
                 //Save the JpegFrame as a Image (Decoding performed)
                 using (System.Drawing.Image jpeg = f)
@@ -2239,9 +2238,9 @@ a=mpeg4-esid:101");
             }
             
             //Create a JpegFrame from existing RtpPackets
-            using (Rtp.RFC2435Frame x = new Rtp.RFC2435Frame())
+            using (Media.Rtp.RFC2435Frame x = new Media.Rtp.RFC2435Frame())
             {
-                foreach (Rtp.RtpPacket p in f) x.Add(p);
+                foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
 
                 //Save JpegFrame as Image
                 using (System.Drawing.Image jpeg = x)
@@ -2257,7 +2256,7 @@ a=mpeg4-esid:101");
             //Create a RFC2435Frame from an existing image and store the quantization tables in the frame.
             using (var image = System.Drawing.Image.FromFile("flip.jpg"))
             {
-                Rtp.RFC2435Frame t = Rtp.RFC2435Frame.Packetize(image, 100);
+                Media.Rtp.RFC2435Frame t = Media.Rtp.RFC2435Frame.Packetize(image, 100);
 
                 using (System.Drawing.Image jpeg = t)
                 {
@@ -2280,13 +2279,13 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Rtp.RFC2435Frame restartFrame = new Rtp.RFC2435Frame())
+            using (Media.Rtp.RFC2435Frame restartFrame = new Media.Rtp.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
                 {
                     //Create a temporary packet
-                    Rtp.RtpPacket interpreted = new Rtp.RtpPacket(binary, 0);
+                    Media.Rtp.RtpPacket interpreted = new Media.Rtp.RtpPacket(binary, 0);
                     restartFrame.Add(interpreted);
                 }
                 
