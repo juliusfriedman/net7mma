@@ -88,6 +88,7 @@ namespace Media.Rtcp
         /// <returns>A pointer to each packet found</returns>
         public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int index, int count, int version = 2, int? payloadType = null, int? ssrc = null)
         {
+
             //array.GetLowerBound(0) for VB, UpperBound(0) is then the index of the last element
             int lowerBound = 0, upperBound = array.Length; 
 
@@ -103,16 +104,16 @@ namespace Media.Rtcp
             //Start parsing at the given offset
             int offset = 0;
 
-            OctetSegment parsing = new OctetSegment(array, index, count);
-
             //While  a 32 bit value remains to be read in the vector
             while (offset + 4 < count)
             {
+                OctetSegment parsing = new OctetSegment(array, index, count);
+
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
                 using (var header =  new RtcpHeader(parsing, offset))  ///new RtcpHeader(array, offset))
                 {
                     //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(Math.Abs(count - index), Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(count, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
                     {
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;

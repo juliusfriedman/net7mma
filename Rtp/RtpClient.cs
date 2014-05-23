@@ -1451,7 +1451,7 @@ namespace Media.Rtp
                 //Determine a good size
                 
                 //m_BufferLength = (RtpPacket.MaxPacketSize + RtcpHeader.RtcpHeaderLength);// 4 for RFC2326 + RFC4571 bytes ($,id,{len0,len1})
-                m_BufferLength = 1504;
+                m_BufferLength = 4096;
 
                 m_Buffer = new byte[m_BufferLength];
                 m_BufferOffset = 0;
@@ -2129,11 +2129,14 @@ namespace Media.Rtp
         //http://tools.ietf.org/search/rfc4571
         internal int ReadRFC2326FrameHeader(int received,  out byte frameChannel, out RtpClient.TransportContext context, int? offset = null)
         {
+
             //There is no relevant TransportContext assoicated yet.
             context = null;
 
             //The channel of the frame - The Framing Method
             frameChannel = default(byte);
+
+            if (received <= 0) return 0;
 
             //Look for the frame control octet
             int mOffset = offset ?? m_BufferOffset, startOfFrame = Array.IndexOf<byte>(m_Buffer, BigEndianFrameControl, mOffset, received);
@@ -2148,7 +2151,7 @@ namespace Media.Rtp
             else if (startOfFrame > offset) // If the start of the frame is not at the beginning of the buffer
             {
                 //The data which corresponds to the upper layer is given by (2/4/14/) Fix framing
-                int upperLayerData = startOfFrame - m_BufferOffset;
+                int upperLayerData = startOfFrame - mOffset;
 
                 System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
 
@@ -2296,7 +2299,7 @@ namespace Media.Rtp
             //Cache the offset at the time of the call
             int offset = m_BufferOffset,
                 //Reeive data                
-                received = socket.Receive(m_Buffer, offset, m_BufferLength - 1, SocketFlags.None, out error);
+                received = socket.Receive(m_Buffer, offset, m_BufferLength, SocketFlags.None, out error);
 
             //If the receive was a success
             if (received > 0)
@@ -2321,7 +2324,7 @@ namespace Media.Rtp
                     int frameLength = ReadRFC2326FrameHeader(received, out frameChannel, out relevent);
 
                 GetContext:
-                    if (relevent == null && received <= frameLength)
+                    if (relevent == null && frameLength > 0)
                     {
 
                         //System.Diagnostics.Debug.WriteLine("(Skipping) FrameLength = " + frameLength + " From Channel=" + frameChannel);
@@ -2340,7 +2343,7 @@ namespace Media.Rtp
                             newFrameLength = ReadRFC2326FrameHeader(justReceived, out nextChannel, out next);
 
                             //Peek for new frame
-                            if (next != null && newFrameLength > 0 && frameChannel != nextChannel)
+                            if (next != null && newFrameLength > 0)
                             {
                                 received = justReceived;
                                 frameLength = newFrameLength;
@@ -2349,27 +2352,44 @@ namespace Media.Rtp
                                 goto GetContext;
                             }
                         }
-
+                        
                         //Do not complete data
                         return received + toSkip;
                     }
                     else 
                     {
-                        expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
-                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
-                        offset += frameLength + TCP_OVERHEAD;
 
-                        int remaining = offset - received - TCP_OVERHEAD;
+                        if (relevent != null && frameLength > 0)
+                        {
+                            expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
+                        }
 
-                        while (remaining > TCP_OVERHEAD && (frameLength = ReadRFC2326FrameHeader(received, out frameChannel, out relevent, offset)) > 0)
+                        offset += (frameLength + TCP_OVERHEAD);
+
+                        int remaining = received - (frameLength + TCP_OVERHEAD);
+
+                        while (remaining >= TCP_OVERHEAD && (frameLength = ReadRFC2326FrameHeader(remaining, out frameChannel, out relevent, offset)) > 0)
                         {
                             System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
                             if (relevent == null) goto NoParse;
                             expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
-                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
+
+                            int extra = frameLength - remaining;
+
+                            if (extra > 0 && frameLength < m_BufferLength)
+                            {
+                                Array.Copy(m_Buffer, offset + TCP_OVERHEAD, m_Buffer, m_BufferOffset, remaining);
+                                received += Utility.AlignedReceive(m_Buffer, m_BufferOffset + remaining, extra, socket, out error);
+                                remaining += extra;
+                                offset = m_BufferOffset;
+                                remaining = frameLength;
+                            }
+
+                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(remaining, frameLength)), expectRtcp, expectRtp, Math.Min(remaining, frameLength));
                         NoParse:
                             offset += frameLength + TCP_OVERHEAD;
-                            remaining -= frameLength - TCP_OVERHEAD;
+                            remaining -= (frameLength + TCP_OVERHEAD);
                         }
 
                         return received;
