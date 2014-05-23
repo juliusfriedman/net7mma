@@ -1725,7 +1725,7 @@ namespace Media.Rtsp
             if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, 0, m_RtspTimeout.Milliseconds);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtpClient.InactivityTimeout.Milliseconds, m_RtspTimeout.Milliseconds);
                 }
 
                 //Set the value of the timeout before connected

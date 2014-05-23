@@ -65,18 +65,7 @@ namespace Tests
 
                 Client.OnConnect += client_OnConnect;
 
-                ClientThreadProc = new Thread(() =>
-                {
-                    try
-                    {
-                        Client.Connect();
-                    }
-                    catch(Exception ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                    }
-
-                });
+                ClientThreadProc = new Thread(Client.Connect);
 
                 ClientThreadProc.Start();
 
@@ -141,11 +130,8 @@ namespace Tests
 
         void m_RtpClient_RtcpPacketReceieved(object sender, Media.Rtcp.RtcpPacket packet)
         {
-            if (packet.IsComplete)
-            {
-                if (this.InvokeRequired) Invoke(new FillGridC(AddRtcp), packet.Clone(true, true, true));
-                else RTCPPacketBinding.Add(packet.Clone(true, true, true));
-            }
+            if (this.InvokeRequired) Invoke(new FillGridC(AddRtcp), packet.Clone(true, true, true));
+            else RTCPPacketBinding.Add(packet.Clone(true, true, true));
         }
 
         delegate void FillGridR(Media.Rtp.RtpPacket packet);
@@ -242,11 +228,8 @@ namespace Tests
 
         void m_RtpClient_RtpPacketReceieved(object sender, Media.Rtp.RtpPacket packet)
         {
-            if (packet.IsComplete)
-            {
-                if (this.InvokeRequired) Invoke(new FillGridR(AddRtp), packet.Clone(true, true, true, true, true));
-                else RTPPacketBinding.Add((IPacket)packet.Clone(true, true, true, true, true));
-            }
+            if (this.InvokeRequired) Invoke(new FillGridR(AddRtp), packet.Clone(true, true, true, true, true));
+            else RTPPacketBinding.Add((IPacket)packet.Clone(true, true, true, true, true));
         }
 
         void sender_OnDisconnect(RtspClient sender, object args)

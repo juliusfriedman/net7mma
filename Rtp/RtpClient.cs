@@ -1124,7 +1124,7 @@ namespace Media.Rtp
             if (packet.Header.IsCompressed)
             {
                 return;
-            }
+            }            
 
             //Get the transportChannel for the packet by the payload type of the RtpPacket, not the SSRC because it may have not yet been defined.
             //This is not per RFC3550
@@ -1178,7 +1178,8 @@ namespace Media.Rtp
                                                                             //|| packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier
             if (!transportContext.ValidatePacketAndUpdateSequenceNumber(localPacket)) return;
             //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
-            else OnRtpPacketReceieved(packet);
+            
+            OnRtpPacketReceieved(packet);
 
             //If we have not allocated a currentFrame
             if (transportContext.CurrentFrame == null)
@@ -2191,9 +2192,7 @@ namespace Media.Rtp
              * 
              * No more no less, Exactly one (When not m_LegacyFraming which is checked by ParseAndCompleteData) */
 
-            //Determine the relevant transportcontext if any
-            foreach(TransportContext tc in TransportContexts)
-                if (tc.DataChannel == frameChannel || tc.ControlChannel == frameChannel) { context = tc; break; }
+            context = GetContextByChannel(frameChannel);
 
             //Determine how may how more bytes need to be read to complete the frame
             return frameLength;
@@ -2310,7 +2309,7 @@ namespace Media.Rtp
                     if (received < TCP_OVERHEAD)
                     {
                         while (TCP_OVERHEAD > received)
-                            socket.Receive(m_Buffer, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
+                            received += socket.Receive(m_Buffer, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
                     }
 
                     //Determine which TransportContext will receive the data incoming
@@ -2321,11 +2320,8 @@ namespace Media.Rtp
                     //Read the framing using the framing indicated.
                     int frameLength = ReadRFC2326FrameHeader(received, out frameChannel, out relevent);
 
-                    if (frameLength == 0) return TCP_OVERHEAD;
-                    //There is no context to receive the data
-                    
                 GetContext:
-                    if (relevent == null)
+                    if (relevent == null && received <= frameLength)
                     {
 
                         //System.Diagnostics.Debug.WriteLine("(Skipping) FrameLength = " + frameLength + " From Channel=" + frameChannel);
@@ -2357,49 +2353,26 @@ namespace Media.Rtp
                         //Do not complete data
                         return received + toSkip;
                     }
-                    else
+                    else 
                     {
+                        if (received > frameLength)
+                        {
+                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
+                            offset += frameLength + TCP_OVERHEAD;
+                        }
 
-                        //Determine to parse one or both
-                        expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                        int remaining = offset - received - TCP_OVERHEAD;
 
-                        System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
-
-                        offset += TCP_OVERHEAD;//Framing
-                        received -= TCP_OVERHEAD;
-
-                        //Use the data received to parse and complete any recieved packets, should take a parseState
-                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset, Math.Min(received,frameLength)), expectRtcp, expectRtp, Math.Min(received, frameLength));
-
-                        return received + TCP_OVERHEAD + frameLength;
-
-                        //frameLength -= received;
-
-                        ////While there is data in the frame
-                        //while (frameLength > 0)
-                        //{
-                        //    offset = m_BufferOffset;
-
-                        //    int justReceived = Utility.AlignedReceive(m_Buffer, offset, Math.Min(m_BufferLength, frameLength), socket, out error);
-
-                        //    frameLength -= justReceived;
-                        //    received += justReceived;
-
-                        //    if (justReceived > 0)
-                        //    {
-                        //        //System.Diagnostics.Debug.WriteLine("PartialData" + justReceived + "of" + frameLength);
-                        //        //Use the data received to parse and complete any recieved packets, should take a parseState
-                        //        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset, justReceived), expectRtcp, expectRtp);
-                        //    }
-                        //    else
-                        //    {
-
-                        //        return received;
-                        //    }
-                        //}
-
-                        //return received;
-
+                        while (remaining > TCP_OVERHEAD && (frameLength = ReadRFC2326FrameHeader(received, out frameChannel, out relevent, offset)) > 0)
+                        {
+                            System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
+                            if (relevent == null) goto NoParse;
+                            expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
+                        NoParse:
+                            offset += frameLength + TCP_OVERHEAD;
+                            remaining -= frameLength - TCP_OVERHEAD;
+                        }
                     }
                 }
                 //Use the data received to parse and complete any recieved packets, should take a parseState
@@ -2663,7 +2636,7 @@ namespace Media.Rtp
             catch (ObjectDisposedException) { m_StopRequested = true; return; }
             catch
             {
-                m_StopRequested = true;
+                m_StopRequested = !Connected;
                 throw;
             }
         }
