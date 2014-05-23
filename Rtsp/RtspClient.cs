@@ -98,7 +98,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The buffer this client uses for all requests 4MB * 2
         /// </summary>
-        byte[] m_Buffer = new byte[2 * RtspMessage.MaximumLength];
+        byte[] m_Buffer = new byte[4 * RtspMessage.MaximumLength];
 
         /// <summary>
         /// The remote IPAddress to which the Location resolves via Dns
@@ -202,12 +202,20 @@ namespace Media.Rtsp
         public TimeSpan Timeout { get { return m_RtspTimeout; }
             set
             {
-                if (value <= TimeSpan.Zero) return; 
-                
                 m_RtspTimeout = value;
+                
+                if (m_RtspTimeout <= TimeSpan.Zero)
+                {
+                    if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
+                    m_KeepAliveTimer = null;
+                }
+                
+                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null ? (m_RtspTimeout - (DateTime.Now - m_LastTransmitted.Created)) : m_RtspTimeout, m_RtspTimeout);
+                
+                
 
                 //Update the timer period
-                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null ? (m_RtspTimeout - (DateTime.Now - m_LastTransmitted.Created)) : m_RtspTimeout, m_RtspTimeout);
+                
             }
         }
 
@@ -596,6 +604,7 @@ namespace Media.Rtsp
                 catch (Exception ex)
                 {
                     Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not Play media. See InnerException.", ex);
+                    return;
                 }
             }
 
@@ -851,7 +860,7 @@ namespace Media.Rtsp
                 if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
 
             Receive:
-                received += m_RtspSocket.Receive(m_Buffer, offset, max, SocketFlags.None, out error);
+                received = m_RtspSocket.Receive(m_Buffer, offset, max, SocketFlags.None, out error);
 
                 if (error == SocketError.ConnectionReset) return null;
 
@@ -880,7 +889,7 @@ namespace Media.Rtsp
                     if (error == SocketError.TryAgain) goto Receive;
 
                     //If any more data is present it belongs to the lower layer unless the client is already connected
-                    if (received > max) m_RtpClient.HandleInterleavedData(this, new ArraySegment<byte>(m_Buffer, max, m_Buffer.Length - max));
+                    if (received > max) m_RtpClient.HandleInterleavedData(this, new ArraySegment<byte>(m_Buffer, max, received - max));
                 }
 
             Wait:
@@ -1387,7 +1396,7 @@ namespace Media.Rtsp
                             if (m_RtpClient == null)
                             {
                                 //Create a Duplexed reciever using the RtspSocket
-                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength));
+                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength * 2));
                                 m_RtpClient.InterleavedData += ProcessInterleaveData;
                                 m_RtpClient.IncomingPacketEventsEnabled = true;
                                 m_RtpClient.InactivityTimeout = contextReportInterval;                                
@@ -1725,7 +1734,7 @@ namespace Media.Rtsp
                 if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, 0, m_RtspTimeout.Milliseconds);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout.Milliseconds, 10000);
                 }
 
                 //Set the value of the timeout before connected
@@ -1745,6 +1754,8 @@ namespace Media.Rtsp
             try
             {
 
+                if (!Connected) Connect();
+
                 //Darwin DSS and other servers might not support GET_PARAMETER
                 if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
                 {
@@ -1759,7 +1770,9 @@ namespace Media.Rtsp
             }
             catch
             {
-                return;
+                if(m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
+                m_KeepAliveTimer = null;
+                //Disconnect();
             }
         }
 

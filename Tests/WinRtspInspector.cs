@@ -69,7 +69,7 @@ namespace Tests
 
                 ClientThreadProc.Start();
 
-                button1.Text = "Stop";
+                button1.Text = "Stop";                
 
                 // Initialize the DataGridView.
                 dataGridView2.AutoGenerateColumns = true;
@@ -96,8 +96,12 @@ namespace Tests
         void sender_OnResponse(RtspClient sender, RtspMessage request, RtspMessage response)
         {
 
+
+
             if (request != null && response != null)
             {
+
+                if (checkBox1.Checked) Client.Timeout = TimeSpan.Zero;
 
                 if (this.InvokeRequired)
                 {
@@ -116,7 +120,7 @@ namespace Tests
         {
             sender.OnDisconnect += sender_OnDisconnect;
             sender.m_RtpClient.RtpPacketReceieved += m_RtpClient_RtpPacketReceieved;
-            sender.m_RtpClient.RtcpPacketReceieved += m_RtpClient_RtcpPacketReceieved;
+            sender.m_RtpClient.RtcpPacketReceieved += m_RtpClient_RtcpPacketReceieved;           
 
             sender.m_RtpClient.MaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
 
@@ -250,6 +254,11 @@ namespace Tests
             label2.Text = label4.Text = string.Empty;
             pictureBox1.Image = BandwidthBitmap;
             pictureBox1.Refresh();
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            checkBox1.Checked = comboBox1.SelectedIndex == 1;
         }
 
     }
