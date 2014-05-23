@@ -2355,11 +2355,9 @@ namespace Media.Rtp
                     }
                     else 
                     {
-                        if (received > frameLength)
-                        {
-                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
-                            offset += frameLength + TCP_OVERHEAD;
-                        }
+                        expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
+                        offset += frameLength + TCP_OVERHEAD;
 
                         int remaining = offset - received - TCP_OVERHEAD;
 
@@ -2373,6 +2371,8 @@ namespace Media.Rtp
                             offset += frameLength + TCP_OVERHEAD;
                             remaining -= frameLength - TCP_OVERHEAD;
                         }
+
+                        return received;
                     }
                 }
                 //Use the data received to parse and complete any recieved packets, should take a parseState
@@ -2637,7 +2637,7 @@ namespace Media.Rtp
             catch
             {
                 m_StopRequested = !Connected;
-                throw;
+                return;
             }
         }
 

@@ -221,7 +221,8 @@ namespace Tests
             else
             {
                 button1.Text = "STOP";
-                label2.Text = "Done Playing";
+                if (Client.LivePlay) label2.Text = "Live Play";
+                else label2.Text = "Done Playing";
             }
         }
     
