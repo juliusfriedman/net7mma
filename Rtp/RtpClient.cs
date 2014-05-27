@@ -1150,10 +1150,10 @@ namespace Media.Rtp
                 System.Diagnostics.Debug.WriteLine("Discarding packet version=" + packet.Version+ " type=" + packet.PayloadType + " len=" + packet.Length);
                 return;
             }
-            //else if (transportContext.IsValid && transportContext.RemoteSynchronizationSourceIdentifier.HasValue && transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier)
-            //{
-            //    transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
-            //}
+            else if (transportContext.IsValid && transportContext.RemoteSynchronizationSourceIdentifier.HasValue && transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier)
+            {
+                transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
+            }
 
             //Sample the clock
             transportContext.m_LastRtpIn = packet.Created;

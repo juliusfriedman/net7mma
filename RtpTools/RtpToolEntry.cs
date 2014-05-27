@@ -173,6 +173,7 @@ namespace Media.RtpTools
         {
             //get { return Blob.Skip(TimevalSize + Blob.Length - Length); }
             get { return Blob.Skip((TimevalSize - 2) + Pointer).Take(MaxSize); } //Couldn't get the math to add up yet
+            //SHould just be size of rd_hdr or whatever
         }
 
         public int Pointer = sizeOf_RD_packet_T;
@@ -421,6 +422,8 @@ namespace Media.RtpTools
         public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet)
         {
             //Create header from source, and packet.Created, if Is64Bit
+            //Also needs rd hdrs
+            Blob = packet.Prepare().ToArray();
         }
 
         #endregion

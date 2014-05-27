@@ -1594,12 +1594,14 @@ namespace Tests
 
                 Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
 
-                Media.Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtpPacket);
+                Media.Rtp.RtpClient.TransportContext matched = null;
+
+                if (client != null) client.GetContextForPacket(rtpPacket);
 
                 if (matched == null)
                 {
                     Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty :  "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
-                    foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    if(client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                         Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -1627,7 +1629,9 @@ namespace Tests
 
                 Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
 
-                Media.Rtp.RtpClient.TransportContext matched = client.GetContextForPacket(rtcpPacket);
+                Media.Rtp.RtpClient.TransportContext matched = null;
+
+                if (client != null) client.GetContextForPacket(rtcpPacket);
 
                 Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
 
@@ -1635,7 +1639,7 @@ namespace Tests
                 else
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
-                    foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                         Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -1685,11 +1689,13 @@ namespace Tests
                                 //Set a timeout to wait for responses (in milliseconds), they will be recalulcated when the Setup is performed according to information in the SDP.
                                 client.SocketWriteTimeout = client.SocketReadTimeout = 0;
 
-                                consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
+
+                                
 
                                 //Try to start listening
                                 try
                                 {
+                                    consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
                                     client.StartListening();
                                     consoleWriter.WriteLine("\t*****************\nStartedListening to :" + client.Location);
                                 }

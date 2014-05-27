@@ -197,7 +197,7 @@ namespace Media.Rtp
             //Assign the header (maybe referenced elsewhere, when dispose is called the given header will be disposed.)
             Header = header;
 
-            m_OwnsHeader = ownsHeader;
+            ShouldDispose = m_OwnsHeader = ownsHeader;
 
             //Project the octets in the sequence
             m_OwnedOctets = octets.ToArray();
@@ -218,7 +218,7 @@ namespace Media.Rtp
 
             Header = header;
 
-            m_OwnsHeader = ownsHeader;
+            ShouldDispose = m_OwnsHeader = ownsHeader;
 
             Payload = payload;
         }
@@ -236,8 +236,8 @@ namespace Media.Rtp
 
             //Read the header
             Header = new RtpHeader(buffer, offset);
-            
-            m_OwnsHeader = true;
+
+            ShouldDispose = m_OwnsHeader = true;
 
             if (bufferLength > RtpHeader.Length && !Header.IsCompressed)
             {
@@ -424,7 +424,7 @@ namespace Media.Rtp
             IEnumerable<byte> binarySequence = Enumerable.Empty<byte>();
 
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-            if (includeSourceList && includeExtension && selfReference) return new RtpPacket(Header.Clone(true), Payload);
+            if (includeSourceList && includeExtension && selfReference) return new RtpPacket(Header.Clone(), Payload);
 
             bool hasSourceList = ContributingSourceCount > 0;
 

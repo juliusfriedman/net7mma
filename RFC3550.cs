@@ -320,8 +320,11 @@ namespace Media
         public static int ReadPadding(ArraySegment<byte> segment, int position)
         {
 
+
+            int segmentCount = segment.Count;
+
             //If there are no more bytes to parse we cannot continue
-            if (segment.Count == 0 || position > segment.Count) return 0;
+            if (segmentCount == 0 || position > segmentCount) return 0;
 
             /*
               If the padding bit is set, the packet contains one or more
@@ -331,11 +334,10 @@ namespace Media
               may be needed by some encryption algorithms with fixed block sizes
               or for carrying several RTP packets in a lower-layer protocol data unit.
           */
-
-            int endSegment = segment.Count;
+            
 
             //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
-            for (; position < endSegment; ++position)
+            for (; position < segmentCount; ++position)
             {
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
                 if (segment.Array[position] != 0)
@@ -345,7 +347,7 @@ namespace Media
                 }
             }
 
-            if (position == endSegment) return 0;
+            if (position == segmentCount) return 0;
             //Return the amount of bytes in the padding.
             return segment.Array[position];
         }

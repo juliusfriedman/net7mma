@@ -134,8 +134,8 @@ namespace Tests
 
         void m_RtpClient_RtcpPacketReceieved(object sender, Media.Rtcp.RtcpPacket packet)
         {
-            if (this.InvokeRequired) Invoke(new FillGridC(AddRtcp), packet.Clone(true, true, true));
-            else RTCPPacketBinding.Add(packet.Clone(true, true, true));
+            if (this.InvokeRequired) Invoke(new FillGridC(AddRtcp), packet.Clone(true, true, false));
+            else RTCPPacketBinding.Add(packet.Clone(true, true, false));
         }
 
         delegate void FillGridR(Media.Rtp.RtpPacket packet);
