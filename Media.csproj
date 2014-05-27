@@ -98,7 +98,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Rtcp\AppplicationSpecificReport.cs" />
-    <Compile Include="Rtcp\GoodbyeChunk.cs" />
     <Compile Include="Rtcp\GoodbyeReport.cs" />
     <Compile Include="Rtcp\IReportBlock.cs" />
     <Compile Include="Rtcp\ReceiversReport.cs" />

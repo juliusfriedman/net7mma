@@ -287,7 +287,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient is connected to the remote host
         /// </summary>
-        public bool Connected { get { return m_RtspSocket != null && (m_RtspSocket.Connected); } }
+        public bool Connected { get { return m_RtspSocket != null && m_RtspSocket.Connected; } }
 
         /// <summary>
         /// The network credential to utilize in RtspRequests
@@ -624,6 +624,7 @@ namespace Media.Rtsp
         {
             try
             {
+                IAsyncResult connectResult = null;
                 if (Connected) return;
                 else if (m_RtspSocket == null)
                 {
@@ -671,9 +672,12 @@ namespace Media.Rtsp
 
                         m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0;
 
-                        m_RtspSocket.Connect(m_RemoteRtsp);
-
-                        OnConnected();
+                        connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
+                        {
+                            m_RtspSocket.EndConnect(iar);
+                            
+                            OnConnected();
+                        }), null);
 
                     }
                     else if (m_RtspProtocol == ClientProtocolType.Unreliable)
@@ -689,21 +693,17 @@ namespace Media.Rtsp
                 {
                     try
                     {
-                        var connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, null, null);
-
-                        while (!connectResult.IsCompleted)
+                        connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
                         {
-                            System.Threading.Thread.Yield();
-                        }
-
-                        m_RtspSocket.EndConnect(connectResult);
-
-                        if (m_RtspSocket.Connected) OnConnected();
-                        else Connect();
+                            m_RtspSocket.EndConnect(iar);
+                        }), null);
                     }
-                    catch { }
+                    catch { return; }
 
                 }
+
+                if(connectResult != null) while (!connectResult.IsCompleted) System.Threading.Thread.Yield();
+
             }
             catch
             {
@@ -839,9 +839,8 @@ namespace Media.Rtsp
                 sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
 
                 if (error == SocketError.ConnectionReset) return null;
-
                 //Fire the event
-                Requested(request);
+                else Requested(request);
 
                 //If we could not send the message indicate so
                 if (sent < length) return null;
@@ -1734,7 +1733,7 @@ namespace Media.Rtsp
                 if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
                     //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout.Milliseconds, 10000);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout.Milliseconds, -1);
                 }
 
                 //Set the value of the timeout before connected
@@ -1756,8 +1755,9 @@ namespace Media.Rtsp
 
                 if (!Connected) Connect();
 
+                if (!Connected) return;
                 //Darwin DSS and other servers might not support GET_PARAMETER
-                if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
+                else if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
                 {
                     SendGetParameter(null);
                 }
@@ -1766,7 +1766,8 @@ namespace Media.Rtsp
                     SendOptions();
                 }
 
-                m_KeepAliveTimer.Change(m_RtspTimeout, System.Threading.Timeout.InfiniteTimeSpan);                
+                m_KeepAliveTimer.Change(m_RtspTimeout, System.Threading.Timeout.InfiniteTimeSpan);
+
             }
             catch
             {

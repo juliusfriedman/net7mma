@@ -105,15 +105,15 @@ namespace Media.Rtcp
             int offset = 0;
 
             //While  a 32 bit value remains to be read in the vector
-            while (offset + 4 < count)
+            while (offset + 4 < count && count - offset >= RtcpHeader.Length)
             {
-                OctetSegment parsing = new OctetSegment(array, index, count);
+                //OctetSegment parsing = new OctetSegment(array, index + offset, count - offset);
 
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
-                using (var header =  new RtcpHeader(parsing, offset))  ///new RtcpHeader(array, offset))
+                using (var header = new RtcpHeader(new OctetSegment(array, index + offset, count - offset)))  ///new RtcpHeader(array, offset))
                 {
                     //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + RtcpHeader.Length, Math.Min(count, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + offset + RtcpHeader.Length, Math.Min(count, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
                     {
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;
@@ -504,7 +504,7 @@ namespace Media.Rtcp
             try
             {
                 //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-                if (padding && selfReference || Payload.Count == 0) return new RtcpPacket(new RtcpHeader(Header, true), Payload);
+                if (padding && selfReference || Payload.Count == 0) return new RtcpPacket(Header.Clone(), Payload);
 
                 if (padding && reportBlocks) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Offset).Take(Payload.Count));//Take everything that is left if padding and coeffecients are included.
                 else if (reportBlocks) binarySequence = binarySequence.Concat(RtcpData); //Add the binary data to the packet except any padding
@@ -550,8 +550,8 @@ namespace Media.Rtcp
             //Read from the stream, decrementing from octetsRemaining what was read.
             while (octetsRemaining > 0)
             {
-                offset += Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
-                octetsRemaining -= offset;
+                Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                offset += octetsRemaining;
             }
 
             //Re-allocate the segment around the received data.

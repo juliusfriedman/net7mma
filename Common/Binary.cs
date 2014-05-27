@@ -516,7 +516,7 @@ namespace Media.Common
         /// <returns>The reversed unsigned 8 bit value</returns>
         public static byte ReverseU8(byte source)
         {
-            http://graphics.stanford.edu/~seander/bithacks.html
+            //http://graphics.stanford.edu/~seander/bithacks.html
             //per Rich Schroeppel in the Programming Hacks section of  Beeler, M., Gosper, R. W., and Schroeppel, R. HAKMEM. MIT AI Memo 239, Feb. 29, 1972. 
             return (byte)((source * 0x0202020202UL & 0x010884422010UL) % 1023);
         }

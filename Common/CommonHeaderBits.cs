@@ -386,7 +386,7 @@ namespace Media.Common
 
         public CommonHeaderBits(OctetSegment memory, int additionalOffset = 0)
         {
-            if (memory.Count - additionalOffset < 2) throw new InvalidOperationException("at least two octets are required in memory");
+            if (Math.Abs(memory.Count - additionalOffset) < 2) throw new InvalidOperationException("at least two octets are required in memory");
 
             m_Memory = new OctetSegment(memory.Array, memory.Offset + additionalOffset, 2);
         }

@@ -269,7 +269,7 @@ namespace Media.Rtcp
 
         public RtcpHeader(OctetSegment memory, int additionalOffset = 0) 
         {
-            if (memory.Count - additionalOffset < 4) throw new ArgumentException("memory must contain at least 4 elements", "memory");
+            if (Math.Abs(memory.Count - additionalOffset) < 4) throw new ArgumentException("memory must contain at least 4 elements", "memory");
 
             First16Bits = new CommonHeaderBits(memory, additionalOffset);
 
