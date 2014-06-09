@@ -184,9 +184,9 @@ namespace Media.Rtsp
         /// </summary>
         public int SendTimeout { get { return m_TcpServerSocket.SendTimeout; } set { m_TcpServerSocket.SendTimeout = value; } }
 
-        /// <summary>
-        /// The amount of time before the RtpServer will remove a session if no Rtp activity has occured.
-        /// </summary>
+        ///// <summary>
+        ///// The amount of time before the RtpServer will remove a session if no Rtp activity has occured.
+        ///// </summary>
         //public int ClientRtpInactivityTimeoutSeconds { get; set; }
 
         //For controlling Port ranges, Provide events so Upnp support can be plugged in? PortClosed/PortOpened(ProtocolType, startPort, endPort?)
@@ -519,35 +519,16 @@ namespace Media.Rtsp
 
             string streamBase = null, streamName = null;
 
-            foreach (string segmentPart in mediaLocation.Segments)
-            {
-                string segment = segmentPart.Replace("/", string.Empty);
+            streamBase = mediaLocation.Segments.Any(s=>s.ToLowerInvariant().Contains("live")) ? "live" : "archive";
 
-                if (segment.ToLowerInvariant() == "live")
-                {
-                    //Live play
-                    streamBase = segment;
-                    continue;
-                }
-                else if (segment.ToLowerInvariant() == "archive"){  
+            streamName = mediaLocation.Segments.Last().ToLowerInvariant().Replace("/", string.Empty);
 
-                    //Archive
-                    streamBase = segment; 
-                    continue; 
-                }
-
-                //If we have the base then the next part is our streamName
-                if (streamBase != null) 
-                {
-                    //Convert to lower case
-                    streamName = segment.ToLowerInvariant();
-                    //Done
-                    break;
-                }
-            }
+            if (string.IsNullOrWhiteSpace(streamName)) streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 1].ToLowerInvariant().Replace("/",string.Empty);
+            else if (streamName == "video" || streamName == "audio") streamName = mediaLocation.Segments[mediaLocation.Segments.Length - 2].ToLowerInvariant().Replace("/", string.Empty);
 
             //If either the streamBase or the streamName is null or Whitespace then return null (no stream)
             if (string.IsNullOrWhiteSpace(streamBase) || string.IsNullOrWhiteSpace(streamName)) return null;
+
 
             //handle live streams
             if (streamBase == "live")
@@ -556,7 +537,7 @@ namespace Media.Rtsp
                 {
 
                     //If the name matches the streamName or stream Id then we found it
-                    if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString() == streamName)
+                    if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString().ToLowerInvariant() == streamName)
                     {
                         found = stream;
                         break;
@@ -1022,6 +1003,16 @@ namespace Media.Rtsp
             {
                 //Something happened during the session
                 if (Logger != null) Logger.LogException(ex);
+                //if (session.Interleaving)
+                //{
+                //    //This data doesn't belong to us
+                //    //session.m_RtpClient.Connect();
+                //    return;
+                //}
+                //else
+                //{
+                //    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer, session.m_BufferOffset, session.m_BufferLength, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
+                //}
             }
         }
 
@@ -1044,7 +1035,7 @@ namespace Media.Rtsp
 
                 int neededLength = session.m_SendBuffer.Length;
 
-                if (sent == neededLength)
+                if (sent >= neededLength)
                 {
                     Interlocked.Add(ref session.m_Sent, sent);
 
@@ -1241,7 +1232,7 @@ namespace Media.Rtsp
 
                         //if (!response.ContainsHeader(RtspHeaders.Date)) response.SetHeader(RtspHeaders.Date, ...);
 
-                        if (RtspClientInactivityTimeoutSeconds > 0) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
+                        if (RtspClientInactivityTimeoutSeconds > 0 && response.GetHeader(RtspHeaders.Session) != null && !response.GetHeader(RtspHeaders.Session).Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
                         
                         session.SendRtspData((session.LastResponse = response).ToBytes());
                     }
@@ -1507,7 +1498,7 @@ namespace Media.Rtsp
             //The source is ready
 
             //Determine if we have the track
-            string track = request.Location.Segments.Last();
+            string track = request.Location.Segments.Last().Replace("/", string.Empty);
 
             Sdp.MediaDescription mediaDescription = found.SessionDescription.MediaDescriptions.FirstOrDefault(md=> string.Compare(track, md.MediaType.ToString(), true, System.Globalization.CultureInfo.InvariantCulture) == 0);
 
@@ -1582,6 +1573,8 @@ namespace Media.Rtsp
 
             //Send the response to the client
             ProcessSendRtspResponse(resp, session);
+
+            //session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.AboveNormal;
         }
 
         /// <summary>

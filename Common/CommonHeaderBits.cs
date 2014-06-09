@@ -411,12 +411,15 @@ namespace Media.Common
         /// <param name="padding">The value of the Padding bit</param>
         /// <param name="extension">The value of the Extension bit</param>
         /// <param name="marker">The value of the Marker bit</param>
-        /// <param name="payloadTypeBits">The value of the remaning bits which are not utilized. (4 bits)</param>
+        /// <param name="payloadTypeBits">The value of the PayloadType bits</param>
+        /// /// <param name="otherbits">The value of the remaning bits which are not utilized. (4 bits)</param>
         public CommonHeaderBits(int version, bool padding, bool extension, bool marker, int payloadTypeBits, byte otherBits)
             : this(version, padding, extension)
         {
             //Pack the bit fields in the second octet which belong there
-            mostSignificant = CommonHeaderBits.PackOctet(marker, (payloadTypeBits | otherBits));
+            mostSignificant = CommonHeaderBits.PackOctet(marker, payloadTypeBits);
+
+            if (otherBits > 0) RtcpBlockCount = otherBits;
         }
 
         #endregion

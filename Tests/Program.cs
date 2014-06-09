@@ -57,7 +57,7 @@ namespace Tests
         {
 
             //Enable Shift / Control + Shift moving through tests, e.g. some type menu 
-            foreach (Action test in Tests) RunTest(test);
+            foreach (Action test in Tests) RunTest(test);            
 
             RunTest(TestRtpClient, 777);
 
@@ -196,6 +196,12 @@ namespace Tests
             {
                 new
                 {
+                    Uri = "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
                     Uri = "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", //Continous Stream
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
@@ -210,6 +216,12 @@ namespace Tests
                 new
                 {
                     Uri = "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = string.Empty,
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -246,10 +258,15 @@ namespace Tests
             }
         }
 
+        static void TestRtpClient()
+        {
+            TestRtpClient(DateTime.UtcNow.Second % 2 == 0);
+        }
+
         /// <summary>
         /// Tests the RtpClient.
         /// </summary>
-        static void TestRtpClient()
+        static void TestRtpClient(bool tcp = true)
         {
 
             //Start a test to send a single frame as quickly as possible to a single party.
@@ -267,7 +284,7 @@ namespace Tests
                     Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, "TCP/" + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtp.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtp.RFC2435Frame.RtpJpegPayloadType));
 
                     sender.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
 
@@ -280,7 +297,7 @@ namespace Tests
                     {
 
                         //Set tcp 
-                        receiver.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
+                        if (tcp) receiver.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
 
                         //Determine when the sender and receive should time out
                         //sender.InactivityTimeout = receiver.InactivityTimeout = TimeSpan.FromSeconds(7);
@@ -297,6 +314,9 @@ namespace Tests
                         //The Id of the parties must be known in advance in this stand alone example. (A conference would support more then 1 participant)
                         Media.Rtp.RtpClient.TransportContext sendersContext = new Media.Rtp.RtpClient.TransportContext(0, 1, sendersId, SessionDescription.MediaDescriptions[0], true, receiversId),
                             receiversContext = new Media.Rtp.RtpClient.TransportContext(0, 1, receiversId, SessionDescription.MediaDescriptions[0], true, sendersId);
+
+                        if (tcp) consoleWriter.WriteLine("TCP TEST");
+                        else consoleWriter.WriteLine("UDP TEST");
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - " + sender.m_Id + " - Senders SSRC = " + sendersContext.SynchronizationSourceIdentifier);
 
@@ -330,11 +350,19 @@ namespace Tests
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
+                        int ts = 3600;
+
+                        foreach (Media.Rtp.RtpPacket r in testFrame.Skip(1))
+                        {
+                            r.Timestamp += ts;
+                            ts += 3600;
+                        }
+
                         //Send it
                         sender.SendRtpFrame(testFrame);
 
                         //Wait for the frame to be sent only once
-                        while (sendersContext.SendersReport == null || sendersContext.SendersReport.Transferred == null) System.Threading.Thread.Yield();
+                        while (testFrame.Transferred == false || sendersContext.SendersReport == null || sendersContext.SendersReport.Transferred == null) System.Threading.Thread.Yield();
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
@@ -795,7 +823,7 @@ namespace Tests
             //asPacket would have a LengthInWordsMinusOne of 3 because 19 / 4 = 4 - 1 = 3
             //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
             //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
-            if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
+            if (!rtcpPacket.IsComplete || rtcpPacket.Length != 28 || rtcpPacket.Header.LengthInWordsMinusOne != 6) throw new Exception("Invalid Length");
         }
 
         static void PrintRtcpInformation(Media.Rtcp.RtcpPacket p)
@@ -1596,7 +1624,7 @@ namespace Tests
 
                 Media.Rtp.RtpClient.TransportContext matched = null;
 
-                if (client != null) client.GetContextForPacket(rtpPacket);
+                if (client != null) matched = client.GetContextForPacket(rtpPacket);
 
                 if (matched == null)
                 {
@@ -1631,7 +1659,7 @@ namespace Tests
 
                 Media.Rtp.RtpClient.TransportContext matched = null;
 
-                if (client != null) client.GetContextForPacket(rtcpPacket);
+                if (client != null) matched = client.GetContextForPacket(rtcpPacket);
 
                 Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
 
@@ -1666,10 +1694,16 @@ namespace Tests
             //For allow the test to run in an automated manner
             bool shouldStop = false;
 
+            if (string.IsNullOrWhiteSpace(location))
+            {
+                Console.WriteLine("Enter a RTSP URL and press enter (Or enter to quit):");
+                location = Console.ReadLine();
+            }
+
             StartTest:
             Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
             Media.Rtsp.RtspClient client = null;
-            if (Console.ReadKey().Key != ConsoleKey.Q)
+            if (Console.ReadKey().Key != ConsoleKey.Q && !string.IsNullOrWhiteSpace(location))
             {
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
@@ -1711,7 +1745,7 @@ namespace Tests
 
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
                         {
-
+                            if (rtpFrame.Disposed) return;
                             if (rtpFrame.IsEmpty)
                             {
                                 ++emptyFrames;
@@ -1772,7 +1806,8 @@ namespace Tests
                         client.OnPlay += (sender, args) =>
                         {
                             //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
-                            client.Client.MaximumRtcpBandwidthPercentage = 25;
+                            //client.Client.MaximumRtcpBandwidthPercentage = 25;
+
                             ///SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
 
                             //Add events now that we are playing
@@ -1840,15 +1875,19 @@ namespace Tests
                         {
                             System.Threading.Thread.Sleep(client.Timeout.Seconds + 1 * 5000);
 
-                            TimeSpan playingfor = (DateTime.UtcNow - client.StartedListening.Value);
+                            if (client.StartedListening.HasValue)
+                            {
 
-                            if (client.Playing) Console.WriteLine("Client Playing. for :" + playingfor.ToString());
+                                TimeSpan playingfor = (DateTime.UtcNow - client.StartedListening.Value);
 
-                            if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).ToString());
+                                if (client.Playing) Console.WriteLine("Client Playing. for :" + playingfor.ToString());
 
-                            if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
+                                if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).ToString());
 
-                            shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false || playingfor > client.EndTime;
+                                if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
+
+                                shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false || playingfor > client.EndTime;
+                            }
                         }
 
                         //if the client is connected still
@@ -2008,8 +2047,7 @@ a=mpeg4-esid:101");
 
             //The server will take in Media.RtspSourceStreams and make them available locally
 
-            //http://www.wowza.com/html/mobile.html
-            Media.Rtsp.Server.Streams.RtspSourceStream source = new Media.Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov")
+            Media.Rtsp.Server.Streams.RtspSourceStream source = new Media.Rtsp.Server.Streams.RtspSourceStream("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
             {
                 //Will force VLC et al to connect over TCP
                 //                m_ForceTCP = true
@@ -2023,26 +2061,36 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_175k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
             {
                 //m_ForceTCP = true
             });
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://inet.orban.com:554/tropic.3gp")
             {
                 //m_ForceTCP = true
             });
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://inet.orban.com:554/tropic.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
             {
                 //m_ForceTCP = true
-            });
+            });        
 
             //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Media.Rtsp Uri to any YouTube video)
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp")
+            {
+                m_ForceTCP = true
+            });
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
+            {
+                //m_ForceTCP = true
+            });
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("DeltaTcp", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
             {
                 //m_ForceTCP = true
             });

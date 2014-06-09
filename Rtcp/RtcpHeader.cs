@@ -132,8 +132,8 @@ namespace Media.Rtcp
         /// </summary>
         public int Version
         {
-            get { CheckDisposed(); return First16Bits.Version; }
-            set { CheckDisposed(); First16Bits.Version = value; }
+            get { /*CheckDisposed();*/ return First16Bits.Version; }
+            set { /*CheckDisposed();*/ First16Bits.Version = value; }
         }
 
         /// <summary>
@@ -141,8 +141,8 @@ namespace Media.Rtcp
         /// </summary>
         public bool Padding
         {
-            get { CheckDisposed(); return First16Bits.Padding; }
-            set { CheckDisposed(); First16Bits.Padding = value; }
+            get { /*CheckDisposed();*/ return First16Bits.Padding; }
+            set { /*CheckDisposed();*/ First16Bits.Padding = value; }
         }
 
         /// <summary>
@@ -150,8 +150,8 @@ namespace Media.Rtcp
         /// </summary>
         public int BlockCount
         {
-            get { CheckDisposed(); return First16Bits.RtcpBlockCount; }
-            set { CheckDisposed(); First16Bits.RtcpBlockCount = value; }
+            get { /*CheckDisposed();*/ return First16Bits.RtcpBlockCount; }
+            set { /*CheckDisposed();*/ First16Bits.RtcpBlockCount = value; }
         }
 
         /// <summary>
@@ -160,8 +160,8 @@ namespace Media.Rtcp
         public int PayloadType
         {
             //The value is revealed by clearing the 0th bit in the second octet.
-            get { CheckDisposed(); return First16Bits.RtcpPayloadType; }
-            set { CheckDisposed(); First16Bits.RtcpPayloadType = value; }
+            get { /*CheckDisposed();*/ return First16Bits.RtcpPayloadType; }
+            set { /*CheckDisposed();*/ First16Bits.RtcpPayloadType = value; }
         }
 
         /// <summary>
@@ -182,9 +182,9 @@ namespace Media.Rtcp
 
             get
             {
-                CheckDisposed();
+                /*CheckDisposed();*/
 
-                if (PointerToLast6Bytes.Count < 5) return ushort.MaxValue;
+                if (PointerToLast6Bytes.Count < 5) return 1;
 
                 //Read the value
                 return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian);
@@ -192,7 +192,7 @@ namespace Media.Rtcp
             //Set the value
             set
             {
-                CheckDisposed();
+                /*CheckDisposed();*/
 
                 if (value > ushort.MaxValue) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
                 Binary.WriteNetwork16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
@@ -204,8 +204,8 @@ namespace Media.Rtcp
         /// </summary>
         public int SendersSynchronizationSourceIdentifier
         {
-            get { CheckDisposed(); return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian); }
-            set { CheckDisposed(); Binary.WriteNetwork32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian); }
+            set { /*CheckDisposed();*/ Binary.WriteNetwork32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         #endregion
@@ -262,8 +262,15 @@ namespace Media.Rtcp
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last6Bytes = new byte[6];
-                other.Last6Bytes.CopyTo(Last6Bytes, 0);
                 PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
+                if (other.Last6Bytes != null)
+                {
+                    other.Last6Bytes.CopyTo(Last6Bytes, 0);
+                }
+                else
+                {
+                    System.Array.Copy(other.PointerToLast6Bytes.Array, other.PointerToLast6Bytes.Offset, Last6Bytes, 0, 6);
+                }
             }
         }
 
@@ -274,7 +281,7 @@ namespace Media.Rtcp
             First16Bits = new CommonHeaderBits(memory, additionalOffset);
 
             //das infamous clamp max min
-            PointerToLast6Bytes = new OctetSegment(memory.Array, additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
+            PointerToLast6Bytes = new OctetSegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)

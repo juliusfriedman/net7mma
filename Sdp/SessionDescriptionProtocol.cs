@@ -423,7 +423,7 @@ namespace Media.Sdp
 
                     if (portSpecifier.HasValue)
                     {
-                        buffer.Append("m=" + string.Join(" ", MediaType, MediaPort.ToString() + '/' + connectionLine.Parts.Last().Split('/').Last(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+                        buffer.Append("m=" + string.Join(" ", MediaType, MediaPort.ToString() + '/' + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.CRLF);
                         goto LinesOnly;
                     }
                 }
@@ -928,14 +928,46 @@ namespace Media.Sdp
                 }
             }
 
+            public string IPAddress
+            {
+                get
+                {
+                    if (!string.IsNullOrWhiteSpace(Address))
+                    {
+                        var parts = Address.Split('/');
+                        return parts.First();
+                    }
+                    return null;
+                }
+            }
+
+            public int? Hops
+            {
+                get
+                {
+                    if (!string.IsNullOrWhiteSpace(Address))
+                    {
+                        var parts = Address.Split('/');
+                        if (parts.Length > 2)
+                        {
+                            return int.Parse(parts.Skip(1).Single(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
+                        }
+                    }
+                    return null;
+                }
+            }
+
             public int? Ports
             {
                 get
                 {
                     if (!string.IsNullOrWhiteSpace(Address)) 
                     {
-                        int portIndex = Address.LastIndexOf('/');
-                        if (portIndex >= 0) return int.Parse(Address.Substring(portIndex + 1, Address.Length - (portIndex + 1)), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
+                        var parts = Address.Split('/');
+                        if (parts.Length > 2)
+                        {
+                            return int.Parse(parts.Last(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
+                        }
                     }
                     return null;
                 }

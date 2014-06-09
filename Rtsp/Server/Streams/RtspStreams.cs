@@ -166,6 +166,7 @@ namespace Media.Rtsp.Server.Streams
 
         #endregion
 
+
         /// <summary>
         /// Beings streaming from the source
         /// </summary>
@@ -173,29 +174,37 @@ namespace Media.Rtsp.Server.Streams
         {            
             if (!RtspClient.Connected)
             {
-                try
-                {
-                    //Start listening
-                    RtspClient.StartListening();
-                    
-                    //Set the time for stats
-                    m_StartedTimeUtc = DateTime.UtcNow;                                        
-                    
-                    //Call base to set started etc.
-                    base.Start();
-                }
-                catch (Common.Exception<RtspClient>)
-                {
-                    //Wrong Credentails etc...
+                RtspClient.OnConnect += RtspClient_OnConnect;
+                RtspClient.Connect();
+            }
+        }
 
-                    //Call base to set to stopped
-                    base.Stop();
-                }
-                catch
-                {
-                    //Stop?
-                    throw;
-                }
+        void RtspClient_OnConnect(RtspClient sender, object args)
+        {
+            if (RtspClient != sender) return;
+            RtspClient.OnConnect -= RtspClient_OnConnect;
+            try
+            {
+                //Start listening
+                RtspClient.StartListening();
+
+                //Set the time for stats
+                m_StartedTimeUtc = DateTime.UtcNow;
+
+                //Call base to set started etc.
+                base.Start();
+            }
+            catch (Common.Exception<RtspClient>)
+            {
+                //Wrong Credentails etc...
+
+                //Call base to set to stopped
+                base.Stop();
+            }
+            catch
+            {
+                //Stop?
+                throw;
             }
         }
 

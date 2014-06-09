@@ -89,6 +89,18 @@ namespace Media.Common
 
         public static string DefaultExceptionTypeMessage<T>() { return string.Format(Exception<T>.ExceptionFormat, typeof(T).FullName); }
 
+        /// <summary>
+        /// Check if we are in a exception unwind scenario or not.
+        /// </summary>
+        public static bool InException
+        {
+            get
+            {   // Errata: The red marked code seems to be necessary. Since unit tests with .NET 2.0
+                // have shown that only checking for the Exception Pointers structure does not always work.
+                return ExceptionExtensions.InException;
+            }
+        }
+
         #region Fields
 
         bool m_Disposed;// = false;
@@ -200,7 +212,20 @@ namespace Media.Common
     }
 
     public static class ExceptionExtensions
-    {
+    {       
+
+         /// <summary>
+        /// Check if we are in a exception unwind scenario or not.
+        /// </summary>
+        public static bool InException
+        {
+            get
+            {   // Errata: The red marked code seems to be necessary. Since unit tests with .NET 2.0
+                // have shown that only checking for the Exception Pointers structure does not always work.
+                return System.Runtime.InteropServices.Marshal.GetExceptionPointers() == IntPtr.Zero && System.Runtime.InteropServices.Marshal.GetExceptionCode() == 0 ? false : true;
+            }
+        }
+
         public static void Raise<T>(this Exception<T> exception) { throw exception; }
 
         //Resumeable?

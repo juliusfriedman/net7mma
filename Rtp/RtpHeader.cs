@@ -172,8 +172,8 @@ namespace Media.Rtp
         /// </summary>
         public int Version
         {
-            get { CheckDisposed(); return First16Bits.Version; }
-            set { CheckDisposed(); First16Bits.Version = value; }
+            get { /*CheckDisposed();*/ return First16Bits.Version; }
+            set { /*CheckDisposed();*/ First16Bits.Version = value; }
         }
 
         /// <summary>
@@ -181,8 +181,8 @@ namespace Media.Rtp
         /// </summary>
         public bool Padding
         {
-            get { CheckDisposed(); return First16Bits.Padding; }
-            set { CheckDisposed(); First16Bits.Padding = value; }
+            get { /*CheckDisposed();*/ return First16Bits.Padding; }
+            set { /*CheckDisposed();*/ First16Bits.Padding = value; }
         }
 
         /// <summary>
@@ -190,8 +190,8 @@ namespace Media.Rtp
         /// </summary>
         public bool Extension
         {
-            get { CheckDisposed(); return First16Bits.Extension; }
-            set { CheckDisposed(); First16Bits.Extension = value; }
+            get { /*CheckDisposed();*/ return First16Bits.Extension; }
+            set { /*CheckDisposed();*/ First16Bits.Extension = value; }
         }
 
         /// <summary>
@@ -199,8 +199,8 @@ namespace Media.Rtp
         /// </summary>
         public int ContributingSourceCount
         {
-            get { CheckDisposed(); return First16Bits.RtpContributingSourceCount; }
-            set { CheckDisposed(); First16Bits.RtpContributingSourceCount = value; }
+            get { /*CheckDisposed();*/ return First16Bits.RtpContributingSourceCount; }
+            set { /*CheckDisposed();*/ First16Bits.RtpContributingSourceCount = value; }
         }
 
         /// <summary>
@@ -208,8 +208,8 @@ namespace Media.Rtp
         /// </summary>
         public bool Marker
         {
-            get { CheckDisposed(); return First16Bits.RtpMarker; }
-            set { CheckDisposed(); First16Bits.RtpMarker = value; }
+            get { /*CheckDisposed();*/ return First16Bits.RtpMarker; }
+            set { /*CheckDisposed();*/ First16Bits.RtpMarker = value; }
         }
 
         /// <summary>
@@ -218,8 +218,8 @@ namespace Media.Rtp
         public int PayloadType
         {
             //The value is revealed by clearing the 0th bit in the second octet.
-            get { CheckDisposed(); return First16Bits.RtpPayloadType; }
-            set { CheckDisposed(); First16Bits.RtpPayloadType = value; }
+            get { /*CheckDisposed();*/ return First16Bits.RtpPayloadType; }
+            set { /*CheckDisposed();*/ First16Bits.RtpPayloadType = value; }
         }
 
         #region Notes
@@ -240,8 +240,8 @@ namespace Media.Rtp
         public int SequenceNumber
         {
             //The sequence number is stored in Netword Byte Order @ + 0x00 from the second octet (relative offset of 0x02 from the beginning of any header pointer)
-            get { CheckDisposed(); return (ushort)Binary.ReadU16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
-            set { CheckDisposed(); Binary.WriteNetwork16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
+            get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
+            set { /*CheckDisposed();*/ Binary.WriteNetwork16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
         }
 
         /// <summary>
@@ -253,8 +253,8 @@ namespace Media.Rtp
         public int Timestamp
         {
             //The sequence number is stored in Netword Byte Order  @ + 0x02 from the second octet (relative offset of 0x04 from the beginning of any header pointer)
-            get { CheckDisposed(); return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
-            set { CheckDisposed(); Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
+            set { /*CheckDisposed();*/ Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -263,8 +263,8 @@ namespace Media.Rtp
         public int SynchronizationSourceIdentifier
         {
             //The sequence number is stored in Netword Byte Order @ + 0x06 from the second octet (relative offset of 0x08 from the beginning of any header pointer)
-            get { CheckDisposed(); return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
-            set { CheckDisposed(); Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
+            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
+            set { /*CheckDisposed();*/ Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         #endregion

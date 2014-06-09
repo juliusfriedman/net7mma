@@ -71,7 +71,7 @@
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(572, 20);
             this.textBox1.TabIndex = 1;
-            this.textBox1.Text = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov";
+            this.textBox1.Text = "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov";
             // 
             // label1
             // 

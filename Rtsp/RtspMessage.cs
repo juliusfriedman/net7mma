@@ -762,7 +762,7 @@ namespace Media.Rtsp
             //Check for RTSP
 
             //If RTSP was found in the encoding of the message (which is unknown so far)
-            if ((previous = Utility.ContainsBytes(packet.Array, ref start, ref count, encodedIdentifier, 0, encodedIdentifierLength)) < start)
+            if (count - start > encodedIdentifierLength && (previous = Utility.ContainsBytes(packet.Array, ref start, ref count, encodedIdentifier, 0, encodedIdentifierLength)) < start)
             {
                 //This has to be a request because responses contain RTSP at the beginning of the first line
                 MessageType = RtspMessageType.Request;
@@ -1127,10 +1127,13 @@ namespace Media.Rtsp
                     //Receive max more
                     int received = Utility.AlignedReceive(buffer, 0, remaining, socket, out error);
 
-                    //Concatenate the result into the body
-                    m_Body += Encoding.GetString(buffer, 0, received);
+                    if (received > 0)
+                    {
+                        //Concatenate the result into the body
+                        m_Body += Encoding.GetString(buffer, 0, received);
 
-                    remaining -= received;
+                        remaining -= received;
+                    }
                 }
 
                 //Remove the buffer

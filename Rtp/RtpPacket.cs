@@ -462,7 +462,7 @@ namespace Media.Rtp
                 SynchronizationSourceIdentifier = Header.SynchronizationSourceIdentifier,
                 PayloadType = Header.PayloadType,
                 ContributingSourceCount = includeSourceList ? Header.ContributingSourceCount : 0
-            }.Concat(binarySequence).ToArray(), 0);
+            }.Concat(binarySequence).ToArray(), 0) { Transferred = this.Transferred };
         }
 
         /// <summary>
