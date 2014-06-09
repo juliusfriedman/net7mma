@@ -207,6 +207,12 @@ namespace Media
 
         #endregion
 
+        const int SIO_UDP_CONNRESET = -1744830452;
+
+        public static void DontLinger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true); }
+
+        public static void Linger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, false); }
+
         #region Static Helper Functions
 
         public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
@@ -238,7 +244,7 @@ namespace Media
             //Set i = the index of the entry of the delemit
             do
                 i = Array.IndexOf(array, delemits[o]);
-            while(i < 0 && ++o < e);//While the delemit was not found and the offset is less then the end
+            while(i <= 0 && ++o < e);//While the delemit was not found and the offset is less then the end
 
             //Return the index of the last delemit
             return i;
@@ -358,8 +364,10 @@ namespace Media
                 //To hold what was received and the maximum amount to receive
                 int totalReceived = 0, max = buffer.Length - offset, attempt = 0;
 
+                if(amount > max) amount = max;
+
                 //While there is something to receive
-                while (amount > 0 && offset <= max)
+                while (amount > 0 /* && offset <= max*/)
                 {
                     lock (socket)
                     {

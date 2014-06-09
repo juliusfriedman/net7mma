@@ -722,7 +722,7 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public void Close()
         {
-            m_Writer.Dispose();
+            if (m_Writer != null) m_Writer.Dispose();
         }
 
         /// <summary>

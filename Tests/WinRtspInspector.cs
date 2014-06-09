@@ -88,15 +88,19 @@ namespace Tests
             sender.OnPlay += sender_OnPlay;
 
             sender.OnResponse += sender_OnResponse;
-
-            if (numericUpDown1.Value == 0) sender.StartListening();
-            else sender.StartListening(TimeSpan.FromSeconds((double)numericUpDown1.Value));    
+            try
+            {
+                if (numericUpDown1.Value == 0) sender.StartListening();
+                else sender.StartListening(TimeSpan.FromSeconds((double)numericUpDown1.Value));
+            }
+            catch
+            {
+                return;
+            }
         }
 
         void sender_OnResponse(RtspClient sender, RtspMessage request, RtspMessage response)
         {
-
-
 
             if (request != null && response != null)
             {
@@ -119,8 +123,10 @@ namespace Tests
         void sender_OnPlay(RtspClient sender, object args)
         {
             sender.OnDisconnect += sender_OnDisconnect;
-            sender.m_RtpClient.RtpPacketReceieved += m_RtpClient_RtpPacketReceieved;
-            sender.m_RtpClient.RtcpPacketReceieved += m_RtpClient_RtcpPacketReceieved;           
+            sender.m_RtpClient.RtpPacketReceieved += ShowRtpPacket;
+            sender.m_RtpClient.RtcpPacketReceieved += ShowRtcpPacket;
+
+            sender.m_RtpClient.RtcpPacketSent += ShowRtcpPacket;      
 
             sender.m_RtpClient.MaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
 
@@ -132,7 +138,7 @@ namespace Tests
             
         }
 
-        void m_RtpClient_RtcpPacketReceieved(object sender, Media.Rtcp.RtcpPacket packet)
+        void ShowRtcpPacket(object sender, Media.Rtcp.RtcpPacket packet)
         {
             if (this.InvokeRequired) Invoke(new FillGridC(AddRtcp), packet.Clone(true, true, false));
             else RTCPPacketBinding.Add(packet.Clone(true, true, false));
@@ -231,7 +237,7 @@ namespace Tests
         }
     
 
-        void m_RtpClient_RtpPacketReceieved(object sender, Media.Rtp.RtpPacket packet)
+        void ShowRtpPacket(object sender, Media.Rtp.RtpPacket packet)
         {
             if (this.InvokeRequired) Invoke(new FillGridR(AddRtp), packet.Clone(true, true, true, true, true));
             else RTPPacketBinding.Add((IPacket)packet.Clone(true, true, true, true, true));
@@ -239,8 +245,8 @@ namespace Tests
 
         void sender_OnDisconnect(RtspClient sender, object args)
         {
-            sender.m_RtpClient.RtpPacketReceieved -= m_RtpClient_RtpPacketReceieved;
-            sender.m_RtpClient.RtcpPacketReceieved -= m_RtpClient_RtcpPacketReceieved;
+            sender.m_RtpClient.RtpPacketReceieved -= ShowRtpPacket;
+            sender.m_RtpClient.RtcpPacketReceieved -= ShowRtcpPacket;
             sender.Dispose();
             button1_Click(this, EventArgs.Empty);
         }

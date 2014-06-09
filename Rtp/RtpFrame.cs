@@ -43,7 +43,7 @@ namespace Media.Rtp
     /// <summary>
     /// A collection of RtpPackets
     /// </summary>
-    public class RtpFrame : IDisposable, System.Collections.IEnumerable, IEnumerable<RtpPacket>
+    public class RtpFrame : Media.Common.BaseDisposable, System.Collections.IEnumerable, IEnumerable<RtpPacket>
     {
         /// <summary>
         /// The maximum amount of packets which can be contained in a frame
@@ -116,7 +116,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if any packets have a marker
         /// </summary>
-        public virtual bool HasMarker { get { return m_Packets.Any(a => a.Value.Marker); } }
+        public virtual bool HasMarker { get { return m_Packets.Any(a => !a.Value.Disposed && a.Value.Marker); } }
 
         /// <summary>
         /// The amount of Packets in the RtpFrame
@@ -131,7 +131,7 @@ namespace Media.Rtp
         /// <summary>
         /// The HighestSequenceNumber in the contained Packets or 0 if no Packets are contained
         /// </summary>
-        public int HighestSequenceNumber { get { return (Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); } }
+        public int HighestSequenceNumber { get { try { return (Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); } catch { return 0; } } }
 
         #endregion
 
@@ -306,8 +306,10 @@ namespace Media.Rtp
             return GetEnumerator();
         }
 
-        public virtual void Dispose()
+        public override void Dispose()
         {
+            if (Disposed) return;
+            base.Dispose();
             RemoveAllPackets();
         }
     }

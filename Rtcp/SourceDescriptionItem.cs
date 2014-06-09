@@ -167,10 +167,10 @@ namespace Media.Rtcp
             }
 
             //Generate a seqence contaning the required memory and project it into the owned octets instance.
-            m_OwnedOctets = existing.ItemData.ToArray();
+            ItemData = m_OwnedOctets = existing.ItemData.ToArray();
 
             //Generate a segment of data consisting of the octets owned.
-            ItemData = m_OwnedOctets;
+            //ItemData = m_OwnedOctets;
             
         }
 
@@ -185,7 +185,7 @@ namespace Media.Rtcp
             if (itemLength > 255) throw Binary.CreateOverflowException("itemType", itemLength, byte.MinValue.ToString(), byte.MaxValue.ToString());
 
             //There is always at least 1 octets owned to represent the Type
-            m_OwnedOctets = new byte[ItemHeaderSize + itemLength];
+            ItemData = m_OwnedOctets = new byte[ItemHeaderSize + itemLength];
 
             m_OwnedOctets[0] = (byte)itemType;
 
@@ -193,7 +193,7 @@ namespace Media.Rtcp
             if (itemType != SourceDescriptionItemType.End) m_OwnedOctets[1] = (byte)itemLength;
 
             //Gererate a sequence from the owned octets.
-            ItemData = m_OwnedOctets;
+            //ItemData = m_OwnedOctets;
         }
 
         /// <summary>

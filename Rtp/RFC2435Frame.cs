@@ -642,7 +642,7 @@ namespace Media.Rtp
         /// <param name="sequenceNo">The optional sequence number for the first packet in the frame.</param>
         /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
         /// <param name="bytesPerPacketPayload">The amount of bytes each RtpPacket will contain</param>
-        public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1480, Common.SourceList sourceList = null)
+        public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1300, Common.SourceList sourceList = null)
             : this()
         {
 

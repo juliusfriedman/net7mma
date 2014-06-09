@@ -179,7 +179,7 @@ namespace Media
             if (hasSourceDescription && !hasCName) throw new InvalidOperationException("A Compound RtcpPacket must have a SourceDescriptionReport with a SourceDescriptionChunk with a CName item.");
 
             //Determine if padding is required
-            int paddingAmount = totalLength % 32;
+            int paddingAmount = totalLength % 4;
 
             //Add the padding to the last packet
             if(paddingAmount > 0)
@@ -210,7 +210,6 @@ namespace Media
                     //If there is any padding to add
                     if (paddingAmount > 0)
                     {
-
                         //Add the required padding
                         last.AddBytesToPayload(CreatePadding(paddingAmount), 0, paddingAmount);
 

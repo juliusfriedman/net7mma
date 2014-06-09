@@ -47,17 +47,21 @@ namespace Media.Rtsp.Server
 
         internal override void LogRequest(RtspMessage request, ClientSession session)
         {
-            System.Diagnostics.Debug.WriteLine(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null));
+            try { System.Diagnostics.Debug.WriteLine(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null)); }
+            catch { throw; }
         }
 
         internal override void LogResponse(RtspMessage response, ClientSession session)
         {
-            System.Diagnostics.Debug.WriteLine(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null));
+
+            try { System.Diagnostics.Debug.WriteLine(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null)); }
+            catch { throw; }
         }
 
         internal override void LogException(Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));
+            try{ System.Diagnostics.Debug.WriteLine(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));}
+            catch { throw; }
         }
     }
 }
