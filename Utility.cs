@@ -69,7 +69,7 @@ namespace Media
 
         //Get Interface Link Speed
 
-        const double MicrosecondsPerMillisecond = 1000;
+        internal const double MicrosecondsPerMillisecond = 1000;
 
         internal const double InterframeSpacing = InterframeGapBits / LinkSpeed; //µs
 
@@ -496,7 +496,7 @@ namespace Media
             
             TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
 
-            return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / TimeSpan.TicksPerSecond * 0x100000000L);
+            return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / MicrosecondsPerMillisecond);
         }
 
         public static DateTime NptTimestampToDateTime(ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> 32) & 0xFFFFFFFF), (uint)(nptTimestamp & 0xFFFFFFFF)); }

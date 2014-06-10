@@ -761,7 +761,7 @@ namespace Media.Rtsp
 
             //Check for RTSP
 
-            //If RTSP was found in the encoding of the message (which is unknown so far)
+            /*//If RTSP was found in the encoding of the message (which is unknown so far)
             if (count - start > encodedIdentifierLength && (previous = Utility.ContainsBytes(packet.Array, ref start, ref count, encodedIdentifier, 0, encodedIdentifierLength)) < start)
             {
                 //This has to be a request because responses contain RTSP at the beginning of the first line
@@ -770,7 +770,7 @@ namespace Media.Rtsp
                 //Move the cursor backward to get the whole first line
                 previous = start;
             }
-            else start = previous; //Otherwise this may be an invalid request unless the message has no trailing \r\n           
+            else*/ start = previous; //Otherwise this may be an invalid request unless the message has no trailing \r\n           
 
             //Calulate the correct start based on if this was a request or a response;
             int messageStart = start - previous;

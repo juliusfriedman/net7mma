@@ -190,12 +190,12 @@ namespace Media.Rtsp
         internal void OnSourceRtpPacketRecieved(object client, RtpPacket packet)
         {
             //If the packet is null or not allowed then return
-            if (packet == null || packet.Disposed || m_RtpClient == null) return;
+            if (packet == null || packet.Disposed || m_RtpClient == null || packet.Coefficients.Count() == 0) return;
 
             RtpClient.TransportContext context = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
 
             //Update the sequence number and jitter for the packet
-            if (context == null) return;
+            if (context == null || packet.SequenceNumber < context.SequenceNumber) return;
 
             packet.SynchronizationSourceIdentifier = context.SynchronizationSourceIdentifier;
 
@@ -222,28 +222,31 @@ namespace Media.Rtsp
 
             if (packet == null || packet.Disposed || m_RtpClient == null) return;
 
-            m_RtpClient.SendReports();
+            //m_RtpClient.SendReports();
 
             //m_RtpClient.EnquePacket(new RtcpPacket(packet.Prepare().ToArray(), 0));
 
-            
+
 
             //if (packet.PayloadType == Rtcp.SendersReport.PayloadType) // Reduced size...
             //{
-            //    var context = m_RtpClient.GetContextBySourceId(packet.SynchronizationSourceIdentifier);
+
+            //    var sourceContext = SourceContexts.FirstOrDefault(tc => tc.RemoteSynchronizationSourceIdentifier == packet.SynchronizationSourceIdentifier);
+
+            //    if (sourceContext == null) return;
+
+            //    var context = m_RtpClient.GetContextByPayloadType(sourceContext.MediaDescription.MediaFormat);
 
             //    if (context == null) return;
 
-
-
-            //    using(Rtcp.SendersReport sr = new SendersReport(packet, false))
+            //    using (Rtcp.SendersReport sr = new SendersReport(packet, false))
             //    {
             //        context.NtpTimestamp = sr.NtpTimestamp;
             //        context.RtpTimestamp = sr.RtpTimestamp;
 
             //        if (sr.BlockCount > 0)
             //        {
-            //            Rtcp.IReportBlock reportBlock = sr.First(rb => SourceContexts.Any(sc => sc.SynchronizationSourceIdentifier == rb.BlockIdentifier));
+            //            Rtcp.IReportBlock reportBlock = sr.First(rb => SourceContexts.Any(sc => sc.RemoteSynchronizationSourceIdentifier == rb.BlockIdentifier));
 
             //            if (reportBlock != null)
             //            {
@@ -256,6 +259,7 @@ namespace Media.Rtsp
             //    }
 
             //}
+            
             //m_RtpClient.SendReports();
 
             
@@ -302,6 +306,8 @@ namespace Media.Rtsp
         {
             RtspMessage describeResponse = CreateRtspResponse(describeRequest);
 
+            describeResponse.SetHeader(RtspHeaders.ContentType, Sdp.SessionDescription.MimeType);
+
             if (describeRequest.Location.ToString().ToLowerInvariant().Contains("live"))
             {
                 describeResponse.SetHeader(RtspHeaders.ContentBase, "rtsp://" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString() + "/live/" + source.Id + '/');
@@ -310,8 +316,6 @@ namespace Media.Rtsp
             {
                 describeResponse.SetHeader(RtspHeaders.ContentBase, describeRequest.Location.ToString());
             }
-
-            describeResponse.SetHeader(RtspHeaders.ContentType, Sdp.SessionDescription.MimeType);
 
             describeResponse.Body = CreateOrUpdateSessionDescription(source).ToString();
 
@@ -474,7 +478,7 @@ namespace Media.Rtsp
                 ProcessPacketBuffer(source);
 
                 //Attach events
-                //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+                source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
                 source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
             }
 
@@ -955,10 +959,7 @@ namespace Media.Rtsp
             Media.Sdp.SessionDescriptionLine controlLine = sdp.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
 
             //If there was one remove it
-            if (controlLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));      
-
-            //Top level stream control line
-            sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
+            if (controlLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));                  
 
             //Find an existing connection line
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault();
@@ -1053,6 +1054,9 @@ namespace Media.Rtsp
                 }                
 
             }
+
+            //Top level stream control line
+            sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
 
             //Clients sessionId is created from the Sdp
             SessionId = sessionId;

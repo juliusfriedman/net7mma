@@ -125,7 +125,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 NetworkType = "IN",
                 AddressType = "*",
-                Address = "0.0.0.0/7/2"
+                Address = "0.0.0.0"
             });
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
@@ -144,7 +144,7 @@ namespace Media.Rtsp.Server.Streams
             m_RtpClient.m_WorkerThread = new System.Threading.Thread(SendPackets);
             m_RtpClient.m_WorkerThread.TrySetApartmentState(System.Threading.ApartmentState.MTA);
             m_RtpClient.m_WorkerThread.IsBackground = true;
-            m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+            m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
             m_RtpClient.m_WorkerThread.Name = "ImageStream" + Id;
 
             //If we are watching and there are already files in the directory then add them to the Queue
@@ -256,7 +256,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
         /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
-        public void Packetize(System.Drawing.Image image, int quality = 99, bool interlaced = false)
+        public void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
         {
             lock (m_Frames)
             {
@@ -321,7 +321,7 @@ namespace Media.Rtsp.Server.Streams
 
                     System.Threading.Interlocked.Increment(ref m_FramesPerSecondCounter);
 
-                    System.Threading.Thread.Sleep((int)(period / clockRate));
+                    System.Threading.Thread.Sleep(clockRate);
                         
                 }
                 catch (OverflowException)

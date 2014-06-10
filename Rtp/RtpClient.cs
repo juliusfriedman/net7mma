@@ -450,7 +450,7 @@ namespace Media.Rtp
             public void UpdateJitter(RtpPacket packet)
             {
                 // RFC 3550 A.8.
-                ulong newNtp = Utility.DateTimeToNptTimestamp(DateTime.UtcNow), transit = newNtp - Utility.DateTimeToNptTimestamp(packet.Created);
+                ulong newNtp = Utility.DateTimeToNptTimestamp(DateTime.UtcNow), transit = newNtp - (ulong)packet.Timestamp;
                 NtpTimestamp = (long)newNtp;
                 int d = (int)(transit - RtpTransit);
                 RtpTransit = (uint)transit;
@@ -465,7 +465,7 @@ namespace Media.Rtp
             //public void UpdateJitter(int packetTimestamp)
             //{
             //    // RFC 3550 A.8.
-            //    ulong newNtp = Utility.DateTimeToNptTimestamp(DateTime.UtcNow), transit = newNtp - (ulong)packetTimestamp;
+            //    ulong newNtp = Utility.DateTimeToNptTimestamp(DateTime.UtcNow - TimeSpan.FromMilliseconds(packetTimestamp)), transit = newNtp - (ulong)packetTimestamp;
             //    NtpTimestamp = (long)newNtp;
             //    int d = (int)(transit - RtpTransit);
             //    RtpTransit = (uint)transit;
@@ -704,7 +704,7 @@ namespace Media.Rtp
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
                 if (localIp.AddressFamily != remoteIp.AddressFamily) throw new RtpClientException("localIp and remoteIp AddressFamily must match.");
-                //else if (!punchHole) punchHole = !Utility.IsOnIntranet(remoteIp); //Only punch a hole if the remoteIp is not on the LAN by default.
+                else if (!punchHole) punchHole = !Utility.IsOnIntranet(remoteIp); //Only punch a hole if the remoteIp is not on the LAN by default.
 
                 try
                 {
@@ -720,6 +720,7 @@ namespace Media.Rtp
 
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
+                    RtpSocket.MulticastLoopback = false;
 
                     RtpSocket.ReceiveTimeout = RtpSocket.SendTimeout = DefaultTimeout.Milliseconds;
 
@@ -765,6 +766,7 @@ namespace Media.Rtp
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
+                        RtcpSocket.MulticastLoopback = false;
 
                         //RtcpSocket.UseOnlyOverlappedIO = true;
 
@@ -816,7 +818,7 @@ namespace Media.Rtp
                 RtpSocket = RtcpSocket = duplexed;
 
                 //Disable Nagle
-                RtpSocket.NoDelay = true;
+                //RtpSocket.NoDelay = true;
             }
 
             /// <summary>
@@ -1137,8 +1139,6 @@ namespace Media.Rtp
             //Determine if the incoming packet should be handled
             if (!IncomingPacketEventsEnabled || Disposed || packet == null || packet.Disposed) return;
 
-           
-
             //Not supported at the moment
             if (packet.Header.IsCompressed)
             {
@@ -1256,11 +1256,12 @@ namespace Media.Rtp
 
             if (transportContext == null) return;
 
-            //update the jitter
-            transportContext.UpdateJitter(packet);
-
-            transportContext.UpdateSequenceNumber(packet.SequenceNumber);
-            transportContext.RtpTimestamp = packet.Timestamp;
+            if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
+            {
+                //update the jitter
+                transportContext.UpdateJitter(packet);
+                transportContext.RtpTimestamp = packet.Timestamp;
+            }
 
             //increment the counters
             Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
@@ -2467,12 +2468,14 @@ namespace Media.Rtp
             error = SocketError.SocketError;
             try
             {
-                int sent = 0, length = data.Length;
+                int sent = 0, length = 0;
 
                 //Check there is valid data and a socket which is able to write and that the RtpClient is not stopping
                 if (Disposed || m_StopRequested || data == null || socket == null || socket.Handle.ToInt64() <= 0) return sent;
 
                 #region RFC3550 over Tcp via RFC4751 Interleaving Only
+
+                Frame:
 
                 //Under Tcp we must frame the data for the given channel
                 if (socket.ProtocolType == ProtocolType.Tcp && channel.HasValue)
@@ -2480,7 +2483,9 @@ namespace Media.Rtp
                     //Create the data from the concatenation of the frame header and the data existing
                     //E.g. Under RTSP...Frame the Data in a PDU {$ C LEN ...}
 
-                    data = data.Concat((BitConverter.IsLittleEndian ? BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)length)) : BitConverter.GetBytes((ushort)length))).Concat(data).ToArray();
+                    length = data.Length;
+
+                    data = (BitConverter.IsLittleEndian ? BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)data.Length)) : BitConverter.GetBytes((ushort)data.Length)).Concat(data).ToArray();
                     length += 2;
 
                     if (useChannelId)
@@ -2495,6 +2500,12 @@ namespace Media.Rtp
                         ++length;
                     }
 
+                }else length = data.Length;
+
+                if (length < data.Length)
+                {
+                    if (socket.ProtocolType == ProtocolType.Tcp && channel.HasValue) data = data.Skip(4).ToArray();
+                    goto Frame;
                 }
 
                 #endregion
@@ -2504,7 +2515,7 @@ namespace Media.Rtp
                 {
                     sent += socket.Send(data, sent, length - sent, SocketFlags.None, out error);
 
-                    if (error == SocketError.TryAgain || error == SocketError.WouldBlock) continue;
+                    if (error == SocketError.TryAgain || error == SocketError.WouldBlock || (error == SocketError.ConnectionReset && socket.ProtocolType == ProtocolType.Udp)) continue;
                     else if (error != SocketError.Success) break;
                 }
 

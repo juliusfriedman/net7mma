@@ -2096,12 +2096,12 @@ a=mpeg4-esid:101");
             });
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            //server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
 
-            //Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            Media.Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/SamplePictures through Udp and Tcp
-            //server.AddStream(imageStream);
+            server.AddStream(imageStream);
 
             //server.RequestReceived event
 
@@ -2136,8 +2136,8 @@ a=mpeg4-esid:101");
                 else if (keyInfo.Key == ConsoleKey.F)
                 {
                     Console.WriteLine("======= RFC2435 Stream Information =======");
-                    //Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
-                    //Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
+                    Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
+                    Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
                     Console.WriteLine("==============");
                 }
                 else if (keyInfo.Key == ConsoleKey.T)
