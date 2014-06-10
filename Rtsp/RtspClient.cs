@@ -541,7 +541,7 @@ namespace Media.Rtsp
 
                 if (!Connected)
                 {
-                    Connect();
+                    Connect();                    
                 }
         
 
@@ -565,6 +565,7 @@ namespace Media.Rtsp
                 return;
             }
 
+            if (m_RtpClient != null) m_RtpClient.TransportContexts.Clear();
 
             //For each MediaDescription in the SessionDecscription
             foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
