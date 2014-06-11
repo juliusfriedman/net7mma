@@ -101,7 +101,7 @@ namespace Media.RtpTools
         //Because 32 bytes reads exactly this:
         //A RD_hdr_t,RD_packet_t and the first 6 bytes of the entry which
         //can identify the Version, PayloadType etc.
-        public const int DefaultEntrySize = 32,
+        public const int DefaultEntrySize = 26,
             //26 bytes hdr_t and packet_t;
             sizeOf_RD_hdr_t = 26, 
             sizeOf_RD_packet_T = 8;
@@ -176,7 +176,7 @@ namespace Media.RtpTools
             //SHould just be size of rd_hdr or whatever
         }
 
-        public int Pointer = sizeOf_RD_packet_T;
+        public int Pointer = 16;
 
         /// <summary>
         /// Can be used in various ways to display information relating to the Time the entry was received.
@@ -344,7 +344,7 @@ namespace Media.RtpTools
                 //if (Is64BitEntry) return Info->len_64;
                 //return Info->len_32;
 
-                return Common.Binary.ReadU16(Blob, (TimevalSize - 2) + Pointer, ReverseValues);
+                return Common.Binary.ReadU16(Blob, Pointer, ReverseValues);
             }
             set
             {
@@ -354,7 +354,7 @@ namespace Media.RtpTools
 
                 if (ReverseValues) endian = endian.Reverse();
 
-                endian.ToArray().CopyTo(Blob, (TimevalSize - 2) + Pointer);
+                endian.ToArray().CopyTo(Blob, Pointer);
 
                 //if (Is64BitEntry)
                 //    Info->len_64 = (ushort)value;
@@ -369,7 +369,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return Common.Binary.ReadU16(Blob, TimevalSize + 2, ReverseValues);
+                return Common.Binary.ReadU16(Blob, Pointer + 4, ReverseValues);
             }
             set
             {
@@ -381,7 +381,7 @@ namespace Media.RtpTools
 
                 if (ReverseValues) endian = endian.Reverse();
 
-                endian.ToArray().CopyTo(Blob, TimevalSize + 2);
+                endian.ToArray().CopyTo(Blob, Pointer + 4);
             }
         }
 
@@ -391,9 +391,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                int RD_packet_t_offset = TimevalSize + 12;
-
-                return (int)Common.Binary.ReadU32(Blob, RD_packet_t_offset, ReverseValues);
+                return (int)Common.Binary.ReadU32(Blob, Pointer + 6, ReverseValues);
             }
             set
             {
@@ -405,7 +403,7 @@ namespace Media.RtpTools
 
                 if (ReverseValues) endian = endian.Reverse();
 
-                endian.ToArray().CopyTo(Blob, TimevalSize + 12);
+                endian.ToArray().CopyTo(Blob, Pointer + 6);
             }
         }
 
@@ -420,10 +418,25 @@ namespace Media.RtpTools
         }
 
         public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet)
+            :this(FileFormat.Binary, packet.Prepare().ToArray())
         {
+            //Make rd_hdr and pd_packet_t
+            Blob = new byte[]{
+                //RD_hdr_t
+                0, 0, 0, 0, 0, 0, 0, 0, //Time
+                1, 2, 3, 4, //Source
+                5, 6, //Port
+                0, 0,
+                //RD_packet_t
+                0, 1,  //Len
+                2, 3, //Plen
+                0, 0, 0, 0 //Offset
+            }.Concat(Blob).ToArray();
+
             //Create header from source, and packet.Created, if Is64Bit
             //Also needs rd hdrs
-            Blob = packet.Prepare().ToArray();
+            //Blob = packet.Prepare().ToArray();
+            //Format = FileFormat.Binary;
         }
 
         #endregion

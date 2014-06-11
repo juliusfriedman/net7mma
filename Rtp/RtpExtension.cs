@@ -131,13 +131,13 @@ namespace Media.Rtp
         public RtpExtension(int sizeInBytes, ushort flags = 0, byte[] data = null, int offset = 0)
         {
             //Allocate memory for the binary
-            m_MemorySegment = new OctetSegment(new byte[4 + sizeInBytes], 0, 4 + sizeInBytes);
+            m_MemorySegment = new OctetSegment(new byte[MinimumSize + sizeInBytes], 0, MinimumSize + sizeInBytes);
 
             //If there are any flags set them
             if (flags > 0) Flags = flags;
 
             //If there is any Extension data then set the LengthInWords field
-            if (sizeInBytes > 0) LengthInWords = (ushort)(sizeInBytes / 4); //10 = 2.5 becomes (3 words => 12 bytes)
+            if (sizeInBytes > 0) LengthInWords = (ushort)(sizeInBytes / MinimumSize); //10 = 2.5 becomes (3 words => 12 bytes)
 
             //If the data is not null and the size in bytes a positive value
             if (data != null && sizeInBytes > 0)

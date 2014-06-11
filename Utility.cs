@@ -59,8 +59,6 @@ namespace Media
     public static class Utility
     {
 
-        #region Interface Speed
-
         //http://en.wikipedia.org/wiki/Interframe_gap
 
         internal const int InterframeGapBits = 96;
@@ -77,7 +75,10 @@ namespace Media
 
         //Build interface table with speeds detected...
 
-        #endregion
+        //For raw sockets, must generate your own headers when outgoing, you can copy the incoming header though and modify as required :)
+        const int TCP_HEADER = 20; //+
+        const int UDP_HEADER = 14; //+
+        const int IP_HEADER = 10; //
 
         #region Extensions
         
@@ -161,7 +162,7 @@ namespace Media
 
         #region Properties
 
-        public static System.Security.Cryptography.MD5 MD5HashAlgorithm = System.Security.Cryptography.MD5.Create();
+        public static System.Security.Cryptography.MD5 MD5HashAlgorithm { get { return System.Security.Cryptography.MD5.Create(); } }
 
         public static Random Random = new Random();
 
@@ -472,7 +473,7 @@ namespace Media
         /// bits of the integer part and the high 16 bits of the fractional part.
         /// The high 16 bits of the integer part must be determined independently.
         /// </notes>
-        public static uint DateTimeToNptTimestamp32(DateTime value) { return (uint)((DateTimeToNptTimestamp(value) >> 16) & 0xFFFFFFFF); }
+        public static uint DateTimeToNptTimestamp32(DateTime value) { return (uint)((DateTimeToNptTimestamp(value) << 16) & 0xFFFFFFFF); }
 
         /// <summary>
         /// Converts specified DateTime value to long NPT time.

@@ -1107,7 +1107,7 @@ namespace Tests
                 //reader.ReadBinaryFileHeader();
 
                 //Write a file with the same attributes as the example file, needs to use DateTimeOffset
-                using (Media.RtpTools.RtpDump.DumpWriter writer = new Media.RtpTools.RtpDump.DumpWriter(currentPath + @"\mybark.rtp", reader.Format, null))
+                using (Media.RtpTools.RtpDump.DumpWriter writer = new Media.RtpTools.RtpDump.DumpWriter(currentPath + @"\mybark.rtp", reader.Format, new System.Net.IPEndPoint(0, 7))) //should have reader.Source
                 {
 
                     Console.WriteLine("Successfully opened bark.rtpdump");
@@ -1168,8 +1168,9 @@ namespace Tests
 
             System.IO.File.Delete(currentPath + @"\HexDump.rtpdump");
 
-            System.IO.File.Delete(currentPath + @"\HeaderDump.rtpdump");
-            
+            System.IO.File.Delete(currentPath + @"\Header.rtpdump");
+
+            System.IO.File.Delete(currentPath + @"\ShortDump.rtpdump");
         }
 
         //Declare a few exceptions
@@ -2095,8 +2096,15 @@ a=mpeg4-esid:101");
                 //m_ForceTCP = true
             });
 
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("OmegaTcp", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+            {
+                //m_ForceTCP = true
+            });
+
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, /*ForceTCP = true*/ });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
@@ -2243,19 +2251,23 @@ a=mpeg4-esid:101");
                 else
                 {
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://localhost/live/Alpha"))
+                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://localhost/live/SamplePictures", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {
-                            Console.WriteLine("Performing Media.Rtsp / Tcp Test");
+                            Console.WriteLine("Performing Media.Rtsp Test");
 
                             tcpClient.StartListening();
 
-                            while (tcpClient.Client.TotalRtpBytesReceieved <= 4096) { System.Threading.Thread.Sleep(100); }
+                            tcpClient.ProtocolSwitchTime = TimeSpan.FromSeconds(1);
 
-                            Console.BackgroundColor = ConsoleColor.Gray;
-                            Console.WriteLine("Test passed");
+                            while (tcpClient.Client.TotalRtpBytesReceieved <= 4096 && tcpClient.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(100); }
+
+                            Console.BackgroundColor = ConsoleColor.Green;
+                            Console.WriteLine("Test passed " + tcpClient.Client.TotalRtpBytesReceieved + " " + tcpClient.RtpProtocol);
                             Console.BackgroundColor = ConsoleColor.Black;
+
+                            tcpClient.StopListening();
 
                             return;
                         }
