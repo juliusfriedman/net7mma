@@ -141,8 +141,10 @@ namespace Media.RtpTools.RtpDump
             m_FileHeader = RtpDumpExtensions.ReadDelimitedValue(m_Reader.BaseStream);
 
 
+            int length = m_FileHeader.Length;
+
             //strict /..
-            //Check for Hash, Bang? someone might have wrote something else...      
+            //Check for Hash, Bang? someone might have wrote something else...                  
 
 
             //Check for rtpplay
@@ -151,6 +153,8 @@ namespace Media.RtpTools.RtpDump
             //after Hash and Bang
             int start = RtpPlay.RtpPlayBinaryIndex,
                 count = RtpPlay.RtpPlayFormatLength;
+
+            if (length < count) return;
 
             //Look for rtpPlay at those precalculated index's
             //Utility.ContainsBytes(m_FileHeader, ref start, ref count, rtpPlay, 0, RtpPlay.RtpPlayFormatLength);
@@ -167,10 +171,13 @@ namespace Media.RtpTools.RtpDump
                 else goto Invalid;
             }
 
+            //Version...
+
             // check for an address and port in ASCII delimited by `/`, 22 comes from 
             //255.255.255.255/65535\n
-            //   ^   ^   ^   ^
-            if (Array.LastIndexOf<byte>(m_FileHeader, 0x2f, 22, 22) == -1) goto Invalid;
+            //               ^
+            //if (Array.LastIndexOf<byte>(m_FileHeader, 0x2f, 22, 22) == -1) goto Invalid;
+            if(Array.IndexOf<byte>(m_FileHeader, 0x2f, start + count, m_FileHeader.Length - (start + count)) == -1) goto Invalid;
 
             //Binary type header, maybe header only
             m_Format = FileFormat.Binary;
@@ -259,16 +266,16 @@ namespace Media.RtpTools.RtpDump
                     else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry,"Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
                 }
 
-                int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
-                
                 //Align for 64 bit utilization
                 if (m_Is64Bit) entry.Pointer += 4;
+
+                int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
 
                 //If there are any more bytes related to the item itemLength will be > 0
                 if (itemLength > 0)
                 {
                     entry.Concat(m_Reader.ReadBytes(itemLength));
-                    entry.MaxSize += itemLength;
+                    entry.MaxSize = itemLength;
                 }
 
                 //Call determine format so item has the correct format (Header [or Payload])
@@ -445,7 +452,7 @@ namespace Media.RtpTools.RtpDump
         /// <summary>
         /// Indicates if any required file header was written by this instance, will be true if the stream was modified.
         /// </summary>
-        bool wroteHeader;
+        bool m_WroteHeader;
 
         /// <summary>
         /// A cached count of the amount of <see cref="RtpToolEntry"/> instances written to the underlying stream by this RtpDumpWriter.
@@ -515,7 +522,7 @@ namespace Media.RtpTools.RtpDump
                 //Create the file header now
                 m_FileHeader = RtpDumpExtensions.CreateFileHeader(m_Source);
 
-                wroteHeader = false;
+                m_WroteHeader = false;
 
                 //Create the writer
                 m_Writer = new System.IO.BinaryWriter(stream, Encoding.ASCII, leaveOpen);
@@ -530,7 +537,7 @@ namespace Media.RtpTools.RtpDump
                 {
                     //Header already written when modifying a file
                     //Need to read the header and advance the stream to the end, indicate the header was already written so it is not again.
-                    using (DumpReader reader = new DumpReader(stream, wroteHeader = true))
+                    using (DumpReader reader = new DumpReader(stream, m_WroteHeader = true))
                     {
                         //Create the writer forcing ASCII Encoding, leave the stream open if indicated
                         m_Writer = new System.IO.BinaryWriter(stream, Encoding.ASCII, leaveOpen);
@@ -585,13 +592,13 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public void WriteFileHeader(bool force = false)
         {
-            if (!force && wroteHeader) return;
+            if (!force && m_WroteHeader) return;
 
             //Header is only written in Binary files
             if(m_Format < FileFormat.Text) m_Writer.Write(m_FileHeader, 0, m_FileHeader.Length);
             
             //We wrote the header...
-            wroteHeader = true;
+            m_WroteHeader = true;
         }
 
         /// <summary>
@@ -691,20 +698,13 @@ namespace Media.RtpTools.RtpDump
             //Write binary entry
             if (m_Format < FileFormat.Text)
             {
-                //If the entry is not the same format a RtpToolEntry of m_Format must be produced from the entry
-                if (entry.Format != m_Format) 
+                if (m_Format == FileFormat.Header)
                 {
-                    System.Diagnostics.Debugger.Break();
+                    m_Writer.Write(entry.Blob.Take(RtpToolEntry.sizeOf_RD_hdr_t + RtpToolEntry.sizeOf_RD_packet_T + entry.PacketLength == 0 ? Rtcp.RtcpHeader.Length : Rtp.RtpHeader.Length).ToArray());
                 }
-                else //Write the entry as is
+                else if (m_Format == FileFormat.Binary)
                 {
-                    //m_Writer.Write(entry.m_RD_hdr_t);
-
-                    //m_Writer.Write(entry.m_RD_packet_t);
-
-                    //If the entry contains any data besides the RD_packet_t
-                    //Write the blob which would follow
-                    if (entry.Length > 8) m_Writer.Write(entry.Blob);
+                    m_Writer.Write(entry.Blob);
                 }
             }
             else

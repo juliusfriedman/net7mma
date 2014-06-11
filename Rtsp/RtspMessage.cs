@@ -477,7 +477,7 @@ namespace Media.Rtsp
                 //Get the body of the HttpRequest
                 messageBytes = message.Encoding.GetBytes(System.Convert.ToBase64String(message.ToBytes()));
                 
-                //Form the HttpRequest
+                //Form the HttpRequest Should allow POST and MultiPart
                 result.AddRange(message.Encoding.GetBytes("GET " + message.Location + " HTTP 1." + minorVersion.ToString() + CRLF));
                 result.AddRange(message.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
                 result.AddRange(message.Encoding.GetBytes("Pragma:no-cache" + CRLF));

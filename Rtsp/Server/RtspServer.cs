@@ -692,6 +692,8 @@ namespace Media.Rtsp
             //Create a thread to handle client connections
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = "RtspServer@" + m_ServerPort;
+            m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
+            m_ServerThread.Priority = ThreadPriority.Lowest;
             m_ServerThread.Start();
 
             //Should allow all this frequencies to be controlled with a property (used half the amount of the RtspClientInactivityTimeoutSeconds)
@@ -1083,7 +1085,7 @@ namespace Media.Rtsp
                 else if (session.LastRequest != null)
                 {
                     //Duplicate Request
-                    if (request.CSeq == session.LastRequest.CSeq) ProcessSendRtspResponse(session.LastResponse, session);
+                    if (request.CSeq == session.LastRequest.CSeq) ProcessSendRtspResponse(null, session);
                     else if (request.CSeq < session.LastRequest.CSeq)
                     {
                         ProcessInvalidRtspRequest(session);
@@ -1232,9 +1234,15 @@ namespace Media.Rtsp
 
                         //if (!response.ContainsHeader(RtspHeaders.Date)) response.SetHeader(RtspHeaders.Date, ...);
 
-                        if (RtspClientInactivityTimeoutSeconds > 0 && response.GetHeader(RtspHeaders.Session) != null && !response.GetHeader(RtspHeaders.Session).Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
+                        string sess = response.GetHeader(RtspHeaders.Session);
+
+                        if (RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
                         
                         session.SendRtspData((session.LastResponse = response).ToBytes());
+                    }
+                    else
+                    {
+                        session.SendRtspData(Utility.Empty);
                     }
                 }
             }
@@ -1574,7 +1582,9 @@ namespace Media.Rtsp
             //Send the response to the client
             ProcessSendRtspResponse(resp, session);
 
-            //session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.AboveNormal;
+            session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.AboveNormal;
+
+            session.ProcessPacketBuffer(found);
         }
 
         /// <summary>

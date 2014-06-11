@@ -177,7 +177,8 @@ namespace Media.Rtp
             {
                 if (Disposed || !IsComplete) return Utility.Empty;
                 int nonPayloadOctets = NonPayloadOctets;
-                return Payload.Array.Skip(Payload.Offset + nonPayloadOctets).Take(Payload.Count - nonPayloadOctets - PaddingOctets);
+                if (Payload.Count == 0) return Utility.Empty;
+                return Payload.Skip(nonPayloadOctets).Take(Payload.Count - nonPayloadOctets - PaddingOctets);
             }
         }
 
@@ -429,7 +430,15 @@ namespace Media.Rtp
             bool hasSourceList = ContributingSourceCount > 0;
 
             //If the source list is included then include it.
-            if (includeSourceList && hasSourceList) binarySequence = GetSourceList().AsBinaryEnumerable();
+            if (includeSourceList && hasSourceList)
+            {
+                var sourceList = GetSourceList();
+                if (sourceList != null)
+                {
+                    binarySequence = GetSourceList().AsBinaryEnumerable();
+                }
+                else binarySequence = Utility.Empty;
+            }
 
             //Determine if the clone should have extenison
             bool hasExtension = Header.Extension;

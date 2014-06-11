@@ -533,7 +533,7 @@ namespace Media.Rtcp
             int octetsRemaining = (ushort)(Header.LengthInWordsMinusOne + 1) * 4/*Length - (RtcpHeader.Length - Payload.Count)*/, offset = Payload != null ? Payload.Offset : 0;
 
             //There is not enough room in the array to finish the packet
-            if (Payload.Array.Length < octetsRemaining)
+            if (Payload.Array.Length - Payload.Offset < octetsRemaining)
             {
                 //Allocte the memory for the required data
                 if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
