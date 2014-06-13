@@ -693,7 +693,7 @@ namespace Media.Rtsp
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = "RtspServer@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            m_ServerThread.Priority = ThreadPriority.Lowest;
+            m_ServerThread.Priority = ThreadPriority.BelowNormal;
             m_ServerThread.Start();
 
             //Should allow all this frequencies to be controlled with a property (used half the amount of the RtspClientInactivityTimeoutSeconds)
@@ -716,8 +716,13 @@ namespace Media.Rtsp
         {
             try
             {
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                GC.WaitForFullGCComplete();
+
                 RestartFaultedStreams(state);
                 DisconnectAndRemoveInactiveSessions(state);
+
                 int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds * 1000 : 30000;
                 m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
             }
@@ -1085,7 +1090,11 @@ namespace Media.Rtsp
                 else if (session.LastRequest != null)
                 {
                     //Duplicate Request
-                    if (request.CSeq == session.LastRequest.CSeq) ProcessSendRtspResponse(null, session);
+                    if (request.CSeq == session.LastRequest.CSeq)
+                    {
+                        ProcessSendRtspResponse(null, session);
+                        return;
+                    }
                     else if (request.CSeq < session.LastRequest.CSeq)
                     {
                         ProcessInvalidRtspRequest(session);
@@ -1130,7 +1139,7 @@ namespace Media.Rtsp
 
                     //ConvertToMessage
 
-                    ProcessInvalidRtspRequest(session, RtspStatusCode.VersionNotSupported);
+                    ProcessInvalidRtspRequest(session, RtspStatusCode.RtspVersionNotSupported);
                     return;
                 }
 
@@ -1186,6 +1195,17 @@ namespace Media.Rtsp
                             ProcessGetParameter(request, session);
                             break;
                         }
+                    case RtspMethod.SET_PARAMETER:
+                        {
+                            ProcessSetParameter(request, session);
+                            break;
+                        }
+                    // Redirect should only send not received
+                    //case RtspMethod.REDIRECT:
+                    //    {
+                    //        ProcessRedirect(request, session);
+                    //        break;
+                    //    }
                     case RtspMethod.UNKNOWN:
                     default:
                         {
@@ -1204,6 +1224,17 @@ namespace Media.Rtsp
             {
                 //Log it
                 if (Logger != null) Logger.LogRequest(request, session);
+            }
+        }
+
+        internal void ProcessRedirect(RtspMessage request, ClientSession session)
+        {
+            var found = FindStreamByLocation(request.Location);
+            using (var resp = session.CreateRtspResponse(request))
+            {
+                resp.Method = RtspMethod.REDIRECT;
+                resp.AppendOrSetHeader(RtspHeaders.Location, "rtsp://" + session.LocalEndPoint.Address.ToString() + "/live/" + found.Id);
+                ProcessSendRtspResponse(resp, session);
             }
         }
 
@@ -1284,8 +1315,11 @@ namespace Media.Rtsp
 
             RtspStatusCode statusCode;
 
+            bool noAuthHeader = string.IsNullOrWhiteSpace(authHeader);
+
+            if (noAuthHeader && session.LastRequest.ContainsHeader(RtspHeaders.AcceptCredentials)) statusCode = RtspStatusCode.ConnectionAuthorizationRequired;
             //If the last request did not have an authorization header
-            if (session.LastRequest != null && string.IsNullOrWhiteSpace(authHeader))
+            else if (noAuthHeader)
             {
                 /* -- http://tools.ietf.org/html/rfc2617
                  
@@ -1329,15 +1363,15 @@ namespace Media.Rtsp
                 if ((requiredCredential = RequiredCredentials.GetCredential(relativeLocation, "Digest")) != null)
                 {
                     //Might need to store values qop nc, cnonce and nonce in session storage for later retrival
-                    authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", requiredCredential.UserName, (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain), ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));                    
+                    authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", requiredCredential.UserName, (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain), ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));
                 }
                 else if ((requiredCredential = RequiredCredentials.GetCredential(relativeLocation, "Basic")) != null)
                 {
-                    authenticateHeader = "Basic realm=\"" + (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain + '"');                    
+                    authenticateHeader = "Basic realm=\"" + (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain + '"');
                 }
 
-                if(!string.IsNullOrWhiteSpace(authenticateHeader))
-                { 
+                if (!string.IsNullOrWhiteSpace(authenticateHeader))
+                {
                     response.SetHeader(RtspHeaders.WWWAuthenticate, authenticateHeader);
                 }
             }
@@ -1436,7 +1470,7 @@ namespace Media.Rtsp
 
             if (!found.Ready)
             {
-                ProcessInvalidRtspRequest(session, RtspStatusCode.MethodNotAllowed);
+                ProcessInvalidRtspRequest(session, RtspStatusCode.DataTransportNotReadyYet);
                 return;
             }
 
@@ -1638,7 +1672,11 @@ namespace Media.Rtsp
                 }
 
                 //Send the response
-                ProcessSendRtspResponse(session.ProcessTeardown(request, found), session);                
+                using (var resp = session.ProcessTeardown(request, found))
+                {
+                    resp.AppendOrSetHeader(RtspHeaders.Connection, "close");
+                    ProcessSendRtspResponse(resp, session);
+                }
             }
             catch
             {

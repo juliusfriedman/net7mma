@@ -59,12 +59,12 @@ namespace Media.Rtsp.Server.Streams
         #region Fields
 
         //Should be moved to SourceStream? Should have Fps and calculate for developers?
-        protected readonly int clockRate = 9;//kHz //90 dekahertz
+        protected int clockRate = 9;//kHz //90 dekahertz
 
         //Should be moved to SourceStream?
         protected readonly int sourceId = (int)DateTime.UtcNow.Ticks;
 
-        protected Queue<Rtp.RFC2435Frame> m_Frames = new Queue<Rtp.RFC2435Frame>();
+        protected Queue<Rtp.RtpFrame> m_Frames = new Queue<Rtp.RtpFrame>();
 
         //RtpClient so events can be sourced to Clients through RtspServer
         protected Rtp.RtpClient m_RtpClient;
@@ -78,12 +78,12 @@ namespace Media.Rtsp.Server.Streams
 
         #region Propeties
 
-        public double FramesPerSecond { get { return Math.Max(m_FramesPerSecondCounter, 1) / Math.Abs(Uptime.TotalSeconds); } }
+        public virtual double FramesPerSecond { get { return Math.Max(m_FramesPerSecondCounter, 1) / Math.Abs(Uptime.TotalSeconds); } }
 
         /// <summary>
         /// Indicates if the Stream should continue from the beginning once reaching the end
         /// </summary>
-        public bool Loop { get; set; }
+        public virtual bool Loop { get; set; }
 
         /// <summary>
         /// Implementes the SessionDescription property for RtpSourceStream
@@ -145,7 +145,7 @@ namespace Media.Rtsp.Server.Streams
             m_RtpClient.m_WorkerThread.TrySetApartmentState(System.Threading.ApartmentState.MTA);
             m_RtpClient.m_WorkerThread.IsBackground = true;
             m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
-            m_RtpClient.m_WorkerThread.Name = "ImageStream" + Id;
+            m_RtpClient.m_WorkerThread.Name = "RFC2435Stream-" + Id;
 
             //If we are watching and there are already files in the directory then add them to the Queue
             if (m_Watcher != null && !string.IsNullOrWhiteSpace(base.Source.LocalPath) && System.IO.Directory.Exists(base.Source.LocalPath))
@@ -242,7 +242,7 @@ namespace Media.Rtsp.Server.Streams
         /// Add a frame of existing packetized data
         /// </summary>
         /// <param name="frame">The frame with packets to send</param>
-        public void AddFrame(Rtp.RFC2435Frame frame)
+        public void AddFrame(Rtp.RtpFrame frame)
         {
             lock (m_Frames)
             {
@@ -256,7 +256,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
         /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
-        public void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
+        public virtual void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
         {
             lock (m_Frames)
             {
@@ -282,33 +282,41 @@ namespace Media.Rtsp.Server.Streams
                     int period = (clockRate * 1000 / m_Frames.Count);
 
                     //Dequeue a frame or die
-                    Rtp.RFC2435Frame frame = m_Frames.Dequeue();
+                    Rtp.RtpFrame frame = m_Frames.Dequeue();
 
                     //Get the transportChannel for the packet
                     Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
 
-                    DateTime now = DateTime.UtcNow;
-
-                    //transportContext.RtpTimestamp += (uint)(clockRate * 1000 / (m_Frames.Count + 1));
-
-                    transportContext.RtpTimestamp += period;
-
-                    //transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerMillisecond * clockRate);
-
-                    //Iterate each packet and put it into the next frame (Todo In clock cycles)
-                    //Again nothing to much to gain here in terms of parallelism (unless you want multiple pictures in the same buffer on the client)
-                    foreach (Rtp.RtpPacket packet in frame)
+                    if (transportContext != null)
                     {
-                        //Copy the values before we signal the server
-                        //packet.Channel = transportContext.DataChannel;
-                        packet.SynchronizationSourceIdentifier = (int)sourceId;
-                        packet.Timestamp = (int)transportContext.RtpTimestamp;
-                        
-                        //Increment the sequence number on the transportChannel and assign the result to the packet
-                        packet.SequenceNumber = ++transportContext.SequenceNumber;
 
-                        //Fire an event so the server sends a packet to all clients connected to this source
-                        RtpClient.OnRtpPacketReceieved(packet);
+                        DateTime now = DateTime.UtcNow;
+
+                        //transportContext.RtpTimestamp += (uint)(clockRate * 1000 / (m_Frames.Count + 1));
+
+                        transportContext.RtpTimestamp += period;
+
+                        //transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerMillisecond * clockRate);
+
+                        //Iterate each packet and put it into the next frame (Todo In clock cycles)
+                        //Again nothing to much to gain here in terms of parallelism (unless you want multiple pictures in the same buffer on the client)
+                        foreach (Rtp.RtpPacket packet in frame)
+                        {
+                            //Copy the values before we signal the server
+                            //packet.Channel = transportContext.DataChannel;
+                            packet.SynchronizationSourceIdentifier = (int)sourceId;
+                            packet.Timestamp = (int)transportContext.RtpTimestamp;
+
+                            //Increment the sequence number on the transportChannel and assign the result to the packet
+                            packet.SequenceNumber = ++transportContext.SequenceNumber;
+
+                            //Fire an event so the server sends a packet to all clients connected to this source
+                            RtpClient.OnRtpPacketReceieved(packet);
+                        }
+
+                        if (frame.PayloadTypeByte == 26) OnFrameDecoded((Rtp.RFC2435Frame)frame);
+
+                        System.Threading.Interlocked.Increment(ref m_FramesPerSecondCounter);
                     }
 
                     //If we are to loop images then add it back at the end
@@ -316,10 +324,6 @@ namespace Media.Rtsp.Server.Streams
                     {
                         m_Frames.Enqueue(frame);
                     }
-
-                    OnFrameDecoded(frame);
-
-                    System.Threading.Interlocked.Increment(ref m_FramesPerSecondCounter);
 
                     System.Threading.Thread.Sleep(clockRate);
                         

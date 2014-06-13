@@ -49,6 +49,7 @@ namespace Media.Rtsp
     {
         public const string Allow = "Allow";
         public const string Accept = "Accept";
+        public const string AcceptCredentials = "Accept-Credentials";
         public const string AcceptEncoding = "Accept-Encoding";
         public const string AcceptLanguage = "Accept-Language";
         public const string Authorization = "Authorization";
@@ -57,6 +58,7 @@ namespace Media.Rtsp
         public const string CacheControl = "Cache-Control";
         public const string Confrence = "Confrence";
         public const string Connection = "Connection";
+        public const string ConnectionCredentials = "Connection-Credentials";
         public const string ContentBase = "Content-Base";
         public const string ContentEncoding = "Content-Encoding";
         public const string ContentLanguage = "Content-Language";
@@ -65,11 +67,15 @@ namespace Media.Rtsp
         public const string ContentType = "Content-Type";
         public const string CSeq = "CSeq";
         public const string Date = "Date";
+        public const string RTSPDate = "RTSP-Date";
         public const string From = "From";
         public const string Expires = "Expires";
         public const string LastModified = "Last-Modified";
         public const string IfModifiedSince = "If-Modified-Since";
         public const string Location = "Location";
+        public const string MediaProperties = "Media-Properties";
+        public const string MediaRange = "Media-Range";
+        public const string PipelinedRequests = "Pipelined-Requests";
         public const string ProxyAuthenticate = "Proxy-Authenticate";
         public const string ProxyRequire = "Proxy-Require";
         public const string Public = "Public";
@@ -342,8 +348,9 @@ namespace Media.Rtsp
         // 3xx Redirection.
         MultipleChoices = 300,
         MovedPermanently = 301,
-        MovedTemporarily = 302,
+        Found = 302,
         SeeOther = 303,
+        NotModified = 304,
         UseProxy = 305,
 
         // 4xx Client Error.
@@ -355,20 +362,41 @@ namespace Media.Rtsp
         MethodNotAllowed = 405,
         NotAcceptable = 406,
         ProxyAuthenticationRequired = 407,
+        RequestTimeOut = 408,
+        Gone = 410,
+        LengthRequired = 411,
         PreconditionFailed = 412,
+        RequestMessageBodyTooLarge = 413,
+        RequestUriTooLarge = 414,
+        UnsupportedMediaType = 415,
+        ParameterNotUnderstood = 451,
+        Reserved = 452,
+        NotEnoughBandwidth = 453,
         SessionNotFound = 454,
         MethodNotValidInThisState = 455,
         HeaderFieldNotValidForResource = 456,
         InvalidRange = 457,
+        ParameterIsReadOnly = 458,
+        AggregateOpperationNotAllowed = 459,
+        OnlyAggregateOpperationAllowed = 460,
         UnsupportedTransport = 461,
+        DestinationUnreachable = 462,
+        DestinationProhibited = 463,
+        DataTransportNotReadyYet = 464,
+        NotificationReasonUnknown = 465,
+        KeyManagementError = 466,
 
+        ConnectionAuthorizationRequired = 470,
+        ConnectionCredentialsNotAcception = 471,
+        FaulireToEstablishSecureConnection = 472,
+        
         // 5xx Server Error.
         InternalServerError = 500,
         NotImplemented = 501,
         BadGateway = 502,
         ServiceUnavailable = 503,
         GatewayTimeOut = 504,
-        VersionNotSupported = 505,
+        RtspVersionNotSupported = 505,
         OptionNotSupported = 551,
     }
 
@@ -455,7 +483,7 @@ namespace Media.Rtsp
         internal const string MessageIdentifier = "RTSP";
         
         //String which can be used to delimit a RtspMessage for preprocessing
-        internal static string[] HeaderSplit = new string[] { CRLF };
+        internal static string[] HeaderLineSplit = new string[] { CRLF };
         
         //String which is used to split Header values of the RtspMessage
         internal static char[] HeaderValueSplit = new char[] { ':' };
@@ -830,7 +858,7 @@ namespace Media.Rtsp
                 //Just keep track of the end and refer only to this pointer for the representation of the body, subsequently headers will be parsed based on this max offset.
 
                 //Create the vector
-                string[] ordinals = Encoding.GetString(packet.Array, headerStart, headerBytes).Split(HeaderSplit, StringSplitOptions.None);
+                string[] ordinals = Encoding.GetString(packet.Array, headerStart, headerBytes).Split(HeaderLineSplit, StringSplitOptions.None);
 
                 //The body will be the last scalar ordinal in the resulting vector
                 int lastOrdinal = ordinals.Length, maxOrdinal = lastOrdinal;
@@ -1033,7 +1061,7 @@ namespace Media.Rtsp
         /// <returns>The packet which represents this RtspMessage</returns>
         public virtual byte[] ToBytes()
         {
-            List<byte> result = new List<byte>(RtspMessage.MaximumLength);
+            List<byte> result = new List<byte>(RtspMessage.MaximumLength / 7);
 
             if (MessageType == RtspMessageType.Request)
                 result.AddRange(Encoding.GetBytes(Method.ToString() + " " + Location.ToString() + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + CRLF));

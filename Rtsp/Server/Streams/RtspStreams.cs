@@ -175,8 +175,16 @@ namespace Media.Rtsp.Server.Streams
             if (!RtspClient.Connected)
             {
                 RtspClient.OnConnect += RtspClient_OnConnect;
+                RtspClient.OnDisconnect += RtspClient_OnDisconnect;
                 RtspClient.Connect();
             }
+        }
+
+        void RtspClient_OnDisconnect(RtspClient sender, object args)
+        {
+            if (RtspClient != sender) return;
+            RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
+            Ready = false;
         }
 
         void RtspClient_OnConnect(RtspClient sender, object args)

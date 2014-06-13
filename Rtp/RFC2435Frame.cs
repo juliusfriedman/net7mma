@@ -586,7 +586,7 @@ namespace Media.Rtp
         /// <param name="sequenceNo">The sequence number of the image being encoded</param>
         /// <param name="timeStamp">The Timestamp of the image being encoded</param>
         /// <param name="bytesPerPacketPayload">The maximum amount of octets of each RtpPacket Payload which contains part of the encoded image. This amount should encompass the RtpHeader (12 octets) as well as the Rtp Jpeg Header (8 Octets)</param>
-        public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1480)            
+        public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1440)            
         {
             if (imageQuality <= 0 || imageQuality > 100) throw new NotSupportedException("Only qualities 1 - 100 are supported");
 

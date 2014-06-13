@@ -513,8 +513,8 @@ namespace Media.Rtp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (Disposed) return;
-
+            if (Disposed || !ShouldDispose) return;
+            
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 

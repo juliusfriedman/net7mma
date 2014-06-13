@@ -109,9 +109,9 @@ namespace Tests
 
                 if (this.InvokeRequired)
                 {
-                    Invoke(new FillGridP(UpdateRtsp), request);
+                    Invoke(new FillTextRtsp(UpdateRtsp), request);
 
-                    Invoke(new FillGridP(UpdateRtsp), response);
+                    Invoke(new FillTextRtsp(UpdateRtsp), response);
                 }
                 else
                 {
@@ -140,15 +140,19 @@ namespace Tests
 
         void ShowRtcpPacket(object sender, Media.Rtcp.RtcpPacket packet)
         {
-            if (this.InvokeRequired) Invoke(new FillGridC(AddRtcp), packet.Clone(true, true, false));
-            else RTCPPacketBinding.Add(packet.Clone(true, true, false));
+            try
+            {
+                if (this.InvokeRequired) Invoke(new FillGridRtcp(AddRtcp), packet.Clone(true, true, false));
+                else RTCPPacketBinding.Add(packet.Clone(true, true, false));
+            }
+            catch { }
         }
 
-        delegate void FillGridR(Media.Rtp.RtpPacket packet);
+        delegate void FillGridRtp(Media.Rtp.RtpPacket packet);
 
-        delegate void FillGridC(Media.Rtcp.RtcpPacket packet);
+        delegate void FillGridRtcp(Media.Rtcp.RtcpPacket packet);
 
-        delegate void FillGridP(Media.Rtsp.RtspMessage packet);
+        delegate void FillTextRtsp(Media.Rtsp.RtspMessage packet);
 
         public void AddRtcp(Media.Rtcp.RtcpPacket p)
         {
@@ -239,8 +243,12 @@ namespace Tests
 
         void ShowRtpPacket(object sender, Media.Rtp.RtpPacket packet)
         {
-            if (this.InvokeRequired) Invoke(new FillGridR(AddRtp), packet.Clone(true, true, true, true, true));
-            else RTPPacketBinding.Add((IPacket)packet.Clone(true, true, true, true, true));
+            try
+            {
+                if (this.InvokeRequired) Invoke(new FillGridRtp(AddRtp), packet.Clone(true, true, true, true, true));
+                else RTPPacketBinding.Add((IPacket)packet.Clone(true, true, true, true, true));
+            }
+            catch { }
         }
 
         void sender_OnDisconnect(RtspClient sender, object args)
