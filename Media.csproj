@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Media</RootNamespace>
     <AssemblyName>Media</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
@@ -136,6 +136,9 @@
     <Compile Include="Rtsp\Server\ClientSession.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
     <Compile Include="Rtsp\Server\Streams\ISource.cs" />
+    <Compile Include="Rtsp\Server\Streams\RFC3016Stream.cs" />
+    <Compile Include="Rtsp\Server\Streams\RFC4421Stream.cs" />
+    <Compile Include="Rtsp\Server\Streams\RFC6184Stream.cs" />
     <Compile Include="Rtsp\Server\Streams\RFC2435Stream.cs" />
     <Compile Include="Rtsp\Server\Streams\RtpStreams.cs" />
     <Compile Include="Rtsp\Server\Streams\RtspStreams.cs" />

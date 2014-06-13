@@ -215,6 +215,12 @@ namespace Tests
                 },
                 new
                 {
+                    Uri = "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
                     Uri = "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
@@ -2040,8 +2046,10 @@ a=mpeg4-esid:101");
         static void TestServer()
         {
             //Setup a Media.RtspServer on port 554
-            Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer();
-            server.Logger = new Media.Rtsp.Server.RtspServerDebuggingLogger();
+            Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer()
+            {
+                Logger = new Media.Rtsp.Server.RtspServerDebuggingLogger()
+            };
             
             //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
             //server.EnableUdp();
@@ -2086,6 +2094,13 @@ a=mpeg4-esid:101");
                 m_ForceTCP = true
             });
 
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("YouTubeTcp", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp")
+            {
+                m_ForceTCP = true
+            });
+
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
             {
                 //m_ForceTCP = true
@@ -2105,6 +2120,10 @@ a=mpeg4-esid:101");
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(128, 96, "SamplePictures2", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC3016Stream(128, 96, "SamplePictures3", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 

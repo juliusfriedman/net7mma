@@ -465,29 +465,26 @@ namespace Media.Rtcp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (Disposed) return;
+            if (Disposed || ShouldDispose) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
-            if (ShouldDispose)
+            //If there is a referenced RtpHeader
+            if (m_OwnsHeader && Header != null && !Header.Disposed)
             {
-                //If there is a referenced RtpHeader
-                if (m_OwnsHeader && Header != null && !Header.Disposed)
-                {
-                    //Dispose it
-                    Header.Dispose();
+                //Dispose it
+                Header.Dispose();
 
-                    //Remove of the reference
-                    //Header = null;
-                }
-
-                //Payload goes away when disposing
-                Payload = default(OctetSegment);
-
-                //The private data goes away after calling Dispose
-                m_OwnedOctets = null;
+                //Remove of the reference
+                //Header = null;
             }
+
+            //Payload goes away when disposing
+            Payload = default(OctetSegment);
+
+            //The private data goes away after calling Dispose
+            m_OwnedOctets = null;
         }
 
         /// <summary>

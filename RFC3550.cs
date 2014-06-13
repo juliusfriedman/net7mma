@@ -338,29 +338,18 @@ namespace Media
             //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
             for (; position < segmentCount; ++position)
             {
+
+                byte val = segment.Array[position];
+
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
-                if (segment.Array[position] != 0)
+                if (val != default(byte))
                 {
                     //The last octet is not part of the payload but should indicate the number of bytes in the padding.
-                    break;
+                    return val;
                 }
             }
 
-            if (position == segmentCount) return 0;
-            //Return the amount of bytes in the padding.
-            return segment.Array[position];
-        }
-
-        /// <summary>
-        /// Reads the bytes designated as padding in the given segment.
-        /// Note that the amount of octets in the padding cannot be determined until all previous data required by the packets header has been received.
-        /// </summary>
-        /// <param name="data">The sequence of octets which contains binary data</param>
-        /// <param name="position">The position in the data to skip while looking for padding</param>
-        /// <returns>The value of the octet at the position given</returns>
-        public static int ReadPadding(IEnumerable<byte> data, int position = 0)
-        {
-            return data.Skip(position).First();
+            return 0;
         }
 
         /// <summary>

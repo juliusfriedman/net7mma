@@ -70,8 +70,8 @@ namespace Media.Rtp
         static uint RTP_SEQ_MOD = (1 << 16);
 
         //Should be instance properties on the TransportContext with better names
-        const int MAX_DROPOUT = 5000;
-        const int MAX_MISORDER = 500;
+        const int MAX_DROPOUT = 500;
+        const int MAX_MISORDER = 100;
         const int MIN_SEQUENTIAL = 2;        
 
         /// <summary>
@@ -585,7 +585,6 @@ namespace Media.Rtp
                 if (UpdateSequenceNumber(packet.SequenceNumber))
                 {
                     SequenceNumber = packet.SequenceNumber;
-                    UpdateJitter(packet);
                     return true;
                 }
 
@@ -724,7 +723,7 @@ namespace Media.Rtp
                     #region Optional Parameters
 
                     //Set max ttl for slower networks
-                    //RtpSocket.Ttl = 255;
+                    RtpSocket.Ttl = 255;
 
                     //May help if behind a router
                     //Allow Nat Traversal
@@ -732,7 +731,7 @@ namespace Media.Rtp
 
                     //Set type of service
                     //For older networks (http://en.wikipedia.org/wiki/Type_of_service)
-                    //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+                    RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
                     #endregion
 
@@ -758,6 +757,9 @@ namespace Media.Rtp
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
                         RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
                         RtcpSocket.Blocking = false;
+
+                        RtcpSocket.Ttl = 255;
+                        RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
                         RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultTimeout.Milliseconds;
 
@@ -802,6 +804,7 @@ namespace Media.Rtp
             /// <param name="duplexed">The socket to use</param>
             public void InitializeSockets(Socket duplexed)
             {
+
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
                 
                 LocalRtcp = LocalRtp = ((IPEndPoint)duplexed.LocalEndPoint);
@@ -1002,7 +1005,10 @@ namespace Media.Rtp
         internal void HandleInterleavedData(object sender, ArraySegment<byte> memory)
         {
             //if(!Disposed && sender != this) ParseAndCompleteData(memory);
-            if (!Disposed) ParseAndCompleteData(memory);
+            if (!Disposed)
+            {
+                ParseAndCompleteData(memory);
+            }
         }
 
 
@@ -1215,8 +1221,10 @@ namespace Media.Rtp
             Interlocked.Increment(ref transportContext.RtpPacketsReceived);
 
             //The counters for the bytes will now be be updated for the invalid packet
-            Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Length);
+            Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count());
 
+            transportContext.UpdateJitter(localPacket);
+            
             //Update values if in state
             //If the SSRC identifier in the packet is one that has been received before, then the packet is probably valid and checking if the sequence number is in the expected range provides further validation.
                                                                             //|| packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier
@@ -1229,7 +1237,27 @@ namespace Media.Rtp
                 //make a frame
                 transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
             }
-            else//There is already a frame allocated
+            else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp)
+            {
+                //Add the packet clone to the current frame
+                transportContext.LastFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
+
+                //If the frame is complete then fire an event and make a new frame
+                if (transportContext.LastFrame.Complete)
+                {
+                    //The LastFrame changed
+                    OnRtpFrameChanged(transportContext.LastFrame);
+                    transportContext.LastFrame = null;
+                }
+                else if (transportContext.LastFrame.Count > transportContext.LastFrame.MaxPackets)
+                {
+                    //Backup of frames
+                    transportContext.LastFrame.Dispose();
+                    transportContext.LastFrame = null;
+                }
+                return;
+            }
+            else
             {
                 //Move the current frame to the LastFrame
                 transportContext.LastFrame = transportContext.CurrentFrame;
@@ -1242,7 +1270,7 @@ namespace Media.Rtp
             }
 
             //Add the packet clone to the current frame
-            transportContext.CurrentFrame.Add(localPacket.Clone(true, true, true, true, false));
+            transportContext.CurrentFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
 
             //If the frame is complete then fire an event and make a new frame
             if (transportContext.CurrentFrame.Complete)
@@ -1285,7 +1313,7 @@ namespace Media.Rtp
             }
 
             //increment the counters
-            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
+            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Payload.Count());
 
             Interlocked.Increment(ref transportContext.RtpPacketsSent);
 
@@ -1634,8 +1662,9 @@ namespace Media.Rtp
             DateTime now = DateTime.UtcNow;
 
             //Use the values from the TransportChannel
+            //result.NtpTimestamp = 0;
             result.NtpTime = now;
-            result.RtpTimestamp = (int)Utility.DateTimeToNptTimestamp32(now);
+            result.RtpTimestamp = context.RtpTimestamp;
 
             //Counters
             result.SendersOctetCount = (int)context.RtpBytesSent;
@@ -1675,7 +1704,7 @@ namespace Media.Rtp
 
                 #endregion
 
-                DateTime lastSent = context.LastRtcpReportSent == TimeSpan.Zero ? now : now - context.LastRtcpReportSent;
+                DateTime lastSent = context.LastRtcpReportSent == TimeSpan.Zero ? now : context.SendersReport.NtpTime;
 
                 //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
                 result.Add(new Rtcp.ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
@@ -1684,10 +1713,10 @@ namespace Media.Rtp
                     (int)context.SequenceNumber,
                     (int)context.RtpJitter,
                     //The middle 32 bits out of 64 in the NTP timestamp (as explained in Section 4) received as part of the most recent RTCP sender report (SR) packet from source SSRC_n. If no SR has been received yet, the field is set to zero.
-                    (int)Utility.DateTimeToNptTimestamp32(lastSent),
+                    (int)( (context.NtpTimestamp >> 16) << 32 ),
                     //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
-                    //(int)((now - lastSent).TotalSeconds / 65536),
-                    (int)context.LastRtcpReportSent.TotalSeconds / 65535));
+                    (int)(now - lastSent).TotalSeconds / 65535));
+                    //(int)DateTime.UtcNow.Subtract(context.LastRtcpReportSent).TotalSeconds / 65535));
             }
 
             return result;
@@ -1737,8 +1766,8 @@ namespace Media.Rtp
                     lost,
                     (int)context.SequenceNumber,
                     (int)context.RtpJitter,
-                    (int)(context.SendersReport != null ? Utility.DateTimeToNptTimestamp(context.SendersReport.Created) : 0),
-                    (context.SendersReport != null ? ((DateTime.UtcNow - context.SendersReport.Created).Milliseconds / 65535) * 1000 : 0)
+                    (int)(context.SendersReport != null ? Utility.DateTimeToNptTimestamp32(context.SendersReport.NtpTime) : 0),
+                    (context.SendersReport != null ? ((DateTime.UtcNow - context.SendersReport.Created).Seconds / 65535) * 1000 : 0)
                 ));
 
             }
@@ -2518,30 +2547,43 @@ namespace Media.Rtp
                 {
                     //Create the data from the concatenation of the frame header and the data existing
                     //E.g. Under RTSP...Frame the Data in a PDU {$ C LEN ...}
-
                     length = data.Length;
 
-                    data = (BitConverter.IsLittleEndian ? BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)data.Length)) : BitConverter.GetBytes((ushort)data.Length)).Concat(data).ToArray();
-                    length += 2;
-
-                    if (useChannelId)
+                    if (useChannelId && useFrameControl)
                     {
-                        data = channel.Value.Yield().Concat(data).ToArray();
-                        ++length;
+                        data = Enumerable.Concat(BigEndianFrameControl.Yield(), channel.Value.Yield())
+                            .Concat(BitConverter.IsLittleEndian ? BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)data.Length)) : BitConverter.GetBytes((ushort)data.Length))
+                            .Concat(data).ToArray();
+                        length += 4;
                     }
-
-                    if (useFrameControl)
+                    else
                     {
-                        data = BigEndianFrameControl.Yield().Concat(data).ToArray();
-                        ++length;
+                        data = (BitConverter.IsLittleEndian ? BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder((short)data.Length)) : BitConverter.GetBytes((ushort)data.Length)).Concat(data).ToArray();
+                        length += 2;
+
+                        if (useChannelId)
+                        {
+                            data = channel.Value.Yield().Concat(data).ToArray();
+                            ++length;
+                        }
+
+                        if (useFrameControl)
+                        {
+                            data = BigEndianFrameControl.Yield().Concat(data).ToArray();
+                            ++length;
+                        }
                     }
 
                 }else length = data.Length;
 
                 if (length < data.Length)
                 {
-                    if (socket.ProtocolType == ProtocolType.Tcp && channel.HasValue) data = data.Skip(4).ToArray();
-                    goto Frame;
+                    if (socket.ProtocolType == ProtocolType.Tcp && channel.HasValue)
+                    {
+                        data = data.Skip(4).ToArray();
+                        goto Frame;
+                    }
+                    else length = data.Length;
                 }
 
                 #endregion
@@ -2550,7 +2592,6 @@ namespace Media.Rtp
                 while (sent < length)
                 {
                     sent += socket.Send(data, sent, length - sent, SocketFlags.None, out error);
-
                     if (error == SocketError.TryAgain) continue;
                     else if (error != SocketError.Success) break;
                 }

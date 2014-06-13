@@ -683,9 +683,14 @@ namespace Media.Rtsp
 
                         connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
                         {
-                            m_RtspSocket.EndConnect(iar);
-                            
-                            OnConnected();
+                            try
+                            {
+                                m_RtspSocket.EndConnect(iar);
+                            }
+                            finally
+                            {
+                                OnConnected();
+                            }
                         }), null);
 
                     }
@@ -899,7 +904,30 @@ namespace Media.Rtsp
                     if (error == SocketError.TryAgain) goto Receive;
 
                     //If any more data is present it belongs to the lower layer unless the client is already connected
-                    if (received > max && m_RtpClient != null) m_RtpClient.HandleInterleavedData(this, new ArraySegment<byte>(m_Buffer, max, received - max));
+                    if (received > max && m_RtpClient != null)
+                    {
+
+                        int r = received - max;
+
+                        if (r > 4)
+                        {
+                            var data = new ArraySegment<byte>(m_Buffer, max, r);
+
+                            byte channel;
+
+                            int frameLength = 0;
+
+                            if ((frameLength = m_RtpClient.TryReadFrameHeader(data, out channel)) > 0)
+                            {
+                                r -= 4;
+
+                                var tc = m_RtpClient.GetContextByChannel(channel);
+
+                                if(tc != null)
+                                    m_RtpClient.HandleInterleavedData(this, new ArraySegment<byte>(m_Buffer, max + 4, Math.Min(frameLength, r)));
+                            }
+                        }
+                    }
                 }
 
             Wait:
