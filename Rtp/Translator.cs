@@ -42,7 +42,11 @@ using System.Threading.Tasks;
 
 namespace Media.Rtp
 {
-    class Translator
+    public class Translator
     {
+        //Takes packets from one version and converts them to another?
+
+        //Should possibly be abstract and define methods for taking bytes and returning a RtpPacket instance.
+        //Would then be useful for Rtmp -> Rtcp conversion
     }
 }

@@ -47,7 +47,7 @@ namespace Media.Rtsp.Server.Streams
     /// <remarks>
     /// Provides a way to augment all classes from one place.
     /// </remarks>
-    public abstract class SourceStream
+    public abstract class SourceStream : ISource, IMediaStream
     {
         const string UriScheme = "rtspserver://";
 
@@ -71,7 +71,8 @@ namespace Media.Rtsp.Server.Streams
         internal NetworkCredential m_SourceCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
-        
+        internal Sdp.SessionDescription m_Sdp;
+
         //Maybe should be m_AllowUdp?
         internal bool m_ForceTCP;//= true; // To force clients to utilize TCP, Interleaved in Rtsp or Rtp
 
@@ -136,6 +137,11 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public virtual bool Ready { get; protected set; }
 
+        /// <summary>
+        /// Indicates if the souce should attempt to decode frames which change.
+        /// </summary>
+        public bool DecodeFrames { get; protected set; }
+
         #endregion
 
         #region Constructor        
@@ -161,9 +167,15 @@ namespace Media.Rtsp.Server.Streams
 
         public delegate void FrameDecodedHandler(SourceStream stream, System.Drawing.Image decoded);
 
+        public delegate void DataDecodedHandler(SourceStream stream, byte[] decoded);
+
         public event FrameDecodedHandler FrameDecoded;
 
-        internal void OnFrameDecoded(System.Drawing.Image decoded) { if (decoded != null && FrameDecoded != null) FrameDecoded(this, decoded); }
+        public event DataDecodedHandler DataDecoded;
+
+        internal void OnFrameDecoded(System.Drawing.Image decoded) { if (DecodeFrames && decoded != null && FrameDecoded != null) FrameDecoded(this, decoded); }
+
+        internal void OnFrameDecoded(byte[] decoded) { if (DecodeFrames && decoded != null && DataDecoded != null) DataDecoded(this, decoded); }
 
         #endregion
 
@@ -189,5 +201,27 @@ namespace Media.Rtsp.Server.Streams
         public void ClearAliases() { m_Aliases.Clear(); }
 
         #endregion
+
+        Guid IMediaStream.Id
+        {
+            get { return Id; }
+        }
+
+        Sdp.SessionDescription IMediaStream.SessionDescription { get { return m_Sdp; } }
+
+        SourceStream.StreamState IMediaStream.State
+        {
+            get { return State; }
+        }
+
+        void IMediaStream.Start()
+        {
+            Start();
+        }
+
+        void IMediaStream.Stop()
+        {
+            Stop();
+        }
     }
 }

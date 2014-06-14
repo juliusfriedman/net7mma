@@ -42,7 +42,23 @@ using System.Threading.Tasks;
 
 namespace Media.Rtp
 {
-    class Mixer
+    /// <summary>
+    /// Will mix two rtp streams into a single stream with totally new timestamps
+    /// </summary>
+    public class Mixer
     {
+
+        //Determine to keep clients or just a Queue of RtpPackets
+        //System.Collections.Concurrent.ConcurrentBag<RtpClient> Sources;
+
+        long m_Clock;
+
+        int m_Frequency, m_Timestamp;
+
+        //When add attach event and Queue packets
+        //When remove detach event
+
+        //Main loop takes packets from queue and combines them upto a max size payload and then fires an event...?
+
     }
 }

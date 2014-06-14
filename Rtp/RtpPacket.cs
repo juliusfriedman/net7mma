@@ -175,9 +175,8 @@ namespace Media.Rtp
         {
             get
             {
-                if (Disposed || !IsComplete) return Utility.Empty;
+                if (Disposed || !IsComplete || Payload.Count == 0) return Utility.Empty;
                 int nonPayloadOctets = NonPayloadOctets;
-                if (Payload.Count == 0) return Utility.Empty;
                 return Payload.Skip(nonPayloadOctets).Take(Payload.Count - nonPayloadOctets - PaddingOctets);
             }
         }
@@ -185,6 +184,18 @@ namespace Media.Rtp
         #endregion
 
         #region Constructor
+
+        public RtpPacket(int version, bool padding, bool extension, byte[] payload)
+            : this(new RtpHeader(version, padding, extension), payload ?? Utility.Empty)
+        {
+
+        }
+
+        public RtpPacket(int version, bool padding, bool extension, bool marker, int payloadType, int csc, int ssrc, int seq, int timestamp, byte[] payload)
+            : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload ?? Utility.Empty)
+        {
+
+        }
 
         /// <summary>
         /// Creates a RtpPacket instance by projecting the given sequence to an array which is subsequently owned by the instance.

@@ -137,6 +137,13 @@ namespace Media.RtpTools.RtpDump
         {
             if (m_FileHeader != null) return;
 
+            //If the next character in the stream is not '#' then this is not a binary format
+            if (m_Reader.PeekChar() != RtpDumpExtensions.Hash)
+            {
+                m_Format = FileFormat.Text;
+                return;
+            }
+
             //////Progress past the FileHeader should be #!rtpplay1.0 and IP/Port\n
             m_FileHeader = RtpDumpExtensions.ReadDelimitedValue(m_Reader.BaseStream);
 
@@ -154,21 +161,17 @@ namespace Media.RtpTools.RtpDump
             int start = RtpPlay.RtpPlayBinaryIndex,
                 count = RtpPlay.RtpPlayFormatLength;
 
-            if (length < count) return;
+            if (length < count) goto Invalid;
 
             //Look for rtpPlay at those precalculated index's
             //Utility.ContainsBytes(m_FileHeader, ref start, ref count, rtpPlay, 0, RtpPlay.RtpPlayFormatLength);
 
-            //rtpplay is not present, if the format was unknown then
-            if (!m_FileHeader.Skip(start).Take(count).SequenceEqual(Encoding.ASCII.GetBytes(RtpPlay.RtpPlayFormat))) // start == -1
+            //rtpplay is not present or if the format was unknown then
+            if (!m_FileHeader.Skip(start).Take(count).SequenceEqual(Encoding.ASCII.GetBytes(RtpPlay.RtpPlayFormat))
+                ||
+                Array.IndexOf<byte>(m_FileHeader, 0x2f, start + count, m_FileHeader.Length - (start + count)) == -1) // start == -1
             {
-                if (m_Format == FileFormat.Unknown)
-                {
-                    //File is not Binary format, treat as ASCII, one line consumed which resides in m_FileHeader
-                    m_Format = FileFormat.Ascii;
-                    return;
-                }
-                else goto Invalid;
+                goto Invalid;
             }
 
             //Version...
@@ -177,7 +180,6 @@ namespace Media.RtpTools.RtpDump
             //255.255.255.255/65535\n
             //               ^
             //if (Array.LastIndexOf<byte>(m_FileHeader, 0x2f, 22, 22) == -1) goto Invalid;
-            if(Array.IndexOf<byte>(m_FileHeader, 0x2f, start + count, m_FileHeader.Length - (start + count)) == -1) goto Invalid;
 
             //Binary type header, maybe header only
             m_Format = FileFormat.Binary;
@@ -234,48 +236,45 @@ namespace Media.RtpTools.RtpDump
 
                     m_Reader.Read(entry.Blob, 0, RtpToolEntry.DefaultEntrySize);
 
-                    //Read the RD_hdr_t, should be done in RtpToolEntry
-                    //entry.ReadDumpHeader(m_Reader.BaseStream);
+                    //26 bytes read by default here
 
-                    //22 bytes read by default here
+                    //The format of the item does not match the reader(which would only happen if given an unknown format)
+                    if (foundFormat != m_Format)
+                    {
+                        //If the the format of the entry found was binary
+                        if (entry.Format < FileFormat.Text)
+                        {
+                            //The unexpected data consists of the supposed fileheader.
+                            if (m_FileHeader == null)
+                            {
+                                m_FileHeader = unexpectedData;
+                                unexpectedData = null;
+                                //Change to binary format, might want to signal this with an exception?
+                                //m_Format = entry.Format;
+                            }
+                            else Common.ExceptionExtensions.CreateAndRaiseException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
+                        }
+                        else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
+                    }
+
+                    //Align for 64 bit utilization
+                    if (m_Is64Bit) entry.Pointer += 4;
+
+                    int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
+
+                    //If there are any more bytes related to the item itemLength will be > 0
+                    if (itemLength > 0)
+                    {
+                        entry.Concat(m_Reader.ReadBytes(itemLength));
+                        entry.MaxSize = itemLength;
+                    }
+
                 }
                 else
                 {
                     //Parse data and build packet from the textual data,
                     //If a Binary format is found m_FileHeader will contain any data which was unexpected by the ParseTextEntry process which should consists of the `#!rtpplay1.0 ...\n`                       
                     entry = RtpSend.ParseText(m_Reader, ref foundFormat, out unexpectedData);
-                }
-
-               
-                //The format of the item does not match the reader(which would only happen if given an unknown format)
-                if (foundFormat != m_Format)
-                {
-                    //If the the format of the entry found was binary
-                    if (entry.Format < FileFormat.Text)
-                    {
-                        //The unexpected data consists of the supposed fileheader.
-                        if (m_FileHeader == null)
-                        {
-                            m_FileHeader = unexpectedData;
-                            unexpectedData = null;
-                            //Change to binary format, might want to signal this with an exception?
-                            //m_Format = entry.Format;
-                        }
-                        else Common.ExceptionExtensions.CreateAndRaiseException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
-                    }
-                    else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry,"Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
-                }
-
-                //Align for 64 bit utilization
-                if (m_Is64Bit) entry.Pointer += 4;
-
-                int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
-
-                //If there are any more bytes related to the item itemLength will be > 0
-                if (itemLength > 0)
-                {
-                    entry.Concat(m_Reader.ReadBytes(itemLength));
-                    entry.MaxSize = itemLength;
                 }
 
                 //Call determine format so item has the correct format (Header [or Payload])

@@ -285,6 +285,7 @@ namespace Media
         /// <returns>
         /// -1 if the match failed or could not be performed; otherwise,
         /// the position within the buffer reletive to the start position in which the first occurance of octets given the octetStart and octetCount was matched.
+        /// If more than 1 octet is required for a match and the buffer does not encapsulate the entire match start will still reflect the occurance of the partial match.
         /// </returns>
         public static int ContainsBytes(byte[] buffer, ref int start, ref int count, byte[] octets, int octetStart, int octetCount)
         {
