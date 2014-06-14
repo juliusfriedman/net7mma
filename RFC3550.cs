@@ -89,8 +89,9 @@ namespace Media
             //char  machine[]  name of the hardware type on which the system is running
 
             //Perform MD5 on structure per 3550
-
-            byte[] digest = Utility.MD5HashAlgorithm.ComputeHash(structure);
+            byte[] digest;
+            
+            using(var md5 = Utility.MD5HashAlgorithm) digest = md5.ComputeHash(structure);
 
             //Complete hash
             uint r = 0;

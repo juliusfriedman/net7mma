@@ -290,7 +290,7 @@ namespace Tests
                     Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtp.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
 
                     sender.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
 
@@ -352,7 +352,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Media.Rtp.RFC2435Frame testFrame = new Media.Rtp.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
@@ -2123,7 +2123,7 @@ a=mpeg4-esid:101");
 
             server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(128, 96, "SamplePictures2", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC3016Stream(128, 96, "SamplePictures3", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "SamplePictures3", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
@@ -2304,13 +2304,13 @@ a=mpeg4-esid:101");
 
         static void TestJpegFrame()
         {
-            Media.Rtp.RFC2435Frame f;
+            Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame f;
 
             //Create a RFC2435 Jpeg from a (RFC2035) Jpeg, Any `valid` JPEG should do.
             using (var jpegStream = new System.IO.FileStream("video.jpg", System.IO.FileMode.Open))
             {
                 //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
-                f = new Media.Rtp.RFC2435Frame(jpegStream, 25);
+                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 25);
 
                 //Save the JpegFrame as a Image (Decoding performed)
                 using (System.Drawing.Image jpeg = f)
@@ -2323,7 +2323,7 @@ a=mpeg4-esid:101");
             }
             
             //Create a JpegFrame from existing RtpPackets
-            using (Media.Rtp.RFC2435Frame x = new Media.Rtp.RFC2435Frame())
+            using (Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame())
             {
                 foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
 
@@ -2341,7 +2341,7 @@ a=mpeg4-esid:101");
             //Create a RFC2435Frame from an existing image and store the quantization tables in the frame.
             using (var image = System.Drawing.Image.FromFile("flip.jpg"))
             {
-                Media.Rtp.RFC2435Frame t = Media.Rtp.RFC2435Frame.Packetize(image, 100);
+                Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame t = Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.Packetize(image, 100);
 
                 using (System.Drawing.Image jpeg = t)
                 {
@@ -2364,7 +2364,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtp.RFC2435Frame restartFrame = new Media.Rtp.RFC2435Frame())
+            using (Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame restartFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)

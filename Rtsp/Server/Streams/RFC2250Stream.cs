@@ -8,11 +8,14 @@ using System.IO;
 
 namespace Media.Rtsp.Server.Streams
 {
-    public class RFC3016Stream : RFC2435Stream
+    public class RFC2250Stream : RFC2435Stream
     {
+
+        public const int ProfileHeaderSize = 4;
+
         public readonly int Width = 128, Height = 96;
 
-        public RFC3016Stream(int width, int height, string name, string directory = null, bool watch = true)
+        public RFC2250Stream(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch)
         {
             Width = width;
@@ -45,6 +48,28 @@ namespace Media.Rtsp.Server.Streams
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
         }
 
+        /*
+          This header shall be attached to each RTP packet after the RTP fixed
+           header.
+
+            0                   1                   2                   3
+            0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+           |    MBZ  |T|         TR        | |N|S|B|E|  P  | | BFC | | FFC |
+           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                           AN              FBV     FFV
+         * 
+         */
+
+        byte[] CreateMpegRtpVideoHeader(bool headerExtension, uint temporalReference, bool active, bool newPicture, bool sequenceHeader, bool sliceBegin, bool sliceEnd, byte pictureType, byte bfc = 0, byte ffc = 0)
+        {
+            temporalReference = Math.Max(0, Math.Min(1023, temporalReference));            
+            return new byte[] { (byte)(headerExtension ? 1 : 0 | (byte)(temporalReference >>= 1)),
+                (byte)(temporalReference << 8), 
+                (byte)((newPicture ? 1 : 0) | (sequenceHeader ? 2 : 0) | (sliceBegin ? 3 : 0) | (sliceEnd ? 4 : 0) | pictureType >> 4),
+                (byte)(bfc | ffc << 4) };
+        }
+
         public override void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
         {
             lock (m_Frames)
@@ -54,9 +79,12 @@ namespace Media.Rtsp.Server.Streams
                     //Make the width and height correct
                     using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
-                        m_Frames.Enqueue(new Rtp.RtpFrame(32)
+
+                        //Todo Add 4 byte header http://tools.ietf.org/html/rfc2250
+
+                        AddFrame(new Rtp.RtpFrame(32)
                         {
-                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, 0, 0, 0), WriteMPEGSequence((Bitmap)image))
+                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), CreateMpegRtpVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)image)))
                         });
                     }
                 }
@@ -855,8 +883,8 @@ namespace Media.Rtsp.Server.Streams
                 for (i = 0; i < 16; i++)
                     for (j = 0; j < 16; j++)
                     {
-                        tempdouble = (219.0 * (0.59 * img.GetPixel((hblock * 16 + j), (vblock * 16 + i)).R +
-                            0.30 * img.GetPixel((hblock * 16 + j), (vblock * 16 + i)).G +
+                        tempdouble = tempdouble = (219.0 * (0.30 * img.GetPixel((hblock * 16 + j), (vblock * 16 + i)).R +
+                            0.59 * img.GetPixel((hblock * 16 + j), (vblock * 16 + i)).G + 
                             0.11 * img.GetPixel((hblock * 16 + j), (vblock * 16 + i)).B) / 255.0) + 16.0;
                         Y[i, j] = (byte)(Math.Round(tempdouble));	// Y is limited from 16 to 235
                     }

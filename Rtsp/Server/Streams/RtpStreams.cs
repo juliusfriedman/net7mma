@@ -50,8 +50,6 @@ namespace Media.Rtsp.Server.Streams
     {
         public const string RtpMediaProtocol = "RTP/AVP";
 
-        Sdp.SessionDescription m_Sdp;
-
         System.Drawing.Image m_lastDecodedFrame;
 
         public RtpSource(string name, Uri source) : base(name, source) { }
@@ -80,7 +78,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     if (mediaDescription.MediaFormat == 26)
                     {
-                        OnFrameDecoded(m_lastDecodedFrame = (new Rtp.RFC2435Frame(frame)).ToImage());
+                        OnFrameDecoded(m_lastDecodedFrame = (new RFC2435Stream.RFC2435Frame(frame)).ToImage());
                     }
                     else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
                     {
@@ -118,6 +116,93 @@ namespace Media.Rtsp.Server.Streams
 
     }
 
+    public class RtpSink : RtpSource, ISink
+    {
+        public override Rtp.RtpClient RtpClient
+        {
+            get { return Client; }
+        }
+
+        public RtpSink(string name)
+            : base(name, null)
+        {
+            m_Source = new Uri("rtsp://localhost/live/" + Id);
+        }
+
+        public Rtp.RtpClient Client { get; protected set; }
+
+        public bool Loop { get; protected set; }
+
+
+        protected Queue<Rtp.RtpPacket> Packets = new Queue<Rtp.RtpPacket>();
+
+        public double MaxSendRate { get; protected set; }
+
+        public void SendData(byte[] data)
+        {
+            if (Client != null) Client.OnRtpPacketReceieved(new Rtp.RtpPacket(data, 0));
+        }
+
+        public void EnqueuData(byte[] data)
+        {
+            if (Client != null) Packets.Enqueue(new Rtp.RtpPacket(data, 0));
+        }
+
+        public void SendRtpPacket(Rtp.RtpPacket packet)
+        {
+            if (Client != null) Client.OnRtpPacketReceieved(packet);
+        }
+
+        public void EnqueRtpPacket(Rtp.RtpPacket packet)
+        {
+            if (Client != null) Packets.Enqueue(packet);
+        }
+
+        public void SendReports()
+        {
+            if (Client != null) Client.SendReports();
+        }
+
+        internal virtual void SendPackets()
+        {
+            while (State == StreamState.Started)
+            {
+                try
+                {
+                    if (Packets.Count == 0)
+                    {
+                        System.Threading.Thread.Sleep(0);
+                        continue;
+                    }
+
+                    //Dequeue a frame or die
+                    Rtp.RtpPacket packet = Packets.Dequeue();
+
+                    Client.OnRtpPacketReceieved(packet);
+
+                    //If we are to loop images then add it back at the end
+                    if (Loop) Packets.Enqueue(packet);
+
+                    //Check for bandwidth and sleep if necessary
+                }
+                catch (OverflowException)
+                {
+#if DEBUG
+                    System.Diagnostics.Debug.WriteLine("Sink " + Id + " Overflow");
+#endif
+                    System.Threading.Thread.Sleep(0);
+
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    if (ex is System.Threading.ThreadAbortException) return;
+                    continue;
+                }
+            }
+        }
+    }
+    
     //public abstract class RtpChildStream
     //{
     //}

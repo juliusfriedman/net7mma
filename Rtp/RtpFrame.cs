@@ -274,7 +274,7 @@ namespace Media.Rtp
         /// Assembles the RtpFrame into a byte[] by combining the ExtensionBytes and Payload of all contained RtpPackets into a single byte array (excluding the RtpHeader)
         /// </summary>
         /// <returns>The byte array containing the assembled frame</returns>
-        public virtual IEnumerable<byte> Assemble(bool useExtensions = false)
+        public virtual IEnumerable<byte> Assemble(bool useExtensions = false, int profileHeaderSize = 0)
         {
             //The sequence
             IEnumerable<byte> sequence = Enumerable.Empty<byte>();
@@ -293,7 +293,7 @@ namespace Media.Rtp
                     }
                 }
 
-                sequence = sequence.Concat(packet.Coefficients);
+                sequence = sequence.Concat(packet.Coefficients.Skip(profileHeaderSize));
             }
 
             return sequence;

@@ -199,6 +199,8 @@ namespace Media.Rtp
             /// </remarks>
             public readonly bool RtcpEnabled = true;
 
+            internal bool SendRtcpReports = true;
+
             //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort,  //Ports connected to
                 ClientRtpPort, ClientRtcpPort; ///Ports connected from
@@ -442,7 +444,7 @@ namespace Media.Rtp
             /// Calculates RTP Interarrival Jitter as specified in RFC 3550 6.4.1.
             /// </summary>
             /// <param name="packet">RTP packet.</param>
-            public void UpdateJitter(RtpPacket packet)
+            public void UpdateJitterAndTimestamp(RtpPacket packet)
             {
                 // RFC 3550 A.8.
                 ulong newNtp = Utility.DateTimeToNptTimestamp(DateTime.UtcNow), transit = newNtp - Utility.DateTimeToNptTimestamp(packet.Transferred ?? packet.Created);
@@ -1223,7 +1225,7 @@ namespace Media.Rtp
             //The counters for the bytes will now be be updated for the invalid packet
             Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count());
 
-            transportContext.UpdateJitter(localPacket);
+            transportContext.UpdateJitterAndTimestamp(localPacket);
             
             //Update values if in state
             //If the SSRC identifier in the packet is one that has been received before, then the packet is probably valid and checking if the sequence number is in the expected range provides further validation.
@@ -1308,8 +1310,7 @@ namespace Media.Rtp
             if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
                 //update the jitter
-                transportContext.UpdateJitter(packet);
-                //transportContext.RtpTimestamp = packet.Timestamp;
+                transportContext.UpdateJitterAndTimestamp(packet);
             }
 
             //increment the counters
@@ -1485,9 +1486,9 @@ namespace Media.Rtp
 
         public long TotalRtpPacketsSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpPacketsSent); } }
 
-        public long TotalRtpBytesSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpBytesSent); } }
+        public long TotalRtpBytesSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpBytesSent + RtpHeader.Length * c.RtpPacketsSent); } }
 
-        public long TotalRtpBytesReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpBytesRecieved); } }
+        public long TotalRtpBytesReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpBytesRecieved + RtpHeader.Length * c.RtpPacketsSent); } }
 
         public long TotalRtpPacketsReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpPacketsReceived); } }
 
@@ -1656,7 +1657,6 @@ namespace Media.Rtp
 
             bool includeBlocks = !empty; //&& context.LastRtcpReportSent != TimeSpan.Zero;
 
-            //Should have padding if blockCount is 0 and no SDES follows
             SendersReport result = new SendersReport(context.Version, false, includeBlocks ? 1 : 0, (int)context.SynchronizationSourceIdentifier);
 
             DateTime now = DateTime.UtcNow;
@@ -1664,7 +1664,7 @@ namespace Media.Rtp
             //Use the values from the TransportChannel
             //result.NtpTimestamp = 0;
             result.NtpTime = now;
-            result.RtpTimestamp = context.RtpTimestamp;
+            result.RtpTimestamp = context.RtpTimestamp;// +context.RtpTimestamp * 1000;
 
             //Counters
             result.SendersOctetCount = (int)context.RtpBytesSent;
@@ -2618,7 +2618,7 @@ namespace Media.Rtp
 
             foreach (TransportContext tc in TransportContexts)
             {
-                if (!tc.Disposed && tc.RtcpEnabled && SendReports(tc))
+                if (!tc.Disposed && tc.RtcpEnabled && tc.SendRtcpReports && SendReports(tc))
                 {
                     sent = true;
                 }

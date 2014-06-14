@@ -125,21 +125,16 @@ namespace Media.Rtsp.Server.Streams
                     using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
                         //Encode a JPEG (leave 40 bytes room in each packet for the h264 data)
-                        using (var jpegFrame = Rtp.RFC2435Frame.Packetize(image, quality, interlaced, (int)sourceId, 0, 0, 1400))
+                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, quality, interlaced, (int)sourceId, 0, 0, 1300))
                         {
                             //Store the payload which is YUV Planar (420, 421, 422)
                             List<byte[]> data = new List<byte[]>();
 
                             //Create a new frame
                             var newFrame = new Rtp.RtpFrame(96);
-
-                            //Iterate packets int he oldFrame and rip the jpeg rtp out
-                            foreach (var p in jpegFrame) data.Add(p.Payload.Skip(8).ToArray());
-
+                            
                             //project everything to a single array
-                            byte[] yuv = data.SelectMany(d => d).ToArray();
-
-                            data.Clear();
+                            byte[] yuv = jpegFrame.Assemble(false, 8).ToArray();
 
                             //For each h264 Macroblock in the frame
                             for (int i = 0; i < Width / 16; i++)
