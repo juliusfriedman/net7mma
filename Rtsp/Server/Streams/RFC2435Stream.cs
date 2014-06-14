@@ -54,7 +54,7 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// Sends System.Drawing.Images over Rtp by encoding them as a RFC2435 Jpeg
     /// </summary>
-    public class RFC2435Stream : RtpSource
+    public class RFC2435Stream : RtpSink
     {
 
         #region NestedTypes
@@ -1557,7 +1557,7 @@ namespace Media.Rtsp.Server.Streams
 
         //Needs to only send packets and not worry about updating the frame, that should be done by ImageSource
 
-        internal virtual void SendPackets()
+        internal override void SendPackets()
         {
             while (State == StreamState.Started)
             {
