@@ -58,8 +58,6 @@ namespace Media.Rtsp.Server.Streams
 
         public abstract Rtp.RtpClient RtpClient { get; }
 
-        public virtual Sdp.SessionDescription SessionDescription { get { return m_Sdp; } protected set { m_Sdp = value; } }
-
         public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } } //This will take effect after the change, existing clients will still have their connection
 
         internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
@@ -113,15 +111,17 @@ namespace Media.Rtsp.Server.Streams
 
             base.Stop();
         }
-
     }
 
-    public class RtpSink : RtpSource, ISink
+    public class RtpSink : RtpSource, IMediaSink
     {
         public override Rtp.RtpClient RtpClient
         {
             get { return Client; }
         }
+
+
+        public RtpSink(string name, Uri source) : base(name, source) { }
 
         public RtpSink(string name)
             : base(name, null)

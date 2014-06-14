@@ -41,15 +41,8 @@ using System.Text;
 
 namespace Media.Rtsp.Server.Streams
 {
-    public interface ISource
+    public interface IMediaSource : IMediaStream
     {
-        Guid Id { get; }
-
-        SourceStream.StreamState State { get; }
-
-        void Start();
-
-        void Stop();
         /*
          
          WTG IETF.... 

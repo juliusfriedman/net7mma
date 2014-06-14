@@ -55,7 +55,7 @@ namespace Media.Rtcp
     /// Provides a construct to enumerate <see cref="SourceDescriptionItem"/>'s from a contigous allocation of memory.
     /// Is effectively a fixed sized read only list.
     /// </summary>
-    internal class SourceDescriptionItemList : BaseDisposable, IEnumerator<SourceDescriptionItem>, IEnumerable<SourceDescriptionItem>
+    internal class SourceDescriptionItemList : BaseDisposable, IEnumerator<SourceDescriptionItem>, IEnumerable<SourceDescriptionItem>, IReadOnlyCollection<SourceDescriptionItem>
     {        
         #region Fields
 
@@ -67,6 +67,8 @@ namespace Media.Rtcp
         /// Would then need to Implement IList, not impossible but not required. Most of the work is done with the IEnumerator implemenation anyway.
         /// </remarks>
         byte[] m_OwnedOctets;
+
+        int m_Count;
 
         //The OctetSegment from which the SourceDescriptionList is parsed.
         public readonly IEnumerable<byte> ChunkData;
@@ -100,7 +102,7 @@ namespace Media.Rtcp
         /// Creates a new SourceDescriptionItemList from existing data
         /// </summary>
         /// <param name="chunkData">The data which corresponds to the items in the list</param>
-        public SourceDescriptionItemList(IEnumerable<byte> chunkData)
+        internal SourceDescriptionItemList(IEnumerable<byte> chunkData)
         {
             ChunkData = chunkData;
         }
@@ -126,6 +128,8 @@ namespace Media.Rtcp
                 {
                     //concatenate the sequence representing the item to the existing sequence
                     ChunkData = ChunkData.Concat(enumerator.Current.Data);
+
+                    ++m_Count;
                 }
 
                 //If the list did not end with an EndOfList item
@@ -186,6 +190,8 @@ namespace Media.Rtcp
 
         public int Size { get { return ChunkData.Count(); } }
 
+        public int Count { get { return m_Count; } }
+
         #endregion
 
         #region Methods
@@ -204,6 +210,7 @@ namespace Media.Rtcp
 
             m_OwnedOctets = null;
 
+            m_Count = 0;
             //ChunkData still points to m_OwnedOctets but it is readonly
         }
 
@@ -343,13 +350,16 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="reference">Indicates if the new instance should reference this instance</param>
         /// <returns>The newly created instance</returns>
-        public SourceDescriptionItemList Clone(bool reference)
+        public SourceDescriptionItemList Clone(bool reference, int skip = 0)
         {
             //If changes are to be reflected in the new instance give a reference to the existing ChunkData
-            if (reference) return new SourceDescriptionItemList(ChunkData);
+            if (skip <=0 && reference) return new SourceDescriptionItemList(ChunkData)
+            {
+                m_Count = m_Count
+            };
 
             //Otherwise return a new instance created from the result of reading all contained items to a new list.
-            return new SourceDescriptionItemList(ToList());
+            return new SourceDescriptionItemList(ToList().Skip(skip));
         }
 
         #endregion

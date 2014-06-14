@@ -8,11 +8,21 @@ namespace Media.Rtsp.Server.Streams
 {
     public interface IMediaStream
     {
+
+        IEnumerable<string> Aliases { get; }
+
+        String Name { get; }
+
+
         Guid Id { get; }
 
         SourceStream.StreamState State { get; }
 
         Sdp.SessionDescription SessionDescription { get; }
+
+        Uri ServerLocation { get; }
+
+        bool Ready { get; }
 
         void Start();
 

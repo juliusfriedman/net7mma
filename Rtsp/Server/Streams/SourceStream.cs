@@ -47,7 +47,7 @@ namespace Media.Rtsp.Server.Streams
     /// <remarks>
     /// Provides a way to augment all classes from one place.
     /// </remarks>
-    public abstract class SourceStream : ISource, IMediaStream
+    public abstract class SourceStream : IMediaSource
     {
         const string UriScheme = "rtspserver://";
 
@@ -71,7 +71,7 @@ namespace Media.Rtsp.Server.Streams
         internal NetworkCredential m_SourceCred;
         internal List<string> m_Aliases = new List<string>();
         internal bool m_Child = false;
-        internal Sdp.SessionDescription m_Sdp;
+        public virtual Sdp.SessionDescription SessionDescription { get; protected set; }
 
         //Maybe should be m_AllowUdp?
         internal bool m_ForceTCP;//= true; // To force clients to utilize TCP, Interleaved in Rtsp or Rtp
@@ -100,7 +100,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Any Aliases the stream is known by
         /// </summary>
-        public virtual string[] Aliases { get { return m_Aliases.ToArray(); } }
+        public virtual IEnumerable<string> Aliases { get { return m_Aliases; } }
 
         /// <summary>
         /// The credential the source requires
@@ -206,8 +206,6 @@ namespace Media.Rtsp.Server.Streams
         {
             get { return Id; }
         }
-
-        Sdp.SessionDescription IMediaStream.SessionDescription { get { return m_Sdp; } }
 
         SourceStream.StreamState IMediaStream.State
         {

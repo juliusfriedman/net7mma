@@ -98,6 +98,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Rtcp\AppplicationSpecificReport.cs" />
+    <Compile Include="Rtcp\Expansion\RFC4585.cs" />
     <Compile Include="Rtcp\GoodbyeReport.cs" />
     <Compile Include="Rtcp\IReportBlock.cs" />
     <Compile Include="Rtcp\ReceiversReport.cs" />
@@ -110,6 +111,8 @@
     <Compile Include="Rtcp\SourceDescriptionChunk.cs" />
     <Compile Include="Rtcp\SourceDescriptionItem.cs" />
     <Compile Include="Rtcp\SourceDescriptionItemList.cs" />
+    <Compile Include="Rtmp\RtmpClient.cs" />
+    <Compile Include="Rtmp\RtmpPacket.cs" />
     <Compile Include="RtpTools\FileFormat.cs" />
     <Compile Include="RtpTools\RtpDump.cs" />
     <Compile Include="RtpTools\RtpMix.cs" />
@@ -135,8 +138,10 @@
     <Compile Include="Rtsp\Server\ClientSession.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\ISink.cs" />
-    <Compile Include="Rtsp\Server\Streams\ISource.cs" />
+    <Compile Include="Rtsp\Server\Streams\IMediaSink.cs" />
+    <Compile Include="Rtsp\Server\Streams\JPEGSourceStream.cs" />
+    <Compile Include="Rtsp\Server\Streams\MJPEGSourceStream.cs" />
+    <Compile Include="Rtsp\Server\Streams\IMediaSource.cs" />
     <Compile Include="Rtsp\Server\Streams\RFC2250Stream.cs" />
     <Compile Include="Rtsp\Server\Streams\RFC4421Stream.cs" />
     <Compile Include="Rtsp\Server\Streams\RFC6184Stream.cs" />
@@ -152,7 +157,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Compression\" />
-    <Folder Include="Rtcp\Expansion\" />
     <Folder Include="Secure\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

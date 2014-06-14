@@ -61,7 +61,7 @@ namespace Media.Common
     /// for more information see
     /// <see href="http://tools.ietf.org/html/rfc3550">Page 15, paragraph `CSRC list`</see>
     /// </summary>
-    public class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>
+    public class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>, IReadOnlyCollection<uint>
     {
         #region Constants / Statics
 
@@ -95,6 +95,26 @@ namespace Media.Common
         #endregion
 
         #region Constructor
+
+        [CLSCompliant(false)]
+        public SourceList(uint ssrc) : this(ssrc.Yield()) { }
+
+        public SourceList(IEnumerable<uint> sources, int start = 0)
+        {
+            m_SourceCount = Math.Max(15, sources.Count());
+
+            IEnumerable<byte> binary = Utility.Empty;
+
+            foreach (var ssrc in sources.Skip(start))
+            {
+                if (BitConverter.IsLittleEndian)
+                    binary = binary.Concat(BitConverter.GetBytes(ssrc).Reverse()).ToArray();
+                else
+                    binary = binary.Concat(BitConverter.GetBytes(ssrc)).ToArray();
+            }
+
+            m_Binary = new OctetSegment(binary.ToArray(), 0, m_SourceCount * 4);
+        }
 
         /// <summary>
         /// Creates a new source list from the given parameters.
