@@ -496,6 +496,8 @@ namespace Media.Rtsp
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
             if (!m_RtpClient.Connected) m_RtpClient.Connect();
 
+            m_RtpClient.MaximumRtcpBandwidthPercentage = 0;
+
             if (!AttachedSources.Contains(source))
             {
                 //Ensure events are removed later
@@ -970,13 +972,17 @@ namespace Media.Rtsp
             //check for rtspu later...
 
             //Find an existing control line
-            Media.Sdp.SessionDescriptionLine controlLine = sdp.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+            Media.Sdp.SessionDescriptionLine controlLine = sdp.ControlLine;
 
             //If there was one remove it
-            if (controlLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));                  
-
+            while (controlLine != null)
+            {
+                sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));
+                controlLine = sdp.ControlLine;
+            }
+            
             //Find an existing connection line
-            Sdp.Lines.SessionConnectionLine connectionLine = sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault();
+            Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;
 
             //Remove the old connection line
             if (connectionLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(connectionLine));
@@ -1013,17 +1019,20 @@ namespace Media.Rtsp
             foreach (Sdp.MediaDescription md in sdp.MediaDescriptions)
             {               
                 //Find a control line
-                controlLine = md.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+                controlLine = md.ControlLine;
 
                 //Rewrite it if present to reflect the appropriate MediaDescription
-                if (controlLine != null) md.RemoveLine(md.Lines.IndexOf(controlLine));
+                while (controlLine != null)
+                {
+                    md.RemoveLine(md.Lines.IndexOf(controlLine));
+                    controlLine = md.ControlLine;
+                }
 
                 //Remove old bandwith lines
-                bandwithLines = md.Lines.Where(l => l.Type == 'b' && l.Parts[0].StartsWith("RR") || l.Parts[0].StartsWith("RS"));
+                bandwithLines = md.BandwidthLines;
 
                 //Remove existing bandwidth information
-                if(stream.m_DisableQOS) foreach (Sdp.SessionDescriptionLine line in bandwithLines.ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
-
+                if(stream.m_DisableQOS) foreach (Sdp.SessionDescriptionLine line in bandwithLines) md.RemoveLine(md.Lines.IndexOf(line));
 
                 //Remove all other alternate information
                 foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.RemoveLine(md.Lines.IndexOf(line));

@@ -53,7 +53,7 @@ namespace Media.Rtp
     /// Provides an implementation of the <see cref="http://tools.ietf.org/html/rfc3550"> Real Time Protocol </see>.
     /// A RtpClient typically allows one <see cref="System.Net.Socket"/> to communicate (via RTP) to another <see cref="System.Net.Socket"/> via <see cref="RtpClient.TransportContext"/>'s in which some <see cref="SessionDescription"/> has been created.
     /// </summary>
-    public class RtpClient : IDisposable
+    public class RtpClient : IDisposable, Media.Common.IThreadOwner
     {
         #region Statics
 
@@ -86,7 +86,6 @@ namespace Media.Rtp
         /// </summary>
         public static TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(96);
 
-
         /// <summary>
         /// Provides a RtpClient which is configured to send and receive ont he given multicast address.
         /// </summary>
@@ -118,10 +117,13 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="existing">The exsiting socket to use</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Duplexed(Socket existing, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        public static RtpClient Duplexed(Socket existing, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             //Should verify socket type is TCP and use new socket if required ?? new Socket...
-            return new RtpClient(existing, sharedMemory, inactivityTimeout ?? TimeSpan.FromMilliseconds(existing.ReceiveTimeout));
+            return new RtpClient(existing, sharedMemory, inactivityTimeout ?? TimeSpan.FromMilliseconds(existing.ReceiveTimeout))
+            {
+                IncomingPacketEventsEnabled = incomingEvents
+            };
         }
 
         /// <summary>
@@ -130,7 +132,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="remoteAddress">The remote address</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Sender(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        public static RtpClient Sender(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             return new RtpClient(remoteAddress, sharedMemory)
             {
@@ -144,22 +146,69 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="remoteAddress">The remote address</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Participant(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        public static RtpClient Participant(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             return new RtpClient(remoteAddress)
             {
-                IncomingPacketEventsEnabled = true,
+                IncomingPacketEventsEnabled = incomingEvents,
                 InactivityTimeout = inactivityTimeout ?? DefaultTimeout
             };
         }
 
-        public static RtpClient Participant(Sdp.SessionDescription sdp, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        public static RtpClient Participant(Sdp.SessionDescription sdp, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             return new RtpClient(System.Net.IPAddress.Parse(sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault().IPAddress))
             {
-                IncomingPacketEventsEnabled = true,
+                IncomingPacketEventsEnabled = incomingEvents,
                 InactivityTimeout = inactivityTimeout ?? DefaultTimeout
             };
+        }
+
+        static HashSet<RtpClient> FeedbackInstances = new HashSet<RtpClient>();
+
+        static void SendFeedback(object sender, RtcpPacket received)
+        {
+
+            //Determine if RtcpPacket should have a ResponseType hash... could be created in each Type statically like PayloadTypeByte is defined and mapped.
+            //E.g ResponseTypeByte = "225"
+            //Either that or a CreateResponse method which returns a RtcpPacket constructed from the given
+
+            var impl = RtcpPacket.GetImplementationForPayloadType((byte)received.PayloadType);
+
+            if (impl != null)
+            {
+                //Create packet(s) which is a response for the received
+                IEnumerable<RtcpPacket> packets = null;
+                if (packets != null)
+                {
+                    if (sender is RtpClient)
+                    {
+                        RtpClient c = sender as RtpClient;
+                        //What is needed
+                        c.SendRtcpPackets(packets);
+                    }
+                }
+            }
+        }
+
+        public static bool EnableFeedbackReports(RtpClient client)
+        {
+            if (FeedbackInstances.Add(client))
+            {
+                client.RtcpPacketReceieved += SendFeedback;
+                return true;
+            }
+            return false;
+        }
+
+        public static bool DisableFeedbackReports(RtpClient client)
+        {
+            if (FeedbackInstances.Remove(client))
+            {
+                client.RtcpPacketReceieved -= SendFeedback;
+                return true;
+            }
+            return false;
         }
 
         #endregion
@@ -711,16 +760,24 @@ namespace Media.Rtp
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
                     RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
-                    RtpSocket.Blocking = false;
+                    //RtpSocket.Blocking = false;
                     RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
 
+                    //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+                    RtpSocket.Ttl = 255;
                     //RtpSocket.UseOnlyOverlappedIO = true;
+                    //RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.IpTimeToLive, 255);
+
+                    //RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontRoute, true);
+                    ////RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.UseLoopback, true);
+
+                    //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.NoChecksum, true);
 
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
                     RtpSocket.MulticastLoopback = false;
 
-                    RtpSocket.ReceiveTimeout = RtpSocket.SendTimeout = DefaultTimeout.Milliseconds;
+                    //RtpSocket.ReceiveTimeout = RtpSocket.SendTimeout = DefaultTimeout.Milliseconds * 10;
 
                     #region Optional Parameters
 
@@ -758,12 +815,12 @@ namespace Media.Rtp
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
                         RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
-                        RtcpSocket.Blocking = false;
+                        //RtcpSocket.Blocking = false;
 
                         RtcpSocket.Ttl = 255;
-                        RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+                        //RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
-                        RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultTimeout.Milliseconds;
+                        //RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultTimeout.Milliseconds;
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
@@ -817,6 +874,8 @@ namespace Media.Rtp
 
                 ClientRtcpPort = ClientRtpPort = ((IPEndPoint)LocalRtp).Port;
 
+                duplexed.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+                
                 RtpSocket = RtcpSocket = duplexed;
 
                 //Disable Nagle
@@ -845,6 +904,11 @@ namespace Media.Rtp
 
                 ClientRtcpPort = ((IPEndPoint)LocalRtcp).Port;
                 ClientRtpPort = ((IPEndPoint)LocalRtp).Port;
+
+                if (rtpSocket.ProtocolType == ProtocolType.Tcp) rtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+
+
+                if (rtcpSocket.ProtocolType == ProtocolType.Tcp) rtcpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
             }
 
             public void CloseSockets()
@@ -1257,6 +1321,7 @@ namespace Media.Rtp
                     transportContext.LastFrame.Dispose();
                     transportContext.LastFrame = null;
                 }
+
                 return;
             }
             else
@@ -1873,6 +1938,7 @@ namespace Media.Rtp
                 foreach (RtpClient.TransportContext tc in TransportContexts)
                     if (tc != null && tc.SynchronizationSourceIdentifier == sourceId || tc.RemoteSynchronizationSourceIdentifier == sourceId) return tc;
             }
+            catch (InvalidOperationException) { return GetContextBySourceId(sourceId); }
             catch { if (!Disposed) throw; }
             return null;
         }
@@ -2086,7 +2152,7 @@ namespace Media.Rtp
                 //Create the workers thread and start it.
                 m_WorkerThread = new Thread(new ThreadStart(SendReceieve));
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
-                m_WorkerThread.Priority = ThreadPriority.BelowNormal;
+                m_WorkerThread.Priority = ThreadPriority.AboveNormal;
                 //m_WorkerThread.IsBackground = true;
                 m_WorkerThread.Name = "RtpClient-" + m_RemoteAddress.ToString() + m_Id;
                 Started = DateTime.UtcNow;
@@ -2395,6 +2461,8 @@ namespace Media.Rtp
             int offset = m_BufferOffset,
                 //Reeive data                
                 received = socket.Receive(m_Buffer, offset, m_BufferLength / 2, SocketFlags.None, out error);
+
+            //if (socket.Available > 0 && received + socket.Available < m_BufferLength) received += socket.Receive(m_Buffer, offset + received, m_BufferLength / 2 - received, SocketFlags.None, out error);
 
             if (error != SocketError.Success) return -1;
 
@@ -2732,9 +2800,14 @@ namespace Media.Rtp
                     #region Recieve Incoming Data
 
                     //Enumerate each context and receive data, if received update the lastActivity
-                    foreach (TransportContext context in TransportContexts.ToArray())
+                    //ParallelEnumerable.ForAll(TransportContexts.ToArray().AsParallel(), (tc) =>
+                    //{
+                    //    ProcessReceive(tc, ref lastOperation);                       
+                    //});
+
+                    foreach (TransportContext context in TransportContexts.ToArray().AsParallel())
                     {
-                        ProcessReceive(context, ref lastOperation);                       
+                        ProcessReceive(context, ref lastOperation);
                     }
 
                     if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
@@ -2849,7 +2922,7 @@ namespace Media.Rtp
             if (Disposed) return;
 
             Disconnect();
-
+            
             Disposed = true;
 
             GC.SuppressFinalize(this);
@@ -2861,6 +2934,8 @@ namespace Media.Rtp
             m_OutgoingRtpPackets.Clear();
             m_OutgoingRtcpPackets.Clear();
 
+            DisableFeedbackReports(this);
+
             //RtpPacketReceieved -= new RtpPacketHandler(HandleIncomingRtpPacket);
             //RtcpPacketReceieved -= new RtcpPacketHandler(HandleIncomingRtcpPacket);
             RtpPacketSent -= new RtpPacketHandler(HandleRtpPacketSent);
@@ -2869,6 +2944,11 @@ namespace Media.Rtp
             //InterleavedData -= new InterleaveHandler(HandleInterleavedData);            
 
             Utility.Abort(ref m_WorkerThread);
+        }
+
+        Thread Common.IThreadOwner.OwnedThread
+        {
+            get { return Disposed ? null : m_WorkerThread; }
         }
     }
 }

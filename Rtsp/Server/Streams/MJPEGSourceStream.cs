@@ -49,9 +49,6 @@ namespace Media.Rtsp.Server.Streams
     /// 
     public class MJPEGSourceStream : RFC2435Stream
     {
-        // login and password for HTTP authentication
-        private string login = null;
-        private string password = null;
         // proxy information
         private IWebProxy proxy = null;
         // received frames count
@@ -86,30 +83,6 @@ namespace Media.Rtsp.Server.Streams
         {
             get { return useSeparateConnectionGroup; }
             set { useSeparateConnectionGroup = value; }
-        }
-
-        /// <summary>
-        /// Login value.
-        /// </summary>
-        /// 
-        /// <remarks>Login required to access video source.</remarks>
-        /// 
-        public string Login
-        {
-            get { return login; }
-            set { login = value; }
-        }
-
-        /// <summary>
-        /// Password value.
-        /// </summary>
-        /// 
-        /// <remarks>Password required to access video source.</remarks>
-        /// 
-        public string Password
-        {
-            get { return password; }
-            set { password = value; }
         }
 
         /// <summary>
@@ -251,6 +224,8 @@ namespace Media.Rtsp.Server.Streams
         {
             m_Source = source;
         }
+
+        public MJPEGSourceStream(string name, string source) : this(name, new Uri(source)) { }
 
         /// <summary>
         /// Start video source.
@@ -415,15 +390,15 @@ namespace Media.Rtsp.Server.Streams
                     // set timeout value for the request
                     request.Timeout = requestTimeout;
                     // set login and password
-                    if ((login != null) && (password != null) && (login != string.Empty))
-                        request.Credentials = new NetworkCredential(login, password);
+                    if (SourceCredential != null)
+                        request.Credentials = SourceCredential;
                     // set connection group name
                     if (useSeparateConnectionGroup)
                         request.ConnectionGroupName = GetHashCode().ToString();
                     // force basic authentication through extra headers if required
-                    if (forceBasicAuthentication)
+                    if (forceBasicAuthentication && SourceCredential != null)
                     {
-                        string authInfo = string.Format("{0}:{1}", login, password);
+                        string authInfo = string.Format("{0}:{1}", SourceCredential.UserName, SourceCredential.Password);
                         authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
                         request.Headers["Authorization"] = "Basic " + authInfo;
                     }
@@ -590,17 +565,11 @@ namespace Media.Rtsp.Server.Streams
                         }
                     }
                 }
-                catch (ApplicationException)
-                {
-                    // do nothing for Application Exception, which we raised on our own
-                    // wait for a while before the next try
-                    Thread.Sleep(250);
-                }
                 catch (ThreadAbortException)
                 {
                     break;
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
                     // wait for a while before the next try
                     Thread.Sleep(250);

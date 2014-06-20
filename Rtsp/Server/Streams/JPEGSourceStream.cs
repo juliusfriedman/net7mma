@@ -58,9 +58,6 @@ namespace Media.Rtsp.Server.Streams
     /// 
     public class JPEGSourceStream : RFC2435Stream
     {
-        // login and password for HTTP authentication
-        private string login = null;
-        private string password = null;
         // proxy information
         private IWebProxy proxy = null;
         // received frames count
@@ -123,30 +120,6 @@ namespace Media.Rtsp.Server.Streams
         {
             get { return frameInterval; }
             set { frameInterval = value; }
-        }
-
-        /// <summary>
-        /// Login value.
-        /// </summary>
-        /// 
-        /// <remarks>Login required to access video source.</remarks>
-        /// 
-        public string Login
-        {
-            get { return login; }
-            set { login = value; }
-        }
-
-        /// <summary>
-        /// Password value.
-        /// </summary>
-        /// 
-        /// <remarks>Password required to access video source.</remarks>
-        /// 
-        public string Password
-        {
-            get { return password; }
-            set { password = value; }
         }
 
         /// <summary>
@@ -270,6 +243,8 @@ namespace Media.Rtsp.Server.Streams
             m_Source = source;
         }
 
+        public JPEGSourceStream(string name, string source) : this(name, new Uri(source)) { }
+
         /// <summary>
         /// Start video source.
         /// </summary>
@@ -385,8 +360,6 @@ namespace Media.Rtsp.Server.Streams
             WebResponse response = null;
             // stream for JPEG downloading
             Stream stream = null;
-            // random generator to add fake parameter for cache preventing
-            Random rand = new Random((int)DateTime.Now.Ticks);
             // download start time and duration
             DateTime start;
             TimeSpan span;
@@ -409,7 +382,7 @@ namespace Media.Rtsp.Server.Streams
                     else
                     {
                         // request with cache prevention
-                        request = (HttpWebRequest)WebRequest.Create(m_Source.ToString() + ((m_Source.ToString().IndexOf('?') == -1) ? '?' : '&') + "fake=" + rand.Next().ToString());
+                        request = (HttpWebRequest)WebRequest.Create(m_Source.ToString() + ((m_Source.ToString().IndexOf('?') == -1) ? '?' : '&') + "fake=" + Utility.Random.Next().ToString());
                     }
 
                     // set proxy
@@ -419,17 +392,15 @@ namespace Media.Rtsp.Server.Streams
                     }
 
                     // set timeout value for the request
-                    request.Timeout = requestTimeout;
-                    // set login and password
-                    if ((login != null) && (password != null) && (login != string.Empty))
-                        request.Credentials = new NetworkCredential(login, password);
+                    if (SourceCredential != null)
+                        request.Credentials = SourceCredential;
                     // set connection group name
                     if (useSeparateConnectionGroup)
                         request.ConnectionGroupName = GetHashCode().ToString();
                     // force basic authentication through extra headers if required
-                    if (forceBasicAuthentication)
+                    if (forceBasicAuthentication && SourceCredential != null)
                     {
-                        string authInfo = string.Format("{0}:{1}", login, password);
+                        string authInfo = string.Format("{0}:{1}", SourceCredential.UserName, SourceCredential.Password);
                         authInfo = Convert.ToBase64String(Encoding.Default.GetBytes(authInfo));
                         request.Headers["Authorization"] = "Basic " + authInfo;
                     }
@@ -490,7 +461,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     break;
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
                     // wait for a while before the next try
                     Thread.Sleep(250);

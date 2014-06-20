@@ -97,7 +97,7 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public long Length { get { return m_Reader.BaseStream.Length; } }
 
-        public bool HasNext { get { return Length - Position >= 26; } }
+        public bool HasNext { get { return Length - Position >= RtpToolEntry.DefaultEntrySize; } }
 
         #endregion
 
@@ -280,11 +280,7 @@ namespace Media.RtpTools.RtpDump
                 //Call determine format so item has the correct format (Header [or Payload])
                 if (foundFormat == FileFormat.Unknown)
                 {
-                    //Guesstimate
-                    //entry.GuessBinaryFormat();
-
-                    //Assign the format from the entry
-                    //foundFormat = entry.Format;
+                    Common.ExceptionExtensions.CreateAndRaiseException(entry, "Unknown format");
                 }
 
                 return entry;

@@ -10,6 +10,6 @@ namespace Media.Rtsp.Server.Streams
     {
         void SendData(byte[] data);
 
-	    void EnqueuData(byte[] data);
+        void EnqueData(byte[] data);
     }
 }

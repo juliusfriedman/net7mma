@@ -46,7 +46,7 @@ namespace Media.Rtsp.Server.Streams
     /// This could also just be an interface, could have protected set for RtpClient
     /// could also be a class which suscribes to events from the assigned RtpClient for RtpPackets etc
     /// </summary>
-    public abstract class RtpSource : SourceStream
+    public abstract class RtpSource : SourceStream, Media.Common.IThreadOwner
     {
         public const string RtpMediaProtocol = "RTP/AVP";
 
@@ -111,6 +111,11 @@ namespace Media.Rtsp.Server.Streams
 
             base.Stop();
         }
+
+        System.Threading.Thread Common.IThreadOwner.OwnedThread
+        {
+            get { return RtpClient != null ? RtpClient.m_WorkerThread : null; }
+        }
     }
 
     public class RtpSink : RtpSource, IMediaSink
@@ -119,7 +124,6 @@ namespace Media.Rtsp.Server.Streams
         {
             get { return Client; }
         }
-
 
         public RtpSink(string name, Uri source) : base(name, source) { }
 
@@ -131,10 +135,9 @@ namespace Media.Rtsp.Server.Streams
 
         public Rtp.RtpClient Client { get; protected set; }
 
-        public bool Loop { get; protected set; }
+        public virtual bool Loop { get; set; }
 
-
-        protected Queue<Rtp.RtpPacket> Packets = new Queue<Rtp.RtpPacket>();
+        protected Queue<Media.Common.IPacket> Packets = new Queue<Media.Common.IPacket>();
 
         public double MaxSendRate { get; protected set; }
 
@@ -143,17 +146,21 @@ namespace Media.Rtsp.Server.Streams
             if (Client != null) Client.OnRtpPacketReceieved(new Rtp.RtpPacket(data, 0));
         }
 
-        public void EnqueuData(byte[] data)
+        public void EnqueData(byte[] data)
         {
             if (Client != null) Packets.Enqueue(new Rtp.RtpPacket(data, 0));
         }
 
-        public void SendRtpPacket(Rtp.RtpPacket packet)
+        public void SendPacket(Media.Common.IPacket packet)
         {
-            if (Client != null) Client.OnRtpPacketReceieved(packet);
+            if (Client != null)
+            {
+                if (packet is Rtp.RtpPacket) Client.OnRtpPacketReceieved(packet as Rtp.RtpPacket);
+                else if (packet is Rtcp.RtcpPacket) Client.OnRtcpPacketReceieved(packet as Rtcp.RtcpPacket);
+            }
         }
 
-        public void EnqueRtpPacket(Rtp.RtpPacket packet)
+        public void EnquePacket(Media.Common.IPacket packet)
         {
             if (Client != null) Packets.Enqueue(packet);
         }
@@ -176,9 +183,9 @@ namespace Media.Rtsp.Server.Streams
                     }
 
                     //Dequeue a frame or die
-                    Rtp.RtpPacket packet = Packets.Dequeue();
+                     Media.Common.IPacket packet = Packets.Dequeue();
 
-                    Client.OnRtpPacketReceieved(packet);
+                     SendPacket(packet);
 
                     //If we are to loop images then add it back at the end
                     if (Loop) Packets.Enqueue(packet);
