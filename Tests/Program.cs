@@ -2142,6 +2142,7 @@ a=mpeg4-esid:101");
 
             //TODO
             //server.RequestReceived event
+            //server.ClientConnected / ClientDisconnected
 
             //Start the server
             server.Start();
@@ -2154,7 +2155,7 @@ a=mpeg4-esid:101");
             Console.WriteLine("Press 'U' to Enable Udp on Media.RtspServer");
             Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
             Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
-            //Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
+            Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
             while (true)
             {
@@ -2229,7 +2230,7 @@ a=mpeg4-esid:101");
                 if (server.HttpEnabled && i % 2 == 0) 
                 {
                     //Use Media.Rtsp / Http
-                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://localhost/live/Alpha"))
+                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://127.0.0.1/live/Alpha"))
                     {
                         try
                         {
@@ -2255,7 +2256,7 @@ a=mpeg4-esid:101");
                 else if (server.UdpEnabled && i % 3 == 0) 
                 {
                     //Use Media.Rtsp / Udp
-                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://localhost/live/Alpha"))
+                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://127.0.0.1/live/Alpha"))
                     {
                         try
                         {
@@ -2281,7 +2282,7 @@ a=mpeg4-esid:101");
                 else
                 {
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://localhost/live/SamplePictures", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/SamplePictures", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {

@@ -206,8 +206,12 @@ namespace Media.Rtsp
             //If the packet is null or not allowed then return
             if (packet == null || packet.Disposed || m_RtpClient == null) return;
 
+
+            
+            //Get a source context
             RtpClient.TransportContext context = null, sourceContext = GetSourceContextForPacket(packet);
 
+            //Get the sourceContext incase the same payload type was used more then once otherwise fallback to the context for the Payloadtype
             if (sourceContext != null)
             {
                 context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
@@ -218,8 +222,6 @@ namespace Media.Rtsp
             }
 
             if (context == null) return;
-
-            //packet.SynchronizationSourceIdentifier = context.SynchronizationSourceIdentifier;
 
             if (m_RtpClient != null)
             {
