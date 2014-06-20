@@ -87,7 +87,7 @@ namespace Media.Rtp
         public static TimeSpan DefaultTimeout = TimeSpan.FromMilliseconds(96);
 
         /// <summary>
-        /// Provides a RtpClient which is configured to send and receive ont he given multicast address.
+        /// Provides a RtpClient which is configured to send and receive on the given multicast address.
         /// </summary>
         /// <param name="groupAddress"></param>
         /// <param name="ttl"></param>
@@ -95,21 +95,13 @@ namespace Media.Rtp
         /// <param name="inactivityTimeout"></param>
         /// <param name="rtcpEnabled"></param>
         /// <returns></returns>
-        public static RtpClient Multicast(IPAddress groupAddress, int ttl, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool rtcpEnabled = true, int ssrcRemote = 0, int minSeqPackets = 0)
+        public static RtpClient Multicast(IPAddress groupAddress, int ttl, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool rtcpEnabled = true, bool incomingEvents = true)
         {
-            throw new NotImplementedException();
-
-            /////ssrcRemote should equal null
-
-            //RtpClient result = new RtpClient(groupAddress, sharedMemory, inactivityTimeout);
-            //RtpClient.TransportContext multicastContext = new RtpClient.TransportContext(0, 1, Utility.Random32(7), rtcpEnabled, ssrcRemote, minSeqPackets);
-
-            ////multicastContext.InitializeSockets();
-            //Set ttl or provide a overload
-
-            //result.AddTransportContext(multicastContext);
-            //multicastContext = null;
-            //return result;
+            return new RtpClient(groupAddress)
+            {
+                IncomingPacketEventsEnabled = incomingEvents,
+                InactivityTimeout = inactivityTimeout ?? DefaultTimeout
+            };
         }
 
         /// <summary>
@@ -1297,6 +1289,8 @@ namespace Media.Rtp
             //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
             OnRtpPacketReceieved(localPacket);
 
+            //if (packet.PayloadType != transportContext.MediaDescription.MediaFormat) return;
+
             //If we have not allocated a currentFrame
             if (transportContext.CurrentFrame == null)
             {
@@ -1946,7 +1940,12 @@ namespace Media.Rtp
         internal TransportContext GetContextByChannel(byte channel)
         {
             if (Disposed) return null;
-            try { return TransportContexts.FirstOrDefault(c => c.DataChannel == channel || c.ControlChannel == channel); }
+            try
+            {
+                foreach (RtpClient.TransportContext tc in TransportContexts)
+                    if (tc.DataChannel == channel || tc.ControlChannel == channel) return tc;
+            }
+            catch (InvalidOperationException) { return GetContextByChannel(channel); }
             catch { if (!Disposed) throw; }
             return null;
         }
@@ -2805,7 +2804,7 @@ namespace Media.Rtp
                     //    ProcessReceive(tc, ref lastOperation);                       
                     //});
 
-                    foreach (TransportContext context in TransportContexts.ToArray().AsParallel())
+                    foreach (TransportContext context in TransportContexts.ToArray())
                     {
                         ProcessReceive(context, ref lastOperation);
                     }

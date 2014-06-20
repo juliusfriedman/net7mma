@@ -247,7 +247,7 @@ namespace Media.Rtsp
                 return Streams.Where(s => s.State == SourceStream.StreamState.Stopped && s.Ready == true).Count();
             }
         }
-
+        
         /// <summary>
         /// The total amount of bytes the RtspServer recieved from remote RtspRequests
         /// </summary>
@@ -826,16 +826,16 @@ namespace Media.Rtsp
                         //If the timeout is infinite only wait for the default
                         if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
 
-                        //Start acceping 
-                        m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
-
                         allDone.Reset();
 
+                        //Start acceping 
+                        var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
+
                         //Wait half using the event
-                        while (!allDone.Wait(timeOut / 2) && !m_StopRequested)
+                        while (!iar.IsCompleted && !allDone.Wait(timeOut / 2) && !m_StopRequested)
                         {
                             //Wait the other half looking for the stop
-                            if (allDone.Wait(timeOut / 2) || m_StopRequested) break;
+                            if (allDone.Wait(timeOut / 2) || m_StopRequested | iar.IsCompleted) break;
                             //Check not waiting all day...
                         }
                     }
