@@ -115,6 +115,12 @@ namespace Media.Sdp
 
         public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } set { m_Lines = value.ToList(); ++m_Originator.Version; } }
 
+        public SessionDescriptionLine RangeLine { get { return m_Lines.FirstOrDefault(l => l.Parts.Any(p => p.Contains("range"))); } }
+
+        public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.Type == 'c'); } }
+
+        public SessionDescriptionLine ControlLine { get { return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))); } }
+
         #endregion
 
         #region Constructor
@@ -444,7 +450,7 @@ namespace Media.Sdp
             return buffer.ToString();
         }
 
-        public SessionDescriptionLine RtpMap
+        public SessionDescriptionLine RtpMapLine
         {
             get
             {
@@ -452,6 +458,29 @@ namespace Media.Sdp
             }
         }
 
+        public SessionDescriptionLine FmtpLine
+        {
+            get
+            {
+                return m_Lines.FirstOrDefault(l => l.Type == 'a' && string.Compare(l.Parts[0], "fmtp", true) >= 0);
+            }
+        }
+
+        public SessionDescriptionLine ControlLine
+        {
+            get
+            {
+                return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control")));
+            }
+        }
+
+        public IEnumerable<SessionDescriptionLine> BandwidthLines
+        {
+            get
+            {
+                return m_Lines.Where(l => l.Type == 'b');
+            }
+        }        
     }
 
     /// <summary>

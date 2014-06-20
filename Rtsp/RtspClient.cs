@@ -567,8 +567,10 @@ namespace Media.Rtsp
 
             if (m_RtpClient != null) m_RtpClient.TransportContexts.Clear();
 
+            bool setupTracks = false;
+
             //For each MediaDescription in the SessionDecscription
-            foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
+            foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions/*.Where(md => md.MediaFormat >= 96 && md.RtpMapLine != null)*/.ToArray())
             {
                 try
                 {
@@ -579,7 +581,7 @@ namespace Media.Rtsp
                         if (setup.StatusCode == RtspStatusCode.OK)
                         {
                             //Find range info in the SDP
-                            var rangeInfo = SessionDescription.Lines.Where(l => l.Parts.Any(p => p.Contains("range"))).FirstOrDefault();
+                            var rangeInfo = SessionDescription.RangeLine;
 
                             //If there is a range directive
                             if (rangeInfo != null)
@@ -607,15 +609,16 @@ namespace Media.Rtsp
                             }
                         }
                     }
+
+                    setupTracks = true;
                 }
                 catch (Exception ex)
                 {
-                    Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not Play media. See InnerException.", ex);
-                    return;
+                    continue;
                 }
             }
 
-            using (RtspMessage play = SendPlay(Location, m_StartTime, m_EndTime))
+            if (setupTracks) using (RtspMessage play = SendPlay(Location, m_StartTime, m_EndTime))
             {
                 OnPlaying();
             }
@@ -1171,7 +1174,7 @@ namespace Media.Rtsp
 
                 if (mediaDescription != null)
                 {
-                    SessionDescriptionLine attributeLine = mediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+                    SessionDescriptionLine attributeLine = mediaDescription.ControlLine;
                     location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
                 }
                 else
@@ -1204,7 +1207,7 @@ namespace Media.Rtsp
 
         public RtspMessage SendSetup(MediaDescription mediaDescription)
         {
-            SessionDescriptionLine controlLine = mediaDescription.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))).FirstOrDefault();
+            SessionDescriptionLine controlLine = mediaDescription.ControlLine;
             Uri location = null;
             //If there is a control line in the SDP it contains the URI used to setup and control the media
             if (controlLine != null)
@@ -1233,7 +1236,7 @@ namespace Media.Rtsp
                         location = new Uri(Location.OriginalString + '/' + controlPart);
                     }
                 }
-            }
+            }            
             //Send the setup
             return SendSetup(location ?? Location, mediaDescription);
         }
@@ -1250,32 +1253,39 @@ namespace Media.Rtsp
                     Location = location ?? Location
                 };
 
+                //Todo Determine if Multicast
+                bool unicast = true;
+
+                string connectionType = unicast ? "unicast;" : "multicast";
+
                 // TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
                 if (m_RtpProtocol == ProtocolType.Tcp)
                 {
+                    //m_SessionDescription.MediaDescriptions[0].MediaProtocol SHOULD == RTP/AVP/TCP
+
                     //If there is already a RtpClient with at-least 1 TransportContext
                     if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
                     {
                         RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=" + (lastContext.DataChannel + 2) + TimeSplit[0] + (lastContext.ControlChannel + 2));
+                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;" + connectionType + "interleaved=" + (lastContext.DataChannel + 2) + TimeSplit[0] + (lastContext.ControlChannel + 2));
                     }
                     else
                     {
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;unicast;interleaved=0-1");
+                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;" + connectionType + "interleaved=0-1");
                     }
                 }
                 else if(string.Compare(mediaDescription.MediaProtocol, "RTP/AVP", true) == 0) // We need to find an open Udp Port
                 {
                     m_RtpProtocol = ProtocolType.Udp;
                     //Might want to reserver this port now by making a socket...
-                    int openPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
+                    int openPort = Utility.FindOpenPort(ProtocolType.Udp, 30000 + (m_RtpClient != null ? 2 : 0), true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
 
                     if (openPort == -1) Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not find open Udp Port");
                     //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
                     //{
                     //    Common.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
                     //}    
-                    setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";unicast;client_port=" + openPort + TimeSplit[0] + (openPort + 1));
+                    setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";" + connectionType + "client_port=" + openPort + TimeSplit[0] + (openPort + 1));
                 }
 
                 //Get the response for the setup
@@ -1320,10 +1330,8 @@ namespace Media.Rtsp
                 //If there are Bandwidth lines with RR:0 and RS:0
                 //IEnumerable<SessionDescriptionLine> rtcpLines = mediaDescription.Lines.Where(l => l.Type == 'b' && l.Parts.Count > 1 && (l.Parts[0] == "RR" || l.Parts[0] == "RS") && l.Parts[1] == "0");
 
-
                 //http://www.ietf.org/rfc/rfc4566.txt
                 //5.8.  Bandwidth ("b=")
-                IEnumerable<SessionDescriptionLine> bandwidthLines = mediaDescription.Lines.Where(l => l.Type == 'b');
 
                 //Some providers disable Rtcp for one reason or another, it is strongly not recommended
                 //If there are two lines which match the criteria then disable Rtcp
@@ -1334,7 +1342,7 @@ namespace Media.Rtsp
 
                 TimeSpan contextReportInterval = RtpClient.DefaultTimeout;
 
-                foreach (SessionDescriptionLine line in bandwidthLines)
+                foreach (SessionDescriptionLine line in mediaDescription.BandwidthLines)
                 {
                     if (line.Parts[0].StartsWith("RR"))
                     {
@@ -1419,7 +1427,7 @@ namespace Media.Rtsp
                     else if (part.StartsWith("interleaved=", true, System.Globalization.CultureInfo.InvariantCulture))
                     {
                         //Should only be for Tcp
-                        string[] channels = part.Substring(12).Split(TimeSplit[0]);
+                        string[] channels = part.Substring(12).Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
 
                         if (channels.Length > 1)
                         {
@@ -1434,13 +1442,9 @@ namespace Media.Rtsp
                             if (m_RtpClient == null)
                             {
                                 //Create a Duplexed reciever using the RtspSocket
-                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength * 3));
+                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength * 3), contextReportInterval);
                                 m_RtpClient.InterleavedData += ProcessInterleaveData;
-                                m_RtpClient.IncomingPacketEventsEnabled = true;
-                                m_RtpClient.InactivityTimeout = contextReportInterval;                                
-                            }
-
-                            m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
+                            }                            
 
                             //try to add the transportChannel
                             m_RtpClient.AddTransportContext(transportContext);
@@ -1484,14 +1488,9 @@ namespace Media.Rtsp
                                 if (m_RtpProtocol == ProtocolType.Udp)
                                 {
                                     //Create a Udp Reciever
-                                    m_RtpClient = RtpClient.Participant(m_RemoteIP);
-                                    m_RtpClient.InactivityTimeout = contextReportInterval;
+                                    m_RtpClient = RtpClient.Participant(m_RemoteIP, default(ArraySegment<byte>), contextReportInterval);
                                 }
                             }
-
-                            var rtcpLine = mediaDescription.Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("rtcp")));
-
-                            if (rtcpLine != null) clientRtcpPort = int.Parse(rtcpLine.Parts[0].Split(':')[1]);
 
                             //Add the transportChannel for the mediaDescription
                             if (m_RtpClient.TransportContexts.Count == 0)

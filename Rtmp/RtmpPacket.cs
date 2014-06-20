@@ -10,6 +10,9 @@ namespace Media.Rtmp
     //http://en.wikipedia.org/wiki/Real_Time_Messaging_Protocol#Specification_document
     public class RtmpPacket : BaseDisposable, IPacket
     {
+
+        public RtmpPacket(byte[] packet) { m_Packet = packet; }
+
         byte[] m_Packet = Utility.Empty;
 
         public byte PacketType
@@ -47,11 +50,43 @@ namespace Media.Rtmp
             }
         }
 
-        public byte MessageLength
+        public int MessageLength
         {
             get
             {
-                return m_Packet[HeaderLength + 1];
+                return Binary.ReadU16(m_Packet, HeaderLength + 1, !BitConverter.IsLittleEndian);
+            }
+            set
+            {
+                Binary.WriteNetwork16(m_Packet, HeaderLength + 1, !BitConverter.IsLittleEndian, (ushort)value);
+            }
+        }
+
+        public bool HasTimesamp
+        {
+            get
+            {
+                return PacketType > 0;
+            }
+        }
+
+        public int? Timestamp
+        {
+            get
+            {
+                if (HasTimesamp)
+                {
+                    return (int)Binary.ReadU32(m_Packet, HeaderLength - 4, !BitConverter.IsLittleEndian);
+                }
+
+                return null;
+            }
+            set
+            {
+                if (HasTimesamp)
+                {
+                    Binary.WriteNetwork32(m_Packet, HeaderLength - 4, !BitConverter.IsLittleEndian, (uint)value);
+                }
             }
         }
 

@@ -143,7 +143,7 @@ namespace Media.RtpTools
         /// <summary>
         /// Controls the offset in which values are returned from the Blob structure.
         /// </summary>
-        public int TimevalSize = 12;
+        public int TimevalSize = 8;
 
 
         /// <summary>
@@ -172,7 +172,7 @@ namespace Media.RtpTools
         public IEnumerable<byte> Data
         {
             //get { return Blob.Skip(TimevalSize + Blob.Length - Length); }
-            get { return Blob.Skip((TimevalSize - 2) + Pointer).Take(MaxSize); } //Couldn't get the math to add up yet
+            get { return Blob.Skip(DefaultEntrySize).Take(MaxSize); } //Couldn't get the math to add up yet
             //SHould just be size of rd_hdr or whatever
         }
 
@@ -277,7 +277,7 @@ namespace Media.RtpTools
             get
             {
                 if (Disposed) return 0;
-                return (long)Common.Binary.ReadU64(Blob, 8, ReverseValues);
+                return (long)Common.Binary.ReadU64(Blob, TimevalSize, ReverseValues);
             }
             set
             {
@@ -287,7 +287,7 @@ namespace Media.RtpTools
 
                 if (ReverseValues) endian = endian.Reverse();
 
-                endian.ToArray().CopyTo(Blob, 8);
+                endian.ToArray().CopyTo(Blob, TimevalSize);
             }
         }
 
@@ -297,7 +297,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return (int)Common.Binary.ReadU32(Blob, TimevalSize - 4, ReverseValues);
+                return (int)Common.Binary.ReadU32(Blob, TimevalSize, ReverseValues);
             }
             set
             {
@@ -307,7 +307,7 @@ namespace Media.RtpTools
 
                 if (ReverseValues) endian = endian.Reverse();
 
-                endian.ToArray().CopyTo(Blob, TimevalSize - 4);
+                endian.ToArray().CopyTo(Blob, TimevalSize);
             }
         }
 
@@ -317,7 +317,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return Common.Binary.ReadU16(Blob, TimevalSize, false);
+                return Common.Binary.ReadU16(Blob, TimevalSize + 2, false);
             }
             set
             {
@@ -329,7 +329,7 @@ namespace Media.RtpTools
 
                 if (ReverseValues) endian = endian.Reverse();
 
-                endian.ToArray().CopyTo(Blob, TimevalSize);
+                endian.ToArray().CopyTo(Blob, TimevalSize + 2);
             }
         }
 
@@ -362,6 +362,8 @@ namespace Media.RtpTools
                 //    Info->len_32 = (ushort)value;
             }
         }
+
+        public bool IsRtcp { get { return PacketLength == 0; } }
 
         public ushort PacketLength
         {
@@ -411,7 +413,7 @@ namespace Media.RtpTools
 
         #region Constructor
 
-        public RtpToolEntry(FileFormat format, byte[] memory = null)
+        internal RtpToolEntry(FileFormat format, byte[] memory = null)
         {
             Format = format;
             Blob = memory;
@@ -503,15 +505,28 @@ namespace Media.RtpTools
 
         public string ToTextualConvention()
         {
+            StringBuilder sb = new StringBuilder();
 
-            //You have 128 bytes + more in binary format
+            var ip = new System.Net.IPAddress(Source);
+            var ep = new System.Net.IPEndPoint(ip, Port);
+            var ts = TimeSpan.FromSeconds(StartSeconds).Add(TimeSpan.FromSeconds(Microseconds / 10000));
 
-            //Format them using the formats given in RtpSend without making a packet if possible by using a sprintf style .
+            sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
-            //Then a managed packet does not need to be created.
+            if (IsRtcp)
+            {
+                sb.Append(RtpSend.ToTextualConvention(Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, DefaultEntrySize, MaxSize), ts, ep));
+            }
+            else
+            {
+                using (var rtp = new Rtp.RtpPacket(Blob, DefaultEntrySize))
+                {
+                    sb.Append(RtpSend.ToTextualConvention(Format, rtp, ts, ep));
+                }
+                
+            }
 
-            return string.Empty;
-
+            return sb.ToString();
         }
 
         public override string ToString()

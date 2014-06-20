@@ -54,7 +54,7 @@ namespace Media.Rtsp.Server.Streams
     {
         #region Propeties
 
-        public readonly int Width = 128, Height = 96;
+        public readonly int Width = 240, Height = 160;
 
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
 

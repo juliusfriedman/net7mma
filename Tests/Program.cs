@@ -845,6 +845,7 @@ namespace Tests
                 case Media.Rtcp.SendersReport.PayloadType:
                     {
                         Console.WriteLine(string.Format(TestingFormat, "SendersReport From", p.SynchronizationSourceIdentifier));
+                        Console.WriteLine(string.Format(TestingFormat, "Length", p.Length));
 
                         using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(p, false))
                         {
@@ -875,7 +876,7 @@ namespace Tests
                         }
 
                         break;
-                    }
+                    }                
                 case Media.Rtcp.SourceDescriptionReport.PayloadType:
                     {
                         //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
@@ -883,6 +884,7 @@ namespace Tests
                         {
 
                             Console.WriteLine(string.Format(TestingFormat, "SourceDescription From", sourceDescription.SynchronizationSourceIdentifier));
+                            Console.WriteLine(string.Format(TestingFormat, "Length", p.Length));
 
                             foreach (var chunk in sourceDescription.GetChunkIterator())
                             {
@@ -899,6 +901,7 @@ namespace Tests
                         }
                         break;
                     }
+                default: Console.WriteLine(Media.RtpTools.RtpSend.ToTextExpression(Media.RtpTools.FileFormat.Ascii, p)); break;
 
             }
         }
@@ -2009,7 +2012,7 @@ a=mpeg4-esid:101");
 
             Media.Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("mpeg4-iod"))).FirstOrDefault();
 
-            Media.Sdp.SessionDescriptionLine connectionLine = sd.Lines.Where(l => l.Type == 'c').FirstOrDefault();
+            Media.Sdp.SessionDescriptionLine connectionLine = sd.ConnectionLine;
 
             //make a new Sdp using the media descriptions from the old but a new name
 
@@ -2119,17 +2122,25 @@ a=mpeg4-esid:101");
             });
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true});
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(128, 96, "SamplePictures2", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
-
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "SamplePictures3", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/SamplePictures through Udp and Tcp
             server.AddStream(imageStream);
 
+            //Test H.264 Encoding
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
+
+            //Test MPEG2 Endoing
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
+
+            //Test Http Jpeg Transcoding
+            server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTest", new Uri("http://extcam-16.se.axis.com/axis-cgi/jpg/image.cgi?")));
+
+            //TODO
             //server.RequestReceived event
 
             //Start the server

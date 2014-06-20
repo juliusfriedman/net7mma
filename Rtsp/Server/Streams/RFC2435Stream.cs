@@ -303,19 +303,19 @@ namespace Media.Rtsp.Server.Streams
 
                 result.Add(0x03);//Number of components
 
-                result.Add(0x00);//Component Number
+                result.Add(0x01);//Component Number
 
                 //Set the Horizontal Sampling Factor
                 result.Add((byte)(jpegType == 0 ? 0x21 : 0x22));
 
                 result.Add(0x00);//Matrix Number (Quant Table Id)?
-                result.Add(0x01);//Component Number
+                result.Add(0x02);//Component Number
                 result.Add(0x11);//Horizontal or Vertical Sample
 
                 //ToDo - Handle 16 Bit Precision
                 result.Add(1);//Matrix Number
 
-                result.Add(0x02);//Component Number
+                result.Add(0x03);//Component Number
                 result.Add(0x11);//Horizontal or Vertical Sample
 
                 //ToDo - Handle 16 Bit Precision
@@ -333,11 +333,11 @@ namespace Media.Rtsp.Server.Streams
                 result.Add(0x00); //Length
                 result.Add(0x0c); //Length - 12
                 result.Add(0x03); //Number of components
-                result.Add(0x00); //Component Number
-                result.Add(0x00); //Matrix Number
                 result.Add(0x01); //Component Number
-                result.Add(0x11); //Horizontal or Vertical Sample
+                result.Add(0x00); //Matrix Number
                 result.Add(0x02); //Component Number
+                result.Add(0x11); //Horizontal or Vertical Sample
+                result.Add(0x03); //Component Number
                 result.Add(0x11); //Horizontal or Vertical Sample
                 result.Add(0x00); //Start of spectral
                 result.Add(0x3f); //End of spectral (63)
@@ -496,7 +496,7 @@ namespace Media.Rtsp.Server.Streams
 
             static byte[] lum_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
-            static byte[] lum_ac_codelens = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
+            static byte[] lum_ac_codelens = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d }; //0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
 
             static byte[] lum_ac_symbols = 
         {
@@ -609,7 +609,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="sequenceNo">The sequence number of the image being encoded</param>
             /// <param name="timeStamp">The Timestamp of the image being encoded</param>
             /// <param name="bytesPerPacketPayload">The maximum amount of octets of each RtpPacket Payload which contains part of the encoded image. This amount should encompass the RtpHeader (12 octets) as well as the Rtp Jpeg Header (8 Octets)</param>
-            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1300)
+            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1325)
             {
                 if (imageQuality <= 0 || imageQuality > 100) throw new NotSupportedException("Only qualities 1 - 100 are supported");
 
@@ -665,7 +665,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="sequenceNo">The optional sequence number for the first packet in the frame.</param>
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
             /// <param name="bytesPerPacketPayload">The amount of bytes each RtpPacket will contain</param>
-            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1300, Common.SourceList sourceList = null)
+            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1292, Common.SourceList sourceList = null)
                 : this()
             {
 
@@ -896,15 +896,20 @@ namespace Media.Rtsp.Server.Streams
 
                                 //Increase RtpJpegType by 64
                                 RtpJpegType |= 0x40;
-
-                                //Increase ProtocolOverhead by 4;
-                                protocolOverhead += 4;
                             }
                             //Last Marker in Header before EntroypEncodedScan
                             else if (FunctionCode == JpegMarkers.StartOfScan)
                             {
+                                long pos = temp.Position;
+
+                                byte Ns = (byte)temp.ReadByte();
+
                                 //Read past the Start of Scan (10 more bytes which end with the StartOfSpectral 0x3f00)                            
-                                temp.Seek(CodeSize, System.IO.SeekOrigin.Current);
+                                temp.Seek(Ns * 2, System.IO.SeekOrigin.Current);
+
+                                temp.Seek(3, System.IO.SeekOrigin.Current);
+
+                                if (pos + CodeSize != temp.Position) throw new Exception("Error in StartOfScan");
 
                                 //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                 //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
@@ -935,6 +940,8 @@ namespace Media.Rtsp.Server.Streams
                                 RtpJpegHeader = RtpJpegHeader.Take(profileHeaderSize).ToArray();
 
                                 //Only the lastPacket contains the marker
+
+                                bytesPerPacketPayload -= RtpJpegHeader.Length - (RtpJpegRestartInterval != null ? 4 : 0);
 
                                 //Todo determine when reading
                                 bool lastPacket = false;
@@ -1371,11 +1378,6 @@ namespace Media.Rtsp.Server.Streams
         public virtual double FramesPerSecond { get { return Math.Max(m_FramesPerSecondCounter, 1) / Math.Abs(Uptime.TotalSeconds); } }
 
         /// <summary>
-        /// Indicates if the Stream should continue from the beginning once reaching the end
-        /// </summary>
-        public virtual bool Loop { get; set; }
-
-        /// <summary>
         /// Implementes the SessionDescription property for RtpSourceStream
         /// </summary>
         public override Rtp.RtpClient RtpClient { get { return m_RtpClient; } }
@@ -1463,7 +1465,7 @@ namespace Media.Rtsp.Server.Streams
                 }
 
                 //If we have not been stopped already
-                if (m_RtpClient.m_WorkerThread != null)
+                if (/*State != StreamState.Started && */ m_RtpClient.m_WorkerThread != null)
                 {
                     //Only ready after all pictures are in the queue
                     Ready = true;
@@ -1521,7 +1523,7 @@ namespace Media.Rtsp.Server.Streams
         internal virtual void FileCreated(object sender, System.IO.FileSystemEventArgs e)
         {
             string path = e.FullPath.ToLowerInvariant();
-            if (path.EndsWith("bmp") || path.EndsWith("jpg") || path.EndsWith("jpeg") || path.EndsWith("gif") || path.EndsWith("png"))
+            if (path.EndsWith("bmp") || path.EndsWith("jpg") || path.EndsWith("jpeg") || path.EndsWith("gif") || path.EndsWith("png") || path.EndsWith("emf") || path.EndsWith("exif") || path.EndsWith("gif") || path.EndsWith("ico") || path.EndsWith("tiff") || path.EndsWith("wmf"))
             {
                 try { Packetize(System.Drawing.Image.FromFile(path)); }
                 catch { throw; }
@@ -1604,7 +1606,7 @@ namespace Media.Rtsp.Server.Streams
                             RtpClient.OnRtpPacketReceieved(packet);
                         }
 
-                        if (frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Stream.RFC2435Frame)frame);
+                        if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Stream.RFC2435Frame)frame);
 
                         System.Threading.Interlocked.Increment(ref m_FramesPerSecondCounter);
                     }

@@ -63,6 +63,12 @@ namespace Tests
                     Client = new RtspClient(textBox1.Text); //comboBox1.SelectedItem);
                 }
 
+                if (!string.IsNullOrWhiteSpace(textBox3.Text))
+                {                 
+                    Client.Credential = new System.Net.NetworkCredential(textBox3.Text, textBox4.Text);
+                    if (comboBox2.SelectedIndex == 1) Client.AuthenticationScheme = System.Net.AuthenticationSchemes.Digest;
+                }
+
                 Client.OnConnect += client_OnConnect;
 
                 ClientThreadProc = new Thread(Client.Connect);
