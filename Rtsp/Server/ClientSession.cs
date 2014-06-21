@@ -888,6 +888,21 @@ namespace Media.Rtsp
             return CreateRtspResponse(request);
         }
 
+        internal RtspMessage ProcessRecord(RtspMessage request, IMediaStream source)
+        {
+            //Can't record when no Archiver is present
+            if (m_Server.Archiver == null) return CreateRtspResponse(request, RtspStatusCode.PreconditionFailed);
+
+            //If already archiving then indicate created
+            if (m_Server.Archiver.IsArchiving(source)) return CreateRtspResponse(request, RtspStatusCode.Created);
+
+            //Start archiving
+            m_Server.Archiver.Start(source);
+
+            //Return ok response
+            return CreateRtspResponse(request);
+        }
+
         /// <summary>
         /// Creates a RtspResponse based on the SequenceNumber contained in the given RtspRequest
         /// </summary>

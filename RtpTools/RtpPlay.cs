@@ -50,5 +50,16 @@ namespace Media.RtpTools
 
         //Would be preceeded by #! and contain rtpplay
         internal const int RtpPlayBinaryIndex = 2, RtpPlayFormatLength = 7;
+
+        public class Program : Common.BaseDisposable
+        {
+
+            public Rtp.RtpClient Client { get; set; }
+
+            public static void Main(string[] args)
+            {
+
+            }
+        }
     }
 }

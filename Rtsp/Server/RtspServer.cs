@@ -117,6 +117,8 @@ namespace Media.Rtsp
         /// </summary>
         Dictionary<Guid, ClientSession> m_Clients = new Dictionary<Guid, ClientSession>();
 
+        public Media.Rtsp.Server.RtspStreamArchiver Archiver { get; set; }
+
         /// <summary>
         /// The thread allocated to handle socket communication
         /// </summary>
@@ -562,9 +564,9 @@ namespace Media.Rtsp
             }
             else
             {
-                //Need facilites for creating a RtspStream from an archive file
-                //Should have a static constructor RtspArchivedStream.FromMediaLocation(Url location)
-                //Needs the ci who requests this media to attached the archives stream to... 
+                //Find Archive File by Uri
+                //Create RtpSoure from file
+                //Return found
             }
 
             return found;
@@ -1177,8 +1179,8 @@ namespace Media.Rtsp
                         }
                     case RtspMethod.RECORD:
                         {
-                            //Not yet implimented
-                            goto default;
+                            ProcessRtspRecord(request, session);
+                            break;
                         }
                     case RtspMethod.PAUSE:
                         {
@@ -1227,9 +1229,62 @@ namespace Media.Rtsp
             }
         }
 
+        private void ProcessRtspRecord(RtspMessage request, ClientSession session)
+        {
+            var found = FindStreamByLocation(request.Location);
+
+            if (found == null)
+            {
+                ProcessLocationNotFoundRtspRequest(session);
+                return;
+            }
+
+            if (!AuthenticateRequest(request, found))
+            {
+                ProcessAuthorizationRequired(found, session);
+                return;
+            }
+
+            if (!found.Ready)
+            {
+                ProcessInvalidRtspRequest(session, RtspStatusCode.DataTransportNotReadyYet);
+                return;
+            }
+            
+            if (Archiver == null)
+            {
+                ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
+                return;
+            }
+            
+            using (var resp = session.ProcessRecord(request, found))
+            {
+                ProcessSendRtspResponse(resp, session);
+            }
+        }
+
         internal void ProcessRedirect(RtspMessage request, ClientSession session)
         {
             var found = FindStreamByLocation(request.Location);
+
+            if (found == null)
+            {
+                ProcessLocationNotFoundRtspRequest(session);
+                return;
+            }
+
+            if (!AuthenticateRequest(request, found))
+            {
+                ProcessAuthorizationRequired(found, session);
+                return;
+            }
+
+            if (!found.Ready)
+            {
+                ProcessInvalidRtspRequest(session, RtspStatusCode.DataTransportNotReadyYet);
+                return;
+            }
+            
             using (var resp = session.CreateRtspResponse(request))
             {
                 resp.Method = RtspMethod.REDIRECT;
@@ -1305,7 +1360,7 @@ namespace Media.Rtsp
             ProcessInvalidRtspRequest(ci, RtspStatusCode.NotFound);
         }
 
-        internal virtual void ProcessAuthorizationRequired(SourceStream source, ClientSession session)
+        internal virtual void ProcessAuthorizationRequired(IMediaStream source, ClientSession session)
         {
 
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
@@ -1716,7 +1771,7 @@ namespace Media.Rtsp
         /// <param name="request">The RtspRequest to authenticate</param>
         /// <param name="source">The RtspStream to authenticate against</param>
         /// <returns>True if authroized, otherwise false</returns>
-        public virtual bool AuthenticateRequest(RtspMessage request, SourceStream source)
+        public virtual bool AuthenticateRequest(RtspMessage request, IMediaStream source)
         {
 
             if (request == null) throw new ArgumentNullException("request");

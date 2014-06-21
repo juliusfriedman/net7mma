@@ -475,7 +475,7 @@ namespace Media.Rtsp.Server.Streams
                             // some IP cameras, like AirLink, claim that boundary is "myboundary",
                             // when it is really "--myboundary". this needs to be corrected.
 
-                            pos = Utility.ContainsBytes(buffer, ref start, ref read, boundary, 0, boundary.Length);
+                            pos = Utility.Find(buffer, boundary, 0, todo);
                             // continue reading if boudary was not found
                             if (pos == -1)
                                 continue;
@@ -500,7 +500,7 @@ namespace Media.Rtsp.Server.Streams
                         // search for image start
                         if ((align == 1) && (todo >= jpegMagicLength))
                         {
-                            start = Utility.ContainsBytes(buffer, ref pos, ref todo, jpegMagic, 0, jpegMagicLength);
+                            start = Utility.Find( buffer, jpegMagic, pos, todo );
                             if (start != -1)
                             {
                                 // found JPEG start
@@ -519,7 +519,7 @@ namespace Media.Rtsp.Server.Streams
                         // search for image end ( boundaryLen can be 0, so need extra check )
                         while ((align == 2) && (todo != 0) && (todo >= boundaryLen))
                         {
-                            stop = Utility.ContainsBytes(buffer, ref start, ref read,
+                            stop = Utility.Find(buffer,
                                 (boundaryLen != 0) ? boundary : jpegMagic,
                                 pos, todo);
 

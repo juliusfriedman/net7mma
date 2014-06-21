@@ -895,6 +895,15 @@ namespace Media.RtpTools
 
             commentBytes = null;
         }
+
+        public class Program : Common.BaseDisposable
+        {
+            public static void Main(string[] args)
+            {
+
+            }
+        }
+
     }
 
     public static class RtpSendExtensions 
@@ -917,7 +926,7 @@ namespace Media.RtpTools
         /// </summary>
         /// <param name="stream"></param>
         /// <param name="result"></param>
-        public static void ReadLineFeed(System.IO.Stream stream, out byte[] result)
+        internal static void ReadLineFeed(System.IO.Stream stream, out byte[] result)
         {
             result = RtpDump.RtpDumpExtensions.ReadDelimitedValue(stream, Common.ASCII.LineFeed, true); return;
         }
@@ -947,7 +956,7 @@ namespace Media.RtpTools
 
         //Maybe move to RtpSend
 
-        public static void ParseTokenValue(byte[] tokenBytes, out string value, out int tokenIndex, ref FileFormat format)
+        internal static void ParseTokenValue(byte[] tokenBytes, out string value, out int tokenIndex, ref FileFormat format)
         {
             tokenIndex = -1;
             value = null;

@@ -209,7 +209,12 @@ namespace Media.Rtsp.Server.Streams
             }
         }
     }
-    
+
+    //public class RtpDumpSource : RtpSource
+    //{
+        //Determine here or Rtsp
+    //}
+
     //public abstract class RtpChildStream
     //{
     //}
