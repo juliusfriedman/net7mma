@@ -287,7 +287,7 @@ namespace Media
         /// the position within the buffer reletive to the start position in which the first occurance of octets given the octetStart and octetCount was matched.
         /// If more than 1 octet is required for a match and the buffer does not encapsulate the entire match start will still reflect the occurance of the partial match.
         /// </returns>
-        public static int ContainsBytes(byte[] buffer, ref int start, ref int count, byte[] octets, int octetStart, int octetCount)
+        public static int ContainsBytes(this byte[] buffer, ref int start, ref int count, byte[] octets, int octetStart, int octetCount)
         {
             //If the buffer or the octets are null no dice
             if (buffer == null || octets == null) return -1;
@@ -344,6 +344,43 @@ namespace Media
                 return lastPosition;
             }
             catch { throw; }
+        }
+
+        public static int Find(this byte[] array, byte[] needle, int startIndex, int sourceLength )
+        {
+            int needleLen = needle.Length;
+            int index;
+
+            while ( sourceLength >= needleLen )
+            {
+                // find needle's starting element
+                index = Array.IndexOf( array, needle[0], startIndex, sourceLength - needleLen + 1 );
+
+                // if we did not find even the first element of the needls, then the search is failed
+                if ( index == -1 )
+                    return -1;
+
+                int i, p;
+                // check for needle
+                for ( i = 0, p = index; i < needleLen; i++, p++ )
+                {
+                    if ( array[p] != needle[i] )
+                    {
+                        break;
+                    }
+                }
+
+                if ( i == needleLen )
+                {
+                    // needle was found
+                    return index;
+                }
+
+                // continue to search for needle
+                sourceLength -= ( index - startIndex + 1 );
+                startIndex = index + 1;
+            }
+            return -1;
         }
 
         /// <summary>

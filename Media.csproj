@@ -135,9 +135,11 @@
     <Compile Include="Rtsp\RtspClient.cs" />
     <Compile Include="Rtsp\RtspMessage.cs" />
     <Compile Include="Rtsp\Server\RtspServer.cs" />
+    <Compile Include="Rtsp\Server\RtspStreamArchiver.cs" />
     <Compile Include="Rtsp\Server\RtspServerDebuggingLogger.cs" />
     <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
     <Compile Include="Rtsp\Server\ClientSession.cs" />
+    <Compile Include="Rtsp\Server\Streams\ArchivedStream.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaSink.cs" />
@@ -156,10 +158,20 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
+    <Content Include="RtpTools\obj\Release\RtpTools.csproj.FileListAbsolute.txt" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Compression\" />
+    <Folder Include="RtpTools\bin\Debug\" />
+    <Folder Include="RtpTools\bin\Release\" />
+    <Folder Include="RtpTools\obj\Debug\TempPE\" />
+    <Folder Include="RtpTools\obj\Release\TempPE\" />
     <Folder Include="Secure\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="RtpTools\obj\Debug\DesignTimeResolveAssemblyReferencesInput.cache" />
+    <None Include="RtpTools\obj\Release\DesignTimeResolveAssemblyReferencesInput.cache" />
+    <None Include="RtpTools\obj\Release\RtpTools.csprojResolveAssemblyReference.cache" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

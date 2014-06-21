@@ -1075,6 +1075,8 @@ namespace Tests
             //Should find Media.RtpTools.FileFormat.Binary
             TestRtpDumpReader(currentPath + @"\bark.rtp", Media.RtpTools.FileFormat.Binary);
 
+            //TestRtpDumpReader(currentPath + @"\video.rtpdump", Media.RtpTools.FileFormat.Binary);
+
             #endregion
 
             #region Test Writer on various formats
@@ -2138,7 +2140,9 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
 
             //Test Http Jpeg Transcoding
-            server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTest", new Uri("http://extcam-16.se.axis.com/axis-cgi/jpg/image.cgi?")));
+            //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/jpg/image.cgi?")));
+
+            server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
 
             //TODO
             //server.RequestReceived event

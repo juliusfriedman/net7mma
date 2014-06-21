@@ -41,6 +41,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Media.Common;
 
 namespace Media.RtpTools
 {
@@ -96,14 +97,39 @@ namespace Media.RtpTools
     {
 
         #region Statics
-        
+
+        public static IEnumerable<byte> CreatePacketHeader(DateTime time, System.Net.IPEndPoint source, Common.IPacket packet, int offset)
+        {
+            if (!BitConverter.IsLittleEndian)
+                return BitConverter.GetBytes(time.TimeOfDay.Milliseconds).
+                    Concat(BitConverter.GetBytes((int)source.Address.Address)).
+                    Concat(BitConverter.GetBytes((ushort)source.Port)).
+                   Concat(BitConverter.GetBytes((ushort)packet.Length)).
+                    Concat
+                    (packet is Rtcp.RtcpPacket ?
+                    Utility.Empty.Concat(Utility.Empty)
+                :
+                    Utility.Empty.Concat(BitConverter.GetBytes((ushort)(packet.Length + sizeOf_RD_packet_T))
+                ).Concat(BitConverter.GetBytes(offset)));
+
+            return BitConverter.GetBytes(time.TimeOfDay.Milliseconds).Reverse().
+                Concat(BitConverter.GetBytes((int)source.Address.Address).Reverse()).
+                Concat(BitConverter.GetBytes((ushort)source.Port).Reverse()).
+                Concat(BitConverter.GetBytes((ushort)packet.Length).Reverse()).
+                Concat
+                (packet is Rtcp.RtcpPacket ?
+                Utility.Empty.Concat(Utility.Empty)
+            :
+                Utility.Empty.Concat(BitConverter.GetBytes((ushort)(packet.Length + sizeOf_RD_packet_T)).Reverse())
+            ).Concat(BitConverter.GetBytes(offset).Reverse());
+        }
 
         //Because 32 bytes reads exactly this:
         //A RD_hdr_t,RD_packet_t and the first 6 bytes of the entry which
         //can identify the Version, PayloadType etc.
-        public const int DefaultEntrySize = 26,
+        public const int DefaultEntrySize = 24,
             //26 bytes hdr_t and packet_t;
-            sizeOf_RD_hdr_t = 26, 
+            sizeOf_RD_hdr_t = 16, 
             sizeOf_RD_packet_T = 8;
 
 
@@ -171,9 +197,7 @@ namespace Media.RtpTools
         /// </summary>
         public IEnumerable<byte> Data
         {
-            //get { return Blob.Skip(TimevalSize + Blob.Length - Length); }
-            get { return Blob.Skip(DefaultEntrySize).Take(MaxSize); } //Couldn't get the math to add up yet
-            //SHould just be size of rd_hdr or whatever
+            get { return Blob.Skip(DefaultEntrySize).Take(MaxSize); }
         }
 
         public int Pointer = 16;
@@ -336,7 +360,7 @@ namespace Media.RtpTools
         /// <summary>
         /// The value of the property `length` as indicated from the RD_packet_t
         /// </summary>
-        public ushort Length
+        public short Length
         {
             get
             {
@@ -344,7 +368,7 @@ namespace Media.RtpTools
                 //if (Is64BitEntry) return Info->len_64;
                 //return Info->len_32;
 
-                return Common.Binary.ReadU16(Blob, Pointer, ReverseValues);
+                return (short)Common.Binary.ReadU16(Blob, Pointer, ReverseValues);
             }
             set
             {
@@ -365,13 +389,13 @@ namespace Media.RtpTools
 
         public bool IsRtcp { get { return PacketLength == 0; } }
 
-        public ushort PacketLength
+        public short PacketLength
         {
             get
             {
                 if (Disposed) return 0;
 
-                return Common.Binary.ReadU16(Blob, Pointer + 4, ReverseValues);
+                return (short)Common.Binary.ReadU16(Blob, Pointer + 4, ReverseValues);
             }
             set
             {
@@ -422,19 +446,8 @@ namespace Media.RtpTools
         public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet)
             :this(FileFormat.Binary, packet.Prepare().ToArray())
         {
-            //Make rd_hdr and pd_packet_t
-            Blob = new byte[]{
-                //RD_hdr_t
-                0, 0, 0, 0, 0, 0, 0, 0, //Time
-                1, 2, 3, 4, //Source
-                5, 6, //Port
-                0, 0,
-                //RD_packet_t
-                0, 1,  //Len
-                2, 3, //Plen
-                0, 0, 0, 0 //Offset
-            }.Concat(Blob).ToArray();
-
+            Blob = CreatePacketHeader(DateTime.UtcNow, source, packet, 0).Concat(Blob).ToArray();
+            MaxSize = (int)packet.Length;
             //Create header from source, and packet.Created, if Is64Bit
             //Also needs rd hdrs
             //Blob = packet.Prepare().ToArray();
@@ -444,34 +457,6 @@ namespace Media.RtpTools
         #endregion
 
         #region Methods
-
-        /// <summary>
-        /// Reads the data realted to the RD_packet_t from the given stream which is exactly 8 bytes long.
-        /// </summary>
-        /// <param name="stream"></param>
-        internal void ReadPacketHeader(System.IO.Stream stream, bool directly = true)
-        {
-            byte[] array;
-
-            int offset; 
-            
-            if(directly)
-            {
-                 array = Blob;
-                 offset = sizeOf_RD_hdr_t;                 
-            }
-            else
-            {
-                array = new byte[8];
-                offset = 0;
-            }
-            
-
-            stream.Read(array, offset, 8);
-
-            if (!directly) Concat(array);
-
-        }
 
         /// <summary>
         /// Add all the data given by data to the Blob and increments max size.
@@ -505,28 +490,31 @@ namespace Media.RtpTools
 
         public string ToTextualConvention()
         {
-            StringBuilder sb = new StringBuilder();
-
-            var ip = new System.Net.IPAddress(Source);
-            var ep = new System.Net.IPEndPoint(ip, Port);
-            var ts = TimeSpan.FromSeconds(StartSeconds).Add(TimeSpan.FromSeconds(Microseconds / 10000));
-
-            sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
-
-            if (IsRtcp)
+            try
             {
-                sb.Append(RtpSend.ToTextualConvention(Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, DefaultEntrySize, MaxSize), ts, ep));
-            }
-            else
-            {
-                using (var rtp = new Rtp.RtpPacket(Blob, DefaultEntrySize))
+                StringBuilder sb = new StringBuilder();
+
+                var ip = new System.Net.IPAddress(Source);
+                var ep = new System.Net.IPEndPoint(ip, Port);
+                var ts = TimeSpan.FromSeconds(StartSeconds).Add(TimeSpan.FromSeconds(Microseconds / 10000));
+
+                sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
+
+                if (IsRtcp)
                 {
-                    sb.Append(RtpSend.ToTextualConvention(Format, rtp, ts, ep));
+                    sb.Append(RtpSend.ToTextualConvention(Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, DefaultEntrySize, MaxSize), ts, ep));
                 }
-                
-            }
+                else
+                {
+                    using (var rtp = new Rtp.RtpPacket(Blob, DefaultEntrySize))
+                    {
+                        sb.Append(RtpSend.ToTextualConvention(Format, rtp, ts, ep));
+                    }
+                }
 
-            return sb.ToString();
+                return sb.ToString();    
+            }
+            catch { throw; }
         }
 
         public override string ToString()

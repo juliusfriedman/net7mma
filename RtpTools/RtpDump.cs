@@ -737,6 +737,18 @@ namespace Media.RtpTools.RtpDump
 
     #endregion    
 
+
+    public class Program : Common.BaseDisposable
+    {
+
+        public RtpDump.DumpWriter Writer { get; set;  }
+
+        public static void Main(string[] args)
+        {
+
+        }
+    }
+
     /// <summary>
     /// Provides useful methods for working with RtpDump formatted data.
     /// </summary>
