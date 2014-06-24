@@ -46,6 +46,8 @@ namespace Media.Rtp
     public class Conference
     {
 
+        public RtpClient Client { get; protected set; }
+
         //May a diction would be better
         internal System.Collections.Generic.HashSet<RtpClient> Clients = new System.Collections.Generic.HashSet<RtpClient>();
 
@@ -75,6 +77,8 @@ namespace Media.Rtp
 
         //When removing a client iterate all SourceContext and set SendRtcpReports = true;
         //Remove event for RtcpPacket reception
+
+        //On each packet reception Schedule a packet if the Client has not Sent a RtcpReport in the appropriate amount of time.
 
     }
 }

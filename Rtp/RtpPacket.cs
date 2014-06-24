@@ -506,11 +506,11 @@ namespace Media.Rtp
         /// <remarks>
         /// To create the sequence a new RtpHeader is generated and eventually disposed.
         /// </remarks>
-        public IEnumerable<byte> Prepare(int? payloadType, int? ssrc, int? sequenceNumber = null, int? timestamp = null)
+        public IEnumerable<byte> Prepare(int? payloadType, int? ssrc, int? sequenceNumber = null, int? timestamp = null, bool? marker = null)
         {
             try
             {
-                return Prepare(new RtpHeader(Version, Padding, Extension, Marker, payloadType ?? PayloadType, ContributingSourceCount, ssrc ?? SynchronizationSourceIdentifier, sequenceNumber ?? SequenceNumber, timestamp ?? Timestamp));
+                return Prepare(new RtpHeader(Version, Padding, Extension, marker ?? Marker, payloadType ?? PayloadType, ContributingSourceCount, ssrc ?? SynchronizationSourceIdentifier, sequenceNumber ?? SequenceNumber, timestamp ?? Timestamp));
             }
             catch
             {

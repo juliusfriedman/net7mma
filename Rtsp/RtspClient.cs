@@ -1447,7 +1447,7 @@ namespace Media.Rtsp
                             }                            
 
                             //try to add the transportChannel
-                            m_RtpClient.AddTransportContext(transportContext);
+                            m_RtpClient.Add(transportContext);
 
                             //and initialize the client from the RtspSocket
                             transportContext.InitializeSockets(m_RtspSocket);
@@ -1499,7 +1499,7 @@ namespace Media.Rtsp
                                 newContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
                                 newContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
                                 newContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
-                                m_RtpClient.AddTransportContext(newContext);
+                                m_RtpClient.Add(newContext);
                             }
                             else
                             {
@@ -1508,7 +1508,7 @@ namespace Media.Rtsp
                                 nextContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
                                 nextContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
                                 nextContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
-                                m_RtpClient.AddTransportContext(nextContext);
+                                m_RtpClient.Add(nextContext);
                             }
                         }
                     }
