@@ -337,11 +337,11 @@ namespace Tests
 
                         receiversContext.InitializeSockets(localIp, localIp, incomingRtpPort, rtcpPort, ougoingRtpPort, xrtcpPort);
 
-                        receiver.AddTransportContext(receiversContext);
+                        receiver.Add(receiversContext);
 
                         sendersContext.InitializeSockets(localIp, localIp, ougoingRtpPort, xrtcpPort, incomingRtpPort, rtcpPort);
 
-                        sender.AddTransportContext(sendersContext);
+                        sender.Add(sendersContext);
 
                         //Connect the sender
                         sender.Connect();
@@ -2122,6 +2122,14 @@ a=mpeg4-esid:101");
             {
                 //m_ForceTCP = true
             });
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Zulu", "rtsp://fms.zulu.mk/zulu/sitel_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            //tsp://fms.zulu.mk/zulu/sitel_1
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true});

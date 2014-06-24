@@ -608,7 +608,7 @@ namespace Media.Rtsp
             DateTime maintenanceStarted = DateTime.UtcNow;
 
             //Iterate and find inactive sessions
-            foreach (ClientSession session in Clients)
+            foreach (ClientSession session in Clients.ToArray())
             {
                 //If the inactivity timeout is disabled return
                 if (RtspClientInactivityTimeoutSeconds != -1)
@@ -695,7 +695,7 @@ namespace Media.Rtsp
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = "RtspServer@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            m_ServerThread.Priority = ThreadPriority.BelowNormal;
+            //m_ServerThread.Priority = ThreadPriority.BelowNormal;
             m_ServerThread.Start();
 
             //Should allow all this frequencies to be controlled with a property (used half the amount of the RtspClientInactivityTimeoutSeconds)

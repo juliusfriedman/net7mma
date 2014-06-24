@@ -658,7 +658,7 @@ namespace Media.Rtsp
                 setupContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);
 
                 //Add the transportChannel
-                m_RtpClient.AddTransportContext(setupContext);
+                m_RtpClient.Add(setupContext);
 
                 setupContext.m_SendInterval = sourceContext.m_SendInterval;
 
@@ -699,7 +699,7 @@ namespace Media.Rtsp
                     if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;
 
                     //Add the transportChannel the client requested
-                    m_RtpClient.AddTransportContext(setupContext);
+                    m_RtpClient.Add(setupContext);
 
                     //Initialize the Interleaved Socket
                     setupContext.InitializeSockets(m_RtspSocket);
@@ -731,7 +731,7 @@ namespace Media.Rtsp
                     if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;
 
                     //Add the transportChannel the client requested
-                    m_RtpClient.AddTransportContext(setupContext);
+                    m_RtpClient.Add(setupContext);
 
                     //Initialize the Interleaved Socket
                     setupContext.InitializeSockets(m_RtspSocket);
@@ -751,7 +751,7 @@ namespace Media.Rtsp
                     if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;                        
 
                     //Add the transportChannel the client requested
-                    m_RtpClient.AddTransportContext(setupContext);
+                    m_RtpClient.Add(setupContext);
 
                     //Initialize the current TransportChannel with the interleaved Socket
                     setupContext.InitializeSockets(m_RtspSocket);
@@ -1055,7 +1055,7 @@ namespace Media.Rtsp
                 foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
 
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
-                md.Add(new Sdp.SessionDescriptionLine("a=control:" + md.MediaType));
+                md.Add(new Sdp.SessionDescriptionLine("a=control:" + "/live/" + stream.Id + '/' + md.MediaType));
 
                 if (stream.m_DisableQOS)
                 {

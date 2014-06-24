@@ -201,25 +201,5 @@ namespace Media.Rtsp.Server.Streams
         public void ClearAliases() { m_Aliases.Clear(); }
 
         #endregion
-
-        Guid IMediaStream.Id
-        {
-            get { return Id; }
-        }
-
-        SourceStream.StreamState IMediaStream.State
-        {
-            get { return State; }
-        }
-
-        void IMediaStream.Start()
-        {
-            Start();
-        }
-
-        void IMediaStream.Stop()
-        {
-            Stop();
-        }
     }
 }
