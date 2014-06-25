@@ -755,7 +755,7 @@ namespace Media.Rtsp
             StopStreams();
 
             //Remove all clients
-            foreach (ClientSession cs in Clients)
+            foreach (ClientSession cs in Clients.ToArray())
             {
                 cs.Disconnect();
                 RemoveSession(cs);
@@ -795,7 +795,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (IMediaStream stream in Streams)
+            foreach (IMediaStream stream in Streams.ToArray())
             {
                 try
                 {
@@ -1012,6 +1012,8 @@ namespace Media.Rtsp
             {
                 //Something happened during the session
                 if (Logger != null) Logger.LogException(ex);
+
+                MaintainServer();
                 //if (session.Interleaving)
                 //{
                 //    //This data doesn't belong to us
