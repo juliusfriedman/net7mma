@@ -2094,52 +2094,25 @@ a=mpeg4-esid:101");
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("GammaTcp", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp")
-            {
-                m_ForceTCP = true
-            });
-
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("YouTubeTcp", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp")
-            {
-                m_ForceTCP = true
-            });
-
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp")
-            {
-                //m_ForceTCP = true
-            });
-
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("DeltaTcp", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            {
-                //m_ForceTCP = true
-            });
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("OmegaTcp", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            {
-                //m_ForceTCP = true
-            });
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp"));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Zulu", "rtsp://fms.zulu.mk/zulu/sitel_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-            //tsp://fms.zulu.mk/zulu/sitel_1
-
-            //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/Pics through Udp and Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("Pics", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true});
-
+            //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
 
-            Media.Rtsp.Server.Streams.RFC2435Stream imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            Media.Rtsp.Server.Streams.RFC2435Stream imageStream;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
-            //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/SamplePictures through Udp and Tcp
-            server.AddStream(imageStream);
+            //Expose Bandit's Pictures through Udp and Tcp
+            server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", string.Join(string.Empty, new Uri(System.Reflection.Assembly.GetExecutingAssembly().Location).Segments.Reverse().Skip(1).Reverse().ToArray()) + "\\Bandit\\") { Loop = true });
 
             //Test H.264 Encoding
             server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
@@ -2148,7 +2121,7 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
 
             //Test Http Jpeg Transcoding
-            //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/jpg/image.cgi?")));
+            server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
 
             server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
 

@@ -818,7 +818,7 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
-                        //RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
+                        RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
                         //RtcpSocket.Blocking = false;
 
                         //RtcpSocket.Ttl = 255;
@@ -1354,7 +1354,8 @@ namespace Media.Rtp
                 }
 
                 //Add the packet clone to the current frame
-                transportContext.CurrentFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
+                if(localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
+                    transportContext.CurrentFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
 
                 //If the frame is complete then fire an event and make a new frame
                 if (transportContext.CurrentFrame.Complete)
@@ -2486,9 +2487,7 @@ namespace Media.Rtp
             //Cache the offset at the time of the call
             int offset = m_BufferOffset,
                 //Reeive data                
-                received = socket.Receive(m_Buffer, offset, m_BufferLength / 2, SocketFlags.None, out error);
-
-            //if (socket.Available > 0 && received + socket.Available < m_BufferLength) received += socket.Receive(m_Buffer, offset + received, m_BufferLength / 2 - received, SocketFlags.None, out error);
+                received = socket.Receive(m_Buffer, offset, m_BufferLength, SocketFlags.None, out error);
 
             if (error != SocketError.Success) return -1;
 
@@ -2505,117 +2504,63 @@ namespace Media.Rtp
                         while (TCP_OVERHEAD > received)
                         {
                             received += socket.Receive(m_Buffer, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
-                            if (error != SocketError.Success) return -1;
+                            if (error != SocketError.Success && error != SocketError.TryAgain) return -1;
                         }
                     }
 
                     //Determine which TransportContext will receive the data incoming
-                    TransportContext relevent = null, next;
+                    TransportContext relevent = null;
 
-                    byte frameChannel, nextChannel;
+                    byte frameChannel;
 
                     //Read the framing using the framing indicated.
-                    int frameLength = ReadRFC2326FrameHeader(received, out frameChannel, out relevent);
+                    int frameLength;
 
-                GetContext:
-                    if (relevent == null && frameLength > 0)
+                    int remaining = received;
+
+                    //Todo
+                    //Handle receiving when no $ and Channel is presenent...
+                    while (remaining > 0 && (frameLength = ReadRFC2326FrameHeader(remaining, out frameChannel, out relevent, offset)) >= 0)
                     {
+                        //System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
+                        if (relevent == null) goto NoContext;
 
-                        //System.Diagnostics.Debug.WriteLine("(Skipping) FrameLength = " + frameLength + " From Channel=" + frameChannel);
+                        expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
 
-                        ////Make a copy of the amount of bytes to skip related to the frame
-                        int toSkip = frameLength - received, canSkip = toSkip > m_BufferLength ? m_BufferLength : toSkip, newFrameLength = 0;
+                        int extra = frameLength - remaining;
 
-                        ////While a byte remains to skip, read it into the buffer decrementing toSkip the amount of bytes read / skipped.
-                        while (toSkip > 0)
+                        if (extra > 0 && frameLength < m_BufferLength)
                         {
-                            int justReceived = Utility.AlignedReceive(m_Buffer, offset, canSkip, socket, out error);
-                            //System.Diagnostics.Debug.WriteLine("(Skipping) justReceived = " + justReceived + " Remaining = " + toSkip + " Of " + frameLength);
-                            toSkip -= justReceived;
-                            received += justReceived;
+                            //System.Diagnostics.Debug.WriteLine("(Need) Extra = " + extra);
 
-                            newFrameLength = ReadRFC2326FrameHeader(justReceived, out nextChannel, out next);
-
-                            //Peek for new frame
-                            if (next != null && newFrameLength > 0)
+                            if (offset + remaining + extra + TCP_OVERHEAD > m_BufferLength)
                             {
-                                received = justReceived;
-                                frameLength = newFrameLength;
-                                frameChannel = nextChannel;
-                                relevent = next;
-                                goto GetContext;
+                                //System.Diagnostics.Debug.WriteLine("Buffer Copy");
+                                Array.Copy(m_Buffer, offset, m_Buffer, m_BufferOffset, remaining);
+                                offset = m_BufferOffset;
                             }
-                        }
-                        
-                        //Do not complete data
-                        return received + toSkip;
-                    }
-                    else 
-                    {
 
-                        if (relevent != null && frameLength > 0)
-                        {
-                            expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                            int at = offset;
 
-                            while (received - TCP_OVERHEAD < frameLength && frameLength > m_BufferLength)
+                            while (extra > 0)
                             {
-                                int r = Utility.AlignedReceive(m_Buffer, received, frameLength - received, socket, out error);
+                                int r = Utility.AlignedReceive(m_Buffer, offset, extra, socket, out error);
                                 if (r <= 0) continue;
-                                received += r;
+                                extra -= r;
+                                offset += r;
                             }
 
-                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(received - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(frameLength, received - TCP_OVERHEAD));
-                            
-                            if (frameLength > m_BufferLength) return received;
-                        }
-                        
-                        offset += (frameLength + TCP_OVERHEAD);
-
-                        if (offset > m_BufferLength) return received;
-
-                        int remaining = received - (frameLength + TCP_OVERHEAD);
-
-                        while (remaining > 0 && (frameLength = ReadRFC2326FrameHeader(remaining, out frameChannel, out relevent, offset)) >= 0)
-                        {
-                            //System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
-                            if (relevent == null) goto NoContext;
-                            expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
-
-                            int extra = frameLength - remaining;
-
-                            if (extra > 0 && frameLength < m_BufferLength)
-                            {
-                                //System.Diagnostics.Debug.WriteLine("(Need) Extra = " + extra);
-
-                                if (offset + remaining + extra + TCP_OVERHEAD > m_BufferLength)
-                                {
-                                    //System.Diagnostics.Debug.WriteLine("Buffer Copy");
-                                    Array.Copy(m_Buffer, offset, m_Buffer, m_BufferOffset, remaining);
-                                    offset = m_BufferOffset;
-                                }
-
-                                int at = offset;
-
-                                while (extra > 0)
-                                {
-                                    int r = Utility.AlignedReceive(m_Buffer, offset, extra, socket, out error);
-                                    if (r <= 0) continue;
-                                    extra -= r;
-                                    offset += r;
-                                }
-
-                                offset = at;
-                            }
-
-                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(remaining - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(remaining - TCP_OVERHEAD, frameLength));
-
-                        NoContext:
-                            offset += frameLength + TCP_OVERHEAD;
-                            remaining -= (frameLength + TCP_OVERHEAD);
+                            offset = at;
                         }
 
-                        return received;
+                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(remaining - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(remaining - TCP_OVERHEAD, frameLength));
+
+                    NoContext:
+                        offset += frameLength + TCP_OVERHEAD;
+                        remaining -= (frameLength + TCP_OVERHEAD);
                     }
+
+                    return received;
                 }
 
                 //Use the data received to parse and complete any recieved packets, should take a parseState
@@ -2915,7 +2860,7 @@ namespace Media.Rtp
                 //If receiving Rtp AND the last Rtp reception occured in more then the time alloted from the m_ReceiveInterval
                 if (rtpEnabled //&& (context.LastRtpPacketReceived == TimeSpan.Zero || context.LastRtpPacketReceived >= context.m_ReceiveInterval)
                     //Check if the socket can read data
-                    && context.RtpSocket.Poll((int)context.m_ReceiveInterval.TotalMicroseconds(), SelectMode.SelectRead))
+                    && context.RtpSocket.Poll((int)Math.Round(context.m_ReceiveInterval.TotalMicroseconds(), 1, MidpointRounding.ToEven), SelectMode.SelectRead))
                 {
                     receivedRtp += ReceiveData(context.RtpSocket, context.RemoteRtp, rtpEnabled, duplexing);
                     lastOperation = DateTime.UtcNow;
@@ -2929,7 +2874,7 @@ namespace Media.Rtp
                     && 
                     (context.LastRtcpReportReceived == TimeSpan.Zero || context.LastRtcpReportReceived >= context.m_ReceiveInterval)
                     &&
-                    context.RtcpSocket.Poll((int)context.m_ReceiveInterval.TotalMicroseconds(), SelectMode.SelectRead))
+                    context.RtcpSocket.Poll((int)Math.Round(context.m_ReceiveInterval.TotalMicroseconds(), 9, MidpointRounding.ToEven), SelectMode.SelectRead))
                 {
 
                     receivedRtcp += ReceiveData(context.RtcpSocket, context.RemoteRtcp, duplexing, rtcpEnabled);

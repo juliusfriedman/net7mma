@@ -682,7 +682,7 @@ namespace Media.Rtsp
                         //catch { }//Not supported 
 
 
-                        m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0;
+                        //m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0;
 
                         connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
                         {

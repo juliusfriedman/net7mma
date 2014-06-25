@@ -1548,7 +1548,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
         /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
-        public virtual void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
+        public virtual void Packetize(System.Drawing.Image image, int quality = 80, bool interlaced = false)
         {
             lock (m_Frames)
             {
