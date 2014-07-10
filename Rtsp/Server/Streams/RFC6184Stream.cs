@@ -180,16 +180,16 @@ namespace Media.Rtsp.Server.Streams
             int x, y;
 
             if (!((i == 0) && (j == 0))) result = macroblock_header;
-            
+
             for (x = i * 16; x < (i + 1) * 16; x++)
                 for (y = j * 16; y < (j + 1) * 16; y++)
-                     result = result.Concat(data.Skip(x + y).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);
-                    for (x = i * 8; x < (i + 1) * 8; x++)
-                        for (y = j * 8; y < (j + 1) * 8; y++)
-                            result = result.Concat(data.Skip(x * y).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);//fwrite(&frame.Cb[x][y], 1, 1, stdout);
-                            for (x = i * 8; x < (i + 1) * 8; x++)
-                                for (y = j * 8; y < (j + 1) * 8; y++)
-                                    result = result.Concat(data.Skip(x * y).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);//fwrite(&frame.Cr[x][y], 1, 1, stdout);
+                    result = result.Concat(data.Skip(x + y + 1).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);
+            for (x = i * 8; x < (i + 1) * 8; x++)
+                for (y = j * 8; y < (j + 1) * 8; y++)
+                    result = result.Concat(data.Skip(Width * Height + x * y).Take(1)); //fwrite(&frame.Cb[x][y], 1, 1, stdout);
+            for (x = i * 8; x < (i + 1) * 8; x++)
+                for (y = j * 8; y < (j + 1) * 8; y++)
+                    result = result.Concat(data.Skip(Width * Height + x * y + 1).Take(1));//fwrite(&frame.Cr[x][y], 1, 1, stdout);
 
             return result.ToArray();
         }

@@ -70,7 +70,7 @@ namespace Media.Rtsp.Server.Streams
         internal Uri m_Source;
         internal NetworkCredential m_SourceCred;
         internal List<string> m_Aliases = new List<string>();
-        internal bool m_Child = false;
+        //internal bool m_Child = false;
         public virtual Sdp.SessionDescription SessionDescription { get; protected set; }
 
         //Maybe should be m_AllowUdp?
@@ -125,7 +125,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Is this RtspStream dependent on another
         /// </summary>
-        public bool IsParent { get { return !m_Child; } }
+        public bool IsParent { get { return !(this is ChildStream); } }
 
         /// <summary>
         /// The Uri to the source media

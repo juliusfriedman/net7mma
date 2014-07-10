@@ -54,7 +54,7 @@ namespace Media.Rtsp.Server.Streams
         {
             if (!source.IsParent) throw new ArgumentException("Cannot make a Child of a Child.");
             m_Parent = source;
-            m_Child = true;
+            //m_Child = true;
         }
 
         public override Uri Source { get { return m_Parent.Source; } set { m_Parent.Source = value; } }

@@ -931,7 +931,7 @@ namespace Media.Rtsp
             //In UDP all connections are such
 
             //Iterate clients looking for the socket handle
-            foreach (ClientSession cs in Clients)
+            foreach (ClientSession cs in Clients.ToArray())
             {
                 //If there is already a socket then use that one
                 if (cs.RemoteEndPoint == rtspSocket.RemoteEndPoint)

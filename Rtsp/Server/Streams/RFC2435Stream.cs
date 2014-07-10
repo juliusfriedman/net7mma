@@ -609,7 +609,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="sequenceNo">The sequence number of the image being encoded</param>
             /// <param name="timeStamp">The Timestamp of the image being encoded</param>
             /// <param name="bytesPerPacketPayload">The maximum amount of octets of each RtpPacket Payload which contains part of the encoded image. This amount should encompass the RtpHeader (12 octets) as well as the Rtp Jpeg Header (8 Octets)</param>
-            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1325)
+            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1292)
             {
                 if (imageQuality <= 0 || imageQuality > 100) throw new NotSupportedException("Only qualities 1 - 100 are supported");
 
@@ -626,7 +626,7 @@ namespace Media.Rtsp.Server.Streams
                 }
 
                 //Save the image in Jpeg format and request the PropertyItems from the Jpeg format of the Image
-                using (System.IO.MemoryStream temp = new System.IO.MemoryStream())
+                using (System.IO.MemoryStream temp = new System.IO.MemoryStream(image.Height * image.Width * 3))
                 {
 
                     //Create Encoder Parameters for the Jpeg Encoder
@@ -670,11 +670,11 @@ namespace Media.Rtsp.Server.Streams
             {
 
                 //Ensure qualityFactor can be stored in a byte
-                if (qualityFactor.HasValue && qualityFactor > byte.MaxValue)
-                    throw Common.Binary.CreateOverflowException("qualityFactor", qualityFactor, byte.MinValue.ToString(), byte.MaxValue.ToString());
+                if (qualityFactor.HasValue && (qualityFactor > byte.MaxValue || qualityFactor == 0))
+                    throw Common.Binary.CreateOverflowException("qualityFactor", qualityFactor, 1.ToString(), byte.MaxValue.ToString());
 
                 //Store the constant size which contains the RtpHeader (12) and Jpeg Profile header (8).
-                int protocolOverhead = Rtp.RtpHeader.Length + 8,
+                int protocolOverhead = Rtp.RtpHeader.Length + 8, // + 4 * sourceList.Count
                     precisionTableIndex = 0; //The index of the precision table.
 
                 //Ensure data will fit
@@ -740,6 +740,8 @@ namespace Media.Rtsp.Server.Streams
                         PayloadType = RFC2435Frame.RtpJpegPayloadType,
 
                         SynchronizationSourceIdentifier = Ssrc
+
+                        //,SourceList = sourceList
                     };
 
                     //Where we are in the current packet payload
@@ -905,9 +907,9 @@ namespace Media.Rtsp.Server.Streams
                                 byte Ns = (byte)temp.ReadByte();
 
                                 //Read past the Start of Scan (10 more bytes which end with the StartOfSpectral 0x3f00)                            
-                                temp.Seek(Ns * 2, System.IO.SeekOrigin.Current);
+                                temp.Seek(3 + (Ns * 2), System.IO.SeekOrigin.Current);
 
-                                temp.Seek(3, System.IO.SeekOrigin.Current);
+                                //temp.Seek(3, System.IO.SeekOrigin.Current);
 
                                 if (pos + CodeSize != temp.Position) throw new Exception("Error in StartOfScan");
 
