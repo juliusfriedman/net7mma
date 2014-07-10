@@ -402,11 +402,6 @@ namespace Tests
             }
         }
 
-        static void MockInterleaveTest()
-        {
-            //Use data to mock an interleave test
-        }
-
 
         static void writeError(Exception ex)
         {
@@ -1712,7 +1707,6 @@ namespace Tests
                 location = Console.ReadLine();
             }
 
-            StartTest:
             Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
             Media.Rtsp.RtspClient client = null;
             if (Console.ReadKey().Key != ConsoleKey.Q && !string.IsNullOrWhiteSpace(location))
@@ -1763,7 +1757,6 @@ namespace Tests
                                 ++emptyFrames;
                                 Console.BackgroundColor = ConsoleColor.Red; consoleWriter.WriteLine("\t*******Got a EMTPTY RTP FRAME*******"); Console.BackgroundColor = ConsoleColor.Black;
                             }
-
                             else if (rtpFrame.Complete && rtpFrame.IsMissingPackets)
                             {
                                 ++incompleteFrames;
@@ -1784,6 +1777,7 @@ namespace Tests
                             ++rtspInterleaved;
                             Console.BackgroundColor = ConsoleColor.Cyan;
                             consoleWriter.WriteLine("\tInterleaved=>" + data.Count + " Bytes");
+                            //consoleWriter.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data.Array.Skip(data.Offset).Take(data.Count).ToArray()).Replace('\a', 'A'));
                             Console.BackgroundColor = ConsoleColor.Black;
                         };
 
@@ -2129,8 +2123,49 @@ a=mpeg4-esid:101");
             //server.RequestReceived event
             //server.ClientConnected / ClientDisconnected
 
+            Media.Rtsp.Server.Streams.RFC2435Stream screenShots = new Media.Rtsp.Server.Streams.RFC2435Stream("Screen", null, false);
+
+            server.AddStream(screenShots);
+
+            System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
+            {
+                using (var bmpScreenshot = new System.Drawing.Bitmap(Screen.PrimaryScreen.Bounds.Width,
+                           Screen.PrimaryScreen.Bounds.Height,
+                           System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                {
+
+                    // Create a graphics object from the bitmap.
+                    using (var gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot))
+                    {
+
+                        //Forever
+                        while (server.Listening)
+                        {
+                            // Take the screenshot from the upper left corner to the right bottom corner.
+                            gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
+                                                        Screen.PrimaryScreen.Bounds.Y,
+                                                        0,
+                                                        0,
+                                                        Screen.PrimaryScreen.Bounds.Size,
+                                                        System.Drawing.CopyPixelOperation.SourceCopy);
+                            
+                            //Convert to JPEG and put in packets
+                            screenShots.Packetize(bmpScreenshot, 75);
+
+                            //REST
+                            System.Threading.Thread.Sleep(50);
+                        }
+                    }
+                }
+            }))
+            {
+                Priority = System.Threading.ThreadPriority.Highest
+            };
+
             //Start the server
             server.Start();
+
+            taker.Start();
 
             //If you add more streams they will be started once the server is started
 
@@ -2267,7 +2302,7 @@ a=mpeg4-esid:101");
                 else
                 {
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/SamplePictures", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Omega", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {

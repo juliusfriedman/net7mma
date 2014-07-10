@@ -55,7 +55,7 @@ namespace Media.Rtcp
     /// A managed implemenation of the Rtcp abstraction found in RFC3550.
     /// <see cref="http://tools.ietf.org/html/rfc3550"> RFC3550 </see> for more information
     /// </summary>
-    public class RtcpPacket : BaseDisposable, IPacket
+    public class RtcpPacket : BaseDisposable, IPacket, ICloneable
     {
         #region Constants and Statics
 
@@ -284,7 +284,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Indicates if there is data past the Payload which is not accounted for by the <see cref="Header"/>
         /// </summary>
-        public bool IsCompound { get { return Disposed || Header.Disposed ? false : Payload.Count > ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)); } }
+        //public bool IsCompound { get { return Payload.Count > ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)); } }
 
         /// <summary>
         /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
@@ -465,7 +465,7 @@ namespace Media.Rtcp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (Disposed || ShouldDispose) return;
+            if (Disposed || !ShouldDispose) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
@@ -657,6 +657,11 @@ namespace Media.Rtcp
         internal static protected bool TryMapImplementation(byte payloadType, Type implementation) { return InstanceMap.TryAdd(payloadType, implementation); }
 
         #endregion
+
+        object ICloneable.Clone()
+        {
+            return this.Clone(true, true, false);
+        }
     }
 
     #endregion

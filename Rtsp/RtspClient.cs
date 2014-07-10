@@ -627,8 +627,12 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public void StopListening()
         {
-            if (!Listening) return;
-            else Disconnect();
+            try
+            {
+                if (!Listening) return;
+                else Disconnect();
+            }
+            catch { }
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
@@ -920,7 +924,7 @@ namespace Media.Rtsp
 
                             int frameLength = 0;
 
-                            if ((frameLength = m_RtpClient.TryReadFrameHeader(data, out channel)) > 0)
+                            if ((frameLength = m_RtpClient.TryReadFrameHeader(m_Buffer, offset, out channel)) > 0)
                             {
                                 r -= 4;
 
@@ -1017,6 +1021,10 @@ namespace Media.Rtsp
 
                 if (m_LastTransmitted != null)
                 {
+                    //TODO
+                    //REDIRECT (Handle loops)
+                    //if(m_LastTransmitted.StatusCode == RtspStatusCode.MovedPermanently)
+
                     switch (m_LastTransmitted.StatusCode)
                     {
                         case RtspStatusCode.NotImplemented: m_SupportedMethods.Remove(m_LastTransmitted.Method); break;

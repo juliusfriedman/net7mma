@@ -691,6 +691,8 @@ namespace Media.Rtsp
 
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 
+                    m_RtpClient.FrameChangedEventsEnabled = false;
+
                     //Create a new Interleave
                     setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 

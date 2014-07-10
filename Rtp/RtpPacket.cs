@@ -57,7 +57,7 @@ namespace Media.Rtp
     /// A managed implemenation of the Rtp abstraction found in RFC3550.
     /// <see cref="http://tools.ietf.org/html/rfc3550"> RFC3550 </see> for more information
     /// </summary>
-    public class RtpPacket : BaseDisposable, IPacket
+    public class RtpPacket : BaseDisposable, IPacket, ICloneable
     {
         #region Fields
 
@@ -697,6 +697,11 @@ namespace Media.Rtp
         long Common.IPacket.Length { get { return (long)Length; } }
 
         #endregion
+
+        object ICloneable.Clone()
+        {
+            return this.Clone(true, true, true, true, false);
+        }
     }
 
     #endregion

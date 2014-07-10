@@ -48,7 +48,7 @@ namespace Media.Rtsp.Server.Streams
     public class RtspSourceStream : RtpSource
     {
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious, e.g. archiving / caching etc.
-        public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }        
+        //public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }        
 
         #region Properties
 
@@ -176,20 +176,28 @@ namespace Media.Rtsp.Server.Streams
             {
                 RtspClient.OnConnect += RtspClient_OnConnect;
                 RtspClient.OnDisconnect += RtspClient_OnDisconnect;
+                RtspClient.OnPlay += RtspClient_OnPlay;
                 RtspClient.Connect();
             }
+        }
+
+        void RtspClient_OnPlay(RtspClient sender, object args)
+        {
+            RtspClient.Client.FrameChangedEventsEnabled = false;
+            //Ready = true;
         }
 
         void RtspClient_OnDisconnect(RtspClient sender, object args)
         {
             if (RtspClient != sender) return;
+            RtspClient.OnPlay -= RtspClient_OnPlay;
             RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
             Ready = false;
         }
 
         void RtspClient_OnConnect(RtspClient sender, object args)
         {
-            if (RtspClient != sender) return;
+            if (RtspClient != sender || RtspClient.Playing) return;
             RtspClient.OnConnect -= RtspClient_OnConnect;
             try
             {
@@ -223,11 +231,7 @@ namespace Media.Rtsp.Server.Streams
         {
             if (RtspClient.Listening)
             {
-                try
-                {
-                    RtspClient.StopListening();                    
-                }
-                catch { }
+                RtspClient.StopListening();                    
             }
             base.Stop();
             m_StartedTimeUtc = null;
@@ -239,20 +243,20 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// Encapsulates RtspStreams which are dependent on Parent RtspStreams
     /// </summary>
-    public class RtspChildStream : ChildStream
-    {
-        public RtspChildStream(RtspSourceStream source) : base(source) { }
+    //public class RtspChildStream : ChildStream
+    //{
+    //    public RtspChildStream(RtspSourceStream source) : base(source) { }
 
-        public RtspClient Client
-        {
-            get
-            {
-                return ((RtspSourceStream)m_Parent).RtspClient;
-            }
-            internal set
-            {
-                ((RtspSourceStream)m_Parent).RtspClient = value;
-            }
-        }        
-    }
+    //    public RtspClient Client
+    //    {
+    //        get
+    //        {
+    //            return ((RtspSourceStream)m_Parent).RtspClient;
+    //        }
+    //        internal set
+    //        {
+    //            ((RtspSourceStream)m_Parent).RtspClient = value;
+    //        }
+    //    }
+    //}
 }

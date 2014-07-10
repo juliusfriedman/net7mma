@@ -244,8 +244,8 @@ namespace Media
                 e = delemits.Length;//End
             //Set i = the index of the entry of the delemit
             do
-                i = Array.IndexOf(array, delemits[o]);
-            while(i <= 0 && ++o < e);//While the delemit was not found and the offset is less then the end
+                i = Array.IndexOf(array, delemits[++o]);
+            while(i <= 0 && o < e);//While the delemit was not found and the offset is less then the end
 
             //Return the index of the last delemit
             return i;

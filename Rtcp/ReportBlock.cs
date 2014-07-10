@@ -62,6 +62,10 @@ namespace Media.Rtcp
     {
         #region Constants and Statics
 
+        private const int MIN_PACKETS_LOST = -8388607; // 0xFF800001
+        private const int MAX_PACKETS_LOST = 8388607; // 0x007FFFFF 
+
+
         public const int ReportBlockSize = 24;
 
         #endregion
@@ -79,7 +83,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The size in octets of this ReportBlock instance
         /// </summary>
-        public int Size { get { return ReportBlockSize; } }
+        public virtual int Size { get { return ReportBlockSize; } }
 
         /// <summary>
         /// The ID of the participant who sent this ReportBlock
