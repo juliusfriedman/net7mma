@@ -1226,7 +1226,7 @@ namespace Media.Rtsp
                 if (!string.IsNullOrWhiteSpace(controlPart))
                 {
                     //Prepare the part
-                    controlPart = controlPart.Split(Colon, StringSplitOptions.RemoveEmptyEntries).Last();
+                    controlPart = controlPart.Split(Colon, 2, StringSplitOptions.RemoveEmptyEntries).Last();
 
                     //Determine if its a Absolute Uri
                     if (controlPart.StartsWith(RtspMessage.ReliableTransport) || controlPart.StartsWith(RtspMessage.UnreliableTransport))
