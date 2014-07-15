@@ -529,7 +529,7 @@ namespace Media.Rtsp
         internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public void StartListening(TimeSpan? start = null)
+        public void StartListening(TimeSpan? start = null/*, Sdp.MediaType? mediaType = null*/)
         {
 
             // If already listening and we have started to receive then there is nothing to do 
@@ -1069,9 +1069,11 @@ namespace Media.Rtsp
                                     }
                                 }
                             }
-
-                            //The timeout was not present
-                            m_SessionId = sessionHeader.Trim();
+                            else
+                            {
+                                //The timeout was not present
+                                m_SessionId = sessionHeader.Trim();
+                            }
                         }
                     }
 
@@ -1229,15 +1231,9 @@ namespace Media.Rtsp
                     controlPart = controlPart.Split(Colon, 2, StringSplitOptions.RemoveEmptyEntries).Last();
 
                     //Determine if its a Absolute Uri
-                    if (controlPart.StartsWith(RtspMessage.ReliableTransport) || controlPart.StartsWith(RtspMessage.UnreliableTransport))
+                    if (controlPart.StartsWith(RtspMessage.ReliableTransport, StringComparison.OrdinalIgnoreCase) || controlPart.StartsWith(RtspMessage.UnreliableTransport, StringComparison.OrdinalIgnoreCase))
                     {
                         location = new Uri(controlPart);
-
-                        //If the protocol was not forced, check if protocol needs to change?
-                        //if (!m_ForcedProtocol)
-                        //{
-                        //    //Check if Transport needs to change to Reliable to Unreliable based on control part?
-                        //}
                     }
                     else //Or Relative
                     {
@@ -1249,7 +1245,7 @@ namespace Media.Rtsp
             return SendSetup(location ?? Location, mediaDescription);
         }
 
-        internal RtspMessage SendSetup(Uri location, MediaDescription mediaDescription, bool useMediaProtocol = true)//False to use manually set protocol
+        internal RtspMessage SendSetup(Uri location, MediaDescription mediaDescription, bool unicast = true)//False to use manually set protocol
         {
             if (location == null) throw new ArgumentNullException("location");
             if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
@@ -1262,8 +1258,6 @@ namespace Media.Rtsp
                 };
 
                 //Todo Determine if Multicast
-                bool unicast = true;
-
                 string connectionType = unicast ? "unicast;" : "multicast";
 
                 // TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
@@ -1635,33 +1629,33 @@ namespace Media.Rtsp
                     return SendRtspRequest(play);
                 }
 
-                string rtpInfo = response[RtspHeaders.RtpInfo];
+                //string rtpInfo = response[RtspHeaders.RtpInfo];
 
                 //If needed and given
-                int startRtpSequence = -1;
+//                int startRtpSequence = -1;
 
-                //should throw not found RtpInfo
-                if (!string.IsNullOrEmpty(rtpInfo))
-                {
-                    string[] pieces = rtpInfo.Split(SpaceSplit[1]);
-                    foreach (string piece in pieces)
-                    {
-                        if (piece.Trim().StartsWith("url="))
-                        {
-                            //Location = new Uri(piece.Replace("url=", string.Empty).Trim());
-                        }
-                        else if (piece.Trim().StartsWith("seqno="))
-                        {
-                            startRtpSequence = Convert.ToInt32(piece.Replace("seqno=", string.Empty).Trim());
-                        }
-#if DEBUG
-                        else
-                        {
-                            System.Diagnostics.Debug.WriteLine("RtspClient Encountered unhandled Rtp-Info part: " + piece);
-                        }
-#endif
-                    }
-                }
+//                //should throw not found RtpInfo
+//                if (!string.IsNullOrEmpty(rtpInfo))
+//                {
+//                    string[] pieces = rtpInfo.Split(SpaceSplit[1]);
+//                    foreach (string piece in pieces)
+//                    {
+//                        if (piece.Trim().StartsWith("url="))
+//                        {
+//                            //Location = new Uri(piece.Replace("url=", string.Empty).Trim());
+//                        }
+//                        else if (piece.Trim().StartsWith("seqno="))
+//                        {
+//                            startRtpSequence = Convert.ToInt32(piece.Replace("seqno=", string.Empty).Trim());
+//                        }
+//#if DEBUG
+//                        else
+//                        {
+//                            System.Diagnostics.Debug.WriteLine("RtspClient Encountered unhandled Rtp-Info part: " + piece);
+//                        }
+//#endif
+//                    }
+//                }
 
                 string rangeString = response[RtspHeaders.Range];
 
