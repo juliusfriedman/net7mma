@@ -110,7 +110,7 @@ namespace Media.Rtp
         /// </summary>
         public virtual bool IsMissingPackets
         {
-            get { return m_Packets.Count == 0 || m_Packets.Count > 1 && !m_Packets.All(a => a.Value.SequenceNumber < HighestSequenceNumber && m_Packets.ContainsKey(a.Key + 1)); }
+            get { return m_Packets.Count == 0 || m_Packets.Count > 1 && !m_Packets.All(a => a.Value.SequenceNumber <= HighestSequenceNumber && m_Packets.ContainsKey(a.Key + 1)); }
         }
 
         /// <summary>
