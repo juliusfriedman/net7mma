@@ -1324,7 +1324,7 @@ namespace Media.Rtp
                 {
                     //make a frame
                     transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
-                }
+                }//Check to see if the frame belongs to the last frame
                 else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
                 {
                     //Add the packet clone to the current frame
@@ -1346,8 +1346,8 @@ namespace Media.Rtp
                     }
 
                     return;
-                }
-                else
+                }//Check to see if the frame belongs to a new frame
+                else if (transportContext.CurrentFrame != null && packet.Timestamp != transportContext.CurrentFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
                 {
                     //Move the current frame to the LastFrame
                     transportContext.LastFrame = transportContext.CurrentFrame;
@@ -1358,7 +1358,7 @@ namespace Media.Rtp
                     //The LastFrame changed
                     OnRtpFrameChanged(transportContext.LastFrame);
                 }
-
+               
                 //Add the packet clone to the current frame
                 if(localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
                     transportContext.CurrentFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
@@ -2173,6 +2173,18 @@ namespace Media.Rtp
         #region Socket
 
         /// <summary>
+        /// Sets the ReceiveBufferSize on the underlying sockets used by the RtpClient.
+        /// The default is 8192
+        /// </summary>
+        /// <param name="bufferSize"></param>
+        public void SetReceiveBufferSize(int bufferSize = 0)
+        {
+            foreach (TransportContext tc in TransportContexts)
+                if(m_TransportProtocol == ProtocolType.Tcp) tc.RtpSocket.ReceiveBufferSize = bufferSize;
+                else tc.RtpSocket.ReceiveBufferSize = tc.RtcpSocket.ReceiveBufferSize = bufferSize;
+        }
+
+        /// <summary>
         /// Creates a worker thread and resets the stop variable
         /// </summary>
         public void Connect()
@@ -2853,9 +2865,6 @@ namespace Media.Rtp
                 {
                     receivedRtp += ReceiveData(context.RtpSocket, context.RemoteRtp, rtpEnabled, duplexing);
                     lastOperation = DateTime.UtcNow;
-                    //DateTime now = DateTime.UtcNow;
-                    //if ((now - lastOperation) > context.m_ReceiveInterval) ProcessReceive(context, ref lastOperation);
-                    //else lastOperation = now;
                 }
 
                 //if Rtcp is enabled
