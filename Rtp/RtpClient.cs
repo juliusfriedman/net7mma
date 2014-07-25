@@ -766,6 +766,10 @@ namespace Media.Rtp
                     //RtpSocket.Blocking = false;
                     //RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
 
+                    //http://en.wikipedia.org/wiki/Type_of_service
+                    //CS5,EF	40,46	5 :Critical - mainly used for voice RTP
+                    //40 || 46 is used for RTP Audio per Wikipedia
+
                     //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
                     //RtpSocket.Ttl = 255;
                     //RtpSocket.UseOnlyOverlappedIO = true;

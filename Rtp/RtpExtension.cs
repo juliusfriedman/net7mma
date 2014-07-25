@@ -188,7 +188,7 @@ namespace Media.Rtp
 
         IEnumerable<byte> GetEnumerableImplementation()
         {
-            return m_MemorySegment.Array.Skip(m_MemorySegment.Offset).Take(m_MemorySegment.Count);
+            return m_MemorySegment.Array.Skip(m_MemorySegment.Offset).Take(Size);
         }
 
         IEnumerator<Octet> IEnumerable<Octet>.GetEnumerator()
