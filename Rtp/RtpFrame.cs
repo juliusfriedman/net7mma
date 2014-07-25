@@ -67,7 +67,7 @@ namespace Media.Rtp
 
         //SourceList which should be added to each packet int the frame?
 
-        public DateTime Created { get; set; }
+        public readonly DateTime Created;
 
         /// <summary>
         /// Indicates if all contained RtpPacket instances have a Sent Value.
@@ -103,20 +103,31 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if the RtpFrame is NotEmpty, or contained a RtpPacket which has the Marker Bit Set
         /// </summary>
-        public virtual bool Complete { get { return !IsEmpty && HasMarker; } }
+        public virtual bool Complete { get { return !IsMissingPackets && HasMarker; } }
 
         /// <summary>
         /// Indicates if all contained packets are sequential up the Highest Sequence Number contained in the RtpFrame.
+        /// (Must have 1 packet with marker or more than 1 packet)
         /// </summary>
         public virtual bool IsMissingPackets
         {
-            get { return m_Packets.Count == 0 || m_Packets.Count > 1 && !m_Packets.All(a => a.Value.SequenceNumber <= HighestSequenceNumber && m_Packets.ContainsKey(a.Key + 1)); }
+            get
+            {
+                int count = m_Packets.Count; return (count == 1 && !HasMarker) || count >= 2 && !m_Packets.All((a) =>
+                {
+                    RtpPacket p = a.Value;
+                    if (p.SequenceNumber == HighestSequenceNumber) return true;
+                    int nextKey = p.SequenceNumber + 1;
+                    if (nextKey == HighestSequenceNumber) return true;
+                    return m_Packets.ContainsKey(nextKey);
+                });
+            }
         }
 
         /// <summary>
         /// Indicates if any packets have a marker
         /// </summary>
-        public virtual bool HasMarker { get { return m_Packets.Any(a => !a.Value.Disposed && a.Value.Marker); } }
+        public virtual bool HasMarker { get { return m_Packets.Any(a => a.Value.Marker); } }
 
         /// <summary>
         /// The amount of Packets in the RtpFrame
@@ -287,9 +298,11 @@ namespace Media.Rtp
                 {
                     using (RtpExtension extension = packet.GetExtension())
                     {
-                        /*if (extension.IsComplete) */
-                        sequence = sequence.Concat(extension.Data);
-
+                        if (extension != null)
+                        {
+                            /*if (extension.IsComplete) */
+                            sequence = sequence.Concat(extension.Data);
+                        }
                     }
                 }
 
