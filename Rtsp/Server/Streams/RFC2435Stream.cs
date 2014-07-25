@@ -1047,15 +1047,6 @@ namespace Media.Rtsp.Server.Streams
 
                     //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
-                    //Skip extensions
-                    if (packet.Extension)
-                    {
-                        using (var ext = packet.GetExtension())
-                        {
-                            if (ext != null) offset += ext.Size;
-                        }
-                    }
-
                     //Decode RtpJpeg Header
 
                     TypeSpecific = (packet.Payload.Array[packet.Payload.Offset + offset++]);
