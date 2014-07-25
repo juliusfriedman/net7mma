@@ -1045,7 +1045,16 @@ namespace Media.Rtsp.Server.Streams
                     //Payload starts at the offset of the first PayloadOctet
                     int offset = packet.NonPayloadOctets;
 
-                    if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
+                    //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
+
+                    //Skip extensions
+                    if (packet.Extension)
+                    {
+                        using (var ext = packet.GetExtension())
+                        {
+                            if (ext != null) offset += ext.Size;
+                        }
+                    }
 
                     //Decode RtpJpeg Header
 
