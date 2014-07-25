@@ -210,7 +210,7 @@ namespace Media.Rtsp
                     m_KeepAliveTimer = null;
                 }
                 
-                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null ? (m_RtspTimeout - (DateTime.Now - m_LastTransmitted.Created)) : m_RtspTimeout, m_RtspTimeout);
+                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null ? (m_RtspTimeout - (DateTime.UtcNow - m_LastTransmitted.Created)) : m_RtspTimeout, m_RtspTimeout);
                 
                 
 
