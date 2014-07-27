@@ -235,7 +235,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The ProtocolType the RtspClient will setup for underlying RtpClient.
         /// </summary>
-        public ProtocolType RtpProtocol { get { return m_RtpProtocol; } set { if (value != ProtocolType.Udp || value != ProtocolType.Tcp) throw new ArgumentException(); m_RtpProtocol = value; } }
+        public ProtocolType RtpProtocol { get { return m_RtpProtocol; } set { if (value != ProtocolType.Udp && value != ProtocolType.Tcp) throw new ArgumentException(); m_RtpProtocol = value; } }
 
         /// <summary>
         /// Gets or sets location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change.
