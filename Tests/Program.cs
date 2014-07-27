@@ -303,7 +303,10 @@ namespace Tests
                     {
 
                         //Set tcp 
-                        if (tcp) receiver.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
+                        if (tcp)
+                        {
+                            sender.m_TransportProtocol = receiver.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
+                        }
 
                         //Determine when the sender and receive should time out
                         //sender.InactivityTimeout = receiver.InactivityTimeout = TimeSpan.FromSeconds(7);
@@ -2464,9 +2467,10 @@ a=mpeg4-esid:101");
 
         static void TestRtpFrame()
         {
-
+            //Create a frame
             Media.Rtp.RtpFrame frame = new Media.Rtp.RtpFrame(0);
 
+            //Add packets to the frame
             for (int i = 0; i < 15; ++i)
             {
 
@@ -2483,6 +2487,7 @@ a=mpeg4-esid:101");
 
             if (!frame.HasMarker) throw new Exception("Frame does not have marker");
 
+            //Remove the marker packet
             frame.Remove(14);
 
             if (frame.Complete) throw new Exception("Frame is complete");
@@ -2491,6 +2496,7 @@ a=mpeg4-esid:101");
 
             if (frame.IsMissingPackets) throw new Exception("Frame is missing packets");
 
+            //Remove the first packet
             frame.Remove(1);
 
             if (!frame.IsMissingPackets) throw new Exception("Frame is not missing packets");
