@@ -112,9 +112,9 @@ namespace Media.Rtsp.Server.Streams
             base.Stop();
         }
 
-        System.Threading.Thread Common.IThreadOwner.OwnedThread
+        IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
         {
-            get { return RtpClient != null ? RtpClient.m_WorkerThread : null; }
+            get { return RtpClient != null ? Utility.Yield(RtpClient.m_WorkerThread) : null; }
         }
     }
 
