@@ -366,7 +366,14 @@ namespace Media.Sdp
 
             if (parts.Length != 4) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
 
-            MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanLineValue(parts[0].ToLowerInvariant()));
+            try
+            {
+                MediaType = (MediaType)Enum.Parse(typeof(MediaType), SessionDescription.CleanLineValue(parts[0].ToLowerInvariant()));
+            }
+            catch
+            {
+                MediaType = Sdp.MediaType.unknown;
+            }
 
             MediaPort = int.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture); //Listener should probably verify ports with this
 

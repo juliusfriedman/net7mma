@@ -107,6 +107,7 @@ namespace Media.Common
         /// <summary>
         /// (0000)1111 in Binary
         /// </summary>
+        [CLSCompliant(false)]
         public const uint FourBitMaxValue = 15;
 
         /// <summary>
@@ -125,6 +126,7 @@ namespace Media.Common
         /// <summary>
         /// 00000000 11111111 11111111 11111111 in binary
         /// </summary>
+        [CLSCompliant(false)]
         public const uint U24MaxValue = 16777215;
 
         #endregion
@@ -445,13 +447,13 @@ namespace Media.Common
         {
             BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
         }
-
+        [CLSCompliant(false)]
         public static void WriteNetwork16(byte[] buffer, int index, bool reverse, ushort value)
         {
             WriteNetwork16(buffer, index, reverse, (short)value);
         }
 
-
+        [CLSCompliant(false)]
         public static void WriteNetwork24(byte[] buffer, int index, bool reverse, uint value)
         {
             WriteNetwork24(buffer, index, reverse, (int)value);
@@ -476,7 +478,7 @@ namespace Media.Common
             }
         }
 
-
+        [CLSCompliant(false)]
         public static void WriteNetwork32(byte[] buffer, int index, bool reverse, uint value)
         {
             WriteNetwork32(buffer, index, reverse, (int)value);
@@ -494,6 +496,7 @@ namespace Media.Common
         /// <param name="index"></param>
         /// <param name="reverse">A value indicating if the given value should be written in reverse</param>
         /// <param name="value"></param>
+        [CLSCompliant(false)]
         public static void WriteNetwork64(byte[] buffer, int index, bool reverse, ulong value)
         {
             WriteNetwork64(buffer, index, reverse, (long)value);

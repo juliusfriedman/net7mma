@@ -61,7 +61,7 @@ namespace Media.Common
     /// for more information see
     /// <see href="http://tools.ietf.org/html/rfc3550">Page 15, paragraph `CSRC list`</see>
     /// </summary>
-    public class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>, IReadOnlyCollection<uint>
+    public sealed class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>, IReadOnlyCollection<uint>
     {
         #region Constants / Statics
 
@@ -361,7 +361,7 @@ namespace Media.Common
             catch { return false; }
         }
 
-        public override void Dispose()
+        public sealed override void Dispose()
         {
 
             if (Disposed) return;

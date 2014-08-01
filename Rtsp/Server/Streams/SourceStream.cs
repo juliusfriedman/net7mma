@@ -165,9 +165,9 @@ namespace Media.Rtsp.Server.Streams
 
         #region Events
 
-        public delegate void FrameDecodedHandler(SourceStream stream, System.Drawing.Image decoded);
+        public delegate void FrameDecodedHandler(object sender, System.Drawing.Image decoded);
 
-        public delegate void DataDecodedHandler(SourceStream stream, byte[] decoded);
+        public delegate void DataDecodedHandler(object sender, byte[] decoded);
 
         public event FrameDecodedHandler FrameDecoded;
 

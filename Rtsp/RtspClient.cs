@@ -612,7 +612,7 @@ namespace Media.Rtsp
 
                     setupTracks = true;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     continue;
                 }
@@ -969,45 +969,70 @@ namespace Media.Rtsp
                     {
                         AuthenticationScheme = AuthenticationSchemes.Digest;
 
-                        string[] parts = authenticateHeader.Replace(baseParts[0], string.Empty).Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        //string[] parts = authenticateHeader.Replace(baseParts[0], string.Empty).Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+
+                        string[] parts = authenticateHeader.Split(SpaceSplit, StringSplitOptions.RemoveEmptyEntries);
 
                         string algorithm = "MD5";
 
-                        string username = parts.Where(p => string.Compare("username", p, true) == 0).FirstOrDefault();
-                        if (username != null) username = username.Replace("username=", string.Empty);
+                        //string username = parts.Where(p => string.Compare("username", p, true) == 0).FirstOrDefault();
+                        //if (username != null) username = username.Replace("username=", string.Empty);
 
-                        string realm = parts.Where(p => string.Compare("realm", p, true) == 0).FirstOrDefault();
-                        if (realm != null) realm = realm.Replace("realm=", string.Empty);
+                        string username = parts.Where(p => p.StartsWith("username",StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(username )) username = username.Substring (9);
+ 
 
-                        string nc = parts.Where(p => string.Compare("nc", p, true) == 0).FirstOrDefault();
-                        if (nc != null) nc = realm.Replace("nc=", string.Empty);
+                        //string realm = parts.Where(p => string.Compare("realm", p, true) == 0).FirstOrDefault();
+                        //if (realm != null) realm = realm.Replace("realm=", string.Empty);
 
-                        string nonce = parts.Where(p => string.Compare("nonce", p, true) == 0).FirstOrDefault();
-                        if (nonce != null) nonce = realm.Replace("nonce=", string.Empty);
+                        string realm = parts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+						if (!string.IsNullOrWhiteSpace(realm))
+						{
+							realm = realm.Substring("realm=".Length).Replace("\"",string.Empty).Replace("\'",string.Empty);
+							if (Credential != null) Credential.Domain = realm;
+						}
 
-                        string cnonce = parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
-                        if (cnonce != null) cnonce = cnonce.Replace("cnonce=", string.Empty);
+                        //string nc = parts.Where(p => string.Compare("nc", p, true) == 0).FirstOrDefault();
+                        //if (nc != null) nc = realm.Replace("nc=", string.Empty);
 
-                        string uri = parts.Where(p => p.Contains("uri")).FirstOrDefault();
+                        string nc = parts.Where(p => p.StartsWith("nc", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(nc)) nc = realm.Substring("nc=".Length);
+
+                        //string nonce = parts.Where(p => string.Compare("nonce", p, true) == 0).FirstOrDefault();
+                        //if (nonce != null) nonce = realm.Replace("nonce=", string.Empty);
+
+                        string nonce = parts.Where(p => p.StartsWith("nonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+						if (!string.IsNullOrWhiteSpace(nonce)) nonce = nonce.Substring("nonce=".Length).Replace("\"", string.Empty).Replace("\'", string.Empty);
+
+                        string cnonce = parts.Where(p => p.StartsWith("cnonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();//parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(cnonce)) cnonce = cnonce.Substring(7).Replace("\"", string.Empty).Replace("\'", string.Empty);//cnonce = cnonce.Replace("cnonce=", string.Empty);
+
+                        string uri = parts.Where(p => p.StartsWith("uri", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault(); //parts.Where(p => p.Contains("uri")).FirstOrDefault();
 
                         bool rfc2069 = !string.IsNullOrWhiteSpace(uri) && !uri.Contains(TimeSplit[0]);
 
-                        if (uri != null)
+                        if (!string.IsNullOrWhiteSpace(uri))
                         {
-                            if (rfc2069) uri = uri.Replace("uri=", string.Empty);
-                            else uri = uri.Replace("digest-uri=", string.Empty);
+                            //if (rfc2069) uri = uri.Replace("uri=", string.Empty);
+                            //else uri = uri.Replace("digest-uri=", string.Empty);
+
+                            if (rfc2069) uri = uri.Substring(4);
+                            else uri = uri.Substring(11);
                         }
 
                         string qop = parts.Where(p => string.Compare("qop", p, true) == 0).FirstOrDefault();
 
-                        if (qop != null)
+                        if (!string.IsNullOrWhiteSpace(qop))
                         {
                             qop = qop.Replace("qop=", string.Empty);
-                            if (nc != null) nc = nc.Replace("nc=", string.Empty);
+                            //if (nc != null) nc = nc.Replace("nc=", string.Empty);
+                            if (nc != null) nc = nc.Substring(3);
                         }
 
-                        string opaque = parts.Where(p => string.Compare("opaque", p, true) == 0).FirstOrDefault();
-                        if (opaque != null) opaque = opaque.Replace("opaque=", string.Empty);
+                        //string opaque = parts.Where(p => string.Compare("opaque", p, true) == 0).FirstOrDefault();
+                        string opaque = parts.Where(p => p.StartsWith("opaque", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(opaque)) opaque = opaque.Substring(7);
+                        //opaque = opaque.Replace("opaque=", string.Empty);
 
                         //string response = parts.Where(p => string.Compare("response", p, true) == 0).FirstOrDefault();
                         //if (response != null) response = response.Replace("response=", string.Empty);

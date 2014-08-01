@@ -832,7 +832,7 @@ namespace Media.Rtsp.Server.Streams
                                 //and maximum image dimension X (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of horizontal data units of component
                                 //Ci in each MCU, when more than one component is encoded in a scan                                                        
 
-                                http://tools.ietf.org/search/rfc2435#section-4.1
+                                //http://tools.ietf.org/search/rfc2435#section-4.1
                                 //Type numbers 2-5 are reserved and SHOULD NOT be used.
                                 if (data[7] != 0x21) RtpJpegType |= 1;
 
@@ -1250,7 +1250,7 @@ namespace Media.Rtsp.Server.Streams
                             tables = new ArraySegment<byte>(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length);
                             offset += (int)Length;
                         }
-                        else // Create them from the given Quality parameter ** Duality (Unify Branch)
+                        else // Create them from the given Quality parameter
                         {
                             tables = new ArraySegment<byte>(CreateQuantizationTables(Type, Quality, PrecisionTable));
                         }
