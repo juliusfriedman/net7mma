@@ -1396,7 +1396,7 @@ namespace Media.Rtsp
                     }
                     else if (part.StartsWith("ssrc=", true, System.Globalization.CultureInfo.InvariantCulture))
                     {
-                        string ssrcPart = part.Substring(6).Trim();
+                        string ssrcPart = part.Substring(5).Trim();
 
                         if (!ssrcPart.StartsWith("0x", true, System.Globalization.CultureInfo.InvariantCulture) && !int.TryParse(ssrcPart, out ssrc)) //plain int                        
                             ssrc = int.Parse(ssrcPart.Substring(2), System.Globalization.NumberStyles.HexNumber); //hex

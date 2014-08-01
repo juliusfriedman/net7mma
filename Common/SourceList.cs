@@ -247,27 +247,28 @@ namespace Media.Common
 
         #region Methods
 
-        /// <summary>
-        /// Add the given id to this SourceList at the current position and sets the CurrentSource.
-        /// </summary>
-        /// <param name="id"></param>
-        public void Add(int id)
-        {
-            //Check capacity
-            if (Remaining <= 0) return;
+        //Should also modify csrc
+        ///// <summary>
+        ///// Add the given id to this SourceList at the current position and sets the CurrentSource.
+        ///// </summary>
+        ///// <param name="id"></param>
+        //public void Add(int id)
+        //{
+        //    //Check capacity
+        //    if (Remaining <= 0) return;
 
-            //Set the current item
-            m_CurrentSource = (uint)id;
+        //    //Set the current item
+        //    m_CurrentSource = (uint)id;
 
-            //Write the given value to the correct position
-            Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, !BitConverter.IsLittleEndian, m_CurrentSource);
+        //    //Write the given value to the correct position
+        //    Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, !BitConverter.IsLittleEndian, m_CurrentSource);
 
-            //Move the offset
-            m_CurrentOffset += 4;
+        //    //Move the offset
+        //    m_CurrentOffset += 4;
 
-            //Incremnt read
-            ++m_Read;
-        }
+        //    //Incremnt read
+        //    ++m_Read;
+        //}
 
         /// <summary>
         /// Moves to the next offset and parses the next contributing source.
@@ -353,11 +354,9 @@ namespace Media.Common
             {
                 CheckDisposed();
 
-                bool movedNext;
+                while (MoveNext()) list.Insert(index++, m_CurrentSource);
 
-                while ((movedNext = MoveNext())) list.Insert(index++, m_CurrentSource);
-
-                return movedNext;
+                return true;
             }
             catch { return false; }
         }

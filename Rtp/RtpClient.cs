@@ -2927,9 +2927,9 @@ namespace Media.Rtp
             Utility.Abort(ref m_WorkerThread);
         }
 
-        Thread Common.IThreadOwner.OwnedThread
+        IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
         {
-            get { return Disposed ? null : m_WorkerThread; }
+            get { return Disposed ? null : Utility.Yield(m_WorkerThread); }
         }
     }
 }

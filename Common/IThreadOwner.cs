@@ -8,6 +8,6 @@ namespace Media.Common
 {
     internal interface IThreadOwner
     {
-        System.Threading.Thread OwnedThread { get; }
+        IEnumerable<System.Threading.Thread> OwnedThreads { get; }
     }
 }
