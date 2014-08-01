@@ -80,7 +80,7 @@ namespace Media.Common
     /// It is not marked abstract because it would be useless.
     /// </summary>
     /// <typeparam name="T">The type data in the Tag property</typeparam>
-    public class Exception<T> : Exception, IExceptionEx, IDisposable
+    public class Exception<T> : Exception, IExceptionEx, IDisposable, System.Runtime.Serialization.ISerializable
     {
         /// <summary>
         /// The string which will be used on all instances if no message was provided when instantiated.
