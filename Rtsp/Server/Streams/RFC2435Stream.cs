@@ -1029,7 +1029,7 @@ namespace Media.Rtsp.Server.Streams
             internal virtual void ProcessPackets(bool allowLegacyPackets = false)
             {
 
-                if (!Complete) return;
+                //if (!Complete) return;
 
                 byte TypeSpecific, Type, Quality;
                 ushort Width, Height, RestartInterval = 0, RestartCount = 0;
@@ -1167,7 +1167,7 @@ namespace Media.Rtsp.Server.Streams
 
                     // A Q value of 255 denotes that the  quantization table mapping is dynamic and can change on every frame.
                     // Decoders MUST NOT depend on any previous version of the tables, and need to reload these tables on every frame.
-                    if (/*FragmentOffset == 0 || */Buffer.Position == 0)
+                    if (FragmentOffset == 0 /*Buffer.Position == 0*/)
                     {
 
                         //RFC2435 http://tools.ietf.org/search/rfc2435#section-3.1.8
@@ -1265,10 +1265,14 @@ namespace Media.Rtsp.Server.Streams
                 }
 
                 //Check for EOI Marker and write if not found
-                if (Buffer.Position == Buffer.Length || Buffer.ReadByte() != JpegMarkers.EndOfInformation)
+                if (Buffer.Position == Buffer.Length)
                 {
-                    Buffer.WriteByte(JpegMarkers.Prefix);
-                    Buffer.WriteByte(JpegMarkers.EndOfInformation);
+                    Buffer.Seek(-1, System.IO.SeekOrigin.Current);
+                    if (Buffer.ReadByte() != JpegMarkers.EndOfInformation)
+                    {
+                        Buffer.WriteByte(JpegMarkers.Prefix);
+                        Buffer.WriteByte(JpegMarkers.EndOfInformation);
+                    }
                 }
 
                 //Create the Image form the Buffer
