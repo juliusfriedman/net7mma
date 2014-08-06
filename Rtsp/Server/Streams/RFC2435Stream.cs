@@ -1582,6 +1582,8 @@ namespace Media.Rtsp.Server.Streams
                     //Dequeue a frame or die
                     Rtp.RtpFrame frame = m_Frames.Dequeue();
 
+                    if (frame == null || frame.Disposed) continue;
+
                     //Get the transportChannel for the packet
                     Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
 

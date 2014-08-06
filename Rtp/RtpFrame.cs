@@ -279,7 +279,7 @@ namespace Media.Rtp
         /// <summary>
         /// Empties the RtpFrame by clearing the SortedList of contained RtpPackets
         /// </summary>
-        public virtual void RemoveAllPackets() { m_Packets.Clear(); }
+        public virtual void RemoveAllPackets() { if(m_Packets != null) m_Packets.Clear(); }
 
         /// <summary>
         /// Assembles the RtpFrame into a byte[] by combining the ExtensionBytes and Payload of all contained RtpPackets into a single byte array (excluding the RtpHeader)

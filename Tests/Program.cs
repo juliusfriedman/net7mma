@@ -227,6 +227,18 @@ namespace Tests
                 },
                 new
                 {
+                    Uri = "rtsp://85.105.179.171:554/profile?token=media_profile1", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://193.186.208.240/profile3/media.smp", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
                     Uri = string.Empty,
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
@@ -1856,10 +1868,7 @@ namespace Tests
                             if (client.Connected)
                             {
                                 //Set a timeout to wait for responses (in milliseconds), they will be recalulcated when the Setup is performed according to information in the SDP.
-                                client.SocketWriteTimeout = client.SocketReadTimeout = 0;
-
-
-                                
+                                //client.SocketWriteTimeout = client.SocketReadTimeout = 0;
 
                                 //Try to start listening
                                 try
@@ -1878,6 +1887,8 @@ namespace Tests
                             TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
                         };
 
+                        int i = 1;
+
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
                         {
                             if (rtpFrame.Disposed) return;
@@ -1888,6 +1899,7 @@ namespace Tests
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
+                                client.Client.SetReceiveBufferSize(0x1000 * ++i);
                                 ++incompleteFrames;
                                 Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
@@ -2229,7 +2241,7 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));            
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });

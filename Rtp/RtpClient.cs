@@ -1137,7 +1137,7 @@ namespace Media.Rtp
 
                 //System.Diagnostics.Debug.WriteLine("Incoming RtcpPacket Dropped. Type=" + packet.PayloadType + "  Ssrc=" + packet.SynchronizationSourceIdentifier + " Len=" + packet.Length);
 
-                SendReports();
+                //SendReports();
 
                 return;
 
@@ -2553,15 +2553,19 @@ namespace Media.Rtp
                             offset = at;
                         }
 
-                        if (relevent == null) goto NoContext;
+                        if (relevent != null)
+                        {
+                            expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
 
-                        expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                            int minLenRem = Math.Min(remaining - TCP_OVERHEAD, frameLength);
 
-                        ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, Math.Min(remaining - TCP_OVERHEAD, frameLength)), expectRtcp, expectRtp, Math.Min(remaining - TCP_OVERHEAD, frameLength));
+                            ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset + TCP_OVERHEAD, minLenRem), expectRtcp, expectRtp, minLenRem);
+                        }
 
-                    NoContext:
-                        offset += frameLength + TCP_OVERHEAD;
-                        remaining -= (frameLength + TCP_OVERHEAD);
+                        int size = frameLength + TCP_OVERHEAD;
+
+                        offset += size;
+                        remaining -= (size);
                     }                    
 
                     return received;
