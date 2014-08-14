@@ -306,7 +306,7 @@ namespace Media.Rtsp.Server.Streams
                 result.Add(0x01);//Component Number
 
                 //Set the Horizontal Sampling Factor
-                result.Add((byte)(jpegType == 0 ? 0x21 : 0x22));
+                result.Add((byte)((jpegType & 1) == 0 ? 0x21 : 0x22));
 
                 result.Add(0x00);//Matrix Number (Quant Table Id)?
                 result.Add(0x02);//Component Number
@@ -612,6 +612,7 @@ namespace Media.Rtsp.Server.Streams
             public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1292)
             {
                 if (imageQuality <= 0 || imageQuality > 100) throw new NotSupportedException("Only qualities 1 - 100 are supported");
+                //else if (imageQuality == 100) imageQuality = 99; //Fix GDI Encoding Issues
 
                 System.Drawing.Image image;
 
@@ -632,7 +633,7 @@ namespace Media.Rtsp.Server.Streams
                     //Create Encoder Parameters for the Jpeg Encoder
                     System.Drawing.Imaging.EncoderParameters parameters = new System.Drawing.Imaging.EncoderParameters(3);
 
-                    // Set the quality
+                    // Set the quality (Quality == 100 on GDI is prone to decoding errors?)
                     parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)imageQuality);
 
                     //Set the interlacing
@@ -911,7 +912,7 @@ namespace Media.Rtsp.Server.Streams
 
                                 //temp.Seek(3, System.IO.SeekOrigin.Current);
 
-                                if (pos + CodeSize != temp.Position) throw new Exception("Error in StartOfScan");
+                                if (pos + CodeSize != temp.Position) throw new Exception("Invalid StartOfScan Marker");
 
                                 //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                 //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
@@ -942,6 +943,7 @@ namespace Media.Rtsp.Server.Streams
                                 RtpJpegHeader = RtpJpegHeader.Take(profileHeaderSize).ToArray();
 
                                 //Only the lastPacket contains the marker
+                                //just subtract profileHeaderSize?
 
                                 bytesPerPacketPayload -= RtpJpegHeader.Length - (RtpJpegRestartInterval != null ? 4 : 0);
 
@@ -983,7 +985,8 @@ namespace Media.Rtsp.Server.Streams
                                         SynchronizationSourceIdentifier = Ssrc,
                                         PayloadType = RFC2435Frame.RtpJpegPayloadType,
                                         Marker = lastPacket,
-                                        Version = 2
+                                        Version = 2,
+                                        //SourceList = sourceList
                                     };
 
                                     //Correct FragmentOffset in the RtpJpegHeader already created.
@@ -994,7 +997,7 @@ namespace Media.Rtsp.Server.Streams
                                     RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
 
                                     //Set offset in packet (the length of the RtpJpegHeader)
-                                    currentPacketOffset = profileHeaderSize;
+                                    currentPacketOffset = profileHeaderSize; // + currentPacket.NonPayloadOctets;
 
                                     //reset the remaning remainingPayloadOctets
                                     remainingPayloadOctets = bytesPerPacketPayload;
@@ -1026,16 +1029,16 @@ namespace Media.Rtsp.Server.Streams
             {
                 get
                 {
-                    if (IsEmpty) return false;
+                    if (!base.Complete) return false;
 
                     var packet = m_Packets.First().Value;
 
                      //Payload starts at the offset of the first PayloadOctet
                     //First packet must have FragmentOffset == 0
-                    int offset = packet.NonPayloadOctets,
+                    int offset = packet.NonPayloadOctets + 1,// TypeSpecific occupies a byte
                         FragmentOffset = (packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
 
-                    return FragmentOffset == 0 && base.Complete;
+                    return FragmentOffset == 0;
                 }
             }
 
@@ -1050,7 +1053,7 @@ namespace Media.Rtsp.Server.Streams
             internal virtual void ProcessPackets(bool allowLegacyPackets = false)
             {
 
-                //if (!Complete) return;
+                if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
 
                 byte TypeSpecific, Type, Quality;
                 ushort Width, Height, RestartInterval = 0, RestartCount = 0;
