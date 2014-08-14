@@ -2662,7 +2662,7 @@ a=mpeg4-esid:101");
                     //Create a temporary packet
                     Media.Rtp.RtpPacket interpreted = new Media.Rtp.RtpPacket(binary, 0);
                     try { restartFrame.Add(interpreted); }
-                    catch { break; }
+                    catch { break; } //jpegPackets has more then one frame
                 }
 
                 //Draw the frame

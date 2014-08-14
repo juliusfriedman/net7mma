@@ -103,7 +103,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if the RtpFrame is NotEmpty, or contained a RtpPacket which has the Marker Bit Set
         /// </summary>
-        public virtual bool Complete { get { return !IsMissingPackets && HasMarker; } }
+        public virtual bool Complete { get { return !IsEmpty && !IsMissingPackets && HasMarker; } }
 
         /// <summary>
         /// Indicates if all contained packets are sequential up the Highest Sequence Number contained in the RtpFrame.
@@ -226,7 +226,7 @@ namespace Media.Rtp
             
             //E.g with respect to the above checks and finally the check below 
             //Which determineres if the RtpFrame is already complete that the packet will not be added to this frame.
-            if ( (Count > 1 && Complete) || Contains(packet)) return;
+            if (Complete || Contains(packet)) throw new InvalidOperationException("Complete frame cannot have additional packets added");
 
             //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.
             m_Packets.Add(packet.SequenceNumber, packet);
