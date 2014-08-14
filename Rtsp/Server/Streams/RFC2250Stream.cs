@@ -70,7 +70,7 @@ namespace Media.Rtsp.Server.Streams
                 (byte)(bfc | ffc << 4) };
         }
 
-        public override void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
+        public override void Packetize(System.Drawing.Image image)
         {
             lock (m_Frames)
             {

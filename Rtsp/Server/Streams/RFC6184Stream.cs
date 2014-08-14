@@ -115,7 +115,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
         /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
-        public override void Packetize(System.Drawing.Image image, int quality = 50, bool interlaced = false)
+        public override void Packetize(System.Drawing.Image image)
         {
             lock (m_Frames)
             {
@@ -125,7 +125,7 @@ namespace Media.Rtsp.Server.Streams
                     using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
                         //Encode a JPEG (leave 40 bytes room in each packet for the h264 data)
-                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, quality, interlaced, (int)sourceId, 0, 0, 1300))
+                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, Quality, Interlaced, (int)sourceId, 0, 0, 1300))
                         {
                             //Store the payload which is YUV Planar (420, 421, 422)
                             List<byte[]> data = new List<byte[]>();

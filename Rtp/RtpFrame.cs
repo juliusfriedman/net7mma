@@ -226,7 +226,7 @@ namespace Media.Rtp
             
             //E.g with respect to the above checks and finally the check below 
             //Which determineres if the RtpFrame is already complete that the packet will not be added to this frame.
-            if (Complete || Contains(packet)) return;
+            if ( (Count > 1 && Complete) || Contains(packet)) return;
 
             //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.
             m_Packets.Add(packet.SequenceNumber, packet);

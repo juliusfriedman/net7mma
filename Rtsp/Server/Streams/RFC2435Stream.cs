@@ -1020,6 +1020,27 @@ namespace Media.Rtsp.Server.Streams
 
             #endregion
 
+            #region Properties
+
+            public override bool Complete
+            {
+                get
+                {
+                    if (IsEmpty) return false;
+
+                    var packet = m_Packets.First().Value;
+
+                     //Payload starts at the offset of the first PayloadOctet
+                    //First packet must have FragmentOffset == 0
+                    int offset = packet.NonPayloadOctets,
+                        FragmentOffset = (packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
+
+                    return FragmentOffset == 0 && base.Complete;
+                }
+            }
+
+            #endregion
+
             #region Methods
 
             /// <summary>
@@ -1383,6 +1404,17 @@ namespace Media.Rtsp.Server.Streams
 
         public virtual double FramesPerSecond { get { return Math.Max(m_FramesPerSecondCounter, 1) / Math.Abs(Uptime.TotalSeconds); } }
 
+        public virtual int Width { get; protected set; }
+
+        public virtual int Height { get; protected set; }
+
+        public virtual int Quality { get; protected set; }
+
+        public virtual bool Interlaced { get; protected set; }
+
+
+        //Should also allow payloadsize e.g. BytesPerPacketPayload to be set here?
+
         /// <summary>
         /// Implementes the SessionDescription property for RtpSourceStream
         /// </summary>
@@ -1395,6 +1427,9 @@ namespace Media.Rtsp.Server.Streams
         public RFC2435Stream(string name, string directory = null, bool watch = true)
             : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory)))
         {
+
+            if (Quality == 0) Quality = 80;
+
             //If we were told to watch and given a directory and the directory exists then make a FileSystemWatcher
             if (System.IO.Directory.Exists(base.Source.LocalPath) && watch)
             {
@@ -1402,7 +1437,16 @@ namespace Media.Rtsp.Server.Streams
                 m_Watcher.EnableRaisingEvents = true;
                 m_Watcher.NotifyFilter = System.IO.NotifyFilters.CreationTime;
                 m_Watcher.Created += FileCreated;
-            }            
+            }
+        }
+
+        public RFC2435Stream(string name, string directory, bool watch, int width, int height, bool interlaced, int quality = 80)
+            :this(name, directory, watch)
+        {
+            Width = width;
+            Height = height;
+            Interlaced = interlaced;
+            Quality = quality;
         }
 
         #endregion
@@ -1550,15 +1594,26 @@ namespace Media.Rtsp.Server.Streams
         }
 
         /// <summary>
-        /// Packetize's an Image for Sending
+        /// Packetize's an Image for Sending.
+        /// If <see cref="Width"/> or <see cref="Height"/> are not set then they will be set from the given image.
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
         /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
-        public virtual void Packetize(System.Drawing.Image image, int quality = 80, bool interlaced = false)
+        public virtual void Packetize(System.Drawing.Image image)
         {
             lock (m_Frames)
             {
-                try { m_Frames.Enqueue(RFC2435Stream.RFC2435Frame.Packetize(image, quality, interlaced, (int)sourceId)); }
+                try
+                {
+                    if (Width == 0 || Height == 0)
+                    {
+                        Width = image.Width;
+                        Height = image.Height;
+                    }
+                    else if (image.Width != Width || image.Height != Height) image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero);
+
+                    m_Frames.Enqueue(RFC2435Stream.RFC2435Frame.Packetize(image, Quality == 255 ? 100 : Quality, Interlaced, (int)sourceId));
+                }
                 catch { throw; }
             }
         }
