@@ -2500,7 +2500,6 @@ namespace Media.Rtp
                 //Under TCP use Framing to obtain the length of the packet as well as the context.
                 if (socket.ProtocolType == ProtocolType.Tcp)
                 {
-
                     //Check for a partial frame header
                     if (received <= TCP_OVERHEAD)
                     {
@@ -2526,7 +2525,7 @@ namespace Media.Rtp
                     while (remaining >= TCP_OVERHEAD && (frameLength = ReadRFC2326FrameHeader(remaining, out frameChannel, out relevent, offset)) >= 0)
                     {
                         //System.Diagnostics.Debug.WriteLine("(Received) FrameLength = " + frameLength + " From Channel=" + frameChannel);
-                        
+
                         int extra = frameLength - remaining;
 
                         if (extra > 0 && frameLength < m_BufferLength)
@@ -2867,7 +2866,7 @@ namespace Media.Rtp
                 bool duplexing = context.Duplexing, rtpEnabled = context.RtpEnabled, rtcpEnabled = context.RtcpEnabled;
 
                 //If receiving Rtp AND the last Rtp reception occured in more then the time alloted from the m_ReceiveInterval
-                if (rtpEnabled //&& (context.LastRtpPacketReceived == TimeSpan.Zero || context.LastRtpPacketReceived >= context.m_ReceiveInterval)
+                if (rtpEnabled
                     //Check if the socket can read data
                     && context.RtpSocket.Poll((int)Math.Round(context.m_ReceiveInterval.TotalMicroseconds(), 1, MidpointRounding.ToEven), SelectMode.SelectRead))
                 {

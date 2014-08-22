@@ -2534,6 +2534,21 @@ a=mpeg4-esid:101");
                 System.IO.File.Delete("result.jpg");
             }
 
+            using (var jpegStream = new System.IO.FileStream("croin.jpg", System.IO.FileMode.Open))
+            {
+                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
+                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream,100);
+
+                //Save the JpegFrame as a Image (Decoding performed)
+                using (System.Drawing.Image jpeg = f)
+                {
+                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+
+                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                System.IO.File.Delete("result.jpg");
+            }
+
             //Create a JpegFrame from existing RtpPackets
             using (Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame())
             {
@@ -2551,9 +2566,25 @@ a=mpeg4-esid:101");
             }
 
             //Create a RFC2435Frame from an existing image and store the quantization tables in the frame.
+            using (var jpegStream = new System.IO.FileStream("flip.jpg", System.IO.FileMode.Open))
+            {
+                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
+                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 100);
+
+                //Save the JpegFrame as a Image (Decoding performed)
+                using (System.Drawing.Image jpeg = f)
+                {
+                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+
+                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                System.IO.File.Delete("result.jpg");
+            }
+
+            //Create a RFC2435Frame from an existing image and store the quantization tables in the frame.
             using (var image = System.Drawing.Image.FromFile("flip.jpg"))
             {
-                Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame t = Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.Packetize(image, 99);
+                Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame t = Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.Packetize(image, 100);
 
                 using (System.Drawing.Image jpeg = t)
                 {
@@ -2665,8 +2696,16 @@ a=mpeg4-esid:101");
                     catch { break; } //jpegPackets has more then one frame
                 }
 
-                //Draw the frame
-                using (System.Drawing.Image jpeg = restartFrame) jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                try
+                {
+                    //Draw the frame
+                    using (System.Drawing.Image jpeg = restartFrame) jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+                catch //Frame is not complete
+                {
+                    restartFrame.ProcessPackets(false, true);
+                    using (System.Drawing.Image jpeg = restartFrame) jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
 
                 //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
 
