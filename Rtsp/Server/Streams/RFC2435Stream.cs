@@ -247,7 +247,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 List<byte> result = new List<byte>();
                 result.Add(JpegMarkers.Prefix);
-                result.Add(JpegMarkers.StartOfInformation);//SOI
+                result.Add(JpegMarkers.StartOfInformation);//SOI                
 
                 //Quantization Tables
                 result.AddRange(CreateQuantizationTablesMarkers(tables, precision));
@@ -290,55 +290,98 @@ namespace Media.Rtsp.Server.Streams
 
                 result.Add(JpegMarkers.Prefix);
                 result.Add(JpegMarkers.StartOfFrame);//SOF
-                result.Add(0x00); //Length
-                result.Add(0x11); // Decimal 17 -> 15 bytes
 
-                result.Add(0x08); //Bits Per Components and EncodingProcess
+                //Todo properly build headers?
+                //If only 1 table
+                if(tables.Count == 64)
+                {
+                    result.Add(0x00); //Length
+                    result.Add(0x0b); //
+                    result.Add(0x08); //Bits Per Components and EncodingProcess
 
-                result.Add((byte)(height >> 8)); //Height
-                result.Add((byte)height);
+                    result.Add((byte)(height >> 8)); //Height
+                    result.Add((byte)height);
 
-                result.Add((byte)(width >> 8)); //Width
-                result.Add((byte)width);
+                    result.Add((byte)(width >> 8)); //Width
+                    result.Add((byte)width);
 
-                result.Add(0x03);//Number of components
+                    result.Add(0x01); //Number of components
+                    result.Add(0x00); //Component Number
+                    result.Add(0x11); //Horizontal Sampling Factor
+                    result.Add(0x00); //Matrix Number
+                }
+                else
+                {
+                    result.Add(0x00); //Length
+                    result.Add(0x11); // Decimal 17 -> 15 bytes
+                    result.Add(0x08); //Bits Per Components and EncodingProcess
 
-                result.Add(0x01);//Component Number
+                    result.Add((byte)(height >> 8)); //Height
+                    result.Add((byte)height);
 
-                //Set the Horizontal Sampling Factor
-                result.Add((byte)((jpegType & 1) == 0 ? 0x21 : 0x22));
+                    result.Add((byte)(width >> 8)); //Width
+                    result.Add((byte)width);
 
-                result.Add(0x00);//Matrix Number (Quant Table Id)?
-                result.Add(0x02);//Component Number
-                result.Add(0x11);//Horizontal or Vertical Sample
+                    result.Add(0x03);//Number of components
 
-                //ToDo - Handle 16 Bit Precision
-                result.Add(1);//Matrix Number
+                    result.Add(0x01);//Component Number
 
-                result.Add(0x03);//Component Number
-                result.Add(0x11);//Horizontal or Vertical Sample
+                    //Set the Horizontal Sampling Factor
+                    result.Add((byte)((jpegType & 1) == 0 ? 0x21 : 0x22));
 
-                //ToDo - Handle 16 Bit Precision
-                result.Add(1);//Matrix Number      
+                    result.Add(0x00);//Matrix Number (Quant Table Id)?
+                    result.Add(0x02);//Component Number
+                    result.Add(0x11);//Horizontal or Vertical Sample
+
+                    //ToDo - Handle 16 Bit Precision
+                    result.Add(1);//Matrix Number
+
+                    result.Add(0x03);//Component Number
+                    result.Add(0x11);//Horizontal or Vertical Sample
+
+                    //ToDo - Handle 16 Bit Precision
+                    result.Add(1);//Matrix Number      
+                }
 
                 //Huffman Tables
                 result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens, lum_dc_symbols, 0, 0));
                 result.AddRange(CreateHuffmanTableMarker(lum_ac_codelens, lum_ac_symbols, 0, 1));
-                result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
-                result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
+
+                //More then 1 table
+                if (tables.Count > 64)
+                {
+                    result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
+                    result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
+                }
 
                 //Start Of Scan
                 result.Add(JpegMarkers.Prefix);
                 result.Add(JpegMarkers.StartOfScan);//Marker SOS
-                result.Add(0x00); //Length
-                result.Add(0x0c); //Length - 12
-                result.Add(0x03); //Number of components
-                result.Add(0x01); //Component Number
-                result.Add(0x00); //Matrix Number
-                result.Add(0x02); //Component Number
-                result.Add(0x11); //Horizontal or Vertical Sample
-                result.Add(0x03); //Component Number
-                result.Add(0x11); //Horizontal or Vertical Sample
+                
+                //If only 1 table
+                if (tables.Count == 64)
+                {
+                    result.Add(0x00); //Length
+                    result.Add(0x08); //Length - 12
+                    result.Add(0x01); //Number of components
+                    result.Add(0x00); //Component Number
+                    result.Add(0x00); //Matrix Number
+                    
+                }
+                else
+                {
+                    result.Add(0x00); //Length
+                    result.Add(0x0c); //Length - 12
+                    result.Add(0x03); //Number of components
+                    result.Add(0x01); //Component Number
+                    result.Add(0x00); //Matrix Number
+                    result.Add(0x02); //Component Number
+                    result.Add(0x11); //Horizontal or Vertical Sample
+                    result.Add(0x03); //Component Number
+                    result.Add(0x11); //Horizontal or Vertical Sample
+                }
+
+                
                 result.Add(0x00); //Start of spectral
                 result.Add(0x3f); //End of spectral (63)
                 result.Add(0x00); //Successive approximation bit position (high, low)
@@ -714,7 +757,8 @@ namespace Media.Rtsp.Server.Streams
                     //Check for the End of Information Marker, //If present do not include it.
                     temp.Seek(-1, System.IO.SeekOrigin.End);
 
-                    long endOffset = temp.ReadByte() == JpegMarkers.EndOfInformation ? temp.Length - 2 : temp.Length;
+
+                    long length = temp.Length, endOffset = temp.ReadByte() == JpegMarkers.EndOfInformation ? length - 2 : length;
 
                     //From the beginning of the buffered stream after the Start of Information Marker
                     temp.Seek(2, System.IO.SeekOrigin.Begin);
@@ -730,7 +774,7 @@ namespace Media.Rtsp.Server.Streams
 
                     //The current packet consists of a RtpHeader and the encoded payload.
                     //The encoded payload of the first packet will consist of the RtpJpegHeader (8 octets) as well as QTables and coeffecient data releated to the image.
-                    Rtp.RtpPacket currentPacket = new Rtp.RtpPacket(new byte[protocolOverhead + (temp.Length < bytesPerPacketPayload ? (int)temp.Length : bytesPerPacketPayload)], 0)
+                    Rtp.RtpPacket currentPacket = new Rtp.RtpPacket(new byte[protocolOverhead + (length < bytesPerPacketPayload ? (int)length : bytesPerPacketPayload)], 0)
                     {
                         Version = 2,
 
@@ -925,7 +969,7 @@ namespace Media.Rtsp.Server.Streams
                                 currentPacketOffset += RtpJpegHeader.Length;
 
                                 //Determine how many bytes remanin in the payload after adding the first RtpJpegHeader which also contains the QTables                            
-                                int remainingPayloadOctets = bytesPerPacketPayload - currentPacketOffset,
+                                int remainingPayloadOctets = currentPacket.Payload.Count - currentPacketOffset,
                                     profileHeaderSize = Ri > 0 ? 12 : 8; //Determine if the profile header also contains the RtpRestartMarker
 
                                 //How much remains in the stream relative to the endOffset
@@ -945,7 +989,7 @@ namespace Media.Rtsp.Server.Streams
                                 //Only the lastPacket contains the marker
                                 //just subtract profileHeaderSize?
 
-                                bytesPerPacketPayload -= RtpJpegHeader.Length - (RtpJpegRestartInterval != null ? 4 : 0);
+                                //bytesPerPacketPayload -= RtpJpegHeader.Length - (RtpJpegRestartInterval != null ? 4 : 0);
 
                                 //Todo determine when reading
                                 bool lastPacket = false;
@@ -1037,7 +1081,7 @@ namespace Media.Rtsp.Server.Streams
                     //First packet must have FragmentOffset == 0
                     int offset = packet.NonPayloadOctets + 1,// TypeSpecific occupies a byte
                         FragmentOffset = (packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
-
+                    //q > 0 ?
                     return FragmentOffset == 0;
                 }
             }
@@ -1050,10 +1094,11 @@ namespace Media.Rtsp.Server.Streams
             /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
             /// Assigns Image from the result
             /// </summary>
-            internal virtual void ProcessPackets(bool allowLegacyPackets = false)
+            internal virtual void ProcessPackets(bool allowLegacyPackets = false, bool allowIncomplete = false)
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
+                else if (!Complete && !allowIncomplete) throw new ArgumentException("This Frame not Complete");
 
                 byte TypeSpecific, Type, Quality;
                 ushort Width, Height, RestartInterval = 0, RestartCount = 0;

@@ -52,9 +52,7 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public class RFC6184Stream : RFC2435Stream
     {
-        #region Propeties
-
-        public readonly int Width = 240, Height = 160;
+        #region Propeties        
 
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
 
@@ -71,7 +69,7 @@ namespace Media.Rtsp.Server.Streams
         #region Constructor
 
         public RFC6184Stream(int width, int height, string name, string directory = null, bool watch = true)
-            : base(name, directory, watch)
+            : base(name, directory, watch, 240, 160, false, 99)
         {
             Width = width;
             Height = height;
@@ -125,7 +123,10 @@ namespace Media.Rtsp.Server.Streams
                     using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
                         //Encode a JPEG (leave 40 bytes room in each packet for the h264 data)
-                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, Quality, Interlaced, (int)sourceId, 0, 0, 1300))
+
+                        //TODO Take RGB Stride and Convert to YUV
+
+                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, Math.Max(99,Quality), Interlaced, (int)sourceId, 0, 0, 1300))
                         {
                             //Store the payload which is YUV Planar (420, 421, 422)
                             List<byte[]> data = new List<byte[]>();
@@ -135,6 +136,8 @@ namespace Media.Rtsp.Server.Streams
                             
                             //project everything to a single array
                             byte[] yuv = jpegFrame.Assemble(false, 8).ToArray();
+
+                            //Todo NAL Headers
 
                             //For each h264 Macroblock in the frame
                             for (int i = 0; i < Width / 16; i++)
