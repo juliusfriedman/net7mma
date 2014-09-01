@@ -54,7 +54,7 @@ namespace Media.Rtsp
     /// http://www.ietf.org/rfc/rfc2326.txt
     /// Provides facilities for communication with an RtspServer to establish one or more Rtp Transport Channels.
     /// </summary>
-    public class RtspClient : IDisposable
+    public class RtspClient : IDisposable, Media.Common.ISocketOwner
     {
         internal static char[] TimeSplit = new char[] { '-', ';' };
 
@@ -98,7 +98,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The buffer this client uses for all requests 4MB * 2
         /// </summary>
-        byte[] m_Buffer = new byte[4 * RtspMessage.MaximumLength];
+        byte[] m_Buffer = new byte[2 * RtspMessage.MaximumLength];
 
         /// <summary>
         /// The remote IPAddress to which the Location resolves via Dns
@@ -911,30 +911,7 @@ namespace Media.Rtsp
                     if (error == SocketError.TryAgain) goto Receive;
 
                     //If any more data is present it belongs to the lower layer unless the client is already connected
-                    if (received > max && m_RtpClient != null)
-                    {
-
-                        int r = received - max;
-
-                        if (r > 4)
-                        {
-                            var data = new ArraySegment<byte>(m_Buffer, max, r);
-
-                            byte channel;
-
-                            int frameLength = 0;
-
-                            if ((frameLength = m_RtpClient.TryReadFrameHeader(m_Buffer, offset, out channel)) > 0)
-                            {
-                                r -= 4;
-
-                                var tc = m_RtpClient.GetContextByChannel(channel);
-
-                                if(tc != null)
-                                    m_RtpClient.HandleInterleavedData(this, new ArraySegment<byte>(m_Buffer, max + 4, Math.Min(frameLength, r)));
-                            }
-                        }
-                    }
+                    if (received > max && m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer, max, received - max);
                 }
 
             Wait:
@@ -1469,7 +1446,7 @@ namespace Media.Rtsp
                             if (m_RtpClient == null)
                             {
                                 //Create a Duplexed reciever using the RtspSocket
-                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength * 3), contextReportInterval);
+                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength), contextReportInterval);
                                 m_RtpClient.InterleavedData += ProcessInterleaveData;
                             }                            
 
@@ -1874,5 +1851,10 @@ namespace Media.Rtsp
         }
 
         #endregion
+
+        IEnumerable<Socket> Common.ISocketOwner.OwnedSockets
+        {
+            get { return m_RtspSocket.Yield(); }
+        }
     }
 }

@@ -181,7 +181,7 @@ namespace Media.Common
         /// <summary>
         /// Indicates if there is enough data in the given binary to read the complete source list.
         /// </summary>
-        public bool IsValid { get { return !Disposed && m_SourceCount * 4 == m_Binary.Count; } }
+        public bool IsComplete { get { return !Disposed && m_SourceCount * 4 == m_Binary.Count; } }
 
         uint IEnumerator<uint>.Current
         {
