@@ -2365,7 +2365,7 @@ namespace Media.Rtp
                     received -= upperLayerData;
 
                     //If there is a context for the data then break looking for the frame control byte
-                    if (GetContextByChannel(buffer[mOffset + 1]) != null) break;
+                    if (mOffset >= m_BufferLength || GetContextByChannel(buffer[mOffset + 1]) != null) break;
 
                 } while (received >= TCP_OVERHEAD && (startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset + 1, received - 1)) >= 0);
             }
