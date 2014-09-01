@@ -197,9 +197,10 @@ namespace Media.Rtsp
             
 
         /// <summary>
-        /// The amount of time in seconds the KeepAlive request will be sent to the server after connected
+        /// The amount of time in seconds the KeepAlive request will be sent to the server after connected.
+        /// If a GET_PARAMETER request is not supports OPTIONS will be sent instead.
         /// </summary>
-        public TimeSpan Timeout { get { return m_RtspTimeout; }
+        public TimeSpan KeepAliveTimeout { get { return m_RtspTimeout; }
             set
             {
                 m_RtspTimeout = value;
@@ -482,7 +483,6 @@ namespace Media.Rtsp
                         //If the message is invalid 
                         case RtspMessageType.Invalid:
                             {
-                                //System.Diagnostics.Debug.WriteLine("RtspClient->ProcessInterleaveData" + BitConverter.ToString(memory.Array, memory.Offset, memory.Count)); 
                                 goto SetEvent;
                             }
                         case RtspMessageType.Request: //Event for pushed messages?
@@ -497,17 +497,12 @@ namespace Media.Rtsp
                                     interleaved.CompleteFrom(m_RtspSocket);
                                 }
 
-                                //System.Diagnostics.Debug.WriteLine("RtspClient->ProcessInterleaveData = " + interleaved);
-
                                 break;
                             }
                     }
 
                     //Update counters
                     System.Threading.Interlocked.Add(ref m_ReceivedBytes, sliceCount + received);
-
-                    
-
                 }
                 catch //Any error which occurs when parsing the RtspMessage
                 {
@@ -651,53 +646,17 @@ namespace Media.Rtsp
                         // Set option that allows socket to close gracefully without lingering.
                         //e.g. DON'T Linger on close if unsent data is present.
                         m_RtspSocket.DontLinger();
-                        ///
-                        //m_RtspSocket.LingerState = new LingerOption(true, m_RtspTimeout.Seconds);
-
-                        m_RtspSocket.NoDelay = true;
-
-                        //m_RtspSocket.UseOnlyOverlappedIO = true;
                         
-                        //try
-                        //{
-
-                        //http://msdn.microsoft.com/en-us/library/windows/desktop/dd877220(v=vs.85).aspx
-
-                        //    /* Argument structure for SIO_KEEPALIVE_VALS */
-                        //    /*struct tcp_keepalive {
-                        //        u_long  onoff;
-                        //        u_long  keepalivetime;
-                        //        u_long  keepaliveinterval;
-                        //    };*/
-
-                        //    //It is assumed the provider also understands the endian of the machine in which it is providing the data in...
-
-                        //    byte[] tcp_keepalive =
-                        //    BitConverter.GetBytes((ulong)1)
-                        //    .Concat(BitConverter.GetBytes((ulong)96)) //Milliseconds
-                        //    .Concat(BitConverter.GetBytes((ulong)96))
-                        //    .ToArray();
-
-                        //    //m_RtspSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.KeepAlive, 1);
-                        //    if (m_RtspSocket.IOControl(IOControlCode.KeepAliveValues, tcp_keepalive, tcp_keepalive) != 0) Common.ExceptionExtensions.CreateAndRaiseException(this, "Cannot set Keep Alive");
-
-                        //    tcp_keepalive = null;
-                        //}
-                        //catch { }//Not supported 
-
-
-                        //m_RtspSocket.SendBufferSize = m_RtspSocket.ReceiveBufferSize = 0;
+                        m_RtspSocket.NoDelay = true;
 
                         connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
                         {
                             try
                             {
                                 m_RtspSocket.EndConnect(iar);
-                            }
-                            finally
-                            {
                                 OnConnected();
                             }
+                            catch { }
                         }), null);
 
                     }
@@ -706,23 +665,8 @@ namespace Media.Rtsp
                         m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                     }
                     else throw new NotSupportedException("The given ClientProtocolType is not supported.");
-
-
-                   
                 }
-                else if (!m_RtspSocket.Connected)
-                {
-                    //try
-                    //{
-                    //    connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
-                    //    {
-                    //        m_RtspSocket.EndConnect(iar);
-                    //    }), null);
-                    //}
-                    //catch { return; }
-
-                }
-
+               
                 if(connectResult != null) while (!connectResult.IsCompleted) System.Threading.Thread.Yield();
 
             }
@@ -735,50 +679,45 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public void Disconnect()
         {
-            try
+            //Get rid of the timers
+
+            if (m_ProtocolSwitchTimer != null)
             {
-                //Get rid of the timers
-
-                if (m_ProtocolSwitchTimer != null)
-                {
-                    m_ProtocolSwitchTimer.Dispose();
-                    m_ProtocolSwitchTimer = null;
-                }
-
-                if (m_KeepAliveTimer != null)
-                {
-                    m_KeepAliveTimer.Dispose();
-                    m_KeepAliveTimer = null;
-                }
-
-                //Determine if we need to do anything
-                if (Listening && !string.IsNullOrWhiteSpace(m_SessionId))
-                {
-
-                    //Send the Teardown
-                    try
-                    {
-                        SendTeardown();
-                    }
-                    catch
-                    {
-                        //We may not recieve a response if the socket is closed in a violatile fashion on the sending end
-                        //And we realy don't care
-                    }
-
-                    //Fire an event
-                    OnDisconnected();
-                }
-
-                //Get rid of this socket
-                if (m_RtspSocket != null)
-                {
-                    m_RtspSocket.Dispose();
-                    m_RtspSocket = null;
-                }
-               
+                m_ProtocolSwitchTimer.Dispose();
+                m_ProtocolSwitchTimer = null;
             }
-            catch { }
+
+            if (m_KeepAliveTimer != null)
+            {
+                m_KeepAliveTimer.Dispose();
+                m_KeepAliveTimer = null;
+            }
+
+            //Determine if we need to do anything
+            if (Listening && !string.IsNullOrWhiteSpace(m_SessionId))
+            {
+
+                //Send the Teardown
+                try
+                {
+                    SendTeardown();
+                }
+                catch
+                {
+                    //We may not recieve a response if the socket is closed in a violatile fashion on the sending end
+                    //And we realy don't care
+                }
+
+                //Fire an event
+                OnDisconnected();
+            }
+
+            //Get rid of this socket
+            if (m_RtspSocket != null)
+            {
+                m_RtspSocket.Dispose();
+                m_RtspSocket = null;
+            }
         }
 
         #endregion
@@ -861,12 +800,11 @@ namespace Media.Rtsp
                 //if (m_RtspSocket.ProtocolType == ProtocolType.Tcp && Playing) sent += m_RtpClient.SendData(buffer, null, m_RtspSocket, m_RtspSocket.RemoteEndPoint, out error, false);
                 sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
 
-                //Fire the event
-                
 
                 //If we could not send the message indicate so
                 if (sent < length || error == SocketError.ConnectionReset) return null;
-
+                
+                //Fire the event
                 Requested(m_LastTransmitted = request);
 
                 //Increment our byte counters for Rtsp

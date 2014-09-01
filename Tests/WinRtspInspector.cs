@@ -111,7 +111,7 @@ namespace Tests
             if (request != null && response != null)
             {
 
-                if (checkBox1.Checked) Client.Timeout = TimeSpan.Zero;
+                if (checkBox1.Checked) Client.KeepAliveTimeout = TimeSpan.Zero;
 
                 if (this.InvokeRequired)
                 {
