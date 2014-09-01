@@ -201,7 +201,7 @@ namespace Media.Common
             if (m_Disposed) return;
             GC.SuppressFinalize(this);
             m_Disposed = true;            
-            ClearData();
+            //ClearData();
         }
 
         internal protected void ClearData() { Data.Clear(); }

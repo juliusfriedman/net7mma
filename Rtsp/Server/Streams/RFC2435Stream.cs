@@ -708,8 +708,8 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="ssrc">The optional Id of the media</param>
             /// <param name="sequenceNo">The optional sequence number for the first packet in the frame.</param>
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
-            /// <param name="bytesPerPacketPayload">The amount of bytes each RtpPacket will contain</param>
-            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1292, Common.SourceList sourceList = null)
+            /// <param name="bytesPerPacket">The amount of bytes each RtpPacket will contain</param>
+            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1292, Common.SourceList sourceList = null)
                 : this()
             {
 
@@ -718,11 +718,11 @@ namespace Media.Rtsp.Server.Streams
                     throw Common.Binary.CreateOverflowException("qualityFactor", qualityFactor, 1.ToString(), byte.MaxValue.ToString());
 
                 //Store the constant size which contains the RtpHeader (12) and Jpeg Profile header (8).
-                int protocolOverhead = Rtp.RtpHeader.Length + 8, // + 4 * sourceList.Count
+                int protocolOverhead = Rtp.RtpHeader.Length + (sourceList != null ? 4 * sourceList.Count : 0),
                     precisionTableIndex = 0; //The index of the precision table.
 
-                //Ensure data will fit
-                if (bytesPerPacketPayload < protocolOverhead) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain a RtpHeader (12 octets) as well as the RtpJpeg Header (8 octets).");
+                //Ensure some data will fit
+                if (bytesPerPacket < protocolOverhead) throw new InvalidOperationException("Each RtpPacket in the RtpFrame must contain a RtpHeader (12 octets) as well as the RtpJpeg Header (8 octets).");
 
                 //Set the id of all subsequent packets.
                 SynchronizationSourceIdentifier = ssrc ?? 0;
@@ -757,7 +757,6 @@ namespace Media.Rtsp.Server.Streams
                     //Check for the End of Information Marker, //If present do not include it.
                     temp.Seek(-1, System.IO.SeekOrigin.End);
 
-
                     long length = temp.Length, endOffset = temp.ReadByte() == JpegMarkers.EndOfInformation ? length - 2 : length;
 
                     //From the beginning of the buffered stream after the Start of Information Marker
@@ -774,7 +773,7 @@ namespace Media.Rtsp.Server.Streams
 
                     //The current packet consists of a RtpHeader and the encoded payload.
                     //The encoded payload of the first packet will consist of the RtpJpegHeader (8 octets) as well as QTables and coeffecient data releated to the image.
-                    Rtp.RtpPacket currentPacket = new Rtp.RtpPacket(new byte[protocolOverhead + (length < bytesPerPacketPayload ? (int)length : bytesPerPacketPayload)], 0)
+                    Rtp.RtpPacket currentPacket = new Rtp.RtpPacket(new byte[(length < bytesPerPacket ? (int)length : bytesPerPacket)], 0)
                     {
                         Version = 2,
 
@@ -785,9 +784,14 @@ namespace Media.Rtsp.Server.Streams
                         PayloadType = RFC2435Frame.RtpJpegPayloadType,
 
                         SynchronizationSourceIdentifier = Ssrc
-
-                        //,SourceList = sourceList
                     };
+
+                    //Apply source list
+                    if (sourceList != null)
+                    {
+                        currentPacket.ContributingSourceCount = sourceList.Count;
+                        sourceList.TryCopyTo(currentPacket.Payload.Array, 0);
+                    }
 
                     //Where we are in the current packet payload
                     int currentPacketOffset = currentPacket.NonPayloadOctets;
@@ -951,10 +955,8 @@ namespace Media.Rtsp.Server.Streams
 
                                 byte Ns = (byte)temp.ReadByte();
 
-                                //Read past the Start of Scan (10 more bytes which end with the StartOfSpectral 0x3f00)                            
+                                //Read past the each Component in Start of Scan (10 more bytes which end with the StartOfSpectral 0x3f00)                            
                                 temp.Seek(3 + (Ns * 2), System.IO.SeekOrigin.Current);
-
-                                //temp.Seek(3, System.IO.SeekOrigin.Current);
 
                                 if (pos + CodeSize != temp.Position) throw new Exception("Invalid StartOfScan Marker");
 
@@ -969,13 +971,15 @@ namespace Media.Rtsp.Server.Streams
                                 currentPacketOffset += RtpJpegHeader.Length;
 
                                 //Determine how many bytes remanin in the payload after adding the first RtpJpegHeader which also contains the QTables                            
-                                int remainingPayloadOctets = currentPacket.Payload.Count - currentPacketOffset,
+                                int remainingPayloadOctets = bytesPerPacket,
                                     profileHeaderSize = Ri > 0 ? 12 : 8; //Determine if the profile header also contains the RtpRestartMarker
+
+                                remainingPayloadOctets -= currentPacketOffset + Rtp.RtpHeader.Length;
 
                                 //How much remains in the stream relative to the endOffset
                                 long streamRemains = endOffset - temp.Position;
 
-                                //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding
+                                //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding ?
                                 //if (Ri > 0)
                                 //{
                                 //remainingPayloadOctets = //Calculate from RST marker
@@ -986,12 +990,7 @@ namespace Media.Rtsp.Server.Streams
                                 //When Ri > 0 an additional 4 bytes occupy the Payload to represent the RST Marker
                                 RtpJpegHeader = RtpJpegHeader.Take(profileHeaderSize).ToArray();
 
-                                //Only the lastPacket contains the marker
-                                //just subtract profileHeaderSize?
-
-                                //bytesPerPacketPayload -= RtpJpegHeader.Length - (RtpJpegRestartInterval != null ? 4 : 0);
-
-                                //Todo determine when reading
+                                //Only the lastPacket contains the marker, determine when reading
                                 bool lastPacket = false;
 
                                 //While we are not done reading
@@ -1011,10 +1010,13 @@ namespace Media.Rtsp.Server.Streams
 
                                     if (streamRemains <= 0) break;
                                     //Determine if we need to adjust the size and add the packet
-                                    else if (streamRemains < bytesPerPacketPayload + protocolOverhead)
+                                    else if (streamRemains < bytesPerPacket)
                                     {
                                         //8 for the RtpJpegHeader and this will cause the Marker be to set in the next packet created
-                                        bytesPerPacketPayload = (int)streamRemains;
+                                        bytesPerPacket = (int)streamRemains + Rtp.RtpHeader.Length + profileHeaderSize;
+
+                                        if (sourceList != null) bytesPerPacket += sourceList.Size;
+
                                         lastPacket = true;
 
                                         //Set the last bit of the Dri Header in the last packet if Ri > 0
@@ -1022,16 +1024,23 @@ namespace Media.Rtsp.Server.Streams
                                     }
 
                                     //Make next packet which consists of a RtpHeader and the remaining remainingPayloadOctets
-                                    currentPacket = new Rtp.RtpPacket(new byte[protocolOverhead + bytesPerPacketPayload], 0)
+                                    currentPacket = new Rtp.RtpPacket(new byte[bytesPerPacket], 0)
                                     {
                                         Timestamp = Timestamp,
                                         SequenceNumber = SequenceNo++,
                                         SynchronizationSourceIdentifier = Ssrc,
                                         PayloadType = RFC2435Frame.RtpJpegPayloadType,
                                         Marker = lastPacket,
-                                        Version = 2,
-                                        //SourceList = sourceList
+                                        Version = 2
                                     };
+
+                                    //Apply source list
+                                    if (sourceList != null)
+                                    {
+                                        currentPacket.ContributingSourceCount = sourceList.Count;
+                                        sourceList.TryCopyTo(currentPacket.Payload.Array, 0);
+                                    }
+
 
                                     //Correct FragmentOffset in the RtpJpegHeader already created.
                                     if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)temp.Position)), 1, RtpJpegHeader, 1, 3);
@@ -1041,10 +1050,10 @@ namespace Media.Rtsp.Server.Streams
                                     RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
 
                                     //Set offset in packet (the length of the RtpJpegHeader)
-                                    currentPacketOffset = profileHeaderSize; // + currentPacket.NonPayloadOctets;
+                                    currentPacketOffset = profileHeaderSize + currentPacket.NonPayloadOctets;
 
                                     //reset the remaning remainingPayloadOctets
-                                    remainingPayloadOctets = bytesPerPacketPayload;
+                                    remainingPayloadOctets = bytesPerPacket - (currentPacketOffset + Rtp.RtpHeader.Length);
                                 }
                             }
                             else //Skip past tag 

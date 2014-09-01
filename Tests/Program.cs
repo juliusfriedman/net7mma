@@ -239,7 +239,7 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = string.Empty,
+                    Uri = "",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -2262,6 +2262,10 @@ a=mpeg4-esid:101");
 
             server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
 
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
+
+        
+
             //TODO
             //server.RequestReceived event
             //server.ClientConnected / ClientDisconnected
@@ -2523,6 +2527,21 @@ a=mpeg4-esid:101");
             {
                 //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
                 f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 25);
+
+                //Save the JpegFrame as a Image (Decoding performed)
+                using (System.Drawing.Image jpeg = f)
+                {
+                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                }
+
+                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                System.IO.File.Delete("result.jpg");
+            }
+
+            using (var jpegStream = new System.IO.FileStream("croin.jpg", System.IO.FileMode.Open))
+            {
+                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
+                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream,100);
 
                 //Save the JpegFrame as a Image (Decoding performed)
                 using (System.Drawing.Image jpeg = f)
