@@ -2176,19 +2176,7 @@ namespace Media.Rtp
 
         #endregion
 
-        #region Socket
-
-        /// <summary>
-        /// Sets the ReceiveBufferSize on the underlying sockets used by the RtpClient.
-        /// The default is 8192
-        /// </summary>
-        /// <param name="bufferSize"></param>
-        public void SetReceiveBufferSize(int bufferSize = 0)
-        {
-            foreach (TransportContext tc in TransportContexts)
-                if(m_TransportProtocol == ProtocolType.Tcp) tc.RtpSocket.ReceiveBufferSize = bufferSize;
-                else tc.RtpSocket.ReceiveBufferSize = tc.RtcpSocket.ReceiveBufferSize = bufferSize;
-        }
+        #region Socket        
 
         /// <summary>
         /// Creates a worker thread and resets the stop variable
@@ -2363,20 +2351,26 @@ namespace Media.Rtp
             }
             else if (startOfFrame > offset) // If the start of the frame is not at the beginning of the buffer
             {
-                //Determine the amount of data which belongs to the upper layer
-                int upperLayerData = startOfFrame - mOffset;
+                do
+                {
+                    //Determine the amount of data which belongs to the upper layer
+                    int upperLayerData = startOfFrame - mOffset;
 
-                //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
+                    //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
 
-                OnInterleavedData(new ArraySegment<byte>(buffer, mOffset, upperLayerData));
+                    OnInterleavedData(new ArraySegment<byte>(buffer, mOffset, upperLayerData));
 
-                mOffset = startOfFrame;
+                    mOffset = startOfFrame;
 
-                received -= upperLayerData;
+                    received -= upperLayerData;
 
-                if (received <= 0) return 0;
+                    //If there is a context for the data then break looking for the frame control byte
+                    if (GetContextByChannel(buffer[mOffset + 1]) != null) break;
+
+                } while (received >= TCP_OVERHEAD && (startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset + 1, received - 1)) >= 0);
             }
-          
+
+            if (received < TCP_OVERHEAD) return 0;
 
             //Create the frameData segment to preserve the data boundaries
            // ArraySegment<byte> frameSegment = new ArraySegment<byte>(m_Buffer, mOffset, received);
@@ -2505,13 +2499,10 @@ namespace Media.Rtp
                 if (socket.ProtocolType == ProtocolType.Tcp)
                 {
                     //Check for a partial frame header
-                    if (received <= TCP_OVERHEAD)
+                    while (TCP_OVERHEAD > received)
                     {
-                        while (TCP_OVERHEAD > received)
-                        {
-                            received += socket.Receive(m_Buffer, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
-                            if (error != SocketError.Success && error != SocketError.TryAgain) return -1;
-                        }
+                        received += socket.Receive(m_Buffer, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
+                        if (error != SocketError.Success && error != SocketError.TryAgain) return -1;
                     }
 
                     return ProcessFrameData(m_Buffer, offset, received);
@@ -2535,21 +2526,22 @@ namespace Media.Rtp
             //Read the framing using the framing indicated.
             int frameLength;
 
-            int remainingInBuffer = length, recieved = remainingInBuffer;
+            int remainingInBuffer = length, recievedTotal = remainingInBuffer;
 
             bool expectRtp, expectRtcp;
 
             //Todo
-            //Handle receiving when no $ and Channel is presenent...
+            //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
 
             while (remainingInBuffer >= TCP_OVERHEAD)
             {
                 //Parse the frameLength
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, offset, buffer);
 
-                //Ignore large frames we can't store
+                //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
                 if (frameLength > m_BufferLength) frameLength = remainingInBuffer;
                
+                //See how many more bytes are required from the wire
                 int remainingInWire = frameLength - remainingInBuffer;
 
                 if (remainingInWire > 0)
@@ -2569,11 +2561,12 @@ namespace Media.Rtp
 
                     while (remainingInWire > 0)
                     {
-                        int r = Utility.AlignedReceive(buffer, offset, remainingInWire, socket, out error);
-                        if (r <= 0) continue;
-                        remainingInWire -= r;
-                        offset += r;
-                        recieved += r;
+                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, remainingInWire, socket, out error);
+                        if (error != SocketError.Success && error != SocketError.TryAgain) break;
+                        else if (recievedFromWire <= 0) continue;
+                        remainingInWire -= recievedFromWire;
+                        offset += recievedFromWire;
+                        recievedTotal += recievedFromWire;
                     }
 
                     //Set the offset to where it was before extra data was received - the data existing in the buffer.
@@ -2607,7 +2600,7 @@ namespace Media.Rtp
                 remainingInBuffer -= size;
             }
 
-            return recieved;
+            return recievedTotal;
         }
 
         /// <summary>
@@ -2820,12 +2813,6 @@ namespace Media.Rtp
                 while (!m_StopRequested)
                 {
                     #region Recieve Incoming Data
-
-                    //Enumerate each context and receive data, if received update the lastActivity
-                    //ParallelEnumerable.ForAll(TransportContexts.ToArray().AsParallel(), (tc) =>
-                    //{
-                    //    ProcessReceive(tc, ref lastOperation);                       
-                    //});
 
                     foreach (TransportContext context in TransportContexts)
                     {

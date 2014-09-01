@@ -239,7 +239,7 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "",
+                    Uri = "rtsp://50.28.209.206/axis-media/media.amp",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -1899,7 +1899,7 @@ namespace Tests
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
-                                client.Client.SetReceiveBufferSize(0x1000 * ++i);
+                                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize((Media.Common.ISocketOwner)sender, 0x1024 * i++);
                                 ++incompleteFrames;
                                 Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
@@ -1964,8 +1964,6 @@ namespace Tests
                             client.Client.RtcpPacketSent += rtcpPacketSent;
                             client.Client.InterleavedData += rtpInterleave;
 
-                            client.Client.SetReceiveBufferSize(0x1024);
-
                             System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
 
                             //Indicate if LivePlay
@@ -2022,7 +2020,7 @@ namespace Tests
                         //Wait for a key press of 'Q' once playing
                         while (!shouldStop)
                         {
-                            System.Threading.Thread.Sleep(client.Timeout.Seconds + 1 * 5000);
+                            System.Threading.Thread.Sleep(client.KeepAliveTimeout.Seconds + 1 * 5000);
 
                             if (client.StartedListening.HasValue)
                             {
@@ -2263,8 +2261,6 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
-
-        
 
             //TODO
             //server.RequestReceived event
