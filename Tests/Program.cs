@@ -1796,9 +1796,11 @@ namespace Tests
             }
             else
             {
-                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
-                
                 if (packet == null || packet.Disposed) return;
+
+                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
+
+                if (rtcpPacket.Version != 2) return;
 
                 if (packet.IsComplete) if(packet.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
                 else Console.ForegroundColor = ConsoleColor.Yellow;
