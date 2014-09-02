@@ -1125,7 +1125,7 @@ namespace Media.Rtsp
                 if (mediaDescription != null)
                 {
                     SessionDescriptionLine attributeLine = mediaDescription.ControlLine;
-                    location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.Where(p => p.Contains("control")).FirstOrDefault().Replace("control:", string.Empty));
+                    location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.FirstOrDefault(p => p.Contains("control")).Replace("control:", string.Empty));
                 }
                 else
                 {
