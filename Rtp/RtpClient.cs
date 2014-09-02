@@ -1162,7 +1162,7 @@ namespace Media.Rtp
             //Raise an event for the packet received
             //* Note that the events should only expose Headers and the Payload should be Taboo unless within the implementation.*
             //A Mechanism would be required to subsequently retrieve the payload from the header if the packet is still `alive` e.g. not disposed.
-            OnRtcpPacketReceieved(packet);
+            
 
             //if (packet.Header.IsCompressed)
             //{
@@ -1186,36 +1186,11 @@ namespace Media.Rtp
                     return;
                 }
 
-                //System.Diagnostics.Debug.WriteLine("Incoming RtcpPacket Dropped. Type=" + packet.PayloadType + "  Ssrc=" + packet.SynchronizationSourceIdentifier + " Len=" + packet.Length);
-
                 //SendReports();
+                OnRtcpPacketReceieved(packet);
 
                 return;
-
-                //transportContext = TransportContexts.Last(tc=>tc.RtcpEnabled);
-
-                //if(transportContext == null) return;
-
-                //var newTransportContext = new TransportContext((byte)(transportContext.DataChannel + 2), (byte)(transportContext.ControlChannel + 2), RFC3550.Random32(packet.PayloadType), true, 0, 0);
-
-                //newTransportContext.MediaDescription = transportContext.MediaDescription;
-
-                //newTransportContext.RtpSocket = transportContext.RtpSocket;
-                //newTransportContext.RtcpSocket = transportContext.RtcpSocket;
-
-                //newTransportContext.ClientRtcpPort = transportContext.ClientRtcpPort;
-                //newTransportContext.ClientRtpPort = transportContext.ClientRtpPort;
-                //newTransportContext.LocalRtp = transportContext.LocalRtp;
-                //newTransportContext.LocalRtcp = transportContext.LocalRtcp;
-
-                //newTransportContext.ServerRtpPort = transportContext.ServerRtpPort;
-                //newTransportContext.ServerRtcpPort = transportContext.ServerRtcpPort;
-                //newTransportContext.RemoteRtp = transportContext.RemoteRtp;
-                //newTransportContext.RemoteRtcp = transportContext.RemoteRtcp;
-
-                //AddTransportContext(newTransportContext);
-
-                //transportContext = newTransportContext;
+              
             }
             else if (!transportContext.RtcpEnabled) return;
             else if (transportContext.SynchronizationSourceIdentifier == packet.SynchronizationSourceIdentifier)
@@ -1248,6 +1223,9 @@ namespace Media.Rtp
 
             //Keep track of the the bytes sent in the context
             Interlocked.Add(ref transportContext.RtcpBytesRecieved, localPacket.Length);
+
+            //Fire event
+            OnRtcpPacketReceieved(packet);
 
             //If the context is valid, AND the remote identify has a value and the packet identity is not the same then reset the state and account for the new identity
             if (transportContext.IsValid && transportContext.RemoteSynchronizationSourceIdentifier.HasValue && localPacket.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier)
@@ -2582,12 +2560,6 @@ namespace Media.Rtp
                 //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
                 if (frameLength > m_BufferLength) frameLength = remainingInBuffer;
                 else if (frameLength < 0) break; //No more data in buffer
-                else if (frameLength == 0) //0 length frame
-                {
-                    offset += TCP_OVERHEAD;
-                    remainingInBuffer -= TCP_OVERHEAD;
-                    continue;
-                }
 
                 //See how many more bytes are required from the wire
                 int remainingInWire = frameLength - remainingInBuffer;
@@ -2622,7 +2594,6 @@ namespace Media.Rtp
 
                     //If a socket error occured remove the context to no parsing occurs
                     if (error != SocketError.Success) relevent = null;
-
                 }
 
                 //If there any data in the frame and there is a relevent context
@@ -2631,11 +2602,8 @@ namespace Media.Rtp
                     //Determine if Rtp or Rtcp should be parsed
                     expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
 
-                    //Determine what is less, what is remanining or the frameLength and use the smaller value
-                    int minLenRem = Math.Min(remainingInBuffer - TCP_OVERHEAD, frameLength);
-
                     //Parse the data in the buffer
-                    ParseAndCompleteData(new ArraySegment<byte>(buffer, offset + TCP_OVERHEAD, minLenRem), expectRtcp, expectRtp, minLenRem);
+                    ParseAndCompleteData(new ArraySegment<byte>(buffer, offset + TCP_OVERHEAD, frameLength), expectRtcp, expectRtp, frameLength);
                 }
 
                 //Calulcate the amount of bytes to move the offset by
