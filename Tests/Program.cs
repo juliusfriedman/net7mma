@@ -208,7 +208,7 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "rtsp://184.72.239.149/vod/mp4:BigBuckBunny_115k.mov", //Single media item
+                    Uri = "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
 
@@ -1854,8 +1854,8 @@ namespace Tests
             {
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
-                    //Using a new Media.RtspClient
-                    using (client = new Media.Rtsp.RtspClient(location, protocol))
+                    //Using a new Media.RtspClient with a specified buffer size
+                    using (client = new Media.Rtsp.RtspClient(location, protocol, 2 * Media.Rtsp.RtspMessage.MaximumLength))
                     {                        
 
                         //Use the credential specified
@@ -2718,7 +2718,7 @@ a=mpeg4-esid:101");
                 }
                 catch //Frame is not complete
                 {
-                    restartFrame.ProcessPackets(false, true);
+                    restartFrame.PrepareBitmap(false, true);
                     using (System.Drawing.Image jpeg = restartFrame) jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
                 }
 

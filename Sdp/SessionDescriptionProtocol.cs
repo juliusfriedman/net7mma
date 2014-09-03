@@ -115,11 +115,11 @@ namespace Media.Sdp
 
         public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } set { m_Lines = value.ToList(); ++m_Originator.Version; } }
 
-        public SessionDescriptionLine RangeLine { get { return m_Lines.FirstOrDefault(l => l.Parts.Any(p => p.Contains("range"))); } }
-
         public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.Type == 'c'); } }
 
-        public SessionDescriptionLine ControlLine { get { return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control"))); } }
+        public SessionDescriptionLine RangeLine { get { return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase)); } }
+        
+        public SessionDescriptionLine ControlLine { get { return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase)); } }
 
         #endregion
 
@@ -461,7 +461,7 @@ namespace Media.Sdp
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == 'a' && string.Compare(l.Parts[0], "rtpmap", true) >= 0);
+                return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts[0].StartsWith("rtpmap:", StringComparison.InvariantCultureIgnoreCase));
             }
         }
 
@@ -469,7 +469,7 @@ namespace Media.Sdp
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == 'a' && string.Compare(l.Parts[0], "fmtp", true) >= 0);
+                return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts[0].StartsWith("fmtp:", StringComparison.InvariantCultureIgnoreCase));
             }
         }
 
@@ -477,7 +477,7 @@ namespace Media.Sdp
         {
             get
             {
-                return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("control")));
+                return m_Lines.FirstOrDefault(l => l.Type == 'a' && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
             }
         }
 

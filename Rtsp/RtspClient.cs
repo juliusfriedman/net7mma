@@ -98,7 +98,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The buffer this client uses for all requests 4MB * 2
         /// </summary>
-        byte[] m_Buffer = new byte[2 * RtspMessage.MaximumLength];
+        byte[] m_Buffer;
 
         /// <summary>
         /// The remote IPAddress to which the Location resolves via Dns
@@ -405,7 +405,14 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The string which will be parsed to obtain the Location</param>
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
-        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null) : this(new Uri(location), rtpProtocolType) { }
+        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
+            : this(new Uri(location), rtpProtocolType)
+        {
+
+            if (bufferSize < RtspMessage.MaximumLength) throw new ArgumentOutOfRangeException("Buffer size must be at least RtspMessage.MaximumLength is required");
+
+            m_Buffer = new byte[bufferSize];
+        }
 
         ~RtspClient()
         {
@@ -849,7 +856,7 @@ namespace Media.Rtsp
                     if (error == SocketError.TryAgain) goto Receive;
 
                     //If any more data is present it belongs to the lower layer unless the client is already connected
-                    if (received > max && m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer, max, received - max);
+                    if (received > max && m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer, max, received - max, m_RtspSocket);
                 }
 
             Wait:
@@ -1384,7 +1391,7 @@ namespace Media.Rtsp
                             if (m_RtpClient == null)
                             {
                                 //Create a Duplexed reciever using the RtspSocket
-                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, RtspMessage.MaximumLength), contextReportInterval);
+                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, m_Buffer.Length - RtspMessage.MaximumLength), contextReportInterval);
                                 m_RtpClient.InterleavedData += ProcessInterleaveData;
                             }                            
 
