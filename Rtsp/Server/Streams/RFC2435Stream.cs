@@ -654,8 +654,8 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="ssrc">The id of the party who is encoding the image</param>
             /// <param name="sequenceNo">The sequence number of the image being encoded</param>
             /// <param name="timeStamp">The Timestamp of the image being encoded</param>
-            /// <param name="bytesPerPacketPayload">The maximum amount of octets of each RtpPacket Payload which contains part of the encoded image. This amount should encompass the RtpHeader (12 octets) as well as the Rtp Jpeg Header (8 Octets)</param>
-            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacketPayload = 1292)
+            /// <param name="bytesPerPacket">The maximum amount of octets of each RtpPacket</param>
+            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024)
             {
                 if (imageQuality <= 0 || imageQuality > 100) throw new NotSupportedException("Only qualities 1 - 100 are supported");
                 //else if (imageQuality == 100) imageQuality = 99; //Fix GDI Encoding Issues
@@ -698,7 +698,7 @@ namespace Media.Rtsp.Server.Streams
 
                     image.Save(temp, JpegCodecInfo, parameters);
 
-                    return new RFC2435Frame(temp, imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacketPayload);
+                    return new RFC2435Frame(temp, imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacket);
                 }
 
             }
@@ -712,7 +712,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="sequenceNo">The optional sequence number for the first packet in the frame.</param>
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
             /// <param name="bytesPerPacket">The amount of bytes each RtpPacket will contain</param>
-            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1292, Common.SourceList sourceList = null)
+            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Common.SourceList sourceList = null)
                 : this()
             {
 

@@ -1850,12 +1850,18 @@ namespace Tests
 
             Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
             Media.Rtsp.RtspClient client = null;
-            if (Console.ReadKey().Key != ConsoleKey.Q && !string.IsNullOrWhiteSpace(location))
+            if (!string.IsNullOrWhiteSpace(location) && Console.ReadKey().Key != ConsoleKey.Q)
             {
+                //Define the buffer size appropriately                
+                int bufferSize = Media.Rtsp.RtspMessage.MaximumLength;
+
+                //Using a buffer size greater than Media.Rtsp.RtspMessage.MaximumLength will allow the RtpClient to share the memory in use.
+                bufferSize *= 2;
+
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
                     //Using a new Media.RtspClient with a specified buffer size
-                    using (client = new Media.Rtsp.RtspClient(location, protocol, 2 * Media.Rtsp.RtspMessage.MaximumLength))
+                    using (client = new Media.Rtsp.RtspClient(location, protocol, bufferSize))
                     {                        
 
                         //Use the credential specified
@@ -1899,7 +1905,7 @@ namespace Tests
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
-                                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize((Media.Common.ISocketOwner)sender, 0x1024 * i++);
+                                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize((Media.Common.ISocketOwner)sender, i * bufferSize);
                                 ++incompleteFrames;
                                 Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
