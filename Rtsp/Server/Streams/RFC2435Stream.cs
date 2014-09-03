@@ -246,6 +246,9 @@ namespace Media.Rtsp.Server.Streams
             internal static byte[] CreateJFIFHeader(byte jpegType, uint width, uint height, ArraySegment<byte> tables, byte precision, ushort dri)
             {
                 List<byte> result = new List<byte>();
+
+                int tablesCount = tables.Count;
+
                 result.Add(JpegMarkers.Prefix);
                 result.Add(JpegMarkers.StartOfInformation);//SOI                
 
@@ -293,7 +296,7 @@ namespace Media.Rtsp.Server.Streams
 
                 //Todo properly build headers?
                 //If only 1 table
-                if(tables.Count == 64)
+                if(tablesCount == 64)
                 {
                     result.Add(0x00); //Length
                     result.Add(0x0b); //
@@ -348,7 +351,7 @@ namespace Media.Rtsp.Server.Streams
                 result.AddRange(CreateHuffmanTableMarker(lum_ac_codelens, lum_ac_symbols, 0, 1));
 
                 //More then 1 table
-                if (tables.Count > 64)
+                if (tablesCount > 64)
                 {
                     result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
                     result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
@@ -359,7 +362,7 @@ namespace Media.Rtsp.Server.Streams
                 result.Add(JpegMarkers.StartOfScan);//Marker SOS
                 
                 //If only 1 table
-                if (tables.Count == 64)
+                if (tablesCount == 64)
                 {
                     result.Add(0x00); //Length
                     result.Add(0x08); //Length - 12
@@ -539,7 +542,7 @@ namespace Media.Rtsp.Server.Streams
 
             static byte[] lum_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
-            static byte[] lum_ac_codelens = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d }; //0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
+            static byte[] lum_ac_codelens = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d }; 
 
             static byte[] lum_ac_symbols = 
         {
@@ -1103,7 +1106,7 @@ namespace Media.Rtsp.Server.Streams
             /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
             /// Assigns Image from the result
             /// </summary>
-            internal virtual void ProcessPackets(bool allowLegacyPackets = false, bool allowIncomplete = false)
+            public virtual void  PrepareBitmap(bool allowLegacyPackets = false, bool allowIncomplete = false)
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
@@ -1364,7 +1367,7 @@ namespace Media.Rtsp.Server.Streams
             {
                 try
                 {
-                    if (Image == null) ProcessPackets();
+                    if (Image == null) PrepareBitmap();
                     if (Image != null) return Image.Clone() as System.Drawing.Image;
                     return null;
                 }

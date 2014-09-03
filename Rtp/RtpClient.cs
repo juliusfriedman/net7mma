@@ -1655,10 +1655,7 @@ namespace Media.Rtp
             if (memory == default(ArraySegment<byte>))
             {
                 //Determine a good size
-
-                //m_BufferLength = (RtpPacket.MaxPacketSize + RtcpHeader.RtcpHeaderLength);// 4 for RFC2326 + RFC4571 bytes ($,id,{len0,len1})
-                m_BufferLength = 4096;
-
+                m_BufferLength = 1500 * 4;
                 m_Buffer = new byte[m_BufferLength];
                 m_BufferOffset = 0;
             }
@@ -2383,13 +2380,13 @@ namespace Media.Rtp
 
                 //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
 
-                OnInterleavedData(new ArraySegment<byte>(buffer, mOffset, upperLayerData));
+                if (upperLayerData > TCP_OVERHEAD) OnInterleavedData(new ArraySegment<byte>(buffer, mOffset, upperLayerData));
 
                 mOffset = startOfFrame;
 
                 received -= upperLayerData;
 
-                //Indicate length from offset until next frame.
+                //Indicate length from offset until next frame. (should always be positive, if somehow -1 is returned this will signal a end of buffer)
 
                 return upperLayerData - TCP_OVERHEAD;
             }
@@ -2524,7 +2521,7 @@ namespace Media.Rtp
                         if (error != SocketError.Success && error != SocketError.TryAgain) return -1;
                     }
 
-                    return ProcessFrameData(m_Buffer, offset, received);
+                    return ProcessFrameData(m_Buffer, offset, received, socket);
                 }
 
                 //Use the data received to parse and complete any recieved packets, should take a parseState
@@ -2535,7 +2532,7 @@ namespace Media.Rtp
             return received;
         }
 
-        internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int length)
+        internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int length, Socket socket)
         {
             //Determine which TransportContext will receive the data incoming
             TransportContext relevent = null;
@@ -2576,7 +2573,6 @@ namespace Media.Rtp
                     //Frame starts here
                     int frameStart = offset - remainingInBuffer;
 
-                    Socket socket = relevent != null && frameChannel == relevent.ControlChannel ? relevent.RtcpSocket : TransportContexts.First().RtpSocket;
                     SocketError error = SocketError.SocketError;
 
                     while (remainingInWire > 0)
