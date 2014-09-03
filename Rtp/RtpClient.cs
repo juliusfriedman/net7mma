@@ -187,9 +187,8 @@ namespace Media.Rtp
         /// <returns>A configured RtpClient</returns>
         public static RtpClient Sender(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
-            return new RtpClient(remoteAddress, sharedMemory)
+            return new RtpClient(remoteAddress, sharedMemory, inactivityTimeout ?? DefaultTimeout)
             {
-                InactivityTimeout = inactivityTimeout ?? DefaultTimeout,
                 FrameChangedEventsEnabled = false
             };
         }
@@ -202,20 +201,18 @@ namespace Media.Rtp
         /// <returns>A configured RtpClient</returns>
         public static RtpClient Participant(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
-            return new RtpClient(remoteAddress)
+            return new RtpClient(remoteAddress, sharedMemory, inactivityTimeout ?? DefaultTimeout)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
-                InactivityTimeout = inactivityTimeout ?? DefaultTimeout,
                 FrameChangedEventsEnabled = true
             };
         }
 
         public static RtpClient Participant(Sdp.SessionDescription sdp, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
-            return new RtpClient(System.Net.IPAddress.Parse(sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault().IPAddress))
+            return new RtpClient(System.Net.IPAddress.Parse(sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault().IPAddress), sharedMemory, inactivityTimeout ?? DefaultTimeout)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
-                InactivityTimeout = inactivityTimeout ?? DefaultTimeout,
                 FrameChangedEventsEnabled = true
             };
         }
@@ -1654,8 +1651,8 @@ namespace Media.Rtp
         {
             if (memory == default(ArraySegment<byte>))
             {
-                //Determine a good size
-                m_BufferLength = 1500 * 4;
+                //Determine a good size based on the MTU (this should cover most applications)
+                m_BufferLength = 4096;
                 m_Buffer = new byte[m_BufferLength];
                 m_BufferOffset = 0;
             }
@@ -2215,6 +2212,10 @@ namespace Media.Rtp
 
                 //Create the workers thread and start it.
                 m_WorkerThread = new Thread(new ThreadStart(SendReceieve));
+
+                //Ensure buffer is sized
+                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize(((Media.Common.ISocketOwner)this), m_BufferLength);
+
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
                 m_WorkerThread.Priority = ThreadPriority.AboveNormal;
                 //m_WorkerThread.IsBackground = true;
@@ -2364,6 +2365,8 @@ namespace Media.Rtp
             //Look for the frame control octet
             int mOffset = offset ?? m_BufferOffset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
 
+            int frameLength = 0;
+
             //If not found everything belongs to the upper layer
             if (startOfFrame == -1)
             {
@@ -2393,7 +2396,7 @@ namespace Media.Rtp
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
 
             //The amount of data needed for the frame
-            int frameLength = TryReadFrameHeader(buffer, mOffset, out frameChannel);
+            frameLength = TryReadFrameHeader(buffer, mOffset, out frameChannel);
 
             //Do not obtain a context for a erronoues length
             if (frameLength < 0) return frameLength;
@@ -2563,15 +2566,20 @@ namespace Media.Rtp
 
                 if (remainingInWire > 0)
                 {
-                    if (offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength)
+                    //Frame starts here
+                    int frameStart = offset;
+
+                    //If there is a context then make a buffer copy so the entire frame can fit in the buffer
+                    if (relevent != null && offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength)
                     {
                         //System.Diagnostics.Debug.WriteLine("Buffer Copy");
                         Array.Copy(buffer, offset, buffer, m_BufferOffset, remainingInBuffer);
+                        //The frame now starts here
+                        frameStart = m_BufferOffset;
+
+                        //Our offset for receiveing is modified 
                         offset = m_BufferOffset + remainingInBuffer;
                     }
-
-                    //Frame starts here
-                    int frameStart = offset - remainingInBuffer;
 
                     SocketError error = SocketError.SocketError;
 
