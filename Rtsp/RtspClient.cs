@@ -577,7 +577,7 @@ namespace Media.Rtsp
             {
                 //Check for already setup context
                 if (m_RtpClient != null && m_RtpClient.GetContextForMediaDescription(md) != null) continue;
-                else if (mediaType.HasValue && md.MediaType != md.MediaType) continue; //Don't setup unwanted streams
+                else if (mediaType.HasValue && md.MediaType != mediaType) continue; //Don't setup unwanted streams
 
                 try
                 {
