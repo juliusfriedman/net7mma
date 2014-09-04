@@ -494,7 +494,7 @@ namespace Media.RtpTools
             {
                 StringBuilder sb = new StringBuilder();
 
-                var ip = new System.Net.IPAddress(Source);
+                var ip = new System.Net.IPAddress((uint)Source);
                 var ep = new System.Net.IPEndPoint(ip, Port);
                 var ts = TimeSpan.FromSeconds(StartSeconds).Add(TimeSpan.FromSeconds(Microseconds / 10000));
 

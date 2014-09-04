@@ -607,7 +607,7 @@ namespace Media.RtpTools
                 //Could allow an option for the latter/former
 
                 //cc=
-                builder.Append(System.Text.Encoding.ASCII.GetBytes(string.Format(RtpSend.NonQuotedFormat, "cc", packet.ContributingSourceCount)));
+                builder.Append(string.Format(RtpSend.NonQuotedFormat, "cc", packet.ContributingSourceCount));
 
                 builder.Append(Common.ASCII.LineFeed);
 
@@ -616,7 +616,7 @@ namespace Media.RtpTools
                     //csrc=
                     while (sl.MoveNext())
                     {
-                        builder.Append(System.Text.Encoding.ASCII.GetBytes(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X"))));
+                        builder.Append(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X")));
 
                         builder.Append(Common.ASCII.LineFeed);
                     }

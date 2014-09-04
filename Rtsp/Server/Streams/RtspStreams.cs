@@ -131,11 +131,11 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        public RtspSourceStream(string name, string location, RtspClient.ClientProtocolType rtpProtocolType)
-            : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType) { }
+        public RtspSourceStream(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 8192)
+            : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize) { }
 
-        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
-            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType) { }
+        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
+            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -144,13 +144,13 @@ namespace Media.Rtsp.Server.Streams
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
-        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null)
+        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
             : base(name, sourceLocation)
         {
             //Create the listener if we are the top level stream (Parent)
             if (IsParent)
             {
-                RtspClient = new RtspClient(m_Source, rtpProtocolType);
+                RtspClient = new RtspClient(m_Source, rtpProtocolType, bufferSize);
             }
             //else it is already assigned via the child
 

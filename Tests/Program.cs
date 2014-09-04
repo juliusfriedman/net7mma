@@ -955,6 +955,8 @@ namespace Tests
                         //Additionally the Blob contains the RD_hdr_t and RD_packet_t but the Data property only will expose the octets required for the packets
                         byte[] data = entry.Data.ToArray();
 
+                        if (data.Length == 0) continue;
+
                         int offset = 0, max = data.Length;
 
                         //Determine further action based on the PacketLength, Version etc.
@@ -1856,7 +1858,8 @@ namespace Tests
                 int bufferSize = Media.Rtsp.RtspMessage.MaximumLength;
 
                 //Using a buffer size greater than Media.Rtsp.RtspMessage.MaximumLength will allow the RtpClient to share the memory in use.
-                bufferSize *= 2;
+                bufferSize *= 2; //8 MB
+                // *= 8; = 34 MB
 
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
