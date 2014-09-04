@@ -367,7 +367,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, 0, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
@@ -1854,12 +1854,12 @@ namespace Tests
             Media.Rtsp.RtspClient client = null;
             if (!string.IsNullOrWhiteSpace(location) && Console.ReadKey().Key != ConsoleKey.Q)
             {
-                //Define the buffer size appropriately                
-                int bufferSize = Media.Rtsp.RtspMessage.MaximumLength;
+                ////Define the buffer size appropriately                
+                int bufferSize = Media.Rtsp.RtspMessage.MaximumLength * 2;
 
-                //Using a buffer size greater than Media.Rtsp.RtspMessage.MaximumLength will allow the RtpClient to share the memory in use.
-                bufferSize *= 2; //8 MB
-                // *= 8; = 34 MB
+                ////Using a buffer size greater than Media.Rtsp.RtspMessage.MaximumLength will allow the RtpClient to share the memory in use.
+                //bufferSize *= 2; //8 MB
+                //// *= 8; = 34 MB
 
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
