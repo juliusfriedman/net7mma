@@ -2504,10 +2504,12 @@ namespace Media.Rtp
             //There is no error yet
             SocketError error = SocketError.SocketError;
 
+            bool tcp = socket.ProtocolType == ProtocolType.Tcp;
+
             //Cache the offset at the time of the call
             int offset = m_BufferOffset,
-                //Reeive data                
-                received = socket.Receive(m_Buffer, offset, m_BufferLength, SocketFlags.None, out error);
+                //Receive data, uncomment the tcp check to recieve only TCP headers, this is commented incase a RtspRequest is in the buffer in front of a RFC2326 Frame header and works better for interleaving them              
+                received = socket.Receive(m_Buffer, offset, /*tcp ? 4 : */m_BufferLength, SocketFlags.None, out error);
 
             if (error != SocketError.Success) return -1;
 
@@ -2515,7 +2517,7 @@ namespace Media.Rtp
             if (received > 0)
             {
                 //Under TCP use Framing to obtain the length of the packet as well as the context.
-                if (socket.ProtocolType == ProtocolType.Tcp)
+                if (tcp)
                 {
                     //Check for a partial frame header
                     while (TCP_OVERHEAD > received)
@@ -2879,6 +2881,9 @@ namespace Media.Rtp
                                 lastOperation = DateTime.UtcNow;
                             }
                             else break;
+
+                            //If this was a marker packet then stop for now
+                            if (packet.Marker) break;
                         }
 
                         m_OutgoingRtpPackets.RemoveRange(0, sent);
@@ -2904,7 +2909,7 @@ namespace Media.Rtp
 
                 bool duplexing = context.Duplexing, rtpEnabled = context.RtpEnabled, rtcpEnabled = context.RtcpEnabled;
 
-                //If receiving Rtp AND the last Rtp reception occured in more then the time alloted from the m_ReceiveInterval
+                //If receiving Rtp and the socket is able to read
                 if (rtpEnabled
                     //Check if the socket can read data
                     && context.RtpSocket.Poll((int)Math.Round(context.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
@@ -2915,9 +2920,9 @@ namespace Media.Rtp
 
                 //if Rtcp is enabled
                 if (rtcpEnabled
-                    &&
+                    && //The last report was never received or recieved longer ago then required
                     (context.LastRtcpReportReceived == TimeSpan.Zero || context.LastRtcpReportReceived >= context.m_ReceiveInterval)
-                    &&
+                    &&//And the socket can read
                     context.RtcpSocket.Poll((int)Math.Round(context.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
                 {
 

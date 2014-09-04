@@ -367,12 +367,24 @@ namespace Media.Rtsp
         }
 
         /// <summary>
+        /// Creates a new RtspClient from the given uri in string form.
+        /// E.g. 'rtsp://somehost/sometrack/
+        /// </summary>
+        /// <param name="location">The string which will be parsed to obtain the Location</param>
+        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
+        /// <param name="bufferSize">The amount of bytes the client will use during message reception, Must be at least 4096 and if larger it will also be shared with the underlying RtpClient</param>
+        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
+            : this(new Uri(location), rtpProtocolType, bufferSize)
+        {
+        }
+
+        /// <summary>
         /// Creates a RtspClient on a non standard Rtsp Port
         /// </summary>
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
-        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null)
+        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
             if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme == System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
@@ -397,21 +409,12 @@ namespace Media.Rtsp
                 }
                 else throw new ArgumentException("Must be Tcp or Udp.", "protocolType");
             }
-        }
-
-        /// <summary>
-        /// Creates a new RtspClient from the given uri in string form.
-        /// E.g. 'rtsp://somehost/sometrack/
-        /// </summary>
-        /// <param name="location">The string which will be parsed to obtain the Location</param>
-        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
-        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
-            : this(new Uri(location), rtpProtocolType)
-        {
 
             if (bufferSize < RtspMessage.MaximumLength) throw new ArgumentOutOfRangeException("Buffer size must be at least RtspMessage.MaximumLength (4096)");
             m_Buffer = new byte[bufferSize];
         }
+
+        
 
         ~RtspClient()
         {
@@ -530,12 +533,11 @@ namespace Media.Rtsp
         internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public void StartListening(TimeSpan? start = null/*, Sdp.MediaType? mediaType = null*/)
+        public void StartListening(TimeSpan? start = null, Sdp.MediaType? mediaType = null)
         {
 
             // If already listening and we have started to receive then there is nothing to do 
             if (Listening) return;
-
 
             try
             {
@@ -573,6 +575,10 @@ namespace Media.Rtsp
             //For each MediaDescription in the SessionDecscription
             foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions/*.Where(md => md.MediaFormat >= 96 && md.RtpMapLine != null)*/.ToArray())
             {
+                //Check for already setup context
+                if (m_RtpClient != null && m_RtpClient.GetContextForMediaDescription(md) != null) continue;
+                else if (mediaType.HasValue && md.MediaType != md.MediaType) continue; //Don't setup unwanted streams
+
                 try
                 {
                     //Send a setup
