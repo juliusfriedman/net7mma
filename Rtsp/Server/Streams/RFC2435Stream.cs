@@ -874,21 +874,31 @@ namespace Media.Rtsp.Server.Streams
                             {
                                 //Read the StartOfFrame Marker
                                 byte[] data = new byte[CodeSize];
-                                temp.Read(data, 0, CodeSize);
+                                int offset = 0;
+                                temp.Read(data, offset, CodeSize);
 
                                 //@0 - Sample precision – Specifies the precision in bits for the samples of the components in the frame (1)
+                                ++offset;
 
                                 //Y Number of lines [Height] (2)
-                                Height = Common.Binary.ReadU16(data, 1, BitConverter.IsLittleEndian);
+                                Height = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
+
+                                offset += 2;
 
                                 //X Number of lines [Width] (2)
-                                Width = Common.Binary.ReadU16(data, 3, BitConverter.IsLittleEndian);
+                                Width = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
+
+                                offset += 2;
 
                                 //Check for SubSampling to set the RtpJpegType from the Luma component
-                                if (data[7] != 0x21) RtpJpegType |= 1;
+
+                                //http://tools.ietf.org/search/rfc2435#section-4.1
+                                //Type numbers 2-5 are reserved and SHOULD NOT be used.
+
+                                //if (data[7] != 0x21) RtpJpegType |= 1;
 
                                 //Nf - Number of image components in frame
-                                int numberOfComponents = data[5];
+                                int numberOfComponents = data[offset++];
 
                                 //Hi: Horizontal sampling factor – Specifies the relationship between the component horizontal dimension
                                 //and maximum image dimension X (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of horizontal data units of component
@@ -900,37 +910,35 @@ namespace Media.Rtsp.Server.Streams
                                 //maximum image dimension Y (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of vertical data units of component Ci in
                                 //each MCU, when more than one component is encoded in a scan
 
-                                //Could also be checked in the StartOfScan?
-                                //Check remaining components
-                                //for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
-
 
                                 //Experimental Support for Any amount of samples.
-                                for (int i = 1; i < numberOfComponents; ++i)
+                                if (numberOfComponents > 1)
                                 {
-                                    byte samplingFactor = data[7 + i * 3];                                        
-                                    switch (samplingFactor)
-                                    {
-                                        //byte Hi = (byte)(samplingFactor & 0xF0),
-                                        //Vi = (byte)(samplingFactor << 4);
+                                    //Check remaining components (Chroma)
 
-                                        //1x1
-                                        case 17: break;
-                                        case 33:
-                                        case 23:
-                                        case 13:
-                                        case 03:
-                                        case 22: 
-                                        default:
+                                    //Could also be checked in the StartOfScan?
+                                    //for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
+                                    // Add all of the necessary components to the frame.
+                                    for (int tableId = 0; tableId < numberOfComponents; ++tableId)
+                                    {
+                                        byte compId = data[offset++];
+                                        byte samplingFactors = data[offset++];
+                                        byte qTableId = data[offset++];
+
+                                        byte sampleHFactor = (byte)(samplingFactors >> 4);
+                                        byte sampleVFactor = (byte)(samplingFactors & 0x0f);
+
+                                        //Check for 1x1
+                                        if (sampleHFactor != 1 || sampleVFactor != 1)
+                                        {
+                                            if ((sampleHFactor != 2 || sampleVFactor != 1))
                                             {
-                                                RtpJpegTypeSpecific ^= samplingFactor;
-                                                break;
+                                                if (tableId == 0) RtpJpegType |= 1;
+                                                else if (tableId > 0) RtpJpegTypeSpecific |= (byte)(compId ^ samplingFactors);
                                             }
+                                        }
                                     }
                                 }
-
-                                //http://tools.ietf.org/search/rfc2435#section-4.1
-                                //Type numbers 2-5 are reserved and SHOULD NOT be used.
                             }
                             else if (FunctionCode == JpegMarkers.DataRestartInterval) //RestartInterval is copied
                             {
