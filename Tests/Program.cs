@@ -367,7 +367,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(new System.IO.FileStream("video.jpg", System.IO.FileMode.Open), 25, 0, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 

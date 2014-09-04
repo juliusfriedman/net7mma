@@ -337,13 +337,13 @@ namespace Media.Rtsp.Server.Streams
                     result.Add(0x11);//Horizontal or Vertical Sample
 
                     //ToDo - Handle 16 Bit Precision
-                    result.Add(1);//Matrix Number
+                    result.Add((byte)(tablesCount == 64 ? 0x00 : 0x01));//Matrix Number
 
                     result.Add(0x03);//Component Number
                     result.Add(0x11);//Horizontal or Vertical Sample
 
                     //ToDo - Handle 16 Bit Precision
-                    result.Add(1);//Matrix Number      
+                    result.Add((byte)(tablesCount == 64 ? 0x00 : 0x01));//Matrix Number      
                 }
 
                 //Huffman Tables
@@ -698,7 +698,7 @@ namespace Media.Rtsp.Server.Streams
 
                     image.Save(temp, JpegCodecInfo, parameters);
 
-                    return new RFC2435Frame(temp, imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacket);
+                    return new RFC2435Frame(temp, imageQuality, (byte)(interlaced ? 1 : 0), ssrc, sequenceNo, timeStamp, bytesPerPacket);
                 }
 
             }
@@ -708,11 +708,13 @@ namespace Media.Rtsp.Server.Streams
             /// </summary>
             /// <param name="jpegData">The stream which contains JPEG formatted data and starts with a StartOfInformation Marker</param>
             /// <param name="qualityFactor">The value to utilize in the RFC2435 Q field, a value >= 100 causes the Quantization Tables to be sent in band.</param>
+            /// <param name="typeSpecific">The value of the TypeSpeicifc field in the each RtpPacket created</param>
             /// <param name="ssrc">The optional Id of the media</param>
             /// <param name="sequenceNo">The optional sequence number for the first packet in the frame.</param>
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
             /// <param name="bytesPerPacket">The amount of bytes each RtpPacket will contain</param>
-            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Common.SourceList sourceList = null)
+            /// <param name="sourceList">The <see cref="SourceList"/> to be included in each packet of the frame</param>
+            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, byte? typeSpecific = 0, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Common.SourceList sourceList = null)
                 : this()
             {
 
@@ -730,7 +732,7 @@ namespace Media.Rtsp.Server.Streams
                 //Set the id of all subsequent packets.
                 SynchronizationSourceIdentifier = ssrc ?? 0;
 
-                byte RtpJpegTypeSpecific = 0,  //Type-specific - http://tools.ietf.org/search/rfc2435#section-3.1.1
+                byte RtpJpegTypeSpecific = typeSpecific ?? 0,  //Type-specific - http://tools.ietf.org/search/rfc2435#section-3.1.1
                     RtpJpegType = 0, //Type - http://tools.ietf.org/search/rfc2435#section-3.1.3
                     Quality = (byte)(qualityFactor ?? 50); //Q - http://tools.ietf.org/search/rfc2435#section-3.1.4
 
@@ -880,20 +882,28 @@ namespace Media.Rtsp.Server.Streams
                                 //X Number of lines [Width] (2)
                                 Width = Common.Binary.ReadU16(data, 3, BitConverter.IsLittleEndian);
 
+                                //Nf - Number of image components in frame
+                                int numberOfComponents = data[5];
+
                                 //Hi: Horizontal sampling factor – Specifies the relationship between the component horizontal dimension
                                 //and maximum image dimension X (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of horizontal data units of component
                                 //Ci in each MCU, when more than one component is encoded in a scan                                                        
 
-                                //http://tools.ietf.org/search/rfc2435#section-4.1
-                                //Type numbers 2-5 are reserved and SHOULD NOT be used.
-                                if (data[7] != 0x21) RtpJpegType |= 1;
+                                //Each component takes 3 bytes Ci, {Hi, Vi,} Tq
 
                                 //Vi: Vertical sampling factor – Specifies the relationship between the component vertical dimension and
                                 //maximum image dimension Y (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of vertical data units of component Ci in
                                 //each MCU, when more than one component is encoded in a scan
 
-                                //Unless related to RtpJpegType must be zeroed on transmission and ignored on reception.
-                                //RtpJpegTypeSpecific = data[8];
+                                //Could also be checked in the StartOfScan?
+
+                                for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
+
+                                //Check for SubSampling to set the RtpJpegType
+                                if (data[7] != 0x21) RtpJpegType |= 1;
+
+                                //http://tools.ietf.org/search/rfc2435#section-4.1
+                                //Type numbers 2-5 are reserved and SHOULD NOT be used.
                             }
                             else if (FunctionCode == JpegMarkers.DataRestartInterval) //RestartInterval is copied
                             {
