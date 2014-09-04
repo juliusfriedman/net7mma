@@ -50,6 +50,16 @@ namespace Media.Rtsp.Server.Streams
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious, e.g. archiving / caching etc.
         //public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }        
 
+        /// <summary>
+        /// If not null the only type of media which will be setup from the source.
+        /// </summary>
+        public readonly Sdp.MediaType? SpecificMediaType;
+
+        /// <summary>
+        /// If not null, The time at which to start the media in the source.
+        /// </summary>
+        public readonly TimeSpan? MediaStartTime;
+
         #region Properties
 
         /// <summary>
@@ -125,17 +135,17 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready { get { return RtspClient != null && RtspClient.Playing /*&& RtspClient.m_RtpClient.TransportContexts.All(tc=>tc.LastFrame != null)*/; } }
+        public override bool Ready { get { return RtspClient != null && RtspClient.Playing; } }
 
         #endregion
 
         #region Constructor
 
-        public RtspSourceStream(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 8192)
-            : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize) { }
+        public RtspSourceStream(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null)
+            : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize, specificMedia, startTime) { }
 
-        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
-            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize) { }
+        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null)
+            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize, specificMedia, startTime) { }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer
@@ -144,7 +154,7 @@ namespace Media.Rtsp.Server.Streams
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
-        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
+        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null)
             : base(name, sourceLocation)
         {
             //Create the listener if we are the top level stream (Parent)
@@ -160,9 +170,13 @@ namespace Media.Rtsp.Server.Streams
 
                 if (authType != AuthenticationSchemes.None) RtspClient.AuthenticationScheme = SourceAuthenticationScheme = authType;
             }
-        }
+            
+            //If only certain media should be setup 
+            if (specificMedia.HasValue) SpecificMediaType = specificMedia;
 
-      
+            //If there was a start time given
+            if (startTime.HasValue) MediaStartTime = startTime;
+        }
 
         #endregion
 
@@ -202,7 +216,7 @@ namespace Media.Rtsp.Server.Streams
             try
             {
                 //Start listening
-                RtspClient.StartListening();
+                RtspClient.StartListening(MediaStartTime, SpecificMediaType);
 
                 //Set the time for stats
                 m_StartedTimeUtc = DateTime.UtcNow;

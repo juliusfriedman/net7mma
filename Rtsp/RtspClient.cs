@@ -568,16 +568,17 @@ namespace Media.Rtsp
                 return;
             }
 
+            //Erase all Contexts before start listening again
             if (m_RtpClient != null) m_RtpClient.TransportContexts.Clear();
 
             bool setupTracks = false;
 
             //For each MediaDescription in the SessionDecscription
-            foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions/*.Where(md => md.MediaFormat >= 96 && md.RtpMapLine != null)*/.ToArray())
+            foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
             {
-                //Check for already setup context
-                if (m_RtpClient != null && m_RtpClient.GetContextForMediaDescription(md) != null) continue;
-                else if (mediaType.HasValue && md.MediaType != mediaType) continue; //Don't setup unwanted streams
+                
+                //Don't setup unwanted streams
+                if (mediaType.HasValue && md.MediaType != mediaType) continue; 
 
                 try
                 {
