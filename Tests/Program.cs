@@ -2250,19 +2250,24 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));            
 
+            
+            string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+            string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
+
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true, ForceTCP = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", localPath + "\\TestJpeg") { Loop = true, ForceTCP = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Expose Bandit's Pictures through Udp and Tcp
-            server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", string.Join(string.Empty, new Uri(System.Reflection.Assembly.GetExecutingAssembly().Location).Segments.Reverse().Skip(1).Reverse().ToArray()) + "\\Bandit\\") { Loop = true });
+            server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", localPath + "\\Bandit") { Loop = true });
 
             //Test H.264 Encoding
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", localPath + "\\TestJpeg") { Loop = true });
 
             //Test MPEG2 Endoing
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", System.Reflection.Assembly.GetExecutingAssembly().Location) { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", localPath + "\\TestJpeg") { Loop = true });
 
             //Test Http Jpeg Transcoding
             server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
@@ -2525,98 +2530,9 @@ a=mpeg4-esid:101");
 
         static void TestJpegFrame()
         {
-            Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame f;
+            
 
-            //Create a RFC2435 Jpeg from a (RFC2035) Jpeg, Any `valid` JPEG should do.
-            using (var jpegStream = new System.IO.FileStream("video.jpg", System.IO.FileMode.Open))
-            {
-                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
-                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 25);
-
-                //Save the JpegFrame as a Image (Decoding performed)
-                using (System.Drawing.Image jpeg = f)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
-                System.IO.File.Delete("result.jpg");
-            }
-
-            using (var jpegStream = new System.IO.FileStream("croin.jpg", System.IO.FileMode.Open))
-            {
-                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
-                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream,100);
-
-                //Save the JpegFrame as a Image (Decoding performed)
-                using (System.Drawing.Image jpeg = f)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
-                System.IO.File.Delete("result.jpg");
-            }
-
-            using (var jpegStream = new System.IO.FileStream("croin.jpg", System.IO.FileMode.Open))
-            {
-                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
-                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream,100);
-
-                //Save the JpegFrame as a Image (Decoding performed)
-                using (System.Drawing.Image jpeg = f)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
-                System.IO.File.Delete("result.jpg");
-            }
-
-            //Create a JpegFrame from existing RtpPackets
-            using (Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame())
-            {
-                foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
-
-                //Save JpegFrame as Image
-                using (System.Drawing.Image jpeg = x)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }                                
-
-                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
-
-                System.IO.File.Delete("result.jpg");
-            }
-
-            //Create a RFC2435Frame from an existing image and store the quantization tables in the frame.
-            using (var jpegStream = new System.IO.FileStream("flip.jpg", System.IO.FileMode.Open))
-            {
-                //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization)
-                f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 100);
-
-                //Save the JpegFrame as a Image (Decoding performed)
-                using (System.Drawing.Image jpeg = f)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
-                System.IO.File.Delete("result.jpg");
-            }
-
-            //Create a RFC2435Frame from an existing image and store the quantization tables in the frame.
-            using (var image = System.Drawing.Image.FromFile("flip.jpg"))
-            {
-                Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame t = Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.Packetize(image, 100);
-
-                using (System.Drawing.Image jpeg = t)
-                {
-                    jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-                }
-
-                System.IO.File.Delete("result.jpg");
-            }
+           
 
             byte[][] jpegPackets = new byte[][]
                 {
@@ -2736,7 +2652,110 @@ a=mpeg4-esid:101");
                 System.IO.File.Delete("result.jpg");
             }
 
-            
+            //Used in tests below
+            Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame f = null;
+
+            //For each file in the JpegTest directory
+            foreach (string fileName in System.IO.Directory.GetFiles("./JpegTest"))
+            {
+                using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
+                {
+
+                    if (f != null) if (!f.Disposed) f.Dispose();
+                        
+                    f = null;
+
+                    //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization With Quant Tables)
+                    f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 100);
+
+                    //Save the JpegFrame as a Image (Decoding performed)
+                    using (System.Drawing.Image jpeg = f)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                    System.IO.File.Delete("result.jpg");
+                }
+
+                using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
+                {
+                    //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
+                    f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 100);
+
+                    //Save the JpegFrame as a Image (Decoding performed)
+                    using (System.Drawing.Image jpeg = f)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                    System.IO.File.Delete("result.jpg");
+                }
+
+                //Create a JpegFrame from existing RtpPackets
+                using (Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame())
+                {
+                    foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
+
+                    //Save JpegFrame as Image
+                    using (System.Drawing.Image jpeg = x)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+
+                    System.IO.File.Delete("result.jpg");
+                }
+
+                using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
+                {
+                    //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
+                    f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 50);
+
+                    //Save the JpegFrame as a Image (Decoding performed)
+                    using (System.Drawing.Image jpeg = f)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                    System.IO.File.Delete("result.jpg");
+                }
+
+                using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
+                {
+                    //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
+                    f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 50);
+
+                    //Save the JpegFrame as a Image (Decoding performed)
+                    using (System.Drawing.Image jpeg = f)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+                    System.IO.File.Delete("result.jpg");
+                }
+
+                //Create a JpegFrame from existing RtpPackets
+                using (Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame())
+                {
+                    foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
+
+                    //Save JpegFrame as Image
+                    using (System.Drawing.Image jpeg = x)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Bytes of video should match byte for byte result.jpeg in the first scan exactly (From 0x26f -> EOI)
+
+                    System.IO.File.Delete("result.jpg");
+                }
+            }
+
             
         }
 

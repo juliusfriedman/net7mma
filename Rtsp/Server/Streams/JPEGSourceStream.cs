@@ -436,7 +436,7 @@ namespace Media.Rtsp.Server.Streams
 
                         // provide new image to clients
                         // image at stop
-                        using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, 0, total)))
+                        using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, 0, total), true, false))
                         {
                             // notify client
 
