@@ -335,7 +335,6 @@ namespace Media.Rtsp.Server.Streams
                     result.Add(0x00);//Matrix Number (Quant Table Id)?
                     result.Add(0x02);//Component Number
 
-
                     result.Add((byte)(typeSpec > 0 ? typeSpec : 0x11));//Horizontal or Vertical Sample 
 
                     //ToDo - Handle 16 Bit Precision
@@ -394,7 +393,7 @@ namespace Media.Rtsp.Server.Streams
                 return result.ToArray();
             }
 
-            // The default 'luma' and 'chroma' quantizer tables, in zigzag order:
+            // The default 'luma' and 'chroma' quantizer tables, in zigzag order and energy reduced
             static byte[] defaultQuantizers = new byte[]
         {
            // luma table:
@@ -406,15 +405,6 @@ namespace Media.Rtsp.Server.Streams
            87, 69, 55, 56, 80, 109, 81, 87,
            95, 98, 103, 104, 103, 62, 77, 113,
            121, 112, 100, 120, 92, 101, 103, 99,
-            //From RFC2435 / Jpeg Spec
-            ////16, 11, 10, 16, 24, 40, 51, 61,
-            ////12, 12, 14, 19, 26, 58, 60, 55,
-            ////14, 13, 16, 24, 40, 57, 69, 56,
-            ////14, 17, 22, 29, 51, 87, 80, 62,
-            ////18, 22, 37, 56, 68, 109, 103, 77,
-            ////24, 35, 55, 64, 81, 104, 113, 92,
-            ////49, 64, 78, 87, 103, 121, 120, 101,
-            ////72, 92, 95, 98, 112, 100, 103, 99,
            // chroma table:
            17, 18, 18, 24, 21, 24, 47, 26,
            26, 47, 99, 66, 56, 66, 99, 99,
@@ -424,15 +414,30 @@ namespace Media.Rtsp.Server.Streams
            99, 99, 99, 99, 99, 99, 99, 99,
            99, 99, 99, 99, 99, 99, 99, 99,
            99, 99, 99, 99, 99, 99, 99, 99
+        };
+
+            static byte[] rfcQuantizers = new byte[]
+        {
+           // luma table:
             //From RFC2435 / Jpeg Spec
-            ////17, 18, 24, 47, 99, 99, 99, 99,
-            ////18, 21, 26, 66, 99, 99, 99, 99,
-            ////24, 26, 56, 99, 99, 99, 99, 99,
-            ////47, 66, 99, 99, 99, 99, 99, 99,
-            ////99, 99, 99, 99, 99, 99, 99, 99,
-            ////99, 99, 99, 99, 99, 99, 99, 99,
-            ////99, 99, 99, 99, 99, 99, 99, 99,
-            ////99, 99, 99, 99, 99, 99, 99, 99
+            16, 11, 10, 16, 24, 40, 51, 61,
+            12, 12, 14, 19, 26, 58, 60, 55,
+            14, 13, 16, 24, 40, 57, 69, 56,
+            14, 17, 22, 29, 51, 87, 80, 62,
+            18, 22, 37, 56, 68, 109, 103, 77,
+            24, 35, 55, 64, 81, 104, 113, 92,
+            49, 64, 78, 87, 103, 121, 120, 101,
+            72, 92, 95, 98, 112, 100, 103, 99,
+           // chroma table:
+            //From RFC2435 / Jpeg Spec
+            17, 18, 24, 47, 99, 99, 99, 99,
+            18, 21, 26, 66, 99, 99, 99, 99,
+            24, 26, 56, 99, 99, 99, 99, 99,
+            47, 66, 99, 99, 99, 99, 99, 99,
+            99, 99, 99, 99, 99, 99, 99, 99,
+            99, 99, 99, 99, 99, 99, 99, 99,
+            99, 99, 99, 99, 99, 99, 99, 99,
+            99, 99, 99, 99, 99, 99, 99, 99
         };
 
             /// <summary>
@@ -440,9 +445,11 @@ namespace Media.Rtsp.Server.Streams
             /// </summary>
             /// <param name="Q">The quality factor</param>
             /// <returns>64 luma bytes and 64 chroma</returns>
-            internal static byte[] CreateQuantizationTables(uint type, uint Q, byte precision)
+            internal static byte[] CreateQuantizationTables(uint type, uint Q, byte precision, bool useRfcQuantizer)
             {
                 if (Q >= 100) throw new InvalidOperationException("For Q >= 100, a dynamically defined quantization table is used, which might be specified by a session setup protocol.");
+
+                byte[] quantizer = useRfcQuantizer ? rfcQuantizers :  defaultQuantizers;
 
                 //Factor restricted to range of 1 and 99
                 int factor = (int)Math.Min(Math.Max(1, Q), 99);
@@ -451,7 +458,7 @@ namespace Media.Rtsp.Server.Streams
                 int q = (Q >= 1 && Q <= 50 ? (int)(5000 / factor) : 200 - factor * 2);
 
                 //Create 2 quantization tables from Seed quality value using the RFC quantizers
-                int tableSize = defaultQuantizers.Length / 2;
+                int tableSize = quantizer.Length / 2;
                 byte[] resultTables = new byte[tableSize * 2];
                 for (int lumaIndex = 0, chromaIndex = tableSize; lumaIndex < tableSize; ++lumaIndex, ++chromaIndex)
                 {
@@ -460,23 +467,23 @@ namespace Media.Rtsp.Server.Streams
                     {
                         //Clamp with Min, Max (Should be left in tact but endian is unknown on receiving side)
                         //Luma
-                        resultTables[lumaIndex] = (byte)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue);
+                        resultTables[lumaIndex] = (byte)Math.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue);
                         //Chroma
-                        resultTables[chromaIndex] = (byte)Math.Min(Math.Max((defaultQuantizers[chromaIndex] * q + 50) / 100, 1), byte.MaxValue);
+                        resultTables[chromaIndex] = (byte)Math.Min(Math.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue);
                     }
                     else //16 bit tables
                     {
                         //Luma
                         if (BitConverter.IsLittleEndian)
-                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
+                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, lumaIndex++);
                         else
-                            BitConverter.GetBytes((ushort)Math.Min(Math.Max((defaultQuantizers[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, lumaIndex++);
+                            BitConverter.GetBytes((ushort)Math.Min(Math.Max((quantizer[lumaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, lumaIndex++);
 
                         //Chroma
                         if (BitConverter.IsLittleEndian)
-                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((defaultQuantizers[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
+                            BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)Math.Min(Math.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue))).CopyTo(resultTables, chromaIndex++);
                         else
-                            BitConverter.GetBytes((ushort)Math.Min(Math.Max((defaultQuantizers[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, chromaIndex++);
+                            BitConverter.GetBytes((ushort)Math.Min(Math.Max((quantizer[chromaIndex] * q + 50) / 100, 1), byte.MaxValue)).CopyTo(resultTables, chromaIndex++);
                     }
                 }
 
@@ -496,8 +503,10 @@ namespace Media.Rtsp.Server.Streams
 
                 int tableCount = tables.Count / (precisionTable > 0 ? 128 : 64);
 
+                if (tables.Count % tableCount > 0) tableCount = 1;
+
                 //??Some might have more then 2?
-                if (tableCount > 2) throw new ArgumentOutOfRangeException("tableCount");
+                if (tableCount > 3) throw new ArgumentOutOfRangeException("tableCount");
 
                 int tableSize = tables.Count / tableCount;
 
@@ -533,6 +542,21 @@ namespace Media.Rtsp.Server.Streams
 
                     //Second Table. Type - Chromiance usually when two
                     System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 10 + tableSize, tableSize);
+                }
+
+                if (tableCount > 2)
+                {
+                    result[tableSize + 10] = JpegMarkers.Prefix;
+                    result[tableSize + 11] = JpegMarkers.QuantizationTable;
+
+                    result[tableSize + 12] = 0;//Len LSB
+                    result[tableSize + 13] = len;
+
+                    //Pq / Tq
+                    result[tableSize + 14] = (byte)(precisionTable << 4 | 1);//Precision and table Id 1
+
+                    //Second Table. Type - Chromiance usually when two
+                    System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 14 + tableSize, tableSize);
                 }
 
                 return result;
@@ -630,7 +654,7 @@ namespace Media.Rtsp.Server.Streams
             /// <summary>
             /// Creates an empty JpegFrame
             /// </summary>
-            public RFC2435Frame() : base(RFC2435Frame.RtpJpegPayloadType) { }
+            public RFC2435Frame() : base(RFC2435Frame.RtpJpegPayloadType) { MaxPackets = 2048; }
 
             /// <summary>
             /// Creates a new JpegFrame from an existing RtpFrame which has the JpegFrame PayloadType
@@ -752,22 +776,22 @@ namespace Media.Rtsp.Server.Streams
                 List<byte> QuantizationTables = new List<byte>();
 
                 //Use a buffered stream around the given stream 
-                using (System.IO.BufferedStream temp = new System.IO.BufferedStream(jpegData))
+                using (System.IO.BufferedStream jpegStream = new System.IO.BufferedStream(jpegData))
                 {
                     //From the beginning of the buffered stream
-                    temp.Seek(0, System.IO.SeekOrigin.Begin);
+                    jpegStream.Seek(0, System.IO.SeekOrigin.Begin);
 
                     //Check for the Start of Information Marker
-                    if (temp.ReadByte() != JpegMarkers.Prefix && temp.ReadByte() != JpegMarkers.StartOfInformation)
+                    if (jpegStream.ReadByte() != JpegMarkers.Prefix && jpegStream.ReadByte() != JpegMarkers.StartOfInformation)
                         throw new NotSupportedException("Data does not start with Start Of Information Marker");
 
                     //Check for the End of Information Marker, //If present do not include it.
-                    temp.Seek(-1, System.IO.SeekOrigin.End);
+                    jpegStream.Seek(-1, System.IO.SeekOrigin.End);
 
-                    long length = temp.Length, endOffset = temp.ReadByte() == JpegMarkers.EndOfInformation ? length - 2 : length;
+                    long length = jpegStream.Length, endOffset = jpegStream.ReadByte() == JpegMarkers.EndOfInformation ? length - 2 : length;
 
                     //From the beginning of the buffered stream after the Start of Information Marker
-                    temp.Seek(2, System.IO.SeekOrigin.Begin);
+                    jpegStream.Seek(2, System.IO.SeekOrigin.Begin);
 
                     int FunctionCode, //Describes the content of the marker
                         CodeSize, //The lengof the marker segment
@@ -805,13 +829,13 @@ namespace Media.Rtsp.Server.Streams
 
                     //Find a Jpeg Tag while we are not at the end of the stream
                     //Tags come in the format 0xFFXX
-                    while ((FunctionCode = temp.ReadByte()) != -1)
+                    while ((FunctionCode = jpegStream.ReadByte()) != -1)
                     {
                         //If the prefix is a tag prefix then read another byte as the Tag
                         if (FunctionCode == JpegMarkers.Prefix)
                         {
                             //Get the underlying FunctionCode
-                            FunctionCode = temp.ReadByte();
+                            FunctionCode = jpegStream.ReadByte();
 
                             //If we are at the end break
                             if (FunctionCode == -1) break;
@@ -825,7 +849,7 @@ namespace Media.Rtsp.Server.Streams
                             //Read the Marker Length
 
                             //Read Length Bytes
-                            byte h = (byte)temp.ReadByte(), l = (byte)temp.ReadByte();
+                            byte h = (byte)jpegStream.ReadByte(), l = (byte)jpegStream.ReadByte();
 
                             //Calculate Length
                             CodeSize = h * 256 + l;
@@ -836,7 +860,7 @@ namespace Media.Rtsp.Server.Streams
                             //QTables are copied when Quality is > 100
                             if (FunctionCode == JpegMarkers.QuantizationTable && Quality >= 100)
                             {
-                                byte compound = (byte)temp.ReadByte();//Read Table Id (And Precision which is in the same byte)
+                                byte compound = (byte)jpegStream.ReadByte();//Read Table Id (And Precision which is in the same byte)
 
                                 //Precision of 1 indicates a 16 bit table 128 bytes per table, 0 indicates 8 bits 64 bytes per table
                                 bool precision = compound > 15;
@@ -854,7 +878,7 @@ namespace Media.Rtsp.Server.Streams
                                 ++precisionTableIndex;
 
                                 //Read the remainder of the data into the table array
-                                temp.Read(table, 0, tagSizeMinusOne);
+                                jpegStream.Read(table, 0, tagSizeMinusOne);
 
                                 //For 16 bit tables, the coefficients are  must be presented in network byte order.
                                 if (precision && BitConverter.IsLittleEndian)
@@ -875,7 +899,7 @@ namespace Media.Rtsp.Server.Streams
                                 //Read the StartOfFrame Marker
                                 byte[] data = new byte[CodeSize];
                                 int offset = 0;
-                                temp.Read(data, offset, CodeSize);
+                                jpegStream.Read(data, offset, CodeSize);
 
                                 //@0 - Sample precision – Specifies the precision in bits for the samples of the components in the frame (1)
                                 ++offset;
@@ -934,10 +958,15 @@ namespace Media.Rtsp.Server.Streams
                                             if ((sampleHFactor != 2 || sampleVFactor != 1))
                                             {
                                                 if (tableId == 0) RtpJpegType |= 1;
-                                                else if (tableId > 0) RtpJpegTypeSpecific |= (byte)(compId ^ samplingFactors);
+                                                else if (tableId > 0) RtpJpegTypeSpecific = (byte)(RtpJpegTypeSpecific << 4 | (compId ^ samplingFactors));
                                             }
                                         }
                                     }
+                                }//Single Component, Flag in Subsampling if required
+                                else
+                                {
+                                    if (data[++offset] != 0x21) RtpJpegType |= 1;
+                                    if (data[++offset] != 0x20) RtpJpegType |= 1;
                                 }
                             }
                             else if (FunctionCode == JpegMarkers.DataRestartInterval) //RestartInterval is copied
@@ -986,9 +1015,9 @@ namespace Media.Rtsp.Server.Streams
 
                                 //http://www.w3.org/Graphics/JPEG/itu-t81.pdf
                                 //Specifies the length of the parameters in the DRI segment shown in Figure B.9 (see B.1.1.4).
-                                Lr = (ushort)(temp.ReadByte() * 256 + temp.ReadByte());
+                                Lr = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
 
-                                Ri = (ushort)(temp.ReadByte() * 256 + temp.ReadByte());
+                                Ri = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
 
                                 //Set the first bit now, set the last bit on the last packet
                                 RtpJpegRestartInterval = CreateRtpJpegDataRestartIntervalMarker(Lr, true, false);
@@ -999,14 +1028,39 @@ namespace Media.Rtsp.Server.Streams
                             //Last Marker in Header before EntroypEncodedScan
                             else if (FunctionCode == JpegMarkers.StartOfScan)
                             {
-                                long pos = temp.Position;
+                                long pos = jpegStream.Position;
 
-                                byte Ns = (byte)temp.ReadByte();
+                                //Read the number of Component Selectors
+                                byte Ns = (byte)jpegStream.ReadByte();
 
-                                //Read past the each Component in Start of Scan (10 more bytes which end with the StartOfSpectral 0x3f00)                            
-                                temp.Seek(3 + (Ns * 2), System.IO.SeekOrigin.Current);
+                                //Should be equal to the number of components from the Start of Scan
+                                if (Ns > 0)
+                                {
+                                    //Should check tableInfo  does not exceed the number of HuffmanTables
+                                    //The number of Quant tables will be equal to the number of huffman tables so if there are (64 / QuantizationTables.Count) Tables
+                                    int tableCount = QuantizationTables.Count / (RtpJpegPrecisionTable > 0 ? 128 : 64);
 
-                                if (pos + CodeSize != temp.Position) throw new Exception("Invalid StartOfScan Marker");
+                                    for (int i = 0; i < Ns; i++)
+                                    {
+                                        // Component ID, packed byte containing the Id for the
+                                        // AC table and DC table.
+                                        byte componentID = (byte)jpegStream.ReadByte();
+                                        byte tableInfo = (byte)jpegStream.ReadByte();
+
+                                        //Restrict or throw exception?
+                                        //if (tableInfo > tableCount - 1) tableInfo = (byte)(tableCount - 1);
+
+                                        //Decode DC and AC Values if require
+                                        //int DC = (tableInfo >> 4) & 0x0f;
+                                        //int AC = (tableInfo) & 0x0f;
+                                    }
+                                }
+
+                                //Pass 3 bytes (startSpectralSelection, endSpectralSelection , successiveApproximation)                                 
+                                jpegStream.Seek(3 /*+ (Ns * 2)*/, System.IO.SeekOrigin.Current);
+
+                                //Verify position (slow)
+                                if (pos + CodeSize != jpegStream.Position) throw new Exception("Invalid StartOfScan Marker");
 
                                 //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                 //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
@@ -1025,7 +1079,7 @@ namespace Media.Rtsp.Server.Streams
                                 remainingPayloadOctets -= currentPacketOffset + Rtp.RtpHeader.Length;
 
                                 //How much remains in the stream relative to the endOffset
-                                long streamRemains = endOffset - temp.Position;
+                                long streamRemains = endOffset - jpegStream.Position;
 
                                 //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding ?
                                 //if (Ri > 0)
@@ -1045,10 +1099,10 @@ namespace Media.Rtsp.Server.Streams
                                 while (streamRemains > 0)
                                 {
                                     //Read what we can into the packet
-                                    remainingPayloadOctets -= temp.Read(currentPacket.Payload.Array, currentPacket.Payload.Offset + currentPacketOffset, remainingPayloadOctets);
+                                    remainingPayloadOctets -= jpegStream.Read(currentPacket.Payload.Array, currentPacket.Payload.Offset + currentPacketOffset, remainingPayloadOctets);
 
                                     //Update how much remains in the stream
-                                    streamRemains = endOffset - temp.Position;
+                                    streamRemains = endOffset - jpegStream.Position;
 
                                     //Add current packet to the frame
                                     Add(currentPacket);
@@ -1067,7 +1121,7 @@ namespace Media.Rtsp.Server.Streams
 
                                         lastPacket = true;
 
-                                        //Set the last bit of the Dri Header in the last packet if Ri > 0
+                                        //Set the last bit of the Dri Header in the last packet if Ri > 0 (first bit is still set! might have to unset??)
                                         if (Ri > 0) RtpJpegHeader[10] ^= (byte)(1 << 7);
                                     }
 
@@ -1091,8 +1145,8 @@ namespace Media.Rtsp.Server.Streams
 
 
                                     //Correct FragmentOffset in the RtpJpegHeader already created.
-                                    if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)temp.Position)), 1, RtpJpegHeader, 1, 3);
-                                    else System.Array.Copy(BitConverter.GetBytes((uint)temp.Position), 1, RtpJpegHeader, 1, 3);
+                                    if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)jpegStream.Position)), 1, RtpJpegHeader, 1, 3);
+                                    else System.Array.Copy(BitConverter.GetBytes((uint)jpegStream.Position), 1, RtpJpegHeader, 1, 3);
 
                                     //Copy header
                                     RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
@@ -1106,7 +1160,7 @@ namespace Media.Rtsp.Server.Streams
                             }
                             else //Skip past tag 
                             {
-                                temp.Seek(CodeSize, System.IO.SeekOrigin.Current);
+                                jpegStream.Seek(CodeSize, System.IO.SeekOrigin.Current);
                             }
                         }
                     }
@@ -1151,7 +1205,7 @@ namespace Media.Rtsp.Server.Streams
             /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
             /// Assigns Image from the result
             /// </summary>
-            public virtual void  PrepareBitmap(bool allowLegacyPackets = false, bool allowIncomplete = false)
+            public virtual void  PrepareBitmap(bool allowLegacyPackets = false, bool allowIncomplete = false, bool useRfcQuantizer = false)
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
@@ -1270,7 +1324,13 @@ namespace Media.Rtsp.Server.Streams
 
                     Quality = packet.Payload.Array[packet.Payload.Offset + offset++];
                     Width = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] * 8);// in 8 pixel multiples
+
+                    if (Width == 0) Width = MaxWidth;
+
                     Height = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] * 8);// in 8 pixel multiples
+
+                    if (Height == 0) Height = MaxHeight;
+
                     //It is worth noting Rtp does not care what you send and more tags such as comments and or higher resolution pictures may be sent and these values will simply be ignored.
 
                     //Restart Interval 64 - 127
@@ -1378,7 +1438,7 @@ namespace Media.Rtsp.Server.Streams
                         }
                         else // Create them from the given Quality parameter
                         {
-                            tables = new ArraySegment<byte>(CreateQuantizationTables(Type, Quality, PrecisionTable));
+                            tables = new ArraySegment<byte>(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
                         }
 
                         //Write the JFIF Header after reading or generating the QTables
@@ -1401,13 +1461,14 @@ namespace Media.Rtsp.Server.Streams
                     }
                 }
 
-                //Create the Image form the Buffer
-                Image = System.Drawing.Image.FromStream(Buffer);
+                //Create the Image form the Buffer, use the color profile from the data but don't validate the image data because it will be much faster
+                Image = System.Drawing.Image.FromStream(Buffer, true, false);
             }
             /// <summary>
             /// Creates a image from the processed packets in the memory stream
             /// </summary>
             /// <returns>The image created from the packets</returns>
+            /// TODO DETERMINE IF useRfcQuantizers should be allowed to be passed here on in the Constructor
             public System.Drawing.Image ToImage()
             {
                 try

@@ -532,7 +532,7 @@ namespace Media.Rtsp.Server.Streams
                                 framesReceived++;
 
                                 // image at stop
-                                using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, start, stop - start)))
+                                using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, start, stop - start), true, false))
                                 {
                                     // notify client
 
