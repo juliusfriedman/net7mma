@@ -841,28 +841,14 @@ namespace Media.Rtsp
                 if (received > 0)
                 {
 
+                    //je
+                    if (error == SocketError.TryAgain || error == SocketError.TimedOut) goto Receive;
+
                     //If the buffer had the start of frame check for the start of the upper layer message
                     if (m_Buffer[offset] == RtpClient.BigEndianFrameControl)
-                    {
-                        //Check for the start of the RTSPMessage which should follow.
-
-                        //if found
-                        if (m_Buffer[received - 1] == Common.ASCII.R)
-                        {
-                            //Decrement received
-                            --received;
-                        }
-                    }
-
-                    //Process data found in the packet, Rtsp messages many only occupy 4096 bytes.
-                    //A Rtp Frame $, C, Len may be found here because of the semantics in the offer / answer model realted to SIP.
-                    ProcessInterleaveData(this, new ArraySegment<byte>(m_Buffer, offset, Math.Min(received, max)));
-
-                    //je
-                    if (error == SocketError.TryAgain) goto Receive;
-
-                    //If any more data is present it belongs to the lower layer unless the client is already connected
-                    if (received > max && m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer, max, received - max, m_RtspSocket);
+                        m_RtpClient.ProcessFrameData(m_Buffer, offset, received, m_RtspSocket);
+                    else
+                        ProcessInterleaveData(this, new ArraySegment<byte>(m_Buffer, offset, Math.Min(received, max)));
                 }
 
             Wait:

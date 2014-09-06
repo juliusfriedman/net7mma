@@ -1652,7 +1652,7 @@ namespace Media.Rtp
             if (memory == default(ArraySegment<byte>))
             {
                 //Determine a good size based on the MTU (this should cover most applications)
-                m_BufferLength = 4096;
+                m_BufferLength = 1500;
                 m_Buffer = new byte[m_BufferLength];
                 m_BufferOffset = 0;
             }
@@ -1661,6 +1661,8 @@ namespace Media.Rtp
                 m_Buffer = memory.Array;
                 m_BufferOffset = memory.Offset;
                 m_BufferLength = memory.Count;
+
+                if (m_BufferLength < RtpHeader.Length) throw new ArgumentOutOfRangeException("memory", "memory.Count must contain enough space for a RtpHeader");
             }
 
             InactivityTimeout = inactivityTimeout ?? DefaultTimeout;
@@ -2214,7 +2216,7 @@ namespace Media.Rtp
                 m_WorkerThread = new Thread(new ThreadStart(SendReceieve));
 
                 //Ensure buffer is sized
-                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize(((Media.Common.ISocketOwner)this), m_BufferLength);
+                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize(((Media.Common.ISocketOwner)this), m_BufferLength * m_BufferLength);
 
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
                 m_WorkerThread.Priority = ThreadPriority.AboveNormal;
@@ -2560,11 +2562,10 @@ namespace Media.Rtp
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, offset, buffer);
 
                 //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
-                if (frameLength > m_BufferLength) frameLength = remainingInBuffer;
-                else if (frameLength < 0) break; //No more data in buffer
+                if (frameLength < 0) break; //No more data in buffer
                 
                 //See how many more bytes are required from the wire
-                int remainingInWire = frameLength - remainingInBuffer;
+                int remainingInWire = frameLength - (remainingInBuffer - TCP_OVERHEAD);
 
                 if (remainingInWire > 0)
                 {
@@ -2572,34 +2573,53 @@ namespace Media.Rtp
                     int frameStart = offset;
 
                     if (relevent == null) frameStart = offset = m_BufferOffset;
-                    //If there is a context then make a buffer copy so the entire frame can fit in the buffer
-                    else if (offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength)
+                    else if (offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength) //Check to see if the frame CANNOT totally fit in the buffer
                     {
                         //System.Diagnostics.Debug.WriteLine("Buffer Copy");
-                        Array.Copy(buffer, offset, buffer, m_BufferOffset, remainingInBuffer);
+
+                        //EAT THE ALF $ C X X
+
+                        int remainsInfBuffer = remainingInBuffer - TCP_OVERHEAD;
+
+                        Array.Copy(buffer, offset + TCP_OVERHEAD, buffer, m_BufferOffset, remainsInfBuffer);
                         
-                        //The frame now starts here
+                        //The frame DATA now starts here
                         frameStart = m_BufferOffset;
 
-                        //Our offset for receiveing is modified 
-                        offset = m_BufferOffset + remainingInBuffer;
+                        //Our offset for receiveing is modified with account of remainsInfBuffer
+                        offset = m_BufferOffset + remainsInfBuffer;
                     }
 
+                    //Store the error
                     SocketError error = SocketError.SocketError;
 
                     //Get all the remaining data
                     while (remainingInWire > 0)
                     {
-                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, remainingInWire, socket, out error);
-                        if (error != SocketError.Success && error != SocketError.TryAgain) break;
+                        //Recieve from the wire the amount of bytes required
+                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(m_BufferLength, remainingInWire), socket, out error);
+                        
+                        //Check for an error and then the allowed continue condition
+                        if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
                         else if (recievedFromWire <= 0) continue;
+                        
+                        //Decrease what is remaining from the wire by what was received
                         remainingInWire -= recievedFromWire;
+                        
+                        //Move the offset
                         offset += recievedFromWire;
+
+                        //Increment received
                         recievedTotal += recievedFromWire;
+
+                        //Check for the need to reset the buffer.
+                        if (offset - m_BufferOffset > m_BufferLength) offset = m_BufferOffset;
+
+                        //remainingInBuffer is not incrmemented because this will end the parent loop because frameLength will cause it to go negitive after this run
                     }
 
-                    //Set the offset to where it was before extra data was received - the data existing in the buffer.
-                    offset = frameStart;
+                    //Set the offset to where it was before extra data was received - the data existing in the buffer and ALF size because it will be added again below.
+                    offset = frameStart - TCP_OVERHEAD;
 
                     //If a socket error occured remove the context to no parsing occurs
                     if (error != SocketError.Success) relevent = null;
