@@ -1837,7 +1837,6 @@ namespace Tests
         static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Media.Rtsp.RtspClient.ClientProtocolType? protocol = null)
         {
 
-
             //For display
             int emptyFrames = 0, incompleteFrames = 0, rtspIn = 0, rtspOut = 0, rtspInterleaved = 0, rtspUnknown = 0;
 
@@ -2669,6 +2668,14 @@ a=mpeg4-esid:101");
                     f = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(jpegStream, 100);
 
                     //Save the JpegFrame as a Image (Decoding performed)
+                    using (System.Drawing.Image jpeg = f)
+                    {
+                        jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                    }
+
+                    //Try again with the RFC Quantizer
+                    f.PrepareBitmap(false, false, true);
+
                     using (System.Drawing.Image jpeg = f)
                     {
                         jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);

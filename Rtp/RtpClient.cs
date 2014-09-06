@@ -2415,17 +2415,10 @@ namespace Media.Rtp
         /// <param name="from">The socket which received the data into memory and may be used for packet completion.</param>
         internal virtual void ParseAndCompleteData(ArraySegment<byte> memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
-            if (parseRtcp == false && parseRtp == false) return;
-
-            //Cache start, count and index
-            int offset = memory.Offset, count = memory.Count, index = 0,
-                //Calulcate remaining
-            mRemaining = remaining ?? count - index;
-
-            if (count <= 0) return;
-
-            try
+            if (parseRtcp == false && parseRtp == false)
             {
+                //Double Negitive, Demux based on PayloadType? RFC5761?
+
                 //Distinguishable RTP and RTCP Packets
                 //http://tools.ietf.org/search/rfc5761#section-4
 
@@ -2443,10 +2436,19 @@ namespace Media.Rtp
 
                 //parseRtp = !parseRtcp;
 
-                //Iterate until index approaches remaining
-                //while (mRemaining > 0)
-                //{
+                return;
+            }
 
+            //Cache start, count and index
+            int offset = memory.Offset, count = memory.Count, index = 0,
+                //Calulcate remaining
+            mRemaining = remaining ?? count - index;
+
+            //If there is nothing left to parse then return
+            if (count <= 0) return;
+
+            try
+            {
                 //If rtcp should be parsed
                 if (mRemaining > RtcpHeader.Length && parseRtcp)
                 {
@@ -2481,8 +2483,6 @@ namespace Media.Rtp
                 }
 
                 return;
-
-                //}
             }
             catch //Any exception
             {
@@ -2562,7 +2562,7 @@ namespace Media.Rtp
                 //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
                 if (frameLength > m_BufferLength) frameLength = remainingInBuffer;
                 else if (frameLength < 0) break; //No more data in buffer
-
+                
                 //See how many more bytes are required from the wire
                 int remainingInWire = frameLength - remainingInBuffer;
 
@@ -2571,11 +2571,13 @@ namespace Media.Rtp
                     //Frame starts here
                     int frameStart = offset;
 
+                    if (relevent == null) frameStart = offset = m_BufferOffset;
                     //If there is a context then make a buffer copy so the entire frame can fit in the buffer
-                    if (relevent != null && offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength)
+                    else if (offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength)
                     {
                         //System.Diagnostics.Debug.WriteLine("Buffer Copy");
                         Array.Copy(buffer, offset, buffer, m_BufferOffset, remainingInBuffer);
+                        
                         //The frame now starts here
                         frameStart = m_BufferOffset;
 
@@ -2585,6 +2587,7 @@ namespace Media.Rtp
 
                     SocketError error = SocketError.SocketError;
 
+                    //Get all the remaining data
                     while (remainingInWire > 0)
                     {
                         int recievedFromWire = Utility.AlignedReceive(buffer, offset, remainingInWire, socket, out error);
@@ -2612,7 +2615,7 @@ namespace Media.Rtp
                     ParseAndCompleteData(new ArraySegment<byte>(buffer, offset + TCP_OVERHEAD, frameLength), expectRtcp, expectRtp, frameLength);
                 }
 
-                //Calulcate the amount of bytes to move the offset by
+                //Calulcate the amount of bytes to move the offset by including overhead
                 int size = frameLength + TCP_OVERHEAD;
 
                 //Move the offset

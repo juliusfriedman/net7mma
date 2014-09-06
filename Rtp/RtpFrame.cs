@@ -43,7 +43,7 @@ namespace Media.Rtp
     /// <summary>
     /// A collection of RtpPackets
     /// </summary>
-    public class RtpFrame : Media.Common.BaseDisposable, System.Collections.IEnumerable, IEnumerable<RtpPacket>
+    public class RtpFrame : Media.Common.BaseDisposable, System.Collections.IEnumerable, IEnumerable<RtpPacket>// IDictionary, etc?
     {
         /// <summary>
         /// The maximum amount of packets which can be contained in a frame
@@ -198,7 +198,7 @@ namespace Media.Rtp
         /// Gets an enumerator of All Contained Packets at the time of the call
         /// </summary>
         /// <returns>A Yield around Packets</returns>
-        public IEnumerator<RtpPacket> GetEnumerator() { return m_Packets.Values.GetEnumerator(); }
+        public IEnumerator<RtpPacket> GetEnumerator() { return m_Packets.Values.Distinct().GetEnumerator(); }
 
         /// <summary>
         /// Adds a RtpPacket to the RtpFrame. The first packet added sets the SynchronizationSourceIdentifier and Timestamp if not already set.
@@ -206,16 +206,20 @@ namespace Media.Rtp
         /// <param name="packet">The RtpPacket to Add</param>
         public virtual void Add(RtpPacket packet)
         {
+            if (packet == null) throw new ArgumentNullException("packet");
+
+            int count = Count, ssrc = packet.SynchronizationSourceIdentifier;
+
             //The first packet sets the ssrc
-            if (Count == 0 && m_Ssrc != packet.SynchronizationSourceIdentifier) m_Ssrc = packet.SynchronizationSourceIdentifier;
+            if (count == 0 && m_Ssrc != ssrc) m_Ssrc = ssrc;
 
-            if (Count == 0 && m_Timestamp != packet.Timestamp) m_Timestamp = packet.Timestamp;
+            if (count == 0 && m_Timestamp != packet.Timestamp) m_Timestamp = packet.Timestamp;
 
-            if (packet.SynchronizationSourceIdentifier != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
+            if (ssrc != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
             
             if (packet.Timestamp != Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
 
-            if (Count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
+            if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
 
             if (packet.PayloadType != m_PayloadByte) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
 
@@ -226,10 +230,19 @@ namespace Media.Rtp
             
             //E.g with respect to the above checks and finally the check below 
             //Which determineres if the RtpFrame is already complete that the packet will not be added to this frame.
-            if (Complete) throw new InvalidOperationException("Complete frame cannot have additional packets added");
-            else if (Contains(packet)) throw new InvalidOperationException("Packet already added to frame.");
+            
+            //Dont call virtual methods
+            //if (Complete) throw new InvalidOperationException("Complete frame cannot have additional packets added");
+            
+            //If the last packet has the marker bit then no more packets can be added
+            if (HasMarker) throw new InvalidOperationException("Complete frame cannot have additional packets added");
 
-            //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.
+            //Dont call contains (use Distinct)
+            //Fast path check for being contained.
+            //if (packet.SequenceNumber == this.First().SequenceNumber || packet.SequenceNumber == this.Last().SequenceNumber /*|| Contains(packet.SequenceNumber)*/) return;
+
+            //Dont use a SortedDictionary just to ensure only a single key in the hash, (Use List and Distinct)
+            //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.                       
             m_Packets.Add(packet.SequenceNumber, packet);
         }
 
