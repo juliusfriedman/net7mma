@@ -1125,17 +1125,24 @@ namespace Media.Rtsp
 
                 OnStopping(mediaDescription);
 
-                if (mediaDescription == null && m_RtpClient != null) m_RtpClient.Disconnect();
-                else
+                //If there is a client
+                if (m_RtpClient != null)
                 {
-                    RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(mediaDescription);
-                    if (context != null)
+                    //Send a goodbye for all contexts if the mediaDescription was not given
+                    if (mediaDescription == null) m_RtpClient.SendGoodbyes();
+                    else//Find the context for the description
                     {
-                        m_RtpClient.SendGoodbye(context);
-                        context = null;
+                        RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(mediaDescription);
+                        //If availabnle then send a goodbye
+                        if (context != null)
+                        {
+                            m_RtpClient.SendGoodbye(context);
+                            context = null;
+                        }
                     }
                 }
-
+                
+                //Return the result of the Teardown
                 return SendRtspRequest(new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.TEARDOWN,
@@ -1485,7 +1492,6 @@ namespace Media.Rtsp
         //Setup for Interleaved
         SetupTcp:
             {
-                Client.m_SocketOwner = false;
                 Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
                 //Clear existing transportChannels
@@ -1505,7 +1511,6 @@ namespace Media.Rtsp
             else if (m_RtpProtocol != ProtocolType.Tcp)
             {
                 //Reconnect without losing the events on the RtpClient
-                Client.m_SocketOwner = false;
                 Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
                 //Disconnect to allow the server to reset state

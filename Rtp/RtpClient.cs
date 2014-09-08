@@ -987,7 +987,7 @@ namespace Media.Rtp
                 if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0)
                 {
                     if (RtcpSocket.ProtocolType == ProtocolType.Tcp)
-                        RtcpSocket.Disconnect(true);
+                        if(RtcpSocket.Connected) RtcpSocket.Disconnect(true);
                     else
                         RtcpSocket.Dispose();
                     RtcpSocket = null;
@@ -997,7 +997,7 @@ namespace Media.Rtp
                 if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0)
                 {
                     if (RtpSocket.ProtocolType == ProtocolType.Tcp)
-                        RtpSocket.Disconnect(true);
+                        if (RtpSocket.Connected) RtpSocket.Disconnect(true);
                     else
                         RtpSocket.Dispose();
                     RtpSocket = null;
@@ -1078,9 +1078,6 @@ namespace Media.Rtp
         //Outgoing Packets, Not a Queue because you cant re-order a Queue and you can't take a range from the Queue
         internal List<RtpPacket> m_OutgoingRtpPackets = new List<RtpPacket>();
         internal List<RtcpPacket> m_OutgoingRtcpPackets = new List<RtcpPacket>();
-
-        //Created from an existing socket we should not close.
-        internal bool m_SocketOwner = true;
 
         //Unless I missed something that damn HashSet is good for nothing except hashing.
         internal IList<TransportContext> TransportContexts = new List<TransportContext>();
@@ -1699,7 +1696,6 @@ namespace Media.Rtp
             : this(memory, inactivityTimeout)
         {
             m_RemoteAddress = ((IPEndPoint)existing.RemoteEndPoint).Address;
-            m_SocketOwner = false;
             m_TransportProtocol = existing.ProtocolType;
         }
 
