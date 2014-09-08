@@ -1126,7 +1126,7 @@ namespace Media.Rtsp
 
                 OnStopping(mediaDescription);
 
-                if (mediaDescription == null && m_RtpClient != null) m_RtpClient.Disconnect(m_RtpProtocol == ProtocolType.Tcp);
+                if (mediaDescription == null && m_RtpClient != null) m_RtpClient.Disconnect();
 
                 return SendRtspRequest(new RtspMessage(RtspMessageType.Request)
                 {
