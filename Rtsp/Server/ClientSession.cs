@@ -715,7 +715,6 @@ namespace Media.Rtsp
                     SourceContexts.Add(sourceContext);
 
                     //Switch the client to Tcp manually
-                    m_RtpClient.m_SocketOwner = false;
                     m_RtpClient.m_TransportProtocol = ProtocolType.Tcp;
 
                     //Clear the existing transportChannels
