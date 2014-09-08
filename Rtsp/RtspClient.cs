@@ -723,14 +723,7 @@ namespace Media.Rtsp
 
                 //Fire an event
                 OnDisconnected();
-            }
-
-            //Get rid of this socket
-            if (m_RtspSocket != null)
-            {
-                m_RtspSocket.Dispose();
-                m_RtspSocket = null;
-            }
+            }            
         }
 
         #endregion
@@ -1798,7 +1791,6 @@ namespace Media.Rtsp
                 if (!m_RtpClient.Disposed) m_RtpClient.Dispose();
                 m_RtpClient = null;
             }
-
         }
 
         #endregion
