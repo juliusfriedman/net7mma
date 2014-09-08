@@ -2236,7 +2236,6 @@ namespace Media.Rtp
         /// <summary>
         /// Sends the Rtcp Goodbye and signals a stop in the worker thread.
         /// </summary>
-        /// <param name="usingSockets">true will keep sockets open</param>
         public void Disconnect()
         {
             if (Disposed || !Connected) return;

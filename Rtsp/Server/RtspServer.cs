@@ -319,7 +319,7 @@ namespace Media.Rtsp
         #region Methods
 
         int m_HttpPort = -1;
-        public void EnableHttp(int port = 80) 
+        public void EnableHttpTransport(int port = 80) 
         {
 
             throw new NotImplementedException();
@@ -349,7 +349,7 @@ namespace Media.Rtsp
         //Impove this...
         int m_UdpPort = -1;
 
-        public void EnableUdp(int port = 555, bool ipV6 = false) 
+        public void EnableUnreliableTransport(int port = 555, bool ipV6 = false) 
         {
             if (m_UdpServerSocket == null)
             {
@@ -382,7 +382,7 @@ namespace Media.Rtsp
             }
         }
 
-        public void DisableHttp()
+        public void DisableHttpTransport()
         {
             if (m_HttpListner != null)
             {
@@ -392,7 +392,7 @@ namespace Media.Rtsp
             }
         }
 
-        public void DisableUdp()
+        public void DisableUnreliableTransport()
         {
             if (m_UdpServerSocket != null)
             {
@@ -411,8 +411,8 @@ namespace Media.Rtsp
 
         internal bool RemoveSession(ClientSession session)
         {
-            if (session == null) return false;
-            if (session.m_RtpClient != null) session.Disconnect();
+            if (session == null) return false;            
+            session.Dispose();
             return m_Clients.Remove(session.Id);
         }
 
@@ -617,7 +617,6 @@ namespace Media.Rtsp
                     {
                         if (session.m_RtpClient == null)
                         {
-                            session.Disconnect();
                             RemoveSession(session);
                             continue;
                         }
@@ -628,7 +627,6 @@ namespace Media.Rtsp
                             if (sessionContext.RtcpEnabled && sessionContext.SendersReport != null && sessionContext.SendersReport.Transferred.HasValue &&
                                 (maintenanceStarted - sessionContext.SendersReport.Transferred.Value).TotalSeconds > RtspClientInactivityTimeoutSeconds)
                             {
-                                session.Disconnect();
                                 RemoveSession(session);
                             }
                         }
@@ -705,8 +703,8 @@ namespace Media.Rtsp
 
             m_Started = DateTime.UtcNow;
 
-            if (m_UdpPort != -1) EnableUdp(m_UdpPort);
-            if (m_HttpPort != -1) EnableHttp(m_HttpPort);
+            if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
+            if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
 
         }
 
@@ -757,7 +755,6 @@ namespace Media.Rtsp
             //Remove all clients
             foreach (ClientSession cs in Clients.ToArray())
             {
-                cs.Disconnect();
                 RemoveSession(cs);
             }
 
@@ -765,8 +762,8 @@ namespace Media.Rtsp
             m_TcpServerSocket.Dispose();
 
             //Stop other listeners
-            DisableHttp();
-            DisableUdp();
+            DisableHttpTransport();
+            DisableUnreliableTransport();
 
             //Erase statistics
             m_Started = null;

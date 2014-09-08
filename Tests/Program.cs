@@ -2255,25 +2255,25 @@ a=mpeg4-esid:101");
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", localPath + "\\TestJpeg") { Loop = true, ForceTCP = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", localPath + "\\TestJpeg\\") { Loop = true, ForceTCP = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Expose Bandit's Pictures through Udp and Tcp
-            server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", localPath + "\\Bandit") { Loop = true });
+            server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
             //Test H.264 Encoding
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", localPath + "\\TestJpeg") { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", localPath + "\\TestJpeg\\") { Loop = true });
 
             //Test MPEG2 Endoing
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", localPath + "\\TestJpeg") { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", localPath + "\\TestJpeg\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
-            server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
+            //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
+            //server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
 
             //TODO
             //server.RequestReceived event
@@ -2341,12 +2341,12 @@ a=mpeg4-esid:101");
                 else if (keyInfo.Key == ConsoleKey.H)
                 {
                     Console.WriteLine("Enabling Http");
-                    server.EnableHttp();
+                    server.EnableHttpTransport();
                 }
                 else if (keyInfo.Key == ConsoleKey.U)
                 {
                     Console.WriteLine("Enabling Udp");
-                    server.EnableUdp();
+                    server.EnableUnreliableTransport();
                 }
                 else if (keyInfo.Key == ConsoleKey.F)
                 {
@@ -2368,9 +2368,9 @@ a=mpeg4-esid:101");
                 System.Threading.Thread.Yield();
             }
 
-            server.DisableHttp();
+            server.DisableHttpTransport();
 
-            server.DisableUdp();
+            server.DisableUnreliableTransport();
 
             Console.WriteLine("Stream Recieved : " + server.TotalStreamBytesRecieved);
 

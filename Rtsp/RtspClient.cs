@@ -1123,10 +1123,18 @@ namespace Media.Rtsp
                     location = Location;
                 }
 
-
                 OnStopping(mediaDescription);
 
                 if (mediaDescription == null && m_RtpClient != null) m_RtpClient.Disconnect();
+                else
+                {
+                    RtpClient.TransportContext context = m_RtpClient.GetContextForMediaDescription(mediaDescription);
+                    if (context != null)
+                    {
+                        m_RtpClient.SendGoodbye(context);
+                        context = null;
+                    }
+                }
 
                 return SendRtspRequest(new RtspMessage(RtspMessageType.Request)
                 {
