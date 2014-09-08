@@ -216,7 +216,7 @@ namespace Media.Rtsp.Server.Streams
             try
             {
                 //Start listening
-                RtspClient.StartListening(MediaStartTime, SpecificMediaType);
+                RtspClient.StartPlaying(MediaStartTime, SpecificMediaType);
 
                 //Set the time for stats
                 m_StartedTimeUtc = DateTime.UtcNow;
@@ -243,10 +243,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public override void Stop()
         {
-            if (RtspClient.Listening)
-            {
-                RtspClient.StopListening();                    
-            }
+            if (RtspClient.Playing) RtspClient.StopPlaying();                    
             base.Stop();
             m_StartedTimeUtc = null;
         }
