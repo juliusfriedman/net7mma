@@ -235,7 +235,7 @@ namespace Media.Rtp
             //if (Complete) throw new InvalidOperationException("Complete frame cannot have additional packets added");
             
             //If the last packet has the marker bit then no more packets can be added
-            if (HasMarker) throw new InvalidOperationException("Complete frame cannot have additional packets added");
+            if (Count > 1 && m_Packets.Last().Value.Marker/*HasMarker*/) throw new InvalidOperationException("Complete frame cannot have additional packets added");
 
             //Dont call contains (use Distinct)
             //Fast path check for being contained.

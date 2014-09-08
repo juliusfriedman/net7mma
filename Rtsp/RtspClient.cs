@@ -971,10 +971,9 @@ namespace Media.Rtsp
                         default: break;
                     }
 
-                    //Check for a SessionId and Timeout unless this is a GET_PARAMETER or TEARDOWN
-                    if (string.IsNullOrEmpty(m_SessionId) && request.Method != RtspMethod.TEARDOWN && m_LastTransmitted.ContainsHeader(RtspHeaders.Session))
+                    //Check for a SessionId and Timeout if we don't already have one unless this is a GET_PARAMETER or TEARDOWN
+                    if (string.IsNullOrWhiteSpace(m_SessionId) && (request.Method != RtspMethod.TEARDOWN && m_LastTransmitted.ContainsHeader(RtspHeaders.Session)))
                     {
-
                         string sessionHeader = m_LastTransmitted[RtspHeaders.Session];
 
                         //If there is a session header it may contain the option timeout
