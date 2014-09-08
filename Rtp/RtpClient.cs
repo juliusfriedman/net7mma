@@ -2234,22 +2234,16 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Sends the Rtcp Goodbye and disposes the Rtp and Rtcp Sockets.
+        /// Sends the Rtcp Goodbye and signals a stop in the worker thread.
         /// </summary>
-        /// <param name="usingSockets">true will keep sockets</param>
-        public void Disconnect(bool usingSockets = true)
+        /// <param name="usingSockets">true will keep sockets open</param>
+        public void Disconnect()
         {
             if (Disposed || !Connected) return;
 
             SendGoodbyes();
 
             m_StopRequested = true;
-
-            if (usingSockets) return;
-
-            //Dispose Interleve Sockets
-            foreach (TransportContext tc in TransportContexts)
-                tc.Dispose();
         }
 
         /// <summary>
@@ -2981,6 +2975,9 @@ namespace Media.Rtp
 
             GC.SuppressFinalize(this);
 
+            //Dispose contexts
+            foreach (TransportContext tc in TransportContexts) tc.Dispose();
+                
             //Counters go away with the transportChannels
             TransportContexts.Clear();
 
