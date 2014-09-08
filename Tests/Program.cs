@@ -1882,7 +1882,7 @@ namespace Tests
                                 try
                                 {
                                     consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
-                                    client.StartListening();
+                                    client.StartPlaying();
                                     consoleWriter.WriteLine("\t*****************\nStartedListening to :" + client.Location);
                                 }
                                 catch (Exception ex) { writeError(ex); shouldStop = true; }
@@ -2064,7 +2064,7 @@ namespace Tests
                                 catch { two = null; }
 
                                 //All done with the client
-                                client.StopListening();
+                                client.StopPlaying();
 
                                 if (one == null && two == null) Media.Common.ExceptionExtensions.CreateAndRaiseException(client, "Sending In Play Failed");//Must get a response to at least one of these
                                 else Console.WriteLine("Sending Requests In Play Success");
@@ -2412,7 +2412,7 @@ a=mpeg4-esid:101");
                         {
                             Console.WriteLine("Performing Http / Media.Rtsp Test");
 
-                            httpClient.StartListening();
+                            httpClient.StartPlaying();
 
                             while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { }
 
@@ -2438,7 +2438,7 @@ a=mpeg4-esid:101");
                         {
                             Console.WriteLine("Performing Udp / Media.Rtsp Test");
 
-                            udpClient.StartListening();
+                            udpClient.StartPlaying();
 
                             while (udpClient.Client.TotalRtpBytesReceieved <= 1024) { }
 
@@ -2464,7 +2464,7 @@ a=mpeg4-esid:101");
                         {
                             Console.WriteLine("Performing Media.Rtsp Test");
 
-                            tcpClient.StartListening();
+                            tcpClient.StartPlaying();
 
                             tcpClient.ProtocolSwitchTime = TimeSpan.FromSeconds(1);
 
@@ -2474,7 +2474,7 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Test passed " + tcpClient.Client.TotalRtpBytesReceieved + " " + tcpClient.RtpProtocol);
                             Console.BackgroundColor = ConsoleColor.Black;
 
-                            tcpClient.StopListening();
+                            tcpClient.StopPlaying();
 
                             return;
                         }

@@ -253,9 +253,9 @@ namespace Media.Rtsp
                     if (m_Location != value)
                     {
 
-                        bool wasListening = Listening;
+                        bool wasPlaying = Playing;
 
-                        if (wasListening) StopListening();
+                        if (wasPlaying) StopPlaying();
 
                         m_Location = value;
 
@@ -275,7 +275,7 @@ namespace Media.Rtsp
                         //Make a IPEndPoint 
                         m_RemoteRtsp = new IPEndPoint(m_RemoteIP, m_RtspPort);
 
-                        if (wasListening) StartListening();
+                        if (wasPlaying) StartPlaying();
                     }
                 }
                 catch (Exception ex)
@@ -299,11 +299,6 @@ namespace Media.Rtsp
         /// The type of AuthenticationScheme to utilize in RtspRequests
         /// </summary>
         public AuthenticationSchemes AuthenticationScheme { get { return m_AuthenticationScheme; } set { if (value == m_AuthenticationScheme) return; if (value != AuthenticationSchemes.Basic && value != AuthenticationSchemes.Digest && value != AuthenticationSchemes.None) throw new System.InvalidOperationException("Only None, Basic and Digest are supported"); else m_AuthenticationScheme = value; } }
-
-        /// <summary>
-        /// Indicates if the RtspClient has started listening for Rtp Packets
-        /// </summary>
-        public bool Listening { get { return Connected && m_RtpClient != null && m_RtpClient.Connected; } }
 
         /// <summary>
         /// The amount of bytes sent by the RtspClient
@@ -533,11 +528,11 @@ namespace Media.Rtsp
         internal int NextClientSequenceNumber() { return ++m_CSeq; }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public void StartListening(TimeSpan? start = null, Sdp.MediaType? mediaType = null)
+        public void StartPlaying(TimeSpan? start = null, Sdp.MediaType? mediaType = null)
         {
 
             // If already listening and we have started to receive then there is nothing to do 
-            if (Listening) return;
+            if (Playing) return;
 
             try
             {
@@ -633,11 +628,11 @@ namespace Media.Rtsp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public void StopListening()
+        public void StopPlaying()
         {
             try
             {
-                if (!Listening) return;
+                if (!Playing) return;
                 else Disconnect();
             }
             catch { }
@@ -707,7 +702,7 @@ namespace Media.Rtsp
             }
 
             //Determine if we need to do anything
-            if (Listening && !string.IsNullOrWhiteSpace(m_SessionId))
+            if (Playing && !string.IsNullOrWhiteSpace(m_SessionId))
             {
 
                 //Send the Teardown
@@ -1517,7 +1512,7 @@ namespace Media.Rtsp
                 Disconnect();
 
                 //Start again
-                StartListening();
+                StartPlaying();
             }
             else if (m_RtpProtocol == ProtocolType.Tcp)
             {
@@ -1795,7 +1790,7 @@ namespace Media.Rtsp
 
         public void Dispose()
         {
-            StopListening();
+            StopPlaying();
 
             if (m_RtpClient != null)
             {

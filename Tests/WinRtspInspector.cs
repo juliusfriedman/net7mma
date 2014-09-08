@@ -96,8 +96,8 @@ namespace Tests
             sender.OnResponse += sender_OnResponse;
             try
             {
-                if (numericUpDown1.Value == 0) sender.StartListening();
-                else sender.StartListening(TimeSpan.FromSeconds((double)numericUpDown1.Value));
+                if (numericUpDown1.Value == 0) sender.StartPlaying();
+                else sender.StartPlaying(TimeSpan.FromSeconds((double)numericUpDown1.Value));
             }
             catch
             {

@@ -976,32 +976,17 @@ namespace Media.Rtp
                 //if (rtcpSocket.ProtocolType == ProtocolType.Tcp) rtcpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
             }
 
-            public void CloseSockets()
+            public void DisconnectSockets()
             {
                 if (Disposed) return;
 
-                // A Field / Property indicating if the socket is owned and should be disposed may be useful here.
-                //For now the client who owns the socket has this property
-
                 //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
                 if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0)
-                {
-                    if (RtcpSocket.ProtocolType == ProtocolType.Tcp)
-                        if(RtcpSocket.Connected) RtcpSocket.Disconnect(true);
-                    else
-                        RtcpSocket.Dispose();
-                    RtcpSocket = null;
-                }
+                        RtcpSocket.Close();
 
                 //Close the RtpSocket
                 if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0)
-                {
-                    if (RtpSocket.ProtocolType == ProtocolType.Tcp)
-                        if (RtpSocket.Connected) RtpSocket.Disconnect(true);
-                    else
-                        RtpSocket.Dispose();
-                    RtpSocket = null;
-                }
+                    RtpSocket.Close();
             }
 
             /// <summary>
@@ -1042,7 +1027,7 @@ namespace Media.Rtp
 
                 Disposed = true;
 
-                CloseSockets();
+                DisconnectSockets();
             }
 
             #endregion
@@ -2239,6 +2224,8 @@ namespace Media.Rtp
             SendGoodbyes();
 
             m_StopRequested = true;
+
+            foreach (var tc in TransportContexts) tc.DisconnectSockets();
         }
 
         /// <summary>
