@@ -439,7 +439,7 @@ namespace Media.Rtsp.Server.Streams
                         using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, 0, total), true, false))
                         {
                             // notify client
-
+                            //Could use the stream overload to give the JPEG Data directly to Packetize.
                             Packetize(bitmap);
                         }
 

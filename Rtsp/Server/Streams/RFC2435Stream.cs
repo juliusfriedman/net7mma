@@ -59,6 +59,11 @@ namespace Media.Rtsp.Server.Streams
 
         #region NestedTypes
 
+        ////public class RFC2435Headers
+        ////{
+        ////    //Todo
+        ////}
+
         /// <summary>
         /// Implements RFC2435
         /// Encodes from a System.Drawing.Image to a RFC2435 Jpeg.
@@ -259,7 +264,7 @@ namespace Media.Rtsp.Server.Streams
                 result.Add(JpegMarkers.StartOfInformation);//SOI                
 
                 //Quantization Tables
-                result.AddRange(CreateQuantizationTablesMarkers(tables, precision));
+                result.AddRange(CreateQuantizationTableMarkers(tables, precision));
 
                 //Data Restart Invertval
                 if (dri > 0) result.AddRange(CreateDataRestartIntervalMarker(dri));
@@ -528,7 +533,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="tables">The tables verbatim, either 1 or 2 (Lumiance and Chromiance)</param>
             /// <param name="precisionTable">The byte which indicates which table has 16 bit coeffecients</param>
             /// <returns>The table with marker and prefix and Pq/Tq byte/returns>
-            internal static byte[] CreateQuantizationTablesMarkers(ArraySegment<byte> tables, byte precisionTable)
+            internal static byte[] CreateQuantizationTableMarkers(ArraySegment<byte> tables, byte precisionTable)
             {
                 //List<byte> result = new List<byte>();
 
@@ -671,8 +676,10 @@ namespace Media.Rtsp.Server.Streams
 
             internal static int DetermineQuality(byte[] qTable, int offset, int length)
             {
-                //Average from std
-                return qTable[0];
+                throw new NotImplementedException();
+                //Average from all tables
+
+                //return qTable.Skip(1).ToArray().Sum<byte>( b=> b) * 100 / 1000
             }
 
             internal static byte[] CreateHuffmanTableMarker(byte[] codeLens, byte[] symbols, int tableNo, int tableClass)
@@ -836,7 +843,9 @@ namespace Media.Rtsp.Server.Streams
                     //Check for the End of Information Marker, //If present do not include it.
                     jpegStream.Seek(-1, System.IO.SeekOrigin.End);
 
-                    long streamLength = jpegStream.Length, endOffset = jpegStream.ReadByte() == JpegMarkers.EndOfInformation ? streamLength - 2 : streamLength;
+                    long streamLength = jpegStream.Length, 
+                        //Check for the eoi since we don't read in aligned MCU's yet
+                        endOffset = jpegStream.ReadByte() == JpegMarkers.EndOfInformation ? streamLength - 2 : streamLength;
 
                     //From the beginning of the buffered stream after the Start of Information Marker
                     jpegStream.Seek(2, System.IO.SeekOrigin.Begin);
@@ -941,18 +950,19 @@ namespace Media.Rtsp.Server.Streams
                                 //Read the remainder of the data into the table array
                                 jpegStream.Read(table, 0, tagSizeMinusOne);
 
+                                //Move the stream offset
                                 streamOffset += tagSizeMinusOne;
 
-                                //For 16 bit tables, the coefficients are  must be presented in network byte order.
-                                if (precision && BitConverter.IsLittleEndian)
-                                {
-                                    for (int i = 0; i < table.Length - 1; i += 2)
-                                    {
-                                        byte swap = table[i];
-                                        table[i] = table[i + 1];
-                                        table[i + 1] = swap;
-                                    }
-                                }
+                                ////For 16 bit tables, the coefficients are  must be presented in network byte order.
+                                //if (precision && BitConverter.IsLittleEndian)
+                                //{
+                                //    for (int i = 0; i < table.Length - 1; i += 2)
+                                //    {
+                                //        byte swap = table[i];
+                                //        table[i] = table[i + 1];
+                                //        table[i + 1] = swap;
+                                //    }
+                                //}
 
                                 //Add the table array to the table blob
                                 QuantizationTables.AddRange(table);
@@ -986,7 +996,7 @@ namespace Media.Rtsp.Server.Streams
                                 //if (data[7] != 0x21) RtpJpegType |= 1;
 
                                 //Nf - Number of image components in frame
-                                int numberOfComponents = data[offset++];
+                                int Nf = data[offset++];
 
                                 //Hi: Horizontal sampling factor – Specifies the relationship between the component horizontal dimension
                                 //and maximum image dimension X (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of horizontal data units of component
@@ -999,13 +1009,13 @@ namespace Media.Rtsp.Server.Streams
                                 //each MCU, when more than one component is encoded in a scan                             
 
                                 //Experimental Support for Any amount of samples.
-                                if (numberOfComponents > 1)
+                                if (Nf > 1)
                                 {
                                     //Check remaining components (Chroma)
                                     //for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
 
                                     // Add all of the necessary components to the frame.
-                                    for (int tableId = 0; tableId < numberOfComponents; ++tableId)
+                                    for (int tableId = 0; tableId < Nf; ++tableId)
                                     {
                                         byte compId = data[offset++];
                                         byte samplingFactors = data[offset++];
@@ -1221,13 +1231,20 @@ namespace Media.Rtsp.Server.Streams
                                         sourceList.TryCopyTo(currentPacket.Payload.Array, 0);
                                     }
 
-                                    //Check for streamOffset > 2 ^ 64
-
-
-                                    //Correct FragmentOffset in the RtpJpegHeader already created.
-                                    if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)streamOffset)), 1, RtpJpegHeader, 1, 3);
-                                    else System.Array.Copy(BitConverter.GetBytes((uint)streamOffset), 1, RtpJpegHeader, 1, 3);
-
+                                    //Check for FragmentOffset to exceed 24 bits
+                                    if (streamOffset > Common.Binary.U24MaxValue)
+                                    {
+                                        //Correct FragmentOffset in the RtpJpegHeader already created.
+                                        if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)streamOffset - Common.Binary.U24MaxValue)), 1, RtpJpegHeader, 1, 3);
+                                        else System.Array.Copy(BitConverter.GetBytes((uint)streamOffset - Common.Binary.U24MaxValue), 1, RtpJpegHeader, 1, 3);
+                                    }
+                                    else
+                                    {
+                                        //Correct FragmentOffset in the RtpJpegHeader already created.
+                                        if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)streamOffset)), 1, RtpJpegHeader, 1, 3);
+                                        else System.Array.Copy(BitConverter.GetBytes((uint)streamOffset), 1, RtpJpegHeader, 1, 3);
+                                    }
+                                    
                                     //Copy header
                                     RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
 
@@ -1237,6 +1254,7 @@ namespace Media.Rtsp.Server.Streams
                                     //reset the remaning remainingPayloadOctets
                                     remainingPayloadOctets = bytesPerPacket - (currentPacketOffset + Rtp.RtpHeader.Length);
 
+                                    //Move the offset in the stream
                                     streamOffset += remainingPayloadOctets;
 
                                 }
@@ -1303,11 +1321,7 @@ namespace Media.Rtsp.Server.Streams
                 ArraySegment<byte> tables = default(ArraySegment<byte>);
 
                 //Remove buffer if previously used
-                if (Buffer != null)
-                {
-                    Buffer.Dispose();
-                    Buffer = null;
-                }
+                DisposeBufferAndImage();
 
                 Buffer = new System.IO.MemoryStream();
 
@@ -1415,6 +1429,11 @@ namespace Media.Rtsp.Server.Streams
                     }
 
                     Quality = packet.Payload.Array[packet.Payload.Offset + offset++];
+
+                    //Should round?
+
+                    //Should use 256 ..with 8 modulo? 227x149 is a good example and is in the jpeg reference
+
                     Width = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] * 8);// in 8 pixel multiples
 
                     if (Width == 0) Width = MaxWidth;
@@ -1487,11 +1506,7 @@ namespace Media.Rtsp.Server.Streams
                             +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                              */
 
-                            if ((packet.Payload.Array[packet.Payload.Offset + offset++]) != 0)
-                            {
-                                //Must Be Zero is Not Zero
-                                if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
-                            }
+                            if ((packet.Payload.Array[packet.Payload.Offset + offset++]) != 0) throw new InvalidOperationException("Must be Zero is not 0");
 
                             //Read the PrecisionTable (notes below)
                             PrecisionTable = (packet.Payload.Array[packet.Payload.Offset + offset++]);
@@ -1580,8 +1595,7 @@ namespace Media.Rtsp.Server.Streams
                 try
                 {
                     if (Image == null) PrepareBitmap();
-                    if (Image != null) return Image; //Image.Clone() as System.Drawing.Image;
-                    return null;
+                    return Image;
                 }
                 catch
                 {
@@ -1589,23 +1603,24 @@ namespace Media.Rtsp.Server.Streams
                 }
             }
 
+          
             public override void Dispose()
             {
-                //Dispose only the Image
-                DisposeImage();
+                //Dispose the buffer
+                DisposeBufferAndImage();
 
+                //Call dispose on the base class
+                base.Dispose();
+            }
+
+            internal void DisposeBufferAndImage()
+            {
                 if (Buffer != null)
                 {
                     Buffer.Dispose();
                     Buffer = null;
                 }
 
-                //Call dispose on the base class
-                base.Dispose();
-            }
-
-            internal void DisposeImage()
-            {
                 if (Image != null)
                 {
                     Image.Dispose();
@@ -1613,18 +1628,19 @@ namespace Media.Rtsp.Server.Streams
                 }
             }
 
+
             /// <summary>
             /// Removing All Packets in a JpegFrame destroys any Image associated with the Frame
             /// </summary>
             public override void RemoveAllPackets()
             {
-                DisposeImage();
+                DisposeBufferAndImage();
                 base.RemoveAllPackets();
             }
 
             public override Rtp.RtpPacket Remove(int sequenceNumber)
             {
-                DisposeImage();
+                DisposeBufferAndImage();
                 return base.Remove(sequenceNumber);
             }
 

@@ -2096,8 +2096,8 @@ namespace Tests
                             Console.BackgroundColor = ConsoleColor.Magenta;
                             consoleWriter.WriteLine("RTP".PadRight(Console.BufferWidth - 7, '▓'));
                             consoleWriter.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
-                            consoleWriter.WriteLine("Frames with missing packets: " + incompleteFrames);
-                            consoleWriter.WriteLine("Empty Frames: " + emptyFrames);
+                            consoleWriter.WriteLine("Encountered Frames with missing packets: " + incompleteFrames);
+                            consoleWriter.WriteLine("Encountered Empty Frames: " + emptyFrames);
                             Console.BackgroundColor = ConsoleColor.Cyan;
                             consoleWriter.WriteLine("RTSP".PadRight(Console.BufferWidth - 7, '▓'));
                             consoleWriter.WriteLine("Rtsp Requets Sent: " + rtspIn);

@@ -257,6 +257,8 @@ namespace Media
         /// <returns></returns>
         public static IEnumerable<RtcpPacket> FromCompoundBytes(byte[] array, int offset, int count, bool skipUnknownTypes = true, int version = 2, int? ssrc = null)
         {
+            if (version < 2) throw new ArgumentException("There are no Compound Packets in Versions less than 2");
+
             //Keep track of how many packets were parsed.
             int parsedPackets = 0;
 
@@ -272,7 +274,7 @@ namespace Media
 
                 //The first packet in a compound packet needs to be validated
                 if (parsedPackets == 0 && !IsValidRtcpHeader(currentPacket.Header, currentPacket.Version)) yield break;
-                else if (skipUnknownTypes && RtcpPacket.GetImplementationForPayloadType((byte)currentPacket.PayloadType) == null || currentPacket.Version != version) yield break;
+                else if (currentPacket.Version != version || skipUnknownTypes && RtcpPacket.GetImplementationForPayloadType((byte)currentPacket.PayloadType) == null) yield break;
                 
                 //Count the packets parsed
                 ++parsedPackets;

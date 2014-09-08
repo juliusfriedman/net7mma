@@ -2393,6 +2393,8 @@ namespace Media.Rtp
 
                 //Indicate length from offset until next frame. (should always be positive, if somehow -1 is returned this will signal a end of buffer)
 
+                //SHOULD CHECK FOR A VALID ALF HERE AND THEN RETURN, OTHERWISE SCAN AGAIN (RTSP in the buffer?)!!!
+
                 return upperLayerData - TCP_OVERHEAD;
             }
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
@@ -2860,9 +2862,7 @@ namespace Media.Rtp
                     #region Recieve Incoming Data
 
                     foreach (TransportContext context in TransportContexts)
-                    {
                         ProcessReceive(context, ref lastOperation);
-                    }
 
                     if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
