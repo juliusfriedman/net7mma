@@ -286,7 +286,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Sends the Rtcp Goodbye and detaches all sources
         /// </summary>
-        internal void Disconnect()
+        internal void Dispose()
         {
             try
             {
@@ -301,13 +301,13 @@ namespace Media.Rtsp
                 {
                     m_RtpClient.InterleavedData -= m_Server.ProcessRtspInterleaveData;
 
-                    m_RtpClient.Disconnect();
+                    m_RtpClient.Dispose();
                     
                     m_RtpClient = null;
                 }
 
                 //Close immediately for TCP only
-                if(m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.Close();
+                if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.Dispose();
             }
             catch { return; }
             
@@ -1107,6 +1107,5 @@ namespace Media.Rtsp
         }
 
         #endregion                       
-    
     }
 }

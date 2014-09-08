@@ -112,7 +112,11 @@ namespace Media.Rtcp
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
                 using (var header = new RtcpHeader(new OctetSegment(array, index + offset, count - offset)))  ///new RtcpHeader(array, offset))
                 {
-                    if (header.LengthInWordsMinusOne > count) header.LengthInWordsMinusOne = header.BlockCount * ReportBlock.ReportBlockSize + (header.PayloadType == 200 ? 20 : 0);
+                    //Check this...
+                    if (header.LengthInWordsMinusOne > count) header.LengthInWordsMinusOne = header.BlockCount * ReportBlock.ReportBlockSize + (header.PayloadType == 200 ? 20 : 0);//Include Sender information?
+
+                    //header.LengthInWordsMinusOne might be equal to 65535?
+
                     //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
                     using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + offset + RtcpHeader.Length, Math.Min(count - offset - RtcpHeader.Length, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
                     {
@@ -386,11 +390,11 @@ namespace Media.Rtcp
             //If there are no bytes in the payload then ensure LengthInWords is 0
             if (lengthInOctets == 8)
             {
-                Header.LengthInWordsMinusOne = 65535;
+                Header.LengthInWordsMinusOne = ushort.MaxValue;
                 return;
             }
 
-            //The length in 32 bit words is equal to Length * 8 / 4
+            //The length in 32 bit words is equal to Length * 8 / 4 (Might have to round uP?)
             ushort lengthInWords = (ushort)(lengthInOctets * 8 / 32);
 
             //Set the LengthInWords property to the lengthInWords minus one
