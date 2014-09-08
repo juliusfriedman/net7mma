@@ -2234,15 +2234,18 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Sends the Rtcp Goodbye and disposes the Rtp and Rtcp Sockets if we are not in Tcp Transport
+        /// Sends the Rtcp Goodbye and disposes the Rtp and Rtcp Sockets.
         /// </summary>
-        public void Disconnect()
+        /// <param name="usingSockets">true will keep sockets</param>
+        public void Disconnect(bool usingSockets = true)
         {
             if (Disposed || !Connected) return;
 
             SendGoodbyes();
 
             m_StopRequested = true;
+
+            if (usingSockets) return;
 
             //Dispose Interleve Sockets
             foreach (TransportContext tc in TransportContexts)
