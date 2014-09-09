@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -70,7 +68,7 @@ namespace Media.Rtcp
 
         #region Fields
 
-        protected IEnumerable<Octet> m_ChunkData;
+        protected IEnumerable<byte> m_ChunkData;
 
         #endregion
 
@@ -122,7 +120,7 @@ namespace Media.Rtcp
 
         public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) : this(chunkIdentifier, item.Yield()) { }
 
-        public SourceDescriptionChunk(IEnumerable<Octet> ChunkData)
+        public SourceDescriptionChunk(IEnumerable<byte> ChunkData)
         {
             m_ChunkData = ChunkData;
         }
@@ -205,7 +203,7 @@ namespace Media.Rtcp
             get { return ChunkIdentifer; }
         }
 
-        IEnumerable<Octet> IReportBlock.BlockData
+        IEnumerable<byte> IReportBlock.BlockData
         {
             get { return m_ChunkData; }
         }

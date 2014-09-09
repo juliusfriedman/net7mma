@@ -2233,13 +2233,19 @@ a=mpeg4-esid:101");
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
+            {
+                m_ForceTCP = true
+            });
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp"));
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));            
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+            {
+                m_ForceTCP = true
+            });
 
             
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;

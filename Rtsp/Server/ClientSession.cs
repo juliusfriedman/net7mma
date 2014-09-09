@@ -93,9 +93,7 @@ namespace Media.Rtsp
         internal int m_Receieved, m_Sent;
         
         //Buffer for data
-        internal byte[] m_Buffer;
-
-        internal int m_BufferOffset, m_BufferLength;
+        internal Common.MemorySegment m_Buffer;
 
         //Sockets
         internal Socket m_RtspSocket;
@@ -134,7 +132,7 @@ namespace Media.Rtsp
 
         #region Constructor
 
-        public ClientSession(RtspServer server, Socket rtspSocket, ArraySegment<byte> buffer = default(ArraySegment<byte>))
+        public ClientSession(RtspServer server, Socket rtspSocket, Common.MemorySegment buffer = null)
         {
             Id = Guid.NewGuid();
 
@@ -148,20 +146,16 @@ namespace Media.Rtsp
 
             m_RtspSocket = rtspSocket;
 
-            if (buffer == default(ArraySegment<byte>))
-                m_Buffer = new byte[m_BufferLength = RtspMessage.MaximumLength];
+            if (buffer == null)
+                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength); // new byte[m_BufferLength = RtspMessage.MaximumLength];
             else
-            {
-                m_Buffer = buffer.Array;
-                m_BufferOffset = buffer.Offset;
-                m_BufferLength = buffer.Count;
-            }
+                m_Buffer = buffer;
 
             //Assign the remote endPoint, IPPacketInformation provides thus for UDP
             RemoteEndPoint = rtspSocket.RemoteEndPoint;
 
             //Begin to receive what is available
-            m_RtspSocket.BeginReceiveFrom(m_Buffer, m_BufferOffset, m_BufferLength, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+            m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
         }
 
         #endregion
@@ -308,6 +302,11 @@ namespace Media.Rtsp
 
                 //Close immediately for TCP only
                 if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.Dispose();
+
+                m_Buffer.Dispose();
+
+                m_Buffer = null;
+
             }
             catch { return; }
             
@@ -685,7 +684,7 @@ namespace Media.Rtsp
                 if (m_RtpClient == null)
                 {
                     //Create a new RtpClient
-                    m_RtpClient = RtpClient.Duplexed(m_RtspSocket, new ArraySegment<byte>(m_Buffer, m_BufferOffset, m_BufferLength));
+                    m_RtpClient = RtpClient.Duplexed(m_RtspSocket, m_Buffer);
 
                     m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(10);
 

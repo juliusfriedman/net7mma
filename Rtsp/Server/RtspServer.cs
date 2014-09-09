@@ -51,7 +51,7 @@ namespace Media.Rtsp
     /// http://tools.ietf.org/html/rfc2326
     /// Suppports Reliable(Rtsp / Tcp or Rtsp / Http) and Unreliable(Rtsp / Udp) connections
     /// </summary>
-    public class RtspServer
+    public class RtspServer : Common.BaseDisposable
     {
         public const int DefaultPort = 554;
 
@@ -400,6 +400,12 @@ namespace Media.Rtsp
                 m_UdpServerSocket.Dispose();
                 m_UdpServerSocket = null;
             }
+        }
+
+        public override void Dispose()
+        {
+            Stop();
+            base.Dispose();
         }
 
         #region Session Collection
@@ -981,7 +987,7 @@ namespace Media.Rtsp
                     //Count for the client
                     Interlocked.Add(ref session.m_Receieved, received);
 
-                    ArraySegment<byte> data = new ArraySegment<byte>(session.m_Buffer, session.m_BufferOffset, received);
+                    Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received, false);
 
                     //Ensure the message is really Rtsp
                     request = new RtspMessage(data);
@@ -1002,7 +1008,7 @@ namespace Media.Rtsp
                 }
                 else
                 {
-                    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer, session.m_BufferOffset, session.m_BufferLength, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
+                    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
                 }
             }
             catch (Exception ex)
@@ -1049,7 +1055,7 @@ namespace Media.Rtsp
 
                     Interlocked.Add(ref m_Sent, sent);
 
-                    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer, session.m_BufferOffset, session.m_BufferLength, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
+                    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
                 }
                 else
                 {                   
@@ -1531,7 +1537,7 @@ namespace Media.Rtsp
             ProcessSendRtspResponse(session.ProcessDescribe(request, found), session);
         }
 
-        internal void ProcessRtspInterleaveData(object sender, ArraySegment<byte> slice)
+        internal void ProcessRtspInterleaveData(object sender, Common.MemorySegment slice)
         {
 
             ClientSession sessionFrom = sender as ClientSession;

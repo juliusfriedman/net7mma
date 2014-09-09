@@ -302,8 +302,9 @@ namespace Media.Rtsp.Server.Streams
              
                  */
 
-                //Need a progrssive indication?
-                bool progressive = false;
+                //Need a progrssive indication, problem is that CMYK and RGB also use that indication
+                bool progressive = false; /* = typeSpec == JpegMarkers.StartOfProgressiveFrame;
+                if (progressive) typeSpec = 0;*/
 
                 result.Add(JpegMarkers.Prefix);
 
@@ -367,7 +368,8 @@ namespace Media.Rtsp.Server.Streams
 
                 if (progressive)
                 {
-                    ////
+                    result.AddRange(CreateHuffmanTableMarker(lum_dc_codelens_p, lum_dc_symbols_p, 0, 0));
+                    result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens_p, chm_dc_symbols_p, 1, 0));
                 }
                 else
                 {
@@ -388,7 +390,7 @@ namespace Media.Rtsp.Server.Streams
                 result.Add(JpegMarkers.StartOfScan);//Marker SOS
 
                 //If only 1 table (AND NOT PROGRESSIVE)
-                if (tablesCount == 64 && !progressive)
+                if (tablesCount == 64)
                 {
                     result.Add(0x00); //Length
                     result.Add(0x08); //Length - 12
@@ -404,17 +406,21 @@ namespace Media.Rtsp.Server.Streams
                     result.Add(0x03); //Number of components
                     result.Add(0x01); //Component Number
                     result.Add(0x00); //Matrix Number
+
+                    //Should be indicated from typeSpec...
+
                     result.Add(0x02); //Component Number
-                    result.Add(0x11); //Horizontal or Vertical Sample
+                    result.Add((byte)(progressive ? 0x10 : 0x11)); //Horizontal or Vertical Sample
+
                     result.Add(0x03); //Component Number
-                    result.Add(0x11); //Horizontal or Vertical Sample
+                    result.Add((byte)(progressive ? 0x10 : 0x11)); //Horizontal or Vertical Sample
                 }
 
 
                 if (progressive)
                 {
                     result.Add(0x00); //Start of spectral
-                    result.Add(0x00); //End of spectral (63)
+                    result.Add(0x00); //End of spectral
                     result.Add(0x01); //Successive approximation bit position (high, low)
                 }
                 else
@@ -423,8 +429,6 @@ namespace Media.Rtsp.Server.Streams
                     result.Add(0x3f); //End of spectral (63)
                     result.Add(0x00); //Successive approximation bit position (high, low)
                 }
-
-             
 
                 return result.ToArray();
             }
@@ -602,13 +606,17 @@ namespace Media.Rtsp.Server.Streams
 
             //JpegHuffmanTable StdDCLuminance
 
-            static byte[] lum_dc_codelens = { 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 };
+            static byte[] lum_dc_codelens = { 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0 },
+                        //Progressive
+                        lum_dc_codelens_p = { 0, 2, 3, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-            static byte[] lum_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            static byte[] lum_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 },
+                        //Progressive
+                        lum_dc_symbols_p = { 0, 2, 3, 0, 1, 4, 5, 6, 7 }; //lum_dc_symbols_p = { 0, 0, 2, 1, 3, 4, 5, 6, 7}; Work for TestProg but not TestImgP
 
             //JpegHuffmanTable StdACLuminance
 
-            static byte[] lum_ac_codelens = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d }; 
+            static byte[] lum_ac_codelens = { 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d };
 
             static byte[] lum_ac_symbols = 
             {
@@ -638,9 +646,13 @@ namespace Media.Rtsp.Server.Streams
             //Chromiance
             
             //JpegHuffmanTable StdDCChrominance
-            static byte[] chm_dc_codelens = { 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 };
+            static byte[] chm_dc_codelens = { 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0 },
+                        //Progressive
+                        chm_dc_codelens_p = { 0, 3, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-            static byte[] chm_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+            static byte[] chm_dc_symbols = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 },
+                        //Progressive
+                        chm_dc_symbols_p = { 0, 1, 2, 3, 0, 4, 5 };
 
             //JpegHuffmanTable StdACChrominance
 
@@ -670,9 +682,6 @@ namespace Media.Rtsp.Server.Streams
                 0xea, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
                 0xf9, 0xfa
             };
-
-            //Progressive Huffman Tables also needed?
-
 
             internal static int DetermineQuality(byte[] qTable, int offset, int length)
             {
@@ -1042,11 +1051,10 @@ namespace Media.Rtsp.Server.Streams
                                     if (data[++offset] != 0x21) RtpJpegType |= 1;
                                     //V ! 1x1
                                     if (data[++offset] != 0x11 && data[offset] > 0) RtpJpegTypeSpecific = data[offset];
-                                }
+                                }                                
 
                                 //Move stream offset
                                 streamOffset += CodeSize;
-
                             }
                             else if (FunctionCode == JpegMarkers.DataRestartInterval) //RestartInterval is copied
                             {
@@ -1141,13 +1149,16 @@ namespace Media.Rtsp.Server.Streams
                                     }
                                 }
 
-                                //Pass 3 bytes (startSpectralSelection, endSpectralSelection , successiveApproximation)                                 
-                                jpegStream.Seek(3 /*+ (Ns * 2)*/, System.IO.SeekOrigin.Current);
+                                byte startSpectralSelection = (byte)(jpegStream.ReadByte());
+                                byte endSpectralSelection = (byte)(jpegStream.ReadByte());
+                                byte successiveApproximation = (byte)(jpegStream.ReadByte());
 
                                 streamOffset += 3;
 
-                                //Verify position (slow)
                                 if (pos + CodeSize != streamOffset) throw new Exception("Invalid StartOfScan Marker");
+
+                                //Check for alternate endSpectral
+                                //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = JpegMarkers.StartOfProgressiveFrame;
 
                                 //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                 //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
@@ -1169,11 +1180,14 @@ namespace Media.Rtsp.Server.Streams
                                 //How much remains in the stream relative to the endOffset
                                 long streamRemains = endOffset - streamOffset;
 
-                                //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding ?
+                                //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding
+                                //Must align intervals.
                                 //if (Ri > 0)
                                 //{
                                 //remainingPayloadOctets = //Calculate from RST marker
                                 //}
+
+                                //Type 2 or 3 is only a specific MCU
 
                                 //A RtpJpegHeader which must be in the Payload of each Packet (8 Bytes without QTables and RestartInterval)
                                 //RtpJpegPrecisionTable is the the same when the same qTables are being used and will not be included when QTables.Count == 0
@@ -1232,18 +1246,8 @@ namespace Media.Rtsp.Server.Streams
                                     }
 
                                     //Check for FragmentOffset to exceed 24 bits
-                                    if (streamOffset > Common.Binary.U24MaxValue)
-                                    {
-                                        //Correct FragmentOffset in the RtpJpegHeader already created.
-                                        if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)streamOffset - Common.Binary.U24MaxValue)), 1, RtpJpegHeader, 1, 3);
-                                        else System.Array.Copy(BitConverter.GetBytes((uint)streamOffset - Common.Binary.U24MaxValue), 1, RtpJpegHeader, 1, 3);
-                                    }
-                                    else
-                                    {
-                                        //Correct FragmentOffset in the RtpJpegHeader already created.
-                                        if (BitConverter.IsLittleEndian) System.Array.Copy(BitConverter.GetBytes(Common.Binary.ReverseU32((uint)streamOffset)), 1, RtpJpegHeader, 1, 3);
-                                        else System.Array.Copy(BitConverter.GetBytes((uint)streamOffset), 1, RtpJpegHeader, 1, 3);
-                                    }
+                                    if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
+                                    else Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)streamOffset);
                                     
                                     //Copy header
                                     RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
@@ -1261,6 +1265,10 @@ namespace Media.Rtsp.Server.Streams
                             }
                             else //Skip past tag 
                             {
+                                //C4 = Huffman
+                                    //Might have to read huffman to determine compatiblity tableClass 1 is Lossless?)
+                                //E1 = JpegThumbnail 160x120 Adobe XMP
+                                //E2 = ICC ColorProfile
                                 jpegStream.Seek(CodeSize, System.IO.SeekOrigin.Current);
                                 streamOffset += CodeSize;
                             }

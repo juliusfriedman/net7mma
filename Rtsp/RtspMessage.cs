@@ -719,7 +719,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="bytes">The byte array to create the RtspMessage from</param>
         /// <param name="offset">The offset within the bytes to start creating the message</param>
-        public RtspMessage(byte[] bytes, int offset = 0) : this(new ArraySegment<byte>(bytes, offset, bytes.Length - offset)) {  }
+        public RtspMessage(byte[] bytes, int offset = 0) : this(new Common.MemorySegment (bytes, offset, bytes.Length - offset, false)) {  }
             
         /// <summary>
         /// Creates a managed representation of an abstract RtspMessage concept from RFC2326.
@@ -753,16 +753,12 @@ namespace Media.Rtsp
         ///    any entity body, the rules ensure reasonable behavior even if the
         ///    length is not given explicitly.
         /// </reference>        
-        public RtspMessage(ArraySegment<byte> packet)
+        public RtspMessage(Common.MemorySegment packet)
         {
             //Sanely
-            if (packet == default(ArraySegment<byte>))
+            if (packet == null)
             {
                 throw new ArgumentNullException("packet");
-            }
-            else if (packet.Count > RtspMessage.MaximumLength)
-            {
-                throw new RtspMessageException("The given packet exceeds the length of the maximum size of a RtspMessage");
             }
 
             //Syntax, what syntax? there is no syntax ;)

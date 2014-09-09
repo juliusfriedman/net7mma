@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -133,7 +131,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The value representing null
         /// </summary>
-        public static Octet Null = default(Octet);
+        public static byte Null = default(byte);
 
         #endregion
 
@@ -323,7 +321,7 @@ namespace Media.Rtcp
 
         #endregion
 
-        IEnumerator<Octet> IEnumerable<Octet>.GetEnumerator()
+        IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
             return ItemData.GetEnumerator();
         }

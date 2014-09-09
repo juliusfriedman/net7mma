@@ -44,8 +44,6 @@ using System.Linq;
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion

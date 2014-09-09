@@ -42,8 +42,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
+
 using Media.Common;
 
 #endregion
@@ -83,7 +82,7 @@ namespace Media.Rtp
         /// <summary>
         /// The binary data of the RtpPacket which may contain a ContributingSourceList and RtpExtension.
         /// </summary>
-        public OctetSegment Payload { get; protected set; }
+        public MemorySegment Payload { get; protected set; }
 
         /// <summary>
         /// Determines the amount of unsigned integers which must be contained in the ContributingSourcesList to make the payload complete.
@@ -215,7 +214,7 @@ namespace Media.Rtp
             m_OwnedOctets = octets.ToArray();
 
             //The Payload property must be assigned otherwise the properties will not function in the instance.
-            Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+            Payload = new MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, m_OwnsHeader);
         }
 
         /// <summary>
@@ -224,7 +223,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="header">The existing RtpHeader</param>
         /// <param name="payload">The data contained in the payload</param>
-        public RtpPacket(RtpHeader header, OctetSegment payload, bool ownsHeader = true)
+        public RtpPacket(RtpHeader header, MemorySegment payload, bool ownsHeader = true)
         {
             if (header == null) throw new ArgumentNullException("header");
 
@@ -261,12 +260,13 @@ namespace Media.Rtp
                 Array.Copy(buffer, offset, m_OwnedOctets, 0, ownedOctets);
 
                 //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
-                Payload = new OctetSegment(m_OwnedOctets, 0, ownedOctets);
+                Payload = new MemorySegment(m_OwnedOctets, 0, ownedOctets, m_OwnsHeader);
             }
             else
             {                
                 m_OwnedOctets = Utility.Empty; //IsReadOnly should be false
-                Payload = new OctetSegment(m_OwnedOctets, 0, 0);
+                //Payload = new MemoryReference(m_OwnedOctets, 0, 0, m_OwnsHeader);
+                Payload = new MemorySegment(0);
             }
         }
 
@@ -275,7 +275,7 @@ namespace Media.Rtp
         /// The instance will depend on the memory in the given buffer.
         /// </summary>
         /// <param name="buffer">The segment containing the binary data to decode.</param>
-        public RtpPacket(OctetSegment buffer) : this(buffer.Array, buffer.Offset) { }
+        public RtpPacket(MemorySegment buffer) : this(buffer.Array, buffer.Offset) { }
 
         #endregion
 
@@ -537,7 +537,8 @@ namespace Media.Rtp
             }
 
             //Payload goes away when Disposing
-            Payload = default(OctetSegment);
+            Payload.Dispose();
+            Payload = null;
 
             //The private data goes away after calling Dispose
             m_OwnedOctets = null;
@@ -679,7 +680,7 @@ namespace Media.Rtp
             //Padding is now complete
 
             //Re allocate the payload segment to include any completed data
-            Payload = new OctetSegment(m_OwnedOctets, Payload.Offset, m_OwnedOctets.Length);
+            Payload = new Common.MemorySegment(m_OwnedOctets, Payload.Offset, m_OwnedOctets.Length, m_OwnsHeader);
 
             //RtpPacket is complete
         }      

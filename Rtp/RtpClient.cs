@@ -155,7 +155,7 @@ namespace Media.Rtp
         /// <param name="inactivityTimeout"></param>
         /// <param name="rtcpEnabled"></param>
         /// <returns></returns>
-        public static RtpClient Multicast(IPAddress groupAddress, int ttl, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool rtcpEnabled = true, bool incomingEvents = true)
+        public static RtpClient Multicast(IPAddress groupAddress, int ttl, Common.MemorySegment sharedMemory = null, TimeSpan? inactivityTimeout = null, bool rtcpEnabled = true, bool incomingEvents = true)
         {
             return new RtpClient(groupAddress)
             {
@@ -169,7 +169,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="existing">The exsiting socket to use</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Duplexed(Socket existing, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
+        public static RtpClient Duplexed(Socket existing, Common.MemorySegment sharedMemory = null, TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             //Should verify socket type is TCP and use new socket if required ?? new Socket...
             return new RtpClient(existing, sharedMemory, inactivityTimeout ?? TimeSpan.FromMilliseconds(existing.ReceiveTimeout))
@@ -185,7 +185,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="remoteAddress">The remote address</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Sender(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
+        public static RtpClient Sender(IPAddress remoteAddress, Common.MemorySegment sharedMemory = null, TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             return new RtpClient(remoteAddress, sharedMemory, inactivityTimeout ?? DefaultTimeout)
             {
@@ -199,7 +199,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="remoteAddress">The remote address</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Participant(IPAddress remoteAddress, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
+        public static RtpClient Participant(IPAddress remoteAddress, Common.MemorySegment sharedMemory = null, TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             return new RtpClient(remoteAddress, sharedMemory, inactivityTimeout ?? DefaultTimeout)
             {
@@ -208,7 +208,7 @@ namespace Media.Rtp
             };
         }
 
-        public static RtpClient Participant(Sdp.SessionDescription sdp, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
+        public static RtpClient Participant(Sdp.SessionDescription sdp, Common.MemorySegment sharedMemory = null, TimeSpan? inactivityTimeout = null, bool incomingEvents = true)
         {
             return new RtpClient(System.Net.IPAddress.Parse(sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault().IPAddress), sharedMemory, inactivityTimeout ?? DefaultTimeout)
             {
@@ -1050,8 +1050,7 @@ namespace Media.Rtp
         //Buffer for data
         //Used in ReceiveData, Each TransportContext gets a chance to receive into the buffer, when the recieve completes the data is parsed if there is any then the next TransportContext goes.
         //Doing this in parallel doesn't really offset much because the decoder must be able to handle the data and if you back log the decoder you are just wasting cycles.
-        internal byte[] m_Buffer;
-        internal int m_BufferOffset, m_BufferLength;
+        Common.MemorySegment m_Buffer;
 
         //How RtpTransport is taking place
         internal ProtocolType m_TransportProtocol;
@@ -1075,7 +1074,7 @@ namespace Media.Rtp
 
         #region Events
 
-        public delegate void InterleaveHandler(object sender, ArraySegment<byte> slice);
+        public delegate void InterleaveHandler(object sender, Common.MemorySegment slice);
         public delegate void RtpPacketHandler(object sender, RtpPacket packet);
         public delegate void RtcpPacketHandler(object sender, RtcpPacket packet);
         public delegate void RtpFrameHandler(object sender, RtpFrame frame);
@@ -1430,7 +1429,7 @@ namespace Media.Rtp
             transportContext.m_LastRtcpOut = packet.Transferred.Value;
         }
 
-        protected internal void OnInterleavedData(ArraySegment<byte> data)
+        protected internal void OnInterleavedData(Common.MemorySegment data)
         {
             if (!Disposed && InterleavedData != null) InterleavedData(this, data);
         }
@@ -1614,23 +1613,19 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="memory">The optional memory segment to use</param>
         /// <param name="inactivityTimeout">The optional timeout which defaults to 96 ms.</param>
-        RtpClient(ArraySegment<byte> memory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        RtpClient(Common.MemorySegment memory = null, TimeSpan? inactivityTimeout = null)
             : this()
         {
-            if (memory == default(ArraySegment<byte>))
+            if (memory == null)
             {
                 //Determine a good size based on the MTU (this should cover most applications)
-                m_BufferLength = 1500;
-                m_Buffer = new byte[m_BufferLength];
-                m_BufferOffset = 0;
+                m_Buffer = new Common.MemorySegment(1500);
             }
             else
             {
-                m_Buffer = memory.Array;
-                m_BufferOffset = memory.Offset;
-                m_BufferLength = memory.Count;
+                m_Buffer = memory;
 
-                if (m_BufferLength < RtpHeader.Length) throw new ArgumentOutOfRangeException("memory", "memory.Count must contain enough space for a RtpHeader");
+                if (m_Buffer.Count < RtpHeader.Length) throw new ArgumentOutOfRangeException("memory", "memory.Count must contain enough space for a RtpHeader");
             }
 
             InactivityTimeout = inactivityTimeout ?? DefaultTimeout;
@@ -1648,7 +1643,7 @@ namespace Media.Rtp
         /// <param name="address">The remote address</param>
         /// <param name="rtpPort">The rtp port</param>
         /// <param name="rtcpPort">The rtcp port</param>
-        RtpClient(IPAddress address, ArraySegment<byte> sharedMemory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        RtpClient(IPAddress address, Common.MemorySegment sharedMemory = null, TimeSpan? inactivityTimeout = null)
             : this(sharedMemory, inactivityTimeout)
         {
             m_RemoteAddress = address;
@@ -1663,7 +1658,7 @@ namespace Media.Rtp
         /// <param name="existing">The existing Tcp Socket</param>
         /// <param name="memory"></param>
         /// <param name="inactivityTimeout"></param>
-        RtpClient(Socket existing, ArraySegment<byte> memory = default(ArraySegment<byte>), TimeSpan? inactivityTimeout = null)
+        RtpClient(Socket existing, Common.MemorySegment memory = null, TimeSpan? inactivityTimeout = null)
             : this(memory, inactivityTimeout)
         {
             m_RemoteAddress = ((IPEndPoint)existing.RemoteEndPoint).Address;
@@ -2183,7 +2178,7 @@ namespace Media.Rtp
                 m_WorkerThread = new Thread(new ThreadStart(SendReceieve));
 
                 //Ensure buffer is sized
-                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize(((Media.Common.ISocketOwner)this), m_BufferLength * m_BufferLength);
+                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize(((Media.Common.ISocketOwner)this), m_Buffer.Count * m_Buffer.Count);
 
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
                 m_WorkerThread.Priority = ThreadPriority.AboveNormal;
@@ -2327,10 +2322,10 @@ namespace Media.Rtp
 
             if (received <= 0) return -1;
 
-            buffer = buffer ?? m_Buffer;
+            buffer = buffer ?? m_Buffer.Array;
 
             //Look for the frame control octet
-            int mOffset = offset ?? m_BufferOffset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
+            int mOffset = offset ?? m_Buffer.Offset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
 
             int frameLength = 0;
 
@@ -2338,7 +2333,7 @@ namespace Media.Rtp
             if (startOfFrame == -1)
             {
                 //System.Diagnostics.Debug.WriteLine("Interleaving: " + received);
-                OnInterleavedData(new ArraySegment<byte>(buffer, mOffset, received));
+                OnInterleavedData(new Common.MemorySegment(buffer, mOffset, received, false));
 
                 //Indicate no more data in buffer
                 return -1;
@@ -2350,7 +2345,7 @@ namespace Media.Rtp
 
                 //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
 
-                if (upperLayerData > TCP_OVERHEAD) OnInterleavedData(new ArraySegment<byte>(buffer, mOffset, upperLayerData));
+                if (upperLayerData > TCP_OVERHEAD) OnInterleavedData(new Common.MemorySegment(buffer, mOffset, upperLayerData, false));
 
                 mOffset = startOfFrame;
 
@@ -2476,9 +2471,9 @@ namespace Media.Rtp
             bool tcp = socket.ProtocolType == ProtocolType.Tcp;
 
             //Cache the offset at the time of the call
-            int offset = m_BufferOffset,
+            int offset = m_Buffer.Offset,
                 //Receive data, uncomment the tcp check to recieve only TCP headers, this is commented incase a RtspRequest is in the buffer in front of a RFC2326 Frame header and works better for interleaving them              
-                received = socket.Receive(m_Buffer, offset, /*tcp ? 4 : */m_BufferLength, SocketFlags.None, out error);
+                received = socket.Receive(m_Buffer.Array, offset, /*tcp ? 4 : */m_Buffer.Count, SocketFlags.None, out error);
 
             if (error != SocketError.Success) return -1;
 
@@ -2491,15 +2486,15 @@ namespace Media.Rtp
                     //Check for a partial frame header
                     while (TCP_OVERHEAD > received)
                     {
-                        received += socket.Receive(m_Buffer, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
+                        received += socket.Receive(m_Buffer.Array, offset + received, TCP_OVERHEAD - received, SocketFlags.None, out error);
                         if (error != SocketError.Success && error != SocketError.TryAgain) return -1;
                     }
 
-                    return ProcessFrameData(m_Buffer, offset, received, socket);
+                    return ProcessFrameData(m_Buffer.Array, offset, received, socket);
                 }
 
                 //Use the data received to parse and complete any recieved packets, should take a parseState
-                ParseAndCompleteData(new ArraySegment<byte>(m_Buffer, offset, received), expectRtcp, expectRtp);
+                ParseAndCompleteData(new ArraySegment<byte>(m_Buffer.Array, offset, received), expectRtcp, expectRtp);
             }
 
             //Return the amount of bytes received from this operation
@@ -2539,8 +2534,8 @@ namespace Media.Rtp
                     //Frame starts here
                     int frameStart = offset;
 
-                    if (relevent == null) frameStart = offset = m_BufferOffset;
-                    else if (offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_BufferLength) //Check to see if the frame CANNOT totally fit in the buffer
+                    if (relevent == null) frameStart = offset = m_Buffer.Offset;
+                    else if (offset + remainingInBuffer + remainingInWire + TCP_OVERHEAD > m_Buffer.Count) //Check to see if the frame CANNOT totally fit in the buffer
                     {
                         //System.Diagnostics.Debug.WriteLine("Buffer Copy");
 
@@ -2548,13 +2543,13 @@ namespace Media.Rtp
 
                         int remainsInfBuffer = remainingInBuffer - TCP_OVERHEAD;
 
-                        Array.Copy(buffer, offset + TCP_OVERHEAD, buffer, m_BufferOffset, remainsInfBuffer);
+                        Array.Copy(buffer, offset + TCP_OVERHEAD, buffer, m_Buffer.Offset, remainsInfBuffer);
                         
                         //The frame DATA now starts here
-                        frameStart = m_BufferOffset;
+                        frameStart = m_Buffer.Offset;
 
                         //Our offset for receiveing is modified with account of remainsInfBuffer
-                        offset = m_BufferOffset + remainsInfBuffer;
+                        offset = m_Buffer.Offset + remainsInfBuffer;
                     }
 
                     //Store the error
@@ -2564,7 +2559,7 @@ namespace Media.Rtp
                     while (remainingInWire > 0)
                     {
                         //Recieve from the wire the amount of bytes required
-                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(m_BufferLength, remainingInWire), socket, out error);
+                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(m_Buffer.Count, remainingInWire), socket, out error);
                         
                         //Check for an error and then the allowed continue condition
                         if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
@@ -2580,7 +2575,7 @@ namespace Media.Rtp
                         recievedTotal += recievedFromWire;
 
                         //Check for the need to reset the buffer.
-                        if (offset - m_BufferOffset > m_BufferLength) offset = m_BufferOffset;
+                        if (offset - m_Buffer.Offset > m_Buffer.Count) offset = m_Buffer.Offset;
 
                         //remainingInBuffer is not incrmemented because this will end the parent loop because frameLength will cause it to go negitive after this run
                     }
@@ -2942,6 +2937,9 @@ namespace Media.Rtp
             Disposed = true;
 
             GC.SuppressFinalize(this);
+
+            m_Buffer.Dispose();
+            m_Buffer = null;
 
             //Dispose contexts
             foreach (TransportContext tc in TransportContexts) tc.Dispose();

@@ -43,8 +43,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 
 #endregion
 
@@ -319,7 +317,7 @@ namespace Media
         /// <param name="segment">The memory which contains binary data</param>
         /// <param name="position">The position in the segment to start looking for padding</param>
         /// <returns>The value of the last non 0 octet in the given segment deleniated by position</returns>
-        public static int ReadPadding(ArraySegment<byte> segment, int position)
+        public static int ReadPadding(Common.MemorySegment segment, int position)
         {
 
 

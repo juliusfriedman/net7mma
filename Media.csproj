@@ -94,6 +94,7 @@
     <Compile Include="Common\IPacket.cs" />
     <Compile Include="Common\ISocketOwner.cs" />
     <Compile Include="Common\IThreadOwner.cs" />
+    <Compile Include="Common\MemorySegment.cs" />
     <Compile Include="Common\SourceList.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RFC3550.cs">
