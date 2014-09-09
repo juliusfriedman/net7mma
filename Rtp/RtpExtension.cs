@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -75,7 +73,7 @@ namespace Media.Rtp
         /// <summary>
         /// Reference to the binary data which is thought to contain the RtpExtension.
         /// </summary>
-        readonly OctetSegment m_MemorySegment;
+        readonly Common.MemorySegment m_MemorySegment;
 
         #endregion
 
@@ -131,7 +129,7 @@ namespace Media.Rtp
         public RtpExtension(int sizeInBytes, ushort flags = 0, byte[] data = null, int offset = 0)
         {
             //Allocate memory for the binary
-            m_MemorySegment = new OctetSegment(new byte[MinimumSize + sizeInBytes], 0, MinimumSize + sizeInBytes);
+            m_MemorySegment = new Common.MemorySegment(new byte[MinimumSize + sizeInBytes], 0, MinimumSize + sizeInBytes, true);
 
             //If there are any flags set them
             if (flags > 0) Flags = flags;
@@ -160,7 +158,7 @@ namespace Media.Rtp
             else if (binary.Length < MinimumSize) throw InvalidExtension;
 
             //Atleast 4 octets are contained in binary
-            m_MemorySegment = new OctetSegment(binary, offset, count);
+            m_MemorySegment = new Common.MemorySegment(binary, offset, count, false);
         }
 
         /// <summary>
@@ -181,7 +179,7 @@ namespace Media.Rtp
             else if (rtpPacket.Payload.Count - sourceListOctets < MinimumSize)
                 throw InvalidExtension;
             else
-                m_MemorySegment = new OctetSegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + rtpPacket.ContributingSourceListOctets, rtpPacket.Payload.Count - sourceListOctets);
+                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + rtpPacket.ContributingSourceListOctets, rtpPacket.Payload.Count - sourceListOctets, false);
         }
 
         #endregion
@@ -191,7 +189,7 @@ namespace Media.Rtp
             return m_MemorySegment.Array.Skip(m_MemorySegment.Offset).Take(Size);
         }
 
-        IEnumerator<Octet> IEnumerable<Octet>.GetEnumerator()
+        IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
             return GetEnumerableImplementation().GetEnumerator();   
         }

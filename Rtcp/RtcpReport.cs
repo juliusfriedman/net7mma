@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -111,7 +109,7 @@ namespace Media.Rtcp
             m_OwnedOctets = new byte[payloadSize];
 
             //Segment the array to allow property access.
-            Payload = new OctetSegment(m_OwnedOctets, 0, payloadSize);
+            Payload = new MemorySegment(m_OwnedOctets, 0, payloadSize, true);
 
             //Set the SetLenthInWordsMinusOne property in the Header
             SetLengthInWordsMinusOne();
@@ -136,7 +134,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The <see cref="RtcpHeader"/> of the instance</param>
         /// <param name="payload">The <see cref="RtcpPacket.Payload"/> of the instance.</param>
-        public RtcpReport(RtcpHeader header, OctetSegment payload, bool shouldDispose = true)
+        public RtcpReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDispose = true)
             : base(header, payload, shouldDispose)
         {
 
@@ -210,7 +208,7 @@ namespace Media.Rtcp
             {
                 for (int offset = Payload.Offset, count = Payload.Count - offset; offset < count;)
                 {
-                    ReportBlock current = new ReportBlock(new OctetSegment(Payload.Array, offset, count));
+                    ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, offset, count, false));
                     offset += current.Size;
                     count -= current.Size;
                     yield return current;
@@ -274,7 +272,7 @@ namespace Media.Rtcp
                         m_OwnedOctets = m_OwnedOctets.Take(offset).Skip(reportBlock.Size).ToArray();
 
                         //Re allocate the payload around the new owned octets
-                        Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+                        Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, true);
 
                         //Decrease the block count
                         --BlockCount;

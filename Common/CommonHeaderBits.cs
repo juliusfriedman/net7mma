@@ -42,8 +42,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
+
 
 #endregion
 namespace Media.Common
@@ -150,7 +149,7 @@ namespace Media.Common
         /// <summary>
         /// If created from memory existing
         /// </summary>
-        OctetSegment? m_Memory;
+        Common.MemorySegment m_Memory;
 
         /// <summary>
         /// The first and octets themselves, utilized by both Rtp and Rtcp.
@@ -164,12 +163,12 @@ namespace Media.Common
 
         internal byte First8Bits
         {
-            get { return m_Memory.HasValue ? m_Memory.Value.Array[m_Memory.Value.Offset] : leastSignificant; }
+            get { return m_Memory != null ? m_Memory.Array[m_Memory.Offset] : leastSignificant; }
             set 
             {
-                if (m_Memory.HasValue)
+                if (m_Memory != null)
                 {
-                    m_Memory.Value.Array[m_Memory.Value.Offset] = value;
+                    m_Memory.Array[m_Memory.Offset] = value;
                 }
                 else 
                 {
@@ -180,12 +179,12 @@ namespace Media.Common
 
         internal byte Last8Bits
         {
-            get { return m_Memory.HasValue ? m_Memory.Value.Array[m_Memory.Value.Offset + 1] : mostSignificant; }
+            get { return m_Memory != null ? m_Memory.Array[m_Memory.Offset + 1] : mostSignificant; }
             set 
             {
-                if (m_Memory.HasValue)
+                if (m_Memory != null)
                 {
-                    m_Memory.Value.Array[m_Memory.Value.Offset + 1] = value;
+                    m_Memory.Array[m_Memory.Offset + 1] = value;
                 }
                 else
                 {
@@ -384,11 +383,11 @@ namespace Media.Common
             mostSignificant = msb;
         }
 
-        public CommonHeaderBits(OctetSegment memory, int additionalOffset = 0)
+        public CommonHeaderBits(Common.MemorySegment memory, int additionalOffset = 0)
         {
             if (Math.Abs(memory.Count - additionalOffset) < 2) throw new InvalidOperationException("at least two octets are required in memory");
 
-            m_Memory = new OctetSegment(memory.Array, memory.Offset + additionalOffset, 2);
+            m_Memory = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset, 2, false);
         }
 
         /// <summary>
@@ -428,9 +427,9 @@ namespace Media.Common
 
         public IEnumerator<byte> GetEnumerator()
         {
-            if (m_Memory.HasValue)
+            if (m_Memory != null)
             {
-                OctetSegment segment = m_Memory.Value;
+                Common.MemorySegment segment = m_Memory;
 
                 byte[] array = segment.Array;
 

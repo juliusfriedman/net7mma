@@ -42,8 +42,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
+
 using Media.Common;
 
 #endregion
@@ -97,7 +96,7 @@ namespace Media.Rtcp
         /// </summary>
         byte[] Last6Bytes;
 
-        OctetSegment PointerToLast6Bytes;
+        Common.MemorySegment PointerToLast6Bytes;
 
         #endregion
 
@@ -242,7 +241,7 @@ namespace Media.Rtcp
             Array.Copy(octets, offset + 2, Last6Bytes, 0, Math.Min(6, availableOctets - 2));
 
             //Make a pointer to the last 6 bytes
-            PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
+            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, true);
         }
 
         /// <summary>
@@ -262,7 +261,7 @@ namespace Media.Rtcp
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last6Bytes = new byte[6];
-                PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
+                PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, true);
                 if (other.Last6Bytes != null)
                 {
                     other.Last6Bytes.CopyTo(Last6Bytes, 0);
@@ -274,21 +273,21 @@ namespace Media.Rtcp
             }
         }
 
-        public RtcpHeader(OctetSegment memory, int additionalOffset = 0) 
+        public RtcpHeader(Common.MemorySegment memory, int additionalOffset = 0) 
         {
             if (Math.Abs(memory.Count - additionalOffset) < 4) throw new ArgumentException("memory must contain at least 4 elements", "memory");
 
             First16Bits = new CommonHeaderBits(memory, additionalOffset);
 
             //das infamous clamp max min
-            PointerToLast6Bytes = new OctetSegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
+            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4), false);
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
         {
             First16Bits = new CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
             Last6Bytes = new byte[6];
-            PointerToLast6Bytes = new OctetSegment(Last6Bytes, 0, 6);
+            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, true);
             //The default value must be set into the LengthInWords field otherwise it will reflect 65535.
             LengthInWordsMinusOne = ushort.MaxValue;
         }
@@ -334,7 +333,8 @@ namespace Media.Rtcp
                 First16Bits = null;
 
                 //Invalidate the pointer
-                PointerToLast6Bytes = default(OctetSegment);
+                PointerToLast6Bytes.Dispose();
+                PointerToLast6Bytes = null;
 
                 //Remove the reference to the allocated array.
                 Last6Bytes = null;
@@ -357,7 +357,7 @@ namespace Media.Rtcp
         #endregion
         
 
-        IEnumerator<Octet> IEnumerable<Octet>.GetEnumerator()
+        IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
             return GetEnumerableImplementation().GetEnumerator();
         }

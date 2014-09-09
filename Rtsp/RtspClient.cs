@@ -98,7 +98,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The buffer this client uses for all requests 4MB * 2
         /// </summary>
-        byte[] m_Buffer;
+        Common.MemorySegment m_Buffer;
 
         /// <summary>
         /// The remote IPAddress to which the Location resolves via Dns
@@ -406,7 +406,7 @@ namespace Media.Rtsp
             }
 
             if (bufferSize < RtspMessage.MaximumLength) throw new ArgumentOutOfRangeException("Buffer size must be at least RtspMessage.MaximumLength (4096)");
-            m_Buffer = new byte[bufferSize];
+            m_Buffer = new Common.MemorySegment(bufferSize);
         }
 
         
@@ -468,7 +468,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="sender">The RtpClient instance which called this method</param>
         /// <param name="memory">The memory to parse</param>
-        void ProcessInterleaveData(object sender, ArraySegment<byte> memory)
+        void ProcessInterleaveData(object sender, Common.MemorySegment memory)
         {
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int offset = memory.Offset, sliceCount = memory.Count, received = 0;
@@ -821,7 +821,7 @@ namespace Media.Rtsp
                 if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
 
             Receive:
-                received = m_RtspSocket.Receive(m_Buffer, offset, max, SocketFlags.None, out error);
+                received = m_RtspSocket.Receive(m_Buffer.Array, offset, max, SocketFlags.None, out error);
 
                 if (error == SocketError.ConnectionReset) return null;
 
@@ -834,9 +834,9 @@ namespace Media.Rtsp
 
                     //If the buffer had the start of frame check for the start of the upper layer message
                     if (m_Buffer[offset] == RtpClient.BigEndianFrameControl)
-                        m_RtpClient.ProcessFrameData(m_Buffer, offset, received, m_RtspSocket);
+                        m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
                     else
-                        ProcessInterleaveData(this, new ArraySegment<byte>(m_Buffer, offset, Math.Min(received, max)));
+                        ProcessInterleaveData(this, m_Buffer); //new Common.MemoryReference(m_Buffer.Array, m_Buffer.Offset, received, false));
                 }
 
             Wait:
@@ -1383,11 +1383,11 @@ namespace Media.Rtsp
                             if (m_RtpClient == null)
                             {
 
-                                int bufferSize = m_Buffer.Length - RtspMessage.MaximumLength;
+                                int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
 
-                                ArraySegment<byte> memory = default(ArraySegment<byte>);
+                                Common.MemorySegment memory = null;
 
-                                if (bufferSize > 0) memory = new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, bufferSize);
+                                if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize, false);
 
                                 //Create a Duplexed reciever using the RtspSocket
                                 m_RtpClient = RtpClient.Duplexed(m_RtspSocket, memory, contextReportInterval);
@@ -1436,11 +1436,11 @@ namespace Media.Rtsp
                             {
                                 if (m_RtpProtocol == ProtocolType.Udp)
                                 {
-                                    int bufferSize = m_Buffer.Length - RtspMessage.MaximumLength;
+                                    int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
 
-                                    ArraySegment<byte> memory = default(ArraySegment<byte>);
+                                    Common.MemorySegment memory = null;
 
-                                    if (bufferSize > 0) memory = new ArraySegment<byte>(m_Buffer, RtspMessage.MaximumLength, bufferSize);
+                                    if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize, false);
 
                                     //Create a Udp Reciever
                                     m_RtpClient = RtpClient.Participant(m_RemoteIP, memory, contextReportInterval);
@@ -1797,6 +1797,10 @@ namespace Media.Rtsp
                 if (!m_RtpClient.Disposed) m_RtpClient.Dispose();
                 m_RtpClient = null;
             }
+
+            m_Buffer.Dispose();
+            m_Buffer = null;
+
         }
 
         #endregion

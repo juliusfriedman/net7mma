@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -110,7 +108,7 @@ namespace Media.Rtcp
                 //OctetSegment parsing = new OctetSegment(array, index + offset, count - offset);
 
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
-                using (var header = new RtcpHeader(new OctetSegment(array, index + offset, count - offset)))  ///new RtcpHeader(array, offset))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, index + offset, count - offset, false)))  ///new RtcpHeader(array, offset))
                 {
                     //Check this...
                     if (header.LengthInWordsMinusOne > count) header.LengthInWordsMinusOne = header.BlockCount * ReportBlock.ReportBlockSize + (header.PayloadType == 200 ? 20 : 0);//Include Sender information?
@@ -118,7 +116,7 @@ namespace Media.Rtcp
                     //header.LengthInWordsMinusOne might be equal to 65535?
 
                     //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new OctetSegment(array, index + offset + RtcpHeader.Length, Math.Min(count - offset - RtcpHeader.Length, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new Common.MemorySegment(array, index + offset + RtcpHeader.Length, Math.Min(count - offset - RtcpHeader.Length, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)), false)))
                     {
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;
@@ -191,7 +189,7 @@ namespace Media.Rtcp
             m_OwnedOctets = octets.Take(packetLength).ToArray();
 
             //The Payload property must be assigned otherwise the properties will not function in the instance.
-            Payload = new OctetSegment(m_OwnedOctets, 0, packetLength);
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, packetLength, m_OwnsHeader);
         }
 
         /// <summary>
@@ -200,7 +198,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The existing RtpHeader (which is now owned by this instance)</param>
         /// <param name="payload">The data contained in the payload</param>
-        public RtcpPacket(RtcpHeader header, OctetSegment payload, bool shouldDispose = true)
+        public RtcpPacket(RtcpHeader header, MemorySegment payload, bool shouldDispose = true)
         {
             if (header == null) throw new ArgumentNullException("header");
 
@@ -242,12 +240,16 @@ namespace Media.Rtcp
             m_OwnsHeader = true;
 
             //If there is no padding return
-            if (padding == 0) return;
+            if (padding == 0)
+            {
+                Payload = new MemorySegment(0);
+                return;
+            }
             
             //Create the owned octets by projecting the sequence and any padding
             m_OwnedOctets = RFC3550.CreatePadding(padding).ToArray();
-            
-            Payload = new OctetSegment(m_OwnedOctets, 0, padding);
+
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, padding, m_OwnsHeader);
         }
 
         public RtcpPacket(int version, int payloadType, int padding, int blockCount, int ssrc, int lengthInWords, byte[] payload, int index, int count)
@@ -281,7 +283,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The binary data of the RtcpPacket which may contain ReportBlocks or ApplicationSpecific data.
         /// </summary>
-        public OctetSegment Payload { get; protected set; }
+        public MemorySegment Payload { get; protected set; }
 
         public bool IsReadOnly { get { return !m_OwnsHeader; } }
 
@@ -443,7 +445,7 @@ namespace Media.Rtcp
             else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
 
             //Create a pointer to the owned octets.
-            Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, m_OwnsHeader);
 
             //Set the length in words minus one in the header
             SetLengthInWordsMinusOne();
@@ -456,7 +458,7 @@ namespace Media.Rtcp
         /// Generates a sequence of bytes containing the RtcpHeader and any data including Padding contained in the Payload.
         /// </summary>
         /// <returns>The sequence created.</returns>
-         public IEnumerable<byte> Prepare() { return Enumerable.Concat<byte>(Header, Payload.Count > 0 ? Payload : Enumerable.Empty<byte>()); }
+         public IEnumerable<byte> Prepare() { return Enumerable.Concat<byte>(Header, Payload != null? Payload : Enumerable.Empty<byte>()); }
 
         /// <summary>
         /// Gets the data of the RtcpPacket without any padding.
@@ -479,13 +481,13 @@ namespace Media.Rtcp
             {
                 //Dispose it
                 Header.Dispose();
-
                 //Remove of the reference
                 //Header = null;
             }
 
             //Payload goes away when disposing
-            Payload = default(OctetSegment);
+            Payload.Dispose();
+            Payload = null;
 
             //The private data goes away after calling Dispose
             m_OwnedOctets = null;
@@ -542,7 +544,7 @@ namespace Media.Rtcp
             }
             else //There is already enough room to finish the packet in the buffer which contains it.
             {
-                Payload = new OctetSegment(Payload.Array, Payload.Offset, octetsRemaining);
+                Payload = new Common.MemorySegment(Payload.Array, Payload.Offset, octetsRemaining, m_OwnsHeader);
                 if (IsComplete) return;
             }
 
@@ -558,7 +560,7 @@ namespace Media.Rtcp
             }
 
             //Re-allocate the segment around the received data.
-            Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, m_OwnsHeader);
 
             //The RtcpPacket is now complete.
         }

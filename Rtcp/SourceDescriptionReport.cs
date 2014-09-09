@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -291,7 +289,7 @@ namespace Media.Rtcp
             --BlockCount;
 
             //Re allocate the segment based on the new array of owned octets.
-            Payload = new OctetSegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, true);
 
             //Indicate a block was removed
             return true;

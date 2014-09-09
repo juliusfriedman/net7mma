@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -87,7 +85,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The header</param>
         /// <param name="payload">The payload</param>
-        public ApplicationSpecificReport(RtcpHeader header, OctetSegment payload)
+        public ApplicationSpecificReport(RtcpHeader header, Common.MemorySegment payload)
             : base(header, payload)
         {
 

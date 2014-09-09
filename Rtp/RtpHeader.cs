@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -146,7 +144,7 @@ namespace Media.Rtp
         /// </summary>
         byte[] Last10Bytes;
 
-        OctetSegment PointerToLast10Bytes;
+        Common.MemorySegment PointerToLast10Bytes;
 
         #endregion
 
@@ -318,7 +316,7 @@ namespace Media.Rtp
                 Last10Bytes =  Utility.Empty;
             }
 
-            PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, Last10Bytes.Length);
+            PointerToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length,  true);
         }
 
         /// <summary>
@@ -338,7 +336,7 @@ namespace Media.Rtp
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last10Bytes = new byte[10];
-                PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, 10);
+                PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10, true);
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
             }
         }
@@ -350,7 +348,7 @@ namespace Media.Rtp
             //Allocate space for the other 10 octets
             Last10Bytes = new byte[10];
 
-            PointerToLast10Bytes = new OctetSegment(Last10Bytes, 0, 10);
+            PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10, true);
 
             Version = version;
 
@@ -400,7 +398,8 @@ namespace Media.Rtp
                 First16Bits = null;
 
                 //Invalidate the pointer
-                PointerToLast10Bytes = default(OctetSegment);
+                PointerToLast10Bytes.Dispose();
+                PointerToLast10Bytes = null;
 
                 //Remove the reference to the allocated array.
                 Last10Bytes = null;

@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Rtp;
 using Media.Rtcp;
 
@@ -81,7 +79,7 @@ namespace Media.Common
         /// <summary>
         /// The memory which contains the SourceList
         /// </summary>
-        OctetSegment m_Binary;
+        Common.MemorySegment m_Binary;
 
         int m_CurrentOffset, //The current offset in parsing the binary
             m_SourceCount, //The amount of ContributingSources to read given from the CC nybble in a RtpHeader
@@ -113,7 +111,7 @@ namespace Media.Common
                     binary = binary.Concat(BitConverter.GetBytes(ssrc)).ToArray();
             }
 
-            m_Binary = new OctetSegment(binary.ToArray(), 0, m_SourceCount * 4);
+            m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * 4, true);
         }
 
         /// <summary>
@@ -136,7 +134,7 @@ namespace Media.Common
             {
                 //Source lists are only inserted by a mixer and come directly after the header and would be present in the payload,
                 //before the RtpExtension (if present) and before the RtpPacket's actual binary data
-                m_Binary = new OctetSegment(buffer, 0, Math.Min(buffer.Length, m_SourceCount * 4));
+                m_Binary = new Common.MemorySegment(buffer, 0, Math.Min(buffer.Length, m_SourceCount * 4), false);
             }
         }
 
@@ -161,7 +159,7 @@ namespace Media.Common
             m_SourceCount = sourceCount;
             int sourceListSize = 4 * sourceCount;
             m_OwnedOctets = new byte[sourceListSize];
-            m_Binary = new OctetSegment(m_OwnedOctets, 0, sourceListSize);
+            m_Binary = new Common.MemorySegment(m_OwnedOctets, 0, sourceListSize, true);
         }
 
         /// <summary>
@@ -373,7 +371,7 @@ namespace Media.Common
             {
                 m_OwnedOctets = null;
 
-                m_Binary = default(OctetSegment);
+                m_Binary = null;
             }
         }
 

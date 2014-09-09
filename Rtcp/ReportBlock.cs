@@ -42,8 +42,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Octet = System.Byte;
-using OctetSegment = System.ArraySegment<byte>;
 using Media.Common;
 
 #endregion
@@ -72,7 +70,7 @@ namespace Media.Rtcp
 
         #region Fields
 
-        readonly OctetSegment Memory;
+        readonly Common.MemorySegment Memory;
 
         readonly byte[] m_OwnedOctets;
 
@@ -156,7 +154,7 @@ namespace Media.Rtcp
             get { return SendersSynchronizationSourceIdentifier; }
         }
 
-        IEnumerable<Octet> IReportBlock.BlockData
+        IEnumerable<byte> IReportBlock.BlockData
         {
             get { return Memory.Array.Skip(Memory.Offset).Take(Memory.Count); }
         }
@@ -168,7 +166,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Allocates 24 octets to represent this ReportBlock instance.
         /// </summary>
-        ReportBlock() { m_OwnedOctets = new byte[Size]; Memory = new OctetSegment(m_OwnedOctets, 0, Size); }
+        ReportBlock() { m_OwnedOctets = new byte[Size]; Memory = new Common.MemorySegment(m_OwnedOctets, 0, Size, true); }
 
         /// <summary>
         /// Allocates 24 octets of memory and sets the <see cref="ReportBlock.SendersSynchronizationSourceIdentifier"/> property to the value of <paramref name="ssrc"/>.
@@ -199,7 +197,7 @@ namespace Media.Rtcp
             Memory = reference.Memory;
         }
 
-        internal ReportBlock(OctetSegment data)
+        internal ReportBlock(Common.MemorySegment data)
         {
             Memory = data;
         }
@@ -232,7 +230,7 @@ namespace Media.Rtcp
             return Prepare().GetEnumerator();
         }
 
-        IEnumerator<Octet> IEnumerable<Octet>.GetEnumerator()
+        IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
             return GetEnumeratorImplementation();
         }
