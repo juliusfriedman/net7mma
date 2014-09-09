@@ -624,7 +624,7 @@ namespace Tests
             using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(rtcpPacket, false)) 
             {
                 //Check the invalid block count
-                if (sr.BlockCount != 16) throw new Exception("Invalid Block Count!");
+                if (sr.BlockCount != 1) throw new Exception("Invalid Block Count!");
                 else Console.WriteLine(sr.BlockCount);//16, should be 1
 
                 if ((uint)sr.SynchronizationSourceIdentifier != (uint)2738258998) throw new Exception("Invalid Senders SSRC!");
@@ -677,7 +677,7 @@ namespace Tests
             {
                 output = testReport.Prepare().ToArray();
 
-                if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != ushort.MaxValue || testReport.Length != 8) throw new Exception("Invalid Length");
+                if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 1 || testReport.Length != 8) throw new Exception("Invalid Length");
 
                 if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
             }
@@ -727,7 +727,7 @@ namespace Tests
                 Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
 
                 //Check the invalid block count
-                if (rr.BlockCount != 16) throw new Exception("Invalid Block Count!");
+                if (rr.BlockCount != 1) throw new Exception("Invalid Block Count!");
                 else Console.WriteLine(rr.BlockCount);//16, should be 1
 
                 using (var enumerator = rr.GetEnumerator())
@@ -1375,7 +1375,7 @@ namespace Tests
                     // The extension data length is (3 words / 12 bytes) 
                     // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
                     //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
-                    if (rtpExtension.Size != 16) throw new Exception("Expected ExtensionLength not found");
+                    if (rtpExtension.Size != 1) throw new Exception("Expected ExtensionLength not found");
                     else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
 
                     // Check extension values are what we expected.

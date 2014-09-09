@@ -253,7 +253,7 @@ namespace Media
         /// <param name="count"></param>
         /// <param name="skipUnknownTypes"></param>
         /// <returns></returns>
-        public static IEnumerable<RtcpPacket> FromCompoundBytes(byte[] array, int offset, int count, bool skipUnknownTypes = true, int version = 2, int? ssrc = null)
+        public static IEnumerable<RtcpPacket> FromCompoundBytes(byte[] array, int offset, int count, bool skipUnknownTypes = false, int version = 2, int? ssrc = null)
         {
             if (version < 2) throw new ArgumentException("There are no Compound Packets in Versions less than 2");
 

@@ -390,9 +390,9 @@ namespace Media.Rtcp
             int lengthInOctets = Length;
 
             //If there are no bytes in the payload then ensure LengthInWords is 0
-            if (lengthInOctets == 8)
+            if (lengthInOctets <= 8)
             {
-                Header.LengthInWordsMinusOne = ushort.MaxValue;
+                Header.LengthInWordsMinusOne = 1;
                 return;
             }
 

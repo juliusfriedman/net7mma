@@ -1745,7 +1745,7 @@ namespace Media.Rtp
 
             bool includeBlocks = !empty; //&& context.LastRtcpReportSent != TimeSpan.Zero;
 
-            SendersReport result = new SendersReport(context.Version, false, includeBlocks ? 1 : 0, (int)context.SynchronizationSourceIdentifier);
+            SendersReport result = new SendersReport(context.Version, false, 0, (int)context.SynchronizationSourceIdentifier);
 
             DateTime now = DateTime.UtcNow;
 
@@ -1816,7 +1816,7 @@ namespace Media.Rtp
         /// <returns>The report created</returns>
         internal protected virtual ReceiversReport CreateReceiversReport(TransportContext context, bool empty)
         {
-            ReceiversReport result = new ReceiversReport(context.Version, false, empty ? 0 : 1, (int)context.SynchronizationSourceIdentifier);
+            ReceiversReport result = new ReceiversReport(context.Version, false, 0, (int)context.SynchronizationSourceIdentifier);
 
             if (!empty)
             {
