@@ -272,14 +272,19 @@ namespace Media.Common
             //Where 3 | PaddingMask = 224 (decimal) 11100000
             //Example 255 & 244 = 31 which is the Maximum value which is able to be stored in this field.
             //Where 255 = byte.MaxValue
-            get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 3)) : Common.Binary.ReverseU8((byte)(First8Bits >> 3)); }
+            get { return (byte)(First8Bits & Common.Binary.FiveBitMaxValue); } // BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 3)) : Common.Binary.ReverseU8((byte)(First8Bits >> 3)); }
             set
             {
                 if (value > Binary.FiveBitMaxValue)
                     throw Binary.CreateOverflowException("RtcpBlockCount", value, byte.MinValue.ToString(), Binary.FiveBitMaxValue.ToString());
 
+                //129 - 10000001 Little Endian
+                //Version 2, Padding 0, 00001
+
+                //To make it correct unsigned has to be reversed 10000 = 16
+
                 //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
-                byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 3) : (byte)(value << 3);
+                byte unsigned = (byte)value; //BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 3) : (byte)(value << 3);
 
                 //Include the padding bit if it was set prior
                 if (Padding) unsigned |= PaddingMask;

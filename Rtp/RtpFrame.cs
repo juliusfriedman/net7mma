@@ -127,7 +127,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if any packets have a marker
         /// </summary>
-        public virtual bool HasMarker { get { return m_Packets.Any(a => a.Value.Marker); } }
+        public virtual bool HasMarker { get { return m_Packets.Last().Value.Marker; } } // m_Packets.Any(a => a.Value.Marker); } }
 
         /// <summary>
         /// The amount of Packets in the RtpFrame
@@ -235,7 +235,7 @@ namespace Media.Rtp
             //if (Complete) throw new InvalidOperationException("Complete frame cannot have additional packets added");
             
             //If the last packet has the marker bit then no more packets can be added
-            if (Count > 1 && m_Packets.Last().Value.Marker/*HasMarker*/) throw new InvalidOperationException("Complete frame cannot have additional packets added");
+            if (Count > 1 && HasMarker) throw new InvalidOperationException("Complete frame cannot have additional packets added");
 
             //Dont call contains (use Distinct)
             //Fast path check for being contained.
