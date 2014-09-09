@@ -655,7 +655,7 @@ namespace Media.Rtsp
                 }
 
                 //Initialize the Udp sockets
-                setupContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);
+                setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, openPort, openPort + 1, rtpPort, rtcpPort);
 
                 //Add the transportChannel
                 m_RtpClient.Add(setupContext);
@@ -704,7 +704,7 @@ namespace Media.Rtsp
                     m_RtpClient.Add(setupContext);
 
                     //Initialize the Interleaved Socket
-                    setupContext.InitializeSockets(m_RtspSocket);
+                    setupContext.Initialize(m_RtspSocket);
                 }
                 else if (m_RtpClient != null && m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching From Udp to Tcp
                 {
@@ -735,7 +735,7 @@ namespace Media.Rtsp
                     m_RtpClient.Add(setupContext);
 
                     //Initialize the Interleaved Socket
-                    setupContext.InitializeSockets(m_RtspSocket);
+                    setupContext.Initialize(m_RtspSocket);
 
                     m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(10);
 
@@ -755,7 +755,7 @@ namespace Media.Rtsp
                     m_RtpClient.Add(setupContext);
 
                     //Initialize the current TransportChannel with the interleaved Socket
-                    setupContext.InitializeSockets(m_RtspSocket);
+                    setupContext.Initialize(m_RtspSocket);
                 }
                 
                 returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel + ";ssrc=0x" + ssrc.ToString("X");////

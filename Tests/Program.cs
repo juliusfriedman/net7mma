@@ -350,11 +350,11 @@ namespace Tests
                         //Initialzie the sockets required and add the context so the RtpClient can maintin it's state, once for the receiver and once for the sender in this example.
                         //Most application would only have one or the other.
 
-                        receiversContext.InitializeSockets(localIp, localIp, incomingRtpPort, rtcpPort, ougoingRtpPort, xrtcpPort);
+                        receiversContext.Initialize(localIp, localIp, incomingRtpPort, rtcpPort, ougoingRtpPort, xrtcpPort);
 
                         receiver.Add(receiversContext);
 
-                        sendersContext.InitializeSockets(localIp, localIp, ougoingRtpPort, xrtcpPort, incomingRtpPort, rtcpPort);
+                        sendersContext.Initialize(localIp, localIp, ougoingRtpPort, xrtcpPort, incomingRtpPort, rtcpPort);
 
                         sender.Add(sendersContext);
 
@@ -370,14 +370,6 @@ namespace Tests
                         Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
-
-                        int ts = 3600;
-
-                        foreach (Media.Rtp.RtpPacket r in testFrame.Skip(1))
-                        {
-                            r.Timestamp += ts;
-                            ts += 3600;
-                        }
 
                         //Send it
                         sender.SendRtpFrame(testFrame);

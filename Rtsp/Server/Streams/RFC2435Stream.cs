@@ -1276,7 +1276,10 @@ namespace Media.Rtsp.Server.Streams
             //End result when encoding or decoding is cached in this member
             internal System.Drawing.Image Image;
 
-            internal System.IO.MemoryStream Buffer;
+            /// <summary>
+            /// Provied access the to underlying buffer where the image is stored.
+            /// </summary>
+            public System.IO.MemoryStream Buffer { get; protected set; }
 
             #endregion
 
@@ -1643,17 +1646,6 @@ namespace Media.Rtsp.Server.Streams
                 DisposeBufferAndImage();
                 return base.Remove(sequenceNumber);
             }
-
-            #region Jpeg
-
-            //Maybe
-            //public byte[] GetQuantizationTable(int index) { }
-            //....
-
-            //Allow conversion to and from 8/16 bit
-            //Allow setting of QTables
-
-            #endregion
 
             #endregion
 

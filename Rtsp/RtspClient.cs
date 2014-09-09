@@ -1399,7 +1399,7 @@ namespace Media.Rtsp
                             m_RtpClient.Add(transportContext);
 
                             //and initialize the client from the RtspSocket
-                            transportContext.InitializeSockets(m_RtspSocket);
+                            transportContext.Initialize(m_RtspSocket);
                         }
                         else
                         {
@@ -1454,7 +1454,7 @@ namespace Media.Rtsp
                                 RtpClient.TransportContext newContext = new RtpClient.TransportContext(0, 1, RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, !rtcpDisabled, ssrc, 2);
                                 newContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
                                 newContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                                newContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                newContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.Add(newContext);
                             }
                             else
@@ -1463,7 +1463,7 @@ namespace Media.Rtsp
                                 RtpClient.TransportContext nextContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, !rtcpDisabled, ssrc, 2);
                                 nextContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
                                 nextContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                                nextContext.InitializeSockets(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                                nextContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
                                 m_RtpClient.Add(nextContext);
                             }
                         }

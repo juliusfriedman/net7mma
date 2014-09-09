@@ -795,7 +795,7 @@ namespace Media.Rtp
             /// Attention Freebox Stb Users!!!! -- Todo make an option to allow on the first receive to adjust port?
             /// Please use 0 For remoteRtpPort and remoteRtcpPort as the Freebox Stb does not use the correct Rtp or Rtcp ports indicated in the Describe request.
             /// </notes>
-            public void InitializeSockets(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort = 0, int remoteRtcpPort = 0, bool punchHole = true)
+            public void Initialize(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort = 0, int remoteRtcpPort = 0, bool punchHole = true)
             {
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
@@ -889,7 +889,7 @@ namespace Media.Rtp
                         #region Optional Parameters
 
                         //Set max ttl for slower networks
-                        //RtcpSocket.Ttl = 255;
+                        RtcpSocket.Ttl = 255;
 
                         //May help if behind a router
                         //Allow Nat Traversal
@@ -924,7 +924,7 @@ namespace Media.Rtp
             /// Uses the given socket for the duplexed data
             /// </summary>
             /// <param name="duplexed">The socket to use</param>
-            public void InitializeSockets(Socket duplexed)
+            public void Initialize(Socket duplexed)
             {
 
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
@@ -953,7 +953,7 @@ namespace Media.Rtp
             /// </summary>
             /// <param name="rtpSocket"></param>
             /// <param name="rtcpSocket"></param>
-            public void IntializeSockets(Socket rtpSocket, Socket rtcpSocket)
+            public void Initialize(Socket rtpSocket, Socket rtcpSocket)
             {
                 RtpSocket = rtpSocket;
                 RtcpSocket = rtcpSocket;
@@ -1109,20 +1109,6 @@ namespace Media.Rtp
         /// Raised when a complete RtpFrame was changed
         /// </summary>
         public event RtpFrameHandler RtpFrameChanged;
-
-        /// <summary>
-        /// Handles data which was interleaved when utilziing TCP
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="memory"></param>
-        //protected internal virtual void HandleInterleavedData(object sender, ArraySegment<byte> memory)
-        //{
-        //    //if(!Disposed && sender != this) ParseAndCompleteData(memory);
-        //    if (!Disposed)
-        //    {
-        //        ParseAndCompleteData(memory);
-        //    }
-        //}
 
 
         //6.3.2 Initialization....
