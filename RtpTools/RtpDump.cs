@@ -260,7 +260,7 @@ namespace Media.RtpTools.RtpDump
                     //Align for 64 bit utilization
                     if (m_Is64Bit) entry.Pointer += 4;
 
-                    int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
+                    int itemLength = entry.PacketLength - RtpToolEntry.sizeOf_RD_packet_T;
 
                     //If there are any more bytes related to the item itemLength will be > 0
                     if (itemLength > 0)

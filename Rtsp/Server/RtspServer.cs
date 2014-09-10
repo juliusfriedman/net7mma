@@ -402,10 +402,16 @@ namespace Media.Rtsp
             }
         }
 
+        /// <summary>
+        /// Stops the server and removes all streams
+        /// </summary>
         public override void Dispose()
         {
-            Stop();
             base.Dispose();
+         
+            Stop();
+
+            foreach (var stream in m_Streams) m_Streams.Remove(stream.Key);
         }
 
         #region Session Collection

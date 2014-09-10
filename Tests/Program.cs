@@ -912,7 +912,7 @@ namespace Tests
         static void TestRtpDumpReader(string path, Media.RtpTools.FileFormat? knownFormat = null)
         {
             //Always use an unknown format for the reader allows each item to be formatted differently
-            using (Media.RtpTools.RtpDump.DumpReader reader = new Media.RtpTools.RtpDump.DumpReader(path))
+            using (Media.RtpTools.RtpDump.DumpReader reader = new Media.RtpTools.RtpDump.DumpReader(path, knownFormat))
             {
 
                 Console.WriteLine(string.Format(TestingFormat, "Successfully Opened", path));
@@ -924,16 +924,8 @@ namespace Tests
                     using (Media.RtpTools.RtpToolEntry entry = reader.ReadNext())
                     {
 
-                        //Empty entry
-                        if (entry.Length == 0)
-                        {
-                            //Found an empty entry
-                            Console.WriteLine(string.Format(TestingFormat, "Found an Empty Entry", path));
-                            continue;
-                        }
-
-                        //Check for the known format if given.
-                        if (knownFormat.HasValue && reader.Format != knownFormat) throw new Exception("RtpDumpReader Format did not match knownFormat");
+                        //Check for the known format if given, happens for Hex and Binary..
+                        //if (knownFormat.HasValue && reader.Format != knownFormat) throw new Exception("RtpDumpReader Format did not match knownFormat");
 
                         //Show the format of the item found
                         Console.WriteLine(string.Format(TestingFormat, "Format", entry.Format));
@@ -948,12 +940,12 @@ namespace Tests
                         //Additionally the Blob contains the RD_hdr_t and RD_packet_t but the Data property only will expose the octets required for the packets
                         byte[] data = entry.Data.ToArray();
 
-                        if (data.Length == 0) continue;
-
                         int offset = 0, max = data.Length;
 
+                        if (max == 0) continue;
+
                         //Determine further action based on the PacketLength, Version etc.
-                        if (entry.PacketLength == 0)
+                        if (entry.IsRtcp)
                         {
                             //Attempt to get any packets which correspond to a Media.Rtcp Payload Type which is implemented
                             foreach (Media.Rtcp.RtcpPacket p in Media.Rtcp.RtcpPacket.GetPackets(data, offset, max))
@@ -991,7 +983,7 @@ namespace Tests
                             //If there are more bytes then that of the RtpHeader
 
                             if (offset < max) //Use the created packet so it can be disposed
-                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new ArraySegment<byte>(data, offset, max - offset), false))
+                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new Media.Common.MemorySegment(data, offset, max - offset, false), false))
                                 {
                                     //Write information about the packet to the console
                                     Console.BackgroundColor = ConsoleColor.Green;
@@ -1376,7 +1368,7 @@ namespace Tests
                     // The extension data length is (3 words / 12 bytes) 
                     // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
                     //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
-                    if (rtpExtension.Size != 1) throw new Exception("Expected ExtensionLength not found");
+                    if (rtpExtension.Size != 16) throw new Exception("Expected ExtensionLength not found");
                     else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
 
                     // Check extension values are what we expected.

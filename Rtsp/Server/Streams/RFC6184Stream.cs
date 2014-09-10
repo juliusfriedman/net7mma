@@ -52,6 +52,443 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public class RFC6184Stream : RFC2435Stream
     {
+
+        //https://code.google.com/p/android-rcs-ims-stack/source/browse/trunk/core/src/com/orangelabs/rcs/core/ims/protocol/rtp/codec/video/h264/H264RtpHeaders.java?r=275
+        public class RFC6184Headers
+        {
+            /**
+             * AVC NAL picture parameter
+             */
+            public static int AVC_NALTYPE_FUA = 28;
+
+            private static int FU_INDICATOR_SIZE = 1;
+            private static int FU_HEADER_SIZE = 1;
+
+            /**
+             * First Header - The FU indicator octet
+             */
+            private bool FUI_F;
+            private int FUI_NRI;
+            private byte FUI_TYPE;
+
+            /**
+             * Second Header - The FU header
+             */
+            private bool FUH_S;
+            private bool FUH_E;
+            private bool FUH_R;
+            private byte FUH_TYPE;
+
+            private bool hasFUHeader;
+
+            public RFC6184Headers(byte[] rtpPacketData)
+            {
+                // Get FU indicator
+                byte data_FUI = rtpPacketData[0];
+
+                this.FUI_F = ((data_FUI >> 7) & 0x01) != 0;
+                this.FUI_NRI = ((data_FUI >> 5) & 0x07);
+                this.FUI_TYPE = (byte)(data_FUI & 0x1f);
+                this.hasFUHeader = false;
+
+                if (FUI_TYPE == AVC_NALTYPE_FUA)
+                {
+                    // Get FU header
+                    byte data_FUH = rtpPacketData[1];
+                    this.FUH_S = (data_FUH & 0x80) != 0;
+                    this.FUH_E = (data_FUH & 0x40) != 0;
+                    this.FUH_R = (data_FUH & 0x20) != 0;
+                    this.FUH_TYPE = (byte)(data_FUH & 0x1f);
+                    this.hasFUHeader = true;
+                }
+            }
+
+            /**
+            * Is Frame Non Interleaved
+            *
+            * @return Is Frame Non Interleaved
+            */
+            public bool isFrameNonInterleaved()
+            { // not fragmented
+                return (FUI_TYPE == AVC_NALTYPE_FUA);
+            }
+
+            /**
+             * Header Size
+             *
+             * @return Header Size
+             */
+            public int getHeaderSize()
+            {
+                int headerSize = FU_INDICATOR_SIZE;
+                if (hasFUHeader)
+                {
+                    headerSize += FU_HEADER_SIZE;
+                }
+                return headerSize;
+            }
+
+            /**
+             * Get NAL Header
+             *
+             * @return NAL Header
+             */
+            public byte getNALHeader()
+            {
+                // Compose and copy NAL header
+                if (hasFUHeader)
+                {
+                    return (byte)(((getFUI_F() ? 1 : 0) << 7) | (FUI_NRI << 5) | (FUH_TYPE & 0x1F));
+                }
+                else
+                {
+                    return (byte)(((getFUI_F() ? 1 : 0) << 7) | (FUI_NRI << 5) | (FUI_TYPE & 0x1F));
+                }
+            }
+
+            /**
+             * Verifies if packet is a code slice of a IDR picture
+             *
+             * @param packet packet to verify
+             * @return <code>True</code> if it is, <code>false</code> otherwise
+             */
+            public bool isIDRSlice()
+            {
+                if (FUI_TYPE == (byte)0x05)
+                {
+                    return true;
+                }
+
+                if (isFrameNonInterleaved() && FUH_TYPE == (byte)0x05)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            /**
+             * Verifies if packet is a code slice of a NON IDR picture
+             *
+             * @param packet packet to verify
+             * @return <code>True</code> if it is, <code>false</code> otherwise
+             */
+            public bool isNonIDRSlice()
+            {
+                if (FUI_TYPE == (byte)0x01)
+                {
+                    return true;
+                }
+
+                if (isFrameNonInterleaved() && FUH_TYPE == (byte)0x01)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            /**
+             * Get FUI_F
+             *
+             * @return FUI_F
+             */
+            public bool getFUI_F()
+            {
+                return FUI_F;
+            }
+
+            /**
+             * Get FUI_NRI
+             *
+             * @return FUI_NRI
+             */
+            public int getFUI_NRI()
+            {
+                return FUI_NRI;
+            }
+
+            /**
+             * Get FUI_TYPE
+             *
+             * @return FUI_TYPE
+             */
+            public byte getFUI_TYPE()
+            {
+                return FUI_TYPE;
+            }
+
+            /**
+             * Get FUH_S
+             *
+             * @return FUH_S
+             */
+            public bool getFUH_S()
+            {
+                return FUH_S;
+            }
+
+            /**
+             * Get FUH_E
+             *
+             * @return FUH_E
+             */
+            public bool getFUH_E()
+            {
+                return FUH_E;
+            }
+
+            /**
+             * Get FUH_R
+             *
+             * @return FUH_R
+             */
+            public bool getFUH_R()
+            {
+                return FUH_R;
+            }
+
+            /**
+             * Get FUH_TYPE
+             *
+             * @return FUH_TYPE
+             */
+            public byte getFUH_TYPE()
+            {
+                return FUH_TYPE;
+            }
+        }
+
+        public class NalUnitHeader
+        {
+
+            public enum NalUnitType
+            {
+
+                RESERVED,
+                CODE_SLICE_NON_IDR_PICTURE,
+                CODE_SLICE_DATA_PARTITION_A,
+                CODE_SLICE_DATA_PARTITION_B,
+                CODE_SLICE_DATA_PARTITION_C,
+                CODE_SLICE_IDR_PICTURE,
+                SEQUENCE_PARAMETER_SET,
+                PICTURE_PARAMETER_SET,
+                STAP_A,
+                STAP_B,
+                MTAP16,
+                MTAP24,
+                FU_A,
+                FU_B,
+                OTHER_NAL_UNIT
+
+            }
+
+            /**
+             * Forbidden zero bit
+             */
+            private bool forbiddenZeroBit;
+
+            /**
+             * NAL Reference id
+             */
+            private int nalRefId;
+
+            /**
+             * NAL Unit Type
+             */
+            private NalUnitType decodeNalUnitType;
+
+            /**
+             * Class constructor
+             *
+             * @param forbiddenZeroBit Forbidden zero bit
+             * @param nalRefId NAL Reference id
+             * @param nalUnitType NAL Unit Type value
+             */
+            private NalUnitHeader(bool forbiddenZeroBit, int nalRefId, int nalUnitType)
+            {
+                this.forbiddenZeroBit = forbiddenZeroBit;
+                this.nalRefId = nalRefId;
+                this.decodeNalUnitType = (NalUnitType)nalUnitType;
+            }
+
+            /**
+             * Checks if the Forbidden Zero Bit is set.
+             *
+             * @return <code>True</code> if it is, <code>false</code> false otherwise.
+             */
+            public bool isForbiddenBitSet()
+            {
+                return forbiddenZeroBit;
+            }
+
+            /**
+             * Gets the NAL Reference ID
+             *
+             * @return NAL Reference ID
+             */
+            public int getNalRefId()
+            {
+                return nalRefId;
+            }
+
+            /**
+             * Gets the NAL Unit Type
+             *
+             * @return
+             */
+            public NalUnitType getNalUnitType()
+            {
+                return decodeNalUnitType;
+            }
+
+            /**
+             * Verifies if the H264 packet is Single NAL Unit
+             *
+             * @return <code>True</code> if it is, <code>false</code> false otherwise.
+             */
+            public bool isSingleNalUnitPacket()
+            {
+                return decodeNalUnitType == NalUnitType.CODE_SLICE_IDR_PICTURE
+                        || decodeNalUnitType == NalUnitType.CODE_SLICE_NON_IDR_PICTURE
+                        || decodeNalUnitType == NalUnitType.CODE_SLICE_DATA_PARTITION_A
+                        || decodeNalUnitType == NalUnitType.CODE_SLICE_DATA_PARTITION_B
+                        || decodeNalUnitType == NalUnitType.CODE_SLICE_DATA_PARTITION_C
+                        || decodeNalUnitType == NalUnitType.SEQUENCE_PARAMETER_SET
+                        || decodeNalUnitType == NalUnitType.PICTURE_PARAMETER_SET
+                        || decodeNalUnitType == NalUnitType.OTHER_NAL_UNIT;
+            }
+
+            /**
+             * Verifies if the H264 packet is an Aggregation Packet
+             *
+             * @return <code>True</code> if it is, <code>false</code> false otherwise.
+             */
+            public bool isAggregationPacket()
+            {
+                return decodeNalUnitType == NalUnitType.STAP_A || decodeNalUnitType == NalUnitType.STAP_B
+                        || decodeNalUnitType == NalUnitType.MTAP16
+                        || decodeNalUnitType == NalUnitType.MTAP24;
+            }
+
+            /**
+             * Verifies if the H264 packet is a Fragmentation Unit Packet
+             *
+             * @return <code>True</code> if it is, <code>false</code> false otherwise.
+             */
+            public bool isFragmentationUnit()
+            {
+                return decodeNalUnitType == NalUnitType.FU_A || decodeNalUnitType == NalUnitType.FU_B;
+            }
+
+            /**
+             * Extracts the NAL Unit header from a H264 Packet
+             *
+             * @param h264Packet H264 Packet
+             * @return {@link NalUnitHeader} Extracted NAL Unit Header
+             * @throws {@link RuntimeException} If the H264 packet data is null
+             */
+            public static NalUnitHeader extract(byte[] h264Packet)
+            {
+                if (h264Packet == null)
+                {
+                    throw new Exception("Cannot extract H264 header. Invalid H264 packet");
+                }
+
+                NalUnitHeader header = new NalUnitHeader(false, 0, 0);
+                extract(h264Packet, header);
+
+                return header;
+            }
+
+            /**
+             * Extracts the NAL Unit header from a H264 Packet. Puts the extracted info
+             * in the given header object
+             *
+             * @param h264Packet H264 packet
+             * @param header Header object to fill with data
+             * @throws {@link RuntimeException} If the H264 packet data is null or the
+             *         header is null;
+             */
+            public static void extract(byte[] h264Packet, NalUnitHeader header)
+            {
+                if (h264Packet == null)
+                {
+                    throw new Exception("Cannot extract H264 header. Invalid H264 packet");
+                }
+
+                if (header == null)
+                {
+                    throw new Exception("Cannot extract H264 header. Invalid header packet");
+                }
+
+                byte headerByte = h264Packet[0];
+
+                header.forbiddenZeroBit = ((headerByte & 0x80) >> 7) != 0;
+                header.nalRefId = ((headerByte & 0x60) >> 5);
+                int nalUnitType = (headerByte & 0x1f);
+                header.decodeNalUnitType = (NalUnitType)nalUnitType;
+            }
+
+            /**
+             * Extracts the NAL Unit header from a H264 Packet
+             *
+             * @param h264Packet H264 Packet
+             * @return {@link NalUnitHeader} Extracted NAL Unit Header
+             * @throws {@link RuntimeException} If the H264 packet data is null
+             */
+            public static NalUnitHeader extract(int position, byte[] h264Packet)
+            {
+                if (h264Packet == null)
+                {
+                    throw new Exception("Cannot extract H264 header. Invalid H264 packet");
+                }
+
+                NalUnitHeader header = new NalUnitHeader(false, 0, 0);
+                extract(position, h264Packet, header);
+
+                return header;
+            }
+
+            /**
+             * Extracts the NAL Unit header from a H264 Packet. Puts the extracted info
+             * in the given header object
+             *
+             * @param h264Packet H264 packet
+             * @param header Header object to fill with data
+             * @throws {@link RuntimeException} If the H264 packet data is null or the
+             *         header is null;
+             */
+            public static void extract(int position, byte[] h264Packet, NalUnitHeader header)
+            {
+                if (h264Packet == null)
+                {
+                    throw new Exception("Cannot extract H264 header. Invalid H264 packet");
+                }
+
+                if (header == null)
+                {
+                    throw new Exception("Cannot extract H264 header. Invalid header packet");
+                }
+
+                byte headerByte = h264Packet[position];
+
+                header.forbiddenZeroBit = ((headerByte & 0x80) >> 7) != 0;
+                header.nalRefId = ((headerByte & 0x60) >> 5);
+                int nalUnitType = (headerByte & 0x1f);
+                header.decodeNalUnitType = (NalUnitType)nalUnitType;
+            }
+        }
+
+        //To Make Packets
+        //https://code.google.com/p/android-rcs-ims-stack/source/browse/trunk/core/src/com/orangelabs/rcs/core/ims/protocol/rtp/codec/video/h264/JavaPacketizer.java?r=275
+
+        //To De Packetize
+        //https://code.google.com/p/android-rcs-ims-stack/source/browse/trunk/core/src/com/orangelabs/rcs/core/ims/protocol/rtp/codec/video/h264/JavaDepacketizer.java?r=275
+
+        //Some MP4 Related stuff
+        //https://github.com/fyhertz/libstreaming/blob/master/src/net/majorkernelpanic/streaming/mp4/MP4Parser.java
+
         #region Propeties        
 
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
