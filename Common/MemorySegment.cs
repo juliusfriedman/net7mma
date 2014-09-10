@@ -12,8 +12,6 @@ namespace Media.Common
     public class MemorySegment : BaseDisposable, IEnumerable<byte>
     {
 
-        bool m_Owner;
-
         byte[] m_Array;
 
         int m_Offset, m_Length;
@@ -24,17 +22,14 @@ namespace Media.Common
 
         public byte[] Array { get { return m_Array; } }
 
-        public bool OwnsMemory { get { return m_Owner; } }
-
-        public MemorySegment(byte[] reference, bool ownsMemory)  : base()
+        public MemorySegment(byte[] reference)  : base()
         {
             if (reference == null) throw new ArgumentNullException("reference");
-            m_Owner = ownsMemory;
             m_Array = reference;
             m_Length = m_Array.Length;
         }
 
-        public MemorySegment(byte[] reference, int offset, bool ownsMemory) : this(reference, ownsMemory)
+        public MemorySegment(byte[] reference, int offset): this(reference)
         {
             int arrayLen = m_Array.Length;
             if (offset > arrayLen) throw new ArgumentOutOfRangeException("offset");
@@ -42,8 +37,8 @@ namespace Media.Common
             m_Length = arrayLen - m_Offset;
         }
 
-        public MemorySegment(byte[] reference, int offset, int length, bool ownsMemory)
-            : this(reference, offset, ownsMemory)
+        public MemorySegment(byte[] reference, int offset, int length)
+            : this(reference, offset)
         {
             m_Length = length;
             if (m_Offset + m_Length > m_Array.Length) throw new ArgumentOutOfRangeException("length");
@@ -52,7 +47,6 @@ namespace Media.Common
         public MemorySegment(int size)
         {
             if (size < 0) throw new ArgumentException("size");
-            m_Owner = true;
             m_Array = new byte[size];
             m_Offset = 0;
             m_Length = size;
@@ -62,7 +56,7 @@ namespace Media.Common
 
         public override void Dispose()
         {
-            if (m_Owner) m_Array = null;
+            //if (m_Owner) m_Array = null;
             m_Offset = m_Length = -1;
             base.Dispose();
         }

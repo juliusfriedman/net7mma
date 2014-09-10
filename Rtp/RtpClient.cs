@@ -102,7 +102,7 @@ namespace Media.Rtp
     /// Provides an implementation of the <see cref="http://tools.ietf.org/html/rfc3550"> Real Time Protocol </see>.
     /// A RtpClient typically allows one <see cref="System.Net.Socket"/> to communicate (via RTP) to another <see cref="System.Net.Socket"/> via <see cref="RtpClient.TransportContext"/>'s in which some <see cref="SessionDescription"/> has been created.
     /// </summary>
-    public class RtpClient : IDisposable, Media.Common.IThreadOwner, Media.Common.ISocketOwner
+    public class RtpClient : Common.BaseDisposable, Media.Common.IThreadOwner, Media.Common.ISocketOwner
     {
         #region Statics
 
@@ -1517,11 +1517,6 @@ namespace Media.Rtp
         public bool FrameChangedEventsEnabled { get; set; }
 
         /// <summary>
-        /// Gets a value indicating if the RtpClient has been Disposed.
-        /// </summary>
-        public bool Disposed { get; protected set; }
-
-        /// <summary>
         /// Gets a value indicating if the RtpClient is not disposed and the WorkerThread is alive.
         /// </summary>
         public virtual bool Connected { get { return !Disposed && m_WorkerThread != null && m_WorkerThread.IsAlive; } }
@@ -2931,7 +2926,7 @@ namespace Media.Rtp
 
         #endregion
 
-        public virtual void Dispose()
+        public override void Dispose()
         {
             if (Disposed) return;
 

@@ -109,7 +109,7 @@ namespace Media.Rtcp
             m_OwnedOctets = new byte[payloadSize];
 
             //Segment the array to allow property access.
-            Payload = new MemorySegment(m_OwnedOctets, 0, payloadSize, true);
+            Payload = new MemorySegment(m_OwnedOctets, 0, payloadSize);
 
             //Set the SetLenthInWordsMinusOne property in the Header
             SetLengthInWordsMinusOne();
@@ -208,7 +208,7 @@ namespace Media.Rtcp
             {
                 for (int offset = Payload.Offset, count = Payload.Count - offset; offset < count;)
                 {
-                    ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, offset, count, false));
+                    ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, offset, count));
                     offset += current.Size;
                     count -= current.Size;
                     yield return current;
@@ -272,7 +272,7 @@ namespace Media.Rtcp
                         m_OwnedOctets = m_OwnedOctets.Take(offset).Skip(reportBlock.Size).ToArray();
 
                         //Re allocate the payload around the new owned octets
-                        Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, true);
+                        Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 
                         //Decrease the block count
                         --BlockCount;

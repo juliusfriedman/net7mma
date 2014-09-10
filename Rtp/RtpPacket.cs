@@ -214,7 +214,7 @@ namespace Media.Rtp
             m_OwnedOctets = octets.ToArray();
 
             //The Payload property must be assigned otherwise the properties will not function in the instance.
-            Payload = new MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, m_OwnsHeader);
+            Payload = new MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
         }
 
         /// <summary>
@@ -260,7 +260,7 @@ namespace Media.Rtp
                 Array.Copy(buffer, offset, m_OwnedOctets, 0, ownedOctets);
 
                 //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
-                Payload = new MemorySegment(m_OwnedOctets, 0, ownedOctets, m_OwnsHeader);
+                Payload = new MemorySegment(m_OwnedOctets, 0, ownedOctets);
             }
             else
             {                
@@ -680,7 +680,7 @@ namespace Media.Rtp
             //Padding is now complete
 
             //Re allocate the payload segment to include any completed data
-            Payload = new Common.MemorySegment(m_OwnedOctets, Payload.Offset, m_OwnedOctets.Length, m_OwnsHeader);
+            Payload = new Common.MemorySegment(m_OwnedOctets, Payload.Offset, m_OwnedOctets.Length);
 
             //RtpPacket is complete
         }      

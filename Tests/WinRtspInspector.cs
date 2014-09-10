@@ -162,6 +162,7 @@ namespace Tests
 
         public void AddRtcp(Media.Rtcp.RtcpPacket p)
         {
+            if (Client == null) return;
             try
             {
                 RTCPPacketBinding.Add(p);
@@ -173,6 +174,7 @@ namespace Tests
         }
         public void AddRtp(Media.Rtp.RtpPacket p)
         {
+            if (Client == null) return;
             try
             {
                 RTPPacketBinding.Add(p);
@@ -229,6 +231,9 @@ namespace Tests
 
         public void UpdateRtsp(Media.Rtsp.RtspMessage p)
         {
+
+            if (Client == null || Client.Disposed) return;
+
             textBox2.AppendText("@" + p.Created.ToUniversalTime().ToString() + " - " + p.ToString() + Environment.NewLine);
 
 
@@ -259,8 +264,26 @@ namespace Tests
 
         void sender_OnDisconnect(RtspClient sender, object args)
         {
+
+            if (sender == null || sender.Disposed) return;
+
             sender.m_RtpClient.RtpPacketReceieved -= ShowRtpPacket;
             sender.m_RtpClient.RtcpPacketReceieved -= ShowRtcpPacket;
+            
+        
+            sender.OnPlay -= sender_OnPlay;
+
+            sender.OnResponse -= sender_OnResponse;
+
+            sender.OnDisconnect -= sender_OnDisconnect;
+            sender.m_RtpClient.RtpPacketReceieved -= ShowRtpPacket;
+            sender.m_RtpClient.RtcpPacketReceieved -= ShowRtcpPacket;
+
+            sender.m_RtpClient.RtcpPacketSent -= ShowRtcpPacket;
+
+            sender.OnStop -= sender_OnStop;            
+
+
             sender.Dispose();
             button1_Click(this, EventArgs.Empty);
         }

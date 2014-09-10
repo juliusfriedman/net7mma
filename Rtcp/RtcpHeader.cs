@@ -241,7 +241,7 @@ namespace Media.Rtcp
             Array.Copy(octets, offset + 2, Last6Bytes, 0, Math.Min(6, availableOctets - 2));
 
             //Make a pointer to the last 6 bytes
-            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, true);
+            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
         }
 
         /// <summary>
@@ -261,7 +261,7 @@ namespace Media.Rtcp
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last6Bytes = new byte[6];
-                PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, true);
+                PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
                 if (other.Last6Bytes != null)
                 {
                     other.Last6Bytes.CopyTo(Last6Bytes, 0);
@@ -280,14 +280,14 @@ namespace Media.Rtcp
             First16Bits = new CommonHeaderBits(memory, additionalOffset);
 
             //das infamous clamp max min
-            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4), false);
+            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
         {
             First16Bits = new CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
             Last6Bytes = new byte[6];
-            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6, true);
+            PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
             //The default value must be set into the LengthInWords field otherwise it will reflect 65535.
             LengthInWordsMinusOne = ushort.MaxValue;
         }

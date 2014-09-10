@@ -111,7 +111,7 @@ namespace Media.Common
                     binary = binary.Concat(BitConverter.GetBytes(ssrc)).ToArray();
             }
 
-            m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * 4, true);
+            m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * 4);
         }
 
         /// <summary>
@@ -134,7 +134,7 @@ namespace Media.Common
             {
                 //Source lists are only inserted by a mixer and come directly after the header and would be present in the payload,
                 //before the RtpExtension (if present) and before the RtpPacket's actual binary data
-                m_Binary = new Common.MemorySegment(buffer, 0, Math.Min(buffer.Length, m_SourceCount * 4), false);
+                m_Binary = new Common.MemorySegment(buffer, 0, Math.Min(buffer.Length, m_SourceCount * 4));
             }
         }
 
@@ -159,7 +159,7 @@ namespace Media.Common
             m_SourceCount = sourceCount;
             int sourceListSize = 4 * sourceCount;
             m_OwnedOctets = new byte[sourceListSize];
-            m_Binary = new Common.MemorySegment(m_OwnedOctets, 0, sourceListSize, true);
+            m_Binary = new Common.MemorySegment(m_OwnedOctets, 0, sourceListSize);
         }
 
         /// <summary>

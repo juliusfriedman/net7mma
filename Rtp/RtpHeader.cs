@@ -316,7 +316,7 @@ namespace Media.Rtp
                 Last10Bytes =  Utility.Empty;
             }
 
-            PointerToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length,  true);
+            PointerToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length);
         }
 
         /// <summary>
@@ -336,7 +336,7 @@ namespace Media.Rtp
             {
                 First16Bits = new CommonHeaderBits(other.First16Bits);
                 Last10Bytes = new byte[10];
-                PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10, true);
+                PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
             }
         }
@@ -348,7 +348,7 @@ namespace Media.Rtp
             //Allocate space for the other 10 octets
             Last10Bytes = new byte[10];
 
-            PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10, true);
+            PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
 
             Version = version;
 
