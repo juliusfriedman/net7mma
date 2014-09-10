@@ -993,7 +993,7 @@ namespace Media.Rtsp
                     //Count for the client
                     Interlocked.Add(ref session.m_Receieved, received);
 
-                    Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received, false);
+                    Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received);
 
                     //Ensure the message is really Rtsp
                     request = new RtspMessage(data);

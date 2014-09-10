@@ -392,7 +392,7 @@ namespace Media.Common
         {
             if (Math.Abs(memory.Count - additionalOffset) < 2) throw new InvalidOperationException("at least two octets are required in memory");
 
-            m_Memory = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset, 2, false);
+            m_Memory = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset, 2);
         }
 
         /// <summary>

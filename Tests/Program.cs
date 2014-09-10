@@ -983,7 +983,7 @@ namespace Tests
                             //If there are more bytes then that of the RtpHeader
 
                             if (offset < max) //Use the created packet so it can be disposed
-                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new Media.Common.MemorySegment(data, offset, max - offset, false), false))
+                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new Media.Common.MemorySegment(data, offset, max - offset), false))
                                 {
                                     //Write information about the packet to the console
                                     Console.BackgroundColor = ConsoleColor.Green;

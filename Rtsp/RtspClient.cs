@@ -54,7 +54,7 @@ namespace Media.Rtsp
     /// http://www.ietf.org/rfc/rfc2326.txt
     /// Provides facilities for communication with an RtspServer to establish one or more Rtp Transport Channels.
     /// </summary>
-    public class RtspClient : IDisposable, Media.Common.ISocketOwner
+    public class RtspClient : Common.BaseDisposable, Media.Common.ISocketOwner
     {
         internal static char[] TimeSplit = new char[] { '-', ';' };
 
@@ -448,7 +448,7 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnStop;
 
-        internal void OnStopping(MediaDescription mediaDescription = null) { m_Playing = mediaDescription == null; if (OnStop != null) OnStop(this, mediaDescription); }
+        internal void OnStopping(MediaDescription mediaDescription = null) { m_Playing = (mediaDescription != null); if (OnStop != null) OnStop(this, mediaDescription); }
 
         #endregion
 
@@ -1136,7 +1136,7 @@ namespace Media.Rtsp
                         }
                     }
                 }
-                
+
                 //Return the result of the Teardown
                 return SendRtspRequest(new RtspMessage(RtspMessageType.Request)
                 {
@@ -1387,7 +1387,7 @@ namespace Media.Rtsp
 
                                 Common.MemorySegment memory = null;
 
-                                if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize, false);
+                                if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
 
                                 //Create a Duplexed reciever using the RtspSocket
                                 m_RtpClient = RtpClient.Duplexed(m_RtspSocket, memory, contextReportInterval);
@@ -1440,7 +1440,7 @@ namespace Media.Rtsp
 
                                     Common.MemorySegment memory = null;
 
-                                    if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize, false);
+                                    if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
 
                                     //Create a Udp Reciever
                                     m_RtpClient = RtpClient.Participant(m_RemoteIP, memory, contextReportInterval);
@@ -1788,9 +1788,13 @@ namespace Media.Rtsp
 
         #region IDisposable
 
-        public void Dispose()
+        public override void Dispose()
         {
+            if (Disposed) return;
+
             StopPlaying();
+
+            base.Dispose();
 
             if (m_RtpClient != null)
             {
@@ -1798,8 +1802,11 @@ namespace Media.Rtsp
                 m_RtpClient = null;
             }
 
-            m_Buffer.Dispose();
-            m_Buffer = null;
+            if (m_Buffer != null)
+            {
+                m_Buffer.Dispose();
+                m_Buffer = null;
+            }
 
         }
 

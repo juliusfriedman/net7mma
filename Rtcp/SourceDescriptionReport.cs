@@ -289,7 +289,7 @@ namespace Media.Rtcp
             --BlockCount;
 
             //Re allocate the segment based on the new array of owned octets.
-            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length, true);
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 
             //Indicate a block was removed
             return true;

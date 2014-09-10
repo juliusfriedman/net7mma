@@ -1565,12 +1565,12 @@ namespace Media.Rtsp.Server.Streams
                                 continue; // The packet must be discarded
 
                             //Copy the tables present
-                            tables = new Common.MemorySegment(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length, false);
+                            tables = new Common.MemorySegment(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length);
                             offset += (int)Length;
                         }
                         else // Create them from the given Quality parameter
                         {
-                            tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer), false);
+                            tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
                         }
 
                         //Write the JFIF Header after reading or generating the QTables

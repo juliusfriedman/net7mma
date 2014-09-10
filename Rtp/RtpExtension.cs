@@ -129,7 +129,7 @@ namespace Media.Rtp
         public RtpExtension(int sizeInBytes, ushort flags = 0, byte[] data = null, int offset = 0)
         {
             //Allocate memory for the binary
-            m_MemorySegment = new Common.MemorySegment(new byte[MinimumSize + sizeInBytes], 0, MinimumSize + sizeInBytes, true);
+            m_MemorySegment = new Common.MemorySegment(new byte[MinimumSize + sizeInBytes], 0, MinimumSize + sizeInBytes);
 
             //If there are any flags set them
             if (flags > 0) Flags = flags;
@@ -158,7 +158,7 @@ namespace Media.Rtp
             else if (binary.Length < MinimumSize) throw InvalidExtension;
 
             //Atleast 4 octets are contained in binary
-            m_MemorySegment = new Common.MemorySegment(binary, offset, count, false);
+            m_MemorySegment = new Common.MemorySegment(binary, offset, count);
         }
 
         /// <summary>
@@ -179,7 +179,7 @@ namespace Media.Rtp
             else if (rtpPacket.Payload.Count - sourceListOctets < MinimumSize)
                 throw InvalidExtension;
             else
-                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + rtpPacket.ContributingSourceListOctets, rtpPacket.Payload.Count - sourceListOctets, false);
+                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + rtpPacket.ContributingSourceListOctets, rtpPacket.Payload.Count - sourceListOctets);
         }
 
         #endregion

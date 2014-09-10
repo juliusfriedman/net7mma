@@ -166,7 +166,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Allocates 24 octets to represent this ReportBlock instance.
         /// </summary>
-        ReportBlock() { m_OwnedOctets = new byte[Size]; Memory = new Common.MemorySegment(m_OwnedOctets, 0, Size, true); }
+        ReportBlock() { m_OwnedOctets = new byte[Size]; Memory = new Common.MemorySegment(m_OwnedOctets, 0, Size); }
 
         /// <summary>
         /// Allocates 24 octets of memory and sets the <see cref="ReportBlock.SendersSynchronizationSourceIdentifier"/> property to the value of <paramref name="ssrc"/>.
