@@ -59,11 +59,6 @@ namespace Media.Rtsp.Server.Streams
 
         #region NestedTypes
 
-        ////public class RFC2435Headers
-        ////{
-        ////    //Todo
-        ////}
-
         /// <summary>
         /// Implements RFC2435
         /// Encodes from a System.Drawing.Image to a RFC2435 Jpeg.
@@ -254,7 +249,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="precision"></param>
             /// <param name="dri"></param>
             /// <returns></returns>
-            internal static byte[] CreateJFIFHeader(byte typeSpec, byte jpegType, uint width, uint height, ArraySegment<byte> tables, byte precision, ushort dri)
+            internal static byte[] CreateJFIFHeader(byte typeSpec, byte jpegType, uint width, uint height, Common.MemorySegment tables, byte precision, ushort dri)
             {
                 List<byte> result = new List<byte>();
 
@@ -532,12 +527,12 @@ namespace Media.Rtsp.Server.Streams
 
             /// <summary>
             /// Creates a Jpeg QuantizationTableMarker for each table given in the tables
-            /// The precision must be the same for both tables when using this function.
+            /// The precision must be the same for all tables when using this function.
             /// </summary>
             /// <param name="tables">The tables verbatim, either 1 or 2 (Lumiance and Chromiance)</param>
             /// <param name="precisionTable">The byte which indicates which table has 16 bit coeffecients</param>
-            /// <returns>The table with marker and prefix and Pq/Tq byte/returns>
-            internal static byte[] CreateQuantizationTableMarkers(ArraySegment<byte> tables, byte precisionTable)
+            /// <returns>The table with marker and prefix and Pq/Tq byte</returns>
+            internal static byte[] CreateQuantizationTableMarkers(Common.MemorySegment tables, byte precisionTable)
             {
                 //List<byte> result = new List<byte>();
 
@@ -545,7 +540,7 @@ namespace Media.Rtsp.Server.Streams
 
                 if (tables.Count % tableCount > 0) tableCount = 1;
 
-                //??Some might have more then 2?
+                //??Some might have more then 3?
                 if (tableCount > 3) throw new ArgumentOutOfRangeException("tableCount");
 
                 int tableSize = tables.Count / tableCount;
@@ -564,7 +559,7 @@ namespace Media.Rtsp.Server.Streams
                 result[3] = len;
 
                 //Pq / Tq
-                result[4] = (byte)(precisionTable << 4); // Precision and table (id 0 filled by shift)
+                result[4] = (byte)(precisionTable << 8 > 0 ? 8 : 0); // Precision and table (id 0 filled by shift)
 
                 //First table. Type - Lumiance usually when two
                 System.Array.Copy(tables.Array, tables.Offset, result, 5, tableSize);
@@ -578,7 +573,7 @@ namespace Media.Rtsp.Server.Streams
                     result[tableSize + 8] = len;
 
                     //Pq / Tq
-                    result[tableSize + 9] = (byte)(precisionTable << 4 | 1);//Precision and table Id 1
+                    result[tableSize + 9] = (byte)(precisionTable << 7 > 0 ? 8 : 0 | 1);//Precision and table Id 1
 
                     //Second Table. Type - Chromiance usually when two
                     System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 10 + tableSize, tableSize);
@@ -593,7 +588,7 @@ namespace Media.Rtsp.Server.Streams
                     result[tableSize + 13] = len;
 
                     //Pq / Tq
-                    result[tableSize + 14] = (byte)(precisionTable << 4 | 1);//Precision and table Id 1
+                    result[tableSize + 14] = (byte)(precisionTable << 6 > 0 ? 8 : 0 | 2);//Precision and table Id 2
 
                     //Second Table. Type - Chromiance usually when two
                     System.Array.Copy(tables.Array, tables.Offset + tableSize, result, 14 + tableSize, tableSize);
@@ -1301,7 +1296,7 @@ namespace Media.Rtsp.Server.Streams
 
                     var packet = m_Packets.First().Value;
 
-                     //Payload starts at the offset of the first PayloadOctet
+                    //Payload starts at the offset of the first PayloadOctet
                     //First packet must have FragmentOffset == 0
                     int offset = packet.NonPayloadOctets + 1,// TypeSpecific occupies a byte
                         FragmentOffset = (packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
@@ -1322,14 +1317,17 @@ namespace Media.Rtsp.Server.Streams
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
-                else if (!Complete && !allowIncomplete) throw new ArgumentException("This Frame not Complete");
+                else if (!allowIncomplete && !Complete) throw new ArgumentException("This Frame not Complete");
 
-                byte TypeSpecific, Type, Quality;
-                ushort Width, Height, RestartInterval = 0, RestartCount = 0;
-                uint FragmentOffset;
+                byte TypeSpecific, Type, Quality,
                 //A byte which is bit mapped, each bit indicates 16 bit coeffecients for the table .
-                byte PrecisionTable = 0;
-                ArraySegment<byte> tables = default(ArraySegment<byte>);
+                PrecisionTable = 0;
+
+                uint FragmentOffset, Width, Height;
+
+                ushort RestartInterval = 0, RestartCount;
+
+                Common.MemorySegment tables = null;
 
                 //Remove buffer if previously used
                 DisposeBufferAndImage();
@@ -1339,6 +1337,7 @@ namespace Media.Rtsp.Server.Streams
                 //Loop each packet
                 foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
                 {
+
                     //Payload starts at the offset of the first PayloadOctet
                     int offset = packet.NonPayloadOctets;
 
@@ -1456,7 +1455,7 @@ namespace Media.Rtsp.Server.Streams
                     //It is worth noting you can send higher resolution pictures may be sent and these values will simply be ignored in such cases or the receiver will have to know to use a 
                     //divisor other than 8 to obtain the values when decoding
 
-                    
+
                     /*
                      3.1.3.  Type: 8 bits
 
@@ -1469,7 +1468,8 @@ namespace Media.Rtsp.Server.Streams
                        and a Restart Marker header appears immediately following the main
                        JPEG header.  Types 128-255 are free to be dynamically defined by a
                        session setup protocol (which is beyond the scope of this document).
-                     *///Restart Interval 64 - 127
+                     */
+                    //Restart Interval 64 - 127
                     if (Type > 63 && Type < 128) //Might not need to check Type < 128 but done because of the above statement
                     {
                         /*
@@ -1565,21 +1565,18 @@ namespace Media.Rtsp.Server.Streams
                                 continue; // The packet must be discarded
 
                             //Copy the tables present
-                            tables = new ArraySegment<byte>(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length);
+                            tables = new Common.MemorySegment(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length, false);
                             offset += (int)Length;
                         }
                         else // Create them from the given Quality parameter
                         {
-                            tables = new ArraySegment<byte>(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer));
+                            tables = new Common.MemorySegment(CreateQuantizationTables(Type, Quality, PrecisionTable, useRfcQuantizer), false);
                         }
 
                         //Write the JFIF Header after reading or generating the QTables
                         byte[] header = CreateJFIFHeader(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval);
                         Buffer.Write(header, 0, header.Length);
                     }
-
-                    //Write the Payload data from the offset
-                    Buffer.Write(packet.Payload.Array, packet.Payload.Offset + offset, packet.Payload.Count - (offset + packet.PaddingOctets));
                 }
 
                 //Check for EOI Marker and write if not found

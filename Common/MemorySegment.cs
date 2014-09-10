@@ -31,19 +31,22 @@ namespace Media.Common
             if (reference == null) throw new ArgumentNullException("reference");
             m_Owner = ownsMemory;
             m_Array = reference;
+            m_Length = m_Array.Length;
         }
 
         public MemorySegment(byte[] reference, int offset, bool ownsMemory) : this(reference, ownsMemory)
         {
-            if (offset > m_Array.Length) throw new ArgumentOutOfRangeException("offset");
+            int arrayLen = m_Array.Length;
+            if (offset > arrayLen) throw new ArgumentOutOfRangeException("offset");
             m_Offset = offset;
+            m_Length = arrayLen - m_Offset;
         }
 
         public MemorySegment(byte[] reference, int offset, int length, bool ownsMemory)
             : this(reference, offset, ownsMemory)
         {
-            if (m_Offset + m_Length > m_Array.Length) throw new ArgumentOutOfRangeException("length");
             m_Length = length;
+            if (m_Offset + m_Length > m_Array.Length) throw new ArgumentOutOfRangeException("length");
         }
 
         public MemorySegment(int size)

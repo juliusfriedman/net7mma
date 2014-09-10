@@ -241,11 +241,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return;
 
-                IEnumerable<byte> endian = BitConverter.GetBytes((uint)value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, 0);
+                Common.Binary.WriteNetwork32(Blob, 0, ReverseValues, (uint)value);
             }
         }
 
@@ -261,13 +257,9 @@ namespace Media.RtpTools
             }
             set
             {
-                if (Disposed) return;
+                if (Disposed) return;                
 
-                IEnumerable<byte> endian = BitConverter.GetBytes((uint)value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, 0);
+                Common.Binary.WriteNetwork32(Blob, 0, ReverseValues, (uint)value);
             }
         }
 
@@ -285,11 +277,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return;
 
-                IEnumerable<byte> endian = BitConverter.GetBytes((uint)value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, 4);
+                Common.Binary.WriteNetwork32(Blob, 4, ReverseValues, (uint)value);
             }
         }
 
@@ -307,11 +295,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return;
 
-                IEnumerable<byte> endian = BitConverter.GetBytes((uint)value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, TimevalSize);
+                Common.Binary.WriteNetwork32(Blob, TimevalSize, ReverseValues, (uint)value);
             }
         }
 
@@ -327,11 +311,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return;
 
-                IEnumerable<byte> endian = BitConverter.GetBytes((ushort)value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, TimevalSize);
+                Common.Binary.WriteNetwork16(Blob, TimevalSize, ReverseValues, (ushort)value);
             }
         }
 
@@ -347,13 +327,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return;
 
-                ushort unsigned = (ushort)value;
-
-                IEnumerable<byte> endian = BitConverter.GetBytes(unsigned);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, TimevalSize + 2);
+                Common.Binary.WriteNetwork16(Blob, TimevalSize + 2, ReverseValues, (ushort)value);
             }
         }
 
@@ -368,17 +342,14 @@ namespace Media.RtpTools
                 //if (Is64BitEntry) return Info->len_64;
                 //return Info->len_32;
 
-                return (short)Common.Binary.ReadU16(Blob, Pointer, ReverseValues);
+                //TextEntry or others might have Length = 0 for some reason...
+
+                return (short)Common.Binary.ReadU16(Blob, Pointer + 2, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
-
-                IEnumerable<byte> endian = BitConverter.GetBytes((ushort)value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, Pointer);
+                Common.Binary.WriteNetwork16(Blob, Pointer + 2, ReverseValues, (ushort)value);
 
                 //if (Is64BitEntry)
                 //    Info->len_64 = (ushort)value;
@@ -400,14 +371,9 @@ namespace Media.RtpTools
             set
             {
                 if (Disposed) return;
+                
+                Common.Binary.WriteNetwork16(Blob, Pointer + 4, ReverseValues, (ushort)value);
 
-                ushort unsigned = (ushort)value;
-
-                IEnumerable<byte> endian = BitConverter.GetBytes(unsigned);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, Pointer + 4);
             }
         }
 
@@ -423,13 +389,7 @@ namespace Media.RtpTools
             {
                 if (Disposed) return;
 
-                ushort unsigned = (ushort)value;
-
-                IEnumerable<byte> endian = BitConverter.GetBytes(unsigned);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, Pointer + 6);
+                Common.Binary.WriteNetwork32(Blob, Pointer + 6, ReverseValues, value);
             }
         }
 
@@ -500,17 +460,8 @@ namespace Media.RtpTools
 
                 sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
-                if (IsRtcp)
-                {
-                    sb.Append(RtpSend.ToTextualConvention(Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, DefaultEntrySize, MaxSize), ts, ep));
-                }
-                else
-                {
-                    using (var rtp = new Rtp.RtpPacket(Blob, DefaultEntrySize))
-                    {
-                        sb.Append(RtpSend.ToTextualConvention(Format, rtp, ts, ep));
-                    }
-                }
+                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, 0, MaxSize), ts, ep));
+                else using (var rtp = new Rtp.RtpPacket(Blob, 0)) sb.Append(RtpSend.ToTextualConvention(Format, rtp, ts, ep));
 
                 return sb.ToString();    
             }
