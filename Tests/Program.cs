@@ -795,11 +795,7 @@ namespace Tests
                 output = sourceDescription.Prepare().ToArray();//should be exactly equal to example
                 for (int i = output.Length, e = sourceDescription.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
-            }
-
-
-
-          
+            }          
 
             //ApplicationSpecific - qtsi
 
@@ -821,7 +817,12 @@ namespace Tests
             for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             //Test making a packet with a known length in bytes
-            Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2, false, 1, 0x0007);
+            Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2, false, 0, 0x0007);
+            byte[] sdOut = sd.Prepare().ToArray();
+
+            if (!sd.IsComplete || sd.Length != 8 || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
+
+            sd = new Media.Rtcp.SourceDescriptionReport(2, false, 1, 0x0007);
             byte[] itemData = Encoding.UTF8.GetBytes("FLABIA-PC");
             sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionItem(Media.Rtcp.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
             rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
@@ -1519,9 +1520,6 @@ namespace Tests
 
         }
 
-
-  
-
         private static void TestRtcpPacket()
         {
             //Write all Abstrractions to the console
@@ -1633,7 +1631,6 @@ namespace Tests
             }          
         }
         
-
         static void TestRtspMessage()
         {
             Media.Rtsp.RtspMessage request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
@@ -1913,11 +1910,11 @@ namespace Tests
 
                         Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketSent = (sender, rtcpPacket) => TryPrintClientPacket(sender, false, (Media.Common.IPacket)rtcpPacket);
 
-                        Media.Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data) =>
+                        Media.Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data, offset, count) =>
                         {
                             ++rtspInterleaved;
                             Console.BackgroundColor = ConsoleColor.Cyan;
-                            consoleWriter.WriteLine("\tInterleaved=>" + data.Count + " Bytes");
+                            consoleWriter.WriteLine("\tInterleaved=>" + count + " Bytes");
                             //consoleWriter.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data.Array.Skip(data.Offset).Take(data.Count).ToArray()).Replace('\a', 'A'));
                             Console.BackgroundColor = ConsoleColor.Black;
                         };

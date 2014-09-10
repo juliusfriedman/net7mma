@@ -55,6 +55,8 @@ namespace Media.Common
             m_Length = size;
         }
 
+        internal void SetLength(int length) { m_Length = length; }
+
         public override void Dispose()
         {
             if (m_Owner) m_Array = null;

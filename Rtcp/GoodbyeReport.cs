@@ -71,7 +71,7 @@ namespace Media.Rtcp
         /// <param name="sourcesLeaving">The SourceList which describes the sources who are leaving</param>
         /// <param name="reasonForLeaving">An optional reason for leaving(only the first 255 octets will be used)</param>
         public GoodbyeReport(int version, int ssrc, SourceList sourcesLeaving, byte[] reasonForLeaving)
-            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 1, 0, reasonForLeaving != null ? reasonForLeaving.Length : 0)
+            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count + 1 : 1, 0, reasonForLeaving != null ? reasonForLeaving.Length : 0)
         {
 
             //If a reason was given

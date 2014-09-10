@@ -468,18 +468,18 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="sender">The RtpClient instance which called this method</param>
         /// <param name="memory">The memory to parse</param>
-        void ProcessInterleaveData(object sender, Common.MemorySegment memory)
+        void ProcessInterleaveData(object sender, byte[] data, int offset, int length)
         {
             //Cache offset and count, leave a register for received data (should be calulated with length)
-            int offset = memory.Offset, sliceCount = memory.Count, received = 0;
+            int received = 0;
 
             //Check for letter
-            if (char.IsLetter((char)memory.Array[memory.Offset]))//Utility.ContainsBytes(memory.Array, ref offset, ref sliceCount, (Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray(), 0, 2) >= 0)  //Utility.FoundValidUniversalTextFormat(memory.Array, ref offset, ref sliceCount))
+            if (char.IsLetter((char)data[offset]))//Utility.ContainsBytes(memory.Array, ref offset, ref sliceCount, (Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray(), 0, 2) >= 0)  //Utility.FoundValidUniversalTextFormat(memory.Array, ref offset, ref sliceCount))
             {
                 try
                 {
                     //Validate the data
-                    RtspMessage interleaved = new RtspMessage(memory);
+                    RtspMessage interleaved = new RtspMessage(data, offset, length);
 
                     //Determine what to do with the interleaved message
                     switch (interleaved.MessageType)
@@ -506,7 +506,7 @@ namespace Media.Rtsp
                     }
 
                     //Update counters
-                    System.Threading.Interlocked.Add(ref m_ReceivedBytes, sliceCount + received);
+                    System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
                 }
                 catch //Any error which occurs when parsing the RtspMessage
                 {
@@ -833,10 +833,10 @@ namespace Media.Rtsp
                     if (error == SocketError.TryAgain || error == SocketError.TimedOut) goto Receive;
 
                     //If the buffer had the start of frame check for the start of the upper layer message
-                    if (m_Buffer[offset] == RtpClient.BigEndianFrameControl)
-                        m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
-                    else
-                        ProcessInterleaveData(this, m_Buffer); //new Common.MemoryReference(m_Buffer.Array, m_Buffer.Offset, received, false));
+                    if (m_Buffer[offset] == RtpClient.BigEndianFrameControl) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+                    else ProcessInterleaveData(this, m_Buffer.Array, m_Buffer.Offset, received);
+                    //Count use SetLength on memory not to create a new segment, would also give the option of getting more data if needed.
+                    //The only thing in such a case is that if \r\n happen to be in the buffer then this is interpreted as a body.
                 }
 
             Wait:
