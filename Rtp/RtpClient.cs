@@ -2375,9 +2375,9 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="memory">The memory to parse</param>
         /// <param name="from">The socket which received the data into memory and may be used for packet completion.</param>
-        internal virtual void ParseAndCompleteData(ArraySegment<byte> memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
+        internal virtual void ParseAndCompleteData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
-            if (parseRtcp == false && parseRtp == false)
+            if (parseRtcp == parseRtp)
             {
                 //Double Negitive, Demux based on PayloadType? RFC5761?
 
@@ -2392,11 +2392,12 @@ namespace Media.Rtp
                 //RTCP packet types in the ranges 1-191 and 224-254 SHOULD only be used when other values have been exhausted.
 
 
-                //Common.CommonHeaderBits header = new Common.CommonHeaderBits(memory);
+                using (Common.CommonHeaderBits header = new Common.CommonHeaderBits(memory))
+                {
+                    parseRtcp = header.RtcpPayloadType >= 64 && header.RtcpPayloadType <= 95 || GetContextByPayloadType(header.RtpPayloadType) != null;
 
-                //parseRtcp = header.RtcpPayloadType >= 64 && header.RtcpPayloadType <= 95 || GetContextByPayloadType(header.RtpPayloadType) != null;
-
-                //parseRtp = !parseRtcp;
+                    parseRtp = !parseRtcp;
+                }
 
                 return;
             }
@@ -2492,7 +2493,7 @@ namespace Media.Rtp
                 }
 
                 //Use the data received to parse and complete any recieved packets, should take a parseState
-                ParseAndCompleteData(new ArraySegment<byte>(m_Buffer.Array, offset, received), expectRtcp, expectRtp);
+                ParseAndCompleteData(new Common.MemorySegment(m_Buffer.Array, offset, received), expectRtcp, expectRtp);
             }
 
             //Return the amount of bytes received from this operation
@@ -2592,7 +2593,7 @@ namespace Media.Rtp
                     expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
 
                     //Parse the data in the buffer
-                    ParseAndCompleteData(new ArraySegment<byte>(buffer, offset + TCP_OVERHEAD, frameLength), expectRtcp, expectRtp, frameLength);
+                    ParseAndCompleteData(new Common.MemorySegment(buffer, offset + TCP_OVERHEAD, frameLength), expectRtcp, expectRtp, frameLength);
                 }
 
                 //Calulcate the amount of bytes to move the offset by including overhead
