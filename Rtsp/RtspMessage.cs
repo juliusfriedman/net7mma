@@ -719,7 +719,9 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="bytes">The byte array to create the RtspMessage from</param>
         /// <param name="offset">The offset within the bytes to start creating the message</param>
-        public RtspMessage(byte[] bytes, int offset = 0) : this(new Common.MemorySegment (bytes, offset, bytes.Length - offset, false)) {  }
+        public RtspMessage(byte[] bytes, int offset = 0) : this(bytes, offset, bytes.Length - offset) {  }
+
+        public RtspMessage(Common.MemorySegment data) : this(data.Array, data.Offset, data.Count) { }
             
         /// <summary>
         /// Creates a managed representation of an abstract RtspMessage concept from RFC2326.
@@ -753,17 +755,17 @@ namespace Media.Rtsp
         ///    any entity body, the rules ensure reasonable behavior even if the
         ///    length is not given explicitly.
         /// </reference>        
-        public RtspMessage(Common.MemorySegment packet)
+        public RtspMessage(byte[] data, int offset, int length)
         {
             //Sanely
-            if (packet == null)
+            if (data == null)
             {
                 throw new ArgumentNullException("packet");
             }
 
             //Syntax, what syntax? there is no syntax ;)
 
-            int start = packet.Offset, count = packet.Count, endFirstLine = -1;
+            int start = offset, count = length, endFirstLine = -1, packetCount = length;
 
             //RTSP in the encoding of the request
             byte[] encodedIdentifier = Encoding.GetBytes(MessageIdentifier); int encodedIdentifierLength = encodedIdentifier.Length;
@@ -775,10 +777,10 @@ namespace Media.Rtsp
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
-            endFirstLine = Utility.ContainsBytes(packet.Array, ref start, ref count, encodedEnd, 0, requiredEndLength);
+            endFirstLine = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);
 
             //Assume everything is the first line...
-            if (endFirstLine == -1) endFirstLine = packet.Count;
+            if (endFirstLine == -1) endFirstLine = packetCount;
 
             //Save the position of the previous start and then use it to determine request or response
             int previous = start;
@@ -801,7 +803,7 @@ namespace Media.Rtsp
 
             //Get what we believe to be the first line
             //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-            string m_RequestLine = Encoding.GetString(packet.Array, messageStart, endFirstLine);
+            string m_RequestLine = Encoding.GetString(data, messageStart, endFirstLine);
 
             MessageType = m_RequestLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
@@ -838,23 +840,23 @@ namespace Media.Rtsp
 
             //A valid looking first line has been found...
             //Parse the headers and body if present
-
+            
             #region Headers and Body
 
             //The count of how many bytes are used to take up the header is given by
             //The amount of bytes (after the first line PLUS the length of CRLF in the encoding of the message) minus the count of the bytes in the packet
             int headerStart = endFirstLine + encodedEndLength;
-            int headerBytes = packet.Count - headerStart;
+            int headerBytes = packetCount - headerStart;
 
             //If the scalar is valid
-            if (headerBytes > 0 && headerStart + headerBytes <= packet.Count)
+            if (headerBytes > 0 && headerStart + headerBytes <= count)
             {
                 //One empty line (CRLF) to indicate the end of the header section;
 
                 //Just keep track of the end and refer only to this pointer for the representation of the body, subsequently headers will be parsed based on this max offset.
 
                 //Create the vector
-                string[] ordinals = Encoding.GetString(packet.Array, headerStart, headerBytes).Split(HeaderLineSplit, StringSplitOptions.None);
+                string[] ordinals = Encoding.GetString(data, headerStart, headerBytes).Split(HeaderLineSplit, StringSplitOptions.None);
 
                 //The body will be the last scalar ordinal in the resulting vector
                 int lastOrdinal = ordinals.Length, maxOrdinal = lastOrdinal;
@@ -1079,7 +1081,7 @@ namespace Media.Rtsp
             //Write body if required 
             if (!string.IsNullOrWhiteSpace(m_Body)) result.AddRange(Encoding.GetBytes(m_Body));
 
-            if (result.Count > RtspMessage.MaximumLength) throw new RtspMessageException("The message cannot be larger than '" + RtspMessage.MaximumLength + "' bytes. The Tag property contains the resulting binary data,", null, this, result);
+            //if (result.Count > RtspMessage.MaximumLength) throw new RtspMessageException("The message cannot be larger than '" + RtspMessage.MaximumLength + "' bytes. The Tag property contains the resulting binary data,", null, this, result);
 
             return result.ToArray();
         }

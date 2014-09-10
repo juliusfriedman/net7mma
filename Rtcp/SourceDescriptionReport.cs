@@ -117,7 +117,7 @@ namespace Media.Rtcp
         /// <param name="reportBlocks">The value to store in the the high nybble of the first octet of the header</param>
         /// <param name="ssrc">The optional id of the participant who is sending this SourceDescriptionReport</param>
         public SourceDescriptionReport(int version, bool padding, int reportBlocks, int ssrc)
-            : base(new RtcpHeader(version, PayloadType, padding, reportBlocks, ssrc), Enumerable.Repeat(SourceDescriptionItem.Null, 4))
+            : base(new RtcpHeader(version, PayloadType, padding, reportBlocks, ssrc), reportBlocks > 0 ? Enumerable.Repeat(SourceDescriptionItem.Null, 4) : Utility.Empty)
         {
             //[Page 45] Paragraph 2.
             //A chunk with zero items (four null octets) is valid but useless.

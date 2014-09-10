@@ -1537,7 +1537,7 @@ namespace Media.Rtsp
             ProcessSendRtspResponse(session.ProcessDescribe(request, found), session);
         }
 
-        internal void ProcessRtspInterleaveData(object sender, Common.MemorySegment slice)
+        internal void ProcessRtspInterleaveData(object sender, byte[] data, int offset, int length)
         {
 
             ClientSession sessionFrom = sender as ClientSession;
@@ -1546,7 +1546,7 @@ namespace Media.Rtsp
 
             try
             {
-                RtspMessage created = new RtspMessage(slice);
+                RtspMessage created = new RtspMessage(data, offset, length);
 
                 if (created.MessageType != RtspMessageType.Invalid)
                 {

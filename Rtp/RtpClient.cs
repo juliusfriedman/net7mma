@@ -1074,7 +1074,7 @@ namespace Media.Rtp
 
         #region Events
 
-        public delegate void InterleaveHandler(object sender, Common.MemorySegment slice);
+        public delegate void InterleaveHandler(object sender, byte[] data, int offset, int length);
         public delegate void RtpPacketHandler(object sender, RtpPacket packet);
         public delegate void RtcpPacketHandler(object sender, RtcpPacket packet);
         public delegate void RtpFrameHandler(object sender, RtpFrame frame);
@@ -1162,7 +1162,6 @@ namespace Media.Rtp
                 SendGoodbye(transportContext, Encoding.UTF8.GetBytes("ssrc"));
                 transportContext.SynchronizationSourceIdentifier = RFC3550.Random32(transportContext.SynchronizationSourceIdentifier);
                 transportContext.ResetState();
-                //return;
             }
 
             //Get the payload type of the packet
@@ -1191,22 +1190,25 @@ namespace Media.Rtp
             //Fire event
             OnRtcpPacketReceieved(packet);
 
-            //If the context is valid, AND the remote identify has a value and the packet identity is not the same then reset the state and account for the new identity
-            if (transportContext.IsValid && transportContext.RemoteSynchronizationSourceIdentifier.HasValue && localPacket.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier)
-            {
-                //Tell the source we are no longer listening to the old identity
-                //SendGoodbye(transportContext);
+            //bool goodBye = packet.PayloadType == Rtcp.GoodbyeReport.PayloadType;
 
-                //Reset state for the counters
-                //transportContext.ResetState();
+            ////If the context is valid, AND the remote identify has a value and the packet identity is not the same then reset the state and account for the new identity
+            //if (transportContext.IsValid && transportContext.RemoteSynchronizationSourceIdentifier.HasValue && localPacket.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier)
+            //{
+            //    //Tell the source we are no longer listening to the old identity
+            //    //SendGoodbye(transportContext);
 
-                //Assign the new remote ID
-                transportContext.RemoteSynchronizationSourceIdentifier = localPacket.SynchronizationSourceIdentifier;
+            //    //Reset state for the counters
+            //    //transportContext.ResetState();
 
-                //Send reports
-                SendReports(transportContext);
-            }
+            //    //Assign the new remote ID (EVENT?)
+            //    transportContext.RemoteSynchronizationSourceIdentifier = localPacket.SynchronizationSourceIdentifier;
 
+            //    //Send reports if we can unless this is a Goodbye
+            //    /*if (!goodBye) */SendReports(transportContext);                
+            //}
+
+            //if (goodBye && packet.BlockCount > 0) transportContext.m_SendInterval = System.Threading.Timeout.InfiniteTimeSpan; //Then never send reports again?
         }
 
         /// <summary>
@@ -1429,9 +1431,9 @@ namespace Media.Rtp
             transportContext.m_LastRtcpOut = packet.Transferred.Value;
         }
 
-        protected internal void OnInterleavedData(Common.MemorySegment data)
+        protected internal void OnInterleavedData(byte[] data, int offset, int length)
         {
-            if (!Disposed && InterleavedData != null) InterleavedData(this, data);
+            if (!Disposed && InterleavedData != null) InterleavedData(this, data, offset, length);
         }
 
         /// <summary>
@@ -2332,8 +2334,9 @@ namespace Media.Rtp
             //If not found everything belongs to the upper layer
             if (startOfFrame == -1)
             {
+
                 //System.Diagnostics.Debug.WriteLine("Interleaving: " + received);
-                OnInterleavedData(new Common.MemorySegment(buffer, mOffset, received, false));
+                if(received  > TCP_OVERHEAD) OnInterleavedData(buffer, mOffset, received);
 
                 //Indicate no more data in buffer
                 return -1;
@@ -2345,7 +2348,7 @@ namespace Media.Rtp
 
                 //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
 
-                if (upperLayerData > TCP_OVERHEAD) OnInterleavedData(new Common.MemorySegment(buffer, mOffset, upperLayerData, false));
+                if (upperLayerData > TCP_OVERHEAD) OnInterleavedData(buffer, mOffset, upperLayerData);
 
                 mOffset = startOfFrame;
 
