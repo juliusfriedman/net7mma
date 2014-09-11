@@ -924,6 +924,8 @@ namespace Tests
                     using (Media.RtpTools.RtpToolEntry entry = reader.ReadNext())
                     {
 
+                        Console.WriteLine("EntryToString - " + entry.ToString());
+
                         //Check for the known format if given, happens for Hex and Binary..
                         //if (knownFormat.HasValue && reader.Format != knownFormat) throw new Exception("RtpDumpReader Format did not match knownFormat");
 
@@ -978,10 +980,6 @@ namespace Tests
                         //Create a RtpHeaer from the Pointer
                         using (Media.Rtp.RtpHeader header = new Media.Rtp.RtpHeader(data, offset))
                         {
-                            //Move the offrset
-                            offset += Media.Rtp.RtpHeader.Length;
-                            //If there are more bytes then that of the RtpHeader
-
                             if (offset < max) //Use the created packet so it can be disposed
                                 using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new Media.Common.MemorySegment(data, offset, max - offset), false))
                                 {
@@ -1008,7 +1006,7 @@ namespace Tests
         static void TestRtpDumpWriter(string path, Media.RtpTools.FileFormat format)
         {
             //Use a write to write a RtpPacket
-            using (Media.RtpTools.RtpDump.DumpWriter dumpWriter = new Media.RtpTools.RtpDump.DumpWriter(path, Media.RtpTools.FileFormat.Header, testingEndPoint))
+            using (Media.RtpTools.RtpDump.DumpWriter dumpWriter = new Media.RtpTools.RtpDump.DumpWriter(path, format, testingEndPoint))
             {
                 //Create a RtpPacket and
                 using (var rtpPacket = new Media.Rtp.RtpPacket(new Media.Rtp.RtpHeader(2, true, true, true, 7, 7, 7, 7, 7), new byte[0x01]))
@@ -1098,7 +1096,7 @@ namespace Tests
 
             TestRtpDumpReader(currentPath + @"\AsciiDump.rtpdump", Media.RtpTools.FileFormat.Ascii);
 
-            TestRtpDumpReader(currentPath + @"\HexDump.rtpdump", Media.RtpTools.FileFormat.Text);
+            TestRtpDumpReader(currentPath + @"\HexDump.rtpdump", Media.RtpTools.FileFormat.Hex);
 
             TestRtpDumpReader(currentPath + @"\ShortDump.rtpdump", Media.RtpTools.FileFormat.Short);
 
@@ -1133,11 +1131,15 @@ namespace Tests
                             //Show the string representation of the entry
                             Console.WriteLine(string.Format(TestingFormat, "Entry", entry.ToString()));
 
+                            byte[] data = entry.Data.ToArray();
+
+                            int size = data.Length;
+
                             //Check for Media.RtcpPackets first
                             if (entry.PacketLength == 0)
                             {
                                 //Reading compound packets out of a single item
-                                foreach (Media.Rtcp.RtcpPacket rtcpPacket in Media.Rtcp.RtcpPacket.GetPackets(entry.Blob, 0, entry.Blob.Length))
+                                foreach (Media.Rtcp.RtcpPacket rtcpPacket in Media.Rtcp.RtcpPacket.GetPackets(data, 0, size))
                                 {
                                     Console.WriteLine("Found Media.Rtcp Packet: Type=" + rtcpPacket.PayloadType + " , Length=" + rtcpPacket.Length);
 
@@ -1153,10 +1155,11 @@ namespace Tests
                             }
                             else
                             {
-                                Media.Rtp.RtpPacket rtpPacket = new Media.Rtp.RtpPacket(entry.Blob, 0);
+                                Media.Rtp.RtpPacket rtpPacket = new Media.Rtp.RtpPacket(data, 0);
                                 Console.WriteLine("Found Rtp Packet: SequenceNum=" + rtpPacket.SequenceNumber + " , Timestamp=" + rtpPacket.Timestamp + (rtpPacket.Marker ? " MARKER" : string.Empty));
                                 writer.WritePacket(rtpPacket);
-                            }
+                            }                            
+
                         }
 
                         writeCount = writer.Count;

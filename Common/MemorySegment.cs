@@ -31,10 +31,8 @@ namespace Media.Common
 
         public MemorySegment(byte[] reference, int offset): this(reference)
         {
-            int arrayLen = m_Array.Length;
-            if (offset > arrayLen) throw new ArgumentOutOfRangeException("offset");
             m_Offset = offset;
-            m_Length = arrayLen - m_Offset;
+            if (m_Offset > m_Length) throw new ArgumentOutOfRangeException("offset");
         }
 
         public MemorySegment(byte[] reference, int offset, int length)
