@@ -525,12 +525,12 @@ namespace Media.Rtcp
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
         /// </summary>
-        public virtual void CompleteFrom(System.Net.Sockets.Socket socket)
+        public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
             if (IsReadOnly) throw new InvalidOperationException("Cannot modify a RtcpPacket when IsReadOnly is false.");
 
             //If the packet is complete then return
-            if (Disposed || IsComplete) return;
+            if (Disposed || IsComplete) return 0;
 
             //Calulcate the amount of octets remaining in the RtcpPacket including the header
             int octetsRemaining = (ushort)(Header.LengthInWordsMinusOne + 1) * 4/*Length - (RtcpHeader.Length - Payload.Count)*/, offset = Payload != null ? Payload.Offset : 0;
@@ -542,14 +542,10 @@ namespace Media.Rtcp
                 if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
                 else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
             }
-            else //There is already enough room to finish the packet in the buffer which contains it.
-            {
-                Payload = new Common.MemorySegment(Payload.Array, Payload.Offset, octetsRemaining);
-                if (IsComplete) return;
-            }
-
            
             System.Net.Sockets.SocketError error;
+
+            int recieved = 0;
 
             //Read from the stream, decrementing from octetsRemaining what was read.
             while (octetsRemaining > 0)
@@ -557,12 +553,13 @@ namespace Media.Rtcp
                 int rec = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
                 offset += rec;
                 octetsRemaining -= rec; 
+                recieved += rec;
             }
 
             //Re-allocate the segment around the received data.
             Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 
-            //The RtcpPacket is now complete.
+            return recieved;
         }
 
         #endregion

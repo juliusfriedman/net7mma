@@ -121,26 +121,26 @@ namespace Media.Rtmp
             get { return m_Packet.Length; }
         }
 
-        public void CompleteFrom(System.Net.Sockets.Socket socket)
+        public int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
-            if (IsComplete) return;
+            if (IsComplete) return 0;
 
-            int contained =  m_Packet.Length,
-                needed = MessageLength - contained - HeaderLength;
+            int contained = m_Packet.Length,
+                needed = MessageLength - contained - HeaderLength, recieved = 0;
 
-            byte[] buffer = Enumerable.Repeat(default(byte), needed).ToArray();
-
-            int r = 0;
+            int r = buffer.Offset;
 
             while (needed > 0)
             {
-                r += socket.Receive(buffer, r, needed, System.Net.Sockets.SocketFlags.None);
+                r += socket.Receive(buffer.Array, r, needed, System.Net.Sockets.SocketFlags.None);
                 needed -= r;
+                recieved += r;
             }
 
             m_Packet = m_Packet.Concat(buffer).ToArray();
 
-            buffer = null;
+            return recieved;
+
         }
 
         public IEnumerable<byte> Prepare()

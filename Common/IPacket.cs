@@ -82,7 +82,8 @@ namespace Media.Common
         /// Completes the IPacket if IsComplete and Disposed is false.
         /// </summary>
         /// <param name="socket">The socket to complete from</param>
-        void CompleteFrom(System.Net.Sockets.Socket socket);
+        /// <param name="buffer">The buffer to complete in</param>
+        int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer);
 
         /// <summary>
         /// Creates a sequence of bytes which correspond to the IPacket in binary format suitable to be sent on a network.

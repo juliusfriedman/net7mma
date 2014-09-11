@@ -153,6 +153,11 @@ namespace Media.Rtsp
         #region Properties
 
         /// <summary>
+        /// Any additional headers which may be required by the RtspClient.
+        /// </summary>
+        public readonly Dictionary<string, string> AdditionalHeaders = new Dictionary<string, string>();
+
+        /// <summary>
         /// If playing, the TimeSpan which represents the time this media started playing from.
         /// </summary>
         public TimeSpan? StartTime { get { return m_StartTime; } }
@@ -476,43 +481,35 @@ namespace Media.Rtsp
             //Check for letter
             if (char.IsLetter((char)data[offset]))//Utility.ContainsBytes(memory.Array, ref offset, ref sliceCount, (Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray(), 0, 2) >= 0)  //Utility.FoundValidUniversalTextFormat(memory.Array, ref offset, ref sliceCount))
             {
-                try
+                //Validate the data
+                RtspMessage interleaved = new RtspMessage(data, offset, length);
+
+                //Determine what to do with the interleaved message
+                switch (interleaved.MessageType)
                 {
-                    //Validate the data
-                    RtspMessage interleaved = new RtspMessage(data, offset, length);
+                    //If the message is invalid 
+                    case RtspMessageType.Invalid:
+                        {
+                            goto SetEvent;
+                        }
+                    case RtspMessageType.Request: //Event for pushed messages?
+                    case RtspMessageType.Response:
+                        {
+                            //Store the last message
+                            m_LastTransmitted = interleaved;
 
-                    //Determine what to do with the interleaved message
-                    switch (interleaved.MessageType)
-                    {
-                        //If the message is invalid 
-                        case RtspMessageType.Invalid:
+                            //Complete the message if not complete
+                            if (!interleaved.IsComplete)
                             {
-                                goto SetEvent;
+                                interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
                             }
-                        case RtspMessageType.Request: //Event for pushed messages?
-                        case RtspMessageType.Response:
-                            {
-                                //Store the last message
-                                m_LastTransmitted = interleaved;
 
-                                //Complete the message if not complete
-                                if (!interleaved.IsComplete)
-                                {
-                                    interleaved.CompleteFrom(m_RtspSocket);
-                                }
-
-                                break;
-                            }
-                    }
-
-                    //Update counters
-                    System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
+                            break;
+                        }
                 }
-                catch //Any error which occurs when parsing the RtspMessage
-                {
-                    //Throw it
-                    //throw;
-                }
+
+                //Update counters
+                System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
 
             SetEvent:
 
@@ -772,6 +769,9 @@ namespace Media.Rtsp
                 //Get the next Sequence Number
                 request.CSeq = NextClientSequenceNumber();
 
+                //Use any additional headers if given
+                if (AdditionalHeaders.Count > 0) foreach (var additional in AdditionalHeaders) request.AppendOrSetHeader(additional.Key, additional.Value);
+
                 //Get the bytes of the request
                 byte[] buffer = m_RtspProtocol == ClientProtocolType.Http ? RtspMessage.ToHttpBytes(request) : request.ToBytes();
 
@@ -1015,12 +1015,17 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspMessage SendOptions()
+        /// <summary>
+        /// Sends the Rtsp OPTIONS request
+        /// </summary>
+        /// <param name="useStar">The OPTIONS * request will be sent rather then one with the <see cref="RtspClient.Location"/></param>
+        /// <returns>The <see cref="RtspMessage"/> as a response to the request</returns>
+        public RtspMessage SendOptions(bool useStar = false)
         {
             RtspMessage response = SendRtspRequest(new RtspMessage(RtspMessageType.Request)
             {
-                Method = RtspMethod.OPTIONS, 
-                Location = Location
+                Method = RtspMethod.OPTIONS,
+                Location = useStar ? null : Location
             });
 
             if (response == null || response.StatusCode != RtspStatusCode.OK) Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to get options");

@@ -2025,8 +2025,13 @@ namespace Tests
 
                                 if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
 
-                                shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false || playingfor > client.EndTime;
+                                shouldStop = playingfor > client.EndTime;
                             }
+
+                            if (!shouldStop) shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
+
+                            if (!shouldStop) shouldStop = client.Connected && !client.StartedListening.HasValue;
+                            
                         }
 
                         //if the client is connected still
@@ -2041,10 +2046,10 @@ namespace Tests
                                 //Send a few requests just because
                                 if (client.SupportedMethods.Contains(Media.Rtsp.RtspMethod.GET_PARAMETER))
                                     one = client.SendGetParameter();
-                                else one = client.SendOptions();
+                                else one = client.SendOptions(true);
 
                                 //Try to send an options request now, if that fails just send a tear down
-                                try { two = client.SendOptions(); }
+                                try { two = client.SendOptions(true); }
                                 catch { two = null; }
 
                                 //All done with the client

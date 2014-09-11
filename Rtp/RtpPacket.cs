@@ -547,19 +547,20 @@ namespace Media.Rtp
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
         /// </summary>
-        public virtual void CompleteFrom(System.Net.Sockets.Socket socket)
+        public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
             if (IsReadOnly) throw new InvalidOperationException("Cannot modify a RtpPacket when IsReadOnly is false.");
 
             //If the packet is complete then return
-            if (Disposed || IsComplete) return;
+            if (Disposed || IsComplete) return 0;
 
             // Cache the size of the original payload
             int payloadCount = Payload.Count,
                 octetsRemaining = payloadCount, //Cache how many octets remain in the payload
                 offset = Payload.Offset,//Cache the offset in parsing 
                 sourceListOctets = ContributingSourceListOctets,//Cache the amount of octets required in the ContributingSourceList.
-                extensionSize = Header.Extension ? 4 : 0; //Cache the amount of octets required to read the ExtensionHeader
+                extensionSize = Header.Extension ? 4 : 0, //Cache the amount of octets required to read the ExtensionHeader
+                recieved = 0;
 
             //If the ContributingSourceList is not complete
             if (payloadCount < sourceListOctets)
@@ -584,6 +585,8 @@ namespace Media.Rtp
 
                     //Decrement how many octets were receieved
                     octetsRemaining -= justReceived;
+
+                    recieved += justReceived;
                 }
             }
 
@@ -618,6 +621,8 @@ namespace Media.Rtp
 
                         //Decrement how many octets were receieved
                         octetsRemaining -= justReceived;
+
+                        recieved += justReceived;
                     }
                 }
 
@@ -650,6 +655,8 @@ namespace Media.Rtp
 
                         //Decrement how many octets were receieved
                         octetsRemaining -= justReceived;
+
+                        recieved += justReceived;
                     }
                 }
             }
@@ -674,6 +681,8 @@ namespace Media.Rtp
 
                     //Move the offset
                     offset += justReceived;
+
+                    recieved += justReceived;
                 }
             }
 
@@ -683,6 +692,8 @@ namespace Media.Rtp
             Payload = new Common.MemorySegment(m_OwnedOctets, Payload.Offset, m_OwnedOctets.Length);
 
             //RtpPacket is complete
+
+            return recieved;
         }      
 
         #endregion
