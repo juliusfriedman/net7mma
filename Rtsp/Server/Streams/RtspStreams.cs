@@ -198,7 +198,7 @@ namespace Media.Rtsp.Server.Streams
         void RtspClient_OnPlay(RtspClient sender, object args)
         {
             RtspClient.Client.FrameChangedEventsEnabled = false;
-            Ready = true;
+            base.Ready = true;
         }
 
         void RtspClient_OnDisconnect(RtspClient sender, object args)
@@ -206,7 +206,7 @@ namespace Media.Rtsp.Server.Streams
             if (RtspClient != sender) return;
             RtspClient.OnPlay -= RtspClient_OnPlay;
             RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
-            Ready = false;
+            base.Ready = false;
         }
 
         void RtspClient_OnConnect(RtspClient sender, object args)
@@ -229,7 +229,7 @@ namespace Media.Rtsp.Server.Streams
                 //Wrong Credentails etc...
 
                 //Call base to set to stopped
-                base.Stop();
+                Stop();
             }
             catch
             {
@@ -247,8 +247,6 @@ namespace Media.Rtsp.Server.Streams
             base.Stop();
             m_StartedTimeUtc = null;
         }
-
-        
     }
 
     /// <summary>
