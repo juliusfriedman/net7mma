@@ -54,6 +54,8 @@ namespace Media.RtpTools.RtpDump
 
         #region Fields
 
+        internal DateTime m_StartTime;
+
         //The format of the underlying dump
         internal FileFormat m_Format;
 
@@ -63,11 +65,6 @@ namespace Media.RtpTools.RtpDump
         internal System.IO.BinaryReader m_Reader;
 
         internal byte[] m_FileHeader;
-
-        /// <summary>
-        /// Indicates if the Timeval structure should be written as a 32 or 64 bit unit, 32 by default when false.
-        /// </summary>
-        internal bool m_Is64Bit;
 
         #endregion
 
@@ -182,7 +179,7 @@ namespace Media.RtpTools.RtpDump
             //if (Array.LastIndexOf<byte>(m_FileHeader, 0x2f, 22, 22) == -1) goto Invalid;
 
             //Binary type header, maybe header only
-            m_Format = FileFormat.Binary;
+            if(m_Format == FileFormat.Unknown) m_Format = FileFormat.Binary;
 
             //No problems
             return;
@@ -232,7 +229,7 @@ namespace Media.RtpTools.RtpDump
                 {
                     //Dont forget that RtspMessage needs Length and to use Binary parsing                    
                     //The format may be unknown at first, size the entry accordingly
-                    entry = new RtpToolEntry(FileFormat.Binary, new byte[RtpToolEntry.DefaultEntrySize]); //32 bytes allocated per entry.
+                    entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize]); //32 bytes allocated per entry.
 
                     m_Reader.Read(entry.Blob, 0, RtpToolEntry.DefaultEntrySize);
 
@@ -255,18 +252,14 @@ namespace Media.RtpTools.RtpDump
                             else Common.ExceptionExtensions.CreateAndRaiseException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
                         }
                         else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
-                    }
+                    }                    
 
-                    //Align for 64 bit utilization
-                    if (m_Is64Bit) entry.Pointer += 4;
-
-                    int itemLength = entry.PacketLength - RtpToolEntry.sizeOf_RD_packet_T;
+                    int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
 
                     //If there are any more bytes related to the item itemLength will be > 0
                     if (itemLength > 0)
                     {
                         entry.Concat(m_Reader.ReadBytes(itemLength));
-                        entry.MaxSize = itemLength;
                     }
 
                 }
@@ -276,6 +269,10 @@ namespace Media.RtpTools.RtpDump
                     //If a Binary format is found m_FileHeader will contain any data which was unexpected by the ParseTextEntry process which should consists of the `#!rtpplay1.0 ...\n`                       
                     entry = RtpSend.ParseText(m_Reader, ref foundFormat, out unexpectedData);
                 }
+
+                //Todo fix Offset writing
+                /*if (m_Offsets.Count == 1 && entry.Offset != 0) Common.ExceptionExtensions.CreateAndRaiseException(entry, "First Entry Must have Offset 0");
+                else*/ if(m_Offsets.Count == 1) m_StartTime = Utility.UtcEpoch1970.AddSeconds(entry.StartSeconds);
 
                 //Call determine format so item has the correct format (Header [or Payload])
                 if (foundFormat == FileFormat.Unknown)
@@ -551,8 +548,8 @@ namespace Media.RtpTools.RtpDump
                         //The exception will be of type `DumpReader`
                         if (m_FileHeader == null && m_Format.HasFileHeader()) Common.ExceptionExtensions.CreateAndRaiseException(reader, "Did not find the expected Binary file header.");
 
-                        //If not present use the start time indicated
-                        if (m_Start == null) m_Start = startTime ?? DateTimeOffset.UtcNow;
+                        //If not present use the start time indicated in the first entry...
+                        if (m_Start == null) m_Start = startTime ?? reader.m_StartTime;
                     }
                 }
                 catch (Exception ex)//Only catch exceptions which are unexpected and raise a generic DumpWriter exception
@@ -642,8 +639,13 @@ namespace Media.RtpTools.RtpDump
             using (var entry = new RtpToolEntry(source ?? m_Source, packet))
             {
                 //If given a specific timeoffset use it
+
+
+                /* start of recording (GMT) */
                 if (timeOffset.HasValue) entry.Timeoffset = timeOffset.Value.TotalMilliseconds;
                 else entry.Timeoffset = (DateTime.UtcNow - m_Start).TotalMilliseconds; //otherwise calulcate it
+
+                //entry.Offset = /* milliseconds since the start of recording */
 
                 //Write the item
                 WriteToolEntry(entry);
@@ -695,11 +697,27 @@ namespace Media.RtpTools.RtpDump
             {
                 if (m_Format == FileFormat.Header)
                 {
-                    m_Writer.Write(entry.Blob.Take(RtpToolEntry.sizeOf_RD_hdr_t + RtpToolEntry.sizeOf_RD_packet_T + entry.PacketLength == 0 ? Rtcp.RtcpHeader.Length : Rtp.RtpHeader.Length).ToArray());
+
+                    if (entry.IsRtcp)
+                    {
+                        using(Rtcp.RtcpPacket rtcp = new Rtcp.RtcpPacket(entry.Blob, entry.Pointer))
+                            m_Writer.Write(rtcp.Header.ToArray());
+                    }
+                    else if(m_Format != FileFormat.Rtcp) using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer))
+                        {
+                            m_Writer.Write(rtp.Header.ToArray());
+                            if (rtp.ContributingSourceCount > 0) m_Writer.Write(rtp.GetSourceList().AsBinaryEnumerable().ToArray());
+                            if (rtp.Extension) m_Writer.Write(rtp.GetExtension().ToArray());
+                        }
                 }
                 else if (m_Format == FileFormat.Binary)
                 {
                     m_Writer.Write(entry.Blob);
+                }
+                else if (m_Format == FileFormat.Payload)
+                {
+                    if (entry.IsRtcp)using (Rtcp.RtcpPacket rtcp = new Rtcp.RtcpPacket(entry.Blob, entry.Pointer)) m_Writer.Write(rtcp.Payload.ToArray());
+                    else using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer)) m_Writer.Write(rtp.Coefficients.ToArray());
                 }
             }
             else

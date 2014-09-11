@@ -49,6 +49,7 @@ namespace Media.RtpTools
         Unknown = 0,
         Header = 1,
         Binary = 2,
+        Dump = Binary,
         Payload = 3,
         Ascii = 4,
         Text = Ascii, //Maybe should allow non ascii formats in a unknown encoding or standardize header etc, but will probably just use pcap

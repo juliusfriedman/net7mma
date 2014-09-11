@@ -2469,6 +2469,8 @@ namespace Media.Rtp
 
             bool tcp = socket.ProtocolType == ProtocolType.Tcp;
 
+            if (m_Buffer.Disposed) return 0;
+
             //Cache the offset at the time of the call
             int offset = m_Buffer.Offset,
                 //Receive data, uncomment the tcp check to recieve only TCP headers, this is commented incase a RtspRequest is in the buffer in front of a RFC2326 Frame header and works better for interleaving them              

@@ -613,12 +613,21 @@ namespace Media.RtpTools
 
                 using (Common.SourceList sl = new Common.SourceList(packet))
                 {
-                    //csrc=
-                    while (sl.MoveNext())
-                    {
-                        builder.Append(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X")));
 
+                    if (sl == null)
+                    {
+                        builder.Append("#Incomplete Source List Not Included");
                         builder.Append(Common.ASCII.LineFeed);
+                    }
+                    else
+                    {
+                        //csrc=
+                        while (sl.MoveNext())
+                        {
+                            builder.Append(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X")));
+
+                            builder.Append(Common.ASCII.LineFeed);
+                        }
                     }
                 }
             }
@@ -628,14 +637,25 @@ namespace Media.RtpTools
             {
                 using (var rtpExtension = packet.GetExtension())
                 {
-                    builder.Append(string.Format(RtpSend.HexFormat, "ext_type", rtpExtension.Flags.ToString("X")));
-                    builder.Append(Common.ASCII.LineFeed);
 
-                    builder.Append(string.Format(RtpSend.NonQuotedFormat, "ext_len", rtpExtension.LengthInWords));
-                    builder.Append(Common.ASCII.LineFeed);
+                    if (rtpExtension == null)
+                    {
+                        builder.Append("#Incomplete Extension Not Included");
+                        builder.Append(Common.ASCII.LineFeed);
+                    }
+                    else
+                    {
+                        builder.Append(string.Format(RtpSend.HexFormat, "ext_type", rtpExtension.Flags.ToString("X")));
+                        builder.Append(Common.ASCII.LineFeed);
 
-                    builder.Append(string.Format(RtpSend.HexFormat, "ext_data", BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", HexSpecifier)));
-                    builder.Append(Common.ASCII.LineFeed);
+                        builder.Append(string.Format(RtpSend.NonQuotedFormat, "ext_len", rtpExtension.LengthInWords));
+                        builder.Append(Common.ASCII.LineFeed);
+
+                        builder.Append(string.Format(RtpSend.HexFormat, "ext_data", BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", HexSpecifier)));
+                        builder.Append(Common.ASCII.LineFeed);
+                    }
+
+                    
                 }
             }
 
@@ -724,7 +744,7 @@ namespace Media.RtpTools
                             
                             //Could be a binary format however....
                         }
-                        else if (tokensParsed > 0 && peek == 'r' || peek == 'R') //Don't read any further a new entry follows (Could be a malformed entry with rXXX=YYY\n)
+                        else if (tokensParsed > 0 && peek == 'r' || peek == Common.ASCII.R) //Don't read any further a new entry follows (Could be a malformed entry with rXXX=YYY\n)
                         {   
                             //doneParsing = true;
                             break;
