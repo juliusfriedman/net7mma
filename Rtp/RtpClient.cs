@@ -1175,7 +1175,7 @@ namespace Media.Rtp
             {
                 //localPacket = packet.Clone(true, true, false);
                 //The packet will use the existing buffer to complete itself if possible otherwise it WILL allocte memory
-                localPacket.CompleteFrom(transportContext.RtcpSocket);
+                localPacket.CompleteFrom(transportContext.RtcpSocket, localPacket.Payload);
             }
 
             //Sample the clock
@@ -1292,7 +1292,7 @@ namespace Media.Rtp
             else if (!localPacket.IsComplete)
             {
                 //localPacket = packet.Clone(true, true, true, true, false);
-                localPacket.CompleteFrom(transportContext.RtpSocket);
+                localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
             }
 
             //Increment RtpPacketsReceived for the context relating to the packet.
@@ -1429,6 +1429,9 @@ namespace Media.Rtp
             Interlocked.Increment(ref transportContext.RtcpPacketsSent);
 
             transportContext.m_LastRtcpOut = packet.Transferred.Value;
+
+            //Backoff based on ConverganceTime?
+
         }
 
         protected internal void OnInterleavedData(byte[] data, int offset, int length)
@@ -2377,6 +2380,8 @@ namespace Media.Rtp
         /// <param name="from">The socket which received the data into memory and may be used for packet completion.</param>
         internal virtual void ParseAndCompleteData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
+
+            //handle demultiplex scenarios
             if (parseRtcp == parseRtp)
             {
                 //Double Negitive, Demux based on PayloadType? RFC5761?
@@ -2391,15 +2396,10 @@ namespace Media.Rtp
                 // 209 - 223 is cited in the above as well as below
                 //RTCP packet types in the ranges 1-191 and 224-254 SHOULD only be used when other values have been exhausted.
 
-
                 using (Common.CommonHeaderBits header = new Common.CommonHeaderBits(memory))
                 {
-                    parseRtcp = header.RtcpPayloadType >= 64 && header.RtcpPayloadType <= 95 || GetContextByPayloadType(header.RtpPayloadType) != null;
-
-                    parseRtp = !parseRtcp;
+                    parseRtp = !(parseRtcp = header.RtcpPayloadType >= 64 && header.RtcpPayloadType <= 95 || GetContextByPayloadType(header.RtpPayloadType) != null);
                 }
-
-                return;
             }
 
             //Cache start, count and index
@@ -2495,7 +2495,7 @@ namespace Media.Rtp
                 }
 
                 //Use the data received to parse and complete any recieved packets, should take a parseState
-                ParseAndCompleteData(new Common.MemorySegment(m_Buffer.Array, offset, received), expectRtcp, expectRtp);
+                if(!Disposed) ParseAndCompleteData(new Common.MemorySegment(m_Buffer.Array, offset, received), expectRtcp, expectRtp);
             }
 
             //Return the amount of bytes received from this operation
@@ -2504,6 +2504,9 @@ namespace Media.Rtp
 
         internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int length, Socket socket)
         {
+
+            if (buffer == null) return -1;
+
             //Determine which TransportContext will receive the data incoming
             TransportContext relevent = null;
 
@@ -2518,14 +2521,13 @@ namespace Media.Rtp
 
             //Todo
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
-
-            while (remainingInBuffer >= TCP_OVERHEAD)
+            while (!Disposed && remainingInBuffer >= TCP_OVERHEAD)
             {
                 //Parse the frameLength
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, offset, buffer);
 
                 //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
-                if (frameLength < 0) break; //No more data in buffer
+                if (frameLength < 0 || Disposed) break; //No more data in buffer
                 
                 //See how many more bytes are required from the wire
                 int remainingInWire = frameLength - (remainingInBuffer - TCP_OVERHEAD);
@@ -2557,7 +2559,7 @@ namespace Media.Rtp
                     SocketError error = SocketError.SocketError;
 
                     //Get all the remaining data
-                    while (remainingInWire > 0)
+                    while (!Disposed && remainingInWire > 0)
                     {
                         //Recieve from the wire the amount of bytes required
                         int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(m_Buffer.Count, remainingInWire), socket, out error);
@@ -2589,7 +2591,7 @@ namespace Media.Rtp
                 }
 
                 //If there any data in the frame and there is a relevent context
-                if (frameLength > 0 && relevent != null)
+                if (!Disposed && frameLength > 0 && relevent != null)
                 {
                     //Determine if Rtp or Rtcp should be parsed
                     expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
@@ -2882,6 +2884,9 @@ namespace Media.Rtp
 
         void ProcessReceive(TransportContext context, ref DateTime lastOperation)
         {
+
+            if (Disposed) return;
+
             try
             {
                 //Ensure a context was given

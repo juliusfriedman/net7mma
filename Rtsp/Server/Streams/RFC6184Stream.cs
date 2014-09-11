@@ -478,7 +478,7 @@ namespace Media.Rtsp.Server.Streams
                 int nalUnitType = (headerByte & 0x1f);
                 header.decodeNalUnitType = (NalUnitType)nalUnitType;
             }
-        }
+        }       
 
         //To Make Packets
         //https://code.google.com/p/android-rcs-ims-stack/source/browse/trunk/core/src/com/orangelabs/rcs/core/ims/protocol/rtp/codec/video/h264/JavaPacketizer.java?r=275
@@ -489,7 +489,63 @@ namespace Media.Rtsp.Server.Streams
         //Some MP4 Related stuff
         //https://github.com/fyhertz/libstreaming/blob/master/src/net/majorkernelpanic/streaming/mp4/MP4Parser.java
 
-        #region Propeties        
+        //C# h264 elementary stream stuff
+        //https://bitbucket.org/jerky/rtp-streaming-server
+
+        public class RFC6184Frame : Rtp.RtpFrame
+        {
+
+            public RFC6184Frame(byte payloadType) : base(payloadType) { }
+
+            /*
+         // Extracts the NAL Unit Header from the Input Buffer
+        extractNalUnitHeader(input);
+
+        if (mNalUnitHeader.isFragmentationUnit()) {
+            return handleFragmentationUnitPacket(input, output);
+        } else if (mNalUnitHeader.isAggregationPacket()) {
+            return handleAggregationPacket(input, output);
+        } else {
+            return handleSingleNalUnitPacket(input, output);
+        }
+         */
+
+
+            /*
+              public boolean complete() {
+
+            if (!rtpMarker) {
+                return false; // need an rtp marker to signify end
+            }
+
+            if (!reassembledDataHasStart || !reassembledDataHasEnd) {
+                return false; // has start and end chunk
+            }
+
+            // Validate chunk sizes between start and end pos
+            int posCurrent = reassembledDataPosSeqStart;
+            while ((posCurrent & VIDEO_DECODER_MAX_PAYLOADS_CHUNKS_MASK) != reassembledDataPosSeqEnd) {
+                // need more data?
+                if (reassembledDataSize[posCurrent & VIDEO_DECODER_MAX_PAYLOADS_CHUNKS_MASK] <= 0) {
+                    return false;
+                }
+                posCurrent++;
+            }
+            // Validate last chunk
+            if (reassembledDataSize[reassembledDataPosSeqEnd] <= 0) {
+                return false;
+            }
+
+            // TODO: if some of the last ones come in after the marker, there
+            // will be blank squares in the lower right.
+            return true;
+        }
+
+             */
+
+        }
+
+        #region Propeties
 
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
 
@@ -563,7 +619,7 @@ namespace Media.Rtsp.Server.Streams
 
                         //TODO Take RGB Stride and Convert to YUV
 
-                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, Math.Max(99,Quality), Interlaced, (int)sourceId, 0, 0, 1300))
+                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, Math.Max(99, Quality), Interlaced, (int)sourceId, 0, 0, 1300))
                         {
                             //Store the payload which is YUV Planar (420, 421, 422)
                             List<byte[]> data = new List<byte[]>();
@@ -579,7 +635,7 @@ namespace Media.Rtsp.Server.Streams
                             //For each h264 Macroblock in the frame
                             for (int i = 0; i < Width / 16; i++)
                                 for (int j = 0; j < Height / 16; j++)
-                                    data.Add(Macroblock(i, j, yuv)); //Add a macroblock
+                                    data.Add(EncodeMacroblock(i, j, yuv)); //Add a macroblock
 
                             data.Add(new byte[] { 0x80 });//Stop bit
 
@@ -612,7 +668,7 @@ namespace Media.Rtsp.Server.Streams
         //Thanks !!
         //http://www.cardinalpeak.com/blog/worlds-smallest-h-264-encoder/
 
-        byte[] Macroblock(int i, int j, byte[] data)
+        byte[] EncodeMacroblock(int i, int j, byte[] data)
         {
 
             IEnumerable<byte> result = Utility.Empty;

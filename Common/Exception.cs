@@ -88,16 +88,9 @@ namespace Media.Common
         public static string DefaultExceptionTypeMessage<T>() { return string.Format(Exception<T>.ExceptionFormat, typeof(T).FullName); }
 
         /// <summary>
-        /// Check if we are in a exception unwind scenario or not.
+        /// <see cref="ExceptionExtensions.InException"/>
         /// </summary>
-        public static bool InException
-        {
-            get
-            {   // Errata: The red marked code seems to be necessary. Since unit tests with .NET 2.0
-                // have shown that only checking for the Exception Pointers structure does not always work.
-                return ExceptionExtensions.InException;
-            }
-        }
+        public static bool InException { get { return ExceptionExtensions.InException; } }
 
         #region Fields
 
@@ -212,7 +205,7 @@ namespace Media.Common
     public static class ExceptionExtensions
     {       
 
-         /// <summary>
+        /// <summary>
         /// Check if we are in a exception unwind scenario or not.
         /// </summary>
         public static bool InException

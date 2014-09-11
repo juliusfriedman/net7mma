@@ -598,7 +598,8 @@ namespace Media.Rtsp
 
         #endregion
 
-        #region Properties        
+        #region Properties            
+
         /// <summary>
         /// Indicates the UserAgent of this RtspRquest
         /// </summary>
@@ -613,8 +614,22 @@ namespace Media.Rtsp
 
         /// <summary>
         /// The length of the RtspMessage in bytes.
+        /// (Calculated from the values parsed so some whitespace may be omitted, usually within +/- 6 bytes of the actual length)
         /// </summary>
-        public int Length { get { throw new NotImplementedException(); } }
+        public int Length
+        {
+            get
+            {
+                int length = 0;
+
+                if (MessageType == RtspMessageType.Request)
+                    length += Encoding.GetByteCount(Method.ToString() + " " + Location.ToString() + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + CRLF);
+                else if (MessageType == RtspMessageType.Response)
+                    length += Encoding.GetByteCount(MessageIdentifier + '/' + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + " " + ((int)StatusCode).ToString() + " " + StatusCode.ToString() + CRLF);
+
+                return length + (string.IsNullOrEmpty(m_Body) ? 0 : 2 + m_Encoding.GetByteCount(m_Body)) + ( m_Headers.Count > 0 ? 4 + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value) + 3) : 0);
+            }
+        }
 
         /// <summary>
         /// The body of the RtspMessage
@@ -845,8 +860,9 @@ namespace Media.Rtsp
 
             //The count of how many bytes are used to take up the header is given by
             //The amount of bytes (after the first line PLUS the length of CRLF in the encoding of the message) minus the count of the bytes in the packet
-            int headerStart = endFirstLine + encodedEndLength;
-            int headerBytes = packetCount - headerStart;
+            int headerStart = endFirstLine + encodedEndLength,
+            headerBytes = packetCount - headerStart;
+            //totalBytes = endFirstLine;
 
             //If the scalar is valid
             if (headerBytes > 0 && headerStart + headerBytes <= count)
@@ -865,7 +881,7 @@ namespace Media.Rtsp
                 for (int i = 0; i < lastOrdinal; ++i)
                 {
                     //Get the value
-                    string raw = ordinals[i];
+                    string raw = ordinals[i];                    
 
                     //We only want the first 2 sub strings to allow for headers which have a ':' in the data
                     //E.g. Rtp-Info: rtsp://....
@@ -879,6 +895,8 @@ namespace Media.Rtsp
                         lastOrdinal = i;
                         break;
                     }
+
+                    //totalBytes += m_Encoding.GetByteCount(raw) + 2;
                 }
 
                 //Get the correct encoding if it was present thus far
@@ -906,7 +924,7 @@ namespace Media.Rtsp
                     while (lastOrdinal < maxOrdinal)
                     {
                         //Get the body of the message from the last ordinal
-                        m_Body = ordinals[lastOrdinal++];
+                        m_Body = ordinals[lastOrdinal++];                        
 
                         //If this was the header we are done iterating the remaining ordinals...
                         //RTSP packet is terminated with an empty line immediately following the last message header.
@@ -925,6 +943,8 @@ namespace Media.Rtsp
 
                             //If there was more of the body put it back together
                             if (lastOrdinal < maxOrdinal) m_Body += string.Join(crlfString, ordinals, lastOrdinal, maxOrdinal - lastOrdinal);
+
+                            //totalBytes += m_Encoding.GetByteCount(m_Body);
 
                             //Body is parsed
                             break;
@@ -1062,7 +1082,7 @@ namespace Media.Rtsp
             List<byte> result = new List<byte>(RtspMessage.MaximumLength / 7);
 
             if (MessageType == RtspMessageType.Request)
-                result.AddRange(Encoding.GetBytes(Method.ToString() + " " + Location.ToString() + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + CRLF));
+                result.AddRange(Encoding.GetBytes(Method.ToString() + " " + ( Location == null ? "*" : Location.ToString()) + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + CRLF));
             else if (MessageType == RtspMessageType.Response)
                 result.AddRange(Encoding.GetBytes(MessageIdentifier + '/' + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + " " + ((int)StatusCode).ToString() + " " + StatusCode.ToString() + CRLF));
 
@@ -1123,50 +1143,50 @@ namespace Media.Rtsp
             get { return (long)Length; }
         }
 
-        public virtual void CompleteFrom(System.Net.Sockets.Socket socket)
+        public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
             //See if there is a Content-Length header
             string contentLength = GetHeader(RtspHeaders.ContentLength);
 
             //Messages without a contentLength are complete
-            if (string.IsNullOrWhiteSpace(contentLength) || string.IsNullOrWhiteSpace(Body)) return;
+            if (string.IsNullOrWhiteSpace(contentLength)) return 0;
 
             //Calulcate the amount of bytes in the body
             int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
 
             //If the content-length header cannot be parsed or the length > the data in the body the message is invalid
-            if (!int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return;
+            if (!int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return 0;
 
             //Determine how much remaing
-            int remaining = supposedCount - encodedBodyCount;
+            int remaining = supposedCount - encodedBodyCount, received = 0;
 
             //If there are remaining octetes then complete the RtspMessage
             if (remaining > 0)
             {
                 //Allocate memory
-                byte[] buffer = new byte[remaining];
+                System.Net.Sockets.SocketError error = System.Net.Sockets.SocketError.SocketError;
 
-                System.Net.Sockets.SocketError error;
+                int justReceived = 0, offset = buffer.Offset;
 
-                while (remaining > 0)
+                while (remaining > 0 && error != System.Net.Sockets.SocketError.TimedOut)
                 {
                     //Receive max more
-                    int received = Utility.AlignedReceive(buffer, 0, remaining, socket, out error);
+                    justReceived = Utility.AlignedReceive(buffer.Array, offset, remaining, socket, out error);
 
                     if (received > 0)
                     {
                         //Concatenate the result into the body
-                        m_Body += Encoding.GetString(buffer, 0, received);
+                        m_Body += Encoding.GetString(buffer.Array, offset, justReceived);
 
-                        remaining -= received;
+                        remaining -= justReceived;
+
+                        received += justReceived;
                     }
-                }
-
-                //Remove the buffer
-                buffer = null;
+                }                
             }
             
             //The RtspMessage is now complete
+            return received;
         }
 
         #endregion
