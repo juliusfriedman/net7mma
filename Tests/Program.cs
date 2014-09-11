@@ -2250,7 +2250,7 @@ a=mpeg4-esid:101");
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", localPath + "\\TestJpeg\\") { Loop = true, ForceTCP = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
             Media.Rtsp.Server.Streams.RFC2435Stream imageStream;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
@@ -2258,10 +2258,10 @@ a=mpeg4-esid:101");
             server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
             //Test H.264 Encoding
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(240, 160, "h264", localPath + "\\TestJpeg\\") { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test MPEG2 Endoing
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", localPath + "\\TestJpeg\\") { Loop = true });
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
             //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
@@ -2637,7 +2637,7 @@ a=mpeg4-esid:101");
                 }
                 catch //Frame is not complete
                 {
-                    restartFrame.PrepareBitmap(false, true);
+                    restartFrame.PrepareBuffer(false, true);
                     using (System.Drawing.Image jpeg = restartFrame) jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
                 }
 
@@ -2669,7 +2669,7 @@ a=mpeg4-esid:101");
                     }
 
                     //Try again with the RFC Quantizer
-                    f.PrepareBitmap(false, false, true);
+                    f.PrepareBuffer(false, false, true);
 
                     using (System.Drawing.Image jpeg = f)
                     {

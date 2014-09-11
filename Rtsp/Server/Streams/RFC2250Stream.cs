@@ -13,10 +13,8 @@ namespace Media.Rtsp.Server.Streams
 
         public const int ProfileHeaderSize = 4;
 
-        public readonly int Width = 128, Height = 96;
-
         public RFC2250Stream(int width, int height, string name, string directory = null, bool watch = true)
-            : base(name, directory, watch)
+            : base(name, directory, watch, width, height, false)
         {
             Width = width;
             Height = height;

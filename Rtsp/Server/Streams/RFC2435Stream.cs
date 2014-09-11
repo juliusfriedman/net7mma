@@ -750,7 +750,7 @@ namespace Media.Rtsp.Server.Streams
             /// Creates a shallow copy an existing JpegFrame
             /// </summary>
             /// <param name="f">The JpegFrame to copy</param>
-            public RFC2435Frame(RFC2435Frame f) : this((Rtp.RtpFrame)f) { Image = f.ToImage(); }
+            public RFC2435Frame(RFC2435Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
             /// <summary>
             /// 
@@ -1300,9 +1300,6 @@ namespace Media.Rtsp.Server.Streams
 
             #region Fields
 
-            //End result when encoding or decoding is cached in this member
-            internal System.Drawing.Image Image;
-
             /// <summary>
             /// Provied access the to underlying buffer where the image is stored.
             /// </summary>
@@ -1335,9 +1332,8 @@ namespace Media.Rtsp.Server.Streams
 
             /// <summary>
             /// Writes the packets to a memory stream and creates the default header and quantization tables if necessary.
-            /// Assigns Image from the result
             /// </summary>
-            public virtual void  PrepareBitmap(bool allowLegacyPackets = false, bool allowIncomplete = false, bool useRfcQuantizer = false)
+            public virtual void  PrepareBuffer(bool allowLegacyPackets = false, bool allowIncomplete = false, bool useRfcQuantizer = false)
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
@@ -1354,7 +1350,7 @@ namespace Media.Rtsp.Server.Streams
                 Common.MemorySegment tables = null;
 
                 //Remove buffer if previously used
-                DisposeBufferAndImage();
+                DisposeBuffer();
 
                 Buffer = new System.IO.MemoryStream();
 
@@ -1612,22 +1608,19 @@ namespace Media.Rtsp.Server.Streams
                         Buffer.WriteByte(JpegMarkers.Prefix);
                         Buffer.WriteByte(JpegMarkers.EndOfInformation);
                     }
-                }
-
-                //Create the Image form the Buffer, use the color profile from the data but don't validate the image data because it will be much faster
-                Image = System.Drawing.Image.FromStream(Buffer, true, false);
+                }                
             }
+
             /// <summary>
             /// Creates a image from the processed packets in the memory stream
             /// </summary>
             /// <returns>The image created from the packets</returns>
-            /// TODO DETERMINE IF useRfcQuantizers should be allowed to be passed here on in the Constructor
             public System.Drawing.Image ToImage()
             {
                 try
                 {
-                    if (Image == null) PrepareBitmap();
-                    return Image;
+                    if (Buffer == null) PrepareBuffer();
+                    return System.Drawing.Image.FromStream(Buffer, true, false); 
                 }
                 catch
                 {
@@ -1639,24 +1632,18 @@ namespace Media.Rtsp.Server.Streams
             public override void Dispose()
             {
                 //Dispose the buffer
-                DisposeBufferAndImage();
+                DisposeBuffer();
 
                 //Call dispose on the base class
                 base.Dispose();
             }
 
-            internal void DisposeBufferAndImage()
+            internal void DisposeBuffer()
             {
                 if (Buffer != null)
                 {
                     Buffer.Dispose();
                     Buffer = null;
-                }
-
-                if (Image != null)
-                {
-                    Image.Dispose();
-                    Image = null;
                 }
             }
 
@@ -1666,13 +1653,13 @@ namespace Media.Rtsp.Server.Streams
             /// </summary>
             public override void RemoveAllPackets()
             {
-                DisposeBufferAndImage();
+                DisposeBuffer();
                 base.RemoveAllPackets();
             }
 
             public override Rtp.RtpPacket Remove(int sequenceNumber)
             {
-                DisposeBufferAndImage();
+                DisposeBuffer();
                 return base.Remove(sequenceNumber);
             }
 
@@ -1796,12 +1783,12 @@ namespace Media.Rtsp.Server.Streams
             m_RtpClient.m_WorkerThread.TrySetApartmentState(System.Threading.ApartmentState.MTA);
             m_RtpClient.m_WorkerThread.IsBackground = true;
             m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
-            m_RtpClient.m_WorkerThread.Name = "RFC2435Stream-" + Id;
+            m_RtpClient.m_WorkerThread.Name = "SourceStream-" + Id;
 
             //If we are watching and there are already files in the directory then add them to the Queue
             if (m_Watcher != null && !string.IsNullOrWhiteSpace(base.Source.LocalPath) && System.IO.Directory.Exists(base.Source.LocalPath))
             {
-                foreach (string file in System.IO.Directory.GetFiles(base.Source.LocalPath, "*.jpg").AsParallel())
+                foreach (string file in System.IO.Directory.GetFiles(base.Source.LocalPath, "*.jpg"))
                 {
                     try
                     {
@@ -1816,10 +1803,7 @@ namespace Media.Rtsp.Server.Streams
                     }
                     catch (Exception ex)
                     {
-#if DEBUG
-                        System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Exception: " + ex);
-#endif
-                        continue;
+                        throw ex;
                     }
                 }
 
@@ -1840,6 +1824,7 @@ namespace Media.Rtsp.Server.Streams
                 Ready = true;
                 m_RtpClient.m_WorkerThread.Start();
             }
+
             base.Start();
         }
 

@@ -658,7 +658,7 @@ namespace Media.Rtsp.Server.Streams
         #region Constructor
 
         public RFC6184Stream(int width, int height, string name, string directory = null, bool watch = true)
-            : base(name, directory, watch, 240, 160, false, 99)
+            : base(name, directory, watch, width, height, false, 99)
         {
             Width = width;
             Height = height;
@@ -715,46 +715,100 @@ namespace Media.Rtsp.Server.Streams
 
                         //TODO Take RGB Stride and Convert to YUV
 
-                        using (var jpegFrame = RFC2435Stream.RFC2435Frame.Packetize(image, Math.Max(99, Quality), Interlaced, (int)sourceId, 0, 0, 1300))
+                        //Create a new frame
+                        var newFrame = new Rtp.RtpFrame(96);
+
+                        System.Drawing.Imaging.BitmapData data = ((Bitmap)image).LockBits(new Rectangle(0, 0, Width, Height),
+                                   System.Drawing.Imaging.ImageLockMode.ReadWrite, image.PixelFormat);
+
+                        int frameSize = Width * Height;
+                        int chromasize = frameSize / 4;
+
+                        int yIndex = 0;
+                        int uIndex = frameSize;
+                        int vIndex = frameSize + chromasize;
+                        byte[] yuv = new byte[frameSize * 3 / 2];
+
+                        //Convert from RGBtoYuv420, Should be a Utility function
+
+                        unsafe
                         {
-                            //Store the payload which is YUV Planar (420, 421, 422)
-                            List<byte[]> data = new List<byte[]>();
+                            uint* rgbValues = (uint*)data.Scan0.ToPointer();
 
-                            //Create a new frame
-                            var newFrame = new Rtp.RtpFrame(96);
-                            
-                            //project everything to a single array
-                            byte[] yuv = jpegFrame.Assemble(false, 8).ToArray();
+                            int index = 0;
 
-                            //Todo NAL Headers
+                            //Parrallel
 
-                            //For each h264 Macroblock in the frame
-                            for (int i = 0; i < Width / 16; i++)
-                                for (int j = 0; j < Height / 16; j++)
-                                    data.Add(EncodeMacroblock(i, j, yuv)); //Add a macroblock
-
-                            data.Add(new byte[] { 0x80 });//Stop bit
-
-                            int seq = 0;
-
-                            foreach (byte[] b in data)
+                            for (int j = 0; j < Height; j++)
                             {
-                                if (newFrame.Count == 0)
+                                for (int i = 0; i < Width; i++)
                                 {
-                                    newFrame.Add(new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 96, 0, 0, seq++, 0), slice_header.Concat(b)));
-                                }
-                                else
-                                {
-                                    newFrame.Add(new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 96, 0, 0, seq++, 0), b));
+                                    //uint a, R, G, B, Y, U, V;
+                                    ////a = (aRGB[index] & 0xff000000) >> 24; //not using it right now
+                                    //R = (rgbValues[index] & 0xff0000) >> 16;
+                                    //G = (rgbValues[index] & 0xff00) >> 8;
+                                    //B = (rgbValues[index] & 0xff) >> 0;
+
+                                    int yuvC = Utility.RgbYuv.GetYuv(rgbValues[index]);
+
+                                    //Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
+                                    //U = (uint)(((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128);
+                                    //V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
+
+                                    yuv[yIndex++] =  (byte)((yuvC & 0xff0000) >> 16); //(byte)((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));
+
+                                    if (j % 2 == 0 && index % 2 == 0)
+                                    {
+                                        yuv[uIndex++] = (byte)((yuvC  & 0xff00) >> 8);//(byte)((U < 0) ? 0 : ((U > 255) ? 255 : U));
+                                        yuv[vIndex++] = (byte)((yuvC & 0xff) >> 0);//(byte)((V < 0) ? 0 : ((V > 255) ? 255 : V));
+                                    }
+
+                                    index++;
                                 }
                             }
 
-                            newFrame.Last().Marker = true;
-
-                            yuv = null;
-
-                            AddFrame(newFrame);
                         }
+
+                        ((Bitmap)image).UnlockBits(data);
+
+                        data = null;
+
+                        //Todo NAL Headers
+
+                        List<byte[]> h264Data = new List<byte[]>();
+
+                        //For each h264 Macroblock in the frame
+                        for (int i = 0; i < Width / 16; i++)
+                            for (int j = 0; j < Height / 16; j++)
+                                h264Data.Add(EncodeMacroblock(i, j, yuv)); //Add a macroblock
+
+                                
+
+                        h264Data.Add(new byte[] { 0x80 });//Stop bit
+
+                        int seq = 0;
+
+                        foreach (byte[] b in h264Data)
+                        {
+                            if (newFrame.Count == 0)
+                            {
+                                newFrame.Add(new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 96, 0, 0, seq++, 0), sps.Concat(pps).Concat(slice_header).Concat(b)));
+                            }
+                            else
+                            {
+                                newFrame.Add(new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 96, 0, 0, seq++, 0), b));
+                            }
+                        }
+
+                        newFrame.Last().Marker = true;
+
+                        yuv = null;
+
+                        h264Data.Clear();
+
+                        h264Data = null;
+
+                        AddFrame(newFrame);
                     }
                 }
                 catch { throw; }
@@ -771,17 +825,26 @@ namespace Media.Rtsp.Server.Streams
 
             int x, y;
 
+            int frameSize = Width * Height;
+            int chromasize = frameSize / 4;
+
+            int yIndex = 0;
+            int uIndex = frameSize;
+            int vIndex = frameSize + chromasize;
+
+
+
             if (!((i == 0) && (j == 0))) result = macroblock_header;
 
             for (x = i * 16; x < (i + 1) * 16; x++)
                 for (y = j * 16; y < (j + 1) * 16; y++)
-                    result = result.Concat(data.Skip(x + y + 1).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);
+                    result = result.Concat(data.Skip(yIndex + x + y).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);
             for (x = i * 8; x < (i + 1) * 8; x++)
                 for (y = j * 8; y < (j + 1) * 8; y++)
-                    result = result.Concat(data.Skip(Width * Height + x * y).Take(1)); //fwrite(&frame.Cb[x][y], 1, 1, stdout);
+                    result = result.Concat(data.Skip(uIndex + x + y).Take(1)); //fwrite(&frame.Cb[x][y], 1, 1, stdout);
             for (x = i * 8; x < (i + 1) * 8; x++)
                 for (y = j * 8; y < (j + 1) * 8; y++)
-                    result = result.Concat(data.Skip(Width * Height + x * y + 1).Take(1));//fwrite(&frame.Cr[x][y], 1, 1, stdout);
+                    result = result.Concat(data.Skip(vIndex + x + y).Take(1));//fwrite(&frame.Cr[x][y], 1, 1, stdout);
 
             return result.ToArray();
         }
