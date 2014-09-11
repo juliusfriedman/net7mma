@@ -175,7 +175,7 @@ namespace Media.Rtsp
         /// <summary>
         /// True if the RtspClient has received the Playing event, False if the RtspClient has received the Stopping event or otherwise such as the media has finished playing.
         /// </summary>
-        public bool Playing { get { return Connected && (m_StartedListening != null && LivePlay ? true : m_EndTime.HasValue ? (DateTime.UtcNow - m_StartedListening < m_EndTime.Value) : m_Playing); } }
+        public bool Playing { get { return Connected && (m_StartedListening != null && LivePlay ? m_Playing : m_EndTime.HasValue ? (DateTime.UtcNow - m_StartedListening < m_EndTime.Value) : m_Playing); } }
 
         public DateTime? StartedListening { get { return m_StartedListening; } }
 
@@ -217,8 +217,6 @@ namespace Media.Rtsp
                 }
                 
                 if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null ? (m_RtspTimeout - (DateTime.UtcNow - m_LastTransmitted.Created)) : m_RtspTimeout, m_RtspTimeout);
-                
-                
 
                 //Update the timer period
                 

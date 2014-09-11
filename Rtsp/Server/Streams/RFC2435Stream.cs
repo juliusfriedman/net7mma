@@ -678,12 +678,37 @@ namespace Media.Rtsp.Server.Streams
                 0xf9, 0xfa
             };
 
-            internal static int DetermineQuality(byte[] qTable, int offset, int length)
+            //http://www.hackerfactor.com/src/jpegquality.c
+
+            /// <summary>
+            /// Experimentally determine a Quality factor form the given tables.
+            /// </summary>
+            /// <param name="precisionTable"></param>
+            /// <param name="tables"></param>
+            /// <param name="offset"></param>
+            /// <param name="length"></param>
+            /// <returns></returns>
+            public static int DetermineQuality(byte precisionTable, byte[] tables, int offset, int length)
             {
-                throw new NotImplementedException();
                 //Average from all tables
 
-                //return qTable.Skip(1).ToArray().Sum<byte>( b=> b) * 100 / 1000
+                int tableCount = length / (precisionTable > 0 ? 128 : 64);
+
+                if (length % tableCount > 0) tableCount = 1;
+
+                int tableSize = length / tableCount;
+
+                int total = 0, diff = 0;
+
+                for (int i = 0; i < tableCount; ++i)
+                {
+                    diff = tables.Skip(i * tableCount).Take(tableSize).Skip(1).Sum(b => b);
+                    total += diff;
+                    diff = total - diff;
+                }
+
+                return diff == 0 ? 100 : (int)100.0 - total / diff;
+
             }
 
             internal static byte[] CreateHuffmanTableMarker(byte[] codeLens, byte[] symbols, int tableNo, int tableClass)
@@ -742,9 +767,8 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="bytesPerPacket">The maximum amount of octets of each RtpPacket</param>
             public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024)
             {
-                if (imageQuality <= 0 || imageQuality > 100) throw new NotSupportedException("Only qualities 1 - 100 are supported");
-                //else if (imageQuality == 100) imageQuality = 99; //Fix GDI Encoding Issues
-
+                if (imageQuality <= 0) throw new NotSupportedException("Only qualities 1 - 100 are supported");
+                
                 System.Drawing.Image image;
 
                 //If the data is larger then supported resize
@@ -765,7 +789,7 @@ namespace Media.Rtsp.Server.Streams
                     System.Drawing.Imaging.EncoderParameters parameters = new System.Drawing.Imaging.EncoderParameters(3);
 
                     // Set the quality (Quality == 100 on GDI is prone to decoding errors?)
-                    parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)imageQuality);
+                    parameters.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, (long)(imageQuality >= 100 ? 100 : imageQuality));
 
                     //Set the interlacing
                     if (interlaced)
@@ -1897,7 +1921,7 @@ namespace Media.Rtsp.Server.Streams
                     }
                     else if (image.Width != Width || image.Height != Height) image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero);
 
-                    m_Frames.Enqueue(RFC2435Stream.RFC2435Frame.Packetize(image, Quality == 255 ? 100 : Quality, Interlaced, (int)sourceId));
+                    m_Frames.Enqueue(RFC2435Stream.RFC2435Frame.Packetize(image, Quality, Interlaced, (int)sourceId));
                 }
                 catch { throw; }
             }

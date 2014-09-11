@@ -492,6 +492,12 @@ namespace Media.Rtsp.Server.Streams
         //C# h264 elementary stream stuff
         //https://bitbucket.org/jerky/rtp-streaming-server
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <todo>
+        /// Needs a Nal class
+        /// </todo>
         public class RFC6184Frame : Rtp.RtpFrame
         {
 
@@ -540,6 +546,96 @@ namespace Media.Rtsp.Server.Streams
             // will be blank squares in the lower right.
             return true;
         }
+
+             */
+
+
+            /*
+             private int handleAggregationPacket(Buffer input, Buffer output) {
+        // Get data
+        byte[] bufferData = (byte[]) input.getData();
+        if (aggregationPositon + 1 >= bufferData.length) {
+            // No more data in aggregation packet
+            aggregationPositon = 1;
+            output.setDiscard(true);
+            return BUFFER_PROCESSED_OK;
+        }
+
+        // Get NALU size
+        int nalu_size = ((bufferData[aggregationPositon] << 8) | bufferData[aggregationPositon+1]);
+        aggregationPositon+=2;
+        if (aggregationPositon + nalu_size > bufferData.length) {
+            // Not a correct packet
+            aggregationPositon = 1;
+            return BUFFER_PROCESSED_FAILED;
+        }
+
+        // Get NALU HDR
+        extractNalUnitHeader(aggregationPositon, input);
+        if (mNalUnitHeader.isSingleNalUnitPacket()) {
+            // Create output buffer
+            byte[] data = new byte[nalu_size];
+            System.arraycopy(bufferData, aggregationPositon, data, 0, nalu_size);
+            aggregationPositon+=nalu_size;
+
+            // Set buffer
+            output.setData(data);
+            output.setLength(data.length);
+            output.setOffset(0);
+            output.setTimeStamp(input.getTimeStamp());
+            output.setSequenceNumber(input.getSequenceNumber());
+            output.setVideoOrientation(input.getVideoOrientation());
+            output.setFormat(input.getFormat());
+            output.setFlags(input.getFlags());
+
+            return INPUT_BUFFER_NOT_CONSUMED;
+        } else {
+            // Not a correct packet
+            aggregationPositon = 1;
+            return BUFFER_PROCESSED_FAILED;
+        }
+    }
+             * 
+             * 
+             * 
+              private int handleSingleNalUnitPacket(Buffer input, Buffer output) {
+        // Create output buffer
+        byte[] bufferData = (byte[]) input.getData();
+        int bufferDataLength = bufferData.length;
+        byte[] data = new byte[bufferDataLength];
+        System.arraycopy(bufferData, 0, data, 0, bufferDataLength);
+
+        // Set buffer
+        output.setData(data);
+        output.setLength(data.length);
+        output.setOffset(0);
+        output.setTimeStamp(input.getTimeStamp());
+        output.setSequenceNumber(input.getSequenceNumber());
+        output.setVideoOrientation(input.getVideoOrientation());
+        output.setFormat(input.getFormat());
+        output.setFlags(input.getFlags());
+
+        return BUFFER_PROCESSED_OK;
+    }
+             * 
+             * 
+             * 
+             * private int handleFragmentationUnitPacket(Buffer input, Buffer output) {
+        if (!input.isDiscard()) {
+            assemblersCollection.put(input);
+            if (assemblersCollection.getLastActiveAssembler().complete()) {
+                assemblersCollection.getLastActiveAssembler().copyToBuffer(output);
+                assemblersCollection.removeOldestThan(input.getTimeStamp());
+                return BUFFER_PROCESSED_OK;
+            } else {
+                output.setDiscard(true);
+                return OUTPUT_BUFFER_NOT_FILLED;
+            }
+        } else {
+            output.setDiscard(true);
+            return OUTPUT_BUFFER_NOT_FILLED;
+        }
+    }
 
              */
 
