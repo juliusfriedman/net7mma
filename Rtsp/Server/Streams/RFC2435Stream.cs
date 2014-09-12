@@ -692,6 +692,8 @@ namespace Media.Rtsp.Server.Streams
             {
                 //Average from all tables
 
+                //See also http://trac.imagemagick.org/browser/ImageMagick/trunk/coders/jpeg.c @ JPEGSetImageQuality
+
                 int tableCount = length / (precisionTable > 0 ? 128 : 64);
 
                 if (length % tableCount > 0) tableCount = 1;
@@ -1597,6 +1599,10 @@ namespace Media.Rtsp.Server.Streams
                         byte[] header = CreateJFIFHeader(TypeSpecific, Type, Width, Height, tables, PrecisionTable, RestartInterval);
                         Buffer.Write(header, 0, header.Length);
                     }
+
+                    //Write the Payload data from the offset
+                    Buffer.Write(packet.Payload.Array, packet.Payload.Offset + offset, packet.Payload.Count - (offset + packet.PaddingOctets));
+
                 }
 
                 //Check for EOI Marker and write if not found

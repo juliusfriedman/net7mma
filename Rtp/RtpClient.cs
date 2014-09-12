@@ -2381,7 +2381,7 @@ namespace Media.Rtp
         internal virtual void ParseAndCompleteData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
 
-            //handle demultiplex scenarios
+            //handle demultiplex scenarios e.g. RFC5761
             if (parseRtcp == parseRtp)
             {
                 //Double Negitive, Demux based on PayloadType? RFC5761?
@@ -2410,48 +2410,40 @@ namespace Media.Rtp
             //If there is nothing left to parse then return
             if (count <= 0) return;
 
-            try
+            //If rtcp should be parsed
+            if (mRemaining > RtcpHeader.Length && parseRtcp)
             {
-                //If rtcp should be parsed
-                if (mRemaining > RtcpHeader.Length && parseRtcp)
+                //Copy valid RtcpPackets out of the buffer now, if any packet is not complete it will be completed only if required.
+                foreach (RtcpPacket rtcp in RtcpPacket.GetPackets(memory.Array, offset + index, mRemaining))
                 {
-                    //Copy valid RtcpPackets out of the buffer now, if any packet is not complete it will be completed only if required.
-                    foreach (RtcpPacket rtcp in RtcpPacket.GetPackets(memory.Array, offset + index, mRemaining))
-                    {
-                        //Raise an event for each packet.
-                        //OnRtcpPacketReceieved(rtcp);
-                        HandleIncomingRtcpPacket(this, rtcp);
+                    //Raise an event for each packet.
+                    //OnRtcpPacketReceieved(rtcp);
+                    HandleIncomingRtcpPacket(this, rtcp);
 
-                        //Move the offset the length of the packet parsed
-                        index += rtcp.Length;
-                        mRemaining -= rtcp.Length;
-                    }
-
-                }
-                //If rtp is parsed
-                if (mRemaining > RtpHeader.Length && parseRtp)
-                {
-                    //Create a packet from the data received, if the packet is not complete it will be completed only if required.
-                    using (RtpPacket rtp = new RtpPacket(memory.Array.Skip(offset + index).Take(count).ToArray(), 0))
-                    {
-                        //Raise the event
-                        HandleIncomingRtpPacket(this, rtp);
-
-                        //Move the index past the length of the packet
-                        index += rtp.Length;
-
-                        //Calculate the amount of octets remaining in the segment.
-                        mRemaining -= rtp.Length;
-                    }
+                    //Move the offset the length of the packet parsed
+                    index += rtcp.Length;
+                    mRemaining -= rtcp.Length;
                 }
 
-                return;
             }
-            catch //Any exception
+            //If rtp is parsed
+            if (mRemaining > RtpHeader.Length && parseRtp)
             {
-                //Return immediately
-                return;
+                //Create a packet from the data received, if the packet is not complete it will be completed only if required.
+                using (RtpPacket rtp = new RtpPacket(memory.Array.Skip(offset + index).Take(count).ToArray(), 0))
+                {
+                    //Raise the event
+                    HandleIncomingRtpPacket(this, rtp);
+
+                    //Move the index past the length of the packet
+                    index += rtp.Length;
+
+                    //Calculate the amount of octets remaining in the segment.
+                    mRemaining -= rtp.Length;
+                }
             }
+
+            return;
         }
 
         /// <summary>

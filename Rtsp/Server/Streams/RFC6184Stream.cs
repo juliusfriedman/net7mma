@@ -53,6 +53,7 @@ namespace Media.Rtsp.Server.Streams
     public class RFC6184Stream : RFC2435Stream
     {
 
+        //Logic will be incorperated into the (De)Packetize method of the Frame
         //https://code.google.com/p/android-rcs-ims-stack/source/browse/trunk/core/src/com/orangelabs/rcs/core/ims/protocol/rtp/codec/video/h264/H264RtpHeaders.java?r=275
         public class RFC6184Headers
         {
@@ -493,7 +494,7 @@ namespace Media.Rtsp.Server.Streams
         //https://bitbucket.org/jerky/rtp-streaming-server
 
         /// <summary>
-        /// 
+        /// Handles the creation of Stap and Frag packets from a large nal as well the creation of single large nals from Stap and Frag
         /// </summary>
         /// <todo>
         /// Needs a Nal class
@@ -502,6 +503,17 @@ namespace Media.Rtsp.Server.Streams
         {
 
             public RFC6184Frame(byte payloadType) : base(payloadType) { }
+
+            public void Packetize(byte[] nal)
+            {
+
+            }
+
+            //PrepareBuffer
+            public void Depacketize()
+            {
+
+            }
 
             /*
          // Extracts the NAL Unit Header from the Input Buffer
@@ -643,6 +655,8 @@ namespace Media.Rtsp.Server.Streams
 
         #region Propeties
 
+        //Will be created dynamically
+
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
 
         byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
@@ -711,15 +725,8 @@ namespace Media.Rtsp.Server.Streams
                     //Make the width and height correct
                     using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
-                        //Encode a JPEG (leave 40 bytes room in each packet for the h264 data)
-
-                        //TODO Take RGB Stride and Convert to YUV
-
                         //Create a new frame
-                        var newFrame = new Rtp.RtpFrame(96);
-
-                        System.Drawing.Imaging.BitmapData data = ((Bitmap)image).LockBits(new Rectangle(0, 0, Width, Height),
-                                   System.Drawing.Imaging.ImageLockMode.ReadWrite, image.PixelFormat);
+                        var newFrame = new RFC6184Frame(96);
 
                         int frameSize = Width * Height;
                         int chromasize = frameSize / 4;
@@ -730,6 +737,10 @@ namespace Media.Rtsp.Server.Streams
                         byte[] yuv = new byte[frameSize * 3 / 2];
 
                         //Convert from RGBtoYuv420, Should be a Utility function
+
+                        //Get RGB Stride
+                        System.Drawing.Imaging.BitmapData data = ((Bitmap)image).LockBits(new Rectangle(0, 0, Width, Height),
+                                   System.Drawing.Imaging.ImageLockMode.ReadOnly, image.PixelFormat);
 
                         unsafe
                         {
@@ -782,9 +793,7 @@ namespace Media.Rtsp.Server.Streams
                             for (int j = 0; j < Height / 16; j++)
                                 h264Data.Add(EncodeMacroblock(i, j, yuv)); //Add a macroblock
 
-                                
-
-                        h264Data.Add(new byte[] { 0x80 });//Stop bit
+                        h264Data.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
 
                         int seq = 0;
 
@@ -831,8 +840,6 @@ namespace Media.Rtsp.Server.Streams
             int yIndex = 0;
             int uIndex = frameSize;
             int vIndex = frameSize + chromasize;
-
-
 
             if (!((i == 0) && (j == 0))) result = macroblock_header;
 
