@@ -904,7 +904,7 @@ namespace Tests
                         }
                         break;
                     }
-                default: Console.WriteLine(Media.RtpTools.RtpSend.ToTextExpression(Media.RtpTools.FileFormat.Ascii, p)); break;
+                default: Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, p)); break;
 
             }
         }
@@ -2524,9 +2524,6 @@ a=mpeg4-esid:101");
 
         static void TestJpegFrame()
         {
-            
-
-           
 
             byte[][] jpegPackets = new byte[][]
                 {

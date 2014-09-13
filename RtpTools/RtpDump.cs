@@ -227,8 +227,9 @@ namespace Media.RtpTools.RtpDump
                 //If the format is not text then
                 if (m_Format < FileFormat.Text)
                 {
-                    //Dont forget that RtspMessage needs Length and to use Binary parsing                    
-                    //The format may be unknown at first, size the entry accordingly
+
+                    //Could keep each entry stored in a buffer and then use MemorySegment to read the entry into the buffer provided by the reader
+
                     entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize]); //32 bytes allocated per entry.
 
                     m_Reader.Read(entry.Blob, 0, RtpToolEntry.DefaultEntrySize);

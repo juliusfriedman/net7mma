@@ -455,7 +455,7 @@ namespace Media.RtpTools
                 //sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
                 if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, DefaultEntrySize, MaxSize - DefaultEntrySize), ts, ep));
-                else using (var rtp = new Rtp.RtpPacket(Data.ToArray(), 0)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
+                else using (var rtp = new Rtp.RtpPacket(Blob, DefaultEntrySize)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
 
                 return sb.ToString();    
             }

@@ -128,7 +128,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="l">optional last bit (defaults to 1)</param>
             /// <param name="count">optional number of restart markers (defaults to 0x3FFF)</param>
             /// <returns>Rst Marker</returns>
-            static byte[] CreateRtpJpegDataRestartIntervalMarker(ushort dri, bool f = true, bool l = true, ushort count = 0x3FFF)
+            public static byte[] CreateRtpJpegDataRestartIntervalMarker(ushort dri, bool f = true, bool l = true, ushort count = 0x3FFF)
             {
                 //     0                   1                   2                   3
                 //0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -165,7 +165,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="dri"></param>
             /// <param name="qTables"></param>
             /// <returns></returns>
-            static byte[] CreateRtpJpegHeader(uint typeSpecific, long fragmentOffset, uint jpegType, uint quality, uint width, uint height, byte[] dri, byte precisionTable, List<byte> qTables)
+            public static byte[] CreateRtpJpegHeader(uint typeSpecific, long fragmentOffset, uint jpegType, uint quality, uint width, uint height, byte[] dri, byte precisionTable, List<byte> qTables)
             {
                 List<byte> RtpJpegHeader = new List<byte>();
 
