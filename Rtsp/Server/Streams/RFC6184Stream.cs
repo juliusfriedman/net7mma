@@ -507,12 +507,82 @@ namespace Media.Rtsp.Server.Streams
             public void Packetize(byte[] nal)
             {
 
+                if (nal.Length > 1500)
+                {
+                    //Make a Fragment
+                }
+
+                //Add RtpPackets for fragments / data
             }
+
+            internal System.IO.MemoryStream Buffer { get; set; }
 
             //PrepareBuffer
             public void Depacketize()
             {
 
+                List<byte[]> NalUnits = new List<byte[]>();
+
+                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
+                {
+
+                    RFC6184Headers headers = new RFC6184Headers(packet.Coefficients.ToArray());
+
+                    //Forbidden
+                    if (headers.getFUI_F()) continue;
+
+                    byte nalHeader = headers.getNALHeader();
+
+                    int offset = headers.getHeaderSize(), length = packet.Coefficients.Count() - offset, posSeq = packet.SequenceNumber;
+
+                    // Fragmentation Units (FU-A) have NALs separated through several
+                    // RTP packets
+                    if (headers.getFUI_TYPE() == RFC6184Headers.AVC_NALTYPE_FUA)
+                    {
+
+                        bool hasStart = headers.getFUH_S(), hasEnd = headers.getFUH_E();
+                    }
+
+                    NalUnits.Add(packet.Coefficients.Skip(offset).Take(length).ToArray());
+                }
+
+                //Write assembled chunks to buffer.
+                foreach (var nal in NalUnits) Buffer.Write(nal, 0, nal.Length);
+            }
+
+            public override bool Complete
+            {
+                get
+                {
+                    if (!base.Complete) return false;
+
+
+                    //if (!reassembledDataHasStart || !reassembledDataHasEnd)
+                    //{
+                    //    return false; // has start and end chunk
+                    //}
+
+                    // Validate chunk sizes between start and end pos
+                    //int posCurrent = reassembledDataPosSeqStart;
+                    //while ((posCurrent & VIDEO_DECODER_MAX_PAYLOADS_CHUNKS_MASK) != reassembledDataPosSeqEnd)
+                    //{
+                    //    // need more data?
+                    //    if (reassembledDataSize[posCurrent & VIDEO_DECODER_MAX_PAYLOADS_CHUNKS_MASK] <= 0)
+                    //    {
+                    //        return false;
+                    //    }
+                    //    posCurrent++;
+                    //}
+                    //// Validate last chunk
+                    //if (reassembledDataSize[reassembledDataPosSeqEnd] <= 0)
+                    //{
+                    //    return false;
+                    //}
+
+                    // TODO: if some of the last ones come in after the marker, there
+                    // will be blank squares in the lower right.
+                    return true;
+                }
             }
 
             /*
@@ -528,38 +598,6 @@ namespace Media.Rtsp.Server.Streams
         }
          */
 
-
-            /*
-              public boolean complete() {
-
-            if (!rtpMarker) {
-                return false; // need an rtp marker to signify end
-            }
-
-            if (!reassembledDataHasStart || !reassembledDataHasEnd) {
-                return false; // has start and end chunk
-            }
-
-            // Validate chunk sizes between start and end pos
-            int posCurrent = reassembledDataPosSeqStart;
-            while ((posCurrent & VIDEO_DECODER_MAX_PAYLOADS_CHUNKS_MASK) != reassembledDataPosSeqEnd) {
-                // need more data?
-                if (reassembledDataSize[posCurrent & VIDEO_DECODER_MAX_PAYLOADS_CHUNKS_MASK] <= 0) {
-                    return false;
-                }
-                posCurrent++;
-            }
-            // Validate last chunk
-            if (reassembledDataSize[reassembledDataPosSeqEnd] <= 0) {
-                return false;
-            }
-
-            // TODO: if some of the last ones come in after the marker, there
-            // will be blank squares in the lower right.
-            return true;
-        }
-
-             */
 
 
             /*
@@ -650,6 +688,11 @@ namespace Media.Rtsp.Server.Streams
     }
 
              */
+
+            //To go to an Image...
+            //Look for a SliceHeader in the Buffer
+            //Decode Macroblocks in Slice
+            //Convert Yuv to Rgb
 
         }
 

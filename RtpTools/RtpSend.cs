@@ -327,7 +327,7 @@ namespace Media.RtpTools
         /// <param name="format">The <see cref="FileFormat"/> to output.</param>
         /// <param name="packet">The <see cref="Rtcp.RtcpPacket"/> to describe</param>
         /// <returns>The text describes the packet if the <paramref name="format"/> is a text format, otherwise an empty string</returns>
-        internal static string ToTextExpression(FileFormat format, Rtcp.RtcpPacket packet)
+        internal static string ToTextualConvention(FileFormat format, Rtcp.RtcpPacket packet)
         {
             if (packet == null || packet.Payload.Count == 0 || format < FileFormat.Text || format == FileFormat.Short) return string.Empty;
 
@@ -468,8 +468,12 @@ namespace Media.RtpTools
                 blockString += string.Format(QuotedFormat, "reason", System.Text.Encoding.ASCII.GetString(bye.ReasonForLeaving.ToArray()));
 
             //Write each entry in bye.GetSourceList
-            foreach (uint partyId in bye.GetSourceList())//ssrc=
-                blockString += string.Format(HexFormat, "ssrc", partyId.ToString("X")) + Common.ASCII.LineFeed;
+            using (var sourceList = bye.GetSourceList())
+            {
+                if (sourceList == null) blockString += "#Incomplete Source List Not Included" + Common.ASCII.LineFeed;
+                else foreach (uint partyId in sourceList)//ssrc=
+                    blockString += string.Format(HexFormat, "ssrc", partyId.ToString("X")) + Common.ASCII.LineFeed;
+            }
 
             return blockString;
         }
@@ -503,7 +507,7 @@ namespace Media.RtpTools
                 {
                     //Build the Expression of the packet given as an individual expression
                     //(T=>)
-                    builder.Append(RtpSend.ToTextExpression(format, iterator.Current));
+                    builder.Append(RtpSend.ToTextualConvention(format, iterator.Current));
 
                     //Increment for totalLength
                     totalLength += iterator.Current.Length;
@@ -625,7 +629,6 @@ namespace Media.RtpTools
                         while (sl.MoveNext())
                         {
                             builder.Append(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X")));
-
                             builder.Append(Common.ASCII.LineFeed);
                         }
                     }
@@ -819,6 +822,8 @@ namespace Media.RtpTools
                             
                             //Increment for a token parsed within the entry so far
                             ++tokensParsed;
+
+                            //Check for ShortFormat....
 
                             //Switch out logic based on token
                             switch (tokenIndex)

@@ -2013,30 +2013,32 @@ namespace Media.Rtp
 
             SocketError error;
 
-            //Combine them, adding padding where necessary to the last packet
             //byte[] data = RFC3550.ToCompoundBytes(packets).ToArray(); //packets.SelectMany(p => p.Prepare()).ToArray();
 
             //When sending more then one packet compound packets must be padded correctly.
 
             //Just `stack` the packets as indicated if sending, assume they are valid.
-            int sent = SendData(packets.Count() > 1 ? RFC3550.ToCompoundBytes(packets).ToArray() : packets.First().Prepare().ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);    //SendData(packets.SelectMany(p => p.Prepare()).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
-
-            int csent = 0;
+            int sent = SendData(RFC3550.ToCompoundBytes(packets).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
 
             //If the compound bytes were completely sent then all packets have been sent
             if (error == SocketError.Success && sent >= TCP_OVERHEAD)
             {
+                //Check to see each packet which was sent
+                int csent = 0;
+
                 foreach (RtcpPacket packet in packets)
                 {
+                    //Increment for the length of the packet
+                    csent += packet.Length;
+
+                    //If more data was contained then sent don't set Trasnferred and raise and event
+                    if (csent > sent) break;
+
                     //set sent
                     packet.Transferred = DateTime.UtcNow;
 
                     //Raise en event
                     OnRtcpPacketSent(packet);
-
-                    csent += packet.Length;
-
-                    if (csent > sent) break;
                 }
             }
 
@@ -2830,10 +2832,10 @@ namespace Media.Rtp
 
                     #region Handle Outgoing RtcpPackets
 
+                    int remove = m_OutgoingRtcpPackets.Count;
+
                     if (m_OutgoingRtcpPackets.Count > 0)
                     {
-                        int remove = m_OutgoingRtcpPackets.Count;
-
                         if (SendRtcpPackets(m_OutgoingRtcpPackets.GetRange(0, remove)) > 0) lastOperation = DateTime.UtcNow;
 
                         m_OutgoingRtcpPackets.RemoveRange(0, remove);
@@ -2847,26 +2849,27 @@ namespace Media.Rtp
                     {
                         //Could check for timestamp more recent then packet at 0  on transporContext and discard...
                         //Send only A few at a time to share with rtcp
-                        int sent = 0;
+                        remove = 0;
 
-                        foreach (RtpPacket packet in m_OutgoingRtpPackets.ToArray())
+                        foreach (RtpPacket packet in m_OutgoingRtpPackets.GetRange(0, m_OutgoingRtpPackets.Count))
                         {
-                            if (packet == null || packet.Disposed) ++sent;
+                            if (packet == null || packet.Disposed) ++remove;
                             //If the entire packet was sent
                             else if (SendRtpPacket(packet) >= packet.Length)
                             {
-                                ++sent;
+                                ++remove;                                
                                 lastOperation = DateTime.UtcNow;
                             }
                             else break;
 
                             //If this was a marker packet then stop for now
                             if (packet.Marker) break;
+
+                            //Could also check timestamp
                         }
 
-                        m_OutgoingRtpPackets.RemoveRange(0, sent);
+                        m_OutgoingRtpPackets.RemoveRange(0, remove);
                     }
-
 
                     #endregion
                 }
