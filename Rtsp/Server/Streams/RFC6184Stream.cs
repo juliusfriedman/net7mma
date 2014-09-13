@@ -698,7 +698,7 @@ namespace Media.Rtsp.Server.Streams
 
         #region Propeties
 
-        //Will be created dynamically
+        //Should be created dynamically
 
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
 
@@ -706,7 +706,11 @@ namespace Media.Rtsp.Server.Streams
 
         byte[] pps = { 0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80 };
 
-        byte[] slice_header = { 0x00, 0x00, 0x00, 0x01, 0x05, 0x88, 0x84, 0x21, 0xa0 };
+        byte[] slice_header = { 0x00, 0x00, 0x00, 0x01, 0x05, 0x88, 0x84, 0x21, 0xa0 },
+            slice_header1 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x84, 0x21, 0xa0 },
+            slice_header2 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x94, 0x21, 0xa0 };
+
+        bool useSliceHeader1 = true;
         
         byte[] macroblock_header = { 0x0d, 0x00 };
 
@@ -750,7 +754,7 @@ namespace Media.Rtsp.Server.Streams
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000"));
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg=="));
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id="+ Common.Binary.ReadU24(sps, 4, false).ToString("X2") +";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length  - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
         }
 
 
@@ -758,7 +762,6 @@ namespace Media.Rtsp.Server.Streams
         /// Packetize's an Image for Sending
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
-        /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
         public override void Packetize(System.Drawing.Image image)
         {
             lock (m_Frames)
@@ -771,96 +774,76 @@ namespace Media.Rtsp.Server.Streams
                         //Create a new frame
                         var newFrame = new RFC6184Frame(96);
 
-                        int frameSize = Width * Height;
-                        int chromasize = frameSize / 4;
+                        //Convert the bitmap to yuv420
+                        byte[] yuv = Utility.ABGRA2YUV420Managed((Bitmap)image);
 
-                        int yIndex = 0;
-                        int uIndex = frameSize;
-                        int vIndex = frameSize + chromasize;
-                        byte[] yuv = new byte[frameSize * 3 / 2];
-
-                        //Convert from RGBtoYuv420, Should be a Utility function
-
-                        //Get RGB Stride
-                        System.Drawing.Imaging.BitmapData data = ((Bitmap)image).LockBits(new Rectangle(0, 0, Width, Height),
-                                   System.Drawing.Imaging.ImageLockMode.ReadOnly, image.PixelFormat);
-
-                        unsafe
-                        {
-                            uint* rgbValues = (uint*)data.Scan0.ToPointer();
-
-                            int index = 0;
-
-                            //Parrallel
-
-                            for (int j = 0; j < Height; j++)
-                            {
-                                for (int i = 0; i < Width; i++)
-                                {
-                                    //uint a, R, G, B, Y, U, V;
-                                    ////a = (aRGB[index] & 0xff000000) >> 24; //not using it right now
-                                    //R = (rgbValues[index] & 0xff0000) >> 16;
-                                    //G = (rgbValues[index] & 0xff00) >> 8;
-                                    //B = (rgbValues[index] & 0xff) >> 0;
-
-                                    int yuvC = Utility.RgbYuv.GetYuv(rgbValues[index]);
-
-                                    //Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
-                                    //U = (uint)(((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128);
-                                    //V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
-
-                                    yuv[yIndex++] =  (byte)((yuvC & 0xff0000) >> 16); //(byte)((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));
-
-                                    if (j % 2 == 0 && index % 2 == 0)
-                                    {
-                                        yuv[uIndex++] = (byte)((yuvC  & 0xff00) >> 8);//(byte)((U < 0) ? 0 : ((U > 255) ? 255 : U));
-                                        yuv[vIndex++] = (byte)((yuvC & 0xff) >> 0);//(byte)((V < 0) ? 0 : ((V > 255) ? 255 : V));
-                                    }
-
-                                    index++;
-                                }
-                            }
-
-                        }
-
-                        ((Bitmap)image).UnlockBits(data);
-
-                        data = null;
-
-                        //Todo NAL Headers
-
-                        List<byte[]> h264Data = new List<byte[]>();
+                        List<IEnumerable<byte>> macroBlocks = new List<IEnumerable<byte>>();
 
                         //For each h264 Macroblock in the frame
-                        for (int i = 0; i < Width / 16; i++)
-                            for (int j = 0; j < Height / 16; j++)
-                                h264Data.Add(EncodeMacroblock(i, j, yuv)); //Add a macroblock
+                        for (int i = 0; i < Height / 16; i++)
+                            for (int j = 0; j < Width / 16; j++)
+                                macroBlocks.Add(EncodeMacroblock(i, j, yuv)); //Add an encoded macroblock to the list
 
-                        h264Data.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
+                        macroBlocks.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
 
                         int seq = 0;
 
-                        foreach (byte[] b in h264Data)
+                        IEnumerable<byte> packetData = Utility.Empty;
+
+                        //Build the RtpPacket data from the MacroBlocks
+                        foreach (IEnumerable<byte> macroBlock in macroBlocks)
                         {
+                            //If there is more data then allowed in the packet
+                            if (packetData.Count() > 1024)
+                            {
+
+                                //A Fragment Unit Header is probably required here to indicate the NAL is fragmented
+                                if (newFrame.Count == 0)
+                                {
+                                    packetData = packetData.Concat(new byte[] { (byte)(0x28 & 0x1f), (byte)(1 << 7 | (0x28 & 0x1f)) });
+                                }
+                                else
+                                {
+                                    //Should probably set End bit in the last packet 1 << 6
+                                    packetData = packetData.Concat(new byte[]{ (byte)(0x28 & 0x1f), (byte)(0x28 & 0x1f) });
+                                }
+                                
+
+                                //Add a packet to the frame with the existing data
+                                newFrame.Add(new Rtp.RtpPacket(2, false, false, false, 96, 0, sourceId, ++seq, 0, packetData.ToArray()));
+
+                                //reset the data for the next packet
+                                packetData = Utility.Empty;
+                            }
+                            
+                            //If this was the first packet added include the sps and pps in band
                             if (newFrame.Count == 0)
                             {
-                                newFrame.Add(new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 96, 0, 0, seq++, 0), sps.Concat(pps).Concat(slice_header).Concat(b)));
+                                packetData = packetData.Concat(sps.Concat(pps).Concat(useSliceHeader1 ? slice_header1 : slice_header2).Concat(macroBlock));
+
+                                //Alternate slice headers for next frame
+                                useSliceHeader1 = !useSliceHeader1;
                             }
-                            else
+                            else //Otherwise just use the macroBlock
                             {
-                                newFrame.Add(new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 96, 0, 0, seq++, 0), b));
+                                packetData = packetData.Concat(macroBlock);
                             }
                         }
 
+                        //Set the marker in the RtpHeader
                         newFrame.Last().Marker = true;
+
+                        //Set the last bit in the Nal header, Forbidden bit already set
+                        newFrame.Last().Payload[newFrame.Last().NonPayloadOctets + 1] |= 1 << 6;
+
+                        //Add the frame
+                        AddFrame(newFrame);
 
                         yuv = null;
 
-                        h264Data.Clear();
+                        macroBlocks.Clear();
 
-                        h264Data = null;
-
-                        AddFrame(newFrame);
+                        macroBlocks = null;
                     }
                 }
                 catch { throw; }
@@ -870,12 +853,10 @@ namespace Media.Rtsp.Server.Streams
         //Thanks !!
         //http://www.cardinalpeak.com/blog/worlds-smallest-h-264-encoder/
 
-        byte[] EncodeMacroblock(int i, int j, byte[] data)
+        IEnumerable<byte> EncodeMacroblock(int i, int j, byte[] data)
         {
 
             IEnumerable<byte> result = Utility.Empty;
-
-            int x, y;
 
             int frameSize = Width * Height;
             int chromasize = frameSize / 4;
@@ -884,19 +865,29 @@ namespace Media.Rtsp.Server.Streams
             int uIndex = frameSize;
             int vIndex = frameSize + chromasize;
 
+            //If not the first macroblock in the slice
             if (!((i == 0) && (j == 0))) result = macroblock_header;
+            else //There are offsets to the pixel values
+            {
+                int offset = i * Height + j * Width;
 
-            for (x = i * 16; x < (i + 1) * 16; x++)
-                for (y = j * 16; y < (j + 1) * 16; y++)
-                    result = result.Concat(data.Skip(yIndex + x + y).Take(1)); //fwrite(&frame.Y[x][y], 1, 1, stdout);
-            for (x = i * 8; x < (i + 1) * 8; x++)
-                for (y = j * 8; y < (j + 1) * 8; y++)
-                    result = result.Concat(data.Skip(uIndex + x + y).Take(1)); //fwrite(&frame.Cb[x][y], 1, 1, stdout);
-            for (x = i * 8; x < (i + 1) * 8; x++)
-                for (y = j * 8; y < (j + 1) * 8; y++)
-                    result = result.Concat(data.Skip(vIndex + x + y).Take(1));//fwrite(&frame.Cr[x][y], 1, 1, stdout);
+                if (offset > 0)
+                {
+                    yIndex += offset;
+                    uIndex += offset;
+                    vIndex += offset;
+                }
+            }
 
-            return result.ToArray();
+            //Take the Luma Values
+            result = result.Concat(data.Skip(yIndex ).Take(16 * 8));
+
+            //Take the Chroma Values
+            result = result.Concat(data.Skip(uIndex ).Take(8 * 8));
+
+            result = result.Concat(data.Skip(vIndex ).Take(8 * 8));
+
+            return result;
         }
 
         #endregion
