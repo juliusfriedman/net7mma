@@ -2935,9 +2935,7 @@ namespace Media.Rtp
 
             Disconnect();
 
-            Disposed = true;
-
-            GC.SuppressFinalize(this);
+            base.Dispose();
 
             m_Buffer.Dispose();
             m_Buffer = null;

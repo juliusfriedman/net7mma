@@ -79,8 +79,8 @@ namespace Media
         const int IP_HEADER = 10; //
 
         #region Extensions
-        
-        public static IEnumerable<T> Yield<T>(this T t) { yield return t;}
+
+        public static IEnumerable<T> Yield<T>(this T t) { yield return t; }
 
         public static double TotalMicroseconds(this TimeSpan ts) { return ts.TotalMilliseconds / MicrosecondsPerMillisecond; }
 
@@ -120,7 +120,7 @@ namespace Media
         private static IPAddress intranetMask2 = IPAddress.Parse("172.16.0.0");
         private static IPAddress intranetMask3 = IPAddress.Parse("172.31.255.255");
         private static IPAddress intranetMask4 = IPAddress.Parse("192.168.255.255");
-        
+
         /// <summary>
         /// Retuns true if the ip address is one of the following
         /// IANA-reserved private IPv4 network ranges (from http://en.wikipedia.org/wiki/IP_address)
@@ -243,7 +243,7 @@ namespace Media
             //Set i = the index of the entry of the delemit
             do
                 i = Array.IndexOf(array, delemits[++o]);
-            while(i <= 0 && o < e);//While the delemit was not found and the offset is less then the end
+            while (i <= 0 && o < e);//While the delemit was not found and the offset is less then the end
 
             //Return the index of the last delemit
             return i;
@@ -315,11 +315,11 @@ namespace Media
                     int position = start + checkedBytes;
 
                     //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
-                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position,  count - position)) >= start)
+                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position, count - position)) >= start)
                     {
                         //Check for completion
                         if (++checkedBytes == octetCount) break;
-                        
+
                         //Partial match only
                         start = lastPosition;
                     }
@@ -344,38 +344,38 @@ namespace Media
             catch { throw; }
         }
 
-        public static int Find(this byte[] array, byte[] needle, int startIndex, int sourceLength )
+        public static int Find(this byte[] array, byte[] needle, int startIndex, int sourceLength)
         {
             int needleLen = needle.Length;
             int index;
 
-            while ( sourceLength >= needleLen )
+            while (sourceLength >= needleLen)
             {
                 // find needle's starting element
-                index = Array.IndexOf( array, needle[0], startIndex, sourceLength - needleLen + 1 );
+                index = Array.IndexOf(array, needle[0], startIndex, sourceLength - needleLen + 1);
 
                 // if we did not find even the first element of the needls, then the search is failed
-                if ( index == -1 )
+                if (index == -1)
                     return -1;
 
                 int i, p;
                 // check for needle
-                for ( i = 0, p = index; i < needleLen; i++, p++ )
+                for (i = 0, p = index; i < needleLen; i++, p++)
                 {
-                    if ( array[p] != needle[i] )
+                    if (array[p] != needle[i])
                     {
                         break;
                     }
                 }
 
-                if ( i == needleLen )
+                if (i == needleLen)
                 {
                     // needle was found
                     return index;
                 }
 
                 // continue to search for needle
-                sourceLength -= ( index - startIndex + 1 );
+                sourceLength -= (index - startIndex + 1);
                 startIndex = index + 1;
             }
             return -1;
@@ -401,7 +401,7 @@ namespace Media
                 //To hold what was received and the maximum amount to receive
                 int totalReceived = 0, max = buffer.Length - offset, attempt = 0;
 
-                if(amount > max) amount = max;
+                if (amount > max) amount = max;
 
                 //While there is something to receive
                 while (amount > 0 /* && offset <= max*/)
@@ -433,7 +433,7 @@ namespace Media
                             //Set the total to the amount given because something bad happened
                             return totalReceived;
                         }
-                        else if (offset > max) break;  
+                        else if (offset > max) break;
                     }
                 }
 
@@ -451,21 +451,21 @@ namespace Media
         {
             //Only Tcp or Udp :)
             if (type != ProtocolType.Udp && type != ProtocolType.Tcp) return -1;
-            
+
             int port = start;
 
             //Get the IpGlobalProperties
             System.Net.NetworkInformation.IPGlobalProperties ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
 
             //Can't get any information
-            if(ipGlobalProperties == null) return port = -1;
+            if (ipGlobalProperties == null) return port = -1;
 
             //We need endpoints to ensure the ports we want are not in use
             IEnumerable<IPEndPoint> listeners = null;
 
             //Get the endpoints
             if (type == ProtocolType.Udp) listeners = ipGlobalProperties.GetActiveUdpListeners();
-            else if (type == ProtocolType.Tcp) listeners = ipGlobalProperties.GetActiveTcpListeners();            
+            else if (type == ProtocolType.Tcp) listeners = ipGlobalProperties.GetActiveTcpListeners();
 
             //Enumerate the ones that are = or > then port and increase port along the way
             foreach (IPEndPoint ep in listeners.Where(ep => ep.Port >= port))
@@ -529,7 +529,7 @@ namespace Media
         public static ulong DateTimeToNptTimestamp(DateTime value)
         {
             DateTime baseDate = value >= UtcEpoch2036 ? UtcEpoch2036 : UtcEpoch1900;
-            
+
             TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
 
             return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / MicrosecondsPerMillisecond);
@@ -539,7 +539,7 @@ namespace Media
 
         public static DateTime NptTimestampToDateTime(uint seconds, uint fractions, DateTime? epoch = null)
         {
-            ulong ticks =(ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
+            ulong ticks = (ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
             if (epoch.HasValue) return epoch.Value + TimeSpan.FromTicks((Int64)ticks);
             return (seconds & 0x80000000L) == 0 ? UtcEpoch2036 + TimeSpan.FromTicks((Int64)ticks) : UtcEpoch1900 + TimeSpan.FromTicks((Int64)ticks);
         }
@@ -551,7 +551,7 @@ namespace Media
 
         public static DateTime UtcEpoch1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        #endregion        
+        #endregion
 
         #region RgbYuv.cs
 
@@ -635,7 +635,7 @@ namespace Media
 
         #endregion
 
-        private static unsafe void YUV2RGBManaged(byte[] YUVData, byte[] RGBData, int width, int height)
+        internal static unsafe void YUV2RGBManaged(byte[] YUVData, byte[] RGBData, int width, int height)
         {
 
             //returned pixel format is 2yuv - i.e. luminance, y, is represented for every pixel and the u and v are alternated
@@ -703,6 +703,61 @@ namespace Media
                     }
                 }
             }
+        }
+
+        internal static unsafe byte[] ABGRA2YUV420Managed(System.Drawing.Bitmap image)
+        {
+
+            int frameSize = image.Width * image.Height;
+            int chromasize = frameSize / 4;
+
+            int yIndex = 0;
+            int uIndex = frameSize;
+            int vIndex = frameSize + chromasize;
+            byte[] yuv = new byte[frameSize * 3 / 2];
+
+            //Get RGB Stride
+            System.Drawing.Imaging.BitmapData data = ((System.Drawing.Bitmap)image).LockBits(new System.Drawing.Rectangle(0, 0, image.Width, image.Height),
+                       System.Drawing.Imaging.ImageLockMode.ReadOnly, image.PixelFormat);
+
+            uint* rgbValues = (uint*)data.Scan0.ToPointer();
+
+            int index = 0;
+
+            //Parrallel
+
+            for (int j = 0; j < image.Height; j++)
+            {
+                for (int i = 0; i < image.Width; i++)
+                {
+                    uint B = (rgbValues[index] & 0xff000000) >> 24;
+                    uint G = (rgbValues[index] & 0xff0000) >> 16;
+                    uint R = (rgbValues[index] & 0xff00) >> 8;
+                    uint a = (rgbValues[index] & 0xff) >> 0;
+
+                    //int yuvC = Utility.RgbYuv.GetYuv(Common.Binary.ReverseU32(rgbValues[index]));
+
+                    uint Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
+                    uint U = (uint)(((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128);
+                    uint V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
+
+                    yuv[yIndex++] = (byte)((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));// (byte)((yuvC & 0xff0000) >> 16); //
+
+                    if (j % 2 == 0 && index % 2 == 0)
+                    {
+                        yuv[uIndex++] = (byte)((U < 0) ? 0 : ((U > 255) ? 255 : U));//(byte)((yuvC  & 0xff00) >> 8);//
+                        yuv[vIndex++] = (byte)((V < 0) ? 0 : ((V > 255) ? 255 : V));// (byte)((yuvC & 0xff) >> 0);//
+                    }
+
+                    index++;
+                }
+            }
+
+            ((System.Drawing.Bitmap)image).UnlockBits(data);
+
+            data = null;
+
+            return yuv;
         }
     }
 }
