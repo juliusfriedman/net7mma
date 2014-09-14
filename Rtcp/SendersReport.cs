@@ -192,6 +192,12 @@ namespace Media.Rtcp
 
       
         #endregion
+
+        internal override IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
+        {
+            return base.GetEnumeratorInternal(SendersInformationSize);
+        }
+
     }
 
     #endregion
