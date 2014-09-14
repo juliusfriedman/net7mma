@@ -202,13 +202,13 @@ namespace Media.Rtcp
 
         #region Instance Methods       
 
-        public virtual IEnumerator<IReportBlock> GetEnumerator()
+        internal virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
         {
             if (!Disposed && HasReports)
             {
-                for (int offset = Payload.Offset, count = Payload.Count - offset; offset < count;)
+                for (int count = Payload.Count - offset; offset < count; )
                 {
-                    ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, offset, count));
+                    ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, Payload.Offset + offset, count));
                     offset += current.Size;
                     count -= current.Size;
                     yield return current;
@@ -216,6 +216,7 @@ namespace Media.Rtcp
             }
         }
 
+        public virtual IEnumerator<IReportBlock> GetEnumerator() { return GetEnumeratorInternal(); }
         #endregion
 
         #region Implementation Methods
@@ -276,6 +277,9 @@ namespace Media.Rtcp
 
                         //Decrease the block count
                         --BlockCount;
+
+                        //Update length in words
+                        SetLengthInWordsMinusOne();
 
                         //Indicate success
                         return true;

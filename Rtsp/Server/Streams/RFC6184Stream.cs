@@ -807,7 +807,6 @@ namespace Media.Rtsp.Server.Streams
                                     //Should probably set End bit in the last packet 1 << 6
                                     packetData = packetData.Concat(new byte[]{ (byte)(0x28 & 0x1f), (byte)(0x28 & 0x1f) });
                                 }
-                                
 
                                 //Add a packet to the frame with the existing data
                                 newFrame.Add(new Rtp.RtpPacket(2, false, false, false, 96, 0, sourceId, ++seq, 0, packetData.ToArray()));

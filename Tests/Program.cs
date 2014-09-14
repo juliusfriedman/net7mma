@@ -642,7 +642,7 @@ namespace Tests
                 //Data in report (Should only be 1)
                 foreach (Media.Rtcp.IReportBlock rb in sr)
                 {
-                    if ((uint)rb.BlockIdentifier != 3567693669) throw new Exception("Invalid Source SSRC");
+                    if ((uint)rb.BlockIdentifier != 2738258998) throw new Exception("Invalid Source SSRC");
                     else if (rb is Media.Rtcp.ReportBlock)
                     {
                         Media.Rtcp.ReportBlock asReportBlock = (Media.Rtcp.ReportBlock)rb;
@@ -669,6 +669,12 @@ namespace Tests
             //Now the packet can be disposed
             rtcpPacket.Dispose();
             rtcpPacket = null;
+
+            rtcpPacket = new Media.Rtcp.SendersReport(2, false, 0, 7);
+            example = rtcpPacket.Prepare().ToArray();
+
+            foreach (Media.Rtcp.IReportBlock rb in rtcpPacket as Media.Rtcp.RtcpReport)
+                Console.WriteLine(rb);
 
             //Next Sub Test
             /////

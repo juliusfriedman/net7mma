@@ -291,6 +291,8 @@ namespace Media.Rtcp
             //Re allocate the segment based on the new array of owned octets.
             Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 
+            SetLengthInWordsMinusOne();
+
             //Indicate a block was removed
             return true;
         }
@@ -338,7 +340,7 @@ namespace Media.Rtcp
 
         public override IEnumerator<IReportBlock> GetEnumerator()
         {
-            return  GetChunkEnumerator();
+            return GetChunkEnumerator();
         }
 
         IEnumerator<SourceDescriptionChunk> IEnumerable<SourceDescriptionChunk>.GetEnumerator()
