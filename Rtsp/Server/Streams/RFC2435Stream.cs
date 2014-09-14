@@ -953,135 +953,132 @@ namespace Media.Rtsp.Server.Streams
                             //Correct Length
                             CodeSize -= 2; //Not including their own length
 
-                            //QTables are copied when Quality is > 100
-                            if (FunctionCode == JpegMarkers.QuantizationTable && Quality >= 100)
+                            //Determine what to do based on the FunctionCode
+                            switch (FunctionCode)
                             {
-                                byte compound = (byte)jpegStream.ReadByte();//Read Table Id (And Precision which is in the same byte)
-
-                                ++streamOffset;
-
-                                //Precision of 1 indicates a 16 bit table 128 bytes per table, 0 indicates 8 bits 64 bytes per table
-                                bool precision = compound > 15;
-
-                                //byte tableId = (byte)(compound & 0xf);
-
-                                int tagSizeMinusOne = CodeSize - 1;
-
-                                if (tagSizeMinusOne <= 0) continue;
-
-                                byte[] table = new byte[tagSizeMinusOne];
-
-                                //Set a bit in the precision table to indicate 16 bit coefficients
-                                if (precision) RtpJpegPrecisionTable |= (byte)(1 << precisionTableIndex);
-
-                                //Move the precisionIndex
-                                ++precisionTableIndex;
-
-                                //Read the remainder of the data into the table array
-                                jpegStream.Read(table, 0, tagSizeMinusOne);
-
-                                //Move the stream offset
-                                streamOffset += tagSizeMinusOne;
-
-                                ////For 16 bit tables, the coefficients are  must be presented in network byte order.
-                                //if (precision && BitConverter.IsLittleEndian)
-                                //{
-                                //    for (int i = 0; i < table.Length - 1; i += 2)
-                                //    {
-                                //        byte swap = table[i];
-                                //        table[i] = table[i + 1];
-                                //        table[i + 1] = swap;
-                                //    }
-                                //}
-
-                                //Add the table array to the table blob
-                                QuantizationTables.AddRange(table);
-                            }
-                            //else if (FunctionCode == JpegMarkers.StartOfFrame0) RtpJpegType |=1; //Progressive?
-                            else if (FunctionCode == JpegMarkers.StartOfBaselineFrame || FunctionCode == JpegMarkers.StartOfProgressiveFrame) //Only the data in the Baseline profile is utilized per RFC2435
-                            {
-                                //Read the StartOfFrame Marker
-                                byte[] data = new byte[CodeSize];
-                                int offset = 0;
-                                jpegStream.Read(data, offset, CodeSize);
-
-                                //@0 - Sample precision – Specifies the precision in bits for the samples of the components in the frame (1)
-                                ++offset;
-
-                                //Y Number of lines [Height] (2)
-                                Height = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
-
-                                offset += 2;
-
-                                //X Number of lines [Width] (2)
-                                Width = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
-
-                                offset += 2;                               
-
-                                //Check for SubSampling to set the RtpJpegType from the Luma component
-
-                                //http://tools.ietf.org/search/rfc2435#section-4.1
-                                //Type numbers 2-5 are reserved and SHOULD NOT be used.
-
-                                //if (data[7] != 0x21) RtpJpegType |= 1;
-
-                                //Nf - Number of image components in frame
-                                int Nf = data[offset++];
-
-                                //Hi: Horizontal sampling factor – Specifies the relationship between the component horizontal dimension
-                                //and maximum image dimension X (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of horizontal data units of component
-                                //Ci in each MCU, when more than one component is encoded in a scan                                                        
-
-                                //Each component takes 3 bytes Ci, {Hi, Vi,} Tqi
-
-                                //Vi: Vertical sampling factor – Specifies the relationship between the component vertical dimension and
-                                //maximum image dimension Y (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of vertical data units of component Ci in
-                                //each MCU, when more than one component is encoded in a scan                             
-
-                                //Experimental Support for Any amount of samples.
-                                if (Nf > 1)
-                                {
-                                    //Check remaining components (Chroma)
-                                    //for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
-
-                                    // Add all of the necessary components to the frame.
-                                    for (int tableId = 0; tableId < Nf; ++tableId)
+                                case JpegMarkers.QuantizationTable:
                                     {
-                                        byte compId = data[offset++];
-                                        byte samplingFactors = data[offset++];
-                                        byte qTableId = data[offset++];
+                                        if (Quality < 100) goto default;
 
-                                        byte sampleHFactor = (byte)(samplingFactors >> 4);
-                                        byte sampleVFactor = (byte)(samplingFactors & 0x0f);
+                                        byte compound = (byte)jpegStream.ReadByte();//Read Table Id (And Precision which is in the same byte)
 
-                                        //Check for 1x1
-                                        if (sampleHFactor != 1 || sampleVFactor != 1)
-                                        {
-                                            //Not 2x1 must be flagged
-                                            if ((sampleHFactor != 2 || sampleVFactor != 1))
-                                            {
-                                                if (tableId == 0) RtpJpegType |= 1;
-                                                else if (tableId > 0 && samplingFactors != RtpJpegTypeSpecific) RtpJpegTypeSpecific ^= samplingFactors;
-                                            }
-                                        }
+                                        ++streamOffset;
+
+                                        //Precision of 1 indicates a 16 bit table 128 bytes per table, 0 indicates 8 bits 64 bytes per table
+                                        bool precision = compound > 15;
+
+                                        //byte tableId = (byte)(compound & 0xf);
+
+                                        int tagSizeMinusOne = CodeSize - 1;
+
+                                        if (tagSizeMinusOne <= 0) continue;
+
+                                        byte[] table = new byte[tagSizeMinusOne];
+
+                                        //Set a bit in the precision table to indicate 16 bit coefficients
+                                        if (precision) RtpJpegPrecisionTable |= (byte)(1 << precisionTableIndex);
+
+                                        //Move the precisionIndex
+                                        ++precisionTableIndex;
+
+                                        //Read the remainder of the data into the table array
+                                        jpegStream.Read(table, 0, tagSizeMinusOne);
+
+                                        //Move the stream offset
+                                        streamOffset += tagSizeMinusOne;
+
+                                        //Add the table array to the table blob
+                                        QuantizationTables.AddRange(table);
+
+                                        break;
                                     }
-                                }//Single Component, Flag in Subsampling if required
-                                else
-                                {
-                                    //H ! 2x1
-                                    if (data[++offset] != 0x21) RtpJpegType |= 1;
-                                    //V ! 1x1
-                                    if (data[++offset] != 0x11 && data[offset] > 0) RtpJpegTypeSpecific = data[offset];
-                                }                                
+                                case JpegMarkers.StartOfBaselineFrame:
+                                case JpegMarkers.StartOfProgressiveFrame:
+                                    {
+                                        //Read the StartOfFrame Marker
+                                        byte[] data = new byte[CodeSize];
+                                        int offset = 0;
+                                        jpegStream.Read(data, offset, CodeSize);
 
-                                //Move stream offset
-                                streamOffset += CodeSize;
-                            }
-                            else if (FunctionCode == JpegMarkers.DataRestartInterval) //RestartInterval is copied
-                            {
-                                #region RFC2435 - Restart Marker Header
+                                        //@0 - Sample precision – Specifies the precision in bits for the samples of the components in the frame (1)
+                                        ++offset;
 
-                                /*  http://tools.ietf.org/search/rfc2435#section-3.1.7
+                                        //Y Number of lines [Height] (2)
+                                        Height = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
+
+                                        offset += 2;
+
+                                        //X Number of lines [Width] (2)
+                                        Width = Common.Binary.ReadU16(data, offset, BitConverter.IsLittleEndian);
+
+                                        offset += 2;
+
+                                        //Check for SubSampling to set the RtpJpegType from the Luma component
+
+                                        //http://tools.ietf.org/search/rfc2435#section-4.1
+                                        //Type numbers 2-5 are reserved and SHOULD NOT be used.
+
+                                        //if (data[7] != 0x21) RtpJpegType |= 1;
+
+                                        //Nf - Number of image components in frame
+                                        int Nf = data[offset++];
+
+                                        //Hi: Horizontal sampling factor – Specifies the relationship between the component horizontal dimension
+                                        //and maximum image dimension X (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of horizontal data units of component
+                                        //Ci in each MCU, when more than one component is encoded in a scan                                                        
+
+                                        //Each component takes 3 bytes Ci, {Hi, Vi,} Tqi
+
+                                        //Vi: Vertical sampling factor – Specifies the relationship between the component vertical dimension and
+                                        //maximum image dimension Y (see http://www.w3.org/Graphics/JPEG/itu-t81.pdf A.1.1); also specifies the number of vertical data units of component Ci in
+                                        //each MCU, when more than one component is encoded in a scan                             
+
+                                        //Experimental Support for Any amount of samples.
+                                        if (Nf > 1)
+                                        {
+                                            //Check remaining components (Chroma)
+                                            //for (int i = 1; i < numberOfComponents; ++i) if (data[7 + i * 3] != 17) throw new Exception("Only 1x1 chroma blocks are supported.");
+
+                                            // Add all of the necessary components to the frame.
+                                            for (int tableId = 0; tableId < Nf; ++tableId)
+                                            {
+                                                byte compId = data[offset++];
+                                                byte samplingFactors = data[offset++];
+                                                byte qTableId = data[offset++];
+
+                                                byte sampleHFactor = (byte)(samplingFactors >> 4);
+                                                byte sampleVFactor = (byte)(samplingFactors & 0x0f);
+
+                                                //Check for 1x1
+                                                if (sampleHFactor != 1 || sampleVFactor != 1)
+                                                {
+                                                    //Not 2x1 must be flagged
+                                                    if ((sampleHFactor != 2 || sampleVFactor != 1))
+                                                    {
+                                                        if (tableId == 0) RtpJpegType |= 1;
+                                                        else if (tableId > 0 && samplingFactors != RtpJpegTypeSpecific) RtpJpegTypeSpecific ^= samplingFactors;
+                                                    }
+                                                }
+                                            }
+                                        }//Single Component, Flag in Subsampling if required
+                                        else
+                                        {
+                                            //H ! 2x1
+                                            if (data[++offset] != 0x21) RtpJpegType |= 1;
+                                            //V ! 1x1
+                                            if (data[++offset] != 0x11 && data[offset] > 0) RtpJpegTypeSpecific = data[offset];
+                                        }
+
+                                        //Move stream offset
+                                        streamOffset += CodeSize;
+
+                                        break;
+                                    }
+                                case JpegMarkers.DataRestartInterval:
+                                    {
+                                        #region RFC2435 - Restart Marker Header
+
+                                        /*  http://tools.ietf.org/search/rfc2435#section-3.1.7
                              
                                 3.1.7.  Restart Marker header
 
@@ -1119,179 +1116,184 @@ namespace Media.Rtsp.Server.Streams
                              
                              */
 
-                                #endregion
+                                        #endregion
 
-                                //http://www.w3.org/Graphics/JPEG/itu-t81.pdf
-                                //Specifies the length of the parameters in the DRI segment shown in Figure B.9 (see B.1.1.4).
-                                Lr = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
+                                        //http://www.w3.org/Graphics/JPEG/itu-t81.pdf
+                                        //Specifies the length of the parameters in the DRI segment shown in Figure B.9 (see B.1.1.4).
+                                        Lr = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
 
-                                Ri = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
+                                        Ri = (ushort)(jpegStream.ReadByte() * 256 + jpegStream.ReadByte());
 
-                                streamOffset += 4;
+                                        streamOffset += 4;
 
-                                //Set the first bit now, set the last bit on the last packet
-                                RtpJpegRestartInterval = CreateRtpJpegDataRestartIntervalMarker(Lr, true, false);
+                                        //Set the first bit now, set the last bit on the last packet
+                                        RtpJpegRestartInterval = CreateRtpJpegDataRestartIntervalMarker(Lr, true, false);
 
-                                //Increase RtpJpegType by 64
-                                RtpJpegType |= 0x40;
-                            }
-                            //Last Marker in Header before EntroypEncodedScan
-                            else if (FunctionCode == JpegMarkers.StartOfScan)
-                            {
-                                long pos = streamOffset;
+                                        //Increase RtpJpegType by 64
+                                        RtpJpegType |= 0x40;
 
-                                //Read the number of Component Selectors
-                                byte Ns = (byte)jpegStream.ReadByte();
-
-                                ++streamOffset;
-
-                                //Should be equal to the number of components from the Start of Scan
-                                if (Ns > 0)
-                                {
-                                    //Should check tableInfo  does not exceed the number of HuffmanTables
-                                    //The number of Quant tables will be equal to the number of huffman tables so if there are (64 / QuantizationTables.Count) Tables
-                                    int tableCount = QuantizationTables.Count / (RtpJpegPrecisionTable > 0 ? 128 : 64);
-
-                                    for (int i = 0; i < Ns; i++)
-                                    {
-                                        // Component ID, packed byte containing the Id for the
-                                        // AC table and DC table.
-                                        byte componentID = (byte)jpegStream.ReadByte();
-                                        byte tableInfo = (byte)jpegStream.ReadByte();
-
-                                        streamOffset += 2;
-
-                                        //Restrict or throw exception?
-                                        //if (tableInfo > tableCount - 1) tableInfo = (byte)(tableCount - 1);
-
-                                        //Decode DC and AC Values if require
-                                        //int DC = (tableInfo >> 4) & 0x0f;
-                                        //int AC = (tableInfo) & 0x0f;
+                                        break;
                                     }
-                                }
-
-                                byte startSpectralSelection = (byte)(jpegStream.ReadByte());
-                                byte endSpectralSelection = (byte)(jpegStream.ReadByte());
-                                byte successiveApproximation = (byte)(jpegStream.ReadByte());
-
-                                streamOffset += 3;
-
-                                if (pos + CodeSize != streamOffset) throw new Exception("Invalid StartOfScan Marker");
-
-                                //Check for alternate endSpectral
-                                //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = JpegMarkers.StartOfProgressiveFrame;
-
-                                //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
-                                //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
-                                byte[] RtpJpegHeader = CreateRtpJpegHeader(RtpJpegTypeSpecific, 0, RtpJpegType, Quality, Width, Height, RtpJpegRestartInterval, RtpJpegPrecisionTable, QuantizationTables);
-
-                                //Copy the first header
-                                RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset + currentPacketOffset);
-
-                                //Advance the offset the size of the profile header.
-                                currentPacketOffset += RtpJpegHeader.Length;
-
-                                //Determine how many bytes remanin in the payload after adding the first RtpJpegHeader which also contains the QTables                            
-                                long remainingPayloadOctets = bytesPerPacket;
-                                
-                                int profileHeaderSize = Ri > 0 ? 12 : 8; //Determine if the profile header also contains the RtpRestartMarker
-
-                                remainingPayloadOctets -= currentPacketOffset + Rtp.RtpHeader.Length;
-
-                                //How much remains in the stream relative to the endOffset
-                                long streamRemains = endOffset - streamOffset;
-
-                                //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding
-                                //Must align intervals.
-                                //if (Ri > 0)
-                                //{
-                                //remainingPayloadOctets = //Calculate from RST marker
-                                //}
-
-                                //Type 2 or 3 is only a specific MCU
-
-                                //A RtpJpegHeader which must be in the Payload of each Packet (8 Bytes without QTables and RestartInterval)
-                                //RtpJpegPrecisionTable is the the same when the same qTables are being used and will not be included when QTables.Count == 0
-                                //When Ri > 0 an additional 4 bytes occupy the Payload to represent the RST Marker
-                                RtpJpegHeader = RtpJpegHeader.Take(profileHeaderSize).ToArray();
-
-                                //Only the lastPacket contains the marker, determine when reading
-                                bool lastPacket = false;
-
-                                //While we are not done reading
-                                while (streamRemains > 0)
-                                {
-                                    //Read what we can into the packet
-                                    remainingPayloadOctets -= jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacket.Payload.Offset + currentPacketOffset), (int)remainingPayloadOctets);
-
-                                    //Update how much remains in the stream
-                                    streamRemains = endOffset - streamOffset;
-
-                                    //Add current packet to the frame
-                                    Add(currentPacket);
-
-                                    //Remove the reference to the currentPacket added
-                                    currentPacket = null;
-
-                                    if (streamRemains <= 0) break;
-                                    //Determine if we need to adjust the size and add the packet
-                                    else if (streamRemains < bytesPerPacket)
+                                case JpegMarkers.StartOfScan:
                                     {
-                                        //8 for the RtpJpegHeader and this will cause the Marker be to set in the next packet created
-                                        bytesPerPacket = (int)streamRemains + Rtp.RtpHeader.Length + profileHeaderSize;
+                                        long pos = streamOffset;
 
-                                        if (sourceList != null) bytesPerPacket += sourceList.Size;
+                                        //Read the number of Component Selectors
+                                        byte Ns = (byte)jpegStream.ReadByte();
 
-                                        lastPacket = true;
+                                        ++streamOffset;
 
-                                        //Set the last bit of the Dri Header in the last packet if Ri > 0 (first bit is still set! might have to unset??)
-                                        if (Ri > 0) RtpJpegHeader[10] ^= (byte)(1 << 7);
+                                        //Should be equal to the number of components from the Start of Scan
+                                        if (Ns > 0)
+                                        {
+                                            //Should check tableInfo  does not exceed the number of HuffmanTables
+                                            //The number of Quant tables will be equal to the number of huffman tables so if there are (64 / QuantizationTables.Count) Tables
+                                            int tableCount = QuantizationTables.Count / (RtpJpegPrecisionTable > 0 ? 128 : 64);
+
+                                            for (int i = 0; i < Ns; ++i)
+                                            {
+                                                // Component ID, packed byte containing the Id for the
+                                                // AC table and DC table.
+                                                byte componentID = (byte)jpegStream.ReadByte();
+                                                byte tableInfo = (byte)jpegStream.ReadByte();
+
+                                                streamOffset += 2;
+
+                                                //Restrict or throw exception?
+                                                //if (tableInfo > tableCount - 1) tableInfo = (byte)(tableCount - 1);
+
+                                                //Decode DC and AC Values if require
+                                                //int DC = (tableInfo >> 4) & 0x0f;
+                                                //int AC = (tableInfo) & 0x0f;
+                                            }
+                                        }
+
+                                        byte startSpectralSelection = (byte)(jpegStream.ReadByte());
+                                        byte endSpectralSelection = (byte)(jpegStream.ReadByte());
+                                        byte successiveApproximation = (byte)(jpegStream.ReadByte());
+
+                                        streamOffset += 3;
+
+                                        if (pos + CodeSize != streamOffset) throw new Exception("Invalid StartOfScan Marker");
+
+                                        //Check for alternate endSpectral
+                                        //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = JpegMarkers.StartOfProgressiveFrame;
+
+                                        //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
+                                        //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
+                                        byte[] RtpJpegHeader = CreateRtpJpegHeader(RtpJpegTypeSpecific, 0, RtpJpegType, Quality, Width, Height, RtpJpegRestartInterval, RtpJpegPrecisionTable, QuantizationTables);
+
+                                        //Copy the first header
+                                        RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset + currentPacketOffset);
+
+                                        //Advance the offset the size of the profile header.
+                                        currentPacketOffset += RtpJpegHeader.Length;
+
+                                        //Determine how many bytes remanin in the payload after adding the first RtpJpegHeader which also contains the QTables                            
+                                        long remainingPayloadOctets = bytesPerPacket;
+
+                                        int profileHeaderSize = Ri > 0 ? 12 : 8; //Determine if the profile header also contains the RtpRestartMarker
+
+                                        remainingPayloadOctets -= currentPacketOffset + Rtp.RtpHeader.Length;
+
+                                        //How much remains in the stream relative to the endOffset
+                                        long streamRemains = endOffset - streamOffset;
+
+                                        //Todo if Ri > 0, each packet can only contain 1 Ri to properly support partial decoding
+                                        //Must align intervals.
+                                        //if (Ri > 0)
+                                        //{
+                                        //remainingPayloadOctets = //Calculate from RST marker
+                                        //}
+
+                                        //Type 2 or 3 is only a specific MCU
+
+                                        //A RtpJpegHeader which must be in the Payload of each Packet (8 Bytes without QTables and RestartInterval)
+                                        //RtpJpegPrecisionTable is the the same when the same qTables are being used and will not be included when QTables.Count == 0
+                                        //When Ri > 0 an additional 4 bytes occupy the Payload to represent the RST Marker
+                                        RtpJpegHeader = RtpJpegHeader.Take(profileHeaderSize).ToArray();
+
+                                        //Only the lastPacket contains the marker, determine when reading
+                                        bool lastPacket = false;
+
+                                        //While we are not done reading
+                                        while (streamRemains > 0)
+                                        {
+                                            //Read what we can into the packet
+                                            remainingPayloadOctets -= jpegStream.Read(currentPacket.Payload.Array, (int)(currentPacket.Payload.Offset + currentPacketOffset), (int)remainingPayloadOctets);
+
+                                            //Update how much remains in the stream
+                                            streamRemains = endOffset - streamOffset;
+
+                                            //Add current packet to the frame
+                                            Add(currentPacket);
+
+                                            //Remove the reference to the currentPacket added
+                                            currentPacket = null;
+
+                                            if (streamRemains <= 0) break;
+                                            //Determine if we need to adjust the size and add the packet
+                                            else if (streamRemains < bytesPerPacket)
+                                            {
+                                                //8 for the RtpJpegHeader and this will cause the Marker be to set in the next packet created
+                                                bytesPerPacket = (int)streamRemains + Rtp.RtpHeader.Length + profileHeaderSize;
+
+                                                if (sourceList != null) bytesPerPacket += sourceList.Size;
+
+                                                lastPacket = true;
+
+                                                //Set the last bit of the Dri Header in the last packet if Ri > 0 (first bit is still set! might have to unset??)
+                                                if (Ri > 0) RtpJpegHeader[10] ^= (byte)(1 << 7);
+                                            }
+
+                                            //Make next packet which consists of a RtpHeader and the remaining remainingPayloadOctets
+                                            currentPacket = new Rtp.RtpPacket(new byte[bytesPerPacket], 0)
+                                            {
+                                                Timestamp = Timestamp,
+                                                SequenceNumber = SequenceNo++,
+                                                SynchronizationSourceIdentifier = Ssrc,
+                                                PayloadType = RFC2435Frame.RtpJpegPayloadType,
+                                                Marker = lastPacket,
+                                                Version = 2
+                                            };
+
+                                            //Apply source list
+                                            if (sourceList != null)
+                                            {
+                                                currentPacket.ContributingSourceCount = sourceList.Count;
+                                                sourceList.TryCopyTo(currentPacket.Payload.Array, 0);
+                                            }
+
+                                            //Check for FragmentOffset to exceed 24 bits
+                                            if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
+                                            else Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)streamOffset);
+
+                                            //Copy header
+                                            RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
+
+                                            //Set offset in packet (the length of the RtpJpegHeader)
+                                            currentPacketOffset = profileHeaderSize + currentPacket.NonPayloadOctets;
+
+                                            //reset the remaning remainingPayloadOctets
+                                            remainingPayloadOctets = bytesPerPacket - (currentPacketOffset + Rtp.RtpHeader.Length);
+
+                                            //Move the offset in the stream
+                                            streamOffset += remainingPayloadOctets;
+
+                                        }
+
+                                        break;
                                     }
-
-                                    //Make next packet which consists of a RtpHeader and the remaining remainingPayloadOctets
-                                    currentPacket = new Rtp.RtpPacket(new byte[bytesPerPacket], 0)
+                                default:
                                     {
-                                        Timestamp = Timestamp,
-                                        SequenceNumber = SequenceNo++,
-                                        SynchronizationSourceIdentifier = Ssrc,
-                                        PayloadType = RFC2435Frame.RtpJpegPayloadType,
-                                        Marker = lastPacket,
-                                        Version = 2
-                                    };
-
-                                    //Apply source list
-                                    if (sourceList != null)
-                                    {
-                                        currentPacket.ContributingSourceCount = sourceList.Count;
-                                        sourceList.TryCopyTo(currentPacket.Payload.Array, 0);
+                                        //C4 = Huffman
+                                        //Might have to read huffman to determine compatiblity tableClass 1 is Lossless?)
+                                        //E1 = JpegThumbnail 160x120 Adobe XMP
+                                        //E2 = ICC ColorProfile
+                                        jpegStream.Seek(CodeSize, System.IO.SeekOrigin.Current);
+                                        streamOffset += CodeSize;
+                                        break;
                                     }
-
-                                    //Check for FragmentOffset to exceed 24 bits
-                                    if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
-                                    else Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)streamOffset);
-                                    
-                                    //Copy header
-                                    RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
-
-                                    //Set offset in packet (the length of the RtpJpegHeader)
-                                    currentPacketOffset = profileHeaderSize + currentPacket.NonPayloadOctets;
-
-                                    //reset the remaning remainingPayloadOctets
-                                    remainingPayloadOctets = bytesPerPacket - (currentPacketOffset + Rtp.RtpHeader.Length);
-
-                                    //Move the offset in the stream
-                                    streamOffset += remainingPayloadOctets;
-
-                                }
-                            }
-                            else //Skip past tag 
-                            {
-                                //C4 = Huffman
-                                    //Might have to read huffman to determine compatiblity tableClass 1 is Lossless?)
-                                //E1 = JpegThumbnail 160x120 Adobe XMP
-                                //E2 = ICC ColorProfile
-                                jpegStream.Seek(CodeSize, System.IO.SeekOrigin.Current);
-                                streamOffset += CodeSize;
                             }
                         }
                     }

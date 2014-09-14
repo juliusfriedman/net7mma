@@ -55,38 +55,6 @@ namespace Media.Rtcp
     public abstract class RtcpReport : RtcpPacket, IEnumerable<IReportBlock>
     {
 
-        #region Static
-
-        //TOdo add IConvertible stubs
-
-        /// <summary>
-        /// Prepares a sequence of octets containing the items given.
-        /// </summary>
-        /// <param name="items">The items to prepare a binary sequence of</param>
-        /// <returns>The variable length sequence corresponding to the items given.</returns>
-        public static IEnumerable<byte> PrepareBinarySequence(IEnumerable<IReportBlock> items) //Extension where IReportBlock = T, where T is IConvertible<byte[]>
-        {
-            //Create a sequence to concatenate the bytes to, 4 bytes to hold a place for each of the octets in the ChunkIdentifier
-            //Note, the ChunkIdentifer is not written here to avoid checks on system endian.
-            IEnumerable<byte> octetSequence = Enumerable.Empty<byte>();
-
-            //using an enumerator on the items given
-            using (IEnumerator<IReportBlock> enumerator = items.GetEnumerator())
-            {
-                //While there is an item
-                while (enumerator.MoveNext())
-                {
-                    //concatenate the sequence repsenting the item to the existing sequence
-                    octetSequence = octetSequence.Concat(enumerator.Current.BlockData);
-                }
-            }
-
-            //Project the sequence
-            return octetSequence;
-        }
-
-        #endregion
-
         #region Constructor
 
         /// <summary>
