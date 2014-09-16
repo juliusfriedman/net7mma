@@ -846,11 +846,11 @@ namespace Media.Rtp
 
                     #endregion
 
-                    //Check v4 of v6
-                    if (localIp.IsIPv6Multicast || localIp.IsIPv6Multicast)
-                    {
-                        //JoinMulticastGroup
-                    }
+                    //Check for Multicast
+                    //if (localIp.IsMulticast())
+                    //{
+                    //    //JoinMulticastGroup
+                    //}
 
                     if (punchHole)
                     {
@@ -872,7 +872,7 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
                         RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
-                        RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
+                        //RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
                         //RtcpSocket.Blocking = false;
 
                         //RtcpSocket.Ttl = 255;
@@ -901,10 +901,11 @@ namespace Media.Rtp
 
                         #endregion
 
-                        if (localIp.IsIPv6Multicast || localIp.IsIPv6Multicast)
-                        {
-                            //JoinMulticastGroup
-                        }
+                        //Check for Multicast
+                        //if (localIp.IsMulticast())
+                        //{
+                        //    //JoinMulticastGroup
+                        //}
 
                         if (punchHole)
                         {
