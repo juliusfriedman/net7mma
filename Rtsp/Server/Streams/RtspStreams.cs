@@ -247,6 +247,17 @@ namespace Media.Rtsp.Server.Streams
             base.Stop();
             m_StartedTimeUtc = null;
         }
+
+        public override void Dispose()
+        {
+            if (Disposed) return;
+            if (RtspClient != null)
+            {
+                RtspClient.Dispose();
+                RtspClient = null;
+            }
+            base.Dispose();
+        }
     }
 
     /// <summary>

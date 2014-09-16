@@ -411,7 +411,11 @@ namespace Media.Rtsp
          
             Stop();
 
-            foreach (var stream in m_Streams.ToArray()) m_Streams.Remove(stream.Key);
+            foreach (var stream in m_Streams.ToArray())
+            {
+                stream.Value.Dispose();
+                m_Streams.Remove(stream.Key);
+            }
         }
 
         #region Session Collection

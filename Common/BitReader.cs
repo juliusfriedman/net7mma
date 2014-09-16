@@ -64,23 +64,34 @@ namespace Media.Common
 
         #region Methods
 
+        public bool Find(byte[] bitPattern, int offset, int length)
+        {
+            throw new NotImplementedException();
+        }
+
         public long Seek(long offset, System.IO.SeekOrigin origin)
         {
             if (Disposed || m_Source == null || !m_Source.CanSeek) return -1;
             return m_StreamPosition = m_Source.Seek(offset, origin);
         }
 
+        /// <summary>
+        /// Reads the given amount of bits into the cache.
+        /// </summary>
+        /// <param name="count">The amount of bits to read</param>
         internal void ReadBitsInternal(int count)
         {
             if (count <= 0) return;
 
             if (!HasMoreData) return;
 
-            int bytesToRead = count % 8;
+            int bitsRemain = Common.Binary.BitSize - m_BitIndex;
+
+            if (bitsRemain < count) return;
+
+            int bytesToRead = count <= Common.Binary.BitSize ? 1 : count % 8;
 
             if (bytesToRead + m_ByteIndex < m_Cache.Count) return;
-
-            //Todo adjust for remaining bits when m_BitIndex < Common.Binary.BitSize
 
             m_ByteIndex = 0;
 
@@ -93,7 +104,7 @@ namespace Media.Common
             }
         }
 
-        public bool ReadBit()
+        public bool PeekBit()
         {
             if (m_BitIndex >= Common.Binary.BitSize)
             {
@@ -103,37 +114,141 @@ namespace Media.Common
 
             if (m_ByteIndex >= m_Cache.Count) ReadBitsInternal(m_Cache.Count * Common.Binary.BitSize);
 
-            return m_Cache[m_ByteIndex] << m_BitIndex++ > 0;
+            return m_Cache[m_ByteIndex] << m_BitIndex > 0;
         }
 
-        public byte Read8(bool reverse = false)
+        public byte Peek8(bool reverse = false)
         {
             ReadBitsInternal(Common.Binary.BitSize);
-            return reverse ? Common.Binary.ReverseU8(m_Cache[++m_ByteIndex]) : m_Cache[++m_ByteIndex];
+            return reverse ? Common.Binary.ReverseU8(m_Cache[m_ByteIndex]) : m_Cache[m_ByteIndex];
         }
 
-        public short Read16(bool reverse = false)
+        public short Peek16(bool reverse = false)
         {
             ReadBitsInternal(Common.Binary.BitSize * 2);
             return Common.Binary.Read16(m_Cache.Array, m_ByteIndex, reverse);
         }
 
-        public int Read24(bool reverse = false)
+        public int Peek24(bool reverse = false)
         {
             ReadBitsInternal(Common.Binary.BitSize * 3);
             return Common.Binary.Read24(m_Cache.Array, m_ByteIndex, reverse);
         }
 
-        public int Read32(bool reverse = false)
+        public int Peek32(bool reverse = false)
         {
             ReadBitsInternal(Common.Binary.BitSize * 4);
             return Common.Binary.Read32(m_Cache.Array, m_ByteIndex, reverse);
         }
 
-        public long Read64(bool reverse = false)
+        public long Peek64(bool reverse = false)
         {
             ReadBitsInternal(Common.Binary.BitSize * 8);
             return Common.Binary.Read64(m_Cache.Array, m_ByteIndex, reverse);
+        }
+
+        public ulong PeekBits(int count, bool reverse = false)
+        {
+
+            throw new NotImplementedException();
+
+            int oddBits = count % 8;
+            
+            ulong result = 0;
+
+            do switch (oddBits)
+            {
+                case 0: return result;
+                case 1: return ReadBit() ? result + 1 : result + 0;
+                case 8: return result + Read8(reverse);
+                case 16: return result + (ulong)Read16(reverse);
+                case 24: return result + (ulong)Read24(reverse);
+                case 32: return result + (ulong)Read32(reverse);
+                case 64: return result + (ulong)Read64(reverse);
+                default:
+                    {
+                        //Some odd amount of bits remain, 2, 3, 4, 5, 6, 7, 15, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 33, 34, 35, 36 -> 63
+
+                        if (count > 64)
+                        {
+                            count -= 64;
+                            goto case 64;
+                        }
+
+                        if (count % 2 <= 1)
+                        {
+                            oddBits = count % 2;
+                            continue;
+                        }
+                        else
+                        {
+                            oddBits = count % 2;
+                            //Read OddBits
+                        }
+
+
+                        //result += oddBits;
+                        //count -= oddBits;
+
+                        continue;
+                    }
+            } while (count > 0);
+
+            return result;
+        }
+
+        public bool ReadBit()
+        {
+            bool result = PeekBit();
+            ++m_BitIndex;
+            return result;
+        }
+
+        public byte Read8(bool reverse = false)
+        {
+            byte result = Peek8(reverse);
+            ++m_ByteIndex;
+            return result;
+        }
+
+        public short Read16(bool reverse = false)
+        {
+            short result = Peek16(reverse);
+            m_ByteIndex += 2;
+            return result;
+        }
+
+        public int Read24(bool reverse = false)
+        {
+            int result = Peek24(reverse);
+            m_ByteIndex += 3;
+            return result;
+        }
+
+        public int Read32(bool reverse = false)
+        {
+            int result = Peek32(reverse);
+            m_ByteIndex += 4;
+            return result;
+        }
+
+        public long Read64(bool reverse = false)
+        {
+            long result = Peek64(reverse);
+            m_ByteIndex += 8;
+            return result;
+        }
+
+        public ulong ReadBits(int count, bool reverse = false)
+        {
+            ulong result = PeekBits(count, reverse);
+
+            if (count > Common.Binary.BitSize) m_ByteIndex += count % Common.Binary.BitSize;
+
+            m_BitIndex += count;
+
+            return result;
+            
         }
 
         #endregion

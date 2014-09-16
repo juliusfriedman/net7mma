@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Rtsp.Server.Streams
 {
-    public interface IMediaStream
+    public interface IMediaStream : IDisposable
     {
 
         IEnumerable<string> Aliases { get; }

@@ -112,6 +112,13 @@ namespace Media.Rtsp.Server.Streams
             base.Stop();
         }
 
+        public override void Dispose()
+        {
+            if (Disposed) return;
+            base.Dispose();
+            RtpClient.Dispose();
+        }
+
         IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
         {
             get { return RtpClient != null ? Utility.Yield(RtpClient.m_WorkerThread) : null; }
