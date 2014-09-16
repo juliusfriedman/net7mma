@@ -137,6 +137,8 @@ namespace Media.Rtcp
                     int count = ChunkData.Count();
 
                     //Determine how many null octets to add
+                    //http://tools.ietf.org/html/rfc3550#appendix-A.4
+
                     int nullOctetsRequired = count % 32;
 
                     //if there are any to add, concatenate them to the sequence.

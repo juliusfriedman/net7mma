@@ -443,7 +443,7 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnDisconnect;
 
-        internal void OnDisconnected() { if (OnDisconnect != null) OnDisconnect(this, EventArgs.Empty); }
+        internal void OnDisconnected() { m_Playing = false; if (OnDisconnect != null) OnDisconnect(this, EventArgs.Empty); }
 
         public event RtspClientAction OnPlay;
 
@@ -1284,7 +1284,7 @@ namespace Media.Rtsp
                 // RS                    RR                     AS
                 int reportSendingEvery = 96, reportReceivingEvery= 96;//, applicationSpecific;
 
-                TimeSpan contextReportInterval = RtpClient.DefaultTimeout;
+                TimeSpan contextReportInterval = RtpClient.DefaultReportInterval;
 
                 foreach (SessionDescriptionLine line in mediaDescription.BandwidthLines)
                 {
@@ -1393,7 +1393,7 @@ namespace Media.Rtsp
                                 if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
 
                                 //Create a Duplexed reciever using the RtspSocket
-                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, memory, contextReportInterval);
+                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, memory);
 
                                 m_RtpClient.InterleavedData += ProcessInterleaveData;
                             }                            
@@ -1446,10 +1446,12 @@ namespace Media.Rtsp
                                     if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
 
                                     //Create a Udp Reciever
-                                    m_RtpClient = RtpClient.Participant(m_RemoteIP, memory, contextReportInterval);
+                                    m_RtpClient = RtpClient.Participant(m_RemoteIP, memory);
                                 }
                                 else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
                             }
+
+                            //Valid amounts of 2 should be only if ssrc is 0 e.g. ssrc > 0 : 0 : 2
 
                             //Add the transportChannel for the mediaDescription
                             if (m_RtpClient.TransportContexts.Count == 0)
@@ -1583,6 +1585,9 @@ namespace Media.Rtsp
                     ++play.CSeq;
                     return SendRtspRequest(play);
                 }
+
+                //Should check for RtpInfo
+                //And if present validate context with it, e.g. reduce requried packets and set ssrcs and start sequence.
 
                 //string rtpInfo = response[RtspHeaders.RtpInfo];
 
@@ -1734,9 +1739,6 @@ namespace Media.Rtsp
                     //Use half the timeout to protect against dialation
                     m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout.Milliseconds, -1);
                 }
-
-                //Set the value of the timeout before connected
-                m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(m_RtspTimeout.TotalSeconds);
 
                 //Connect and wait for Packets
                 if(!m_RtpClient.Connected) m_RtpClient.Connect();

@@ -217,19 +217,21 @@ namespace Media.Rtsp.Server.Streams
                     //Handle Quantization Tables if provided
                     if (quality >= 100)
                     {
+                        int qTablesCount = qTables.Count;
+
                         //Check for a table
-                        if (qTables.Count < 64) throw new InvalidOperationException("At least 1 quantization table must be included when quality >= 100");
+                        if (qTablesCount < 64) throw new InvalidOperationException("At least 1 quantization table must be included when quality >= 100");
 
                         //Check for overflow
-                        if (qTables.Count > ushort.MaxValue) Common.Binary.CreateOverflowException("qTables", qTables.Count, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
+                        if (qTablesCount > ushort.MaxValue) Common.Binary.CreateOverflowException("qTables", qTables.Count, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
 
                         RtpJpegHeader.Add(0); //Must Be Zero      
 
                         RtpJpegHeader.Add(precisionTable);//PrecisionTable may be bit flagged to indicate 16 bit tables
 
                         //Add the Length field
-                        if (BitConverter.IsLittleEndian) RtpJpegHeader.AddRange(BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)qTables.Count)));
-                        else RtpJpegHeader.AddRange(BitConverter.GetBytes((ushort)qTables.Count));
+                        if (BitConverter.IsLittleEndian) RtpJpegHeader.AddRange(BitConverter.GetBytes(Common.Binary.ReverseU16((ushort)qTablesCount)));
+                        else RtpJpegHeader.AddRange(BitConverter.GetBytes((ushort)qTablesCount));
 
                         //here qTables may have 16 bit precision and may need to be reversed if BitConverter.IsLittleEndian
                         RtpJpegHeader.AddRange(qTables);
@@ -1134,7 +1136,7 @@ namespace Media.Rtsp.Server.Streams
 
                                         break;
                                     }
-                                case JpegMarkers.StartOfScan:
+                                case JpegMarkers.StartOfScan: //Last marker encountered
                                     {
                                         long pos = streamOffset;
 
@@ -1282,7 +1284,8 @@ namespace Media.Rtsp.Server.Streams
 
                                         }
 
-                                        break;
+                                        //Done here
+                                        return;
                                     }
                                 default:
                                     {
@@ -1291,7 +1294,9 @@ namespace Media.Rtsp.Server.Streams
                                         //E1 = JpegThumbnail 160x120 Adobe XMP
                                         //E2 = ICC ColorProfile
                                         jpegStream.Seek(CodeSize, System.IO.SeekOrigin.Current);
+                                        
                                         streamOffset += CodeSize;
+
                                         break;
                                     }
                             }
@@ -1639,11 +1644,14 @@ namespace Media.Rtsp.Server.Streams
           
             public override void Dispose()
             {
-                //Dispose the buffer
-                DisposeBuffer();
+
+                if (Disposed) return;
 
                 //Call dispose on the base class
                 base.Dispose();
+
+                //Dispose the buffer
+                DisposeBuffer();
             }
 
             internal void DisposeBuffer()

@@ -56,27 +56,9 @@ namespace Media
     [CLSCompliant(false)]
     public static class Utility
     {
-
-        //http://en.wikipedia.org/wiki/Interframe_gap
-
-        internal const int InterframeGapBits = 96;
-
-        const int LinkSpeed = 10000; //MB
-
-        //Get Interface Link Speed
-
         internal const double MicrosecondsPerMillisecond = 1000;
 
-        internal const double InterframeSpacing = InterframeGapBits / LinkSpeed; //µs
-
         public static byte[] Empty = new byte[0];
-
-        //Build interface table with speeds detected...
-
-        //For raw sockets, must generate your own headers when outgoing, you can copy the incoming header though and modify as required :)
-        const int TCP_HEADER = 20; //+
-        const int UDP_HEADER = 14; //+
-        const int IP_HEADER = 10; //
 
         #region Extensions
 
@@ -206,7 +188,7 @@ namespace Media
 
         #endregion
 
-        const int SIO_UDP_CONNRESET = -1744830452;
+        //Move to ISocketOwner
 
         public static void DontLinger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true); }
 
@@ -635,6 +617,10 @@ namespace Media
 
         #endregion
 
+        #region Color Conversion Routines
+
+        //Todo standardize
+
         internal static unsafe void YUV2RGBManaged(byte[] YUVData, byte[] RGBData, int width, int height)
         {
 
@@ -759,5 +745,7 @@ namespace Media
 
             return yuv;
         }
+
+        #endregion
     }
 }

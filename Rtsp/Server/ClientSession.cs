@@ -626,8 +626,6 @@ namespace Media.Rtsp
                 {
                     //Create a sender
                     m_RtpClient = RtpClient.Sender(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address);
-
-                    m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(10);
                 }
 
                 //Find an open port to send on (might want to reserve this port with a socket)
@@ -661,7 +659,7 @@ namespace Media.Rtsp
 
                 setupContext.m_SendInterval = sourceContext.m_SendInterval;
 
-                if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;
+                if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
 
                 //Create the return Trasnport header
                 returnTransportHeader = "RTP/AVP;unicast;client_port=" + string.Join("-", clientPorts) + ";server_port=" + setupContext.ClientRtpPort + "-" + setupContext.ClientRtcpPort + /* ";destination=" + ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address + */ ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;// +";ssrc=0x" + ssrc.ToString("X");
@@ -686,8 +684,6 @@ namespace Media.Rtsp
                     //Create a new RtpClient
                     m_RtpClient = RtpClient.Duplexed(m_RtspSocket, m_Buffer);
 
-                    m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(10);
-
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 
                     m_RtpClient.FrameChangedEventsEnabled = false;
@@ -697,7 +693,7 @@ namespace Media.Rtsp
 
                     setupContext.m_SendInterval = sourceContext.m_SendInterval;
 
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;
+                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -728,16 +724,13 @@ namespace Media.Rtsp
 
                     setupContext.m_SendInterval = sourceContext.m_SendInterval;
 
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;
+                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
 
                     //Initialize the Interleaved Socket
                     setupContext.Initialize(m_RtspSocket);
-
-                    m_RtpClient.InactivityTimeout = TimeSpan.FromSeconds(10);
-
                 }
                 else //Is Tcp not Switching
                 {
@@ -748,7 +741,7 @@ namespace Media.Rtsp
 
                     setupContext.m_SendInterval = sourceContext.m_SendInterval;
 
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultTimeout;                        
+                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;                        
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);

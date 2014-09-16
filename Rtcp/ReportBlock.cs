@@ -60,9 +60,8 @@ namespace Media.Rtcp
     {
         #region Constants and Statics
 
-        private const int MIN_PACKETS_LOST = -8388607; // 0xFF800001
-        private const int MAX_PACKETS_LOST = 8388607; // 0x007FFFFF 
-
+       // private const int MIN_PACKETS_LOST = -8388607; // 0xFF800001
+       // private const int MAX_PACKETS_LOST = 8388607; // 0x007FFFFF 
 
         public const int ReportBlockSize = 24;
 
@@ -246,8 +245,6 @@ namespace Media.Rtcp
         }
 
         #endregion
-
-        
     }
 
     #endregion
