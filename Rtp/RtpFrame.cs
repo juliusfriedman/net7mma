@@ -208,42 +208,32 @@ namespace Media.Rtp
         {
             if (packet == null) throw new ArgumentNullException("packet");
 
-            int count = Count, ssrc = packet.SynchronizationSourceIdentifier;
-
-            //The first packet sets the ssrc
-            if (count == 0 && m_Ssrc != ssrc) m_Ssrc = ssrc;
-
-            if (count == 0 && m_Timestamp != packet.Timestamp) m_Timestamp = packet.Timestamp;
-
-            if (ssrc != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
-            
-            if (packet.Timestamp != Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
-
-            if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
-
+            //Check payload type
             if (packet.PayloadType != m_PayloadByte) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
 
-            //If the frame is complete or the packet is contained return
-            //Note that there is no lock utilized, 
-            //This is because multiple threads may very well be adding packets to the same frame and is acceptible behavior.
-            //It is up to the implementation to add packets to the RtpFrame in a manner which is consistent with the state of the frame. 
-            
-            //E.g with respect to the above checks and finally the check below 
-            //Which determineres if the RtpFrame is already complete that the packet will not be added to this frame.
-            
-            //Dont call virtual methods
-            //if (Complete) throw new InvalidOperationException("Complete frame cannot have additional packets added");
-            
-            //If the last packet has the marker bit then no more packets can be added
-            if (Count > 1 && HasMarker) throw new InvalidOperationException("Complete frame cannot have additional packets added");
+            int count = Count, ssrc = packet.SynchronizationSourceIdentifier, seq = packet.SequenceNumber, ts = packet.Timestamp;
 
-            //Dont call contains (use Distinct)
-            //Fast path check for being contained.
-            //if (packet.SequenceNumber == this.First().SequenceNumber || packet.SequenceNumber == this.Last().SequenceNumber /*|| Contains(packet.SequenceNumber)*/) return;
+            if (count == 0)
+            {
+                if(m_Ssrc != ssrc) m_Ssrc = ssrc;
+
+                if(m_Timestamp != ts) m_Timestamp = ts;
+            }
+            else
+            {
+                if (ssrc != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
+                
+                if (ts != Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
+                
+                if (count >= MaxPackets) throw new InvalidOperationException(string.Format("The amount of packets contained in a RtpFrame cannot exceed: {0}", MaxPackets));
+            }
+
+            //If the last packet has the marker bit then no more packets can be added unless they are from a lower sequence number
+            if (count > 0 && seq > HighestSequenceNumber && HasMarker) throw new InvalidOperationException("Complete frame cannot have additional packets added");
 
             //Dont use a SortedDictionary just to ensure only a single key in the hash, (Use List and Distinct)
             //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.                       
-            m_Packets.Add(packet.SequenceNumber, packet);
+            m_Packets.Add(seq, packet);
         }
 
         /// <summary>

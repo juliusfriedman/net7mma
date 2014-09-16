@@ -88,6 +88,8 @@
     <Compile Include="Common\ASCII.cs" />
     <Compile Include="Common\BaseDisposable.cs" />
     <Compile Include="Common\Binary.cs" />
+    <Compile Include="Common\BitReader.cs" />
+    <Compile Include="Common\BitWriter.cs" />
     <Compile Include="Common\CommonHeaderBits.cs" />
     <Compile Include="Common\ConcurrentThesaurus.cs" />
     <Compile Include="Common\Exception.cs" />
@@ -162,7 +164,9 @@
     <Content Include="RtpTools\obj\Release\RtpTools.csproj.FileListAbsolute.txt" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Codec\" />
     <Folder Include="Compression\" />
+    <Folder Include="Container\" />
     <Folder Include="RtpTools\bin\Debug\" />
     <Folder Include="RtpTools\bin\Release\" />
     <Folder Include="RtpTools\obj\Debug\TempPE\" />

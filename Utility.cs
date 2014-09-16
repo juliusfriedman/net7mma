@@ -128,6 +128,20 @@ namespace Media
             return onIntranet;
         }
 
+        public static bool IsMulticast(this IPAddress ip)
+        {
+            bool result = true;
+            if (!ip.IsIPv6Multicast)
+            {
+                byte highIP = ip.GetAddressBytes()[0];
+                if (highIP < 224 || highIP > 239)
+                {
+                    result = false;
+                }
+            }
+            return result;
+        }
+
         public static void AddRange<T>(this List<T> list, IEnumerable<T> source, int start, int length)
         {
             if (list == null) throw new ArgumentNullException("list");
@@ -154,7 +168,6 @@ namespace Media
 
         /// <summary>
         /// Converts a String in the form 0011AABB to a Byte[] using the chars in the string as bytes to caulcate the decimal value.
-        /// Lower case values are not supported and no error checking is performed.
         /// </summary>
         /// <notes>
         /// Reduced string allocations from managed version substring
@@ -168,7 +181,7 @@ namespace Media
             if (length <= -1) length = str.Length;
             if (start > length - start) throw new ArgumentOutOfRangeException("start");
             if (length > length - start) throw new ArgumentOutOfRangeException("length");
-            List<byte> result = new List<byte>();
+            List<byte> result = new List<byte>(length / 2);
             //Dont check the results for overflow
             unchecked
             {
