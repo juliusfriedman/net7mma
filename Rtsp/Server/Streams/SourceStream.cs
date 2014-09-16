@@ -47,7 +47,7 @@ namespace Media.Rtsp.Server.Streams
     /// <remarks>
     /// Provides a way to augment all classes from one place.
     /// </remarks>
-    public abstract class SourceStream : IMediaSource
+    public abstract class SourceStream : Common.BaseDisposable, IMediaSource
     {
         const string UriScheme = "rtspserver://";
 
@@ -201,5 +201,14 @@ namespace Media.Rtsp.Server.Streams
         public void ClearAliases() { m_Aliases.Clear(); }
 
         #endregion
+
+        public override void Dispose()
+        {
+            if (Disposed) return;
+
+            base.Dispose();
+
+            Stop();
+        }
     }
 }

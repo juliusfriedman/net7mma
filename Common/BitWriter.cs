@@ -75,21 +75,35 @@ namespace Media.Common
         {
             if (m_BitIndex > 0)
             {
-                //Handle
+                //Handle by writing NBit Common.BitSize - m_BitIndex;
             }
 
             int toWrite = m_Cache.Count - m_ByteIndex;
 
             if (toWrite <= 0) return;
 
-            m_Source.Write(m_Cache.Array, m_ByteIndex, toWrite);
+            m_Source.Write(m_Cache.Array, m_Cache.Offset + m_ByteIndex, toWrite);
 
             m_StreamPosition += toWrite;
 
             m_BitIndex = m_BitIndex = 0;
         }
 
-        //WriteBit(bool value)
+        public void WriteBit(bool value)
+        {
+
+            if (m_BitIndex >= Common.Binary.BitSize)
+            {
+                m_BitIndex = 0;
+                ++m_ByteIndex;
+            }
+
+            //If there is a value then set it (False is already the value so it is not written)
+            if (value) m_Cache[m_ByteIndex] = (byte)(m_Cache[m_ByteIndex] | (byte)(1 << m_BitIndex));
+
+            //Move the bit index
+            ++m_BitIndex;
+        }
 
         //Write8
 
@@ -100,6 +114,8 @@ namespace Media.Common
         //Write32
 
         //Write64
+
+        //WriteNBit
 
         #endregion
 
