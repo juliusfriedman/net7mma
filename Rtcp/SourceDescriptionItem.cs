@@ -313,10 +313,10 @@ namespace Media.Rtcp
         public SourceDescriptionItem Clone(bool reference)
         {
             //if reference is true return a new instance whose changes will be reflected in this instance also.
-            if (reference) return new SourceDescriptionItem(this, reference);
+            /*if (reference)*/ return new SourceDescriptionItem(this, reference);
 
             //Otherwise create a new instance which is an exact copy of this instance.
-            return new SourceDescriptionItem(ItemType, Length, Data.ToArray(), 0);
+            //return new SourceDescriptionItem(ItemType, Length, Data.ToArray(), 0);
         }
 
         #endregion

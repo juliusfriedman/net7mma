@@ -55,6 +55,9 @@ namespace Media.Rtsp.Server.Streams
 
         //Logic will be incorperated into the (De)Packetize method of the Frame
         //https://code.google.com/p/android-rcs-ims-stack/source/browse/trunk/core/src/com/orangelabs/rcs/core/ims/protocol/rtp/codec/video/h264/H264RtpHeaders.java?r=275
+        
+        //C++ http://svn.pjsip.org/repos/pjproject/trunk/pjmedia/src/pjmedia-codec/h264_packetizer.c
+
         public class RFC6184Headers
         {
             /**
@@ -260,6 +263,7 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
+        //Todo NalUnitReader, AVCC and Annex b
         public class NalUnitHeader
         {
 
@@ -701,6 +705,8 @@ namespace Media.Rtsp.Server.Streams
         //Should be created dynamically
 
         //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
+
+        //TODO, Use a better starting point e.g. https://github.com/jordicenzano/h264simpleCoder/blob/master/src/CJOCh264encoder.h or the OpenH264 stuff @ https://github.com/cisco/openh264
 
         byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
 
