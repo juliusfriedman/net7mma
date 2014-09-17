@@ -829,7 +829,8 @@ namespace Media.Rtp
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
                     RtpSocket.MulticastLoopback = false;
-                    RtpSocket.ReceiveTimeout = RtpSocket.SendTimeout = DefaultReportInterval.Milliseconds;
+
+                    //RtpSocket.ReceiveTimeout = RtpSocket.SendTimeout = DefaultReportInterval.Milliseconds;
 
                     #region Optional Parameters
 
@@ -878,7 +879,7 @@ namespace Media.Rtp
                         //RtcpSocket.Ttl = 255;
                         //RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
-                        RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultReportInterval.Milliseconds;
+                        //RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultReportInterval.Milliseconds;
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
@@ -1276,10 +1277,11 @@ namespace Media.Rtp
                 //System.Diagnostics.Debug.WriteLine("Discarding packet version=" + packet.Version+ " type=" + packet.PayloadType + " len=" + packet.Length);
                 return;
             }
-            else if (transportContext.IsValid && transportContext.RemoteSynchronizationSourceIdentifier.HasValue && transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier)
+            else if (!transportContext.IsValid || (!transportContext.RemoteSynchronizationSourceIdentifier.HasValue && transportContext.RemoteSynchronizationSourceIdentifier.Value == 0))//&& transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier
             {
                 transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
             }
+            else if (transportContext.IsValid && packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier) return;
 
             //Sample the clock
             transportContext.m_LastRtpIn = DateTime.UtcNow;

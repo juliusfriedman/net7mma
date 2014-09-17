@@ -116,7 +116,7 @@ namespace Media.Rtsp.Server.Streams
         {
             if (Disposed) return;
             base.Dispose();
-            RtpClient.Dispose();
+            if (RtpClient != null) RtpClient.Dispose();
         }
 
         IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
