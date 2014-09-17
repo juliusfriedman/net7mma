@@ -2253,6 +2253,7 @@ a=mpeg4-esid:101");
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
 
             //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp"));
             //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
@@ -2263,7 +2264,6 @@ a=mpeg4-esid:101");
                 //m_ForceTCP = true
             //});
 
-            
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
@@ -2286,11 +2286,9 @@ a=mpeg4-esid:101");
             //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
 
             //server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
-
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
-
+            
             //TODO
-            //server.RequestReceived event
+            //server.RequestReceived events and custom handlers
             //server.ClientConnected / ClientDisconnected
 
             Media.Rtsp.Server.Streams.RFC2435Stream screenShots = new Media.Rtsp.Server.Streams.RFC2435Stream("Screen", null, false, 800, 600, false);
@@ -2335,6 +2333,7 @@ a=mpeg4-esid:101");
             //Start the server
             server.Start();
 
+            //Start taking pictures of the desktop and making packets
             taker.Start();
 
             //If you add more streams they will be started once the server is started

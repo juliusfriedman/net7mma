@@ -2937,15 +2937,20 @@ namespace Media.Rtp
         {
             if (Disposed) return;
 
-            Disconnect();
-
             base.Dispose();
 
-            m_Buffer.Dispose();
-            m_Buffer = null;
+            Disconnect();
 
             //Dispose contexts
             foreach (TransportContext tc in TransportContexts) tc.Dispose();
+
+            RtpPacketSent -= new RtpPacketHandler(HandleRtpPacketSent);
+            RtcpPacketSent -= new RtcpPacketHandler(HandleRtcpPacketSent);
+
+            Utility.Abort(ref m_WorkerThread);
+
+            m_Buffer.Dispose();
+            m_Buffer = null;
                 
             //Counters go away with the transportChannels
             TransportContexts.Clear();
@@ -2955,15 +2960,6 @@ namespace Media.Rtp
             m_OutgoingRtcpPackets.Clear();
 
             DisableFeedbackReports(this);
-
-            //RtpPacketReceieved -= new RtpPacketHandler(HandleIncomingRtpPacket);
-            //RtcpPacketReceieved -= new RtcpPacketHandler(HandleIncomingRtcpPacket);
-            RtpPacketSent -= new RtpPacketHandler(HandleRtpPacketSent);
-            RtcpPacketSent -= new RtcpPacketHandler(HandleRtcpPacketSent);
-            //RtpFrameChanged -= new RtpFrameHandler(RtpClient_RtpFrameChanged);
-            //InterleavedData -= new InterleaveHandler(HandleInterleavedData);            
-
-            Utility.Abort(ref m_WorkerThread);
         }
 
         IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
