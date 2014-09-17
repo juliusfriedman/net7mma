@@ -169,7 +169,12 @@
     <Content Include="RtpTools\obj\Release\RtpTools.csproj.FileListAbsolute.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Codec\" />
+    <Folder Include="Codec\h264\" />
+    <Folder Include="Codec\jpeg\" />
+    <Folder Include="Codec\mpeg1\" />
+    <Folder Include="Codec\mpeg4\" />
+    <Folder Include="Codec\raw\" />
+    <Folder Include="Codec\vp8\" />
     <Folder Include="Compression\" />
     <Folder Include="RtpTools\bin\Debug\" />
     <Folder Include="RtpTools\bin\Release\" />
