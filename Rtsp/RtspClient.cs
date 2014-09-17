@@ -401,7 +401,7 @@ namespace Media.Rtsp
 
         ~RtspClient()
         {
-            if (m_RtpClient != null) m_RtpClient.InterleavedData -= ProcessInterleaveData;
+            Dispose();
         }
 
         #endregion
@@ -1766,6 +1766,7 @@ namespace Media.Rtsp
 
             if (m_RtpClient != null)
             {
+                m_RtpClient.InterleavedData -= ProcessInterleaveData;
                 if (!m_RtpClient.Disposed) m_RtpClient.Dispose();
                 m_RtpClient = null;
             }
