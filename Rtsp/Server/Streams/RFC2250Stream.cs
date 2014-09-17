@@ -11,6 +11,42 @@ namespace Media.Rtsp.Server.Streams
     public class RFC2250Stream : RFC2435Stream
     {
 
+        /// <summary>
+        /// http://tools.ietf.org/html/rfc2250
+        /// </summary>
+        public class RFC2250Frame : Rtp.RtpFrame
+        {
+            public RFC2250Frame() : base(32) { }
+
+            public MemoryStream Buffer { get; protected set; }
+
+            public void Packetize()
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Depacketize()
+            {
+                throw new NotImplementedException();
+            }
+
+            void DisposeBuffer()
+            {
+                if (Buffer != null)
+                {
+                    Buffer.Dispose();
+                    Buffer = null;
+                }
+            }
+
+            public override void Dispose()
+            {
+                if (Disposed) return;
+                base.Dispose();
+                DisposeBuffer();
+            }
+        }
+
         public const int ProfileHeaderSize = 4;
 
         public RFC2250Stream(int width, int height, string name, string directory = null, bool watch = true)
@@ -23,7 +59,6 @@ namespace Media.Rtsp.Server.Streams
             clockRate = 90;
         }
 
-        //SourceStream Implementation
         public override void Start()
         {
             if (m_RtpClient != null) return;
@@ -75,20 +110,22 @@ namespace Media.Rtsp.Server.Streams
                 try
                 {
                     //Make the width and height correct
-                    using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
+                    using (var thumbnail = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
 
                         //Todo Add 4 byte header http://tools.ietf.org/html/rfc2250
-
                         AddFrame(new Rtp.RtpFrame(32)
                         {
-                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), CreateMpegRtpVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)image)))
+                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), CreateMpegRtpVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)thumbnail)))
                         });
                     }
                 }
                 catch { throw; }
             }
         }
+
+        //Move to Codec mpeg
+        //MpegEncoder
 
         public byte[] WriteMPEGSequence(Bitmap img)
         {

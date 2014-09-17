@@ -78,9 +78,8 @@ namespace Media.Rtsp.Server.Streams
 
                 int nalLength = nal.Length;
 
-                if (nalLength > mtu)
+                if (nalLength >= mtu)
                 {
-
                     int offset = 0;
 
                     //Make a Fragment Indicator with start bit
@@ -104,10 +103,7 @@ namespace Media.Rtsp.Server.Streams
 
                         offset += mtu;
                     }
-
-                    //Write FUI
-                    //Write Fragment = mtu
-                }
+                } //Should check for first byte to be 1 - 23?
                 else Add(new Rtp.RtpPacket(2, false, false, false, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
             }
 
@@ -135,6 +131,9 @@ namespace Media.Rtsp.Server.Streams
                     //Single unit Nal
                     if (nal_type >= 1 && nal_type <= 23)
                     {
+
+                        // 7 and 8 are SPS and PPS
+
                         Buffer.Write(NalStart, 0, 3);
 
                         Buffer.Write(packetData, 0, count);
@@ -143,7 +142,7 @@ namespace Media.Rtsp.Server.Streams
                     {
                         int tmp_nal_size = count;
 
-                        //EAT DON
+                        //EAT DON (check if this is the correct place to eat the don)
                         if (nal_type == 26 || nal_type == 27) offset += 2;
 
                         while (offset + tmp_nal_size < count)
@@ -155,6 +154,9 @@ namespace Media.Rtsp.Server.Streams
                             Buffer.Write(packetData, offset, tmp_nal_size);
 
                             offset += tmp_nal_size;
+                            
+                            //check type again?
+
                         }
                     }
                     else if (nal_type == 28 || nal_type == 29) //FU - A or FU - B
@@ -204,7 +206,7 @@ namespace Media.Rtsp.Server.Streams
             //Convert Yuv to Rgb
         }
 
-        #region Propeties
+        #region Fields
 
         //Should be created dynamically
 
@@ -242,7 +244,6 @@ namespace Media.Rtsp.Server.Streams
 
         #region Methods
 
-        //SourceStream Implementation
         public override void Start()
         {
             if (m_RtpClient != null) return;
@@ -267,6 +268,8 @@ namespace Media.Rtsp.Server.Streams
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id="+ Common.Binary.ReadU24(sps, 4, false).ToString("X2") +";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length  - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
         }
 
+        //Move to Codec/h264
+        //H264Encoder
 
         /// <summary>
         /// Packetize's an Image for Sending
@@ -279,13 +282,13 @@ namespace Media.Rtsp.Server.Streams
                 try
                 {
                     //Make the width and height correct
-                    using (image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
+                    using (var thumb = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
                         //Create a new frame
                         var newFrame = new RFC6184Frame(96);
 
                         //Convert the bitmap to yuv420
-                        byte[] yuv = Utility.ABGRA2YUV420Managed((Bitmap)image);
+                        byte[] yuv = Utility.ABGRA2YUV420Managed((Bitmap)thumb);
 
                         List<IEnumerable<byte>> macroBlocks = new List<IEnumerable<byte>>();
 
@@ -358,9 +361,6 @@ namespace Media.Rtsp.Server.Streams
                 catch { throw; }
             }
         }
-
-        //Thanks !!
-        //http://www.cardinalpeak.com/blog/worlds-smallest-h-264-encoder/
 
         IEnumerable<byte> EncodeMacroblock(int i, int j, byte[] data)
         {

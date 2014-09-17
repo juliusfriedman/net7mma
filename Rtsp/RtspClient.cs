@@ -1409,7 +1409,7 @@ namespace Media.Rtsp
                             Common.ExceptionExtensions.CreateAndRaiseException(transportHeader, "Server indicated Tcp Transport but did not provide a channel pair. The header is in the Tag property.");
                         }
                     }
-                    else if (part.StartsWith("server_port=", true, System.Globalization.CultureInfo.InvariantCulture))
+                    else if (part.StartsWith("server_port=", true, System.Globalization.CultureInfo.InvariantCulture) && m_RtpProtocol == ProtocolType.Udp) //Don't allow parsing of server_port when in Interleaved
                     {
                         string[] serverPorts = part.Substring(12).Split(TimeSplit[0]);
 

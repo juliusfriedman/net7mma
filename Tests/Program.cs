@@ -227,13 +227,13 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "rtsp://85.105.179.171:554/profile?token=media_profile1", //Single media item
+                    Uri = "rtsp://118.70.125.33/mediainput/h264", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://193.186.208.240/profile3/media.smp", //Single media item
+                    Uri = "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
