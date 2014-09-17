@@ -109,7 +109,7 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if there is enough binary data required for the length indicated in the `LengthInWords` property.
         /// </summary>
-        public bool IsComplete { get { if (Disposed) return false; return m_MemorySegment.Count == Size; } }
+        public bool IsComplete { get { if (Disposed) return false; return m_MemorySegment.Count >= Size; } }
 
         /// <summary>
         /// Gets the size in bytes of this RtpExtension including the Flags and LengthInWords fields.

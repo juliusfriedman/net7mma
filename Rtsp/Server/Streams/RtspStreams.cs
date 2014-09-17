@@ -243,7 +243,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public override void Stop()
         {
-            if (RtspClient.Playing) RtspClient.StopPlaying();                    
+            if (RtspClient != null && RtspClient.Playing) RtspClient.StopPlaying();
             base.Stop();
             m_StartedTimeUtc = null;
         }
@@ -251,12 +251,14 @@ namespace Media.Rtsp.Server.Streams
         public override void Dispose()
         {
             if (Disposed) return;
+           
+            base.Dispose();
+
             if (RtspClient != null)
             {
                 RtspClient.Dispose();
                 RtspClient = null;
             }
-            base.Dispose();
         }
     }
 

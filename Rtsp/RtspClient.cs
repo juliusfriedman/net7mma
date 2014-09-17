@@ -442,15 +442,6 @@ namespace Media.Rtsp
 
         #region Methods
 
-        static void RtspClient_OnDisconnect(RtspClient sender, object args)
-        {
-            if (sender.m_KeepAliveTimer != null)
-            {
-                sender.m_KeepAliveTimer.Dispose();
-                sender.m_KeepAliveTimer = null;
-            }
-        }
-
         /// <summary>
         /// Handles Interleaved Data for the RtspClient by parsing the given memory for a valid RtspMessage.
         /// </summary>
@@ -603,7 +594,7 @@ namespace Media.Rtsp
 
             if (setupTracks) using (RtspMessage play = SendPlay(Location, m_StartTime, m_EndTime))
             {
-                OnPlaying();
+                if(play != null && play.StatusCode == RtspStatusCode.OK) OnPlaying();
             }
         }
 
@@ -1493,15 +1484,15 @@ namespace Media.Rtsp
             {
 
                 //If the client has not recieved any bytes and we have not already switched to Tcp
-                if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpPacketsReceieved == 0)
+                if (m_RtpProtocol != ProtocolType.Tcp && Client.TransportContexts.All(tc=> tc.LastRtpPacketReceived < tc.m_ReceiveInterval))
                 {
                     try
                     {
                         //Reconnect without losing the events on the RtpClient
                         Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
-                        //Disconnect to allow the server to reset state
-                        Disconnect();
+                        //Send a Teardown
+                        SendTeardown();
 
                         //Start again
                         StartPlaying();

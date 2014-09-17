@@ -155,7 +155,7 @@ namespace Media.Rtp
                 int paddingOctets = PaddingOctets;
 
                 //The result of completion is that the amount of paddingOctets found were >= 0
-                return paddingOctets >= 0 && octetsContained >= paddingOctets;
+                return octetsContained >= paddingOctets;
             }
         }
 
@@ -631,32 +631,38 @@ namespace Media.Rtp
                 //Use a RtpExtension instance to read the Extension Header and data.
                 using (RtpExtension extension = GetExtension())
                 {
-                    //Cache the size of the RtpExtension (not including the Flags and LengthInWords [The Extension Header])
-                    extensionSize = extension.Size - RtpExtension.MinimumSize;
-
-                    //The amount of octets required for for completion are indicated by the Size property of the RtpExtension.
-                    //Calulcate the amount of octets to receive
-                    octetsRemaining = Math.Abs(offset - (sourceListOctets + extensionSize));
-
-                    //Allocte the memory for the required data
-                    if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
-                    else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
-
-                    System.Net.Sockets.SocketError error;
-
-                    //Read from the stream, decrementing from octetsRemaining what was read.
-                    while (octetsRemaining > 0)
+                    if (extension != null && !extension.IsComplete)
                     {
-                        //Receive octetsRemaining or less
-                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                        //Cache the size of the RtpExtension (not including the Flags and LengthInWords [The Extension Header])
+                        extensionSize = extension.Size - RtpExtension.MinimumSize;
 
-                        //Move the offset
-                        offset += justReceived;
+                        //The amount of octets required for for completion are indicated by the Size property of the RtpExtension.
+                        //Calulcate the amount of octets to receive
+                        octetsRemaining = (payloadCount - offset) - RtpExtension.MinimumSize;
 
-                        //Decrement how many octets were receieved
-                        octetsRemaining -= justReceived;
+                        if (octetsRemaining > 0 && octetsRemaining < extensionSize)
+                        {
+                            //Allocte the memory for the required data
+                            if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
+                            else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
 
-                        recieved += justReceived;
+                            System.Net.Sockets.SocketError error;
+
+                            //Read from the stream, decrementing from octetsRemaining what was read.
+                            while (octetsRemaining > 0)
+                            {
+                                //Receive octetsRemaining or less
+                                int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+
+                                //Move the offset
+                                offset += justReceived;
+
+                                //Decrement how many octets were receieved
+                                octetsRemaining -= justReceived;
+
+                                recieved += justReceived;
+                            }
+                        }
                     }
                 }
             }
@@ -666,23 +672,33 @@ namespace Media.Rtp
             //If the header indicates the payload has padding
             if (Header.Padding)
             {
-                //If the amount of bytes read in the padding is NOT equal to the last byte in the segment the RtpPacket is NOT complete
-                while (PaddingOctets == 0)
+
+                octetsRemaining = PaddingOctets - payloadCount;
+
+                if (octetsRemaining > 0)
                 {
                     //Allocte the memory for the required data
-                    if (m_OwnedOctets == null) m_OwnedOctets = new byte[1];
-                    else m_OwnedOctets = m_OwnedOctets.Concat(new byte[1]).ToArray();
+                    if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
+                    else m_OwnedOctets = m_OwnedOctets.Concat(new byte[octetsRemaining]).ToArray();
 
-                    System.Net.Sockets.SocketError error;
+                    offset = payloadCount;
 
-                    //Receive 1 byte
-                    //Receive octetsRemaining or less
-                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, 1, socket, out error);
+                    //If the amount of bytes read in the padding is NOT equal to the last byte in the segment the RtpPacket is NOT complete
+                    while (octetsRemaining > 0)
+                    {
+                        System.Net.Sockets.SocketError error;
 
-                    //Move the offset
-                    offset += justReceived;
+                        //Receive 1 byte
+                        //Receive octetsRemaining or less
+                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
-                    recieved += justReceived;
+                        //Move the offset
+                        offset += justReceived;
+
+                        recieved += justReceived;
+
+                        octetsRemaining -= justReceived;
+                    }
                 }
             }
 

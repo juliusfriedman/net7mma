@@ -1374,6 +1374,11 @@ namespace Tests
             {
                 using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
                 {
+
+                    if (rtpExtension == null) throw new Exception("Extension is null");
+
+                    if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
+
                     // The extension data length is (3 words / 12 bytes) 
                     // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
                     //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
@@ -1502,6 +1507,11 @@ namespace Tests
             {
                 using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
                 {
+
+                    if (rtpExtension == null) throw new Exception("Extension is null");
+
+                    if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
+
                     // The extension data length is (3 words / 12 bytes) 
                     // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
                     //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
@@ -2020,7 +2030,7 @@ namespace Tests
                         {
                             System.Threading.Thread.Sleep(client.KeepAliveTimeout.Seconds + 1 * 5000);
 
-                            if (client.StartedListening.HasValue)
+                            if (client.Playing)
                             {
 
                                 TimeSpan playingfor = (DateTime.UtcNow - client.StartedListening.Value);
@@ -2031,12 +2041,12 @@ namespace Tests
 
                                 if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
 
-                                shouldStop = playingfor > client.EndTime;
+                                shouldStop = !client.LivePlay && playingfor > client.EndTime;
                             }
 
                             if (!shouldStop) shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
 
-                            if (!shouldStop) shouldStop = client.Connected && !client.StartedListening.HasValue;
+                            if (!shouldStop) shouldStop = !client.Playing;
                             
                         }
 
@@ -2218,15 +2228,15 @@ a=mpeg4-esid:101");
                 //m_ForceTCP = true
             });
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://inet.orban.com:554/tropic.3gp")
-            {
-                //m_ForceTCP = true
-            });
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://inet.orban.com:554/tropic.3gp")
+            //{
+            //    //m_ForceTCP = true
+            //});
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://inet.orban.com:554/tropic.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            {
-                //m_ForceTCP = true
-            });        
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://inet.orban.com:554/tropic.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+            //{
+            //    //m_ForceTCP = true
+            //});        
 
             //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Media.Rtsp Uri to any YouTube video)
 
@@ -2241,14 +2251,17 @@ a=mpeg4-esid:101");
                 m_ForceTCP = true
             });
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp"));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp"));
             //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
             //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            {
-                m_ForceTCP = true
-            });
+            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+            //{
+                //m_ForceTCP = true
+            //});
 
             
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;

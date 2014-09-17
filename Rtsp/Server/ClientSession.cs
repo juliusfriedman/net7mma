@@ -199,8 +199,6 @@ namespace Media.Rtsp
 
             //If the packet is null or not allowed then return
             if (packet == null || packet.Disposed || m_RtpClient == null) return;
-
-
             
             //Get a source context
             RtpClient.TransportContext context = null, sourceContext = GetSourceContextForPacket(packet);
