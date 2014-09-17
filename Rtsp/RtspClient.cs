@@ -182,24 +182,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The amount of time in seconds in which the RtspClient will switch protocols if no Packets have been recieved.
         /// </summary>
-        //public int ProtocolSwitchTime   { get { return SocketReadTimeout; } set { SocketReadTimeout = value; if (m_ProtocolSwitchTimer != null) if (SocketReadTimeout == 0) m_ProtocolSwitchTimer.Dispose(); else m_ProtocolSwitchTimer.Change(m_LastTransmitted != null ? (int)(1000 * (SocketReadTimeout - (DateTime.Now - m_LastTransmitted.Created).TotalSeconds)) : SocketReadTimeout, SocketReadTimeout); } }
-        public TimeSpan ProtocolSwitchTime
-        {
-            //When this property is accessed it should be checking for the flow of all streams, if one is not flowing it should be torn down and re connected if possible.
-            //See Send Keep Alive
-            get { return  TimeSpan.FromMilliseconds(SocketReadTimeout); }
-            set
-            {
-                int truncatedTotalSeconds = (int)value.TotalSeconds;
-                SocketReadTimeout = truncatedTotalSeconds;
-                if (m_ProtocolSwitchTimer != null)
-                    if (truncatedTotalSeconds == 0) 
-                        m_ProtocolSwitchTimer.Dispose(); 
-                    else
-                        m_ProtocolSwitchTimer.Change(value, value);
-            }
-        }
-            
+        public TimeSpan ProtocolSwitchTime { get; set; }
 
         /// <summary>
         /// The amount of time in seconds the KeepAlive request will be sent to the server after connected.
@@ -403,13 +386,15 @@ namespace Media.Rtsp
                 }
                 else if(rtpProtocolType.Value == ClientProtocolType.Udp)
                 {
-                    m_RtpProtocol = ProtocolType.Udp;
+                    m_RtpProtocol = ProtocolType.Udp;                    
                 }
                 else throw new ArgumentException("Must be Tcp or Udp.", "protocolType");
             }
 
             if (bufferSize < RtspMessage.MaximumLength) throw new ArgumentOutOfRangeException("Buffer size must be at least RtspMessage.MaximumLength (4096)");
             m_Buffer = new Common.MemorySegment(bufferSize);
+
+            ProtocolSwitchTime = TimeSpan.FromSeconds(10);
         }
 
         
@@ -1312,7 +1297,6 @@ namespace Media.Rtsp
                     //contextReportInterval = TimeSpan.FromMilliseconds((reportReceivingEvery + reportSendingEvery) / 2);
                     SocketWriteTimeout = reportSendingEvery;
                     SocketReadTimeout = reportReceivingEvery;
-                    ProtocolSwitchTime = contextReportInterval;
                 }
                 else contextReportInterval = TimeSpan.MaxValue;
                 
@@ -1505,62 +1489,52 @@ namespace Media.Rtsp
         internal void SwitchProtocols(object state = null)
         {
             //If there is no socket or the protocol was forced return`
-            if (m_RtspSocket == null || m_ForcedProtocol || Playing) return;
-
-            //If the client has not recieved any bytes and we have not already switched to Tcp
-            else if (m_RtpProtocol != ProtocolType.Tcp)
+            if (!Disposed || m_RtspSocket != null)
             {
-                //Reconnect without losing the events on the RtpClient
-                Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
-                //Disconnect to allow the server to reset state
-                Disconnect();
+                //If the client has not recieved any bytes and we have not already switched to Tcp
+                if (m_RtpProtocol != ProtocolType.Tcp && Client.TotalRtpPacketsReceieved == 0)
+                {
+                    try
+                    {
+                        //Reconnect without losing the events on the RtpClient
+                        Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
-                //Start again
-                StartPlaying();
+                        //Disconnect to allow the server to reset state
+                        Disconnect();
+
+                        //Start again
+                        StartPlaying();
+                    }
+                    catch { }
+                }
+                else if (m_RtpProtocol == ProtocolType.Tcp)
+                {
+                    //Switch back to Udp?
+                    throw new NotImplementedException("Switch from Tcp to Udp Not (YET) Implemented.");
+
+                    //This seems to werk though :p
+
+                    //Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Udp;
+
+                    ////Disconnect to allow the server to reset state
+                    //Disconnect();
+
+                    ////Clear existing transportChannels
+                    //m_RtpClient.TransportContexts.Clear();
+
+                    ////Start again
+                    //StartListening();
+                }
             }
-            else if (m_RtpProtocol == ProtocolType.Tcp)
+
+            if (m_ProtocolSwitchTimer != null)
             {
-                //Switch back to Udp?
-                throw new NotImplementedException("Switch from Tcp to Udp Not (YET) Implemented.");
-
-                //This seems to werk though :p
-
-                //Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Udp;
-
-                ////Disconnect to allow the server to reset state
-                //Disconnect();
-
-                ////Clear existing transportChannels
-                //m_RtpClient.TransportContexts.Clear();
-
-                ////Start again
-                //StartListening();
+                m_ProtocolSwitchTimer.Dispose();
+                m_ProtocolSwitchTimer = null;
             }
-
-            m_ProtocolSwitchTimer.Dispose();
-            m_ProtocolSwitchTimer = null;
 
         }
-
-        //http://www.ietf.org/rfc/rfc2326.txt 10.5 PLAY
-
-        /*
-          C->S: PLAY rtsp://audio.example.com/audio RTSP/1.0
-           CSeq: 835
-           Session: 12345678
-           Range: npt=10-15
-
-         C->S: PLAY rtsp://audio.example.com/audio RTSP/1.0
-               CSeq: 836
-               Session: 12345678
-               Range: npt=20-25
-
-         C->S: PLAY rtsp://audio.example.com/audio RTSP/1.0
-               CSeq: 837
-               Session: 12345678
-               Range: npt=30-
-         */
 
         public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
         {
@@ -1727,17 +1701,15 @@ namespace Media.Rtsp
             NoResponsePlaying:
 
                 //If we have a timeout to switch the protocols and the protocol has not been forced
-                if (!Playing && (!m_ForcedProtocol && SocketReadTimeout > 0) && m_RtpProtocol != ProtocolType.Tcp)
+                if (m_RtpClient.TotalBytesReceieved == 0 && m_RtpProtocol != ProtocolType.Tcp)
                 {
-                    //Setup a timer, should be accessible from the instance...
-                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, m_RtspTimeout, System.Threading.Timeout.InfiniteTimeSpan);
+                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, ProtocolSwitchTime, System.Threading.Timeout.InfiniteTimeSpan);
                 }
 
                 //If there is a timeout ensure it gets utilized
                 if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
-                    //Use half the timeout to protect against dialation
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout.Milliseconds, -1);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, System.Threading.Timeout.InfiniteTimeSpan);
                 }
 
                 //Connect and wait for Packets
