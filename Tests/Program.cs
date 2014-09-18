@@ -50,7 +50,7 @@ namespace Tests
 
         internal static string TestingFormat = "{0}:=>{1}";
 
-        static Action[] Tests = new Action[] { TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestSdp, TestRtspMessage };
+        static Action[] Tests = new Action[] { TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestContainerImplementations, TestSdp, TestRtspMessage };
 
         [MTAThread]
         public static void Main(string[] args)
@@ -2190,6 +2190,63 @@ a=mpeg4-esid:101");
             sd = new Media.Sdp.SessionDescription("v=0\r\no=StreamingServer 3219006789 1223277283000 IN IP4 10.8.127.4\r\ns=/sample_100kbit.mp4\r\nu=http:///\r\ne=admin@\r\nc=IN IP4 0.0.0.0\r\nb=AS:96\r\nt=0 0\r\na=control:*\r\na=mpeg4-iod:\"data:application/mpeg4-iod;base64,AoJrAE///w/z/wOBdgABQNhkYXRhOmF\"");
 
             Console.WriteLine(sd);
+
+        }
+
+        static void TestContainerImplementations()
+        {
+
+            string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+            string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
+
+            string[] testFiles = {
+                                     localPath + @"\Video\Mp4Sample.mp4",
+                                     localPath + @"\Video\Mp4AltSample.mp4",
+                                     localPath + @"\Video\Mp4Alt2Sample.mp4",
+                                 };
+
+            foreach(string testFile in testFiles) using (Media.Container.BaseMedia.BaseMediaReader reader = new Media.Container.BaseMedia.BaseMediaReader(testFile))
+            {
+                Console.WriteLine("Path:" + reader.Source);
+                Console.WriteLine("Total Size:" + reader.Length);
+
+                Console.WriteLine("Root Element:" + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
+
+                foreach (var box in reader)
+                {
+                    Console.WriteLine("Position:" + reader.Position);
+                    Console.WriteLine("Offset: " + box.Offset);
+                    Console.WriteLine("Complete: " + box.Complete);
+                    Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
+                    Console.WriteLine("Size: " + box.Size);
+                    Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
+                }
+                
+            }
+
+            testFiles = new string[] { 
+                localPath + @"\Video\RiffSample.avi",
+                localPath + @"\Video\RiffAltSample.avi"
+            };
+
+            foreach(string testFile in testFiles) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(testFile))
+            {
+                Console.WriteLine("Path:" + reader.Source);
+                Console.WriteLine("Total Size:" + reader.Length);
+
+                Console.WriteLine("Root Element:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
+
+                foreach (var box in reader)
+                {
+                    Console.WriteLine("Position:" + reader.Position);
+                    Console.WriteLine("Offset: " + box.Offset);
+                    Console.WriteLine("Complete: " + box.Complete);
+                    Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(box.Identifier));
+                    Console.WriteLine("Size: " + box.Size);
+                }
+                
+            }
 
         }
 

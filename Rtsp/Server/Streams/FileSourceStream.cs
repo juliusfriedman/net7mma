@@ -10,31 +10,9 @@ namespace Media.Rtsp.Server.Streams
     /// Represents the base class for any stream which is consumed from a local file.
     /// Created for each file which is streamed from the <see cref="RtspServer"/>
     /// </summary>
-    public abstract class FileSourceStream : SourceStream
+    public class FileSourceStream : SourceStream
     {
         #region Nested Types
-
-        //Should be a Top level class accessible from the RtspServer namespace?
-
-        /// <summary>
-        /// Information which describes a Track which is contained in a MediaFile
-        /// </summary>
-        public class TrackReference
-        {
-            public readonly byte[] Codec;
-
-            public readonly int Id;
-            
-            //SampleSize?
-
-            public readonly Sdp.MediaType MediaType;
-
-            public readonly TimeSpan Duration;
-
-            public TimeSpan Remaining { get { return Duration - Position; } }
-
-            public TimeSpan Position;
-        }
 
         /// <summary>
         /// Created for each <see cref="ClientSession"/> when streaming media from a local file.
@@ -63,7 +41,7 @@ namespace Media.Rtsp.Server.Streams
             /// <summary>
             /// The tracks which are sampled
             /// </summary>
-            readonly IEnumerable<TrackReference> Tracks;
+            readonly IEnumerable<Container.Track> Tracks;
 
             /// <summary>
             /// The RtpClient which provides the events for gathered samples.
@@ -91,9 +69,9 @@ namespace Media.Rtsp.Server.Streams
             {
                 Source = source;
 
-                Tracks = Source.GetTracks();
+                Tracks = Source.MediaContainer.GetTracks();
 
-                Fork = new System.IO.FileStream(Source.m_FileStream.SafeFileHandle, System.IO.FileAccess.Read);
+                Fork = new System.IO.FileStream(((System.IO.FileStream)Source.MediaContainer.BaseStream).SafeFileHandle, System.IO.FileAccess.Read);
 
                 SampleReader = new System.Threading.Thread(new System.Threading.ThreadStart(GatherSamples));
             }
@@ -111,11 +89,11 @@ namespace Media.Rtsp.Server.Streams
                 {
                     TimeSpan duration = TimeSpan.Zero;
 
-                    foreach (TrackReference track in Tracks)
+                    foreach (Container.Track track in Tracks)
                     {
                         if (track.Remaining > TimeSpan.Zero)
                         {
-                            Rtp.RtpFrame sample = Source.GetSample(track, out duration);
+                            Rtp.RtpFrame sample = Source.MediaContainer.GetSample(track, out duration);
 
                             if (sample != null && m_Client.GetContextByPayloadType(sample.PayloadTypeByte) != null) foreach (Rtp.RtpPacket packet in sample) m_Client.OnRtpPacketReceieved(packet);
 
@@ -151,7 +129,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// A stream containing the data required for streaming
         /// </summary>
-        internal protected System.IO.FileStream m_FileStream;
+        internal protected Container.IMediaContainer MediaContainer;
 
         #endregion
 
@@ -167,11 +145,12 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         /// <param name="name">The name of this stream</param>
         /// <param name="source">The <see cref="Uri"/> whose AbsolutePath points to the file which contains the resources to be streamed</param>
-        public FileSourceStream(string name, Uri source, Guid? id = null)
+        public FileSourceStream(Container.IMediaContainer mediaFileStream, string name, Uri source, Guid? id = null)
             : base(name, source)
         {
-            //Validate that the given file exists
-            if (!System.IO.File.Exists(Source.AbsolutePath)) throw new System.IO.FileNotFoundException("Could not find" + source.AbsolutePath);
+            if (mediaFileStream == null) throw new ArgumentNullException("mediaFileStream");
+
+            MediaContainer = mediaFileStream;
 
             if (id.HasValue) m_Id = id.Value;
 
@@ -191,11 +170,7 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         protected virtual void Initialize()
         {
-            //If the filestream has already been created then initialization has already been performed
-            if (m_FileStream != null) return;
-
-            //Create the FileStream with further writing allowed
-            m_FileStream = new System.IO.FileStream(Source.AbsolutePath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
+            if (MediaContainer.Root == null) throw new Exception();
         }
 
         /// <summary>
@@ -207,9 +182,9 @@ namespace Media.Rtsp.Server.Streams
 
             base.Dispose();
 
-            m_FileStream.Dispose();
+            MediaContainer.Dispose();
 
-            m_FileStream = null;
+            MediaContainer = null;
         }
 
         /// <summary>
@@ -218,23 +193,6 @@ namespace Media.Rtsp.Server.Streams
         /// <returns>The created <see cref="FileSourceStreamInformation"/></returns>
         internal FileSourceStreamInformation CreateInformation() { return new FileSourceStreamInformation(this); }
 
-        #endregion
-
-        #region Abstraction
-
-        /// <summary>
-        /// When overriden in a derived class, Provides information for each 'Track' in the Media
-        /// </summary>
-        public abstract IEnumerable<TrackReference> GetTracks();
-
-        /// <summary>
-        /// When overriden in a derived class, retrieves the <see cref="Rtp.RtpFrame"/> related to the given parameters
-        /// </summary>
-        /// <param name="track">The <see cref="TrackReference"/> which identifies the Track to retrieve the sample data from</param>       
-        /// <param name="duration">The amount of time related to the result</param>
-        /// <returns>The <see cref="Rtp.RtpFrame"/> containing the sample data</returns>
-        public abstract Rtp.RtpFrame GetSample(TrackReference track, out TimeSpan duration);
-
-        #endregion
+        #endregion       
     }
 }

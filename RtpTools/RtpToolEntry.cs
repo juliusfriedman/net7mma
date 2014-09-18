@@ -132,7 +132,7 @@ namespace Media.RtpTools
             sizeOf_RD_hdr_t = 16, 
             sizeOf_RD_packet_T = 8;
 
-        internal static RtpToolEntry CreateShortEntry(byte[] memory)
+        internal static RtpToolEntry CreateShortEntry(byte[] memory, long fileOffset = 0)
         {
             /* Only the header can be restored / represented and indicates a VAT or RTP Packet
                RTP or vat data in tabular form: [-]time ts [seq], where a - indicates a set marker bit. The sequence number seq is only used for RTP packets.
@@ -142,7 +142,7 @@ namespace Media.RtpTools
                844525727.922518 954850177 30670
            */
 
-            return new RtpToolEntry(FileFormat.Short, memory);
+            return new RtpToolEntry(FileFormat.Short, memory, fileOffset);
 
             //Will be performed if ManagedPacket is accessed
             //BuildPacket(created);
@@ -154,6 +154,8 @@ namespace Media.RtpTools
         #endregion
 
         #region Fields
+
+        public readonly long FileOffset;
 
         /// <summary>
         /// The <see cref="FileFormat"/> on the RtpToolEntry.
@@ -391,14 +393,15 @@ namespace Media.RtpTools
 
         #region Constructor
 
-        internal RtpToolEntry(FileFormat format, byte[] memory = null)
+        internal RtpToolEntry(FileFormat format, byte[] memory = null, long fileOffset = 0)
         {
             Format = format;
             Blob = memory;
+            FileOffset = fileOffset;
         }
 
-        public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet, int offset = 0)
-            :this(FileFormat.Binary, packet.Prepare().ToArray())
+        public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet, int offset = 0, long fileOffset = 0)
+            :this(FileFormat.Binary, packet.Prepare().ToArray(), fileOffset)
         {
             Blob = CreatePacketHeader(DateTime.UtcNow, source, packet, offset).Concat(Blob).ToArray();
             MaxSize = (int)packet.Length;

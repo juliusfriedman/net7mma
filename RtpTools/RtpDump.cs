@@ -49,10 +49,12 @@ namespace Media.RtpTools.RtpDump
     /// <summary>
     /// Reads files made with a compatible implementation of `<see href="http://www.cs.columbia.edu/irt/software/rtptools/">rtpdump</see>`, <see cref="FileFormat"/> for list of Formats supported.
     /// </summary>
-    public sealed class DumpReader : Common.BaseDisposable, IEnumerable<RtpToolEntry>
-    {
+    public sealed class DumpReader : Common.BaseDisposable, IEnumerable<RtpToolEntry>, Container.IMediaContainer
+    {       
 
         #region Fields
+
+        internal string m_Path;
 
         internal DateTime m_StartTime;
 
@@ -118,7 +120,7 @@ namespace Media.RtpTools.RtpDump
         /// The stream will be closed when the Reader is Disposed.
         /// </summary>
         /// <param name="path">The file to read</param>
-        public DumpReader(string path, FileFormat? format = null) : this(new System.IO.FileStream(path, System.IO.FileMode.Open), false, format) { }
+        public DumpReader(string path, FileFormat? format = null) : this(new System.IO.FileStream(path, System.IO.FileMode.Open), false, format) { m_Path = path; }
 
         ~DumpReader() { Dispose(); }
 
@@ -230,7 +232,7 @@ namespace Media.RtpTools.RtpDump
 
                     //Could keep each entry stored in a buffer and then use MemorySegment to read the entry into the buffer provided by the reader
 
-                    entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize]); //32 bytes allocated per entry.
+                    entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize], m_Reader.BaseStream.Position); //32 bytes allocated per entry.
 
                     m_Reader.Read(entry.Blob, 0, RtpToolEntry.DefaultEntrySize);
 
@@ -407,6 +409,63 @@ namespace Media.RtpTools.RtpDump
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        #endregion
+
+        #region IMediaContainer
+
+        public Uri Location
+        {
+            get { return new Uri(m_Path); }
+        }
+
+        public Container.Element Root
+        {
+            get { throw new NotImplementedException(); }
+        }
+
+        public Container.Element TableOfContents
+        {
+            get { throw new NotImplementedException(); }
+        }
+
+        public IEnumerable<Container.Track> GetTracks()
+        {
+            throw new NotImplementedException();
+        }
+
+        public System.IO.Stream BaseStream
+        {
+            get { return m_Reader.BaseStream; }
+        }
+
+        internal Container.Element ToElement(RtpTools.RtpToolEntry entry)
+        {
+            return new Container.Element(this, entry.IsRtcp ? Encoding.UTF8.GetBytes("RTCP") : Encoding.UTF8.GetBytes("RTP"),
+                entry.Offset, entry.MaxSize, entry.MaxSize >= entry.Length);
+        }
+
+        public Rtp.RtpFrame GetSample(Container.Track track, out TimeSpan duration)
+        {
+            Rtp.RtpFrame result = new Rtp.RtpFrame(0);
+
+            while (HasNext)
+            {
+                Rtp.RtpPacket next = new Rtp.RtpPacket(ReadNext().Data.ToArray(), 0);
+                if (result.Count > 0 && next.Timestamp != result.Timestamp) break;
+                result.Add(next);
+                if (next.Marker) break;
+            }
+
+            duration = TimeSpan.FromMilliseconds(90 * result.Count);
+
+            return result;
+        }
+
+        IEnumerator<Container.Element> IEnumerable<Container.Element>.GetEnumerator()
+        {
+            while (HasNext) yield return ToElement(ReadNext());
         }
 
         #endregion
