@@ -803,7 +803,7 @@ namespace Media.RtpTools
                         }
 
                         //If not found then this must be a Short entry.
-                        if (format == FileFormat.Short) return RtpToolEntry.CreateShortEntry(lineBytes);
+                        if (format == FileFormat.Short) return RtpToolEntry.CreateShortEntry(lineBytes, reader.BaseStream.Position - lineBytes.Length);
                         else if (parsingCommentOrWhitespace)//If parsing a whitespace or a comment
                         {
                             //Parse the comment directly to memory and continue 
@@ -890,7 +890,7 @@ namespace Media.RtpTools
                 }//Done with the writer
 
                 //Create the resulting entry with the data contained in memory read from the reader by the writer
-                RtpToolEntry result = new RtpToolEntry(format, memory.ToArray());
+                RtpToolEntry result = new RtpToolEntry(format, memory.ToArray(), reader.BaseStream.Position - memory.Length);
 
                 //The result is parsed
                 return result;

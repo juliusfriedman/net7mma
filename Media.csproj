@@ -98,7 +98,12 @@
     <Compile Include="Common\IThreadOwner.cs" />
     <Compile Include="Common\MemorySegment.cs" />
     <Compile Include="Common\SourceList.cs" />
-    <Compile Include="Container\ContainerElement.cs" />
+    <Compile Include="Container\BaseMedia\BaseMediaReader.cs" />
+    <Compile Include="Container\Element.cs" />
+    <Compile Include="Container\MediaFileStream.cs" />
+    <Compile Include="Container\IMediaContainer.cs" />
+    <Compile Include="Container\Riff\RiffReader.cs" />
+    <Compile Include="Container\Track.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RFC3550.cs">
       <SubType>Code</SubType>
@@ -143,14 +148,10 @@
     <Compile Include="Rtsp\Server\RtspServerDebuggingLogger.cs" />
     <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
     <Compile Include="Rtsp\Server\ClientSession.cs" />
-    <Compile Include="Rtsp\Server\Streams\RtpDumpFileSource.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
     <Compile Include="Rtsp\Server\Streams\FileSourceStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaSink.cs" />
-    <Compile Include="Rtsp\Server\Streams\MatroskaFileSource.cs" />
-    <Compile Include="Rtsp\Server\Streams\RiffFileSource.cs" />
-    <Compile Include="Rtsp\Server\Streams\BaseMediaFileSource.cs" />
     <Compile Include="Rtsp\Server\Streams\JPEGSourceStream.cs" />
     <Compile Include="Rtsp\Server\Streams\MJPEGSourceStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaSource.cs" />
@@ -176,6 +177,7 @@
     <Folder Include="Codec\raw\" />
     <Folder Include="Codec\vp8\" />
     <Folder Include="Compression\" />
+    <Folder Include="Container\Matroska\" />
     <Folder Include="RtpTools\bin\Debug\" />
     <Folder Include="RtpTools\bin\Release\" />
     <Folder Include="RtpTools\obj\Debug\TempPE\" />
