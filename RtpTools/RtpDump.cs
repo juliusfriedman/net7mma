@@ -446,7 +446,7 @@ namespace Media.RtpTools.RtpDump
                 entry.Offset, entry.MaxSize, entry.MaxSize >= entry.Length);
         }
 
-        public Rtp.RtpFrame GetSample(Container.Track track, out TimeSpan duration)
+        public byte[] GetSample(Container.Track track, out TimeSpan duration)
         {
             Rtp.RtpFrame result = new Rtp.RtpFrame(0);
 
@@ -460,7 +460,7 @@ namespace Media.RtpTools.RtpDump
 
             duration = TimeSpan.FromMilliseconds(90 * result.Count);
 
-            return result;
+            return result.Assemble().ToArray();
         }
 
         IEnumerator<Container.Element> IEnumerable<Container.Element>.GetEnumerator()

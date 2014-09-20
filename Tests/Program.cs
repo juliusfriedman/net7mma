@@ -2200,52 +2200,70 @@ a=mpeg4-esid:101");
 
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
 
-            string[] testFiles = {
-                                     localPath + @"\Video\Mp4Sample.mp4",
-                                     localPath + @"\Video\Mp4AltSample.mp4",
-                                     localPath + @"\Video\Mp4Alt2Sample.mp4",
-                                 };
+            //Todo allow reletive paths?
 
-            foreach(string testFile in testFiles) using (Media.Container.BaseMedia.BaseMediaReader reader = new Media.Container.BaseMedia.BaseMediaReader(testFile))
+            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
             {
-                Console.WriteLine("Path:" + reader.Source);
-                Console.WriteLine("Total Size:" + reader.Length);
-
-                Console.WriteLine("Root Element:" + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
-
-                foreach (var box in reader)
+                using (Media.Container.BaseMedia.BaseMediaReader reader = new Media.Container.BaseMedia.BaseMediaReader(fileName))
                 {
-                    Console.WriteLine("Position:" + reader.Position);
-                    Console.WriteLine("Offset: " + box.Offset);
-                    Console.WriteLine("Complete: " + box.Complete);
-                    Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
-                    Console.WriteLine("Size: " + box.Size);
-                    Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
+                    Console.WriteLine("Path:" + reader.Source);
+                    Console.WriteLine("Total Size:" + reader.Length);
+
+                    Console.WriteLine("Root Element:" + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
+
+                    foreach (var box in reader)
+                    {
+                        Console.WriteLine("Position:" + reader.Position);
+                        Console.WriteLine("Offset: " + box.Offset);
+                        Console.WriteLine("Complete: " + box.Complete);
+                        Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
+                        Console.WriteLine("Size: " + box.Size);
+                        Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
+                    }
                 }
                 
             }
 
-            testFiles = new string[] { 
-                localPath + @"\Video\RiffSample.avi",
-                localPath + @"\Video\RiffAltSample.avi"
-            };
-
-            foreach(string testFile in testFiles) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(testFile))
+            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(fileName))
             {
                 Console.WriteLine("Path:" + reader.Source);
                 Console.WriteLine("Total Size:" + reader.Length);
 
                 Console.WriteLine("Root Element:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
 
-                foreach (var box in reader)
+                foreach (var element in reader)
                 {
                     Console.WriteLine("Position:" + reader.Position);
-                    Console.WriteLine("Offset: " + box.Offset);
-                    Console.WriteLine("Complete: " + box.Complete);
-                    Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(box.Identifier));
-                    Console.WriteLine("Size: " + box.Size);
+                    Console.WriteLine("Offset: " + element.Offset);
+                    Console.WriteLine("Complete: " + element.Complete);
+                    Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(element.Identifier));
+                    Console.WriteLine("Size: " + element.Size);
                 }
                 
+            }
+
+
+            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
+            {
+                using (Media.Container.Matroska.MatroskaReader reader = new Media.Container.Matroska.MatroskaReader(fileName))
+                {
+                    Console.WriteLine("Path:" + reader.Source);
+                    Console.WriteLine("Total Size:" + reader.Length);
+
+                    Console.WriteLine("Root Element:" + Media.Container.Matroska.MatroskaReader.ToFourCharacterCode(reader.Root.Identifier));
+
+                    foreach (var element in reader)
+                    {
+                        Console.WriteLine("Identifier:" + BitConverter.ToString(element.Identifier));
+                        Console.WriteLine("Position:" + reader.Position);
+                        Console.WriteLine("Offset: " + element.Offset);
+                        Console.WriteLine("Complete: " + element.Complete);
+                        Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToFourCharacterCode(element.Identifier));
+                        Console.WriteLine("Size: " + element.Size);
+                        Console.WriteLine("ParentBox: " + Media.Container.Matroska.MatroskaReader.ParentElements.Contains(Media.Container.Matroska.MatroskaReader.ToFourCharacterCode(element.Identifier)));
+                    }
+                }
+
             }
 
         }

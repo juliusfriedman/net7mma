@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Media.Container.Riff
 {
     /// <summary>
-    /// Represents the logic necessary to read files in the RIFF Format (.avi)
+    /// Represents the logic necessary to read files in the Resource Interchange File Format Format (.avi)
     /// </summary>
     public class RiffReader : MediaFileStream, IMediaContainer
     {
@@ -189,7 +189,7 @@ namespace Media.Container.Riff
             throw new NotImplementedException();
         }
 
-        public override Rtp.RtpFrame GetSample(Track track, out TimeSpan duration)
+        public override byte[] GetSample(Track track, out TimeSpan duration)
         {
             throw new NotImplementedException();
         }
