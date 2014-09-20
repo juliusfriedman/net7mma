@@ -28,7 +28,9 @@ namespace Media.Container
 
         public int Read(byte[] buffer, int offset, int count) { int result = m_Stream.Read(buffer, offset, count); m_Position += result; return result; }
 
-        public long Skip(long count) { return Position += count; }
+        public int ReadByte() { int result = m_Stream.ReadByte(); if (result != -1) ++m_Position; return result; }
+
+        public long Skip(long count) { return count <= 0 ? Position : Position += count; }
 
         public System.IO.Stream BaseStream { get { return m_Stream; } }
 
@@ -74,7 +76,7 @@ namespace Media.Container
         /// <param name="track">The <see cref="TrackReference"/> which identifies the Track to retrieve the sample data from</param>       
         /// <param name="duration">The amount of time related to the result</param>
         /// <returns>The <see cref="Rtp.RtpFrame"/> containing the sample data</returns>
-        public abstract Rtp.RtpFrame GetSample(Track track, out TimeSpan duration);
+        public abstract byte[] GetSample(Track track, out TimeSpan duration);
 
         #endregion
 

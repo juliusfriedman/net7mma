@@ -93,7 +93,13 @@ namespace Media.Rtsp.Server.Streams
                     {
                         if (track.Remaining > TimeSpan.Zero)
                         {
-                            Rtp.RtpFrame sample = Source.MediaContainer.GetSample(track, out duration);
+
+                            //Here a byte[] Sample can be retrieved, if the source can directly get RtpSamples then another interface definition is required
+
+                            //Then the byte[] is turned into a RtpFrame by a Packetize Delegate, the need is to determine which Implmentation to use which can be determined by
+                            //The codec of the track.
+
+                            Rtp.RtpFrame sample = null; // Source.MediaContainer.GetSample(track, out duration);
 
                             if (sample != null && m_Client.GetContextByPayloadType(sample.PayloadTypeByte) != null) foreach (Rtp.RtpPacket packet in sample) m_Client.OnRtpPacketReceieved(packet);
 

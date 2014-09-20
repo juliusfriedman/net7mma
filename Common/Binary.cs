@@ -95,6 +95,19 @@ namespace Media.Common
 
         #endregion
 
+        #region Statics
+
+        static byte[] BitsSetTable;
+
+        static Binary()
+        {
+            BitsSetTable = new byte[256];
+            BitsSetTable[0] = 0;
+            for (int i = 0; i < 256; ++i) BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+        }
+
+        #endregion
+
         #region Maximum Values
 
         /// <summary>
@@ -140,6 +153,24 @@ namespace Media.Common
         #endregion
 
         #region Methods
+
+        /// <summary>
+        /// Determines the amount of bits set in the byte
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static int BitsSet(byte b) { return BitsSetTable[b]; }
+
+        /// <summary>
+        /// Determines the amount of bits not set in the byte
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static int BitsUnSet(byte b) { return BitSize - BitsSetTable[b]; }
+
+        public static int BitsSet(int i) { return BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+
+        public static int BitsUnSet(int i) { return BitSize * 4 -  BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
 
         /// <summary>
         /// Reads the given amount of bits from an octet via shifting.

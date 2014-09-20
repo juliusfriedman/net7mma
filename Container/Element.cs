@@ -11,15 +11,20 @@ namespace Media.Container
     /// </summary>
     public class Element : Common.BaseDisposable
     {
-        IMediaContainer Master;
+        readonly IMediaContainer Master;
 
         public readonly long Offset, Size;
+
+        //Todo - Keep Size and Identifier both in bytes and use offsets and lengths to read values when required, so a ToByte() method can create the original data
         
         //Should be a property created when accessed.
         public System.IO.MemoryStream Data
         {
             get
             {
+
+                if (Master.BaseStream == null) return null;
+
                 System.IO.MemoryStream result = new System.IO.MemoryStream((int)Size);
 
                 //Slow, use from cached somehow
@@ -64,7 +69,9 @@ namespace Media.Container
 
             base.Dispose();
 
-            Data.Dispose();
+            if (Data != null) Data.Dispose();
+
+            
         }
 
     }

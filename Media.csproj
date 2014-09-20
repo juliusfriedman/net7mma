@@ -98,8 +98,10 @@
     <Compile Include="Common\IThreadOwner.cs" />
     <Compile Include="Common\MemorySegment.cs" />
     <Compile Include="Common\SourceList.cs" />
+    <Compile Include="Container\Asf\AsfReader.cs" />
     <Compile Include="Container\BaseMedia\BaseMediaReader.cs" />
     <Compile Include="Container\Element.cs" />
+    <Compile Include="Container\Matroska\MatroskaReader.cs" />
     <Compile Include="Container\MediaFileStream.cs" />
     <Compile Include="Container\IMediaContainer.cs" />
     <Compile Include="Container\Riff\RiffReader.cs" />
@@ -177,7 +179,7 @@
     <Folder Include="Codec\raw\" />
     <Folder Include="Codec\vp8\" />
     <Folder Include="Compression\" />
-    <Folder Include="Container\Matroska\" />
+    <Folder Include="Container\Flv\" />
     <Folder Include="RtpTools\bin\Debug\" />
     <Folder Include="RtpTools\bin\Release\" />
     <Folder Include="RtpTools\obj\Debug\TempPE\" />

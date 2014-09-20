@@ -123,7 +123,7 @@ namespace Media.Container.BaseMedia
             throw new NotImplementedException();
         }
 
-        public override Rtp.RtpFrame GetSample(Track track, out TimeSpan duration)
+        public override byte[] GetSample(Track track, out TimeSpan duration)
         {
             throw new NotImplementedException();
         }
