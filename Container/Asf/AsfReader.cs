@@ -12,71 +12,69 @@ namespace Media.Container.Asf
     public class AsfReader : MediaFileStream, IMediaContainer
     {
 
-        //https://www.ffmpeg.org/doxygen/trunk/asfdec_8c_source.html
+        public static class Identifiers
+        {
+            /// <summary>
+            ///    Indicates that an object is a <see cref="ContentDescriptionObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfContentDescriptionObject = new System.Guid("75B22633-668E-11CF-A6D9-00AA0062CE6C");
+                
 
-        #region Constants
- 
-        //   ASF data packet structure
-        //   =========================
-        //
-        //
-        //  -----------------------------------
-        // | Error Correction Data             |  Optional
-        //  -----------------------------------
-        // | Payload Parsing Information (PPI) |
-        ////  -----------------------------------
-        //// | Payload Data                      |
-        ////  -----------------------------------
-        //// | Padding Data                      |
-        ////  -----------------------------------
- 
- 
-        //// PPI_FLAG - Payload parsing information flags
-        //#define ASF_PPI_FLAG_MULTIPLE_PAYLOADS_PRESENT 1
- 
-        //#define ASF_PPI_FLAG_SEQUENCE_FIELD_IS_BYTE  0x02 //0000 0010
-        //#define ASF_PPI_FLAG_SEQUENCE_FIELD_IS_WORD  0x04 //0000 0100
-        //#define ASF_PPI_FLAG_SEQUENCE_FIELD_IS_DWORD 0x06 //0000 0110
-        //#define ASF_PPI_MASK_SEQUENCE_FIELD_SIZE     0x06 //0000 0110
- 
-        //#define ASF_PPI_FLAG_PADDING_LENGTH_FIELD_IS_BYTE  0x08 //0000 1000
-        //#define ASF_PPI_FLAG_PADDING_LENGTH_FIELD_IS_WORD  0x10 //0001 0000
-        //#define ASF_PPI_FLAG_PADDING_LENGTH_FIELD_IS_DWORD 0x18 //0001 1000
-        //#define ASF_PPI_MASK_PADDING_LENGTH_FIELD_SIZE     0x18 //0001 1000
- 
-        //#define ASF_PPI_FLAG_PACKET_LENGTH_FIELD_IS_BYTE  0x20 //0010 0000
-        //#define ASF_PPI_FLAG_PACKET_LENGTH_FIELD_IS_WORD  0x40 //0100 0000
-        //#define ASF_PPI_FLAG_PACKET_LENGTH_FIELD_IS_DWORD 0x60 //0110 0000
-        //#define ASF_PPI_MASK_PACKET_LENGTH_FIELD_SIZE     0x60 //0110 0000
- 
-        //// PL_FLAG - Payload flags
-        //#define ASF_PL_FLAG_REPLICATED_DATA_LENGTH_FIELD_IS_BYTE   0x01 //0000 0001
-        //#define ASF_PL_FLAG_REPLICATED_DATA_LENGTH_FIELD_IS_WORD   0x02 //0000 0010
-        //#define ASF_PL_FLAG_REPLICATED_DATA_LENGTH_FIELD_IS_DWORD  0x03 //0000 0011
-        //#define ASF_PL_MASK_REPLICATED_DATA_LENGTH_FIELD_SIZE      0x03 //0000 0011
- 
-        //#define ASF_PL_FLAG_OFFSET_INTO_MEDIA_OBJECT_LENGTH_FIELD_IS_BYTE  0x04 //0000 0100
-        //#define ASF_PL_FLAG_OFFSET_INTO_MEDIA_OBJECT_LENGTH_FIELD_IS_WORD  0x08 //0000 1000
-        //#define ASF_PL_FLAG_OFFSET_INTO_MEDIA_OBJECT_LENGTH_FIELD_IS_DWORD 0x0c //0000 1100
-        //#define ASF_PL_MASK_OFFSET_INTO_MEDIA_OBJECT_LENGTH_FIELD_SIZE     0x0c //0000 1100
- 
-        //#define ASF_PL_FLAG_MEDIA_OBJECT_NUMBER_LENGTH_FIELD_IS_BYTE  0x10 //0001 0000
-        //#define ASF_PL_FLAG_MEDIA_OBJECT_NUMBER_LENGTH_FIELD_IS_WORD  0x20 //0010 0000
-        //#define ASF_PL_FLAG_MEDIA_OBJECT_NUMBER_LENGTH_FIELD_IS_DWORD 0x30 //0011 0000
-        //#define ASF_PL_MASK_MEDIA_OBJECT_NUMBER_LENGTH_FIELD_SIZE     0x30 //0011 0000
- 
-        //#define ASF_PL_FLAG_STREAM_NUMBER_LENGTH_FIELD_IS_BYTE  0x40 //0100 0000
-        //#define ASF_PL_MASK_STREAM_NUMBER_LENGTH_FIELD_SIZE     0xc0 //1100 0000
- 
-        //#define ASF_PL_FLAG_PAYLOAD_LENGTH_FIELD_IS_BYTE  0x40 //0100 0000
-        //#define ASF_PL_FLAG_PAYLOAD_LENGTH_FIELD_IS_WORD  0x80 //1000 0000
-        //#define ASF_PL_MASK_PAYLOAD_LENGTH_FIELD_SIZE     0xc0 //1100 0000
- 
-        //#define ASF_PL_FLAG_KEY_FRAME 0x80 //1000 0000
+            /// <summary>
+            ///    Indicates that an object is a <see cref="ExtendedContentDescriptionObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfExtendedContentDescriptionObject = new System.Guid("D2D0A440-E307-11D2-97F0-00A0C95EA850");
+                
 
-        #endregion
+            /// <summary>
+            ///    Indicates that an object is a <see cref="FilePropertiesObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfFilePropertiesObject = new System.Guid("8CABDCA1-A947-11CF-8EE4-00C00C205365");
+                
 
-        public static string ToFourCharacterCode(byte[] identifier, int offset = 0, int count = 4) { return Encoding.UTF8.GetString(identifier, offset, count); }
+            /// <summary>
+            ///    Indicates that an object is a <see cref="HeaderExtensionObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfHeaderExtensionObject = new System.Guid("5FBF03B5-A92E-11CF-8EE3-00C00C205365");
+
+            /// <summary>
+            ///    Indicates that an object is a <see cref="HeaderObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfHeaderObject = new System.Guid("75B22630-668E-11CF-A6D9-00AA0062CE6C");
+
+            /// <summary>
+            ///    Indicates that an object is a <see cref="MetadataLibraryObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfMetadataLibraryObject = new System.Guid("44231C94-9498-49D1-A141-1D134E457054");
+                
+            /// <summary>
+            ///    Indicates that an object is a <see cref="PaddingObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfPaddingObject = new System.Guid("1806D474-CADF-4509-A4BA-9AABCB96AAE8");
+
+            /// <summary>
+            ///    Indicates that an object is a <see cref="StreamPropertiesObject" />.
+            /// </summary>
+            public static readonly System.Guid AsfStreamPropertiesObject = new System.Guid("B7DC0791-A9B7-11CF-8EE6-00C00C205365");
+                
+            /// <summary>
+            ///    Indicates that a <see cref="StreamPropertiesObject" />
+            ///    contains information about an audio stream.
+            /// </summary>
+            public static readonly System.Guid AsfAudioMedia = new System.Guid("F8699E40-5B4D-11CF-A8FD-00805F5C442B");
+                
+            /// <summary>
+            ///    Indicates that a <see cref="StreamPropertiesObject" />
+            ///    contains information about an video stream.
+            /// </summary>
+            public static readonly System.Guid AsfVideoMedia = new System.Guid("BC19EFC0-5B4D-11CF-A8FD-00805F5C442B");
+
+            /// <summary>
+            ///    Indicates a placeholder portion of a file is correctly
+            ///    encoded.
+            /// </summary>
+            public static readonly System.Guid AsfReserved1 = new System.Guid("ABD3D211-A9BA-11cf-8EE6-00C00C205365");
+        }
 
         public AsfReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
@@ -96,20 +94,35 @@ namespace Media.Container.Asf
 
         public Element ReadNext()
         {
-            throw new NotImplementedException();
-        }
+            if (Remaining < 16) return null;
 
+            long offset = Position;
+
+            byte[] identifier = new byte[16];
+
+            Read(identifier, 0, 16);
+
+            return new Element(this, identifier, offset, 0, true);
+
+            //Guid parsed = new Guid(identifier);
+
+            //switch (parsed)
+            //{
+            //    case Guid.AsfAudioMedia: break;
+
+            //}
+        }
 
         public override IEnumerator<Element> GetEnumerator()
         {
-            while (Remaining > 2)
+            while (Remaining > 16)
             {
                 Element next = ReadNext();
                 if (next != null) yield return next;
                 else yield break;
 
 
-                Skip(next.Size - 1);
+                Skip(next.Size);
             }
         }      
 

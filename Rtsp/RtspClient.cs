@@ -1484,7 +1484,7 @@ namespace Media.Rtsp
             {
 
                 //If the client has not recieved any bytes and we have not already switched to Tcp
-                if (m_RtpProtocol != ProtocolType.Tcp && Client.TransportContexts.All(tc=> tc.LastRtpPacketReceived < tc.m_ReceiveInterval))
+                if (m_RtpProtocol != ProtocolType.Tcp && !Client.TransportContexts.All(tc=> tc.LastRtpPacketReceived < tc.m_ReceiveInterval))
                 {
                     try
                     {
