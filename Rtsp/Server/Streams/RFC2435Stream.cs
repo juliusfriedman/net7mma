@@ -1852,7 +1852,7 @@ namespace Media.Rtsp.Server.Streams
 
             Ready = false;
 
-            Utility.Abort(ref m_RtpClient.m_WorkerThread);
+            if (m_RtpClient != null) Utility.Abort(ref m_RtpClient.m_WorkerThread);
 
             if (m_Watcher != null)
             {

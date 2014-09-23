@@ -11,7 +11,6 @@ namespace Media.Container.Asf
     /// </summary>
     public class AsfReader : MediaFileStream, IMediaContainer
     {
-
         public static class Identifiers
         {
             /// <summary>
@@ -19,18 +18,15 @@ namespace Media.Container.Asf
             /// </summary>
             public static readonly System.Guid AsfContentDescriptionObject = new System.Guid("75B22633-668E-11CF-A6D9-00AA0062CE6C");
                 
-
             /// <summary>
             ///    Indicates that an object is a <see cref="ExtendedContentDescriptionObject" />.
             /// </summary>
             public static readonly System.Guid AsfExtendedContentDescriptionObject = new System.Guid("D2D0A440-E307-11D2-97F0-00A0C95EA850");
-                
 
             /// <summary>
             ///    Indicates that an object is a <see cref="FilePropertiesObject" />.
             /// </summary>
             public static readonly System.Guid AsfFilePropertiesObject = new System.Guid("8CABDCA1-A947-11CF-8EE4-00C00C205365");
-                
 
             /// <summary>
             ///    Indicates that an object is a <see cref="HeaderExtensionObject" />.
@@ -76,6 +72,30 @@ namespace Media.Container.Asf
             public static readonly System.Guid AsfReserved1 = new System.Guid("ABD3D211-A9BA-11cf-8EE6-00C00C205365");
         }
 
+        /// <summary>
+        /// Holds a cache of all Fields in the Identifiers static type
+        /// </summary>
+        static Dictionary<Guid, string> IdentifierLookup;
+
+        static AsfReader()
+        {
+            IdentifierLookup = new Dictionary<Guid, string>();
+
+            foreach (var fieldInfo in typeof(Identifiers).GetFields()) IdentifierLookup.Add((Guid)fieldInfo.GetValue(null), fieldInfo.Name);
+        }
+
+
+        public static string ToTextualConvention(byte[] identifier, int offset = 0)
+        {
+            Guid id = offset > 0 ? new Guid(identifier.Skip(offset).ToArray()) : new Guid(identifier);
+
+            string result;
+
+            if (!IdentifierLookup.TryGetValue(id, out result)) result = "Unknown";
+
+            return result;
+        }
+
         public AsfReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public AsfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
@@ -102,26 +122,26 @@ namespace Media.Container.Asf
 
             Read(identifier, 0, 16);
 
-            return new Element(this, identifier, offset, 0, true);
+            byte[] lengthBytes = new byte[8];
 
-            //Guid parsed = new Guid(identifier);
+            Read(lengthBytes, 0, 8);
 
-            //switch (parsed)
-            //{
-            //    case Guid.AsfAudioMedia: break;
+            //24 bytes
 
-            //}
+            //Length in LittleEndian?
+            long length = Common.Binary.Read64(lengthBytes, 0, !BitConverter.IsLittleEndian);
+
+            return new Element(this, identifier, offset, length, length <= Remaining);
         }
 
         public override IEnumerator<Element> GetEnumerator()
         {
-            while (Remaining > 16)
+            while (Remaining > 24)
             {
                 Element next = ReadNext();
                 if (next != null) yield return next;
                 else yield break;
-
-
+                
                 Skip(next.Size);
             }
         }      
@@ -144,7 +164,7 @@ namespace Media.Container.Asf
 
         public override Element TableOfContents
         {
-            get { return ReadElement("?"); }
+            get { return ReadElement("AsfFileConfiguration") ?? ReadElement("AsfStreamConfiguration"); }
         }
 
         public override IEnumerable<Track> GetTracks()

@@ -575,15 +575,9 @@ namespace Media.Container.Matroska
 
             bool complete = true;
 
-        Read:
-
             byte[] identifier = ReadIdentifier(this);
 
-            if (identifier == null) goto Read;
-
             byte[] lengthBytes = ReadLength(this);
-
-            if (lengthBytes == null) goto Read;
 
             long length = Common.Binary.Read64(lengthBytes, 0, BitConverter.IsLittleEndian);
 
