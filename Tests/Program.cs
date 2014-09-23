@@ -2250,7 +2250,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Element:" + Media.Container.Matroska.MatroskaReader.ToFourCharacterCode(reader.Root.Identifier));
+                    Console.WriteLine("Root Element:" + Media.Container.Matroska.MatroskaReader.ToTextualConvention(reader.Root.Identifier));
 
                     foreach (var element in reader)
                     {
@@ -2258,9 +2258,9 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + element.Offset);
                         Console.WriteLine("Complete: " + element.Complete);
-                        Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToFourCharacterCode(element.Identifier));
+                        Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
                         Console.WriteLine("Size: " + element.Size);
-                        Console.WriteLine("ParentBox: " + Media.Container.Matroska.MatroskaReader.ParentElements.Contains(Media.Container.Matroska.MatroskaReader.ToFourCharacterCode(element.Identifier)));
+                        Console.WriteLine("EbmlTytpe: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
                     }
                 }
 
@@ -2321,10 +2321,7 @@ a=mpeg4-esid:101");
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
-            {
-                m_ForceTCP = true
-            });
+            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));

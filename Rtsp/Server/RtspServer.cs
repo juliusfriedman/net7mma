@@ -618,6 +618,7 @@ namespace Media.Rtsp
         /// Determined by the time of the sessions last RecieversReport or the last RtspRequestRecieved (get parameter must be sent to keep from timing out)
         /// </summary>
         internal void DisconnectAndRemoveInactiveSessions(object state = null) { DisconnectAndRemoveInactiveSessions(); }
+
         internal void DisconnectAndRemoveInactiveSessions()
         {
 
@@ -644,6 +645,7 @@ namespace Media.Rtsp
                                 (maintenanceStarted - sessionContext.SendersReport.Transferred.Value).TotalSeconds > RtspClientInactivityTimeoutSeconds)
                             {
                                 RemoveSession(session);
+                                break;
                             }
                         }
                     }
@@ -732,15 +734,16 @@ namespace Media.Rtsp
         {
             try
             {
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                GC.WaitForFullGCComplete();
-
                 RestartFaultedStreams(state);
                 DisconnectAndRemoveInactiveSessions(state);
 
                 int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds * 1000 : 30000;
                 m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
+
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                GC.WaitForFullGCComplete();
+
             }
             catch { }
         }
@@ -1160,6 +1163,9 @@ namespace Media.Rtsp
                     return;
                 }
 
+                //Log the reqeust now
+                if (Logger != null) Logger.LogRequest(request, session);
+
                 //Determine the handler for the request and process it
                 switch (request.Method)
                 {
@@ -1239,8 +1245,10 @@ namespace Media.Rtsp
             }
             finally
             {
-                //Log it
-                if (Logger != null) Logger.LogRequest(request, session);
+                if (request != null && request.Method == RtspMethod.TEARDOWN && session != null)
+                {
+                    if (session.SourceContexts.Count == 0 || session.AttachedSources.Count == 0) RemoveSession(session);
+                }
             }
         }
 
@@ -1337,7 +1345,9 @@ namespace Media.Rtsp
 
                         string sess = response.GetHeader(RtspHeaders.Session);
 
-                        if (RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
+                        //Not closing
+                        if (!response.ContainsHeader(RtspHeaders.Connection) &&//Check for the timeout
+                            RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
                         
                         session.SendRtspData((session.LastResponse = response).ToBytes());
                     }
@@ -1753,7 +1763,7 @@ namespace Media.Rtsp
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine("Exception in Teardown");
 #endif
-            }            
+            }
         }
 
         /// <summary>

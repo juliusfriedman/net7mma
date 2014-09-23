@@ -291,6 +291,8 @@ namespace Media.Rtsp
                 //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
                 if (m_RtpClient != null)
                 {
+                    m_RtpClient.SendGoodbyes();
+
                     m_RtpClient.InterleavedData -= m_Server.ProcessRtspInterleaveData;
 
                     m_RtpClient.Dispose();
@@ -870,9 +872,6 @@ namespace Media.Rtsp
             else //Tear down all streams
             {
                 RemoveSource(source);
-                
-                if(AttachedSources.Count == 0)
-                    m_Server.RemoveSession(this);
             }
 
             //Return the response
