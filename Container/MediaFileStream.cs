@@ -12,11 +12,17 @@ namespace Media.Container
     /// </summary>
     public abstract class MediaFileStream : Common.BaseDisposable, Container.IMediaContainer
     {
+        #region Fields
+
         Uri m_Source;
 
         internal System.IO.FileStream m_Stream;
 
         long m_Position, m_Length;
+
+        #endregion
+
+        #region Properties
 
         public Uri Source { get { return Disposed ? null : m_Source; } }
 
@@ -33,6 +39,10 @@ namespace Media.Container
         public long Skip(long count) { return count <= 0 ? Position : Position += count; }
 
         public System.IO.Stream BaseStream { get { return m_Stream; } }
+
+        #endregion
+
+        #region Constructor / Destructor
 
         ~MediaFileStream() { Dispose(); }
 
@@ -53,6 +63,8 @@ namespace Media.Container
 
             m_Length = m_Stream.Length;
         }
+
+        #endregion
 
         public override void Dispose()
         {
@@ -80,6 +92,8 @@ namespace Media.Container
 
         #endregion
 
+        #region IMediaContainer
+
         public Uri Location
         {
             get { return m_Source; }
@@ -95,5 +109,7 @@ namespace Media.Container
         {
             return GetEnumerator();
         }
+
+        #endregion
     }
 }

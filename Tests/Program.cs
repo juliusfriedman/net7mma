@@ -2298,23 +2298,6 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddStream(source);
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("AlphaTcp", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            {
-                //m_ForceTCP = true
-            });
-
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Beta", "rtsp://inet.orban.com:554/tropic.3gp")
-            //{
-            //    //m_ForceTCP = true
-            //});
-
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("BetaTcp", "rtsp://inet.orban.com:554/tropic.3gp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            //{
-            //    //m_ForceTCP = true
-            //});        
-
-            //H263 Stream Tcp Exposed @ rtsp://localhost/live/Alpha through Udp and Tcp (Source is YouTube hosted video which explains how you can get a Media.Rtsp Uri to any YouTube video)
-
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
@@ -2327,15 +2310,6 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
             server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
 
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Turbo", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp"));
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("TurboTcp", "rtsp://211.79.36.213/discoveryturbo_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("Science", "rtsp://211.79.36.213/discoveryscience_gphone.sdp"));
-            //server.AddStream(new Media.Rtsp.Server.Streams.RtspSourceStream("ScienceTcp", "rtsp://211.79.36.213/discoveryscience_gphone.sdp", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-            //{
-                //m_ForceTCP = true
-            //});
-
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
@@ -2343,7 +2317,7 @@ a=mpeg4-esid:101");
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Stream("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
-            Media.Rtsp.Server.Streams.RFC2435Stream imageStream;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            Media.Rtsp.Server.Streams.RFC2435Stream imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Expose Bandit's Pictures through Udp and Tcp
             server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Stream("Bandit", localPath + "\\Bandit\\") { Loop = true });
@@ -2351,13 +2325,12 @@ a=mpeg4-esid:101");
             //Test H.264 Encoding
             server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Stream(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
 
-            //Test MPEG2 Endoing
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg2", localPath + "\\JpegTest\\") { Loop = true });
+            //Test MPEG Encoding
+            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
-            //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
-
-            //server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
+            server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
+            server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
             
             //TODO
             //server.RequestReceived events and custom handlers
@@ -2388,7 +2361,7 @@ a=mpeg4-esid:101");
                                                         0,
                                                         Screen.PrimaryScreen.Bounds.Size,
                                                         System.Drawing.CopyPixelOperation.SourceCopy);
-                            
+
                             //Convert to JPEG and put in packets
                             screenShots.Packetize(bmpScreenshot);
 
@@ -2406,7 +2379,7 @@ a=mpeg4-esid:101");
             server.Start();
 
             //Start taking pictures of the desktop and making packets
-            taker.Start();
+            //taker.Start();
 
             //If you add more streams they will be started once the server is started
 
@@ -2416,7 +2389,7 @@ a=mpeg4-esid:101");
             Console.WriteLine("Press 'U' to Enable Udp on Media.RtspServer");
             Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
             Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
-            Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
+            if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
             while (true)
             {
