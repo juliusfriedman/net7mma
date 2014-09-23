@@ -2266,6 +2266,28 @@ a=mpeg4-esid:101");
 
             }
 
+            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
+            {
+                using (Media.Container.Asf.AsfReader reader = new Media.Container.Asf.AsfReader(fileName))
+                {
+                    Console.WriteLine("Path:" + reader.Source);
+                    Console.WriteLine("Total Size:" + reader.Length);
+
+                    Console.WriteLine("Root Element:" + Media.Container.Asf.AsfReader.ToTextualConvention(reader.Root.Identifier));
+
+                    foreach (var element in reader)
+                    {
+                        Console.WriteLine("Identifier:" + BitConverter.ToString(element.Identifier));
+                        Console.WriteLine("Name: " + Media.Container.Asf.AsfReader.ToTextualConvention(element.Identifier));
+                        Console.WriteLine("Position:" + reader.Position);
+                        Console.WriteLine("Offset: " + element.Offset);
+                        Console.WriteLine("Complete: " + element.Complete);
+                        Console.WriteLine("Size: " + element.Size);
+                    }
+                }
+
+            }
+
         }
 
         /// <summary>
@@ -2329,8 +2351,8 @@ a=mpeg4-esid:101");
             server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Stream(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
-            server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
-            server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
+            //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
+            //server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
             
             //TODO
             //server.RequestReceived events and custom handlers

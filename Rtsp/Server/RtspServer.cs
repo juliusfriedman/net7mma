@@ -449,8 +449,7 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(rtspSessionId)) return null;
             rtspSessionId = rtspSessionId.Trim();
             return Clients.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.SessionId) && c.SessionId.Equals(rtspSessionId));
-            //return Clients.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.SessionId) && string.Compare(c.SessionId, 0,  rtspSessionId, 1, 1000, true, System.Globalization.CultureInfo.InvariantCulture) <= 0);
-        }               
+        }              
 
         #endregion
 
