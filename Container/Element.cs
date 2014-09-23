@@ -23,7 +23,7 @@ namespace Media.Container
             get
             {
 
-                if (Master.BaseStream == null) return null;
+                if (Size <= 0 || Master.BaseStream == null) return null;
 
                 System.IO.MemoryStream result = new System.IO.MemoryStream((int)Size);
 
@@ -69,9 +69,7 @@ namespace Media.Container
 
             base.Dispose();
 
-            if (Data != null) Data.Dispose();
-
-            
+            if (Size > 0 && Data != null) Data.Dispose();
         }
 
     }

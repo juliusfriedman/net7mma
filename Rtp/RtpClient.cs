@@ -2858,7 +2858,7 @@ namespace Media.Rtp
                             //If the entire packet was sent
                             else if (SendRtpPacket(packet) >= packet.Length)
                             {
-                                ++remove;                                
+                                ++remove;
                                 lastOperation = DateTime.UtcNow;
                             }
                             else break;
@@ -2877,7 +2877,11 @@ namespace Media.Rtp
                     #endregion
                 }
             }
-            catch { if (!m_StopRequested)  goto Begin; }
+            catch (Exception ex)
+            {
+                m_StopRequested = ex is ThreadAbortException;
+                if (!m_StopRequested) goto Begin;
+            }
         }
 
         void ProcessReceive(TransportContext context, ref DateTime lastOperation)
