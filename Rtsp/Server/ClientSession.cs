@@ -118,8 +118,6 @@ namespace Media.Rtsp
 
         public RtspMessage LastRequest { get; internal set; }
 
-        public bool Interleaving { get { return m_RtpClient != null && m_RtpClient.Connected && m_RtspSocket.ProtocolType == m_RtpClient.m_TransportProtocol; } }
-
         public IPEndPoint LocalEndPoint
         {
             get
