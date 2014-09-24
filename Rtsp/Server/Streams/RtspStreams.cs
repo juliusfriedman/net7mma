@@ -135,7 +135,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready { get { return RtspClient != null && RtspClient.Playing; } }
+        public override bool Ready { get { return base.Ready && RtspClient != null && RtspClient.Playing; } }
 
         #endregion
 
@@ -191,8 +191,14 @@ namespace Media.Rtsp.Server.Streams
                 RtspClient.OnConnect += RtspClient_OnConnect;
                 RtspClient.OnDisconnect += RtspClient_OnDisconnect;
                 RtspClient.OnPlay += RtspClient_OnPlay;
+                RtspClient.OnStop += RtspClient_OnStop;
                 RtspClient.Connect();
             }
+        }
+
+        void RtspClient_OnStop(RtspClient sender, object args)
+        {
+            base.Ready = false;            
         }
 
         void RtspClient_OnPlay(RtspClient sender, object args)
@@ -204,7 +210,7 @@ namespace Media.Rtsp.Server.Streams
         void RtspClient_OnDisconnect(RtspClient sender, object args)
         {
             if (RtspClient != sender) return;
-            RtspClient.OnPlay -= RtspClient_OnPlay;
+            RtspClient.OnPlay -= RtspClient_OnPlay;            
             RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
             base.Ready = false;
         }

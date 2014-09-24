@@ -179,7 +179,6 @@
     <Folder Include="Codec\raw\" />
     <Folder Include="Codec\vp8\" />
     <Folder Include="Compression\" />
-    <Folder Include="Container\Flv\" />
     <Folder Include="RtpTools\bin\Debug\" />
     <Folder Include="RtpTools\bin\Release\" />
     <Folder Include="RtpTools\obj\Debug\TempPE\" />

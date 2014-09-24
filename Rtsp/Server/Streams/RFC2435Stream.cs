@@ -1797,8 +1797,8 @@ namespace Media.Rtsp.Server.Streams
             //Make the thread
             m_RtpClient.m_WorkerThread = new System.Threading.Thread(SendPackets);
             m_RtpClient.m_WorkerThread.TrySetApartmentState(System.Threading.ApartmentState.MTA);
-            m_RtpClient.m_WorkerThread.IsBackground = true;
-            m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
+            //m_RtpClient.m_WorkerThread.IsBackground = true;
+            //m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.BelowNormal;
             m_RtpClient.m_WorkerThread.Name = "SourceStream-" + Id;
 
             //If we are watching and there are already files in the directory then add them to the Queue
