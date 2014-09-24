@@ -2392,10 +2392,7 @@ a=mpeg4-esid:101");
                         }
                     }
                 }
-            }))
-            {
-                Priority = System.Threading.ThreadPriority.Highest
-            };
+            }));
 
             //Start the server
             server.Start();
@@ -2412,6 +2409,8 @@ a=mpeg4-esid:101");
             Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
             Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
             if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
+
+            bool loadTesting = false;
 
             while (true)
             {
@@ -2437,10 +2436,22 @@ a=mpeg4-esid:101");
                 }
                 else if (keyInfo.Key == ConsoleKey.T)
                 {
-                    Console.WriteLine("Performing Load Test");
-                    SubTestLoad(server);
-                }
-                else if (System.Diagnostics.Debugger.IsAttached)
+                    if (!loadTesting)
+                    {
+                        Console.WriteLine("Performing Load Test");
+                        System.Threading.ThreadPool.QueueUserWorkItem(o =>
+                        {
+                            loadTesting = true;
+                            SubTestLoad(server);
+                            loadTesting = false;
+                            Console.WriteLine("Load Test Completed!!!!!!!!!!");
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine("Load Test In Progress!");
+                    }
+                }else if (System.Diagnostics.Debugger.IsAttached)
                 {
                     System.Diagnostics.Debugger.Break();
                 }

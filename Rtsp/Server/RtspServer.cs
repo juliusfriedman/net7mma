@@ -651,15 +651,11 @@ namespace Media.Rtsp
         {
             foreach (IMediaStream stream in Streams.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Ready == false))
             {
-                try
-                {
-                    //Ensure Stopped
-                    stream.Stop();
+                //Ensure Stopped
+                stream.Stop();
 
-                    //try to start it again
-                    stream.Start();
-                }
-                catch { }
+                //try to start it again
+                stream.Start();
             }
         }
 
@@ -742,9 +738,6 @@ namespace Media.Rtsp
             //Stop listening for requests
             m_StopRequested = true;
 
-            //Abort the thread
-            Utility.Abort(ref m_ServerThread);
-
             if (m_Maintainer != null)
             {
                 m_Maintainer.Dispose();
@@ -759,6 +752,8 @@ namespace Media.Rtsp
             {
                 RemoveSession(cs);
             }
+
+            Utility.Abort(ref m_ServerThread);
 
             //Dispose the socket
             m_TcpServerSocket.Dispose();

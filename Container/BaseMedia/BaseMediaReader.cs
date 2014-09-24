@@ -116,6 +116,14 @@ namespace Media.Container.BaseMedia
             }
         }
 
+        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/MP4Container.java
+
+        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/Movie.java
+
+        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/Track.java
+        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/VideoTrack.java
+        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/AudioTrack.java
+
         public override Element TableOfContents
         {
             get { return ReadBox("stsd") ?? ReadBox("stco") ?? ReadBox("64shit"); }
@@ -123,6 +131,17 @@ namespace Media.Container.BaseMedia
 
         public override IEnumerable<Track> GetTracks()
         {
+
+            //Get mvhd
+            //foreach mvhd|child->trackBox
+            //  createTrack(child)
+
+            //minf
+            //vmhd
+            //stbl
+            //stsd
+                //stsd child|0 must be VisualSampleEntry  (for video)
+
             throw new NotImplementedException();
         }
 

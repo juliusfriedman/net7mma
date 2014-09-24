@@ -686,10 +686,22 @@ namespace Media.Rtsp
                     //We may not recieve a response if the socket is closed in a violatile fashion on the sending end
                     //And we realy don't care
                 }
+            }
 
-                //Fire an event
-                OnDisconnected();
-            }            
+            if (Client != null && Client.Connected) Client.Disconnect();
+        
+            if (m_RtspSocket != null)
+            {
+                if(m_RtspSocket.Connected) m_RtspSocket.Close();
+                m_RtspSocket = null;
+            }
+
+            m_SessionId = null;
+            
+            m_SessionDescription = null;
+
+            //Fire an event
+            OnDisconnected();
         }
 
         #endregion
