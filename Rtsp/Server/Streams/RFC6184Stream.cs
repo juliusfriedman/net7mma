@@ -70,6 +70,10 @@ namespace Media.Rtsp.Server.Streams
 
             public RFC6184Frame(byte payloadType) : base(payloadType) { }
 
+            public RFC6184Frame(Rtp.RtpFrame existing) : base(existing) { }
+
+            public RFC6184Frame(RFC6184Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
+
             public System.IO.MemoryStream Buffer { get; set; }
 
             public void Packetize(byte[] nal, int mtu = 1500)
