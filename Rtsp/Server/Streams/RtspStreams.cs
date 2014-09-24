@@ -185,7 +185,9 @@ namespace Media.Rtsp.Server.Streams
         /// Beings streaming from the source
         /// </summary>
         public override void Start()
-        {            
+        {
+            if (Disposed) return;
+
             if (!RtspClient.Connected)
             {
                 RtspClient.OnConnect += RtspClient_OnConnect;
@@ -194,6 +196,7 @@ namespace Media.Rtsp.Server.Streams
                 RtspClient.OnStop += RtspClient_OnStop;
                 RtspClient.Connect();
             }
+            else if(!RtspClient.Playing) RtspClient.StartPlaying();
         }
 
         void RtspClient_OnStop(RtspClient sender, object args)
@@ -209,9 +212,6 @@ namespace Media.Rtsp.Server.Streams
 
         void RtspClient_OnDisconnect(RtspClient sender, object args)
         {
-            if (RtspClient != sender) return;
-            RtspClient.OnPlay -= RtspClient_OnPlay;            
-            RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
             base.Ready = false;
         }
 
@@ -249,8 +249,21 @@ namespace Media.Rtsp.Server.Streams
         /// </summary>
         public override void Stop()
         {
-            if (RtspClient != null && RtspClient.Playing) RtspClient.StopPlaying();
+
+            if (State != StreamState.Started) return;
+
+            if (RtspClient != null && RtspClient.Connected)
+            {                
+                RtspClient.Disconnect();
+            }
+
+            RtspClient.OnConnect -= RtspClient_OnConnect;
+            RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
+            RtspClient.OnPlay -= RtspClient_OnPlay;
+            RtspClient.OnStop -= RtspClient_OnStop;
+
             base.Stop();
+
             m_StartedTimeUtc = null;
         }
 
