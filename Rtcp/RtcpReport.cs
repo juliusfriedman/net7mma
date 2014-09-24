@@ -281,7 +281,7 @@ namespace Media.Rtcp
                 //While there is an item in the enumerator
                 while (blockEnumerator.MoveNext())
                 {
-                    //If the index is not yet 0 decrement and continue enumeration.
+                    //If the index is not yet 0 decrement and continue enumeration to move to the correct given index.
                     if (index-- > 0) continue;
 
                     //If the current block being enumerated corresponds to the given reportBlock then break enumeration.

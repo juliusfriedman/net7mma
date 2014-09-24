@@ -212,16 +212,22 @@ namespace Media.Rtsp
             }
             else
             {
-                context = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
+                sourceContext = context = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
             }
 
             if (context == null) return;
-
-            if (m_RtpClient != null)
+            else if(PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier)) 
+            {
+                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, packet.Clone(true, true, true, true, false));
+            }
+            else if (m_RtpClient != null)
             {
                 int sent = m_RtpClient.SendRtpPacket(packet, context.SynchronizationSourceIdentifier);
 
-                //if (sent < packet.Length && m_RtpClient != null) m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare(context.MediaDescription.MediaFormat, context.SynchronizationSourceIdentifier).ToArray(), 0));
+#if DEBUG
+                if(sent < packet.Length) System.Diagnostics.Debug.WriteLine("Truncated : " + (packet.Length - sent).ToString() + " bytes of RtpPacket");
+#endif
+
             }
         }
 
@@ -479,7 +485,6 @@ namespace Media.Rtsp
 
             foreach (RtpClient.TransportContext tc in source.RtpClient.TransportContexts)
             {
-
                 var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
 
                 if (context == null) continue;
@@ -492,7 +497,9 @@ namespace Media.Rtsp
 
                 actualTrack = "url=rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString();
 
-                rtpInfos.Add(actualTrack + ";seq=" + Math.Min(context.SequenceNumber, tc.SequenceNumber) + ";rtptime=" + Math.Min(tc.RtpTimestamp, context.RtpTimestamp));// + ";ssrc=0x" + context.SynchronizationSourceIdentifier.ToString("X"));
+                rtpInfos.Add(actualTrack + ";seq=" + (uint)tc.SequenceNumber + ";rtptime=" + (uint)tc.RtpTimestamp + ";ssrc=0x" + ((uint)context.SynchronizationSourceIdentifier).ToString("X"));
+                
+                context = null;
             }
 
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
@@ -501,13 +508,15 @@ namespace Media.Rtsp
             m_RtpClient.SendSendersReports();
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
-            if (!m_RtpClient.Connected) m_RtpClient.Connect();
+            if (!m_RtpClient.Connected)
+            {
+                //Connect the client
+                m_RtpClient.Connect();
 
-            m_RtpClient.MaximumRtcpBandwidthPercentage = 0;
-
-            //Attach events
-            source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
-            source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+                //Attach events
+                //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+                source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+            }
 
         End:
 
@@ -671,7 +680,7 @@ namespace Media.Rtsp
                 if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP;unicast;client_port=" + string.Join("-", clientPorts) + ";server_port=" + setupContext.ClientRtpPort + "-" + setupContext.ClientRtcpPort + /* ";destination=" + ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address + */ ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;// +";ssrc=0x" + ssrc.ToString("X");
+                returnTransportHeader = "RTP/AVP;unicast;client_port=" + string.Join("-", clientPorts) + ";server_port=" + setupContext.ClientRtpPort + "-" + setupContext.ClientRtcpPort + /* ";destination=" + ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address + */ ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address +";ssrc=0x" + ((uint)ssrc).ToString("X");
             }            
             else if(channels.Length == 2) /// Rtsp / Tcp (Interleaved)
             {
@@ -755,8 +764,8 @@ namespace Media.Rtsp
                     //Initialize the current TransportChannel with the interleaved Socket
                     setupContext.Initialize(m_RtspSocket);
                 }
-                
-                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel + ";ssrc=0x" + ssrc.ToString("X");////
+
+                returnTransportHeader = "RTP/AVP/TCP;unicast;interleaved=" + setupContext.DataChannel + '-' + setupContext.ControlChannel +";ssrc=0x" + ((uint)ssrc).ToString("X");////
             }
             else//The Transport field did not contain a supported transport specification.
             {

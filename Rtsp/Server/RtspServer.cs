@@ -635,7 +635,7 @@ namespace Media.Rtsp
                         RemoveSession(session);                     
                     }
                     //If all contexts have a report sent longer ago then allowed also remove the session
-                    else if (session.m_RtpClient.TransportContexts.All(tc => tc.m_InactiveTime > tc.m_SendInterval))
+                    else if (session.m_RtpClient != null && session.m_RtpClient.TransportContexts.All(tc => tc.m_InactiveTime > tc.m_SendInterval))
                     {
                         RemoveSession(session);
                     }
@@ -721,20 +721,14 @@ namespace Media.Rtsp
         /// <param name="state">Reserved</param>
         internal virtual void MaintainServer(object state = null)
         {
-            try
-            {
-                RestartFaultedStreams(state);
-                DisconnectAndRemoveInactiveSessions(state);
+            if (Disposed || m_Maintainer == null) return;
 
-                int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds * 1000 : 30000;
-                m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
+            RestartFaultedStreams(state);
+            DisconnectAndRemoveInactiveSessions(state);
 
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
-                GC.WaitForFullGCComplete();
+            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds * 1000 : 30000;
 
-            }
-            catch { }
+            m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
         }
 
         /// <summary>
@@ -850,6 +844,7 @@ namespace Media.Rtsp
             }
             catch (ThreadAbortException)
             {
+                m_StopRequested = true;
                 //All workers threads which exist now exit.
                 return;
             }
@@ -1000,20 +995,14 @@ namespace Media.Rtsp
                             if (request.MessageType != RtspMessageType.Invalid)
                             {
                                 //Process the request
-                                ProcessRtspRequest(request, session);                                
+                                ProcessRtspRequest(request, session);
                             }
                         }
                     }
                 }
-                else if(session.Interleaving)
-                {
-                    //This data doesn't belong to us
-                    //session.m_RtpClient.Connect();
-                    return;
-                }
                 else
                 {
-                    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
+                    RemoveSession(session);
                 }
             }
             catch (Exception ex)
@@ -1685,7 +1674,7 @@ namespace Media.Rtsp
             //Send the response to the client
             ProcessSendRtspResponse(resp, session);
 
-            session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.AboveNormal;
+            session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
 
             session.ProcessPacketBuffer(found);
         }
@@ -1712,6 +1701,8 @@ namespace Media.Rtsp
                 return;
             }
 
+            session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.BelowNormal;
+
             //Might need to add some headers
             ProcessSendRtspResponse(session.ProcessPause(request, found), session);
         }
@@ -1724,34 +1715,25 @@ namespace Media.Rtsp
         internal void ProcessRtspTeardown(RtspMessage request, ClientSession session)
         {
 
-            try
+            RtpSource found = FindStreamByLocation(request.Location) as RtpSource;
+
+            if (found == null)
             {
-                RtpSource found = FindStreamByLocation(request.Location) as RtpSource;
-
-                if (found == null)
-                {
-                    ProcessLocationNotFoundRtspRequest(session);
-                    return;
-                }
-
-                if (!AuthenticateRequest(request, found))
-                {
-                    ProcessAuthorizationRequired(found, session);
-                    return;
-                }
-
-                //Send the response
-                using (var resp = session.ProcessTeardown(request, found))
-                {
-                    resp.AppendOrSetHeader(RtspHeaders.Connection, "close");
-                    ProcessSendRtspResponse(resp, session);
-                }
+                ProcessLocationNotFoundRtspRequest(session);
+                return;
             }
-            catch
+
+            if (!AuthenticateRequest(request, found))
             {
-#if DEBUG
-                System.Diagnostics.Debug.WriteLine("Exception in Teardown");
-#endif
+                ProcessAuthorizationRequired(found, session);
+                return;
+            }
+
+            //Send the response
+            using (var resp = session.ProcessTeardown(request, found))
+            {
+                resp.AppendOrSetHeader(RtspHeaders.Connection, "close");
+                ProcessSendRtspResponse(resp, session);
             }
         }
 
