@@ -194,6 +194,8 @@ namespace Media.Rtcp
 
         public void Add(SourceDescriptionChunk chunk)
         {
+            if (chunk == null) return;
+
             if (IsReadOnly) throw new InvalidOperationException("A SourceDescription Chunk cannot be added when IsReadOnly is true.");
 
             if (ReportBlocksRemaining == 0) throw new InvalidOperationException("A RtcpReport can only hold 31 ReportBlocks");
@@ -238,13 +240,12 @@ namespace Media.Rtcp
 
         public override bool Remove(IReportBlock reportBlock)
         {
-
             return Remove(reportBlock as SourceDescriptionChunk);
         }
 
         public bool Remove(SourceDescriptionChunk chunk)
         {
-            if (IsReadOnly || BlockCount == 0) return false;
+            if (chunk == null || IsReadOnly || BlockCount == 0) return false;
 
             //Determine where in the payload the chunk resides.
             int chunkOffset = 0, chunkIndex = 0;

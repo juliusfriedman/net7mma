@@ -629,27 +629,17 @@ namespace Media.Rtsp
                 //If the inactivity timeout is disabled return
                 if (RtspClientInactivityTimeoutSeconds != -1)
                 {
+                    //Check if a GET_PARAMETER has NOT been received in the allowed time
                     if (session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created).TotalSeconds > RtspClientInactivityTimeoutSeconds)
                     {
-                        if (session.m_RtpClient == null)
-                        {
-                            RemoveSession(session);
-                            continue;
-                        }
-
-                        //There is a rtpclient...
-                        foreach (RtpClient.TransportContext sessionContext in session.m_RtpClient.TransportContexts.DefaultIfEmpty())
-                        {
-                            if (sessionContext.RtcpEnabled && sessionContext.SendersReport != null && sessionContext.SendersReport.Transferred.HasValue &&
-                                (maintenanceStarted - sessionContext.SendersReport.Transferred.Value).TotalSeconds > RtspClientInactivityTimeoutSeconds)
-                            {
-                                RemoveSession(session);
-                                break;
-                            }
-                        }
+                        RemoveSession(session);                     
                     }
-                }
-                //else if (session.m_RtpClient != null && session.m_RtpClient.Connected) RemoveSession(session);
+                    //If all contexts have a report sent longer ago then allowed also remove the session
+                    else if (session.m_RtpClient.TransportContexts.All(tc => tc.m_InactiveTime > tc.m_SendInterval))
+                    {
+                        RemoveSession(session);
+                    }
+                }                
             }
         }
 
@@ -907,7 +897,7 @@ namespace Media.Rtsp
                 }
                 else if(server.ProtocolType == ProtocolType.Tcp) //Tcp
                 {
-                    //The clientSocket is obtained from the EndAccept call
+                    //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
                     clientSocket = server.EndAccept(ar);
                 }
                 else
@@ -973,6 +963,8 @@ namespace Media.Rtsp
         internal void ProcessReceive(IAsyncResult ar)
         {
 
+            if (ar == null || !ar.IsCompleted) return;
+
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
 
@@ -991,7 +983,7 @@ namespace Media.Rtsp
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
                 //If we received anything
-                if (received > RtpClient.TCP_OVERHEAD)
+                if (received >= RtpClient.TCP_OVERHEAD)
                 {
                     //Count for the server
                     Interlocked.Add(ref m_Recieved, received);
@@ -999,17 +991,18 @@ namespace Media.Rtsp
                     //Count for the client
                     Interlocked.Add(ref session.m_Receieved, received);
 
-                    Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received);
-
-                    //Ensure the message is really Rtsp
-                    request = new RtspMessage(data);
-
-                    //Check for validity
-                    if (request.MessageType != RtspMessageType.Invalid)
+                    using (Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received))
                     {
-                        //Process the request
-                        ProcessRtspRequest(request, session);
-                        return;
+                        //Ensure the message is really Rtsp
+                        using (request = new RtspMessage(data))
+                        {
+                            //Check for validity
+                            if (request.MessageType != RtspMessageType.Invalid)
+                            {
+                                //Process the request
+                                ProcessRtspRequest(request, session);                                
+                            }
+                        }
                     }
                 }
                 else if(session.Interleaving)
@@ -1028,7 +1021,7 @@ namespace Media.Rtsp
                 //Something happened during the session
                 if (Logger != null) Logger.LogException(ex);
 
-                MaintainServer();
+                //MaintainServer();
                 //if (session.Interleaving)
                 //{
                 //    //This data doesn't belong to us
@@ -1048,6 +1041,7 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSend(IAsyncResult ar)
         {
+            if (ar == null || !ar.IsCompleted) return;
             try
             {
                 ClientSession session = (ClientSession)ar.AsyncState;
@@ -1242,13 +1236,6 @@ namespace Media.Rtsp
                 //Log it
                 if (Logger != null) Logger.LogException(ex);
             }
-            finally
-            {
-                if (request != null && request.Method == RtspMethod.TEARDOWN && session != null)
-                {
-                    if (session.SourceContexts.Count == 0 || session.AttachedSources.Count == 0) RemoveSession(session);
-                }
-            }
         }
 
         private void ProcessRtspRecord(RtspMessage request, ClientSession session)
@@ -1347,7 +1334,11 @@ namespace Media.Rtsp
                         //Not closing
                         if (!response.ContainsHeader(RtspHeaders.Connection) &&//Check for the timeout
                             RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
-                        
+
+
+                        //Log response
+                        if (Logger != null) Logger.LogResponse(response, session); 
+
                         session.SendRtspData((session.LastResponse = response).ToBytes());
                     }
                     else
@@ -1357,7 +1348,6 @@ namespace Media.Rtsp
                 }
             }
             catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
-            finally { if (Logger != null) Logger.LogResponse(response, session); }
             return;
         }
 

@@ -14,7 +14,7 @@ namespace Media.Container.Asf
 
         const int IdentifierSize = 16, LengthSize = 8, MinimumSize = IdentifierSize + LengthSize;
 
-        static class Identifiers
+        public static class Identifiers
         {
             public static readonly Guid ASFHeaderObject = new Guid("75B22630-668E-11CF-A6D9-00AA0062CE6C");
             public static readonly Guid ASFDataObject = new Guid("75B22636-668E-11CF-A6D9-00AA0062CE6C");

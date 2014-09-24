@@ -197,6 +197,8 @@ namespace Media.Rtcp
         /// <param name="reportBlock">The IReportBlock instance to add.</param>
         public virtual void Add(IReportBlock reportBlock)
         {
+            if (reportBlock == null) return;
+
             if (IsReadOnly) throw new InvalidOperationException("The RtcpReport can only be modified when IsReadOnly is false.");
 
             if (BlockCount > Binary.FiveBitMaxValue) throw new ArgumentOutOfRangeException("reportBlock", "The BlockCount property of the RtcpReport is at the maximum value possible.");
@@ -217,6 +219,8 @@ namespace Media.Rtcp
 
         public virtual bool Remove(IReportBlock reportBlock)
         {
+            if (reportBlock == null) return false;
+
             if (IsReadOnly) throw new InvalidOperationException("The RtcpReport can only be modified when IsReadOnly is false.");
 
             if (BlockCount <= 0) throw new ArgumentOutOfRangeException("reportBlock", "The BlockCount property of the RtcpReport is at the lowest value possible.");
