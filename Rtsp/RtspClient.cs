@@ -1198,7 +1198,7 @@ namespace Media.Rtsp
                 {
                     m_RtpProtocol = ProtocolType.Udp;
                     //Might want to reserver this port now by making a socket...
-                    int openPort = Utility.FindOpenPort(ProtocolType.Udp, 30000 + (m_RtpClient != null ? 2 : 0), true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
+                    int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000 + (m_RtpClient != null ? 2 : 0), true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
 
                     if (openPort == -1) Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not find open Udp Port");
                     //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
@@ -1431,7 +1431,7 @@ namespace Media.Rtsp
                             //Add the transportChannel for the mediaDescription
                             if (m_RtpClient.TransportContexts.Count == 0)
                             {
-                                RtpClient.TransportContext newContext = new RtpClient.TransportContext(0, 1, RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, !rtcpDisabled, ssrc, 2);
+                                RtpClient.TransportContext newContext = new RtpClient.TransportContext(0, 1, RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, !rtcpDisabled, ssrc, ssrc != 0 ? 0 : 2);
                                 newContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
                                 newContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
                                 newContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
@@ -1440,7 +1440,7 @@ namespace Media.Rtsp
                             else
                             {
                                 RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                                RtpClient.TransportContext nextContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, !rtcpDisabled, ssrc, 2);
+                                RtpClient.TransportContext nextContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, !rtcpDisabled, ssrc, ssrc != 0 ? 0 : 2);
                                 nextContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
                                 nextContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
                                 nextContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
@@ -1467,10 +1467,14 @@ namespace Media.Rtsp
         //Setup for Interleaved
         SetupTcp:
             {
-                Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
+                if (m_RtpClient != null)
+                {
+                    m_RtpClient.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
 
-                //Clear existing transportChannels
-                m_RtpClient.TransportContexts.Clear();
+                    //Clear existing transportChannels
+                    m_RtpClient.TransportContexts.Clear();
+                }
+                else m_RtpProtocol = ProtocolType.Tcp;
 
                 //Recurse call to ensure propper setup
                 return SendSetup(location, mediaDescription);
@@ -1484,7 +1488,7 @@ namespace Media.Rtsp
             {
 
                 //If the client has not recieved any bytes and we have not already switched to Tcp
-                if (m_RtpProtocol != ProtocolType.Tcp && !Client.TransportContexts.All(tc=> tc.LastRtpPacketReceived < tc.m_ReceiveInterval))
+                if (m_RtpProtocol != ProtocolType.Tcp && Client.TransportContexts.All(tc=> tc.LastRtpPacketReceived == TimeSpan.Zero ))
                 {
                     try
                     {

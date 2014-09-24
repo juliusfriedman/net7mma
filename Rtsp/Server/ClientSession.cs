@@ -66,13 +66,15 @@ namespace Media.Rtsp
         /// <summary>
         /// The RtpClient.TransportContext instances which provide valid data to this ClientSession.
         /// </summary>
-        internal HashSet<RtpClient.TransportContext> SourceContexts = new HashSet<RtpClient.TransportContext>();
+        //internal HashSet<RtpClient.TransportContext> SourceContexts = new HashSet<RtpClient.TransportContext>();
 
         /// <summary>
         /// A HashSet of SourceStreams attached to the ClientSession which provide the events for Rtp, Rtcp, and Interleaved data.
         /// Instances in this collection are raising events which are being handled in the OnSourcePacketRecieved Method
         /// </summary>
-        internal HashSet<SourceStream> AttachedSources = new HashSet<SourceStream>();
+        //internal HashSet<SourceStream> AttachedSources = new HashSet<SourceStream>();
+
+        internal Dictionary<RtpClient.TransportContext, SourceStream> Attached = new Dictionary<RtpClient.TransportContext, SourceStream>();
 
         /// <summary>
         /// A one to many collection which is keyed by the source media's SSRC to which subsequently the values are packets which also came from the source
@@ -177,14 +179,14 @@ namespace Media.Rtsp
 
         RtpClient.TransportContext GetSourceContextForPacket(RtpPacket packet)
         {
-            foreach (RtpClient.TransportContext context in SourceContexts)
+            foreach (RtpClient.TransportContext context in Attached.Keys)
                 if (packet.SynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier) return context;
             return null;
         }
 
         RtpClient.TransportContext GetSourceContextForPacket(Sdp.MediaDescription md)
         {
-            foreach (RtpClient.TransportContext context in SourceContexts)
+            foreach (RtpClient.TransportContext context in Attached.Keys)
                 if (md.MediaType == context.MediaDescription.MediaType) return context;
             return null;
         }
@@ -219,7 +221,7 @@ namespace Media.Rtsp
             {
                 int sent = m_RtpClient.SendRtpPacket(packet, context.SynchronizationSourceIdentifier);
 
-                if (sent < packet.Length && m_RtpClient != null) m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare(context.MediaDescription.MediaFormat, context.SynchronizationSourceIdentifier).ToArray(), 0));
+                //if (sent < packet.Length && m_RtpClient != null) m_RtpClient.EnquePacket(new RtpPacket(packet.Prepare(context.MediaDescription.MediaFormat, context.SynchronizationSourceIdentifier).ToArray(), 0));
             }
         }
 
@@ -283,7 +285,7 @@ namespace Media.Rtsp
             try
             {
                 //Get rid of any attachment this ClientSession had
-                foreach (SourceStream source in AttachedSources.ToArray())
+                foreach (var source in Attached.Values)
                 {
                     RemoveSource(source);
                 }
@@ -351,6 +353,13 @@ namespace Media.Rtsp
 
             //Prepare a place to hold the response
             RtspMessage playResponse = CreateRtspResponse(playRequest);
+
+            if (!Attached.ContainsValue(source))
+            {
+                playResponse.StatusCode = RtspStatusCode.BadRequest;
+                playResponse.Body = "Source Not Setup";
+                goto End;
+            }
 
             //Get the Range header
             string rangeString = playRequest[RtspHeaders.Range];
@@ -468,7 +477,7 @@ namespace Media.Rtsp
 
             List<string> rtpInfos = new List<string>();
 
-            foreach (RtpClient.TransportContext tc in source.RtpClient.TransportContexts.ToArray())
+            foreach (RtpClient.TransportContext tc in source.RtpClient.TransportContexts)
             {
 
                 var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
@@ -477,9 +486,6 @@ namespace Media.Rtsp
 
                 //context.RtpTimestamp = tc.RtpTimestamp;
                 //context.NtpTimestamp = tc.NtpTimestamp;
-
-                //Only augment the header for the Sources routed to this ClientSession
-                //if (!RouteDictionary.ContainsKey(tc.SynchronizationSourceIdentifier)) continue;
 
                 //Make logic to make this clear and simple
                 string actualTrack = string.Empty;
@@ -499,15 +505,11 @@ namespace Media.Rtsp
 
             m_RtpClient.MaximumRtcpBandwidthPercentage = 0;
 
-            if (!AttachedSources.Contains(source))
-            {
-                //Ensure events are removed later
-                AttachedSources.Add(source);
+            //Attach events
+            source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
+            source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
 
-                //Attach events
-                source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
-                source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
-            }
+        End:
 
             //Return the response
             return playResponse;
@@ -543,6 +545,19 @@ namespace Media.Rtsp
         /// <returns></returns>
         internal RtspMessage ProcessSetup(RtspMessage request, RtpSource sourceStream, RtpClient.TransportContext sourceContext)
         {
+            //We also have to send one back
+            string returnTransportHeader = null;
+
+            //Create a response
+            RtspMessage response = CreateRtspResponse(request);
+
+            if (Attached.ContainsKey(sourceContext))
+            {
+                response.StatusCode = RtspStatusCode.BadRequest;
+                response.Body = "Stream Already Setup";
+                goto End;
+            }
+
             Sdp.MediaDescription mediaDescription = sourceContext.MediaDescription;
 
             bool rtcpDisabled = false;
@@ -589,10 +604,7 @@ namespace Media.Rtsp
             if (clientPorts != null && sourceStream.ForceTCP)//The client wanted Udp and Tcp was forced
             {
                 return CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
-            }
-
-            //We also have to send one back
-            string returnTransportHeader = null;
+            }            
 
             //Create a unique 32 bit id
             int ssrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
@@ -600,10 +612,7 @@ namespace Media.Rtsp
             //Could also randomize the setupContext sequenceNumber here.
 
             //We need to make an TransportContext in response to a setup
-            RtpClient.TransportContext setupContext = null;
-
-            //Create a response
-            RtspMessage response = CreateRtspResponse(request);
+            RtpClient.TransportContext setupContext = null;            
 
             //Check for TCP being forced and then for given udp ports
             if (clientPorts != null) 
@@ -704,10 +713,7 @@ namespace Media.Rtsp
                 else if (m_RtpClient != null && m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching From Udp to Tcp
                 {
                     //Has Udp source from before switch must clear
-                    SourceContexts.Clear();
-
-                    //Re-add the source
-                    SourceContexts.Add(sourceContext);
+                    if (Attached.Count > 0) foreach (var kvp in Attached) RemoveSource(kvp.Value);                   
 
                     //Switch the client to Tcp manually
                     m_RtpClient.m_TransportProtocol = ProtocolType.Tcp;
@@ -764,12 +770,8 @@ namespace Media.Rtsp
             //setupContext.RtpTimestamp = sourceContext.RtpTimestamp;
             setupContext.SequenceNumber = sourceContext.SequenceNumber;
 
-            if (!SourceContexts.Contains(sourceContext))
-            {
-                //Add the source context to this session
-                SourceContexts.Add(sourceContext);
-            }
-
+            //Add the new source
+            Attached.Add(sourceContext, sourceStream);
         End:
             //Set the returnTransportHeader to the value above 
             response.SetHeader(RtspHeaders.Transport, returnTransportHeader);
@@ -779,7 +781,7 @@ namespace Media.Rtsp
         internal RtspMessage ProcessPause(RtspMessage request, RtpSource source)
         {
             //If the source is attached
-            if (AttachedSources.Contains(source))
+            if (Attached.ContainsValue(source))
             {
                 //Iterate the source transport contexts
                 foreach (RtpClient.TransportContext sourceContext in source.RtpClient.TransportContexts)
@@ -810,17 +812,12 @@ namespace Media.Rtsp
                 if (rtpSource.RtpClient != null)
                 {
                     //For each TransportContext in the RtpClient
-                    foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.TransportContexts.ToArray())
-                    {
-                        RemoveMedia(tc.MediaDescription); //Detach the SourceStream
-                    }
+                    foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.TransportContexts) Attached.Remove(tc);
 
                     //Attach events
                     rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
                     rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
                 }
-                //Ensure events are removed later
-                AttachedSources.Remove(source);
             }
         }
 
@@ -833,20 +830,20 @@ namespace Media.Rtsp
         internal void RemoveMedia(Sdp.MediaDescription md)
         {
             //Determine if we have a source which corresponds to the mediaDescription given
-            RtpClient.TransportContext sourceContext = SourceContexts.FirstOrDefault(c => c.MediaDescription == md);
+            RtpClient.TransportContext sourceContext = Attached.Keys.FirstOrDefault(c => c.MediaDescription == md);
 
             //If the sourceContext is not null
             if (sourceContext != null)
             {
                 //Remove the entry from the sessions routing table
-                SourceContexts.Remove(sourceContext);
+                Attached.Remove(sourceContext);
             }
         }
 
         internal RtspMessage ProcessTeardown(RtspMessage request, RtpSource source)
         {
             //Determine if this is for only a single track or the entire shebang
-            if (!AttachedSources.Contains(source)) return CreateRtspResponse(request, RtspStatusCode.BadRequest);
+            if (!Attached.ContainsValue(source)) return CreateRtspResponse(request, RtspStatusCode.BadRequest);
 
             //Determine if we have the track
             string track = request.Location.Segments.Last().Replace("/", string.Empty);
@@ -857,7 +854,7 @@ namespace Media.Rtsp
             if (Enum.TryParse <Sdp.MediaType>(track, true, out mediaType))
             {
                 //bool GetContextBySdpControlLine... out mediaDescription
-                RtpClient.TransportContext sourceContext = SourceContexts.FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
+                RtpClient.TransportContext sourceContext = Attached.Keys.FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
 
                 //Cannot teardown media because we can't find the track they are asking to tear down
                 if (sourceContext == null)

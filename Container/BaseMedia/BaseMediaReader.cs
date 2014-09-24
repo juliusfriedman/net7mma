@@ -8,11 +8,14 @@ namespace Media.Container.BaseMedia
 {
     /// <summary>
     /// Represents the logic necessary to read ISO Complaint Base Media Format Files.
-    /// http://en.wikipedia.org/wiki/ISO_base_media_file_format
+    /// <see href="http://en.wikipedia.org/wiki/ISO_base_media_file_format">Wikipedia</see>
+    /// Formats include QuickTime (.mov, .mp4, .m4v, .m4a), 
+    /// Microsoft Smooth Streaming (.ismv, .isma, .ismc), 
+    /// JPEG2000 (.jp2, .jpf, .jpx), Motion JPEG2000 (.mj2, .mjp2), 
+    /// 3GPP/3GPP2 (.3gp, .3g2), Adobe Flash (.f4v, .f4p, .f4a, .f4b) and other conforming format extensions.
     /// </summary>
     public class BaseMediaReader : MediaFileStream
     {
-
         public static List<string> ParentBoxes = new List<string>()
         {
             "moov",

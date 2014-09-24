@@ -113,10 +113,10 @@ namespace Media.Rtp
         //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
         static byte[] WakeUpBytes = new byte[] { 0x70, 0x70, 0x70, 0x70 };
 
-        internal static byte BigEndianFrameControl = 36, // ASCII => $,  Hex => 24  Binary => 100100
-        LittleEndianFrameControl = 9;                   //                                    001001
+        internal static byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => 100100
+        //LittleEndianFrameControl = 9;                   //                                     001001
 
-        static uint RTP_SEQ_MOD = (1 << 16);
+        const uint RTP_SEQ_MOD = (1 << 16);
 
         //Should be instance properties on the TransportContext with better names
         const int MAX_DROPOUT = 500;
@@ -1281,7 +1281,10 @@ namespace Media.Rtp
             {
                 transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
             }
-            else if (transportContext.IsValid && packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier) return;
+            else if (transportContext.IsValid && packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier)
+            {
+                return;
+            }
 
             //Sample the clock
             transportContext.m_LastRtpIn = DateTime.UtcNow;
@@ -1739,8 +1742,6 @@ namespace Media.Rtp
         internal protected virtual SendersReport CreateSendersReport(TransportContext context, bool empty)
         {
 
-            bool includeBlocks = !empty; //&& context.LastRtcpReportSent != TimeSpan.Zero;
-
             SendersReport result = new SendersReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
 
             DateTime now = DateTime.UtcNow;
@@ -1754,8 +1755,10 @@ namespace Media.Rtp
             result.SendersOctetCount = (int)context.RtpBytesSent;
             result.SendersPacketCount = (int)context.RtpPacketsSent;
 
+            empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null);
+
             //If source blocks are included include them and calculate their statistics
-            if (includeBlocks)
+            if (!empty)
             {
 
                 #region Delay and Fraction
@@ -1813,6 +1816,8 @@ namespace Media.Rtp
         internal protected virtual ReceiversReport CreateReceiversReport(TransportContext context, bool empty)
         {
             ReceiversReport result = new ReceiversReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
+
+            empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null);
 
             if (!empty)
             {
@@ -1918,7 +1923,7 @@ namespace Media.Rtp
             context.ReceiversReport = CreateReceiversReport(context, false);
 
             //If the bandwidth is not exceeded also send a sdes
-            if (!RtcpBandwidthExceeded) return SendRtcpPackets(context.ReceiversReport.Yield<RtcpPacket>().Concat((context.SourceDescription = CreateSourceDescription(context)).Yield()));
+            if (!RtcpBandwidthExceeded && context.RemoteSynchronizationSourceIdentifier.HasValue && context.RemoteSynchronizationSourceIdentifier.Value != 0) return SendRtcpPackets(context.ReceiversReport.Yield<RtcpPacket>().Concat((context.SourceDescription = CreateSourceDescription(context)).Yield()));
             return SendRtcpPackets(context.ReceiversReport.Yield<RtcpPacket>());
         }
 
@@ -1932,7 +1937,7 @@ namespace Media.Rtp
         internal protected virtual SourceDescriptionReport CreateSourceDescription(TransportContext context, SourceDescriptionItem cName = null)
         {
             //Todo, params context overload? overload with other Items
-            return new SourceDescriptionReport(context.Version, false, 0, (int)context.RemoteSynchronizationSourceIdentifier) 
+            return new SourceDescriptionReport(context.Version, false, 0, (int)context.SynchronizationSourceIdentifier) 
             { 
                 new Rtcp.SourceDescriptionChunk((int)context.SynchronizationSourceIdentifier, cName ?? SourceDescriptionItem.CName)
                 //Others...

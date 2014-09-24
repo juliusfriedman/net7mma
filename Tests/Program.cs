@@ -2401,7 +2401,7 @@ a=mpeg4-esid:101");
             server.Start();
 
             //Start taking pictures of the desktop and making packets
-            //taker.Start();
+            taker.Start();
 
             //If you add more streams they will be started once the server is started
 
@@ -2486,7 +2486,7 @@ a=mpeg4-esid:101");
                 if (server.HttpEnabled && i % 2 == 0) 
                 {
                     //Use Media.Rtsp / Http
-                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://127.0.0.1/live/Alpha"))
+                    using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://127.0.0.1/live/PicsTcp"))
                     {
                         try
                         {
@@ -2512,7 +2512,7 @@ a=mpeg4-esid:101");
                 else if (server.UdpEnabled && i % 3 == 0) 
                 {
                     //Use Media.Rtsp / Udp
-                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://127.0.0.1/live/Alpha"))
+                    using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://127.0.0.1/live/PicsTcp"))
                     {
                         try
                         {
@@ -2538,7 +2538,7 @@ a=mpeg4-esid:101");
                 else
                 {
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Omega", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Screen", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {

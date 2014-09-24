@@ -135,7 +135,7 @@ namespace Media.Container.Riff
                 if (next != null) yield return next;
                 else yield break;
 
-
+                //To use binary comparison
                 string fourCC = FromFourCC(Common.Binary.Read32(next.Identifier, 0, false));
 
                 if (fourCC == RIFF4CC || fourCC == RIFX4CC)
