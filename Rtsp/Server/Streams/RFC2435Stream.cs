@@ -1828,7 +1828,7 @@ namespace Media.Rtsp.Server.Streams
                 {
                     //Only ready after all pictures are in the queue
                     Ready = true;
-                    m_RtpClient.m_WorkerThread.Start();
+                    m_RtpClient.m_WorkerThread.Start();                    
                 }
 #if DEBUG
                 System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Started");
@@ -1932,6 +1932,11 @@ namespace Media.Rtsp.Server.Streams
 
         internal override void SendPackets()
         {
+
+            m_RtpClient.IncomingPacketEventsEnabled = false;
+
+            m_RtpClient.FrameChangedEventsEnabled = true;
+
             while (State == StreamState.Started)
             {
                 try
@@ -1976,8 +1981,13 @@ namespace Media.Rtsp.Server.Streams
                             packet.SequenceNumber = ++transportContext.SequenceNumber;
 
                             //Fire an event so the server sends a packet to all clients connected to this source
-                            RtpClient.OnRtpPacketReceieved(packet);
+                            //RtpClient.OnRtpPacketReceieved(packet);
                         }
+
+                        //Modified packet is no longer complete because SequenceNumbers were modified
+
+                        //Fire a frame changed event manually
+                        RtpClient.OnRtpFrameChanged(frame);
 
                         if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Stream.RFC2435Frame)frame);
 

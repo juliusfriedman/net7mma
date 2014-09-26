@@ -51,7 +51,7 @@ namespace Media.Rtsp
     /// <summary>
     /// Represent the resources in use by remote parties connected to a RtspServer.
     /// </summary>
-    internal class ClientSession
+    internal class ClientSession : Common.BaseDisposable
     {
         //Needs to have it's own concept of range using the Storage...
 
@@ -61,7 +61,7 @@ namespace Media.Rtsp
         //Counters for authenticate and attempts should use static key names, maybe use a dictionary..
         internal System.Collections.Hashtable Storage = System.Collections.Hashtable.Synchronized(new System.Collections.Hashtable());
 
-        //internal System.Collections.Concurrent.ConcurrentQueue<RtspMessage> inBound, outBound;
+        internal IAsyncResult LastRecieve, LastSend;
 
         /// <summary>
         /// The RtpClient.TransportContext instances which provide valid data to this ClientSession.
@@ -155,7 +155,7 @@ namespace Media.Rtsp
             RemoteEndPoint = rtspSocket.RemoteEndPoint;
 
             //Begin to receive what is available
-            m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+            LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
         }
 
         #endregion
@@ -169,7 +169,7 @@ namespace Media.Rtsp
                 if (m_RtspSocket.Connected)
                 {
                     m_SendBuffer = data;
-                    m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
+                    LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
                 }
             }
             catch (Exception ex) { m_Server.Logger.LogException(ex); }
@@ -284,7 +284,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Sends the Rtcp Goodbye and detaches all sources
         /// </summary>
-        internal void Dispose()
+        public override void Dispose()
         {
             try
             {
@@ -292,6 +292,32 @@ namespace Media.Rtsp
                 foreach (var source in Attached.Values)
                 {
                     RemoveSource(source);
+                }
+
+                //End the final send
+                if (LastSend != null && !LastSend.IsCompleted)
+                {
+                    try
+                    {
+                        EndPoint inBound = RemoteEndPoint;
+
+                        //Ensure the bytes were completely sent..
+                        int sent = m_RtspSocket.EndSendTo(LastSend);
+                    }
+                    catch { }
+                }
+
+                //End the final receive
+                if (LastRecieve != null && !LastRecieve.IsCompleted)
+                {
+                    try
+                    {
+                        //Take note of whre we are receiving from
+                        EndPoint inBound = RemoteEndPoint;
+
+                        int received = m_RtspSocket.EndReceiveFrom(LastRecieve, ref inBound);
+                    }
+                    catch { }
                 }
 
                 //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
@@ -306,12 +332,18 @@ namespace Media.Rtsp
                     m_RtpClient = null;
                 }
 
-                //Close immediately for TCP only
-                if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.Dispose();
+                if (m_RtspSocket != null)
+                {
+                    m_RtspSocket.Shutdown(SocketShutdown.Both);
+                    m_RtspSocket.Dispose();
+                    m_RtspSocket = null;
+                }
 
-                m_Buffer.Dispose();
-
-                m_Buffer = null;
+                if (m_Buffer != null)
+                {
+                    m_Buffer.Dispose();
+                    m_Buffer = null;
+                }
 
             }
             catch { return; }
@@ -513,13 +545,19 @@ namespace Media.Rtsp
 
                 //Attach events
                 //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
-                source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+                //source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+                source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
             }
 
         End:
 
             //Return the response
             return playResponse;
+        }
+
+        void OnSourceFrameChanged(object sender, RtpFrame frame)
+        {
+            foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
         }
 
         /// <summary>
@@ -822,8 +860,9 @@ namespace Media.Rtsp
                     foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.TransportContexts) Attached.Remove(tc);
 
                     //Attach events
-                    rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
-                    rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+                    //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
+                    //rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+                    rtpSource.RtpClient.RtpFrameChanged -= OnSourceFrameChanged;
                 }
             }
         }

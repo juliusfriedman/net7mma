@@ -206,7 +206,7 @@ namespace Media.Rtsp.Server.Streams
 
         void RtspClient_OnPlay(RtspClient sender, object args)
         {
-            RtspClient.Client.FrameChangedEventsEnabled = false;
+            RtspClient.Client.FrameChangedEventsEnabled = true;
             base.Ready = true;
         }
 
