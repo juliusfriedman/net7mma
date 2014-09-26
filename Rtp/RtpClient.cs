@@ -297,8 +297,6 @@ namespace Media.Rtp
             /// </remarks>
             public readonly bool RtcpEnabled = true;
 
-            internal bool SendRtcpReports = true;
-
             //Ports we are using / will use
             internal int ServerRtpPort, ServerRtcpPort,  //Ports connected to
                 ClientRtpPort, ClientRtcpPort; ///Ports connected from
@@ -2211,7 +2209,7 @@ namespace Media.Rtp
 
             foreach (var tc in TransportContexts) tc.DisconnectSockets();
 
-            m_WorkerThread = null;
+            Utility.Abort(ref m_WorkerThread);
         }
 
         /// <summary>
@@ -2705,17 +2703,17 @@ namespace Media.Rtp
         {
             if (m_StopRequested) return false;
 
-            bool sent = false;
+            bool sentAny = false;
 
             foreach (TransportContext tc in TransportContexts)
             {
-                if (!tc.Disposed && tc.RtcpEnabled && tc.SendRtcpReports && SendReports(tc))
+                if (!tc.Disposed && tc.RtcpEnabled && SendReports(tc))
                 {
-                    sent = true;
+                    sentAny = true;
                 }
             }
 
-            return sent;
+            return sentAny;
         }
 
         /// <summary>
@@ -2825,20 +2823,18 @@ namespace Media.Rtp
 
                     for (int i = 0; i < ContextCount; ++i)
                     {
-                        TransportContext tc =TransportContexts[i];
+                        TransportContext tc = TransportContexts[i];
 
                         if (tc == null || tc.Disposed) continue;
 
                         ProcessReceive(tc, ref lastOperation);
                     }
 
-                    m_StopRequested = ContextCount == 0;
-
                     if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
                         //Should also check for bit rate before sleeping
                         System.Threading.Thread.Sleep(TransportContexts.Count);
-                        continue;
+                        goto Begin;
                     }
 
                     #endregion
@@ -2957,7 +2953,11 @@ namespace Media.Rtp
         public override void Dispose()
         {
 
+            if (Disposed) return;
+
             Disconnect();
+
+            base.Dispose();
 
             //Dispose contexts
             foreach (TransportContext tc in TransportContexts) tc.Dispose();
@@ -2966,10 +2966,6 @@ namespace Media.Rtp
             RtcpPacketSent -= new RtcpPacketHandler(HandleRtcpPacketSent);
 
             Utility.Abort(ref m_WorkerThread);
-
-            if (Disposed) return;
-
-            base.Dispose();
 
             m_Buffer.Dispose();
             m_Buffer = null;

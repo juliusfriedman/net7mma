@@ -1676,6 +1676,22 @@ namespace Tests
             {
                 throw new Exception("Response Testing Failed!");
             }
+            
+            //Check *
+
+            request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
+            request.Location = new Uri("*", UriKind.RelativeOrAbsolute);
+            request.Method = Media.Rtsp.RtspMethod.OPTIONS;
+            request.Version = 7;
+
+            bytes = request.ToBytes();
+
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
+
+            if (!(fromBytes.Method == request.Method && fromBytes.Location == request.Location && fromBytes.Version == response.Version))
+            {
+                throw new Exception("Request Testing Failed!");
+            }
 
             //Check without Headers.
 
@@ -2549,7 +2565,7 @@ a=mpeg4-esid:101");
                 else
                 {
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Screen", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Omega", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {

@@ -407,6 +407,8 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
+            if (Disposed) return;
+
             base.Dispose();
          
             Stop();
@@ -620,28 +622,42 @@ namespace Media.Rtsp
 
         internal void DisconnectAndRemoveInactiveSessions()
         {
-
-            DateTime maintenanceStarted = DateTime.UtcNow;
-
-            //Iterate and find inactive sessions
-            foreach (ClientSession session in Clients.ToArray())
+            try
             {
-                //If the inactivity timeout is disabled return
-                if (RtspClientInactivityTimeoutSeconds != -1)
+                DateTime maintenanceStarted = DateTime.UtcNow;
+
+                List<Guid> inactive = new List<Guid>();
+
+                foreach (ClientSession session in Clients)
                 {
+                    if (session.Disposed)
+                    {
+                        inactive.Add(session.Id);
+                        continue;
+                    }
+
                     //Check if a GET_PARAMETER has NOT been received in the allowed time
-                    if (session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created).TotalSeconds > RtspClientInactivityTimeoutSeconds)
+                    if (RtspClientInactivityTimeoutSeconds != -1 && session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created).TotalSeconds > RtspClientInactivityTimeoutSeconds)
                     {
-                        RemoveSession(session);                     
+                        inactive.Add(session.Id);
+                        continue;
                     }
-                    //If all contexts have a report sent longer ago then allowed also remove the session
-                    else if (session.m_RtpClient != null && session.m_RtpClient.TransportContexts.All(tc => tc.m_InactiveTime > tc.m_SendInterval))
+
+                    if (session.LastRequest != null && session.LastRequest.Method == RtspMethod.TEARDOWN && session.Attached.Count() == 0) inactive.Add(session.Id);
+
+                }
+
+                if (inactive.Count > 0) foreach (var id in inactive)
                     {
-                        RemoveSession(session);
+                        ClientSession cs;
+                        if (m_Clients.TryGetValue(id, out cs)) RemoveSession(cs);
+                        cs = null;
                     }
-                }                
+
             }
+            catch { return; }
         }
+
 
         /// <summary>
         /// Restarted streams which should be Listening but are not
@@ -700,7 +716,7 @@ namespace Media.Rtsp
             m_ServerThread.Start();
 
             //Should allow all this frequencies to be controlled with a property (used half the amount of the RtspClientInactivityTimeoutSeconds)
-            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds * 1000 : 30000;
+            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds / 1000 : 3000;
             
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, frequency, System.Threading.Timeout.Infinite);
 
@@ -722,7 +738,7 @@ namespace Media.Rtsp
             RestartFaultedStreams(state);
             DisconnectAndRemoveInactiveSessions(state);
 
-            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds * 1000 : 30000;
+            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds / 1000 : 3000;
 
             m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
         }
@@ -995,27 +1011,16 @@ namespace Media.Rtsp
                         }
                     }
                 }
-                else
+                else//Start to recive again
                 {
-                    RemoveSession(session);
+                    EndPoint inbound = session.RemoteEndPoint;
+                    session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inbound, new AsyncCallback(ProcessReceive), session);
                 }
             }
             catch (Exception ex)
             {
                 //Something happened during the session
                 if (Logger != null) Logger.LogException(ex);
-
-                //MaintainServer();
-                //if (session.Interleaving)
-                //{
-                //    //This data doesn't belong to us
-                //    //session.m_RtpClient.Connect();
-                //    return;
-                //}
-                //else
-                //{
-                //    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer, session.m_BufferOffset, session.m_BufferLength, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
-                //}
             }
         }
 
@@ -1045,11 +1050,11 @@ namespace Media.Rtsp
 
                     Interlocked.Add(ref m_Sent, sent);
 
-                    session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
+                    session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
                 }
                 else
                 {                   
-                    session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, inBound, new AsyncCallback(ProcessSend), session);
+                    session.LastSend = session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, inBound, new AsyncCallback(ProcessSend), session);
                 }
             }
             catch (Exception ex)
@@ -1316,12 +1321,12 @@ namespace Media.Rtsp
                         string sess = response.GetHeader(RtspHeaders.Session);
 
                         //Not closing
-                        if (!response.ContainsHeader(RtspHeaders.Connection) &&//Check for the timeout
+                        if (!response.ContainsHeader(RtspHeaders.Connection) &&//Check for if timeout needs to be added
                             RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
 
 
                         //Log response
-                        if (Logger != null) Logger.LogResponse(response, session); 
+                        if (Logger != null) Logger.LogResponse(response, session);
 
                         session.SendRtspData((session.LastResponse = response).ToBytes());
                     }
@@ -1331,8 +1336,10 @@ namespace Media.Rtsp
                     }
                 }
             }
-            catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
-            return;
+            catch (Exception ex)
+            {
+                if (Logger != null) Logger.LogException(ex);                
+            }            
         }
 
         /// <summary>
@@ -1470,13 +1477,20 @@ namespace Media.Rtsp
         /// <param name="session"></param>
         internal void ProcessRtspOptions(RtspMessage request, ClientSession session)
         {
-            IMediaStream found = FindStreamByLocation(request.Location);
-
-            //No stream with name
-            if (found == null)
+            //See if the location requires a certain stream
+            if (request.Location.ToString() != "*")
             {
-                ProcessLocationNotFoundRtspRequest(session);
-                return;
+                IMediaStream found = FindStreamByLocation(request.Location);
+
+                //No stream with name
+                if (found == null)
+                {
+                    ProcessLocationNotFoundRtspRequest(session);
+                    return;
+                }
+
+                //See if RECORD is supported?
+
             }
 
             //Check for additional options of the stream... e.g. allow recording or not
