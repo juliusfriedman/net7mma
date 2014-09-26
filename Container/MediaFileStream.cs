@@ -26,7 +26,7 @@ namespace Media.Container
 
         public Uri Source { get { return Disposed ? null : m_Source; } }
 
-        public long Position { get { return Disposed ? -1 : m_Position; } set { m_Position = m_Stream.Seek(value > m_Position ? value - m_Position : -value, value == 0 ? System.IO.SeekOrigin.Begin : System.IO.SeekOrigin.Current); } }
+        public long Position { get { return Disposed ? -1 : m_Position; } set { if (value == m_Position) return; m_Position = m_Stream.Seek(value, System.IO.SeekOrigin.Begin); } }
 
         public long Length { get { return Disposed ? -1 : m_Length; } }
 

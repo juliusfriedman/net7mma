@@ -1933,9 +1933,7 @@ namespace Media.Rtsp.Server.Streams
         internal override void SendPackets()
         {
 
-            m_RtpClient.IncomingPacketEventsEnabled = false;
-
-            m_RtpClient.FrameChangedEventsEnabled = true;
+            m_RtpClient.FrameChangedEventsEnabled = false;
 
             while (State == StreamState.Started)
             {
@@ -1959,17 +1957,8 @@ namespace Media.Rtsp.Server.Streams
 
                     if (transportContext != null)
                     {
-
-                        DateTime now = DateTime.UtcNow;
-
-                        //transportContext.RtpTimestamp += (uint)(clockRate * 1000 / (m_Frames.Count + 1));
-
                         transportContext.RtpTimestamp += period;
 
-                        //transportContext.RtpTimestamp = (uint)(now.Ticks / TimeSpan.TicksPerMillisecond * clockRate);
-
-                        //Iterate each packet and put it into the next frame (Todo In clock cycles)
-                        //Again nothing to much to gain here in terms of parallelism (unless you want multiple pictures in the same buffer on the client)
                         foreach (Rtp.RtpPacket packet in frame)
                         {
                             //Copy the values before we signal the server
@@ -1981,13 +1970,13 @@ namespace Media.Rtsp.Server.Streams
                             packet.SequenceNumber = ++transportContext.SequenceNumber;
 
                             //Fire an event so the server sends a packet to all clients connected to this source
-                            //RtpClient.OnRtpPacketReceieved(packet);
+                            if(!m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpPacketReceieved(packet);
                         }
 
                         //Modified packet is no longer complete because SequenceNumbers were modified
 
                         //Fire a frame changed event manually
-                        RtpClient.OnRtpFrameChanged(frame);
+                        if(m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpFrameChanged(frame);
 
                         if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Stream.RFC2435Frame)frame);
 

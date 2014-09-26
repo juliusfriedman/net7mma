@@ -25,23 +25,18 @@ namespace Media.Container
 
                 if (Size <= 0 || Master.BaseStream == null) return null;
 
-                System.IO.MemoryStream result = new System.IO.MemoryStream((int)Size);
-
                 //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
-                if (Offset > offsetPrevious)
-                {
-                    //Master.Seek(-Offset, System.IO.SeekOrigin.Current);
-                }
-                else
-                {
-                    //Master.Seek(Offset, System.IO.SeekOrigin.Current);
-                }
+                Master.BaseStream.Position = Offset;
 
-                //Master.CopyTo(result);
+                byte[] data = new byte[Size];
 
-                return result;
+                Master.BaseStream.Read(data, 0, (int)Size);
+
+                Master.BaseStream.Position = offsetPrevious;
+
+                return new System.IO.MemoryStream(data);
             }
         }
 

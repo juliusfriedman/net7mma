@@ -11,6 +11,15 @@ namespace Media.Container
     /// </summary>
     public class Track
     {
+
+        public Track(Element header, int id, TimeSpan position, TimeSpan duration)
+        {
+            this.Header = header;
+            this.Id = id;
+            this.Position = position;
+            this.Duration = duration;
+        }
+
         #region Fields
 
         public readonly Element Header;
@@ -37,4 +46,11 @@ namespace Media.Container
 
         #endregion
     }
+
+    //VideoTrack
+
+    //AudioTrack
+
+    //TextTrack
+
 }

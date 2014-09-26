@@ -1449,7 +1449,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtpPacketReceieved(RtpPacket packet)
         {
-            if (!Disposed && RtpPacketReceieved != null) RtpPacketReceieved(this, packet);
+            if (!Disposed && IncomingPacketEventsEnabled && RtpPacketReceieved != null) RtpPacketReceieved(this, packet);
         }
 
         /// <summary>
@@ -1458,7 +1458,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtcpPacketReceieved(RtcpPacket packet)
         {
-            if (!Disposed && RtcpPacketReceieved != null) RtcpPacketReceieved(this, packet);
+            if (!Disposed && IncomingPacketEventsEnabled && RtcpPacketReceieved != null) RtcpPacketReceieved(this, packet);
         }
 
         /// <summary>

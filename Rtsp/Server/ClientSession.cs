@@ -214,13 +214,16 @@ namespace Media.Rtsp
             }
 
             if (context == null) return;
-            else if(PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier)) 
+
+            var localPacket = packet;
+            
+            if(PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier)) 
             {
-                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, packet.Clone(true, true, true, true, false));
+                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, new Rtp.RtpPacket(packet.Prepare(context.MediaDescription.MediaFormat, context.SynchronizationSourceIdentifier).ToArray(), 0));
             }
             else if (m_RtpClient != null)
             {
-                int sent = m_RtpClient.SendRtpPacket(packet, context.SynchronizationSourceIdentifier);
+                int sent = m_RtpClient.SendRtpPacket(localPacket, context.SynchronizationSourceIdentifier);
 
 #if DEBUG
                 if(sent < packet.Length) System.Diagnostics.Debug.WriteLine("Truncated : " + (packet.Length - sent).ToString() + " bytes of RtpPacket");
@@ -372,7 +375,7 @@ namespace Media.Rtsp
                 describeResponse.SetHeader(RtspHeaders.ContentBase, describeRequest.Location.ToString());
             }
 
-            describeResponse.Body = CreateOrUpdateSessionDescription(source).ToString();
+            describeResponse.Body = CreateSessionDescription(source).ToString();
 
             return describeResponse;
         }
@@ -543,10 +546,9 @@ namespace Media.Rtsp
                 //Connect the client
                 m_RtpClient.Connect();
 
-                //Attach events
-                //source.RtpClient.RtcpPacketReceieved += OnSourceRtcpPacketRecieved;
-                //source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
-                source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
+                if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
+                else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+                
             }
 
         End:
@@ -659,6 +661,8 @@ namespace Media.Rtsp
             //We need to make an TransportContext in response to a setup
             RtpClient.TransportContext setupContext = null;            
 
+            //Should determine intervals here for Rtcp from SessionDescription
+
             //Check for TCP being forced and then for given udp ports
             if (clientPorts != null) 
             {
@@ -745,9 +749,9 @@ namespace Media.Rtsp
                     //Create a new Interleave
                     setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
-                    setupContext.m_SendInterval = sourceContext.m_SendInterval;
+                    setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
 
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
+                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -773,9 +777,9 @@ namespace Media.Rtsp
                     //Add the transportChannel the client requested
                     setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
-                    setupContext.m_SendInterval = sourceContext.m_SendInterval;
+                    setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
 
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
+                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -790,9 +794,9 @@ namespace Media.Rtsp
                     
                     setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
 
-                    setupContext.m_SendInterval = sourceContext.m_SendInterval;
+                    setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
 
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;                        
+                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -861,7 +865,7 @@ namespace Media.Rtsp
 
                     //Attach events
                     //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
-                    //rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
+                    rtpSource.RtpClient.RtpPacketReceieved -= OnSourceRtpPacketRecieved;
                     rtpSource.RtpClient.RtpFrameChanged -= OnSourceFrameChanged;
                 }
             }
@@ -984,14 +988,12 @@ namespace Media.Rtsp
         }
 
 
-        int lastPort = 0;
-
         /// <summary>
         /// Dynamically creates a Sdp.SessionDescription for the given SourceStream using the information already present and only re-writing the necessary values.
         /// </summary>
         /// <param name="stream">The source stream to create a SessionDescription for</param>
         /// <returns>The created SessionDescription</returns>
-        internal Sdp.SessionDescription CreateOrUpdateSessionDescription(SourceStream stream)
+        internal Sdp.SessionDescription CreateSessionDescription(SourceStream stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             //else if (SessionDescription != null) throw new NotImplementedException("There is already a m_SessionDescription for this session, updating is not implemented at this time");
@@ -1040,7 +1042,7 @@ namespace Media.Rtsp
             //Rewrite a new connection line
             string addressString = LocalEndPoint.Address.ToString();// +"/127/2";
 
-            lastPort = Utility.FindOpenPort( stream.m_ForceTCP ? ProtocolType.Tcp : ProtocolType.Udp);
+            Utility.FindOpenPort( stream.m_ForceTCP ? ProtocolType.Tcp : ProtocolType.Udp);
 
             //Indicate a port in the sdp, setup should also use this port, this should essentially reserve the port for the setup process...
             //if (!stream.m_ForceTCP)
@@ -1063,6 +1065,7 @@ namespace Media.Rtsp
 
             IEnumerable<Sdp.SessionDescriptionLine> bandwithLines;
 
+            //Indicate the recipient does not need to send
             sdp.Add(new Sdp.SessionDescriptionLine("a=recvonly"));
 
             //Iterate the source MediaDescriptions, could just create a new one with the fmt which contains the profile level information
@@ -1081,7 +1084,7 @@ namespace Media.Rtsp
                 //Remove old bandwith lines
                 bandwithLines = md.BandwidthLines;
 
-                //Remove existing bandwidth information
+                //Remove existing bandwidth information, should check for AS
                 if(stream.m_DisableQOS) foreach (Sdp.SessionDescriptionLine line in bandwithLines) md.RemoveLine(md.Lines.IndexOf(line));
 
                 //Remove all other alternate information
@@ -1090,42 +1093,52 @@ namespace Media.Rtsp
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
                 md.Add(new Sdp.SessionDescriptionLine("a=control:" + "/live/" + stream.Id + '/' + md.MediaType));
 
+                //Should check for Timing Info and update for playing streams
+
                 if (stream.m_DisableQOS)
                 {
                     md.Add(new Sdp.SessionDescriptionLine("b=RS:0"));
                     md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
+                    md.Add(new Sdp.SessionDescriptionLine("b=AS:0"));
+                }
+                else//Should not be hardcoded
+                {
+                    md.Add(new Sdp.SessionDescriptionLine("b=RS:192"));
+                    md.Add(new Sdp.SessionDescriptionLine("b=RR:192"));
+
+                    md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS needs to be forwarded
                 }
 
+                //Should actually reflect outgoing port
                 md.MediaPort = 0;
 
-                if (!stream.m_ForceTCP)
-                {
-                    //md.MediaPort = lastPort;
-                    //lastPort += 2;
-                }
-                else
-                {
-                    //VLC `Blows up` when this happens
-                    //bad SDP "m=" line: m=audio 40563 TCP/RTP/AVP 96
-                    //md.MediaProtocol = "TCP/RTP/AVP";
-                    //fmt should be the same     
+                //if (!stream.m_ForceTCP)
+                //{
+                //    //md.MediaPort = lastPort;
+                //    //lastPort += 2;
+                //}
+                //else
+                //{
+                //    //VLC `Blows up` when this happens
+                //    //bad SDP "m=" line: m=audio 40563 TCP/RTP/AVP 96
+                //    //md.MediaProtocol = "TCP/RTP/AVP";
+                //    //fmt should be the same     
 
-                    //This mainly implies that stand-alone RTP over TCP is occuring anyway.
+                //    //This mainly implies that stand-alone RTP over TCP is occuring anyway.
 
-                    //Since this code supports the RtspServer this is fine for now.
+                //    //Since this code supports the RtspServer this is fine for now.
 
-                    //The RtpClient also deals with the framing from RTSP when used in conjunction with so..
-                    //This needs to be addressed in the RtpClient which allows currently allows Rtp and Rtcp to be duplexed in TCP and UDP
-                    //but does not handle the case of TCP when a sender wants to connect with 2 seperate TCP sockets as per RFC4571.
+                //    //The RtpClient also deals with the framing from RTSP when used in conjunction with so..
+                //    //This needs to be addressed in the RtpClient which allows currently allows Rtp and Rtcp to be duplexed in TCP and UDP
+                //    //but does not handle the case of TCP when a sender wants to connect with 2 seperate TCP sockets as per RFC4571.
 
-                    //a=setup:passive
-                    //a=connection:new
+                //    //a=setup:passive
+                //    //a=connection:new
 
-                    //The RtpClient would then need to have a RtcpSocket ready on the 'standby' just in case the remote end point connected and began sending the data.
+                //    //The RtpClient would then need to have a RtcpSocket ready on the 'standby' just in case the remote end point connected and began sending the data.
 
-                    //The other way to hanle this would be use only a single socket in both cases and change the remote endpoint = 0.... and decypher the data based on the end point... e.g. the port.
-                }                
-
+                //    //The other way to hanle this would be use only a single socket in both cases and change the remote endpoint = 0.... and decypher the data based on the end point... e.g. the port.
+                //}                
             }
 
             //Top level stream control line
