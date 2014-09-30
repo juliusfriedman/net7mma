@@ -50,6 +50,7 @@ namespace Media.Sdp
         audio,
         video,
         text,
+        timing,
         application,
         message,
         //

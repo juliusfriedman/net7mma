@@ -12,15 +12,24 @@ namespace Media.Container
     public class Track
     {
 
-        public Track(Element header, int id, TimeSpan position, TimeSpan duration)
+        public Track(Element header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication)
         {
             this.Header = header;
-            this.Id = id;
+            this.Width = width;
+            this.Height = height;
+            this.Id = (int)id;
             this.Position = position;
             this.Duration = duration;
+            this.Rate = frameRate;
+            this.MediaType = mediaType;
+            this.Name = name;
+            this.SampleCount = sampleCount;
+            this.CodecIndication = codecIndication;
         }
 
         #region Fields
+
+        //EncryptedTrack...
 
         public readonly Element Header;
 
@@ -28,13 +37,23 @@ namespace Media.Container
 
         public readonly int Id;
 
+        public readonly string Name;
+
+        //public readonly string Language;
+
         public readonly byte[] CodecIndication;
 
-        //SampleSize?
+        public readonly double Rate;
+
+        public readonly int Width, Height;
 
         public readonly Sdp.MediaType MediaType;
 
         public readonly TimeSpan Duration;
+
+        public readonly DateTime Created, Modified;
+
+        public readonly long SampleCount;
 
         public TimeSpan Position;
 
