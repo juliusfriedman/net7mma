@@ -2236,6 +2236,34 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Size: " + box.Size);
                         Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
                     }
+
+
+                    Console.WriteLine("Movie Duration:" + reader.Duration);
+
+                    Console.WriteLine("Track Information:");
+
+                    foreach(var track in reader.GetTracks())
+                    {
+                        Console.WriteLine("Id: " + track.Id);
+                        Console.WriteLine("Name: " + track.Name);
+                        Console.WriteLine("Duration: " + track.Duration);
+                        if (track.MediaType == Media.Sdp.MediaType.audio)
+                        {
+                            Console.WriteLine("Sampling Rate: " + track.Rate);                            
+                        }
+                        else
+                        {
+                            Console.WriteLine("Framt Rate: " + track.Rate);
+                            Console.WriteLine("Width: " + track.Width);
+                            Console.WriteLine("Height: " + track.Height);
+                        }
+
+                        Console.WriteLine("Samples: " + track.SampleCount);
+
+                        Console.WriteLine("Codec: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(track.CodecIndication));                            
+                        
+                        Console.WriteLine("Type: " + track.MediaType);
+                    }
                 }
                 
             }
@@ -2245,7 +2273,7 @@ a=mpeg4-esid:101");
                 Console.WriteLine("Path:" + reader.Source);
                 Console.WriteLine("Total Size:" + reader.Length);
 
-                Console.WriteLine("Root Element:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
+                Console.WriteLine("Root Element:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));                
 
                 foreach (var element in reader)
                 {

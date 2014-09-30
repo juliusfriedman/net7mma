@@ -16,27 +16,29 @@ namespace Media.Container
         public readonly long Offset, Size;
 
         //Todo - Keep Size and Identifier both in bytes and use offsets and lengths to read values when required, so a ToByte() method can create the original data
-        
+
+        byte[] m_Data;
+
         //Should be a property created when accessed.
         public System.IO.MemoryStream Data
         {
             get
             {
-
-                if (Size <= 0 || Master.BaseStream == null) return null;
+                if (m_Data != null) return new System.IO.MemoryStream(m_Data);
+                else if (Size <= 0 || Master.BaseStream == null) return null;
 
                 //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
                 Master.BaseStream.Position = Offset;
 
-                byte[] data = new byte[Size];
+                m_Data = new byte[Size];
 
-                Master.BaseStream.Read(data, 0, (int)Size);
+                Master.BaseStream.Read(m_Data, 0, (int)Size);
 
                 Master.BaseStream.Position = offsetPrevious;
 
-                return new System.IO.MemoryStream(data);
+                return new System.IO.MemoryStream(m_Data);
             }
         }
 
@@ -64,7 +66,7 @@ namespace Media.Container
 
             base.Dispose();
 
-            if (Size > 0 && Data != null) Data.Dispose();
+            m_Data = null;
         }
 
     }

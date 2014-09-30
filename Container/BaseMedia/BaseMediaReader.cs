@@ -21,20 +21,19 @@ namespace Media.Container.BaseMedia
 
         public static List<string> ParentBoxes = new List<string>()
         {
+            "moof",
             "moov",
             "trak",
             "mdia",
             "minf",
             "dinf",
             "stbl",
-            //"avc1",
-            //"mp4a",
-            "edts",
+            "edts",            
             "stsd",
             "udta"
         };
 
-        static int MinimumSize = 8, IdentifierSize = 4, LengthSize = 4;
+        const int MinimumSize = IdentifierSize + LengthSize, IdentifierSize = 4, LengthSize = 4;
 
         public static string ToFourCharacterCode(byte[] identifier, int offset = 0, int count = 4) { return ToFourCharacterCode(Encoding.UTF8, identifier, offset, count); }
 
@@ -53,8 +52,6 @@ namespace Media.Container.BaseMedia
 
         public BaseMediaReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        static char[] PathSplits = new char[]{'/'};
-
         /// <summary>
         /// Given a box string '*' all boxes will be read.
         /// Given a box string './*' all boxes in the current box will be read/
@@ -70,7 +67,7 @@ namespace Media.Container.BaseMedia
 
             foreach (var box in this)
             {
-                if (names.Contains(ToFourCharacterCode(box.Identifier)))
+                if (names == null || names.Count() == 0 || names.Contains(ToFourCharacterCode(box.Identifier)))
                 {
                     yield return box;
                 }
@@ -81,28 +78,47 @@ namespace Media.Container.BaseMedia
 
         public Element ReadBox(string name, long offset = 0) { return ReadBoxes(offset, name).FirstOrDefault(); }
 
+        public byte[] ReadIdentifier()
+        {
+            if (Remaining < IdentifierSize) return null;
+            
+            byte[] identifier = new byte[IdentifierSize];
+
+            Read(identifier, 0, IdentifierSize);
+
+            return identifier;
+        }
+
+        public long ReadLength(out int bytesRead)
+        {
+            if (Remaining < LengthSize) return bytesRead = 0;
+            bytesRead = 0;
+            long length = 0;
+            byte[] lengthBytes = new byte[LengthSize];
+            do
+            {
+                Read(lengthBytes, 0, LengthSize);
+                length = (lengthBytes[0] << 24) + (lengthBytes[1] << 16) + (lengthBytes[2] << 8) + lengthBytes[3];
+                bytesRead += 4;
+            } while (length == 1 || (length & 0xffffffff) == 0);
+            return length;
+        }
+
         public Element ReadNext()
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
 
             long offset = Position;
 
-            bool complete = true;
+            int lengthBytesRead = 0;
 
-            byte[] lengthBytes = new byte[LengthSize];
+            long length = ReadLength(out lengthBytesRead);
 
-            long length = 0;
-            do
-            {
-                complete = LengthSize == Read(lengthBytes, 0, LengthSize);
-                length = (lengthBytes[0] << 24) + (lengthBytes[1] << 16) + (lengthBytes[2] << 8) + lengthBytes[3];
-            } while (length == 1 || (length & 0xffffffff) == 0);
-            
-            byte[] identifier = new byte[IdentifierSize];
+            byte[] identifier = ReadIdentifier();
 
-            complete = (IdentifierSize == Read(identifier, 0, IdentifierSize));
+            int nonDataBytes = IdentifierSize + lengthBytesRead;
 
-            return  new Element(this, identifier, offset, length, complete);
+            return  new Element(this, identifier, offset, length, length <= Remaining);
         }
 
         public override IEnumerator<Element> GetEnumerator()
@@ -113,9 +129,23 @@ namespace Media.Container.BaseMedia
                 if (next != null) yield return next;
                 else yield break;
 
+                //Parent boxes contain other boxes so do not skip them, parse right into their data
                 if (ParentBoxes.Contains(ToFourCharacterCode(next.Identifier))) continue;
                 
                 Skip(next.Size - MinimumSize);
+            }
+        }
+
+        /// <summary>
+        /// Reads an Element with the given name which occurs at the current Position or later
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public Element this[string name]
+        {
+            get
+            {
+                return ReadBoxes(Position, name).FirstOrDefault();
             }
         }
 
@@ -135,32 +165,103 @@ namespace Media.Container.BaseMedia
             }
         }
 
-        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/MP4Container.java
-
-        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/Movie.java
-
-        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/Track.java
-        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/VideoTrack.java
-        //https://github.com/communitymedia/mediautilities/blob/master/src/net/sourceforge/jaad/mp4/api/AudioTrack.java
-
-        public override Element TableOfContents
+        public bool HasProtection
         {
-            get { return ReadBox("stco") ?? ReadBox("co64"); }
+            //pssh/cenc
+            //TrackLevel Encryption = tenc
+            get { return ReadBoxes(Root.Offset, "ipro", "sinf").Count() >= 1; }
         }
 
-        public override IEnumerable<Track> GetTracks()
+        DateTime? m_Created, m_Modified;
+
+        public DateTime Created
         {
+            get
+            {
+                if (m_Created.HasValue) return m_Created.Value;
+                ParseMovieHeader();
+                return m_Created.Value;
+            }
+        }
 
-            int trackId = 0;
+        public DateTime Modified
+        {
+            get
+            {
+                if (m_Modified.HasValue) return m_Modified.Value;
+                ParseMovieHeader();
+                return m_Modified.Value;
+            }
+        }
 
-            ulong timeScale, duration;
+        ulong? m_TimeScale;
+        
+        TimeSpan? m_Duration;
+        
+        public TimeSpan Duration
+        {
+            get
+            {
+                if (m_Duration.HasValue) return m_Duration.Value;
+                ParseMovieHeader();
+                return m_Duration.Value;
+            }
+        }
 
-            //Obtain the timeScale and duration from the mdhd box
-            var mediaHeader = ReadBox("mdhd");
+        float? m_PlayRate, m_Volume;
+
+        public float PlayRate
+        {
+            get { 
+                if (m_PlayRate.HasValue) return m_PlayRate.Value;
+                ParseMovieHeader();
+                return m_PlayRate.Value;
+            }
+        }
+
+        public float Volume
+        {
+            get
+            {
+                if (m_Volume.HasValue) return m_Volume.Value;
+                ParseMovieHeader();
+                return m_Volume.Value;
+            }
+        }
+
+        byte[] m_Matrix;
+
+        public byte[] Matrix
+        {
+            get
+            {
+                if (m_Matrix != null) return m_Matrix;
+                ParseMovieHeader();
+                return m_Matrix;
+            }
+        }
+
+        int? m_NextTrackId;
+
+        public int NextTrackId
+        {
+            get
+            {
+                if (m_NextTrackId.HasValue) return m_NextTrackId.Value;
+                ParseMovieHeader();
+                return m_NextTrackId.Value;
+            }
+        }
+
+        protected void ParseMovieHeader()
+        {
+            ulong duration;
+
+            //Obtain the timeScale and duration from the LAST mdhd box
+            var mediaHeader = ReadBox("mvhd", Root.Offset); //ReadBoxes(Root.Offset, "mdhd").LastOrDefault();          
 
             using (var stream = mediaHeader.Data)
             {
-                //12 comes from Version, Flags int in FullBox + 8 for box name and length
                 stream.Position += 8;
 
                 byte[] buffer = new byte[8];
@@ -171,21 +272,19 @@ namespace Media.Container.BaseMedia
 
                 ulong created = 0, modified = 0;
 
-                DateTime createdDate, modifiedDate;
-
                 switch (version)
                 {
                     case 0:
                         {
                             stream.Read(buffer, 0, 4);
                             created = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
-                    
+
                             stream.Read(buffer, 0, 4);
                             modified = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
-                    
+
                             stream.Read(buffer, 0, 4);
-                            timeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
-                    
+                            m_TimeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
                             stream.Read(buffer, 0, 4);
                             duration = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
 
@@ -202,8 +301,8 @@ namespace Media.Container.BaseMedia
                             stream.Read(buffer, 0, 8);
                             modified = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
 
-                            stream.Read(buffer, 0, 8);
-                            timeScale = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                            stream.Read(buffer, 0, 4);
+                            m_TimeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
 
                             stream.Read(buffer, 0, 8);
                             duration = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
@@ -213,16 +312,212 @@ namespace Media.Container.BaseMedia
                     default: throw new NotSupportedException();
                 }
 
-                createdDate = IsoBaseDateUtc.AddMilliseconds(created * 1000);
+                //Rate Volume NextTrack
 
-                modifiedDate = IsoBaseDateUtc.AddMilliseconds(modified * 1000);
+                stream.Read(buffer, 0, 4);
 
+                m_PlayRate = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65536f;
+
+                stream.Read(buffer, 0, 2);
+
+                m_Volume = Common.Binary.ReadU16(buffer, 0, BitConverter.IsLittleEndian) /256f;
+
+                m_Matrix = new byte[36];
+
+                stream.Read(m_Matrix, 0, 36);
+
+                stream.Position += 24;
+
+                stream.Read(buffer, 0, 4);
+
+                m_NextTrackId = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian);
+
+                m_Created = IsoBaseDateUtc.AddMilliseconds(created * Utility.MicrosecondsPerMillisecond);
+
+                m_Modified = IsoBaseDateUtc.AddMilliseconds(modified * Utility.MicrosecondsPerMillisecond);
+
+                m_Duration = TimeSpan.FromSeconds((double)duration / (double)m_TimeScale.Value);
+            }
+        }
+
+        public override Element TableOfContents
+        {
+            get { return ReadBox("stco") ?? ReadBox("co64"); }
+        }
+
+        List<Track> m_Tracks;
+
+        public override IEnumerable<Track> GetTracks()
+        {
+
+            if (m_Tracks != null)
+            {
+                foreach (Track track in m_Tracks) yield return track;
+                yield break;
             }
 
-            //For each trak box 
-            foreach (var trakBox in ReadBoxes(Root.Offset, "trak"))
+            m_Tracks = new List<Track>();
+
+            long position = Position;
+
+            int trackId = 0;
+
+            ulong created = 0, modified = 0, duration = 0;
+
+            int width, height;
+
+            bool enabled, inMovie, inPreview;
+
+            //Get Duration from mdhd, some files have more then one mdhd.
+            if(!m_Duration.HasValue) ParseMovieHeader();
+
+            //For each trak box in the file
+            foreach (var trakBox in ReadBoxes(Root.Offset, "trak").ToArray())
             {
-                //Check tkhd for IsTrackInMovie and IsTrackEnabled
+                var trakHead = ReadBox("tkhd", trakBox.Offset);
+
+                using (var stream = trakHead.Data)
+                {
+                    stream.Position += 8;
+
+                    byte[] buffer = new byte[8];
+
+                    stream.Read(buffer, 0, 4);
+
+                    int version = buffer[0], flags = Common.Binary.Read24(buffer, 1, BitConverter.IsLittleEndian);
+
+                    enabled = ((flags & 1) == flags);
+
+                    inMovie = ((flags & 2) == flags);
+
+                    inPreview = ((flags & 3) == flags);
+
+                    if (version == 0)
+                    {
+
+                        stream.Read(buffer, 0, 4);
+                        created = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 4);
+                        modified = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    }
+                    else
+                    {
+                        stream.Read(buffer, 0, 8);
+                        created = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 8);
+                        modified = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                    }
+
+                    stream.Read(buffer, 0, 4);
+
+                    trackId = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian);
+
+                    //Skip
+                    stream.Read(buffer, 0, 4);
+
+                    //Get Duration
+                    if (version == 0)
+                    {
+                        stream.Read(buffer, 0, 4);
+                        duration = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    }
+                    else
+                    {
+                        stream.Read(buffer, 0, 8);
+                        duration = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                    }
+
+                    if (duration == 4294967295L) duration = ulong.MaxValue;
+
+                    //Reserved
+                    stream.Read(buffer, 0, 4);
+                    stream.Read(buffer, 0, 4);
+
+                    stream.Read(buffer, 0, 2);
+                    int layer = Common.Binary.ReadU16(buffer, 0, BitConverter.IsLittleEndian);
+
+                    stream.Read(buffer, 0, 2);
+                    int altGroup = Common.Binary.ReadU16(buffer, 0, BitConverter.IsLittleEndian);
+
+                    stream.Read(buffer, 0, 2);
+                    float volume = Common.Binary.ReadU16(buffer, 0, BitConverter.IsLittleEndian) / 256;
+
+                    //Skip
+                    stream.Read(buffer, 0, 2);
+
+                    //Matrix of 9 int?
+                    stream.Position += 9 * 4;
+
+                    //Width
+                    stream.Read(buffer, 0, 4);
+
+                    width = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65535;
+                    //Height
+
+                    stream.Read(buffer, 0, 4);
+                    height = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65535;
+                }
+
+                ulong trackTimeScale = m_TimeScale.Value, trackDuration = duration;
+
+                DateTime trackCreated = m_Created.Value, trackModified = m_Modified.Value;
+
+                //Read the mediaHeader
+                var mediaHeader = ReadBox("mdhd", trakBox.Offset);
+
+                using (var stream = mediaHeader.Data)
+                {
+                    stream.Position += 8;
+
+                    byte[] buffer = new byte[8];
+
+                    stream.Read(buffer, 0, 4);
+
+                    int version = buffer[0], flags = Common.Binary.Read24(buffer, 1, BitConverter.IsLittleEndian);
+
+                    ulong mediaCreated, mediaModified, timescale, mediaduration;
+
+                    if (version == 0)
+                    {
+
+                        stream.Read(buffer, 0, 4);
+                        mediaCreated = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 4);
+                        mediaModified = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 4);
+                        timescale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 4);
+                        mediaduration = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    }
+                    else
+                    {
+                        stream.Read(buffer, 0, 8);
+                        mediaCreated = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 8);
+                        mediaModified = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 4);
+                        timescale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                        stream.Read(buffer, 0, 8);
+                        mediaduration = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                    }
+
+                    trackTimeScale = timescale;
+
+                    trackDuration = mediaduration;
+
+                    trackCreated = IsoBaseDateUtc.AddMilliseconds(mediaCreated * Utility.MicrosecondsPerMillisecond);
+
+                    trackModified = IsoBaseDateUtc.AddMilliseconds(mediaModified * Utility.MicrosecondsPerMillisecond);
+
+                }
 
                 var sampleToTimeBox = ReadBox("stts", trakBox.Offset);
 
@@ -230,7 +525,7 @@ namespace Media.Container.BaseMedia
 
                 List<long> offsets = new List<long>();
 
-                List<int> sizes = new List<int>();
+                List<int> sampleSizes = new List<int>();
 
                 if (sampleToTimeBox != null)
                 {
@@ -283,11 +578,9 @@ namespace Media.Container.BaseMedia
                             {
                                 stream.Read(buffer, 0, 4);
 
-                                sizes.Add(Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian));
+                                sampleSizes.Add(Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian));
                             }
                         }
-
-                        
                     }
                 }
 
@@ -336,14 +629,125 @@ namespace Media.Container.BaseMedia
                     }
                 }
 
-                //Could also calc with entries.Item2 ?
+                TimeSpan calculatedDuration = TimeSpan.FromSeconds(trackDuration / (double)trackTimeScale);
 
-                yield return new Track(trakBox, trackId++, TimeSpan.Zero, TimeSpan.FromMilliseconds(duration / (timeScale / 1000)));
+                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
+
+                var hdlr = ReadBox("hdlr", trakBox.Offset);
+
+                string comp, sub;
+
+                using (var stream = hdlr.Data)
+                {
+                    stream.Position += 12;
+
+                    byte[] buffer = new byte[8];
+
+                    stream.Read(buffer, 0, 8);
+
+                    comp = ToFourCharacterCode(buffer, 0);
+
+                    sub = ToFourCharacterCode(buffer, 4);
+
+                }
+
+                switch (sub)
+                {
+                    case "vide": mediaType = Sdp.MediaType.video; break;
+                    case "soun": mediaType = Sdp.MediaType.audio; break;
+                    case "text": mediaType = Sdp.MediaType.text; break;
+                    case "tmcd": mediaType = Sdp.MediaType.timing; break;
+                    default: break;
+                }
+
+                var nameBox = ReadBox("name", trakBox.Offset);
+
+                string name = string.Empty;
+
+                if (nameBox != null)
+                {
+                    int size = (int)(nameBox.Size - 12);
+                    byte[] nameBytes = new byte[size];
+                    using (var stream = nameBox.Data)
+                    {
+                        stream.Read(nameBytes, 0, size);
+                        name = Encoding.UTF8.GetString(nameBytes);
+                    }
+                }
+
+                ulong sampleCount = (ulong)sampleSizes.Count();
+
+                if (sampleCount == 0) sampleCount = (ulong)entries[0].Item1;
+
+                double rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
+
+                var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
+
+                byte[] codecIndication = new byte[4];
+
+                using(var stream = sampleDescriptionBox.Data)
+                {
+                    stream.Position += 20;
+                    stream.Read(codecIndication, 0, 4);
+                }
+
+                //Check for esds if codecIndication is MP4 or MP4A
+
+                var elst = ReadBox("elst", trakBox.Offset);
+
+                List<Tuple<int, int, float>> edits = new List<Tuple<int, int, float>>();
+
+                TimeSpan startTime = TimeSpan.Zero;
+
+                if (elst != null)
+                {
+                    using (var stream = elst.Data)
+                    {
+
+                        //12 comes from Version, Flags int in FullBox + 8 for box name and length
+                        stream.Position += 12;
+
+                        byte[] buffer = new byte[12];
+
+                        stream.Read(buffer, 0, 4);
+
+                        int entryCount = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian);
+
+                        for (int i = 0; i < entryCount; ++i)
+                        {
+                            stream.Read(buffer, 0, 12);
+
+                            //Edit Duration, MediaTime, Rate
+                            edits.Add(new Tuple<int, int, float>(Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian),
+                                Common.Binary.Read32(buffer, 4, BitConverter.IsLittleEndian),
+                                Common.Binary.Read32(buffer, 8, BitConverter.IsLittleEndian) / 65535F));
+                        }
+                    }
+
+                    if (edits.Count > 0 && edits[0].Item2 > 0)
+                    {
+                        startTime = TimeSpan.FromMilliseconds(edits[0].Item2);
+                    }
+                }
+
+                Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication);
+
+                m_Tracks.Add(createdTrack);
+
+                yield return createdTrack;
             }
+
+            Position = position;
         }
 
         public override byte[] GetSample(Track track, out TimeSpan duration)
         {
+
+            //Could be moved to track.
+
+            //Track has sample count.
+
+            //Could make a SampleEnumerator which takes the list of sampleSizes and the list of offsets
             throw new NotImplementedException();
         }
     }
