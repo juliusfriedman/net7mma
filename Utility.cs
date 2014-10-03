@@ -56,7 +56,7 @@ namespace Media
     [CLSCompliant(false)]
     public static class Utility
     {
-        internal const double MicrosecondsPerMillisecond = 1000;
+        internal const double MicrosecondsPerMillisecond = 1000, NanosecondsPerMillisecond = MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, NanosecondsPerSecond = 1000000000;
 
         public static byte[] Empty = new byte[0];
 
