@@ -356,7 +356,7 @@ namespace Media.Container.BaseMedia
                 yield break;
             }
 
-            m_Tracks = new List<Track>();
+            var tracks = new List<Track>();
 
             long position = Position;
 
@@ -453,11 +453,11 @@ namespace Media.Container.BaseMedia
                     //Width
                     stream.Read(buffer, 0, 4);
 
-                    width = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65535;
+                    width = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / ushort.MaxValue;
                     //Height
 
                     stream.Read(buffer, 0, 4);
-                    height = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65535;
+                    height = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / ushort.MaxValue;
                 }
 
                 ulong trackTimeScale = m_TimeScale.Value, trackDuration = duration;
@@ -667,9 +667,11 @@ namespace Media.Container.BaseMedia
                 if (nameBox != null)
                 {
                     int size = (int)(nameBox.Size - 12);
+
                     byte[] nameBytes = new byte[size];
                     using (var stream = nameBox.Data)
                     {
+                        stream.Position += 12;
                         stream.Read(nameBytes, 0, size);
                         name = Encoding.UTF8.GetString(nameBytes);
                     }
@@ -685,10 +687,29 @@ namespace Media.Container.BaseMedia
 
                 byte[] codecIndication = new byte[4];
 
+                //byte bitDepth;
+
                 using(var stream = sampleDescriptionBox.Data)
                 {
                     stream.Position += 20;
                     stream.Read(codecIndication, 0, 4);
+
+                    //if (stream.Length > 24 + 38)
+                    //{
+                    //    //There is a Media Sample Description which contains the bit dept and number of channels etc...
+
+                    //    //https://developer.apple.com/library/Mac/documentation/QuickTime/QTFF/QTFFChap3/qtff3.html#//apple_ref/doc/uid/TP40000939-CH205-74522
+
+                    //This should be read to get the channels and bitdept for audio and bitdept for video as well as number of components / format
+
+                    //    stream.Position += 38;
+
+                    //    byte[] bitd = new byte[2];
+
+                    //    stream.Read(bitd, 0, 2);
+
+                    //    bitDepth = (byte)Common.Binary.ReadU16(bitd, 0, BitConverter.IsLittleEndian);
+                    //}
                 }
 
                 //Check for esds if codecIndication is MP4 or MP4A
@@ -720,7 +741,7 @@ namespace Media.Container.BaseMedia
                             //Edit Duration, MediaTime, Rate
                             edits.Add(new Tuple<int, int, float>(Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian),
                                 Common.Binary.Read32(buffer, 4, BitConverter.IsLittleEndian),
-                                Common.Binary.Read32(buffer, 8, BitConverter.IsLittleEndian) / 65535F));
+                                Common.Binary.Read32(buffer, 8, BitConverter.IsLittleEndian) / ushort.MaxValue));
                         }
                     }
 
@@ -732,10 +753,12 @@ namespace Media.Container.BaseMedia
 
                 Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication);
 
-                m_Tracks.Add(createdTrack);
+                tracks.Add(createdTrack);
 
                 yield return createdTrack;
             }
+
+            m_Tracks = tracks;
 
             Position = position;
         }

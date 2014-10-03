@@ -12,7 +12,7 @@ namespace Media.Container
     public class Track
     {
 
-        public Track(Element header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication)
+        public Track(Element header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication, byte channels = 0, byte bitDepth = 0)
         {
             this.Header = header;
             this.Width = width;
@@ -25,6 +25,8 @@ namespace Media.Container
             this.Name = name;
             this.SampleCount = sampleCount;
             this.CodecIndication = codecIndication;
+            this.Channels = channels;
+            this.BitDepth = bitDepth;
         }
 
         #region Fields
@@ -54,6 +56,8 @@ namespace Media.Container
         public readonly DateTime Created, Modified;
 
         public readonly long SampleCount;
+
+        public readonly byte Channels, BitDepth;
 
         public TimeSpan Position;
 

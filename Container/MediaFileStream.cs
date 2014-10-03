@@ -18,7 +18,7 @@ namespace Media.Container
 
         internal System.IO.FileStream m_Stream;
 
-        long m_Position, m_Length;
+        internal protected long m_Position, m_Length;
 
         #endregion
 

@@ -27,6 +27,8 @@ namespace Media.Container
                 if (m_Data != null) return new System.IO.MemoryStream(m_Data);
                 else if (Size <= 0 || Master.BaseStream == null) return null;
 
+                //If data is larger then a certain amount then it may just make sense to return the data itself?
+
                 //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
@@ -43,7 +45,7 @@ namespace Media.Container
         }
 
         //Indicates if element is complete
-        public readonly bool Complete;
+        public readonly bool IsComplete;
 
         public readonly byte[] Identifier;
 
@@ -57,7 +59,7 @@ namespace Media.Container
             Offset = offset;
             Identifier = identifier;
             Size = size;
-            Complete = complete;
+            IsComplete = complete;
         }
 
         public override void Dispose()

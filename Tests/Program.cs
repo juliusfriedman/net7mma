@@ -2231,7 +2231,7 @@ a=mpeg4-esid:101");
                     {
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + box.Offset);
-                        Console.WriteLine("Complete: " + box.Complete);
+                        Console.WriteLine("Complete: " + box.IsComplete);
                         Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
                         Console.WriteLine("Size: " + box.Size);
                         Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
@@ -2253,7 +2253,7 @@ a=mpeg4-esid:101");
                         }
                         else
                         {
-                            Console.WriteLine("Framt Rate: " + track.Rate);
+                            Console.WriteLine("Frame Rate: " + track.Rate);
                             Console.WriteLine("Width: " + track.Width);
                             Console.WriteLine("Height: " + track.Height);
                         }
@@ -2279,7 +2279,7 @@ a=mpeg4-esid:101");
                 {
                     Console.WriteLine("Position:" + reader.Position);
                     Console.WriteLine("Offset: " + element.Offset);
-                    Console.WriteLine("Complete: " + element.Complete);
+                    Console.WriteLine("Complete: " + element.IsComplete);
                     Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(element.Identifier));
                     Console.WriteLine("Size: " + element.Size);
                 }
@@ -2296,16 +2296,57 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("Root Element:" + Media.Container.Matroska.MatroskaReader.ToTextualConvention(reader.Root.Identifier));
 
+                    Console.WriteLine("File Level Information");
+
+                    Console.WriteLine("EbmlVersion:" + reader.EbmlVersion);
+                    Console.WriteLine("EbmlReadVersion:" + reader.EbmlReadVersion);
+                    Console.WriteLine("DocType:" + reader.DocType);
+                    Console.WriteLine("DocTypeVersion:" + reader.EbmlDocTypeVersion);
+                    Console.WriteLine("DocTypeReadVersion:" + reader.EbmlDocTypeReadVersion);
+                    Console.WriteLine("EbmlMaxIdLength:" + reader.EbmlMaxIdLength);
+                    Console.WriteLine("EbmlMaxSizeLength:" + reader.EbmlMaxSizeLength);
+
                     foreach (var element in reader)
                     {
-                        Console.WriteLine("Identifier:" + BitConverter.ToString(element.Identifier));
-                        Console.WriteLine("Position:" + reader.Position);
-                        Console.WriteLine("Offset: " + element.Offset);
-                        Console.WriteLine("Complete: " + element.Complete);
                         Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
-                        Console.WriteLine("Size: " + element.Size);
-                        Console.WriteLine("EbmlTytpe: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
+                        Console.WriteLine("Element Data Offset: " + element.Offset);
+                        Console.WriteLine("Element Size: " + element.Size);
+                        Console.WriteLine("Element.IsComplete: " + element.IsComplete);
                     }
+
+                    Console.WriteLine("Movie Muxer Application:" + reader.MuxingApp);
+
+                    Console.WriteLine("Movie Writing Applicatiopn:" + reader.WritingApp);
+
+                    Console.WriteLine("Movie Created:" + reader.Created);
+
+                    Console.WriteLine("Movie Duration:" + reader.Duration);
+
+                    Console.WriteLine("Track Information:");
+
+                    foreach (var track in reader.GetTracks())
+                    {
+                        Console.WriteLine("Id: " + track.Id);
+                        Console.WriteLine("Name: " + track.Name);
+                        Console.WriteLine("Duration: " + track.Duration);
+                        if (track.MediaType == Media.Sdp.MediaType.audio)
+                        {
+                            Console.WriteLine("Sampling Rate: " + track.Rate);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Frame Rate: " + track.Rate);
+                            Console.WriteLine("Width: " + track.Width);
+                            Console.WriteLine("Height: " + track.Height);
+                        }
+
+                        Console.WriteLine("Samples: " + track.SampleCount);
+
+                        Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
+
+                        Console.WriteLine("Type: " + track.MediaType);
+                    }
+
                 }
 
             }
@@ -2325,7 +2366,7 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Name: " + Media.Container.Asf.AsfReader.ToTextualConvention(element.Identifier));
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + element.Offset);
-                        Console.WriteLine("Complete: " + element.Complete);
+                        Console.WriteLine("Complete: " + element.IsComplete);
                         Console.WriteLine("Size: " + element.Size);
                     }
                 }
