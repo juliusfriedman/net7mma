@@ -84,7 +84,7 @@ namespace Media.Container.Riff
 
         #endregion
 
-        static int MinimumSize = 8, IdentifierSize = 4, LengthSize = 4;
+        static int MinimumSize = TWODWORDSSIZE, IdentifierSize = DWORDSIZE, LengthSize = DWORDSIZE;
 
         public static string ToFourCharacterCode(byte[] identifier, int offset = 0, int count = 4) { return FromFourCC(ToFourCC(Array.ConvertAll<byte, char>(identifier.Skip(offset).Take(count).ToArray(), Convert.ToChar))); }
 
@@ -103,13 +103,25 @@ namespace Media.Container.Riff
                 if (names == null || names.Count() == 0 || names.Contains(ToFourCharacterCode(chunk.Identifier)))
                 {
                     yield return chunk;
+                    continue;
                 }
             }
 
             Position = position;
+
+            yield break;
         }
 
-        public Element ReadChunk(string name, long offset = 0) { return ReadChunks(offset, name).FirstOrDefault(); }
+        public Element ReadChunk(string name, long offset = 0)
+        {
+            long positionStart = Position;
+
+            Element result = ReadChunks(offset, name).FirstOrDefault();
+
+            Position = positionStart;
+
+            return result;
+        }
 
         public Element ReadNext()
         {
@@ -132,7 +144,7 @@ namespace Media.Container.Riff
             //Calculate padded size (to word boundary)
             if (0 != (length & 1)) ++length;
             
-            complete = length < Remaining;
+            complete = length <= Remaining;
 
             return  new Element(this, identifier, offset, length, complete);
         }
@@ -143,14 +155,15 @@ namespace Media.Container.Riff
             while (Remaining > TWODWORDSSIZE)
             {
                 Element next = ReadNext();
-                if (next != null) yield return next;
-                else yield break;
-
+                
                 //To use binary comparison
                 string fourCC = FromFourCC(Common.Binary.Read32(next.Identifier, 0, false));
 
                 if (fourCC == RIFF4CC || fourCC == RIFX4CC || fourCC == LIST4CC) Skip(IdentifierSize);
                 else Skip(next.Size);
+
+                if (next != null) yield return next;
+                else yield break;
             }
         }      
 
@@ -159,15 +172,8 @@ namespace Media.Container.Riff
             get
             {
                 long position = Position;
-
-                Position = 0;
-
-                Element root = ReadNext();
-
+                Element root = ReadChunks(0, RIFF4CC, RIFX4CC).FirstOrDefault();
                 Position = position;
-
-                //To be a valid file the RootElement must have a Identifier of RIFF4CC or RIFX4CC
-
                 return root;
             }
         }
@@ -197,9 +203,6 @@ namespace Media.Container.Riff
 
         void ParseIdentity()
         {
-
-            long position = Position;
-
             using (var iditChunk = ReadChunk("IDIT", Root.Offset))
             {
                 if (iditChunk != null) using (var stream = iditChunk.Data)
@@ -222,12 +225,10 @@ namespace Media.Container.Riff
                         
                         m_Created = new DateTime(year, month, day, time.Hours, time.Minutes, time.Seconds);
                     }
-                else m_Created = (new System.IO.FileInfo(Source.LocalPath)).CreationTimeUtc;
+                else m_Created = FileInfo.CreationTimeUtc;
             }
 
-            m_Modified = (new System.IO.FileInfo(Source.LocalPath)).LastWriteTimeUtc;
-
-            Position = position;
+            m_Modified = FileInfo.LastWriteTimeUtc;
         }
 
         int? m_MicroSecPerFrame, m_MaxBytesPerSec, m_PaddingGranularity, m_Flags, m_TotalFrames, m_InitialFrames, m_Streams, m_SuggestedBufferSize, m_Width, m_Height, m_Reserved;
@@ -348,8 +349,6 @@ namespace Media.Container.Riff
 
         void ParseAviHeader()
         {
-            long position = Position;
-
             using (var headerChunk = ReadChunk("avih", Root.Offset))
             {
                 using (var stream = headerChunk.Data)
@@ -391,14 +390,12 @@ namespace Media.Container.Riff
                     stream.Read(buffer, 0, DWORDSIZE);
                     m_Reserved = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
                 }
-            }
-
-            Position = position;
+            }            
         }
 
         public override Element TableOfContents
         {
-            get { return ReadChunk("idx1") ?? ReadChunk("indx"); }
+            get { return ReadChunks(Root.Offset, "idx1", "indx").FirstOrDefault(); }
         }
 
         IEnumerable<Track> m_Tracks;

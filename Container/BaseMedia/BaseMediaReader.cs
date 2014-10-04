@@ -61,7 +61,7 @@ namespace Media.Container.BaseMedia
         /// <returns></returns>
         public IEnumerable<Element> ReadBoxes(long offset = 0, params string[] names)
         {
-            long position = Position;
+            long positionStart = Position;
 
             Position = offset;
 
@@ -70,13 +70,25 @@ namespace Media.Container.BaseMedia
                 if (names == null || names.Count() == 0 || names.Contains(ToFourCharacterCode(box.Identifier)))
                 {
                     yield return box;
+                    continue;
                 }
             }
 
-            Position = position;
+            Position = positionStart;
+
+            yield break;
         }
 
-        public Element ReadBox(string name, long offset = 0) { return ReadBoxes(offset, name).FirstOrDefault(); }
+        public Element ReadBox(string name, long offset = 0)
+        {
+            long positionStart = Position;
+
+            Element result = ReadBoxes(offset, name).FirstOrDefault();
+
+            Position = positionStart;
+
+            return result;
+        }
 
         public byte[] ReadIdentifier()
         {
@@ -149,21 +161,7 @@ namespace Media.Container.BaseMedia
             }
         }
 
-        public override Element Root
-        {
-            get
-            {
-                long position = Position;
-
-                Position = 0;
-
-                Element root = ReadNext();
-
-                Position = position;
-
-                return root;
-            }
-        }
+        public override Element Root { get { return ReadBox("ftyp", 0); } }
 
         public bool HasProtection
         {
@@ -343,9 +341,10 @@ namespace Media.Container.BaseMedia
             }
         }
 
+        //Should be a better box...
         public override Element TableOfContents
         {
-            get { return ReadBox("stco") ?? ReadBox("co64"); }
+            get { return ReadBoxes(Root.Offset, "stco", "co64").FirstOrDefault(); }
         }
 
         List<Track> m_Tracks;

@@ -16,6 +16,8 @@ namespace Media.Container
 
         Uri m_Source;
 
+        System.IO.FileInfo m_FileInfo;
+
         internal System.IO.FileStream m_Stream;
 
         internal protected long m_Position, m_Length;
@@ -40,6 +42,8 @@ namespace Media.Container
 
         public System.IO.Stream BaseStream { get { return m_Stream; } }
 
+        public System.IO.FileInfo FileInfo { get { return m_FileInfo; } }
+
         #endregion
 
         #region Constructor / Destructor
@@ -58,7 +62,9 @@ namespace Media.Container
             if (!System.IO.File.Exists(m_Source.LocalPath)) throw new System.IO.FileNotFoundException("Could not find" + m_Source.LocalPath);
 
             m_Stream = new System.IO.FileStream(m_Source.LocalPath, System.IO.FileMode.Open, access, System.IO.FileShare.ReadWrite);
-            
+
+            m_FileInfo = new System.IO.FileInfo(m_Source.LocalPath);
+
             m_Position = m_Stream.Position;
 
             m_Length = m_Stream.Length;
@@ -71,6 +77,8 @@ namespace Media.Container
             if (Disposed) return;
             base.Dispose();
             m_Position = m_Length = -1;
+            m_Source = null;
+            m_FileInfo = null;
             m_Stream.Dispose();
             m_Stream = null;
         }

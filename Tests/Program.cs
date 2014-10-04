@@ -2315,7 +2315,6 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Size: " + chunk.Size);
                 }
 
-
                 Console.WriteLine("Track Information:");
 
                 foreach (var track in reader.GetTracks())
@@ -2417,6 +2416,28 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("Root Element:" + Media.Container.Asf.AsfReader.ToTextualConvention(reader.Root.Identifier));
 
+                    Console.WriteLine("File Level Information");
+
+                    Console.WriteLine("Created: " + reader.Created);
+                    Console.WriteLine("FileSize: " + reader.FileSize);
+                    Console.WriteLine("NumberOfPackets: " + reader.NumberOfPackets);
+                    Console.WriteLine("MinimumPacketSize: " + reader.MinimumPacketSize);
+                    Console.WriteLine("MaximumPacketSize: " + reader.MaximumPacketSize);
+                    Console.WriteLine("Duration: " + reader.Duration);
+                    Console.WriteLine("PlayTime: " + reader.PlayTime);
+                    Console.WriteLine("SendTime: " + reader.SendTime);
+                    Console.WriteLine("PreRoll: " + reader.PreRoll);
+                    Console.WriteLine("Flags: " + reader.Flags);
+                    Console.WriteLine("IsBroadcast: " + reader.IsBroadcast);
+                    Console.WriteLine("IsSeekable: " + reader.IsSeekable);
+
+                    Console.WriteLine("Content Description");
+
+                    Console.WriteLine("Title: " + reader.Title);
+                    Console.WriteLine("Author: " + reader.Author);
+                    Console.WriteLine("Copyright: " + reader.Copyright);
+                    Console.WriteLine("Comment: " + reader.Comment);
+
                     foreach (var element in reader)
                     {
                         Console.WriteLine("Identifier:" + BitConverter.ToString(element.Identifier));
@@ -2426,6 +2447,32 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Complete: " + element.IsComplete);
                         Console.WriteLine("Size: " + element.Size);
                     }
+
+                    Console.WriteLine("Track Information:");
+
+                    foreach (var track in reader.GetTracks())
+                    {
+                        Console.WriteLine("Id: " + track.Id);
+                        Console.WriteLine("Name: " + track.Name);
+                        Console.WriteLine("Duration: " + track.Duration);
+                        if (track.MediaType == Media.Sdp.MediaType.audio)
+                        {
+                            Console.WriteLine("Sampling Rate: " + track.Rate);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Frame Rate: " + track.Rate);
+                            Console.WriteLine("Width: " + track.Width);
+                            Console.WriteLine("Height: " + track.Height);
+                        }
+
+                        Console.WriteLine("Samples: " + track.SampleCount);
+
+                        Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
+
+                        Console.WriteLine("Type: " + track.MediaType);
+                    }
+
                 }
 
             }
