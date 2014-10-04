@@ -258,85 +258,88 @@ namespace Media.Container.BaseMedia
             ulong duration;
 
             //Obtain the timeScale and duration from the LAST mdhd box
-            var mediaHeader = ReadBox("mvhd", Root.Offset); //ReadBoxes(Root.Offset, "mdhd").LastOrDefault();          
-
-            using (var stream = mediaHeader.Data)
+            using (var mediaHeader = ReadBox("mvhd", Root.Offset))
             {
-                stream.Position += 8;
-
-                byte[] buffer = new byte[8];
-
-                stream.Read(buffer, 0, 4);
-
-                int versionAndFlags = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian), version = versionAndFlags >> 24 & 0xff;
-
-                ulong created = 0, modified = 0;
-
-                switch (version)
+                using (var stream = mediaHeader.Data)
                 {
-                    case 0:
-                        {
-                            stream.Read(buffer, 0, 4);
-                            created = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    stream.Position += 8;
 
-                            stream.Read(buffer, 0, 4);
-                            modified = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    byte[] buffer = new byte[8];
 
-                            stream.Read(buffer, 0, 4);
-                            m_TimeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    stream.Read(buffer, 0, 4);
 
-                            stream.Read(buffer, 0, 4);
-                            duration = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                    int versionAndFlags = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian), version = versionAndFlags >> 24 & 0xff;
 
-                            break;
-                        }
+                    ulong created = 0, modified = 0;
 
-                    case 1:
-                        {
+                    switch (version)
+                    {
+                        case 0:
+                            {
+                                stream.Read(buffer, 0, 4);
+                                created = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                                stream.Read(buffer, 0, 4);
+                                modified = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                                stream.Read(buffer, 0, 4);
+                                m_TimeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                                stream.Read(buffer, 0, 4);
+                                duration = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+
+                                break;
+                            }
+
+                        case 1:
+                            {
 
 
-                            stream.Read(buffer, 0, 8);
-                            created = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                                stream.Read(buffer, 0, 8);
+                                created = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
 
-                            stream.Read(buffer, 0, 8);
-                            modified = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                                stream.Read(buffer, 0, 8);
+                                modified = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
 
-                            stream.Read(buffer, 0, 4);
-                            m_TimeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
+                                stream.Read(buffer, 0, 4);
+                                m_TimeScale = Common.Binary.ReadU32(buffer, 0, BitConverter.IsLittleEndian);
 
-                            stream.Read(buffer, 0, 8);
-                            duration = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
+                                stream.Read(buffer, 0, 8);
+                                duration = Common.Binary.ReadU64(buffer, 0, BitConverter.IsLittleEndian);
 
-                            break;
-                        }
-                    default: throw new NotSupportedException();
+                                break;
+                            }
+                        default: throw new NotSupportedException();
+                    }
+
+                    //Rate Volume NextTrack
+
+                    stream.Read(buffer, 0, 4);
+
+                    m_PlayRate = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65536f;
+
+                    stream.Read(buffer, 0, 2);
+
+                    m_Volume = Common.Binary.ReadU16(buffer, 0, BitConverter.IsLittleEndian) / 256f;
+
+                    m_Matrix = new byte[36];
+
+                    stream.Read(m_Matrix, 0, 36);
+
+                    stream.Position += 24;
+
+                    stream.Read(buffer, 0, 4);
+
+                    m_NextTrackId = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian);
+
+                    m_Created = IsoBaseDateUtc.AddMilliseconds(created * Utility.MicrosecondsPerMillisecond);
+
+                    m_Modified = IsoBaseDateUtc.AddMilliseconds(modified * Utility.MicrosecondsPerMillisecond);
+
+                    m_Duration = TimeSpan.FromSeconds((double)duration / (double)m_TimeScale.Value);
                 }
 
-                //Rate Volume NextTrack
 
-                stream.Read(buffer, 0, 4);
-
-                m_PlayRate = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian) / 65536f;
-
-                stream.Read(buffer, 0, 2);
-
-                m_Volume = Common.Binary.ReadU16(buffer, 0, BitConverter.IsLittleEndian) /256f;
-
-                m_Matrix = new byte[36];
-
-                stream.Read(m_Matrix, 0, 36);
-
-                stream.Position += 24;
-
-                stream.Read(buffer, 0, 4);
-
-                m_NextTrackId = Common.Binary.Read32(buffer, 0, BitConverter.IsLittleEndian);
-
-                m_Created = IsoBaseDateUtc.AddMilliseconds(created * Utility.MicrosecondsPerMillisecond);
-
-                m_Modified = IsoBaseDateUtc.AddMilliseconds(modified * Utility.MicrosecondsPerMillisecond);
-
-                m_Duration = TimeSpan.FromSeconds((double)duration / (double)m_TimeScale.Value);
             }
         }
 
@@ -749,6 +752,8 @@ namespace Media.Container.BaseMedia
                     {
                         startTime = TimeSpan.FromMilliseconds(edits[0].Item2);
                     }
+
+                    elst = null;
                 }
 
                 Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication);

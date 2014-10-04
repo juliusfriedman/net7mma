@@ -19,12 +19,11 @@ namespace Media.Container
 
         byte[] m_Data;
 
-        //Should be a property created when accessed.
-        public System.IO.MemoryStream Data
+        public byte[] Raw
         {
             get
             {
-                if (m_Data != null) return new System.IO.MemoryStream(m_Data);
+                if (m_Data != null) return m_Data;
                 else if (Size <= 0 || Master.BaseStream == null) return null;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
@@ -40,7 +39,16 @@ namespace Media.Container
 
                 Master.BaseStream.Position = offsetPrevious;
 
-                return new System.IO.MemoryStream(m_Data);
+                return m_Data;
+            }
+        }
+
+        //Should be a property created when accessed.
+        public System.IO.MemoryStream Data
+        {
+            get
+            {
+                return new System.IO.MemoryStream(Raw);
             }
         }
 

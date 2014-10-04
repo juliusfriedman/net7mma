@@ -2225,7 +2225,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Element:" + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
+                    Console.WriteLine("Root Box:" + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
 
                     foreach (var box in reader)
                     {
@@ -2273,15 +2273,72 @@ a=mpeg4-esid:101");
                 Console.WriteLine("Path:" + reader.Source);
                 Console.WriteLine("Total Size:" + reader.Length);
 
-                Console.WriteLine("Root Element:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));                
+                Console.WriteLine("Root Chunk:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
 
-                foreach (var element in reader)
+                Console.WriteLine("File Level Information");
+
+                Console.WriteLine("Microseconds Per Frame:" + reader.MicrosecondsPerFrame);
+
+                Console.WriteLine("Max Bytes Per Seconds:" + reader.MaxBytesPerSecond);
+
+                Console.WriteLine("Flags:" + reader.Flags);
+
+                Console.WriteLine("Total Frames:" + reader.TotalFrames);
+
+                Console.WriteLine("Initial Frames:" + reader.InitialFrames);
+
+                Console.WriteLine("Streams:" + reader.Streams);
+
+                Console.WriteLine("Suggested Buffer Size:" + reader.SuggestedBufferSize);
+
+                Console.WriteLine("Width:" + reader.Width);
+
+                Console.WriteLine("Height:" + reader.Height);
+
+                Console.WriteLine("Reserved:" + reader.Reserved);
+
+                Console.WriteLine("Chunks:");
+
+                foreach (var chunk in reader)
                 {
                     Console.WriteLine("Position:" + reader.Position);
-                    Console.WriteLine("Offset: " + element.Offset);
-                    Console.WriteLine("Complete: " + element.IsComplete);
-                    Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(element.Identifier));
-                    Console.WriteLine("Size: " + element.Size);
+                    Console.WriteLine("Offset: " + chunk.Offset);
+                    Console.WriteLine("Complete: " + chunk.IsComplete);
+                    Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier));
+
+                    //Show how the common type can be read.
+                    if (Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "RIFF" || Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "RIFX" || Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "LIST" || Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "hdrl")
+                    {
+                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Raw, 8, 4));
+                    }
+
+                    Console.WriteLine("Size: " + chunk.Size);
+                }
+
+
+                Console.WriteLine("Track Information:");
+
+                foreach (var track in reader.GetTracks())
+                {
+                    Console.WriteLine("Id: " + track.Id);
+                    Console.WriteLine("Name: " + track.Name);
+                    Console.WriteLine("Duration: " + track.Duration);
+                    if (track.MediaType == Media.Sdp.MediaType.audio)
+                    {
+                        Console.WriteLine("Sampling Rate: " + track.Rate);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Frame Rate: " + track.Rate);
+                        Console.WriteLine("Width: " + track.Width);
+                        Console.WriteLine("Height: " + track.Height);
+                    }
+
+                    Console.WriteLine("Samples: " + track.SampleCount);
+
+                    Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
+
+                    Console.WriteLine("Type: " + track.MediaType);
                 }
                 
             }
