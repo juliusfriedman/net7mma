@@ -624,6 +624,8 @@ namespace Media.Container.Matroska
             // Get the header byte
             Byte header_byte = (byte)reader.ReadByte();
 
+            //Lookup for length?
+
             // Define a mask
             Byte mask = 0x80, size_length = 1;
 
@@ -940,7 +942,7 @@ namespace Media.Container.Matroska
 
             if (!m_Duration.HasValue) m_Duration = TimeSpan.Zero;
 
-            if (!m_Created.HasValue) m_Created = (new System.IO.FileInfo(Location.LocalPath)).CreationTimeUtc;
+            if (!m_Created.HasValue) m_Created = FileInfo.CreationTimeUtc;
 
             if (m_MuxingApp == null) m_MuxingApp = string.Empty;
 

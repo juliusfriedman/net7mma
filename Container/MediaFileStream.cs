@@ -85,6 +85,8 @@ namespace Media.Container
 
         #region Abstraction
 
+        //Should abstract KnownExtensions? MimeTypes?
+
         /// <summary>
         /// When overriden in a derived class, Provides information for each 'Track' in the Media
         /// </summary>
@@ -102,21 +104,15 @@ namespace Media.Container
 
         #region IMediaContainer
 
-        public Uri Location
-        {
-            get { return m_Source; }
-        }
+        public Uri Location { get { return m_Source; } }
 
         public abstract Element Root { get; }
 
         public abstract Element TableOfContents { get; }
 
         public abstract IEnumerator<Element> GetEnumerator();
-      
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
 
         #endregion
     }
