@@ -663,27 +663,37 @@ namespace Media.Container.Matroska
 
         public Element ReadElement(Identifier identifier, long position = 0) { return ReadElement((int)identifier, position); }
 
-        public Element ReadElement(int identifier, long position = 0) { return ReadElements(position, identifier.Yield().ToArray()).FirstOrDefault(); }
+        public Element ReadElement(int identifier, long position = 0)
+        {
+            long positionStart = Position;
+
+            Element result = ReadElements(position, identifier).FirstOrDefault();
+
+            Position = positionStart;
+
+            return result;
+        }
 
         public IEnumerable<Element> ReadElements(long position, params Identifier[] identifiers) { return ReadElements(position, identifiers.Cast<int>().ToArray()); }
 
         public IEnumerable<Element> ReadElements(long position, params int[] identifiers)
         {
-            if (identifiers == null) yield break;
-
             long lastPosition = Position;
 
             Position = position;
 
             foreach (var element in this)
             {
-                if (identifiers.Contains(Common.Binary.Read32(element.Identifier, 0, BitConverter.IsLittleEndian)))
+                if (identifiers == null || identifiers .Count () == 0 || identifiers.Contains(Common.Binary.Read32(element.Identifier, 0, BitConverter.IsLittleEndian)))
                 {
                     yield return element;
+                    continue;
                 }
             }
 
             Position = lastPosition;
+
+            yield break;
         }
 
         public Element ReadNext()
@@ -744,20 +754,8 @@ namespace Media.Container.Matroska
 
         public override Element Root
         {
-            get
-            {
-                long position = Position;
-
-                Position = 0;
-
-                Element root = ReadNext();
-
-                Position = position;
-
-                return root;
-            }
+            get { return ReadElement(Identifier.EBMLHeader, 0); }
         }
-
 
         void ParseEbmlHeader()
         {
@@ -949,7 +947,7 @@ namespace Media.Container.Matroska
             if (m_WritingApp == null) m_WritingApp = string.Empty;
 
             //Not in spec....
-            m_Modified = (new System.IO.FileInfo(Location.LocalPath)).LastWriteTimeUtc;
+            m_Modified = FileInfo.LastWriteTimeUtc;
         }        
 
         long m_TimeCodeScale = DefaulTimeCodeScale;

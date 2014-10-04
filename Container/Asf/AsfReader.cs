@@ -12,6 +12,8 @@ namespace Media.Container.Asf
     public class AsfReader : MediaFileStream, IMediaContainer
     {
 
+        static DateTime BaseDate = new DateTime(1601, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
+
         const int IdentifierSize = 16, LengthSize = 8, MinimumSize = IdentifierSize + LengthSize;
 
         public static class Identifiers
@@ -109,7 +111,9 @@ namespace Media.Container.Asf
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
-            Guid id = offset > 0 ? new Guid(identifier.Skip(offset).ToArray()) : new Guid(identifier);
+            if (identifier == null) return "Unknown";
+
+            Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
             string result;
 
@@ -122,16 +126,35 @@ namespace Media.Container.Asf
 
         public AsfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        /// <summary>
-        /// Given a box string '*' all boxes will be read.
-        /// Given a box string './*' all boxes in the current box will be read/
-        /// Given a box string '/someBox/anotherBox/*' someBox/anotherBox will be read.
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
-        public Element ReadElement(string path)
+        public IEnumerable<Element> ReadElements(long offset = 0, params string[] names)
         {
-            throw new NotImplementedException();
+            long position = Position;
+
+            Position = offset;
+
+            foreach (var box in this)
+            {
+                if (names == null || names.Count() == 0 || names.Contains(ToTextualConvention(box.Identifier)))
+                {
+                    yield return box;
+                    continue;
+                }
+            }
+
+            Position = position;
+
+            yield break;
+        }
+
+        public Element ReadElement(string name, long offset = 0)
+        {
+            long positionStart = Position;
+
+            Element result = ReadElements(offset, name).FirstOrDefault();
+
+            Position = positionStart;
+
+            return result;
         }
 
         public Element ReadNext()
@@ -164,34 +187,451 @@ namespace Media.Container.Asf
                 if (next != null) yield return next;
                 else yield break;
 
+                if (next.Identifier.SequenceEqual(Identifiers.ASFHeaderObject.ToByteArray()))
+                {
+                    //Int 32 and two reserved bytes
+                    Skip(6);
+                    continue;
+                }
+
                 Skip(next.Size);
             }
         }      
 
         public override Element Root
         {
+            get { return ReadElement("ASFHeaderObject", 0); }
+        }
+
+        long? m_FileSize, m_NumberOfPackets, m_PlayTime, m_SendTime, m_Ignore, m_PreRoll, m_Flags, m_MinimumPacketSize, m_MaximumPacketSize, m_MaximumBitRate;
+
+        public long FileSize
+        {
             get
             {
-                long position = Position;
-
-                Position = 0;
-
-                Element root = ReadNext();
-
-                Position = position;
-
-                return root;
+                if (m_FileSize.HasValue) return m_FileSize.Value;
+                ParseFileProperties();
+                return m_FileSize.Value;
             }
         }
 
+        public long NumberOfPackets
+        {
+            get
+            {
+                if (m_NumberOfPackets.HasValue) return m_NumberOfPackets.Value;
+                ParseFileProperties();
+                return m_NumberOfPackets.Value;
+            }
+        }
+        public long SendTime
+        {
+            get
+            {
+                if (m_SendTime.HasValue) return m_SendTime.Value;
+                ParseFileProperties();
+                return m_SendTime.Value;
+            }
+        }
+
+        public long Ignore
+        {
+            get
+            {
+                if (m_Ignore.HasValue) return m_Ignore.Value;
+                ParseFileProperties();
+                return m_Ignore.Value;
+            }
+        }
+
+        public long Flags
+        {
+            get
+            {
+                if (m_Flags.HasValue) return m_Flags.Value;
+                ParseFileProperties();
+                return m_Flags.Value;
+            }
+        }
+
+        public bool IsBroadcast
+        {
+            get { return (Flags & 1) > 0; }
+        }
+
+        public bool IsSeekable
+        {
+            get { return (Flags & 2) > 0; }
+        }
+
+        public long MinimumPacketSize
+        {
+            get
+            {
+                if (m_MinimumPacketSize.HasValue) return m_MinimumPacketSize.Value;
+                ParseFileProperties();
+                return m_MinimumPacketSize.Value;
+            }
+        }
+
+        public long MaximumPacketSize
+        {
+            get
+            {
+                if (m_MaximumPacketSize.HasValue) return m_MaximumPacketSize.Value;
+                ParseFileProperties();
+                return m_MaximumPacketSize.Value;
+            }
+        }
+
+        public long MaximumBitRate
+        {
+            get
+            {
+                if (m_MaximumBitRate.HasValue) return m_MaximumBitRate.Value;
+                ParseFileProperties();
+                return m_MaximumBitRate.Value;
+            }
+        }
+
+        public TimeSpan PlayTime
+        {
+            get
+            {
+                if (!m_PlayTime.HasValue) ParseFileProperties();
+                return TimeSpan.FromTicks(m_PlayTime.Value);
+            }
+        }
+
+        public TimeSpan Duration
+        {
+            get
+            {
+                return PlayTime - PreRoll;
+            }
+        }
+
+        public TimeSpan PreRoll
+        {
+            get
+            {
+                if (!m_PreRoll.HasValue) ParseFileProperties();
+                return TimeSpan.FromMilliseconds((double)m_PreRoll.Value / (Utility.NanosecondsPerSecond / Utility.MicrosecondsPerMillisecond));
+            }
+        }
+
+        DateTime? m_Created, m_Modified;
+
+
+        public DateTime Created
+        {
+            get
+            {
+                if (m_Created.HasValue) return m_Created.Value;
+                ParseFileProperties();
+                return m_Created.Value;
+            }
+        }
+
+        public DateTime Modified
+        {
+            get
+            {
+                if (m_Modified.HasValue) return m_Modified.Value;
+                ParseFileProperties();
+                return m_Modified.Value;
+            }
+        }
+
+        void ParseFileProperties()
+        {
+            using (var fileProperties = ReadElement("ASFFilePropertiesObject", Root.Offset))
+            {
+                using (var stream = fileProperties.Data)
+                {
+                    //FileId
+                    stream.Position += 24 + 16;
+
+                    byte[] buffer = new byte[8];
+
+                    //FileSize 64
+                    stream.Read(buffer, 0, 8);
+                    m_FileSize = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //Created 64
+                    stream.Read(buffer, 0, 8);
+                    m_Created = BaseDate.AddTicks((long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian));
+
+                    //NumberOfPackets 64
+                    stream.Read(buffer, 0, 8);
+                    m_NumberOfPackets = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //PlayTime 64
+                    stream.Read(buffer, 0, 8);
+                    m_PlayTime = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //SendTime 64
+                    stream.Read(buffer, 0, 8);
+                    m_SendTime = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //PreRoll 32
+                    stream.Read(buffer, 0, 8);
+                    m_PreRoll = (long)Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //Ignore 32
+                    m_Ignore = (long)Common.Binary.ReadU32(buffer, 4, !BitConverter.IsLittleEndian);
+
+                    //Flags 32
+                    stream.Read(buffer, 0, 8);
+                    m_Flags = (long)Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //MinimumPacketSize 32
+                    m_MinimumPacketSize = (long)Common.Binary.ReadU32(buffer, 4, !BitConverter.IsLittleEndian);
+
+                    //MaximumPacketSize 32
+                    stream.Read(buffer, 0, 8);
+                    m_MaximumPacketSize = (long)Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    //MaximumBitRate 32
+                    m_MaximumBitRate = (long)Common.Binary.ReadU32(buffer, 4, !BitConverter.IsLittleEndian);
+
+                    //Any more data it belongs to some kind of extension...
+                }
+            }
+
+            m_Modified = FileInfo.LastWriteTimeUtc;
+        }
+
+        string m_Title, m_Author, m_Copyright, m_Comment;
+
+        public string Title
+        {
+            get
+            {
+                if (m_Title == null) ParseContentDescription();
+                return m_Title;
+            }
+        }
+
+        public string Author
+        {
+            get
+            {
+                if (m_Author == null) ParseContentDescription();
+                return m_Author;
+            }
+        }
+
+        public string Copyright
+        {
+            get
+            {
+                if (m_Copyright == null) ParseContentDescription();
+                return m_Copyright;
+            }
+        }
+
+        public string Comment
+        {
+            get
+            {
+                if (m_Comment == null) ParseContentDescription();
+                return m_Comment;
+            }
+        }
+
+        void ParseContentDescription()
+        {
+            using (var contentDescription = ReadElement("ASFContentDescriptionObject", Root.Offset))
+            {
+                if(contentDescription != null) using (var stream = contentDescription.Data)
+                {
+                    byte[] buffer = new byte[32];
+
+                    stream.Read(buffer, 0, 4);
+                    int len1 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    stream.Read(buffer, 0, 4);
+                    int len2 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    stream.Read(buffer, 0, 4);
+                    int len3 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    stream.Read(buffer, 0, 4);
+                    int len4 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                    stream.Read(buffer, 0, len1);
+                    m_Title = Encoding.ASCII.GetString(buffer, 0, len1);
+
+                    stream.Read(buffer, 0, len2);
+                    m_Author = Encoding.ASCII.GetString(buffer, 0, len1);
+
+                    stream.Read(buffer, 0, len3);
+                    m_Copyright = Encoding.ASCII.GetString(buffer, 0, len1);
+
+                    stream.Read(buffer, 0, len4);
+                    m_Comment = Encoding.ASCII.GetString(buffer, 0, len1);
+                }
+            }
+            if (m_Title == null) m_Title = string.Empty;
+            if (m_Author == null) m_Author = string.Empty;
+            if (m_Copyright == null) m_Copyright = string.Empty;
+            if (m_Comment == null) m_Comment = string.Empty;
+        }
+
+        //s ->keylen defines protection.
+
         public override Element TableOfContents
         {
-            get { return ReadElement("AsfFileConfiguration") ?? ReadElement("AsfStreamConfiguration"); }
+            get { return ReadElements(Root.Offset, "ASFFilePropertiesObject", "ASFStreamPropertiesObject").FirstOrDefault(); }
         }
+
+        List<Track> m_Tracks;
 
         public override IEnumerable<Track> GetTracks()
         {
-            throw new NotImplementedException();
+            if (m_Tracks != null)
+            {
+                foreach (Track track in m_Tracks) yield return track;
+                yield break;
+            }
+
+            var tracks = new List<Track>();
+
+            long position = Position;
+
+            int trackId = 0;
+
+            byte[] buffer = new byte[32];
+
+            foreach (var element in ReadElements(Root.Offset, "ASFStreamPropertiesObject").ToArray())
+            {
+                ulong sampleCount = 0, startTime = (ulong)PreRoll.TotalMilliseconds, timeScale = 1, duration = (ulong)Duration.TotalMilliseconds, width = 0, height = 0, rate = 0;
+
+                string trackName = string.Empty;
+
+                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
+
+                byte[] codecIndication = Utility.Empty;
+
+                byte channels = 0, bitDepth = 0;
+
+                using (var stream = element.Data)
+                {
+
+                    stream.Position += 24;
+
+                    stream.Read(buffer, 0, IdentifierSize);
+                    
+                    string mediaTypeName = ToTextualConvention(buffer, 0);
+
+                    switch (mediaTypeName)
+                    {
+                        case "ASFVideoMedia":
+                            {
+                                mediaType = Sdp.MediaType.video;
+
+
+                                //Read 32
+                                //Read 32
+                                //Read 8
+                                //Read 16 SizeX
+
+                                stream.Position += IdentifierSize + LengthSize + 29;
+                                
+
+                                //Read 32 Width
+                                stream.Read(buffer, 0, 4);
+                                width = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                                //Read 32 Height
+                                stream.Read(buffer, 0, 4);
+                                height = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+
+                                stream.Position += 2;
+
+                                //Maybe...
+                                //Read 16 panes
+
+                                //Read 16 BitDepth
+                                stream.Read(buffer, 0, 2);
+                                bitDepth = (byte)Common.Binary.ReadU16(buffer, 0, !BitConverter.IsLittleEndian);
+
+                                codecIndication = new byte[4];
+                                stream.Read(codecIndication, 0, 4);
+                                
+                                //32 image_size
+                                //32 horizontal_pixels_per_meter
+                                //32 vertical_pixels_per_meter
+                                //32 used_colors_count
+                                //32 important_colors_count
+
+                                break;
+                            }
+                        case "ASFAudioMedia":
+                            {
+                                mediaType = Sdp.MediaType.audio;
+                                //WaveHeader ... Used also in RIFF
+                                //16 format_tag
+                                codecIndication = new byte[2];
+                                stream.Read(codecIndication, 0, 2);
+                                //16 number_channels
+                                stream.Read(buffer, 0, 2);
+                                channels = (byte)Common.Binary.ReadU16(buffer, 0, !BitConverter.IsLittleEndian);
+                                //32 samples_per_second
+                                stream.Read(buffer, 0, 4);
+                                rate = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                                //32 average_bytes_per_second
+                                stream.Read(buffer, 0, 4);
+                                rate = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                                //16 block_alignment
+                                stream.Position += 2;
+                                //16 bits_per_sample
+                                stream.Read(buffer, 0, 2);
+                                bitDepth = (byte)Common.Binary.ReadU16(buffer, 0, !BitConverter.IsLittleEndian);
+                                //16 codec_specific_data_size
+
+                                //if(length >= 18) { /*WaveFormatEx (16 bps, 32 channel_layout, guid, 4cc?)*/ }
+
+                                break;
+                            }
+                        case "ASFTextMedia":
+                            {
+                                mediaType = Sdp.MediaType.text;
+                                break;
+                            }
+                    }
+
+                    stream.Position += 16;
+
+                    //64 Timeoffset
+
+                    if (!IsBroadcast)
+                    {
+                        //May have to adjust time...
+                        //m_PlayTime /  (10000000 / 1000) - m_StartTime;
+                    }
+
+                    //32 dataLength
+
+                    //16 Flags
+
+                    //32 Reserved
+
+                }
+
+                //Name comes from MetaData?
+
+                Track created = new Track(element, trackName, ++trackId, Created, Modified, (int)sampleCount, (int)height, (int)width, TimeSpan.FromMilliseconds(startTime / timeScale), TimeSpan.FromMilliseconds(duration), rate / timeScale, mediaType, codecIndication, channels, bitDepth);
+
+                yield return created;
+
+                tracks.Add(created);
+            }
+
+            m_Tracks = tracks;
+
+            Position = position;
         }
 
         public override byte[] GetSample(Track track, out TimeSpan duration)
