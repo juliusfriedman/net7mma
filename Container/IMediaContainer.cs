@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace Media.Container
 {
-    public interface IMediaContainer : IEnumerable<Element>, IDisposable
+    /// <summary>
+    /// Decribes the properties which are contained on any MediaContainer implementation
+    /// </summary>
+    public interface IMediaContainer : IEnumerable<Element>,  /*IEnumerable<Track>,*/ IDisposable
     {
         /// <summary>
         /// The Uri which describes the location of the data contained in this IMediaContainer
