@@ -17,7 +17,7 @@ namespace Media.Container
             this.Header = header;
             this.Width = width;
             this.Height = height;
-            this.Id = (int)id;
+            this.Id = id;
             this.Position = position;
             this.Duration = duration;
             this.Rate = frameRate;
@@ -31,7 +31,7 @@ namespace Media.Container
 
         #region Fields
 
-        //EncryptedTrack...
+        //EncryptedTrack... or IsEncrypted...
 
         public readonly Element Header;
 
@@ -41,7 +41,7 @@ namespace Media.Container
 
         public readonly string Name;
 
-        //public readonly string Language;
+        //public readonly string Language; //Useful?
 
         public readonly byte[] CodecIndication;
 
@@ -59,6 +59,9 @@ namespace Media.Container
 
         public readonly byte Channels, BitDepth;
 
+        /// <summary>
+        /// Used to adjust the sample which is retrieved next.
+        /// </summary>
         public TimeSpan Position;
 
         #endregion
