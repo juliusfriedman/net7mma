@@ -1060,7 +1060,6 @@ namespace Media.Container.Matroska
             }
         }
 
-
         public string MuxingApp
         {
             get
@@ -1069,7 +1068,6 @@ namespace Media.Container.Matroska
                 return m_MuxingApp;
             }
         }
-
 
         public string WritingApp
         {
@@ -1348,7 +1346,7 @@ namespace Media.Container.Matroska
 
                     //Reset reading properties
 
-                    trackId = trackDuration = height = width = startTime =  0;
+                    trackId = height = width = startTime =  0;
 
                     timeCodeScale = (ulong)m_TimeCodeScale;
 
