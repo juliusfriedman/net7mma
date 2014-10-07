@@ -126,7 +126,7 @@ namespace Media.Container.Asf
 
         public AsfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        public IEnumerable<Element> ReadObjects(long offset = 0, params string[] names)
+        public IEnumerable<Node> ReadObjects(long offset = 0, params Guid[] names)
         {
             long position = Position;
 
@@ -134,7 +134,7 @@ namespace Media.Container.Asf
 
             foreach (var box in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(ToTextualConvention(box.Identifier)))
+                if (names == null || names.Count() == 0 || names.Contains(new Guid(box.Identifier)))
                 {
                     yield return box;
                     continue;
@@ -146,18 +146,18 @@ namespace Media.Container.Asf
             yield break;
         }
 
-        public Element ReadObject(string name, long offset = 0)
+        public Node ReadObject(Guid name, long offset = 0)
         {
             long positionStart = Position;
 
-            Element result = ReadObjects(offset, name).FirstOrDefault();
+            Node result = ReadObjects(offset, name).FirstOrDefault();
 
             Position = positionStart;
 
             return result;
         }
 
-        public Element ReadNext()
+        public Node ReadNext()
         {
             if (Remaining < MinimumSize) return null;
 
@@ -182,16 +182,16 @@ namespace Media.Container.Asf
             //The ASFHeaderObject is a special case because it is a "parent" Object
             if(!identifier.SequenceEqual(Identifiers.ASFHeaderObject.ToByteArray())) offset = Position;
 
-            return new Element(this, identifier, offset, length, length <= Remaining);
+            return new Node(this, identifier, offset, length, length <= Remaining);
         }
 
-        public override IEnumerator<Element> GetEnumerator()
+        public override IEnumerator<Node> GetEnumerator()
         {
             while (Remaining > MinimumSize)
             {
-                Element next = ReadNext();
-                if (next != null) yield return next;
-                else yield break;
+                Node next = ReadNext();
+                if (next == null) yield break;
+                yield return next;
 
                 //Because the ASFHeaderObject is a parent object it must be parsed for children
                 if (next.Identifier.SequenceEqual(Identifiers.ASFHeaderObject.ToByteArray()))
@@ -205,9 +205,9 @@ namespace Media.Container.Asf
             }
         }      
 
-        public override Element Root
+        public override Node Root
         {
-            get { return ReadObject("ASFHeaderObject", 0); }
+            get { return ReadObject(Identifiers.ASFHeaderObject, 0); }
         }
 
         long? m_FileSize, m_NumberOfPackets, m_PlayTime, m_SendTime, m_Ignore, m_PreRoll, m_Flags, m_MinimumPacketSize, m_MaximumPacketSize, m_MaximumBitRate;
@@ -352,11 +352,13 @@ namespace Media.Container.Asf
 
         void ParseFileProperties()
         {
-            using (var fileProperties = ReadObject("ASFFilePropertiesObject", Root.Offset))
+            using (var fileProperties = ReadObject(Identifiers.ASFFilePropertiesObject, Root.Offset))
             {
                 using (var stream = fileProperties.Data)
                 {
-                    //ASFFilePropertiesObject, Len, FileId
+                    //ASFFilePropertiesObject, Len
+                    
+                    //FileId
                     stream.Position += IdentifierSize;
 
                     byte[] buffer = new byte[8];
@@ -449,13 +451,13 @@ namespace Media.Container.Asf
 
         void ParseContentDescription()
         {
-            using (var contentDescription = ReadObject("ASFContentDescriptionObject", Root.Offset))
+            using (var contentDescription = ReadObject(Identifiers.ASFContentDescriptionObject, Root.Offset))
             {
                 if(contentDescription != null) using (var stream = contentDescription.Data)
                 {
 
                     //ASFContentDescriptionObject, Len
-                    stream.Position += MinimumSize;
+                    //stream.Position += MinimumSize;
 
                     byte[] buffer = new byte[32];
 
@@ -492,9 +494,9 @@ namespace Media.Container.Asf
 
         //s ->keylen defines protection.
 
-        public override Element TableOfContents
+        public override Node TableOfContents
         {
-            get { return ReadObject("ASFFilePropertiesObject", Root.Offset); }
+            get { return ReadObject(Identifiers.ASFFilePropertiesObject, Root.Offset); }
         }
 
         List<Track> m_Tracks;
@@ -515,9 +517,7 @@ namespace Media.Container.Asf
 
             byte[] buffer = new byte[32];
 
-            //Objects in ASF Need to be sized correctly... missing bytes here
-
-            foreach (var element in ReadObjects(Root.Offset, "ASFStreamPropertiesObject").ToArray())
+            foreach (var element in ReadObjects(Root.Offset, Identifiers.ASFStreamPropertiesObject).ToArray())
             {
                 ulong sampleCount = 0, startTime = (ulong)PreRoll.TotalMilliseconds, timeScale = 1, duration = (ulong)Duration.TotalMilliseconds, width = 0, height = 0, rate = 0;
 

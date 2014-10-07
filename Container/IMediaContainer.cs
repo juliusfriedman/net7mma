@@ -9,7 +9,7 @@ namespace Media.Container
     /// <summary>
     /// Decribes the properties which are contained on any MediaContainer implementation
     /// </summary>
-    public interface IMediaContainer : IEnumerable<Element>,  /*IEnumerable<Track>,*/ IDisposable
+    public interface IMediaContainer : IEnumerable<Node>,  /*IEnumerable<Track>,*/ IDisposable
     {
         /// <summary>
         /// The Uri which describes the location of the data contained in this IMediaContainer
@@ -19,12 +19,12 @@ namespace Media.Container
         /// <summary>
         /// The first element in parsing, usually described the file type and version
         /// </summary>
-        Element Root { get; }
+        Node Root { get; }
 
         /// <summary>
-        /// When supported returns the <see cref="Element"/> which describes the type(s) of data contained in this MediaContainer
+        /// When supported returns the <see cref="Node"/> which describes the type(s) of data contained in this MediaContainer
         /// </summary>
-        Element TableOfContents { get; }
+        Node TableOfContents { get; }
 
         /// <summary>
         /// When supported returns the <see cref="Track"/>'s contained in this MediaContainer

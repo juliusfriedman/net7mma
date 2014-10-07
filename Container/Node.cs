@@ -9,16 +9,26 @@ namespace Media.Container
     /// <summary>
     /// Represents a superset of binary data which usually comes from a Media File.
     /// </summary>
-    public class Element : Common.BaseDisposable
+    public class Node : Common.BaseDisposable
     {
         readonly IMediaContainer Master;
 
-        public readonly long Offset, Size;
+        /// <summary>
+        /// The Offset in which the Node occurs in the <see cref="Master"/>
+        /// </summary>
+        public readonly long Offset;
+            
+        /// <summary>
+        /// The Amount of bytes contained in the Node's <see cref="RawData" />
+        /// </summary>
+        public readonly long Size;
 
         //Todo - Keep Size and Identifier both in bytes and use offsets and lengths to read values when required, so a ToByte() method can create the original data
-
         byte[] m_Data;
 
+        /// <summary>
+        /// The binary data of the Node, in some instances the Identifier and Length are contained and preceed the value.
+        /// </summary>
         public byte[] Raw
         {
             get
@@ -43,7 +53,9 @@ namespace Media.Container
             }
         }
 
-        //Should be a property created when accessed.
+        /// <summary>
+        /// Provides a <see cref="System.IO.MemoryStream"/> around <see cref="RawData"/>
+        /// </summary>
         public System.IO.MemoryStream Data
         {
             get
@@ -52,24 +64,38 @@ namespace Media.Container
             }
         }
 
-        //Indicates if element is complete
+        /// <summary>
+        /// Indicates if this Node instance contains all requried data.
+        /// </summary>
         public readonly bool IsComplete;
 
+        /// <summary>
+        /// Identifies this Node instance.
+        /// </summary>
         public readonly byte[] Identifier;
 
-        public Element(IMediaContainer master, byte[] identifier, long offset, long size, bool complete)
+        /// <summary>
+        /// Constucts a Node instance from the given parameters
+        /// </summary>
+        /// <param name="master"></param>
+        /// <param name="identifier"></param>
+        /// <param name="offset"></param>
+        /// <param name="size"></param>
+        /// <param name="complete"></param>
+        public Node(IMediaContainer master, byte[] identifier, long offset, long size, bool complete)
         {
             if (master == null) throw new ArgumentNullException("master");
-
-
             if (identifier == null) throw new ArgumentNullException("identifier");
             Master = master;
             Offset = offset;
             Identifier = identifier;
             Size = size;
-            IsComplete = complete;
+            IsComplete = complete; //Should calulcate here?
         }
 
+        /// <summary>
+        /// Disposes of the resources used by the Node
+        /// </summary>
         public override void Dispose()
         {
             if (Disposed) return;
