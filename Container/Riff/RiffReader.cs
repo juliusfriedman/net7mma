@@ -396,10 +396,6 @@ namespace Media.Container.Riff
             }
         }
 
-        /*
-         AVIF_HASINDEX, MUSTUSEINDEX, ISINTERLEAVED, WASCAPTUREFILE, COPYRIGHTED, TRUSTCKTYPE (OPEN DML ONLY)
-         */
-
         public int Flags
         {
             get
@@ -582,11 +578,12 @@ namespace Media.Container.Riff
             }            
         }
 
-        //Could check hasIndex flag
-
+        /// <summary>
+        /// If <see cref="HasIndex"/> then either the 'idx1' or 'indx' chunk, otherwise the 'avhi' or 'dmlh' chunk.
+        /// </summary>
         public override Node TableOfContents
         {
-            get { return ReadChunks(Root.Offset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault(); }
+            get { return HasIndex ? ReadChunks(Root.Offset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.Offset, FourCharacterCode.avih, FourCharacterCode.dmlh).FirstOrDefault(); }
         }
 
         //Index1Entry
@@ -624,10 +621,6 @@ namespace Media.Container.Riff
                 byte[] codecIndication = Utility.Empty;
 
                 byte channels = 0, bitDepth = 0;
-
-                //sampleCount comes from lists with a wb or wc or wd id?
-
-                //streamName comes from  "strn"
 
                 //Expect 56 Bytes
 
@@ -760,9 +753,6 @@ namespace Media.Container.Riff
                 var strn = ReadChunk(FourCharacterCode.strn, chunk.Offset);
 
                 if (strn != null) trackName = Encoding.UTF8.GetString(strn.Raw, 8, (int)(strn.Size - 8));
-
-                //Hackup, should only get types based on media... right now just using all types
-                sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + "dc"), ToFourCC(trackId.ToString("D2") + "wb"), ToFourCC(trackId.ToString("D2") + "tx"), ToFourCC(trackId.ToString("D2") + "ix")).Count();
 
                 //Variable BitRate must also take into account the size of each chunk / nBlockAlign * duration per frame.
 
