@@ -189,19 +189,10 @@
     <None Include="bark.rtp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Video\flv\pages.flv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="Video\mkv\mvi.mkv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="Video\mkv\pages.mkv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="Video\mpjpeg\mvi.mpjpeg">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="Video\mpjpeg\pages.mpjpeg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
