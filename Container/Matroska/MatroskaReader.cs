@@ -960,8 +960,7 @@ namespace Media.Container.Matroska
         {
             get
             {
-                if (m_Created.HasValue) return m_Created.Value;
-                ParseSegmentInfo();
+                if (!m_Created.HasValue) ParseSegmentInfo();
                 return m_Created.Value;
             }
         }
@@ -970,17 +969,11 @@ namespace Media.Container.Matroska
         {
             get
             {
-                if (m_Modified.HasValue) return m_Created.Value;
-                ParseSegmentInfo();
+                if (!m_Modified.HasValue) ParseSegmentInfo();
                 return m_Modified.Value;
             }
         }
 
-        string m_DocType, m_MuxingApp, m_WritingApp, m_Title;
-
-        int m_MaxIDLength = DefaultMaxIdSize, m_MaxSizeLength = DefaultMaxSizeLength;
-
-        int? m_EbmlVersion, m_EbmlReadVersion, m_DocTypeVersion, m_DocTypeReadVersion;
 
         public long TimeCodeScale
         {
@@ -988,75 +981,6 @@ namespace Media.Container.Matroska
             {
                 if (m_MuxingApp == null) ParseSegmentInfo();
                 return m_TimeCodeScale;
-            }
-        }
-
-        public int EbmlVersion
-        {
-            get
-            {
-                if (m_EbmlVersion.HasValue) return m_EbmlVersion.Value;
-                ParseEbmlHeader();
-                return m_EbmlVersion.Value;
-            }
-        }
-
-        public int EbmlReadVersion
-        {
-            get
-            {
-                if (m_EbmlVersion.HasValue) return m_EbmlVersion.Value;
-                ParseEbmlHeader();
-                return m_EbmlVersion.Value;
-            }
-        }
-
-        public int EbmlDocTypeVersion
-        {
-            get
-            {
-                if (m_EbmlVersion.HasValue) return m_EbmlVersion.Value;
-                ParseEbmlHeader();
-                return m_EbmlVersion.Value;
-            }
-        }
-
-        public int EbmlDocTypeReadVersion
-        {
-            get
-            {
-                if (m_EbmlVersion.HasValue) return m_EbmlVersion.Value;
-                ParseEbmlHeader();
-                return m_EbmlVersion.Value;
-            }
-        }
-
-        public int EbmlMaxIdLength
-        {
-            get
-            {
-                if (m_DocTypeVersion.HasValue) return m_MaxIDLength;
-                ParseEbmlHeader();
-                return m_MaxIDLength;
-            }
-        }
-
-        public int EbmlMaxSizeLength
-        {
-            get
-            {
-                if (m_DocTypeVersion.HasValue) return m_MaxSizeLength;
-                ParseEbmlHeader();
-                return m_MaxSizeLength;
-            }
-        }
-
-        public string DocType
-        {
-            get
-            {
-                if (m_DocType == null) ParseEbmlHeader();
-                return m_DocType;
             }
         }
 
@@ -1078,14 +1002,82 @@ namespace Media.Container.Matroska
             }
         }
 
+        string m_DocType, m_MuxingApp, m_WritingApp, m_Title;
+
+        int m_MaxIDLength = DefaultMaxIdSize, m_MaxSizeLength = DefaultMaxSizeLength;
+
+        int? m_EbmlVersion, m_EbmlReadVersion, m_DocTypeVersion, m_DocTypeReadVersion;
+
+        public int EbmlVersion
+        {
+            get
+            {
+                if (!m_EbmlVersion.HasValue) ParseEbmlHeader();
+                return m_EbmlVersion.Value;
+            }
+        }
+
+        public int EbmlReadVersion
+        {
+            get
+            {
+                if (!m_EbmlReadVersion.HasValue) ParseEbmlHeader();
+                return m_EbmlReadVersion.Value;
+            }
+        }
+
+        public int DocTypeVersion
+        {
+            get
+            {
+                if (!m_DocTypeVersion.HasValue) ParseEbmlHeader();
+                return m_DocTypeVersion.Value;
+            }
+        }
+
+        public int DocTypeReadVersion
+        {
+            get
+            {
+                if (!m_DocTypeReadVersion.HasValue) ParseEbmlHeader();
+                return m_DocTypeReadVersion.Value;
+            }
+        }
+
+        public int EbmlMaxIdLength
+        {
+            get
+            {
+                if (!m_DocTypeVersion.HasValue) ParseEbmlHeader();
+                return m_MaxIDLength;
+            }
+        }
+
+        public int EbmlMaxSizeLength
+        {
+            get
+            {
+                if (!m_DocTypeVersion.HasValue) ParseEbmlHeader();
+                return m_MaxSizeLength;
+            }
+        }
+
+        public string DocType
+        {
+            get
+            {
+                if (m_DocType == null) ParseEbmlHeader();
+                return m_DocType;
+            }
+        }
+
         TimeSpan? m_Duration;
 
         public TimeSpan Duration
         {
             get
             {
-                if (m_Duration.HasValue) return m_Duration.Value;
-                ParseSegmentInfo();
+                if (!m_Duration.HasValue) ParseSegmentInfo();
                 return m_Duration.Value;
             }
         }

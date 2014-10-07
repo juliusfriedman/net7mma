@@ -2318,7 +2318,7 @@ a=mpeg4-esid:101");
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFX.ToString() ||
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.LIST.ToString() ||
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.HDLR.ToString()) 
-                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Raw, 8, 4));
+                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Raw, 0, 4));
 
                     Console.WriteLine("Size: " + chunk.Size);
                 }
@@ -2343,8 +2343,8 @@ a=mpeg4-esid:101");
                     Console.WriteLine("EbmlVersion:" + reader.EbmlVersion);
                     Console.WriteLine("EbmlReadVersion:" + reader.EbmlReadVersion);
                     Console.WriteLine("DocType:" + reader.DocType);
-                    Console.WriteLine("DocTypeVersion:" + reader.EbmlDocTypeVersion);
-                    Console.WriteLine("DocTypeReadVersion:" + reader.EbmlDocTypeReadVersion);
+                    Console.WriteLine("DocTypeVersion:" + reader.DocTypeVersion);
+                    Console.WriteLine("DocTypeReadVersion:" + reader.DocTypeReadVersion);
                     Console.WriteLine("EbmlMaxIdLength:" + reader.EbmlMaxIdLength);
                     Console.WriteLine("EbmlMaxSizeLength:" + reader.EbmlMaxSizeLength);
 
