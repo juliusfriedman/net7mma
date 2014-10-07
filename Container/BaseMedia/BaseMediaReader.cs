@@ -59,7 +59,7 @@ namespace Media.Container.BaseMedia
         /// </summary>
         /// <param name="path"></param>
         /// <returns></returns>
-        public IEnumerable<Element> ReadBoxes(long offset = 0, params string[] names)
+        public IEnumerable<Node> ReadBoxes(long offset = 0, params string[] names)
         {
             long positionStart = Position;
 
@@ -79,11 +79,11 @@ namespace Media.Container.BaseMedia
             yield break;
         }
 
-        public Element ReadBox(string name, long offset = 0)
+        public Node ReadBox(string name, long offset = 0)
         {
             long positionStart = Position;
 
-            Element result = ReadBoxes(offset, name).FirstOrDefault();
+            Node result = ReadBoxes(offset, name).FirstOrDefault();
 
             Position = positionStart;
 
@@ -116,7 +116,7 @@ namespace Media.Container.BaseMedia
             return length;
         }
 
-        public Element ReadNext()
+        public Node ReadNext()
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
 
@@ -130,16 +130,17 @@ namespace Media.Container.BaseMedia
 
             int nonDataBytes = IdentifierSize + lengthBytesRead;
 
-            return  new Element(this, identifier, offset, length, length <= Remaining);
+            return  new Node(this, identifier, offset, length, length <= Remaining);
         }
 
-        public override IEnumerator<Element> GetEnumerator()
+        public override IEnumerator<Node> GetEnumerator()
         {
             while (Remaining > MinimumSize)
             {
-                Element next = ReadNext();
-                if (next != null) yield return next;
-                else yield break;
+                Node next = ReadNext();
+                if (next == null) yield break;
+                
+                yield return next;
 
                 //Parent boxes contain other boxes so do not skip them, parse right into their data
                 if (ParentBoxes.Contains(ToFourCharacterCode(next.Identifier))) continue;
@@ -153,7 +154,7 @@ namespace Media.Container.BaseMedia
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public Element this[string name]
+        public Node this[string name]
         {
             get
             {
@@ -161,7 +162,7 @@ namespace Media.Container.BaseMedia
             }
         }
 
-        public override Element Root { get { return ReadBox("ftyp", 0); } }
+        public override Node Root { get { return ReadBox("ftyp", 0); } }
 
         public bool HasProtection
         {
@@ -342,7 +343,7 @@ namespace Media.Container.BaseMedia
         }
 
         //Should be a better box...
-        public override Element TableOfContents
+        public override Node TableOfContents
         {
             get { return ReadBoxes(Root.Offset, "stco", "co64").FirstOrDefault(); }
         }

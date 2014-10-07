@@ -10,15 +10,15 @@ namespace Media.Container
     /// Represents the basic logic around all media files including reading bytes and determining the amount of bytes remaining.
     /// Position and Length are cached to improve performance.
     /// </summary>
-    public abstract class MediaFileStream : Common.BaseDisposable, Container.IMediaContainer
+    public abstract class MediaFileStream : System.IO.FileStream, IDisposable, Container.IMediaContainer
     {
         #region Fields
+
+        bool m_Disposed;
 
         Uri m_Source;
 
         System.IO.FileInfo m_FileInfo;
-
-        internal System.IO.FileStream m_Stream;
 
         internal protected long m_Position, m_Length;
 
@@ -26,62 +26,55 @@ namespace Media.Container
 
         #region Properties
 
+        public bool Disposed { get { return m_Disposed; } }
+
         public Uri Source { get { return Disposed ? null : m_Source; } }
 
-        public long Position { get { return Disposed ? -1 : m_Position; } set { if (value == m_Position) return; m_Position = m_Stream.Seek(value,  System.IO.SeekOrigin.Begin); } }
+        public override long Position { get { return Disposed ? -1 : m_Position; } set { if (value == m_Position) return; m_Position = base.Seek(value, System.IO.SeekOrigin.Begin); } }
 
-        public long Length { get { return Disposed ? -1 : m_Length; } }
+        public override long Length { get { return Disposed ? -1 : m_Length; } }
 
         public long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
 
-        public int Read(byte[] buffer, int offset, int count) { int result = m_Stream.Read(buffer, offset, count); m_Position += result; return result; }
+        public override int Read(byte[] buffer, int offset, int count) { int result = base.Read(buffer, offset, count); m_Position += result; return result; }
 
-        public int ReadByte() { int result = m_Stream.ReadByte(); if (result != -1) ++m_Position; return result; }
+        public override int ReadByte() { int result = base.ReadByte(); if (result != -1) ++m_Position; return result; }
 
         public long Skip(long count) { return count <= 0 ? Position : Position += count; }
 
-        public System.IO.Stream BaseStream { get { return m_Stream; } }
-
-        public System.IO.FileInfo FileInfo { get { return m_FileInfo; } }
+        protected System.IO.FileInfo FileInfo { get { return m_FileInfo; } }
 
         #endregion
 
         #region Constructor / Destructor
 
-        ~MediaFileStream() { Dispose(); }
+        ~MediaFileStream() { m_Disposed = true; Dispose(); }
 
         public MediaFileStream(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : this(new Uri(filename), access) { }
 
         public MediaFileStream(Uri location, System.IO.FileAccess access = System.IO.FileAccess.Read)
+            : base(location.LocalPath, System.IO.FileMode.Open, access, System.IO.FileShare.ReadWrite)
         {
-            if (location == null) throw new ArgumentNullException("location");
-            else if (!location.IsFile) throw new InvalidOperationException("location must point to a file.");
-
             m_Source = location;
-
-            if (!System.IO.File.Exists(m_Source.LocalPath)) throw new System.IO.FileNotFoundException("Could not find" + m_Source.LocalPath);
-
-            m_Stream = new System.IO.FileStream(m_Source.LocalPath, System.IO.FileMode.Open, access, System.IO.FileShare.ReadWrite);
 
             m_FileInfo = new System.IO.FileInfo(m_Source.LocalPath);
 
-            m_Position = m_Stream.Position;
+            m_Position = base.Position;
 
-            m_Length = m_Stream.Length;
+            m_Length = base.Length;
         }
 
         #endregion
 
-        public override void Dispose()
+        public override void Close()
         {
             if (Disposed) return;
-            base.Dispose();
+            m_Disposed = true;
             m_Position = m_Length = -1;
             m_Source = null;
             m_FileInfo = null;
-            m_Stream.Dispose();
-            m_Stream = null;
-        }
+            base.Close();
+        }        
 
         #region Abstraction
 
@@ -104,13 +97,15 @@ namespace Media.Container
 
         #region IMediaContainer
 
+        public System.IO.Stream BaseStream { get { return this; } }
+
         public Uri Location { get { return m_Source; } }
 
-        public abstract Element Root { get; }
+        public abstract Node Root { get; }
 
-        public abstract Element TableOfContents { get; }
+        public abstract Node TableOfContents { get; }
 
-        public abstract IEnumerator<Element> GetEnumerator();
+        public abstract IEnumerator<Node> GetEnumerator();
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
 

@@ -2308,13 +2308,17 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Position:" + reader.Position);
                     Console.WriteLine("Offset: " + chunk.Offset);
                     Console.WriteLine("Complete: " + chunk.IsComplete);
-                    Console.WriteLine("Name: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier));
+
+                    string name = Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier);
+
+                    Console.WriteLine("Name: " + name);
 
                     //Show how the common type can be read.
-                    if (Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "RIFF" || Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "RIFX" || Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "LIST" || Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier) == "hdrl")
-                    {
+                    if (name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFF.ToString() ||
+                        name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFX.ToString() ||
+                        name == Media.Container.Riff.RiffReader.FourCharacterCode.LIST.ToString() ||
+                        name == Media.Container.Riff.RiffReader.FourCharacterCode.HDLR.ToString()) 
                         Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Raw, 8, 4));
-                    }
 
                     Console.WriteLine("Size: " + chunk.Size);
                 }

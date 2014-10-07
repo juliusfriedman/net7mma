@@ -663,22 +663,22 @@ namespace Media.Container.Matroska
 
         public MatroskaReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        public Element ReadElement(Identifier identifier, long position = 0) { return ReadElement((int)identifier, position); }
+        public Node ReadElement(Identifier identifier, long position = 0) { return ReadElement((int)identifier, position); }
 
-        public Element ReadElement(int identifier, long position = 0)
+        public Node ReadElement(int identifier, long position = 0)
         {
             long positionStart = Position;
 
-            Element result = ReadElements(position, identifier).FirstOrDefault();
+            Node result = ReadElements(position, identifier).FirstOrDefault();
 
             Position = positionStart;
 
             return result;
         }
 
-        public IEnumerable<Element> ReadElements(long position, params Identifier[] identifiers) { return ReadElements(position, identifiers.Cast<int>().ToArray()); }
+        public IEnumerable<Node> ReadElements(long position, params Identifier[] identifiers) { return ReadElements(position, identifiers.Cast<int>().ToArray()); }
 
-        public IEnumerable<Element> ReadElements(long position, params int[] identifiers)
+        public IEnumerable<Node> ReadElements(long position, params int[] identifiers)
         {
             long lastPosition = Position;
 
@@ -698,7 +698,7 @@ namespace Media.Container.Matroska
             yield break;
         }
 
-        public Element ReadNext()
+        public Node ReadNext()
         {
             if (Remaining <= 2) throw new System.IO.EndOfStreamException();
 
@@ -706,15 +706,15 @@ namespace Media.Container.Matroska
 
             bool complete = true;
 
-            byte[] identifier = ReadIdentifier(this.m_Stream, out read);
+            byte[] identifier = ReadIdentifier(this, out read);
 
-            this.m_Position += read;
+            //this.m_Position += read;
 
             rTotal += read;
 
-            byte[] lengthBytes = ReadLength(this.m_Stream, out read);
+            byte[] lengthBytes = ReadLength(this, out read);
 
-            this.m_Position += read;
+            //this.m_Position += read;
 
             rTotal += read;
 
@@ -724,16 +724,16 @@ namespace Media.Container.Matroska
 
             //The position of the Data is given here, the actual occurance of the data occurs at Position - rTotal
             //The data is already contained in indentifier and length though and should not be required again.
-            return new Element(this, identifier, Position, length, complete);
+            return new Node(this, identifier, Position, length, complete);
         }
 
-        public override IEnumerator<Element> GetEnumerator()
+        public override IEnumerator<Node> GetEnumerator()
         {
             while (Remaining > 2)
             {
-                Element next = ReadNext();
-                if (next != null) yield return next;
-                else yield break;
+                Node next = ReadNext();
+                if (next == null) yield break;
+                yield return next;
 
                 //Decode the Id
                 Identifier found = (Identifier)Common.Binary.ReadU32(next.Identifier, 0, BitConverter.IsLittleEndian);
@@ -754,7 +754,7 @@ namespace Media.Container.Matroska
             }
         }      
 
-        public override Element Root
+        public override Node Root
         {
             get { return ReadElement(Identifier.EBMLHeader, 0); }
         }
@@ -1093,7 +1093,7 @@ namespace Media.Container.Matroska
         /// <summary>
         /// Returns the SeekHead element
         /// </summary>
-        public override Element TableOfContents
+        public override Node TableOfContents
         {
             //Could also give Cues?
             get { return ReadElement(Identifier.MatroskaSeekHead, Root.Offset); }

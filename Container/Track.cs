@@ -12,7 +12,7 @@ namespace Media.Container
     public class Track
     {
 
-        public Track(Element header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication, byte channels = 0, byte bitDepth = 0)
+        public Track(Node header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication, byte channels = 0, byte bitDepth = 0)
         {
             this.Header = header;
             this.Width = width;
@@ -33,7 +33,7 @@ namespace Media.Container
 
         //EncryptedTrack... or IsEncrypted...
 
-        public readonly Element Header;
+        public readonly Node Header;
 
         public readonly long Offset;
 

@@ -634,6 +634,37 @@ namespace Media
 
         //Todo standardize
 
+        public static unsafe void Bgr32ToBgr24(byte[] source, int srcOffset, byte[] destination, int destOffset, int pixelCount)
+        {
+            fixed (byte* sourcePtr = source, destinationPtr = destination)
+            {
+                var sourceStart = sourcePtr + srcOffset;
+                var destinationStart = destinationPtr + destOffset;
+                var sourceEnd = sourceStart + 4 * pixelCount;
+                var src = sourceStart;
+                var dest = destinationStart;
+                while (src < sourceEnd)
+                {
+                    *(dest++) = *(src++);
+                    *(dest++) = *(src++);
+                    *(dest++) = *(src++);
+                    src++;
+                }
+            }
+        }
+
+        public static void FlipVertical(byte[] source, int srcOffset, byte[] destination, int destOffset, int height, int stride)
+        {
+            var src = srcOffset;
+            var dest = destOffset + (height - 1) * stride;
+            for (var y = 0; y < height; y++)
+            {
+                Buffer.BlockCopy(source, src, destination, dest, stride);
+                src += stride;
+                dest -= stride;
+            }
+        }
+
         internal static unsafe void YUV2RGBManaged(byte[] YUVData, byte[] RGBData, int width, int height)
         {
 
@@ -759,6 +790,27 @@ namespace Media
             return yuv;
         }
 
-        #endregion
+        #endregion        
+
+        /// <summary>
+        /// Contains codes of some popular wave formats.
+        /// </summary>
+        public static class AudioFormats
+        {
+            /// <summary>
+            /// Unknown format.
+            /// </summary>
+            public static readonly short Unknown = 0x0000;
+
+            /// <summary>
+            /// Pulse-code modulation (PCM).
+            /// </summary>
+            public static readonly short Pcm = 0x0001;
+
+            /// <summary>
+            /// MPEG Layer 3 (MP3).
+            /// </summary>
+            public static readonly short Mp3 = 0x0055;
+        }
     }
 }
