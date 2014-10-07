@@ -1201,7 +1201,7 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaVideoFrameRate:
+                            case Identifier.MatroskaVideoFrameRate: //DEPRECATED
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     rate = (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
@@ -1223,15 +1223,15 @@ namespace Media.Container.Matroska
                                 {
                                     //Ensure this is read correctly....
                                     stream.Read(buffer, 0, (int)length);
-                                    rate = Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
+                                    rate = BitConverter.Int64BitsToDouble(Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian));
                                     offset += length;
                                     continue;
                                 }
                             case Identifier.MatroskaAudioOutputSamplingFreq:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    //Rescale?
-                                    rate = (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
+                                    //Rescale
+                                    rate /= (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
