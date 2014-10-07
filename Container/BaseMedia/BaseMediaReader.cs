@@ -128,7 +128,7 @@ namespace Media.Container.BaseMedia
 
             byte[] identifier = ReadIdentifier();
 
-            int nonDataBytes = IdentifierSize + lengthBytesRead;
+            //int nonDataBytes = IdentifierSize + lengthBytesRead;
 
             return  new Node(this, identifier, offset, length, length <= Remaining);
         }
