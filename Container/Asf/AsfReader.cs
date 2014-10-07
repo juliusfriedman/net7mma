@@ -216,8 +216,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_FileSize.HasValue) return m_FileSize.Value;
-                ParseFileProperties();
+                if (!m_FileSize.HasValue) ParseFileProperties();
                 return m_FileSize.Value;
             }
         }
@@ -226,8 +225,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_NumberOfPackets.HasValue) return m_NumberOfPackets.Value;
-                ParseFileProperties();
+                if (!m_NumberOfPackets.HasValue) ParseFileProperties();
                 return m_NumberOfPackets.Value;
             }
         }
@@ -235,8 +233,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_SendTime.HasValue) return m_SendTime.Value;
-                ParseFileProperties();
+                if (!m_SendTime.HasValue) ParseFileProperties();
                 return m_SendTime.Value;
             }
         }
@@ -245,8 +242,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_Ignore.HasValue) return m_Ignore.Value;
-                ParseFileProperties();
+                if (!m_Ignore.HasValue) ParseFileProperties();
                 return m_Ignore.Value;
             }
         }
@@ -255,8 +251,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_Flags.HasValue) return m_Flags.Value;
-                ParseFileProperties();
+                if (!m_Flags.HasValue) ParseFileProperties();
                 return m_Flags.Value;
             }
         }
@@ -275,8 +270,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_MinimumPacketSize.HasValue) return m_MinimumPacketSize.Value;
-                ParseFileProperties();
+                if (!m_MinimumPacketSize.HasValue) ParseFileProperties();
                 return m_MinimumPacketSize.Value;
             }
         }
@@ -285,8 +279,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_MaximumPacketSize.HasValue) return m_MaximumPacketSize.Value;
-                ParseFileProperties();
+                if (!m_MaximumPacketSize.HasValue) ParseFileProperties();
                 return m_MaximumPacketSize.Value;
             }
         }
@@ -295,8 +288,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_MaximumBitRate.HasValue) return m_MaximumBitRate.Value;
-                ParseFileProperties();
+                if (!m_MaximumBitRate.HasValue) ParseFileProperties();
                 return m_MaximumBitRate.Value;
             }
         }
@@ -334,8 +326,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_Created.HasValue) return m_Created.Value;
-                ParseFileProperties();
+                if (!m_Created.HasValue) ParseFileProperties();
                 return m_Created.Value;
             }
         }
@@ -344,8 +335,7 @@ namespace Media.Container.Asf
         {
             get
             {
-                if (m_Modified.HasValue) return m_Modified.Value;
-                ParseFileProperties();
+                if (!m_Modified.HasValue) ParseFileProperties();
                 return m_Modified.Value;
             }
         }
@@ -529,205 +519,224 @@ namespace Media.Container.Asf
 
                 byte channels = 0, bitDepth = 0;
 
-                using (var stream = element.Data)
+                int offset = 0;
+
+                string mediaTypeName = ToTextualConvention(element.Raw, offset);//, noCorrection;
+
+                offset += IdentifierSize * 2;
+
+                //stream.Read(buffer, 0, IdentifierSize);
+
+                //noCorrection = ToTextualConvention(buffer, 0);
+
+                //if (noCorrection != "ASFNoErrorCorrection") throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
+
+                //TimeOffset
+                startTime = Common.Binary.ReadU64(element.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 8;
+
+                int typeSpecDataLen, eccDataLen;
+
+                typeSpecDataLen = Common.Binary.Read32(element.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                eccDataLen = Common.Binary.Read32(element.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                short flags = Common.Binary.Read16(element.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 2;
+
+                trackId = (flags & 0x7f);
+
+                bool encrypted = (flags & 0x8000) == 1;
+
+                //Reserved
+                offset += 4;
+
+                if (element.Size - offset < eccDataLen + typeSpecDataLen) throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
+
+                //Position At TypeSpecificData
+
+                switch (mediaTypeName)
                 {
-                    //stream.Position += MinimumSize;
+                    case "ASFVideoMedia":
+                        {
+                            //Read 32
+                            //Read 32
+                            //Read 8
+                            //Read 16 SizeX
+                            //Read 32 SizeOf BitmapInfoHeader
+                            offset += 15;
 
-                    stream.Read(buffer, 0, IdentifierSize);
+                            mediaType = Sdp.MediaType.video;
 
-                    string mediaTypeName = ToTextualConvention(buffer, 0);//, noCorrection;
+                            //Read 32 Width
+                            width = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Position += IdentifierSize;
+                            offset += 4;
 
-                    //stream.Read(buffer, 0, IdentifierSize);
+                            //Read 32 Height
+                            height = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    //noCorrection = ToTextualConvention(buffer, 0);
+                            offset += 6;
 
-                    //if (noCorrection != "ASFNoErrorCorrection") throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
 
-                    //TimeOffset
-                    stream.Read(buffer, 0, 8);
-                    startTime = Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);                    
+                            //Maybe...
+                            //Read 16 panes
 
-                    int typeSpecDataLen, eccDataLen;
+                            //Read 16 BitDepth
+                            bitDepth = (byte)Common.Binary.ReadU16(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Read(buffer, 0, 4);
-                    typeSpecDataLen = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                            offset += 2;
 
-                    stream.Read(buffer, 0, 4);
-                    eccDataLen = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                            codecIndication = element.Raw.Skip(offset).Take(4).ToArray();
 
-                    stream.Read(buffer, 0, 2);
-                    short flags = Common.Binary.Read16(buffer, 0, !BitConverter.IsLittleEndian);
+                            offset += 4;
 
-                    trackId = (flags & 0x7f);
+                            //32 image_size
+                            //32 horizontal_pixels_per_meter
+                            //32 vertical_pixels_per_meter
+                            //32 used_colors_count
+                            //32 important_colors_count
 
-                    bool encrypted = (flags & 0x8000) == 1;
+                            //Codec Specific Data (Varies)
 
-                    //Reserved
-                    stream.Position += 4;
+                            break;
+                        }
+                    case "ASFAudioMedia":
+                        {
+                            mediaType = Sdp.MediaType.audio;
+                            //WaveHeader ... Used also in RIFF
+                            //16 format_tag
+                            codecIndication = element.Raw.Skip(offset).Take(2).ToArray();
+                            //Expand Codec Indication based on iD?
 
-                    if (stream.Length - stream.Position < eccDataLen + typeSpecDataLen) throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
-                    
-                    //Position At TypeSpecificData
+                            offset += 2;
 
-                    switch (mediaTypeName)
-                    {
-                        case "ASFVideoMedia":
-                            {
-                                //Read 32
-                                //Read 32
-                                //Read 8
-                                //Read 16 SizeX
-                                //Read 32 SizeOf BitmapInfoHeader
-                                stream.Position += 15;
+                            //16 number_channels
+                            channels = (byte)Common.Binary.ReadU16(element.Raw, offset, !BitConverter.IsLittleEndian);
+                            offset += 2;
+                            
+                            //32 samples_per_second
+                            rate = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                                mediaType = Sdp.MediaType.video;
+                            offset += 4;
 
-                                //Read 32 Width
-                                stream.Read(buffer, 0, 4);
-                                width = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                            //32 average_bytes_per_second
+                            //16 block_alignment
+                            offset += 6;
 
-                                //Read 32 Height
-                                stream.Read(buffer, 0, 4);
-                                height = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                            //16 bits_per_sample
+                            bitDepth = (byte)Common.Binary.ReadU16(element.Raw, offset, !BitConverter.IsLittleEndian);
+                            break;
+                        }
+                    case "ASFCommandMedia":
+                        {
+                            mediaType = Sdp.MediaType.control;
+                            break;
+                        }
+                    case "ASFDegradableJPEGMedia":
+                        {
+                            //Read 32 Width
+                            width = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                                stream.Position += 2;
+                            offset += 4;
 
-                                //Maybe...
-                                //Read 16 panes
+                            //Read 32 Height
+                            height = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                                //Read 16 BitDepth
-                                stream.Read(buffer, 0, 2);
-                                bitDepth = (byte)Common.Binary.ReadU16(buffer, 0, !BitConverter.IsLittleEndian);
+                            offset += 4;
 
-                                codecIndication = new byte[4];
-                                stream.Read(codecIndication, 0, 4);
+                            //Reserved32
 
-                                //32 image_size
-                                //32 horizontal_pixels_per_meter
-                                //32 vertical_pixels_per_meter
-                                //32 used_colors_count
-                                //32 important_colors_count
-                                
-                                //Codec Specific Data (Varies)
+                            mediaType = Sdp.MediaType.video;
+                            codecIndication = Encoding.UTF8.GetBytes("JFIF");
+                            break;
+                        }
+                    case "ASFJFIFMedia":
+                        {
+                            //Read 32 Width
+                            width = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                                break;
-                            }
-                        case "ASFAudioMedia":
-                            {
-                                mediaType = Sdp.MediaType.audio;
-                                //WaveHeader ... Used also in RIFF
-                                //16 format_tag
-                                codecIndication = new byte[2];
-                                stream.Read(codecIndication, 0, 2);
+                            offset += 4;
 
-                                //Expand Codec Indication based on iD?
+                            //Read 32 Height
+                            height = Common.Binary.ReadU32(element.Raw, offset, !BitConverter.IsLittleEndian);
 
-                                //16 number_channels
-                                stream.Read(buffer, 0, 2);
-                                channels = (byte)Common.Binary.ReadU16(buffer, 0, !BitConverter.IsLittleEndian);
-                                //32 samples_per_second
-                                stream.Read(buffer, 0, 4);
-                                rate = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
-                                //32 average_bytes_per_second
-                                stream.Read(buffer, 0, 4);
-                                rate = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
-                                //16 block_alignment
-                                stream.Position += 2;
-                                //16 bits_per_sample
-                                stream.Read(buffer, 0, 2);
-                                bitDepth = (byte)Common.Binary.ReadU16(buffer, 0, !BitConverter.IsLittleEndian);
-                                break;
-                            }
-                        case "ASFCommandMedia":
-                            {
-                                mediaType = Sdp.MediaType.control;
-                                break;
-                            }
-                        case "ASFDegradableJPEGMedia":
-                            {
-                                //Read 32 Width
-                                stream.Read(buffer, 0, 4);
-                                width = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                            offset += 4;
 
-                                //Read 32 Height
-                                stream.Read(buffer, 0, 4);
-                                height = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                            //Reserved16
 
-                                //Reserved32
+                            //Reserved16
 
-                                mediaType = Sdp.MediaType.video;
-                                codecIndication = Encoding.UTF8.GetBytes("JFIF");
-                                break;
-                            }
-                        case "ASFJFIFMedia":
-                            {
-                                //Read 32 Width
-                                stream.Read(buffer, 0, 4);
-                                width = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                            //Reserved16
 
-                                //Read 32 Height
-                                stream.Read(buffer, 0, 4);
-                                height = Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                            //InterchangeDataLength
+                            //InterchangeData
 
-                                //Reserved16
+                            mediaType = Sdp.MediaType.video;
+                            codecIndication = Encoding.UTF8.GetBytes("JFIF");
 
-                                //Reserved16
+                            mediaType = Sdp.MediaType.video;
+                            codecIndication = Encoding.UTF8.GetBytes("JFIF");
+                            break;
+                        }
+                    case "ASFFileTransferMedia":
+                    case "ASFBinaryData":
+                        {
+                            // Web Stream Format Data Size 16
+                            // Fixed Sample HEader Size 16
+                            // Version Number 16
+                            // Reserved 16
 
-                                //Reserved16
+                            //OR
 
-                                //InterchangeDataLength
-                                //InterchangeData
+                            //Total Header Length 16
+                            //Part Number 16
+                            //Total Part Count 16
+                            //Sample Type 16
 
-                                mediaType = Sdp.MediaType.video;
-                                codecIndication = Encoding.UTF8.GetBytes("JFIF");
+                            //URL String (Varies)
+                            mediaType = Sdp.MediaType.data;
+                            break;
+                        }
+                    case "ASFTextMedia":
+                        {
 
-                                mediaType = Sdp.MediaType.video;
-                                codecIndication = Encoding.UTF8.GetBytes("JFIF");
-                                break;
-                            }
-                        case "ASFFileTransferMedia":
-                        case "ASFBinaryData":
-                            {
-                                // Web Stream Format Data Size 16
-                                // Fixed Sample HEader Size 16
-                                // Version Number 16
-                                // Reserved 16
-
-                                //OR
-
-                                //Total Header Length 16
-                                //Part Number 16
-                                //Total Part Count 16
-                                //Sample Type 16
-
-                                //URL String (Varies)
-                                mediaType = Sdp.MediaType.data;
-                                break;
-                            }
-                        case "ASFTextMedia":
-                            {
-
-                                //Name,Value pairs
-                                mediaType = Sdp.MediaType.text;
-                                break;
-                            }
-                    }
-
-                    //Extension?
-                    //stream.Position += 16;
-
-                    //if (!IsBroadcast)
-                    //{
-                    //    //May have to adjust time...
-                    //    //m_PlayTime /  (10000000 / 1000) - m_StartTime;
-                    //}
+                            //Name,Value pairs
+                            mediaType = Sdp.MediaType.text;
+                            break;
+                        }
                 }
+
+                //Extension?
+                //stream.Position += 16;
+
+                //if (!IsBroadcast)
+                //{
+                //    //May have to adjust time...
+                //    //m_PlayTime /  (10000000 / 1000) - m_StartTime;
+                //}
 
                 //Name comes from MetaData?
 
-                Track created = new Track(element, trackName, trackId, Created, Modified, (int)sampleCount, (int)height, (int)width, TimeSpan.FromMilliseconds(startTime / timeScale), TimeSpan.FromMilliseconds(duration), rate / timeScale, mediaType, codecIndication, channels, bitDepth);
+                //TODO Get Sample Count....
+
+                //Parse Index....
+
+                Track created = new Track(element, trackName, trackId, Created, Modified, (int)sampleCount, (int)height, (int)width, TimeSpan.FromMilliseconds(startTime / timeScale), TimeSpan.FromMilliseconds(duration), 
+                    //Frames Per Seconds
+                    // duration is in milliseconds, converted to seconds, scaled by 100 nanosecond units
+                    mediaType == Sdp.MediaType.video ? 
+                    duration * Utility.MicrosecondsPerMillisecond / Utility.NanosecondsPerSecond * Utility.MicrosecondsPerMillisecond
+                    : 
+                    rate, 
+                    ///
+                    mediaType, codecIndication, channels, bitDepth);
 
                 yield return created;
 

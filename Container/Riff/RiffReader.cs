@@ -24,22 +24,31 @@ namespace Media.Container.Riff
             RIFX = 1481001298,
             ON2 = 540167759,
             odml = 1819108463,
+            //AVI Header
             avih = 1751742049,
+            //Extended Header
             dmlh = 1751936356,
             //File Types
             AVI = 541677121,
             AVIX = 1481201217,
+            AVI_ = 424236609,
+            AVIF = 1179211329,
+            ON2f = 1714572879,
+            AMV = 542526785,
             WAVE = 1163280727,
             RMID = 1145654610,
             //Types
             LIST = 1414744396,
             HDLR = 1919706216,
+            rec = 543384946,
             //Chunks
             JUNK = 1263424842,
+            ISMP = 1347244873, //Timecode
             INFO = 1330007625,
             IDIT = 1414087753,
             INAM = 1296125513,
             ISTR = 1381258057,
+            ISFT = 1413894985,
             IART = 1414676809,
             IWRI = 1230133065,
             ICMT = 1414349641,
@@ -55,24 +64,34 @@ namespace Media.Container.Riff
             GENR = 1380861255,
             PRT1 = 827609680,
             PRT2 = 844386896,
+            nctg = 1735680878,  //Nikon Tags
+            CASI =  1230192963, //CASIO
+            Zora = 1634889562,  //
             //Stream Chunks
             movi = 1769369453,
             strh = 1752331379,
             strf = 1718776947,
             strl = 1819440243,
             strn = 1852994675,
+            strd = 1685222515,
+            //Extended Video Properties
+            vprp = 1886548086,
             //Sample Chunks
-            dc = 1667510000, //Video
-            db = 1650730000, //Compressed
-            wb = 1651970000, //Audio
+            dc = 1667510000, //DIB (Video)
+            db = 1650730000, //DIBCompressed
+            wb = 1651970000, //WaveBytes (Audio)
             tx = 2020880000, //Text
             ix = 2020150000, //Index
+            pc = 1668290000, //PalChange
             //Index Chunks
             idx1 = 829973609,
             indx = 2019847785,
             //Stream Types
+            iavs = 1937138025, //Interleaved Audio + Video
             vids = 1935960438,
             auds = 1935963489,
+            data = 1635017060,
+            mids = 1935960429,
             txts = 1937012852
         }
 
@@ -216,14 +235,43 @@ namespace Media.Container.Riff
 
             complete = LengthSize == Read(lengthBytes, 0, LengthSize);
 
-            long length = Common.Binary.Read32(lengthBytes, 0, false);
+            long length = Common.Binary.Read32(lengthBytes, 0, !BitConverter.IsLittleEndian);
 
             //Calculate padded size (to word boundary)
             if (0 != (length & 1)) ++length;
-            
-            complete = length <= Remaining;
 
-            return  new Node(this, identifier, offset, length, complete);
+            FourCharacterCode name = (FourCharacterCode)Common.Binary.Read32(identifier, 0, !BitConverter.IsLittleEndian);
+
+            //Certain tags do not take the length into account
+
+            switch(name)
+            {
+                default : break;
+                //case FourCharacterCode.INFO:
+                case FourCharacterCode.IDIT:
+                case FourCharacterCode.ISFT:
+                case FourCharacterCode.INAM:
+                case FourCharacterCode.ISTR:
+                case FourCharacterCode.IART:
+                case FourCharacterCode.IWRI:
+                case FourCharacterCode.ICMT:
+                case FourCharacterCode.IGRN:
+                case FourCharacterCode.ICRD:
+                case FourCharacterCode.IPRT:
+                case FourCharacterCode.IFRM:
+                case FourCharacterCode.ICOP:
+                case FourCharacterCode.TITL:
+                case FourCharacterCode.COMM:
+                case FourCharacterCode.GENR:
+                case FourCharacterCode.PRT1:
+                case FourCharacterCode.PRT2:
+                    //
+                case FourCharacterCode.LIST:
+                    offset = Position;
+                    break;
+            }
+
+            return  new Node(this, identifier, offset, length, length <= Remaining);
         }
 
 
@@ -273,8 +321,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Created.HasValue) return m_Created.Value;
-                ParseIdentity();
+                if (!m_Created.HasValue) ParseIdentity();
                 return m_Created.Value;
             }
         }
@@ -283,8 +330,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Modified.HasValue) return m_Created.Value;
-                ParseIdentity();
+                if (!m_Modified.HasValue) ParseIdentity();
                 return m_Modified.Value;
             }
         }
@@ -298,7 +344,7 @@ namespace Media.Container.Riff
                     int month = 0, day = 0, year = 0;
                     TimeSpan time = TimeSpan.Zero;
 
-                    var parts = Encoding.UTF8.GetString(iditChunk.Raw, MinimumSize, iditChunk.Raw.Length - MinimumSize).Split(' ');
+                    var parts = Encoding.UTF8.GetString(iditChunk.Raw).Split(' ');
 
                     if (parts.Length > 1) month = DateTime.ParseExact(parts[1], "MMM", System.Globalization.CultureInfo.CurrentCulture).Month;
 
@@ -309,7 +355,7 @@ namespace Media.Container.Riff
                     if (parts.Length > 4) year = int.Parse(parts[4]);
                     else year = DateTime.Now.Year; //BaseDate?
 
-                    m_Created = new DateTime(year, month, day, time.Hours, time.Minutes, time.Seconds);
+                    m_Created = new DateTime(year, month, day, time.Hours, time.Minutes, time.Seconds, DateTimeKind.Utc);
                 }
                 else m_Created = FileInfo.CreationTimeUtc;
             }
@@ -323,8 +369,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_MicroSecPerFrame.HasValue) return m_MicroSecPerFrame.Value;
-                ParseAviHeader();
+                if (!m_MicroSecPerFrame.HasValue) ParseAviHeader();
                 return m_MicroSecPerFrame.Value;
             }
         }
@@ -333,8 +378,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_MaxBytesPerSec.HasValue) return m_MaxBytesPerSec.Value;
-                ParseAviHeader();
+                if (!m_MaxBytesPerSec.HasValue) ParseAviHeader();
                 return m_MaxBytesPerSec.Value;
             }
         }
@@ -343,8 +387,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_PaddingGranularity.HasValue) return m_PaddingGranularity.Value;
-                ParseAviHeader();
+                if (!m_PaddingGranularity.HasValue) ParseAviHeader();
                 return m_PaddingGranularity.Value;
             }
         }
@@ -357,8 +400,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Flags.HasValue) return m_Flags.Value;
-                ParseAviHeader();
+                if (!m_Flags.HasValue) ParseAviHeader();
                 return m_Flags.Value;
             }
         }
@@ -367,8 +409,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_TotalFrames.HasValue) return m_TotalFrames.Value;
-                ParseAviHeader();
+                if (!m_TotalFrames.HasValue) ParseAviHeader();
                 return m_TotalFrames.Value;
             }
         }
@@ -377,8 +418,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_InitialFrames.HasValue) return m_InitialFrames.Value;
-                ParseAviHeader();
+                if (!m_InitialFrames.HasValue) ParseAviHeader();
                 return m_InitialFrames.Value;
             }
         }
@@ -387,8 +427,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_SuggestedBufferSize.HasValue) return m_SuggestedBufferSize.Value;
-                ParseAviHeader();
+                if (!m_SuggestedBufferSize.HasValue) ParseAviHeader();
                 return m_SuggestedBufferSize.Value;
             }
         }
@@ -397,8 +436,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Streams.HasValue) return m_Streams.Value;
-                ParseAviHeader();
+                if (!m_Streams.HasValue) ParseAviHeader();
                 return m_Streams.Value;
             }
         }
@@ -407,8 +445,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Width.HasValue) return m_Width.Value;
-                ParseAviHeader();
+                if (!m_Width.HasValue) ParseAviHeader();
                 return m_Width.Value;
             }
         }
@@ -417,8 +454,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Height.HasValue) return m_Height.Value;
-                ParseAviHeader();
+                if (m_Height.HasValue) ParseAviHeader();
                 return m_Height.Value;
             }
         }
@@ -427,7 +463,7 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_TotalFrames.HasValue) ParseAviHeader();
+                if (!m_TotalFrames.HasValue) ParseAviHeader();
                 return TimeSpan.FromMilliseconds((double)m_TotalFrames.Value * m_MicroSecPerFrame.Value / (double)Utility.MicrosecondsPerMillisecond);
             }
         }
@@ -436,20 +472,23 @@ namespace Media.Container.Riff
         {
             get
             {
-                if (m_Reserved.HasValue) return m_Reserved.Value;
-                ParseAviHeader();
+                if (!m_Reserved.HasValue) ParseAviHeader();
                 return m_Reserved.Value;
             }
         }
 
-        //TODO, Ensure ReadNext is providing all data in the element, Position may have to be augmented by MinimumSize
         //void ParseInformation()
         //{
-        //    //Parse INFO 
-        //    using (var chunk = ReadChunk("INFO", Root.Offset))
+
+        //    //Should take a Node infoChunk and return a String[]?
+
+        //    //Parse INFO (Should allow list filtering in read chunk)
+        //    using (var chunk = ReadChunk(FourCharacterCode.INFO, Root.Offset))
         //    {
+        //        //Two ways, either get a Chunk of info and look the stream of get the tags you want using ReadChunk
         //        using (var stream = chunk.Data)
         //        {
+        //            //ISFT - Software
         //            //INAM - Title
         //            //ISTR - Performers 
         //            //IART - AlbumArtists 
@@ -481,45 +520,49 @@ namespace Media.Container.Riff
         {
             using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.Offset))
             {
-                using (var stream = headerChunk.Data)
-                {
-                    stream.Position += IdentifierSize + LengthSize;
+                int offset = IdentifierSize + LengthSize;
 
-                    byte[] buffer = new byte[DWORDSIZE];
+                m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_MicroSecPerFrame = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
-                    
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_MaxBytesPerSec = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_PaddingGranularity = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                m_MaxBytesPerSec = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_Flags = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_TotalFrames = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                m_PaddingGranularity = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
+                
+                offset += 4;
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_InitialFrames = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                m_Flags = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_Streams = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_SuggestedBufferSize = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                m_TotalFrames = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_Width = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_Height = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                m_InitialFrames = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
 
-                    stream.Read(buffer, 0, DWORDSIZE);
-                    m_Reserved = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
-                }
+                offset += 4;
+
+                m_Streams = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                m_SuggestedBufferSize = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                m_Width = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                m_Height = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                m_Reserved = Common.Binary.Read32(headerChunk.Raw, offset, !BitConverter.IsLittleEndian);
             }            
         }
 
@@ -556,7 +599,7 @@ namespace Media.Container.Riff
             //strh has all track level info, strn has stream name..
             foreach (var chunk in ReadChunks(Root.Offset, FourCharacterCode.strh).ToArray())
             {
-                int sampleCount = TotalFrames, startTime = 0, timeScale = 0, duration = (int)Duration.TotalMilliseconds, width = Width, height = Height, rate = MicrosecondsPerFrame;
+                int offset = MinimumSize, sampleCount = TotalFrames, startTime = 0, timeScale = 0, duration = (int)Duration.TotalMilliseconds, width = Width, height = Height, rate = MicrosecondsPerFrame;
 
                 string trackName = string.Empty;
 
@@ -572,134 +615,151 @@ namespace Media.Container.Riff
 
                 //Expect 56 Bytes
 
-                using (var stream = chunk.Data)
+                FourCharacterCode fccType = (FourCharacterCode)Common.Binary.Read32(chunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                switch (fccType)
                 {
+                    case FourCharacterCode.iavs:
+                        {
+                            //Interleaved Audio and Video
+                            break;
+                        }
+                    case FourCharacterCode.vids:
+                        {
+                            //avg_frame_rate = timebase
+                            mediaType = Sdp.MediaType.video;
 
-                    stream.Position += IdentifierSize + LengthSize;
+                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.dc.ToString()),
+                                                                  ToFourCC(trackId.ToString("D2") + FourCharacterCode.db.ToString())).Count();
+                            break;
+                        }
+                    case FourCharacterCode.mids: //Midi
+                    case FourCharacterCode.auds:
+                        {
+                            mediaType = Sdp.MediaType.audio;
 
-                    byte[] buffer = new byte[DWORDSIZE];
+                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.wb.ToString())).Count();
 
-                    stream.Read(buffer, 0, IdentifierSize);
-
-                    string fccType = Encoding.UTF8.GetString(buffer);
-
-                    switch (fccType)
-                    {
-                        case "vids":
-                            {
-                                //avg_frame_rate = timebase
-                                mediaType = Sdp.MediaType.video;                                 
-
-                                break;
-                            }
-                        case "auds": mediaType = Sdp.MediaType.audio; break;
-                        case "txts": mediaType = Sdp.MediaType.text; break;
-                        case "data": mediaType = Sdp.MediaType.data; break;
-                        default: break;
-                    }
-
-                    //fccHandler
-                    codecIndication = new byte[IdentifierSize];
-                    stream.Read(codecIndication, 0, IdentifierSize);
-
-                    stream.Position += DWORDSIZE * 3;
-
-                    //Scale
-                    stream.Read(buffer, 0, IdentifierSize);
-                    timeScale = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
-
-                    //Rate
-                    stream.Read(buffer, 0, IdentifierSize);
-                    rate = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
-
-                    if (!(timeScale > 0 && rate > 0))
-                    {
-                        rate = 25;
-                        timeScale = 1;
-                    }
-
-                    //Start
-                    stream.Read(buffer, 0, IdentifierSize);
-                    startTime = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
-
-                    //Length of stream (as defined in rate and timeScale above)
-                    stream.Read(buffer, 0, IdentifierSize);
-                    duration = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
-
-                    //SuggestedBufferSize
-
-                    //Quality
-
-                    //SampleSize
-
-                    //RECT rcFrame (ushort left, top, right, bottom)
-
-                    //Get strf for additional info.
-
-                    switch (mediaType)
-                    {
-                        case Sdp.MediaType.video:
-                            {
-                                var strf = ReadChunk(FourCharacterCode.strf, chunk.Offset); 
-
-                                if (strf != null)
-                                {
-                                    //BitmapInfoHeader
-                                     //Read 32 Width
-                                    width = (int)Common.Binary.ReadU32(strf.Raw, 12, !BitConverter.IsLittleEndian); 
-
-                                    //Read 32 Height
-                                    height = (int)Common.Binary.ReadU32(strf.Raw, 16, !BitConverter.IsLittleEndian);
-
-                                    //Maybe...
-                                    //Read 16 panes 
-
-                                    //Read 16 BitDepth
-                                    bitDepth = (byte)(int)Common.Binary.ReadU16(strf.Raw, 22, !BitConverter.IsLittleEndian);
-                                     
-                                    //Read codec
-                                    codecIndication = strf.Raw.Skip(24).Take(4).ToArray();
-                                }
-                                break;
-                            }
-                        case Sdp.MediaType.audio:
-                            {
-                                //Expand Codec Indication based on iD?
-
-                                var strf = ReadChunk(FourCharacterCode.strf, chunk.Offset);
-
-                                if (strf != null)
-                                {
-                                    //WaveFormat (EX) 
-                                    channels = (byte)Common.Binary.ReadU16(strf.Raw, 10, !BitConverter.IsLittleEndian);
-                                    bitDepth = (byte)Common.Binary.ReadU16(strf.Raw, 12, !BitConverter.IsLittleEndian);
-                                }
-                                break;
-                            }
-                            //text format....
-                        default: break;
-                    }
-
-                    var strn = ReadChunk(FourCharacterCode.strn, chunk.Offset);
-
-                    if (strn != null) trackName = Encoding.UTF8.GetString(strn.Raw, 8, (int)(strn.Size - 8));
-
-                    //Hackup, should only get types based on media... right now just using all types
-                    sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + "dc"), ToFourCC(trackId.ToString("D2") + "wb"), ToFourCC(trackId.ToString("D2") + "tx"), ToFourCC(trackId.ToString("D2") + "ix")).Count();
-
-                    //Variable BitRate must also take into account the size of each chunk / nBlockAlign * duration per frame.
-
-                    Track created = new Track(chunk, trackName, ++trackId, Created, Modified, sampleCount, height, width, 
-                        TimeSpan.FromMilliseconds(startTime / timeScale), 
-                        mediaType == Sdp.MediaType.audio ? 
-                            TimeSpan.FromMilliseconds(sampleCount * Utility.MicrosecondsPerMillisecond / (double)rate * duration) : 
-                            TimeSpan.FromMilliseconds(rate / duration), 
-                        rate / timeScale, mediaType, codecIndication, channels, bitDepth);
-
-                    yield return created;
-
-                    tracks.Add(created);
+                            break;
+                        }
+                    case FourCharacterCode.txts:
+                        {
+                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.tx.ToString())).Count();
+                            mediaType = Sdp.MediaType.text; break;
+                        }
+                    case FourCharacterCode.data:
+                        {
+                            mediaType = Sdp.MediaType.data; break;
+                        }
+                    default: break;
                 }
+
+                //fccHandler
+                codecIndication = chunk.Raw.Skip(offset).Take(4).ToArray();
+
+                offset += 4 + (DWORDSIZE * 3);
+
+                //Scale
+                timeScale = Common.Binary.Read32(chunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                //Rate
+                rate = Common.Binary.Read32(chunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                if (!(timeScale > 0 && rate > 0))
+                {
+                    rate = 25;
+                    timeScale = 1;
+                }
+
+                //Start
+                startTime = Common.Binary.Read32(chunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                //Length of stream (as defined in rate and timeScale above)
+                duration = Common.Binary.Read32(chunk.Raw, offset, !BitConverter.IsLittleEndian);
+
+                offset += 4;
+
+                //SuggestedBufferSize
+
+                //Quality
+
+                //SampleSize
+
+                //RECT rcFrame (ushort left, top, right, bottom)
+
+                //Get strf for additional info.
+
+                switch (mediaType)
+                {
+                    case Sdp.MediaType.video:
+                        {
+                            var strf = ReadChunk(FourCharacterCode.strf, chunk.Offset);
+
+                            if (strf != null)
+                            {
+                                //BitmapInfoHeader
+                                //Read 32 Width
+                                width = (int)Common.Binary.ReadU32(strf.Raw, 12, !BitConverter.IsLittleEndian);
+
+                                //Read 32 Height
+                                height = (int)Common.Binary.ReadU32(strf.Raw, 16, !BitConverter.IsLittleEndian);
+
+                                //Maybe...
+                                //Read 16 panes 
+
+                                //Read 16 BitDepth
+                                bitDepth = (byte)(int)Common.Binary.ReadU16(strf.Raw, 22, !BitConverter.IsLittleEndian);
+
+                                //Read codec
+                                codecIndication = strf.Raw.Skip(24).Take(4).ToArray();
+                            }
+                            break;
+                        }
+                    case Sdp.MediaType.audio:
+                        {
+                            //Expand Codec Indication based on iD?
+
+                            var strf = ReadChunk(FourCharacterCode.strf, chunk.Offset);
+
+                            if (strf != null)
+                            {
+                                //WaveFormat (EX) 
+                                channels = (byte)Common.Binary.ReadU16(strf.Raw, 10, !BitConverter.IsLittleEndian);
+                                bitDepth = (byte)Common.Binary.ReadU16(strf.Raw, 12, !BitConverter.IsLittleEndian);
+                            }
+                            break;
+                        }
+                    //text format....
+                    default: break;
+                }
+
+                var strn = ReadChunk(FourCharacterCode.strn, chunk.Offset);
+
+                if (strn != null) trackName = Encoding.UTF8.GetString(strn.Raw, 8, (int)(strn.Size - 8));
+
+                //Hackup, should only get types based on media... right now just using all types
+                sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + "dc"), ToFourCC(trackId.ToString("D2") + "wb"), ToFourCC(trackId.ToString("D2") + "tx"), ToFourCC(trackId.ToString("D2") + "ix")).Count();
+
+                //Variable BitRate must also take into account the size of each chunk / nBlockAlign * duration per frame.
+
+                Track created = new Track(chunk, trackName, ++trackId, Created, Modified, sampleCount, height, width,
+                    TimeSpan.FromMilliseconds(startTime / timeScale),
+                    mediaType == Sdp.MediaType.audio ?
+                        TimeSpan.FromSeconds((double)duration / (double)rate) :
+                        TimeSpan.FromMilliseconds((double)duration * m_MicroSecPerFrame.Value / (double)Utility.MicrosecondsPerMillisecond),
+                    rate / timeScale, mediaType, codecIndication, channels, bitDepth);
+
+                yield return created;
+
+                tracks.Add(created);
             }
             
             m_Tracks = tracks;
