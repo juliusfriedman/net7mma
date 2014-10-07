@@ -265,8 +265,6 @@ namespace Media.Container.Riff
                 case FourCharacterCode.GENR:
                 case FourCharacterCode.PRT1:
                 case FourCharacterCode.PRT2:
-                    //
-                case FourCharacterCode.LIST:
                     offset = Position;
                     break;
             }
