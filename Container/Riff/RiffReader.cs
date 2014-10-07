@@ -97,16 +97,16 @@ namespace Media.Container.Riff
 
         #endregion
 
-        //[Flags]
-        //internal enum MainHeaderFlags : uint
-        //{
-        //    HasIndex = 0x00000010U,
-        //    MustUseIndex = 0x00000020U,
-        //    IsInterleaved = 0x00000100U,
-        //    TrustChunkType = 0x00000800U,
-        //    WasCaptureFile = 0x00010000U,
-        //    Copyrighted = 0x000200000U,
-        //}
+        [Flags]
+        internal enum MainHeaderFlags : uint
+        {
+            HasIndex = 0x00000010U,
+            MustUseIndex = 0x00000020U,
+            IsInterleaved = 0x00000100U,
+            TrustChunkType = 0x00000800U,
+            WasCaptureFile = 0x00010000U,
+            Copyrighted = 0x000200000U,
+        }
 
         //internal enum IndexType : byte
         //{
@@ -244,6 +244,10 @@ namespace Media.Container.Riff
 
             //Certain tags do not take the length into account
 
+            //Should be aware of all
+
+            //http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/RIFF.html
+
             switch(name)
             {
                 default : break;
@@ -281,6 +285,8 @@ namespace Media.Container.Riff
 
                 if (next == null) yield break;
                 
+                //Could check for next.Offset == 0 and this is the Root to support more file types?
+
                 FourCharacterCode fourCC = (FourCharacterCode)Common.Binary.Read32(next.Identifier, 0, !BitConverter.IsLittleEndian);
 
                 switch (fourCC)
@@ -402,6 +408,18 @@ namespace Media.Container.Riff
                 return m_Flags.Value;
             }
         }
+
+        public bool HasIndex { get { return ((MainHeaderFlags)Flags).HasFlag(MainHeaderFlags.HasIndex); } }
+
+        public bool MustUseIndex { get { return ((MainHeaderFlags)Flags).HasFlag(MainHeaderFlags.MustUseIndex); } }
+
+        public bool IsInterleaved { get { return ((MainHeaderFlags)Flags).HasFlag(MainHeaderFlags.IsInterleaved); } }
+
+        public bool TrustChunkType { get { return ((MainHeaderFlags)Flags).HasFlag(MainHeaderFlags.TrustChunkType); } }
+
+        public bool WasCaptureFile { get { return ((MainHeaderFlags)Flags).HasFlag(MainHeaderFlags.WasCaptureFile); } }
+
+        public bool Copyrighted { get { return ((MainHeaderFlags)Flags).HasFlag(MainHeaderFlags.Copyrighted); } }
 
         public int TotalFrames
         {
