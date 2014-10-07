@@ -2284,6 +2284,12 @@ a=mpeg4-esid:101");
                 Console.WriteLine("Max Bytes Per Seconds:" + reader.MaxBytesPerSecond);
 
                 Console.WriteLine("Flags:" + reader.Flags);
+                Console.WriteLine("HasIndex:" + reader.HasIndex);
+                Console.WriteLine("MustUseIndex:" + reader.MustUseIndex);
+                Console.WriteLine("IsInterleaved:" + reader.IsInterleaved);
+                Console.WriteLine("TrustChunkType:" + reader.TrustChunkType);
+                Console.WriteLine("WasCaptureFile:" + reader.WasCaptureFile);
+                Console.WriteLine("Copyrighted:" + reader.Copyrighted);
 
                 Console.WriteLine("Total Frames:" + reader.TotalFrames);
 
