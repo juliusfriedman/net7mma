@@ -169,7 +169,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
-    <Content Include="RtpTools\obj\Release\RtpTools.csproj.FileListAbsolute.txt" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Codec\h264\" />
@@ -179,16 +178,7 @@
     <Folder Include="Codec\raw\" />
     <Folder Include="Codec\vp8\" />
     <Folder Include="Compression\" />
-    <Folder Include="RtpTools\bin\Debug\" />
-    <Folder Include="RtpTools\bin\Release\" />
-    <Folder Include="RtpTools\obj\Debug\TempPE\" />
-    <Folder Include="RtpTools\obj\Release\TempPE\" />
     <Folder Include="Secure\" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="RtpTools\obj\Debug\DesignTimeResolveAssemblyReferencesInput.cache" />
-    <None Include="RtpTools\obj\Release\DesignTimeResolveAssemblyReferencesInput.cache" />
-    <None Include="RtpTools\obj\Release\RtpTools.csprojResolveAssemblyReference.cache" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
