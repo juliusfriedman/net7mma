@@ -648,6 +648,8 @@ namespace Media.Container.BaseMedia
 
                 byte[] codecIndication = sampleDescriptionBox.Raw.Skip(20).Take(4).ToArray();
 
+                //Also contains channels and bitDept info
+
                 //byte bitDepth;
 
                 //using(var stream = sampleDescriptionBox.Data)
@@ -683,7 +685,6 @@ namespace Media.Container.BaseMedia
 
                 if (elst != null)
                 {
-
                     offset = MinimumSize + IdentifierSize;
 
                     int entryCount = Common.Binary.Read32(elst.Raw, offset, BitConverter.IsLittleEndian);
