@@ -420,12 +420,12 @@ namespace Media.RtpTools.RtpDump
             get { return new Uri(m_Path); }
         }
 
-        public Container.Element Root
+        public Container.Node Root
         {
             get { throw new NotImplementedException(); }
         }
 
-        public Container.Element TableOfContents
+        public Container.Node TableOfContents
         {
             get { throw new NotImplementedException(); }
         }
@@ -440,9 +440,9 @@ namespace Media.RtpTools.RtpDump
             get { return m_Reader.BaseStream; }
         }
 
-        internal Container.Element ToElement(RtpTools.RtpToolEntry entry)
+        internal Container.Node ToElement(RtpTools.RtpToolEntry entry)
         {
-            return new Container.Element(this, entry.IsRtcp ? Encoding.UTF8.GetBytes("RTCP") : Encoding.UTF8.GetBytes("RTP"),
+            return new Container.Node(this, entry.IsRtcp ? Encoding.UTF8.GetBytes("RTCP") : Encoding.UTF8.GetBytes("RTP"),
                 entry.Offset, entry.MaxSize, entry.MaxSize >= entry.Length);
         }
 
@@ -463,7 +463,7 @@ namespace Media.RtpTools.RtpDump
             return result.Assemble().ToArray();
         }
 
-        IEnumerator<Container.Element> IEnumerable<Container.Element>.GetEnumerator()
+        IEnumerator<Container.Node> IEnumerable<Container.Node>.GetEnumerator()
         {
             while (HasNext) yield return ToElement(ReadNext());
         }
