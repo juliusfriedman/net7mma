@@ -363,6 +363,8 @@ namespace Media.Container.BaseMedia
 
             bool enabled, inMovie, inPreview;
 
+            byte[] codecIndication = Utility.Empty;
+
             //Get Duration from mdhd, some files have more then one mdhd.
             if(!m_Duration.HasValue) ParseMovieHeader();
 
@@ -646,11 +648,124 @@ namespace Media.Container.BaseMedia
 
                 var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
 
-                byte[] codecIndication = sampleDescriptionBox.Raw.Skip(20).Take(4).ToArray();
+
+                int sampleDescriptionCount = Common.Binary.Read32(sampleDescriptionBox.Raw, 12, BitConverter.IsLittleEndian);
+
+                byte channels = 0, bitDepth = 0;
+
+                offset = 16;
+
+                if (sampleDescriptionCount > 0)
+                {
+                    for (int i = 0; i < sampleDescriptionCount; ++i)
+                    {
+                        int len = Common.Binary.Read32(sampleDescriptionBox.Raw, offset, BitConverter.IsLittleEndian) - 4;
+                        offset += 4;
+
+                        byte[] sampleEntry = sampleDescriptionBox.Raw.Skip(offset).Take(len).ToArray();
+                        offset += len;
+
+                        switch (mediaType)
+                        {
+                            case Sdp.MediaType.audio:
+                                {
+                                    //32, 16, 16 (dref index)
+                                    version = Common.Binary.Read16(sampleEntry, 8, BitConverter.IsLittleEndian);
+
+                                    //Revision 16, Vendor 32
+
+                                    //ChannelCount 16
+                                    channels = (byte)Common.Binary.ReadU16(sampleEntry, 20, BitConverter.IsLittleEndian);
+
+                                    //SampleSize 16 (A 16-bit integer that specifies the number of bits in each uncompressed sound sample. Allowable values are 8 or 16. Formats using more than 16 bits per sample set this field to 16 and use sound description version 1.)
+                                    bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 22, BitConverter.IsLittleEndian);
+
+                                    //CompressionId 16
+                                    codecIndication = sampleEntry.Skip(24).Take(2).ToArray();
+
+                                    //The compression ID is set to -2 and redefined sample tables are used (see “Redefined Sample Tables”).
+                                    if (-2 == Common.Binary.Read16(codecIndication, 0, BitConverter.IsLittleEndian))
+                                    {
+                                        var waveAtom = ReadBox("wave", sampleDescriptionBox.Offset);
+                                        if (waveAtom != null)
+                                        {
+                                            flags = Common.Binary.Read24(waveAtom.Raw, 9, BitConverter.IsLittleEndian);
+                                            //Extrack from flags?
+                                        }
+                                    }
+
+                                    //@ 26
+
+                                    //PktSize 16
+
+                                    //sr 32
+
+                                    rate = (double)Common.Binary.ReadU32(sampleEntry, 28, BitConverter.IsLittleEndian) / 65536F;
+
+                                    //@ 32
+
+                                    if (version > 1)
+                                    {
+
+                                        //36 total
+
+                                        rate = BitConverter.Int64BitsToDouble(Common.Binary.Read64(sampleEntry, 32, BitConverter.IsLittleEndian));
+                                        channels = (byte)Common.Binary.ReadU32(sampleEntry, 40, BitConverter.IsLittleEndian);
+
+                                        //24 More Bytes
+                                    }
+
+                                    //else 16 more if version == 1
+                                    //else 2 more if version == 0
+
+                                    //@ esds for mp4a
+
+                                    //http://www.mp4ra.org/object.html
+                                    // @ +4 +4 +11 == ObjectTypeIndication
+
+                                    break;
+                                }
+                            case Sdp.MediaType.video:
+                                {
+                                    codecIndication = sampleEntry.Take(4).ToArray();
+
+                                    //SampleEntry overhead = 8
+                                    //Version, Revision, Vendor, TemporalQUal, SpacialQual, Width, Height, hRes,vRes, reversed, FrameCount, compressorName, depth, clrTbl, (extensions)
+
+                                    //Width @ 28
+                                    width = Common.Binary.ReadU16(sampleEntry, 28, BitConverter.IsLittleEndian);
+                                    //Height @ 30
+                                    height = Common.Binary.ReadU16(sampleEntry, 30, BitConverter.IsLittleEndian);
+
+                                    //hres, vres, reserved = 12
+
+                                    //FrameCount @ 44 (A 16-bit integer that indicates how many frames of compressed data are stored in each sample. Usually set to 1.)
+
+                                    //@46
+
+                                    //30 bytes compressor name (1 byte length) + 1
+
+                                    //@78
+
+                                    bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 78, BitConverter.IsLittleEndian);
+
+                                    break;
+                                }
+                        }
+
+                        continue;
+
+                    }
+                    
+                }
+
+                
 
                 //Also contains channels and bitDept info
 
                 //byte bitDepth;
+
+                //Check for esds if codecIndication is MP4 or MP4A
 
                 //using(var stream = sampleDescriptionBox.Data)
                 //{
@@ -674,8 +789,6 @@ namespace Media.Container.BaseMedia
                 //    //    bitDepth = (byte)Common.Binary.ReadU16(bitd, 0, BitConverter.IsLittleEndian);
                 //    //}
                 //}
-
-                //Check for esds if codecIndication is MP4 or MP4A
 
                 var elst = ReadBox("elst", trakBox.Offset);
 
@@ -709,7 +822,7 @@ namespace Media.Container.BaseMedia
                     elst = null;
                 }
 
-                Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication);
+                Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication, channels, bitDepth);
 
                 tracks.Add(createdTrack);
 
