@@ -80,8 +80,6 @@ namespace Media.Rtsp
 
         #region Fields
 
-        bool m_ForcedProtocol;
-
         ClientProtocolType m_RtspProtocol;
 
         ManualResetEventSlim m_InterleaveEvent = new ManualResetEventSlim(false);
@@ -376,9 +374,6 @@ namespace Media.Rtsp
             //If the client has specified a Protcol to use then use it
             if (rtpProtocolType.HasValue)
             {
-                //The Protocol was forced.
-                m_ForcedProtocol = true;
-
                 //Determine if this means anything for Rtp Transport and set the field
                 if (rtpProtocolType.Value == ClientProtocolType.Tcp || rtpProtocolType.Value == ClientProtocolType.Http)
                 {
