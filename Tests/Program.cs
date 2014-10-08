@@ -2218,6 +2218,8 @@ a=mpeg4-esid:101");
 
             //Todo allow reletive paths?
 
+            #region BaseMediaReader
+
             foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
             {
                 using (Media.Container.BaseMedia.BaseMediaReader reader = new Media.Container.BaseMedia.BaseMediaReader(fileName))
@@ -2240,14 +2242,20 @@ a=mpeg4-esid:101");
                     }
 
 
+                    Console.WriteLine("File Level Properties");
+
                     Console.WriteLine("Movie Duration:" + reader.Duration);
 
                     Console.WriteLine("Track Information:");
 
                     foreach (var track in reader.GetTracks()) DumpTrack(track);
                 }
-                
+
             }
+
+            #endregion
+
+            #region RiffReader
 
             foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(fileName))
             {
@@ -2313,6 +2321,9 @@ a=mpeg4-esid:101");
                 foreach (var track in reader.GetTracks()) DumpTrack(track);
             }
 
+            #endregion
+
+            #region MatroskaReader
 
             foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
             {
@@ -2359,6 +2370,10 @@ a=mpeg4-esid:101");
 
             }
 
+            #endregion
+
+            #region AsfReader
+
             foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
             {
                 using (Media.Container.Asf.AsfReader reader = new Media.Container.Asf.AsfReader(fileName))
@@ -2392,14 +2407,14 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("Objects:");
 
-                    foreach (var element in reader)
+                    foreach (var asfObject in reader)
                     {
-                        Console.WriteLine("Identifier:" + BitConverter.ToString(element.Identifier));
-                        Console.WriteLine("Name: " + Media.Container.Asf.AsfReader.ToTextualConvention(element.Identifier));
+                        Console.WriteLine("Identifier:" + BitConverter.ToString(asfObject.Identifier));
+                        Console.WriteLine("Name: " + Media.Container.Asf.AsfReader.ToTextualConvention(asfObject.Identifier));
                         Console.WriteLine("Position:" + reader.Position);
-                        Console.WriteLine("Offset: " + element.Offset);
-                        Console.WriteLine("Complete: " + element.IsComplete);
-                        Console.WriteLine("Size: " + element.Size);
+                        Console.WriteLine("Offset: " + asfObject.Offset);
+                        Console.WriteLine("Complete: " + asfObject.IsComplete);
+                        Console.WriteLine("Size: " + asfObject.Size);
                     }
 
                     Console.WriteLine("Track Information:");
@@ -2408,6 +2423,46 @@ a=mpeg4-esid:101");
                 }
 
             }
+
+            #endregion
+
+            #region MxfReader
+
+            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mxf/"))
+            {
+                using (Media.Container.Mxf.MxfReader reader = new Media.Container.Mxf.MxfReader(fileName))
+                {
+                    Console.WriteLine("Path:" + reader.Source);
+                    Console.WriteLine("Total Size:" + reader.Length);
+
+                    Console.WriteLine("Root Object:" + Media.Container.Mxf.MxfReader.ToTextualConvention(reader.Root.Identifier));
+
+                    Console.WriteLine("Objects:");
+
+                    foreach (var mxfObject in reader)
+                    {
+                        Console.WriteLine("Position:" + reader.Position);
+                        Console.WriteLine("Offset: " + mxfObject.Offset);
+                        Console.WriteLine("Complete: " + mxfObject.IsComplete);
+                        Console.WriteLine("Name: " + Media.Container.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier));
+                        Console.WriteLine("Size: " + mxfObject.Size);
+                    }
+
+
+                    Console.WriteLine("File Level Properties");
+
+                    Console.WriteLine("Movie Duration:" + reader.Duration);
+
+                    Console.WriteLine("Movie TotalFrames:" + reader.TotalFrames);
+
+                    Console.WriteLine("Track Information:");
+
+                    foreach (var track in reader.GetTracks()) DumpTrack(track);
+                }
+
+            }
+
+            #endregion
 
         }
 

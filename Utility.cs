@@ -60,6 +60,8 @@ namespace Media
 
         public static byte[] Empty = new byte[0];
 
+        public const String Unknown = "Unknown";
+
         #region Extensions
 
         public static IEnumerable<T> Yield<T>(this T t) { yield return t; }

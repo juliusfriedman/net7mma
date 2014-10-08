@@ -1083,11 +1083,12 @@ namespace Media.Container.Matroska
         }
 
         /// <summary>
-        /// Returns the SeekHead element
+        /// Returns the SeekHead element.
         /// </summary>
         public override Node TableOfContents
         {
             //Could also give Cues?
+            //Not parsed because some utilities which join files do not propertly create additional entries
             get { return ReadElement(Identifier.MatroskaSeekHead, Root.Offset); }
         }
         
@@ -1295,8 +1296,7 @@ namespace Media.Container.Matroska
 
                     //The bitDepth of video is possibly unknown at this point...
 
-                    //If so the only way to determine it would be reading the actual video data
-
+                    //If so the only way to determine it would be reading the actual video data and calculating from frameSize...
 
                     //Need to find all CueTimes to accurately describe duration and start time and sample count...
                     //Matroska is WONDERFUL                    

@@ -127,12 +127,12 @@ namespace Media.Common
         public const byte FiveBitMaxValue = 31;
 
         /// <summary>
-        /// An octet which represents a set of 8 bits with only the 0th  bit clear.
+        /// An octet which represents a set of 8 bits with only the 0th  bit clear. (127 Decimal)
         /// </summary>
         /// <remarks>
         /// 01111111 in Binary
         /// </remarks>
-        public const byte SevenBitMaxValue = 127;
+        public const byte SevenBitMaxValue = (byte)sbyte.MaxValue;
 
         /// <summary>
         /// 00000000 11111111 11111111 11111111 in binary

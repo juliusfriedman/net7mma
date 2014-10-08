@@ -16,84 +16,84 @@ namespace Media.Container.Asf
 
         const int IdentifierSize = 16, LengthSize = 8, MinimumSize = IdentifierSize + LengthSize;
 
-        public static class Identifiers
+        public static class Identifier
         {
-            public static readonly Guid ASFHeaderObject = new Guid("75B22630-668E-11CF-A6D9-00AA0062CE6C");
-            public static readonly Guid ASFDataObject = new Guid("75B22636-668E-11CF-A6D9-00AA0062CE6C");
-            public static readonly Guid ASFSimpleIndexObject = new Guid("33000890-E5B1-11CF-89F4-00A0C90349CB");
-            public static readonly Guid ASFIndexObject = new Guid("D6E229D3-35DA-11D1-9034-00A0C90349BE");
-            public static readonly Guid ASFIndexParametersPlaceholderObject = new Guid("D9AADE20-7C17-4F9C-BC28-8555DD98E2A2");
-            public static readonly Guid ASFMediaObjectIndexObject = new Guid("FEB103F8-12AD-4C64-840F-2A1D2F7AD48C");
-            public static readonly Guid ASFTimecodeIndexObject = new Guid("3CB73FD0-0C4A-4803-953D-EDF7B6228F0C");
-            public static readonly Guid ASFFilePropertiesObject = new Guid("8CABDCA1-A947-11CF-8EE4-00C00C205365");
-            public static readonly Guid ASFStreamPropertiesObject = new Guid("B7DC0791-A9B7-11CF-8EE6-00C00C205365");
-            public static readonly Guid ASFHeaderExtensionObject = new Guid("5FBF03B5-A92E-11CF-8EE3-00C00C205365");
-            public static readonly Guid ASFCodecListObject = new Guid("86D15240-311D-11D0-A3A4-00A0C90348F6");
-            public static readonly Guid ASFScriptCommandObject = new Guid("1EFB1A30-0B62-11D0-A39B-00A0C90348F6");
-            public static readonly Guid ASFMarkerObject = new Guid("F487CD01-A951-11CF-8EE6-00C00C205365");
-            public static readonly Guid ASFBitrateMutualExclusionObject = new Guid("D6E229DC-35DA-11D1-9034-00A0C90349BE");
-            public static readonly Guid ASFErrorCorrectionObject = new Guid("75B22635-668E-11CF-A6D9-00AA0062CE6C");
-            public static readonly Guid ASFContentDescriptionObject = new Guid("75B22633-668E-11CF-A6D9-00AA0062CE6C");
-            public static readonly Guid ASFExtendedContentDescriptionObject = new Guid("D2D0A440-E307-11D2-97F0-00A0C95EA850");
-            public static readonly Guid ASFContentBrandingObject = new Guid("2211B3FA-BD23-11D2-B4B7-00A0C955FC6E");
-            public static readonly Guid ASFStreamBitratePropertiesObject = new Guid("7BF875CE-468D-11D1-8D82-006097C9A2B2");
-            public static readonly Guid ASFContentEncryptionObject = new Guid("2211B3FB-BD23-11D2-B4B7-00A0C955FC6E");
-            public static readonly Guid ASFExtendedContentEncryptionObject = new Guid("298AE614-2622-4C17-B935-DAE07EE9289C");
-            public static readonly Guid ASFDigitalSignatureObject = new Guid("2211B3FC-BD23-11D2-B4B7-00A0C955FC6E");
-            public static readonly Guid ASFPaddingObject = new Guid("1806D474-CADF-4509-A4BA-9AABCB96AAE8");
+            public static readonly Guid HeaderObject = new Guid("75B22630-668E-11CF-A6D9-00AA0062CE6C");
+            public static readonly Guid DataObject = new Guid("75B22636-668E-11CF-A6D9-00AA0062CE6C");
+            public static readonly Guid SimpleIndexObject = new Guid("33000890-E5B1-11CF-89F4-00A0C90349CB");
+            public static readonly Guid IndexObject = new Guid("D6E229D3-35DA-11D1-9034-00A0C90349BE");
+            public static readonly Guid IndexParametersPlaceholderObject = new Guid("D9AADE20-7C17-4F9C-BC28-8555DD98E2A2");
+            public static readonly Guid MediaObjectIndexObject = new Guid("FEB103F8-12AD-4C64-840F-2A1D2F7AD48C");
+            public static readonly Guid TimecodeIndexObject = new Guid("3CB73FD0-0C4A-4803-953D-EDF7B6228F0C");
+            public static readonly Guid FilePropertiesObject = new Guid("8CABDCA1-A947-11CF-8EE4-00C00C205365");
+            public static readonly Guid StreamPropertiesObject = new Guid("B7DC0791-A9B7-11CF-8EE6-00C00C205365");
+            public static readonly Guid HeaderExtensionObject = new Guid("5FBF03B5-A92E-11CF-8EE3-00C00C205365");
+            public static readonly Guid CodecListObject = new Guid("86D15240-311D-11D0-A3A4-00A0C90348F6");
+            public static readonly Guid ScriptCommandObject = new Guid("1EFB1A30-0B62-11D0-A39B-00A0C90348F6");
+            public static readonly Guid MarkerObject = new Guid("F487CD01-A951-11CF-8EE6-00C00C205365");
+            public static readonly Guid BitrateMutualExclusionObject = new Guid("D6E229DC-35DA-11D1-9034-00A0C90349BE");
+            public static readonly Guid ErrorCorrectionObject = new Guid("75B22635-668E-11CF-A6D9-00AA0062CE6C");
+            public static readonly Guid ContentDescriptionObject = new Guid("75B22633-668E-11CF-A6D9-00AA0062CE6C");
+            public static readonly Guid ExtendedContentDescriptionObject = new Guid("D2D0A440-E307-11D2-97F0-00A0C95EA850");
+            public static readonly Guid ContentBrandingObject = new Guid("2211B3FA-BD23-11D2-B4B7-00A0C955FC6E");
+            public static readonly Guid StreamBitratePropertiesObject = new Guid("7BF875CE-468D-11D1-8D82-006097C9A2B2");
+            public static readonly Guid ContentEncryptionObject = new Guid("2211B3FB-BD23-11D2-B4B7-00A0C955FC6E");
+            public static readonly Guid ExtendedContentEncryptionObject = new Guid("298AE614-2622-4C17-B935-DAE07EE9289C");
+            public static readonly Guid DigitalSignatureObject = new Guid("2211B3FC-BD23-11D2-B4B7-00A0C955FC6E");
+            public static readonly Guid PaddingObject = new Guid("1806D474-CADF-4509-A4BA-9AABCB96AAE8");
 
-            public static readonly Guid ASFExtendedStreamPropertiesObject = new Guid("14E6A5CB-C672-4332-8399-A96952065B5A");
-            public static readonly Guid ASFAdvancedMutualExclusionObject = new Guid("A08649CF-4775-4670-8A16-6E35357566CD");
-            public static readonly Guid ASFGroupMutualExclusionObject = new Guid("D1465A40-5A79-4338-B71B-E36B8FD6C249");
-            public static readonly Guid ASFStreamPrioritizationObject = new Guid("D4FED15B-88D3-454F-81F0-ED5C45999E24");
-            public static readonly Guid ASFBandwidthSharingObject = new Guid("A69609E6-517B-11D2-B6AF-00C04FD908E9");
-            public static readonly Guid ASFLanguageListObject = new Guid("7C4346A9-EFE0-4BFC-B229-393EDE415C85");
-            public static readonly Guid ASFMetadataObject = new Guid("C5F8CBEA-5BAF-4877-8467-AA8C44FA4CCA");
-            public static readonly Guid ASFMetadataLibraryObject = new Guid("44231C94-9498-49D1-A141-1D134E457054");
-            public static readonly Guid ASFIndexParametersObject = new Guid("D6E229DF-35DA-11D1-9034-00A0C90349BE");
-            public static readonly Guid ASFMediaObjectIndexParametersObject = new Guid("6B203BAD-3F11-48E4-ACA8-D7613DE2CFA7");
-            public static readonly Guid ASFTimecodeIndexParametersObject = new Guid("F55E496D-9797-4B5D-8C8B-604DFE9BFB24");
-            public static readonly Guid ASFCompatibilityObject = new Guid("26F18B5D-4584-47EC-9F5F-0E651F0452C9");
-            public static readonly Guid ASFAdvancedContentEncryptionObject = new Guid("43058533-6981-49E6-9B74-AD12CB86D58C");
-            public static readonly Guid ASFAudioMedia = new Guid("F8699E40-5B4D-11CF-A8FD-00805F5C442B");
-            public static readonly Guid ASFVideoMedia = new Guid("BC19EFC0-5B4D-11CF-A8FD-00805F5C442B");
-            public static readonly Guid ASFCommandMedia = new Guid("59DACFC0-59E6-11D0-A3AC-00A0C90348F6");
-            public static readonly Guid ASFJFIFMedia = new Guid("B61BE100-5B4E-11CF-A8FD-00805F5C442B");
-            public static readonly Guid ASFDegradableJPEGMedia = new Guid("35907DE0-E415-11CF-A917-00805F5C442B");
-            public static readonly Guid ASFFileTransferMedia = new Guid("91BD222C-F21C-497A-8B6D-5AA86BFC0185");
-            public static readonly Guid ASFBinaryMedia = new Guid("3AFB65E2-47EF-40F2-AC2C-70A90D71D343");
+            public static readonly Guid ExtendedStreamPropertiesObject = new Guid("14E6A5CB-C672-4332-8399-A96952065B5A");
+            public static readonly Guid AdvancedMutualExclusionObject = new Guid("A08649CF-4775-4670-8A16-6E35357566CD");
+            public static readonly Guid GroupMutualExclusionObject = new Guid("D1465A40-5A79-4338-B71B-E36B8FD6C249");
+            public static readonly Guid StreamPrioritizationObject = new Guid("D4FED15B-88D3-454F-81F0-ED5C45999E24");
+            public static readonly Guid BandwidthSharingObject = new Guid("A69609E6-517B-11D2-B6AF-00C04FD908E9");
+            public static readonly Guid LanguageListObject = new Guid("7C4346A9-EFE0-4BFC-B229-393EDE415C85");
+            public static readonly Guid MetadataObject = new Guid("C5F8CBEA-5BAF-4877-8467-AA8C44FA4CCA");
+            public static readonly Guid MetadataLibraryObject = new Guid("44231C94-9498-49D1-A141-1D134E457054");
+            public static readonly Guid IndexParametersObject = new Guid("D6E229DF-35DA-11D1-9034-00A0C90349BE");
+            public static readonly Guid MediaObjectIndexParametersObject = new Guid("6B203BAD-3F11-48E4-ACA8-D7613DE2CFA7");
+            public static readonly Guid TimecodeIndexParametersObject = new Guid("F55E496D-9797-4B5D-8C8B-604DFE9BFB24");
+            public static readonly Guid CompatibilityObject = new Guid("26F18B5D-4584-47EC-9F5F-0E651F0452C9");
+            public static readonly Guid AdvancedContentEncryptionObject = new Guid("43058533-6981-49E6-9B74-AD12CB86D58C");
+            public static readonly Guid AudioMedia = new Guid("F8699E40-5B4D-11CF-A8FD-00805F5C442B");
+            public static readonly Guid VideoMedia = new Guid("BC19EFC0-5B4D-11CF-A8FD-00805F5C442B");
+            public static readonly Guid CommandMedia = new Guid("59DACFC0-59E6-11D0-A3AC-00A0C90348F6");
+            public static readonly Guid JFIFMedia = new Guid("B61BE100-5B4E-11CF-A8FD-00805F5C442B");
+            public static readonly Guid DegradableJPEGMedia = new Guid("35907DE0-E415-11CF-A917-00805F5C442B");
+            public static readonly Guid FileTransferMedia = new Guid("91BD222C-F21C-497A-8B6D-5AA86BFC0185");
+            public static readonly Guid BinaryMedia = new Guid("3AFB65E2-47EF-40F2-AC2C-70A90D71D343");
 
-            public static readonly Guid ASFExtendedStreamTypeAudio = new Guid("31178c9d03e14528b5823df9db22f503");
+            public static readonly Guid ExtendedStreamTypeAudio = new Guid("31178c9d03e14528b5823df9db22f503");
 
-            public static readonly Guid ASFWebStreamMediaSubtype = new Guid("776257D4-C627-41CB-8F81-7AC7FF1C40CC");
-            public static readonly Guid ASFWebStreamFormat = new Guid("DA1E6B13-8359-4050-B398-388E965BF00C");
+            public static readonly Guid WebStreamMediaSubtype = new Guid("776257D4-C627-41CB-8F81-7AC7FF1C40CC");
+            public static readonly Guid WebStreamFormat = new Guid("DA1E6B13-8359-4050-B398-388E965BF00C");
 
-            public static readonly Guid ASFNoErrorCorrection = new Guid("20FB5700-5B55-11CF-A8FD-00805F5C442B");
-            public static readonly Guid ASFAudioSpread = new Guid("BFC3CD50-618F-11CF-8BB2-00AA00B4E220");
+            public static readonly Guid NoErrorCorrection = new Guid("20FB5700-5B55-11CF-A8FD-00805F5C442B");
+            public static readonly Guid AudioSpread = new Guid("BFC3CD50-618F-11CF-8BB2-00AA00B4E220");
 
-            public static readonly Guid ASFContentEncryptionSystemWindowsMediaDRMNetworkDevices = new Guid("7A079BB6-DAA4-4e12-A5CA-91D38DC11A8D");
+            public static readonly Guid ContentEncryptionSystemWindowsMediaDRMNetworkDevices = new Guid("7A079BB6-DAA4-4e12-A5CA-91D38DC11A8D");
 
-            public static readonly Guid ASFReserved1 = new Guid("ABD3D211-A9BA-11cf-8EE6-00C00C205365");
-            public static readonly Guid ASFReserved2 = new Guid("86D15241-311D-11D0-A3A4-00A0C90348F6");
-            public static readonly Guid ASFReserved3 = new Guid("4B1ACBE3-100B-11D0-A39B-00A0C90348F6");
-            public static readonly Guid ASFReserved4 = new Guid("4CFEDB20-75F6-11CF-9C0F-00A0C90349CB");
+            public static readonly Guid Reserved1 = new Guid("ABD3D211-A9BA-11cf-8EE6-00C00C205365");
+            public static readonly Guid Reserved2 = new Guid("86D15241-311D-11D0-A3A4-00A0C90348F6");
+            public static readonly Guid Reserved3 = new Guid("4B1ACBE3-100B-11D0-A39B-00A0C90348F6");
+            public static readonly Guid Reserved4 = new Guid("4CFEDB20-75F6-11CF-9C0F-00A0C90349CB");
 
-            public static readonly Guid ASFMutexLanguage = new Guid("D6E22A00-35DA-11D1-9034-00A0C90349BE");
-            public static readonly Guid ASFMutexBitrate = new Guid("D6E22A01-35DA-11D1-9034-00A0C90349BE");
-            public static readonly Guid ASFMutexUnknown = new Guid("D6E22A02-35DA-11D1-9034-00A0C90349BE");
+            public static readonly Guid MutexLanguage = new Guid("D6E22A00-35DA-11D1-9034-00A0C90349BE");
+            public static readonly Guid MutexBitrate = new Guid("D6E22A01-35DA-11D1-9034-00A0C90349BE");
+            public static readonly Guid MutexUnknown = new Guid("D6E22A02-35DA-11D1-9034-00A0C90349BE");
 
-            public static readonly Guid ASFBandwidthSharingExclusive = new Guid("AF6060AA-5197-11D2-B6AF-00C04FD908E9");
-            public static readonly Guid ASFBandwidthSharingPartial = new Guid("AF6060AB-5197-11D2-B6AF-00C04FD908E9");
+            public static readonly Guid BandwidthSharingExclusive = new Guid("AF6060AA-5197-11D2-B6AF-00C04FD908E9");
+            public static readonly Guid BandwidthSharingPartial = new Guid("AF6060AB-5197-11D2-B6AF-00C04FD908E9");
 
-            public static readonly Guid ASFPayloadExtensionSystemTimecode = new Guid("399595EC-8667-4E2D-8FDB-98814CE76C1E");
-            public static readonly Guid ASFPayloadExtensionSystemFileName = new Guid("E165EC0E-19ED-45D7-B4A7-25CBD1E28E9B");
-            public static readonly Guid ASFPayloadExtensionSystemContentType = new Guid("D590DC20-07BC-436C-9CF7-F3BBFBF1A4DC");
-            public static readonly Guid ASFPayloadExtensionSystemPixelAspectRatio = new Guid("1B1EE554-F9EA-4BC8-821A-376B74E4C4B8");
-            public static readonly Guid ASFPayloadExtensionSystemSampleDuration = new Guid("C6BD9450-867F-4907-83A3-C77921B733AD");
-            public static readonly Guid ASFPayloadExtensionSystemEncryptionSampleID = new Guid("6698B84E-0AFA-4330-AEB2-1C0A98D7A44D");
-            public static readonly Guid ASFPayloadExtensiondvrmstimingrepdata = new Guid("fd3cc02a06db4cfa801c7212d38745e4");
-            public static readonly Guid ASFPayloadExtensiondvrmsvidframerepdata = new Guid("dd6432cce22940db80f6d26328d2761f");
-            public static readonly Guid ASFPayloadExtensionSystemDegradableJPEG = new Guid("00E1AF06-7BEC-11D1-A582-00C04FC29CFB");
+            public static readonly Guid PayloadExtensionSystemTimecode = new Guid("399595EC-8667-4E2D-8FDB-98814CE76C1E");
+            public static readonly Guid PayloadExtensionSystemFileName = new Guid("E165EC0E-19ED-45D7-B4A7-25CBD1E28E9B");
+            public static readonly Guid PayloadExtensionSystemContentType = new Guid("D590DC20-07BC-436C-9CF7-F3BBFBF1A4DC");
+            public static readonly Guid PayloadExtensionSystemPixelAspectRatio = new Guid("1B1EE554-F9EA-4BC8-821A-376B74E4C4B8");
+            public static readonly Guid PayloadExtensionSystemSampleDuration = new Guid("C6BD9450-867F-4907-83A3-C77921B733AD");
+            public static readonly Guid PayloadExtensionSystemEncryptionSampleID = new Guid("6698B84E-0AFA-4330-AEB2-1C0A98D7A44D");
+            public static readonly Guid PayloadExtensiondvrmstimingrepdata = new Guid("fd3cc02a06db4cfa801c7212d38745e4");
+            public static readonly Guid PayloadExtensiondvrmsvidframerepdata = new Guid("dd6432cce22940db80f6d26328d2761f");
+            public static readonly Guid PayloadExtensionSystemDegradableJPEG = new Guid("00E1AF06-7BEC-11D1-A582-00C04FC29CFB");
         }
 
         /// <summary>
@@ -105,19 +105,19 @@ namespace Media.Container.Asf
         {
             IdentifierLookup = new Dictionary<Guid, string>();
 
-            foreach (var fieldInfo in typeof(Identifiers).GetFields()) IdentifierLookup.Add((Guid)fieldInfo.GetValue(null), fieldInfo.Name);
+            foreach (var fieldInfo in typeof(Identifier).GetFields()) IdentifierLookup.Add((Guid)fieldInfo.GetValue(null), fieldInfo.Name);
         }
 
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
-            if (identifier == null) return "Unknown";
+            if (identifier == null) return Utility.Unknown;
 
             Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
             string result;
 
-            if (!IdentifierLookup.TryGetValue(id, out result)) result = "Unknown";
+            if (!IdentifierLookup.TryGetValue(id, out result)) result = Utility.Unknown;
 
             return result;
         }
@@ -132,11 +132,11 @@ namespace Media.Container.Asf
 
             Position = offset;
 
-            foreach (var box in this)
+            foreach (var asfObject in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(new Guid(box.Identifier)))
+                if (names == null || names.Count() == 0 || names.Contains(new Guid(asfObject.Identifier)))
                 {
-                    yield return box;
+                    yield return asfObject;
                     continue;
                 }
             }
@@ -180,7 +180,7 @@ namespace Media.Container.Asf
 
             //For all objects besides the ASFHeaderObject the offset should equal the position.
             //The ASFHeaderObject is a special case because it is a "parent" Object
-            if(!identifier.SequenceEqual(Identifiers.ASFHeaderObject.ToByteArray())) offset = Position;
+            if(!identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray())) offset = Position;
 
             return new Node(this, identifier, offset, length, length <= Remaining);
         }
@@ -194,7 +194,7 @@ namespace Media.Container.Asf
                 yield return next;
 
                 //Because the ASFHeaderObject is a parent object it must be parsed for children
-                if (next.Identifier.SequenceEqual(Identifiers.ASFHeaderObject.ToByteArray()))
+                if (next.Identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray()))
                 {
                     //Int 32 and two reserved bytes
                     Skip(6);
@@ -207,7 +207,7 @@ namespace Media.Container.Asf
 
         public override Node Root
         {
-            get { return ReadObject(Identifiers.ASFHeaderObject, 0); }
+            get { return ReadObject(Identifier.HeaderObject, 0); }
         }
 
         long? m_FileSize, m_NumberOfPackets, m_PlayTime, m_SendTime, m_Ignore, m_PreRoll, m_Flags, m_MinimumPacketSize, m_MaximumPacketSize, m_MaximumBitRate;
@@ -342,7 +342,7 @@ namespace Media.Container.Asf
 
         void ParseFileProperties()
         {
-            using (var fileProperties = ReadObject(Identifiers.ASFFilePropertiesObject, Root.Offset))
+            using (var fileProperties = ReadObject(Identifier.FilePropertiesObject, Root.Offset))
             {
                 using (var stream = fileProperties.Data)
                 {
@@ -441,7 +441,7 @@ namespace Media.Container.Asf
 
         void ParseContentDescription()
         {
-            using (var contentDescription = ReadObject(Identifiers.ASFContentDescriptionObject, Root.Offset))
+            using (var contentDescription = ReadObject(Identifier.ContentDescriptionObject, Root.Offset))
             {
                 if(contentDescription != null) using (var stream = contentDescription.Data)
                 {
@@ -486,7 +486,7 @@ namespace Media.Container.Asf
 
         public override Node TableOfContents
         {
-            get { return ReadObject(Identifiers.ASFFilePropertiesObject, Root.Offset); }
+            get { return ReadObject(Identifier.FilePropertiesObject, Root.Offset); }
         }
 
         List<Track> m_Tracks;
@@ -507,7 +507,7 @@ namespace Media.Container.Asf
 
             byte[] buffer = new byte[32];
 
-            foreach (var asfObject in ReadObjects(Root.Offset, Identifiers.ASFStreamPropertiesObject).ToArray())
+            foreach (var asfObject in ReadObjects(Root.Offset, Identifier.StreamPropertiesObject).ToArray())
             {
                 ulong sampleCount = 0, startTime = (ulong)PreRoll.TotalMilliseconds, timeScale = 1, duration = (ulong)Duration.TotalMilliseconds, width = 0, height = 0, rate = 0;
 
