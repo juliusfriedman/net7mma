@@ -2244,28 +2244,7 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("Track Information:");
 
-                    foreach(var track in reader.GetTracks())
-                    {
-                        Console.WriteLine("Id: " + track.Id);
-                        Console.WriteLine("Name: " + track.Name);
-                        Console.WriteLine("Duration: " + track.Duration);
-                        if (track.MediaType == Media.Sdp.MediaType.audio)
-                        {
-                            Console.WriteLine("Sampling Rate: " + track.Rate);                            
-                        }
-                        else
-                        {
-                            Console.WriteLine("Frame Rate: " + track.Rate);
-                            Console.WriteLine("Width: " + track.Width);
-                            Console.WriteLine("Height: " + track.Height);
-                        }
-
-                        Console.WriteLine("Samples: " + track.SampleCount);
-
-                        Console.WriteLine("Codec: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(track.CodecIndication));                            
-                        
-                        Console.WriteLine("Type: " + track.MediaType);
-                    }
+                    foreach (var track in reader.GetTracks()) DumpTrack(track);
                 }
                 
             }
@@ -2440,22 +2419,24 @@ a=mpeg4-esid:101");
             Console.WriteLine("Duration: " + track.Duration);
 
             Console.WriteLine("Type: " + track.MediaType);
-            Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
+            
 
             if (track.MediaType == Media.Sdp.MediaType.audio)
             {
+                Console.WriteLine("Codec: " + (track.CodecIndication.Length > 2 ? Encoding.UTF8.GetString(track.CodecIndication) : ((Media.Utility.WaveFormat)Media.Common.Binary.ReadU16(track.CodecIndication, 0, false)).ToString()));
+                Console.WriteLine("Channels: " + track.Channels);
                 Console.WriteLine("Sampling Rate: " + track.Rate);
                 Console.WriteLine("Bits Per Sample: " + track.BitDepth);
             }
             else
             {
+                Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
                 Console.WriteLine("Frame Rate: " + track.Rate);
                 Console.WriteLine("Width: " + track.Width);
                 Console.WriteLine("Height: " + track.Height);
                 Console.WriteLine("BitsPerPixel: " + track.BitDepth);
             }
 
-            Console.WriteLine("Channels: " + track.Channels);
             Console.WriteLine("Samples: " + track.SampleCount);
         }
 

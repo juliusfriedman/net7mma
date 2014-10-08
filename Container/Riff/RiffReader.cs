@@ -741,6 +741,7 @@ namespace Media.Container.Riff
                             if (strf != null)
                             {
                                 //WaveFormat (EX) 
+                                codecIndication = strf.Raw.Skip(8).Take(2).ToArray();
                                 channels = (byte)Common.Binary.ReadU16(strf.Raw, 10, !BitConverter.IsLittleEndian);
                                 bitDepth = (byte)Common.Binary.ReadU16(strf.Raw, 12, !BitConverter.IsLittleEndian);
                             }
