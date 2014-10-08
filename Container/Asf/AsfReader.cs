@@ -505,8 +505,6 @@ namespace Media.Container.Asf
 
             int trackId = 0;
 
-            byte[] buffer = new byte[32];
-
             foreach (var asfObject in ReadObjects(Root.Offset, Identifier.StreamPropertiesObject).ToArray())
             {
                 ulong sampleCount = 0, startTime = (ulong)PreRoll.TotalMilliseconds, timeScale = 1, duration = (ulong)Duration.TotalMilliseconds, width = 0, height = 0, rate = 0;
