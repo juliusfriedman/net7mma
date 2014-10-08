@@ -59,517 +59,517 @@ namespace Media.Container.Matroska
         //////////////////
 
         /// <summary>
-        /// Indicates a Matroska Segment EBML element.
+        /// Indicates a  Segment EBML element.
         /// </summary>
-        MatroskaSegment = 0x18538067,
+        Segment = 0x18538067,
 
         /// <summary>
-        /// Indicates a Matroska Segment Info EBML element.
+        /// Indicates a  Segment Info EBML element.
         /// </summary>
-        MatroskaSegmentInfo = 0x1549A966,
+        SegmentInfo = 0x1549A966,
 
         /// <summary>
-        /// Indicates a Matroska Tracks EBML Element.
+        /// Indicates a  Tracks EBML Element.
         /// </summary>
-        MatroskaTracks = 0x1654AE6B,
+        Tracks = 0x1654AE6B,
 
         /// <summary>
-        /// Indicates a Matroska Cues EBML element.
+        /// Indicates a  Cues EBML element.
         /// </summary>
-        MatroskaCues = 0x1C53BB6B,
+        Cues = 0x1C53BB6B,
 
         /// <summary>
-        /// Indicates a Matroska CuePoint EBML element.
+        /// Indicates a  CuePoint EBML element.
         /// </summary>
-        MatroskaCuePoint = 0xBB,
+        CuePoint = 0xBB,
 
         /// <summary>
-        /// Indicates a Matroska CueTime EBML element.
+        /// Indicates a  CueTime EBML element.
         /// </summary>
-        MatroskaCueTime = 0xB3,
+        CueTime = 0xB3,
 
         /// <summary>
-        /// Indicates a Matroska CueTrackPositions EBML element.
+        /// Indicates a  CueTrackPositions EBML element.
         /// </summary>
-        MatroskaCueTrackPositions = 0xB7,
+        CueTrackPositions = 0xB7,
 
         /// <summary>
-        /// Indicates a Matroska CueTrack EBML element.
+        /// Indicates a  CueTrack EBML element.
         /// </summary>
-        MatroskaCueTrack = 0xF7,
+        CueTrack = 0xF7,
 
         /// <summary>
-        /// Indicates a Matroska CueClusterPosition EBML element.
+        /// Indicates a  CueClusterPosition EBML element.
         /// </summary>
-        MatroskaCueClusterPosition = 0xF1,
+        CueClusterPosition = 0xF1,
 
         /// <summary>
-        /// Indicates a Matroska CueRelativePosition EBML element.
+        /// Indicates a  CueRelativePosition EBML element.
         /// </summary>
-        MatroskaCueRelativePosition = 0xF0,
+        CueRelativePosition = 0xF0,
 
         /// <summary>
-        /// Indicates a Matroska CueDuration EBML element.
+        /// Indicates a  CueDuration EBML element.
         /// </summary>
-        MatroskaCueDuration = 0xB2,
+        CueDuration = 0xB2,
 
         /// <summary>
-        /// Indicates a Matroska CueBlockNumber EBML element.
+        /// Indicates a  CueBlockNumber EBML element.
         /// </summary>
-        MatroskaCueBlockNumber = 0x5378,
+        CueBlockNumber = 0x5378,
 
         /// <summary>
-        /// Indicates a Matroska CueCodecState EBML element.
+        /// Indicates a  CueCodecState EBML element.
         /// </summary>
-        MatroskaCueCodecState = 0xEA,
+        CueCodecState = 0xEA,
 
         /// <summary>
-        /// Indicates a Matroska MatroskaCueReference EBML element.
+        /// Indicates a  CueReference EBML element.
         /// </summary>
-        MatroskaCueReference = 0xDB,
+        CueReference = 0xDB,
 
         /// <summary>
-        /// Indicates a Matroska MatroskaCueRefTime EBML element.
+        /// Indicates a  CueRefTime EBML element.
         /// </summary>
-        MatroskaCueRefTime = 0x96,
+        CueRefTime = 0x96,
 
         /// <summary>
-        /// Indicates a Matroska MatroskaCueRefCluster EBML element.
+        /// Indicates a  CueRefCluster EBML element.
         /// </summary>
-        MatroskaCueRefCluster = 0x97,
+        CueRefCluster = 0x97,
 
         /// <summary>
-        /// Indicates a Matroska MatroskaCueRefNumber EBML element.
+        /// Indicates a  CueRefNumber EBML element.
         /// </summary>
-        MatroskaCueRefNumber = 0x535f,
+        CueRefNumber = 0x535f,
 
         /// <summary>
-        /// Indicates a Matroska MatroskaCueRefTime EBML element.
+        /// Indicates a  CueRefTime EBML element.
         /// </summary>
-        MatroskaRefCueCodecState = 0xEB,
+        RefCueCodecState = 0xEB,
 
         /// <summary>
-        /// Indicates a Matroska CueTrack EBML element.
+        /// Indicates a  CueTrack EBML element.
         /// </summary>
-        MatroskaRelativePosition = 0xF0,
+        RelativePosition = 0xF0,
 
         /// <summary>
-        /// Indicates a Matroska CueTrackPosition EBML element.
+        /// Indicates a  CueTrackPosition EBML element.
         /// </summary>
-        MatroskaCueTrackPosition = 0xF1,
+        CueTrackPosition = 0xF1,
 
         /// <summary>
-        /// Indicates a Matroska Tags EBML element.
+        /// Indicates a  Tags EBML element.
         /// </summary>
-        MatroskaTags = 0x1254C367,
+        Tags = 0x1254C367,
 
         /// <summary>
-        /// Indicates a Matroska Seek Head EBML element.
+        /// Indicates a  Seek Head EBML element.
         /// </summary>
-        MatroskaSeekHead = 0x114D9B74,
+        SeekHead = 0x114D9B74,
 
         /// <summary>
-        /// Indicates a Matroska Cluster EBML element.
+        /// Indicates a  Cluster EBML element.
         /// </summary>
-        MatroskaCluster = 0x1F43B675,
+        Cluster = 0x1F43B675,
 
         /// <summary>
-        /// Indicates a Matroska Attachments EBML element.
+        /// Indicates a  Attachments EBML element.
         /// </summary>
-        MatroskaAttachments = 0x1941A469,
+        Attachments = 0x1941A469,
 
         /// <summary>
-        /// Indicates a Matroska Chapters EBML element.
+        /// Indicates a  Chapters EBML element.
         /// </summary>
-        MatroskaChapters = 0x1043A770,
+        Chapters = 0x1043A770,
 
         /* IDs in the SegmentInfo master */
 
         /// <summary>
-        /// Indicate a Matroska Code Scale EBML element.
+        /// Indicate a  Code Scale EBML element.
         /// </summary>
-        MatroskaTimeCodeScale = 0x2AD7B1,
+        TimeCodeScale = 0x2AD7B1,
 
         /// <summary>
-        /// Indicates a Matroska Duration EBML element.
+        /// Indicates a  Duration EBML element.
         /// </summary>
-        MatroskaDuration = 0x4489,
+        Duration = 0x4489,
 
         /// <summary>
-        /// Indicates a Matroska Writing App EBML element.
+        /// Indicates a  Writing App EBML element.
         /// </summary>
-        MatroskaWrittingApp = 0x5741,
+        WrittingApp = 0x5741,
 
         /// <summary>
-        /// Indicates a Matroska Muxing App EBML element.
+        /// Indicates a  Muxing App EBML element.
         /// </summary>
-        MatroskaMuxingApp = 0x4D80,
+        MuxingApp = 0x4D80,
 
         /// <summary>
-        /// Indicates a Matroska SeekEntry EBML element.
+        /// Indicates a  SeekEntry EBML element.
         /// </summary>
-        MatroskaSeekEntry = 0x4DBB,
+        SeekEntry = 0x4DBB,
 
         /// <summary>
-        /// Indicates a Matroska SeekID EBML element.
+        /// Indicates a  SeekID EBML element.
         /// </summary>
-        MatroskaSeekID = 0x53AB,
+        SeekID = 0x53AB,
 
         /// <summary>
-        /// Indicates a Matroska SeekPosition EBML element.
+        /// Indicates a  SeekPosition EBML element.
         /// </summary>
-        MatroskaSeekPosition = 0x53AC,
+        SeekPosition = 0x53AC,
 
         /// <summary>
-        /// Indicate a Matroska Date UTC EBML element.
+        /// Indicate a  Date UTC EBML element.
         /// </summary>
-        MatroskaDateUTC = 0x4461,
+        DateUTC = 0x4461,
 
         /// <summary>
-        /// Indicate a Matroska Segment UID EBML element.
+        /// Indicate a  Segment UID EBML element.
         /// </summary>
-        MatroskaSegmentUID = 0x73A4,
+        SegmentUID = 0x73A4,
 
         /// <summary>
-        /// Indicate a Matroska Segment File Name EBML element.
+        /// Indicate a  Segment File Name EBML element.
         /// </summary>
-        MatroskaSegmentFileName = 0x7384,
+        SegmentFileName = 0x7384,
 
         /// <summary>
-        /// Indicate a Matroska Prev UID EBML element.
+        /// Indicate a  Prev UID EBML element.
         /// </summary>
-        MatroskaPrevUID = 0x3CB923,
+        PrevUID = 0x3CB923,
 
         /// <summary>
-        /// Indicate a Matroska Prev File Name EBML element.
+        /// Indicate a  Prev File Name EBML element.
         /// </summary>
-        MatroskaPrevFileName = 0x3C83AB,
+        PrevFileName = 0x3C83AB,
 
         /// <summary>
-        /// Indicate a Matroska Nex UID EBML element.
+        /// Indicate a  Nex UID EBML element.
         /// </summary>
-        MatroskaNexUID = 0x3EB923,
+        NexUID = 0x3EB923,
 
         /// <summary>
-        /// Indicate a Matroska Nex File Name EBML element.
+        /// Indicate a  Nex File Name EBML element.
         /// </summary>
-        MatroskaNexFileName = 0x3E83BB,
+        NexFileName = 0x3E83BB,
 
         /// <summary>
-        /// Indicate a Matroska Title EBML element.
+        /// Indicate a  Title EBML element.
         /// </summary>
-        MatroskaTitle = 0x7BA9,
+        Title = 0x7BA9,
 
         /// <summary>
-        /// Indicate a Matroska Segment Family EBML element.
+        /// Indicate a  Segment Family EBML element.
         /// </summary>
-        MatroskaSegmentFamily = 0x4444,
+        SegmentFamily = 0x4444,
 
         /// <summary>
-        /// Indicate a Matroska Chapter Translate EBML element.
+        /// Indicate a  Chapter Translate EBML element.
         /// </summary>
-        MatroskaChapterTranslate = 0x6924,
+        ChapterTranslate = 0x6924,
 
         /* ID in the Tracks master */
 
         /// <summary>
-        /// Indicate a Matroska Track Entry EBML element.
+        /// Indicate a  Track Entry EBML element.
         /// </summary>
-        MatroskaTrackEntry = 0xAE,
+        TrackEntry = 0xAE,
 
         /* IDs in the TrackEntry master */
 
         /// <summary>
-        /// Indicate a Matroska Track Number EBML element.
+        /// Indicate a  Track Number EBML element.
         /// </summary>
-        MatroskaTrackNumber = 0xD7,
+        TrackNumber = 0xD7,
 
         /// <summary>
-        /// Indicate a Matroska Track UID EBML element.
+        /// Indicate a  Track UID EBML element.
         /// </summary>
-        MatroskaTrackUID = 0x73C5,
+        TrackUID = 0x73C5,
 
         /// <summary>
-        /// Indicate a Matroska Track Type EBML element.
+        /// Indicate a  Track Type EBML element.
         /// </summary>
-        MatroskaTrackType = 0x83,
+        TrackType = 0x83,
 
         /// <summary>
-        /// Indicate a Matroska Track Audio EBML element.
+        /// Indicate a  Track Audio EBML element.
         /// </summary>
-        MatroskaTrackAudio = 0xE1,
+        TrackAudio = 0xE1,
 
         /// <summary>
-        /// Indicate a Matroska Track Video EBML element.
+        /// Indicate a  Track Video EBML element.
         /// </summary>
-        MatroskaTrackVideo = 0xE0,
+        TrackVideo = 0xE0,
 
         /// <summary>
-        /// Indicate a Matroska Track Encoding EBML element.
+        /// Indicate a  Track Encoding EBML element.
         /// </summary>
-        MatroskaContentEncodings = 0x6D80,
+        ContentEncodings = 0x6D80,
 
         /// <summary>
-        /// Indicate a Matroska Codec ID EBML element.
+        /// Indicate a  Codec ID EBML element.
         /// </summary>
-        MatroskaCodecID = 0x86,
+        CodecID = 0x86,
 
         /// <summary>
-        /// Indicate a Matroska Codec Private EBML element.
+        /// Indicate a  Codec Private EBML element.
         /// </summary>
-        MatroskaCodecPrivate = 0x63A2,
+        CodecPrivate = 0x63A2,
 
         /// <summary>
-        /// Indicate a Matroska Codec Name EBML element.
+        /// Indicate a  Codec Name EBML element.
         /// </summary>
-        MatroskaCodecName = 0x258688,
+        CodecName = 0x258688,
 
         /// <summary>
-        /// Indicate a Matroska Track Name EBML element.
+        /// Indicate a  Track Name EBML element.
         /// </summary>
-        MatroskaTrackName = 0x536E,
+        TrackName = 0x536E,
 
         /// <summary>
-        /// Indicate a Matroska Track Language EBML element.
+        /// Indicate a  Track Language EBML element.
         /// </summary>
-        MatroskaTrackLanguage = 0x22B59C,
+        TrackLanguage = 0x22B59C,
 
         /// <summary>
-        /// Indicate a Matroska Track Enabled EBML element.
+        /// Indicate a  Track Enabled EBML element.
         /// </summary>
-        MatroskaTrackFlagEnabled = 0xB9,
+        TrackFlagEnabled = 0xB9,
 
         /// <summary>
-        /// Indicate a Matroska Track Flag Default EBML element.
+        /// Indicate a  Track Flag Default EBML element.
         /// </summary>
-        MatroskaTrackFlagDefault = 0x88,
+        TrackFlagDefault = 0x88,
 
         /// <summary>
-        /// Indicate a Matroska Track Flag Forced EBML element.
+        /// Indicate a  Track Flag Forced EBML element.
         /// </summary>
-        MatroskaTrackFlagForced = 0x55AA,
+        TrackFlagForced = 0x55AA,
 
         /// <summary>
-        /// Indicate a Matroska Track Flag Lacing EBML element.
+        /// Indicate a  Track Flag Lacing EBML element.
         /// </summary>
-        MatroskaTrackFlagLacing = 0x9C,
+        TrackFlagLacing = 0x9C,
 
         /// <summary>
-        /// Indicate a Matroska Track Min Cache EBML element.
+        /// Indicate a  Track Min Cache EBML element.
         /// </summary>
-        MatroskaTrackMinCache = 0x6DE7,
+        TrackMinCache = 0x6DE7,
 
         /// <summary>
-        /// Indicate a Matroska Track Max Cache EBML element.
+        /// Indicate a  Track Max Cache EBML element.
         /// </summary>
-        MatroskaTrackMaxCache = 0x6DF8,
+        TrackMaxCache = 0x6DF8,
 
         /// <summary>
-        /// Indicate a Matroska Track Default Duration EBML element.
+        /// Indicate a  Track Default Duration EBML element.
         /// </summary>
-        MatroskaTrackDefaultDuration = 0x23E383,
+        TrackDefaultDuration = 0x23E383,
 
         /// <summary>
-        /// Indicate a Matroska Track Time Code Scale EBML element.
+        /// Indicate a  Track Time Code Scale EBML element.
         /// </summary>
-        MatroskaTrackTimeCodeScale = 0x23314F,
+        TrackTimeCodeScale = 0x23314F,
 
         /// <summary>
-        /// Indicate a Matroska Track Max Block Addition EBML element.
+        /// Indicate a  Track Max Block Addition EBML element.
         /// </summary>
-        MatroskaMaxBlockAdditionID = 0x55EE,
+        MaxBlockAdditionID = 0x55EE,
 
         /// <summary>
-        /// Indicate a Matroska Track Attachment Link EBML element.
+        /// Indicate a  Track Attachment Link EBML element.
         /// </summary>
-        MatroskaTrackAttachmentLink = 0x7446,
+        TrackAttachmentLink = 0x7446,
 
         /// <summary>
-        /// Indicate a Matroska Track Overlay EBML element.
+        /// Indicate a  Track Overlay EBML element.
         /// </summary>
-        MatroskaTrackOverlay = 0x6FAB,
+        TrackOverlay = 0x6FAB,
 
         /// <summary>
-        /// Indicate a Matroska Track Translate EBML element.
+        /// Indicate a  Track Translate EBML element.
         /// </summary>
-        MatroskaTrackTranslate = 0x6624,
+        TrackTranslate = 0x6624,
 
         /// <summary>
-        /// Indicate a Matroska Track Offset element.
+        /// Indicate a  Track Offset element.
         /// </summary>
-        MatroskaTrackOffset = 0x537F,
+        TrackOffset = 0x537F,
 
         /// <summary>
-        /// Indicate a Matroska Codec Settings EBML element.
+        /// Indicate a  Codec Settings EBML element.
         /// </summary>
-        MatroskaCodecSettings = 0x3A9697,
+        CodecSettings = 0x3A9697,
 
         /// <summary>
-        /// Indicate a Matroska Codec Info URL EBML element.
+        /// Indicate a  Codec Info URL EBML element.
         /// </summary>
-        MatroskaCodecInfoUrl = 0x3B4040,
+        CodecInfoUrl = 0x3B4040,
 
         /// <summary>
-        /// Indicate a Matroska Codec Download URL EBML element.
+        /// Indicate a  Codec Download URL EBML element.
         /// </summary>
-        MatroskaCodecDownloadUrl = 0x26B240,
+        CodecDownloadUrl = 0x26B240,
 
         /// <summary>
-        /// Indicate a Matroska Codec Decode All EBML element.
+        /// Indicate a  Codec Decode All EBML element.
         /// </summary>
-        MatroskaCodecDecodeAll = 0xAA,
+        CodecDecodeAll = 0xAA,
 
         /* IDs in the TrackVideo master */
         /* NOTE: This one is here only for backward compatibility.
         * Use _TRACKDEFAULDURATION */
 
         /// <summary>
-        /// Indicate a Matroska Video Frame Rate EBML element.
+        /// Indicate a  Video Frame Rate EBML element.
         /// </summary>
-        MatroskaVideoFrameRate = 0x2383E3,
+        VideoFrameRate = 0x2383E3,
 
         /// <summary>
-        /// Indicate a Matroska Video Display Width EBML element.
+        /// Indicate a  Video Display Width EBML element.
         /// </summary>
-        MatroskaVideoDisplayWidth = 0x54B0,
+        VideoDisplayWidth = 0x54B0,
 
         /// <summary>
-        /// Indicate a Matroska Video Display Height EBML element.
+        /// Indicate a  Video Display Height EBML element.
         /// </summary>
-        MatroskaVideoDisplayHeight = 0x54BA,
+        VideoDisplayHeight = 0x54BA,
 
         /// <summary>
-        /// Indicate a Matroska Video Display Unit EBML element.
+        /// Indicate a  Video Display Unit EBML element.
         /// </summary>
-        MatroskaVideoDisplayUnit = 0x54B2,
+        VideoDisplayUnit = 0x54B2,
 
         /// <summary>
-        /// Indicate a Matroska Video Pixel Width EBML element.
+        /// Indicate a  Video Pixel Width EBML element.
         /// </summary>
-        MatroskaVideoPixelWidth = 0xB0,
+        VideoPixelWidth = 0xB0,
 
         /// <summary>
-        /// Indicate a Matroska Video Pixel Height EBML element.
+        /// Indicate a  Video Pixel Height EBML element.
         /// </summary>
-        MatroskaVideoPixelHeight = 0xBA,
+        VideoPixelHeight = 0xBA,
 
         /// <summary>
-        /// Indicate a Matroska Video Pixel Crop Bottom EBML element.
+        /// Indicate a  Video Pixel Crop Bottom EBML element.
         /// </summary>
-        MatroskaVideoPixelCropBottom = 0x54AA,
+        VideoPixelCropBottom = 0x54AA,
 
         /// <summary>
-        /// Indicate a Matroska Video Pixel Crop Top EBML element.
+        /// Indicate a  Video Pixel Crop Top EBML element.
         /// </summary>
-        MatroskaVideoPixelCropTop = 0x54BB,
+        VideoPixelCropTop = 0x54BB,
 
         /// <summary>
-        /// Indicate a Matroska Video Pixel Crop Left EBML element.
+        /// Indicate a  Video Pixel Crop Left EBML element.
         /// </summary>
-        MatroskaVideoPixelCropLeft = 0x54CC,
+        VideoPixelCropLeft = 0x54CC,
 
         /// <summary>
-        /// Indicate a Matroska Video Pixel Crop Right EBML element.
+        /// Indicate a  Video Pixel Crop Right EBML element.
         /// </summary>
-        MatroskaVideoPixelCropRight = 0x54DD,
+        VideoPixelCropRight = 0x54DD,
 
         /// <summary>
-        /// Indicate a Matroska Video Flag Interlaced EBML element.
+        /// Indicate a  Video Flag Interlaced EBML element.
         /// </summary>
-        MatroskaVideoFlagInterlaced = 0x9A,
+        VideoFlagInterlaced = 0x9A,
 
         /// <summary>
-        /// Indicate a Matroska Video Stereo Mode EBML element.
+        /// Indicate a  Video Stereo Mode EBML element.
         /// </summary>
-        MatroskaVideoStereoMode = 0x53B8,
+        VideoStereoMode = 0x53B8,
 
         /// <summary>
-        /// Indicate a Matroska Video Aspect Ratio Type EBML element.
+        /// Indicate a  Video Aspect Ratio Type EBML element.
         /// </summary>
-        MatroskaVideoAspectRatioType = 0x54B3,
+        VideoAspectRatioType = 0x54B3,
 
         /// <summary>
-        /// Indicate a Matroska Video Colour Space EBML element.
+        /// Indicate a  Video Colour Space EBML element.
         /// </summary>
-        MatroskaVideoColourSpace = 0x2EB524,
+        VideoColourSpace = 0x2EB524,
 
         /// <summary>
-        /// Indicate a Matroska Video Gamma Value EBML element.
+        /// Indicate a  Video Gamma Value EBML element.
         /// </summary>
-        MatroskaVideoGammaValue = 0x2FB523,
+        VideoGammaValue = 0x2FB523,
 
         /* IDs in the TrackAudio master */
 
         /// <summary>
-        /// Indicate a Matroska Audio Sampling Freq EBML element.
+        /// Indicate a  Audio Sampling Freq EBML element.
         /// </summary>
-        MatroskaAudioSamplingFreq = 0xB5,
+        AudioSamplingFreq = 0xB5,
 
         /// <summary>
-        /// Indicate a Matroska Audio Bit Depth EBML element.
+        /// Indicate a  Audio Bit Depth EBML element.
         /// </summary>
-        MatroskaAudioBitDepth = 0x6264,
+        AudioBitDepth = 0x6264,
 
         /// <summary>
-        /// Indicate a Matroska Audio Channels EBML element.
+        /// Indicate a  Audio Channels EBML element.
         /// </summary>
-        MatroskaAudioChannels = 0x9F,
+        AudioChannels = 0x9F,
 
         /// <summary>
-        /// Indicate a Matroska Audio Channels Position EBML element.
+        /// Indicate a  Audio Channels Position EBML element.
         /// </summary>
-        MatroskaAudioChannelsPositions = 0x7D7B,
+        AudioChannelsPositions = 0x7D7B,
 
         /// <summary>
-        /// Indicate a Matroska Audio Output Sampling Freq EBML element.
+        /// Indicate a  Audio Output Sampling Freq EBML element.
         /// </summary>
-        MatroskaAudioOutputSamplingFreq = 0x78B5,
+        AudioOutputSamplingFreq = 0x78B5,
 
         /* IDs in the Tags master */
 
         /// <summary>
-        /// Indicate a Matroska Tag EBML element.
+        /// Indicate a  Tag EBML element.
         /// </summary>
-        MatroskaTag = 0x7373,
+        Tag = 0x7373,
 
         /* in the Tag master */
 
         /// <summary>
-        /// Indicate a Matroska Simple Tag EBML element.
+        /// Indicate a  Simple Tag EBML element.
         /// </summary>
-        MatroskaSimpleTag = 0x67C8,
+        SimpleTag = 0x67C8,
 
         /// <summary>
-        /// Indicate a Matroska Targets EBML element.
+        /// Indicate a  Targets EBML element.
         /// </summary>
-        MatroskaTargets = 0x63C0,
+        Targets = 0x63C0,
 
         /* in the SimpleTag master */
 
         /// <summary>
-        /// Indicate a Matroska Tag Name EBML element.
+        /// Indicate a  Tag Name EBML element.
         /// </summary>
-        MatroskaTagName = 0x45A3,
+        TagName = 0x45A3,
 
         /// <summary>
-        /// Indicate a Matroska Tag String EBML element.
+        /// Indicate a  Tag String EBML element.
         /// </summary>
-        MatroskaTagString = 0x4487,
+        TagString = 0x4487,
 
         /// <summary>
-        /// Indicate a Matroska Tag Language EBML element.
+        /// Indicate a  Tag Language EBML element.
         /// </summary>
-        MatroskaTagLanguage = 0x447A,
+        TagLanguage = 0x447A,
 
         /// <summary>
-        /// Indicate a Matroska Tag Default EBML element.
+        /// Indicate a  Tag Default EBML element.
         /// </summary>
-        MatroskaTagDefault = 0x4484,
+        TagDefault = 0x4484,
 
         /// <summary>
-        /// Indicate a Matroska Tag Binary EBML element.
+        /// Indicate a  Tag Binary EBML element.
         /// </summary>
-        MatroskaTagBinary = 0x4485
+        TagBinary = 0x4485
     }
 
     /// <summary>
@@ -742,8 +742,8 @@ namespace Media.Container.Matroska
                 switch (found)
                 {
                     //Some Items are top level and contain children (Only really segment should be listed?)
-                    case Identifier.MatroskaTracks: //Track is listed for making Parsing Tracks easier for now
-                    case Identifier.MatroskaSegment: continue;
+                    case Identifier.Tracks: //Track is listed for making Parsing Tracks easier for now
+                    case Identifier.Segment: continue;
                     //Otherwise skip the element's data to parse the next
                     default:
                         {
@@ -849,7 +849,7 @@ namespace Media.Container.Matroska
 
         void ParseSegmentInfo()
         {
-            using (var matroskaSegmentInfo = ReadElement(Identifier.MatroskaSegmentInfo, Root.Offset))
+            using (var matroskaSegmentInfo = ReadElement(Identifier.SegmentInfo, Root.Offset))
             {
 
                 if (matroskaSegmentInfo != null) using (var stream = matroskaSegmentInfo.Data)
@@ -882,7 +882,7 @@ namespace Media.Container.Matroska
                         //Determine what to do based on the found Identifier
                         switch (found)
                         {
-                            case Identifier.MatroskaDuration:
+                            case Identifier.Duration:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     //m_Duration = TimeSpan.FromMilliseconds((double)(Common.Binary.ReadInteger(buffer, 0, (int)length, BitConverter.IsLittleEndian) * m_TimeCodeScale * 1000) / 1000000);
@@ -894,35 +894,35 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaDateUTC:
+                            case Identifier.DateUTC:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     m_Created = BaseDate.AddMilliseconds(Utility.NanosecondsPerSecond / Common.Binary.ReadInteger(buffer, 0, (int)length, BitConverter.IsLittleEndian));
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaTimeCodeScale:
+                            case Identifier.TimeCodeScale:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     m_TimeCodeScale = Common.Binary.ReadInteger(buffer, 0, (int)length, BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaTitle:
+                            case Identifier.Title:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     m_Title = Encoding.UTF8.GetString(buffer, 0, (int)length);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaMuxingApp:
+                            case Identifier.MuxingApp:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     m_MuxingApp = Encoding.UTF8.GetString(buffer, 0, (int)length);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaWrittingApp:
+                            case Identifier.WrittingApp:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     m_WritingApp = Encoding.UTF8.GetString(buffer, 0, (int)length);
@@ -1089,7 +1089,7 @@ namespace Media.Container.Matroska
         {
             //Could also give Cues?
             //Not parsed because some utilities which join files do not propertly create additional entries
-            get { return ReadElement(Identifier.MatroskaSeekHead, Root.Offset); }
+            get { return ReadElement(Identifier.SeekHead, Root.Offset); }
         }
         
         List<Track> m_Tracks;
@@ -1125,7 +1125,7 @@ namespace Media.Container.Matroska
             Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
             //Tracks is the parent element of all TrackEntry
-            foreach (var trackEntryElement in ReadElements(Root.Offset, Identifier.MatroskaTrackEntry).ToArray())
+            foreach (var trackEntryElement in ReadElements(Root.Offset, Identifier.TrackEntry).ToArray())
             {
                 using (var stream = trackEntryElement.Data)
                 {
@@ -1154,10 +1154,10 @@ namespace Media.Container.Matroska
                         switch (found)
                         {
                             
-                            case Identifier.MatroskaTrackVideo: 
-                            case Identifier.MatroskaTrackAudio:
+                            case Identifier.TrackVideo: 
+                            case Identifier.TrackAudio:
                                 continue;
-                            case Identifier.MatroskaTrackType:
+                            case Identifier.TrackType:
                                 {
                                     byte info = (byte)stream.ReadByte();
 
@@ -1172,7 +1172,7 @@ namespace Media.Container.Matroska
                                     ++offset;
                                     continue;
                                 }
-                            case Identifier.MatroskaVideoColourSpace:
+                            case Identifier.VideoColourSpace:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     bitsPerSample = (byte)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
@@ -1182,37 +1182,37 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaAudioBitDepth:
+                            case Identifier.AudioBitDepth:
                                 {
                                     bitsPerSample = (byte)stream.ReadByte();
                                     ++offset;
                                     continue;
                                 }                           
-                            case Identifier.MatroskaAudioChannels:
+                            case Identifier.AudioChannels:
                                 {
                                     channels = (byte)stream.ReadByte();
                                     ++offset;
                                     continue;
                                 }
-                            case Identifier.MatroskaTrackUID:
-                            case Identifier.MatroskaTrackNumber:
+                            case Identifier.TrackUID:
+                            case Identifier.TrackNumber:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     trackId = (ulong)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaTrackDefaultDuration:
+                            case Identifier.TrackDefaultDuration:
                                 {
                                     //Really the sample Rate?
-                                    //Number of nanoseconds (not scaled via TimecodeScale) per frame ('frame' in the Matroska sense -- one element put into a (Simple)Block).
+                                    //Number of nanoseconds (not scaled via TimecodeScale) per frame ('frame' in the  sense -- one element put into a (Simple)Block).
                                     stream.Read(buffer, 0, (int)length);
                                     if (mediaType == Sdp.MediaType.video)rate =  Utility.NanosecondsPerSecond / (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     else rate = (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaVideoFrameRate: //DEPRECATED
+                            case Identifier.VideoFrameRate: //DEPRECATED
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     rate = (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
@@ -1220,17 +1220,17 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaTimeCodeScale:
-                            case Identifier.MatroskaTrackTimeCodeScale://DEPRECATED, DO NOT USE. 
+                            case Identifier.TimeCodeScale:
+                            case Identifier.TrackTimeCodeScale://DEPRECATED, DO NOT USE. 
                                 {
                                     //Really the sample Rate?
-                                    //Number of nanoseconds (not scaled via TimecodeScale) per frame ('frame' in the Matroska sense -- one element put into a (Simple)Block).
+                                    //Number of nanoseconds (not scaled via TimecodeScale) per frame ('frame' in the  sense -- one element put into a (Simple)Block).
                                     stream.Read(buffer, 0, (int)length);
                                     timeCodeScale = (ulong)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaAudioSamplingFreq:
+                            case Identifier.AudioSamplingFreq:
                                 {
                                     //Ensure this is read correctly....
                                     stream.Read(buffer, 0, (int)length);
@@ -1238,7 +1238,7 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaAudioOutputSamplingFreq:
+                            case Identifier.AudioOutputSamplingFreq:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     //Rescale
@@ -1246,21 +1246,21 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaVideoPixelWidth:
+                            case Identifier.VideoPixelWidth:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     width = (ulong)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaVideoPixelHeight:
+                            case Identifier.VideoPixelHeight:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     height = (ulong)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaTrackOffset://DEPRECATED, DO NOT USE.
+                            case Identifier.TrackOffset://DEPRECATED, DO NOT USE.
                                 {
                                     //A value to add to the Block's Timestamp. This can be used to adjust the playback offset of a track.
                                     stream.Read(buffer, 0, (int)length);
@@ -1268,15 +1268,15 @@ namespace Media.Container.Matroska
                                     offset += length;
                                     break;
                                 }
-                            case Identifier.MatroskaTrackName:
+                            case Identifier.TrackName:
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     trackName = Encoding.UTF8.GetString(buffer, 0, (int)length);
                                     offset += length;
                                     continue;
                                 }
-                            case Identifier.MatroskaCodecName:
-                            case Identifier.MatroskaCodecID:
+                            case Identifier.CodecName:
+                            case Identifier.CodecID:
                                 {
                                     codecIndication = new byte[(int)length];
                                     stream.Read(codecIndication, 0, (int)length);
@@ -1299,9 +1299,9 @@ namespace Media.Container.Matroska
                     //If so the only way to determine it would be reading the actual video data and calculating from frameSize...
 
                     //Need to find all CueTimes to accurately describe duration and start time and sample count...
-                    //Matroska is WONDERFUL                    
+                    // is WONDERFUL                    
                     //Only do this one time for now...
-                    if(sampleCount == 0) foreach (var elem in ReadElements(0, Identifier.MatroskaCues))
+                    if(sampleCount == 0) foreach (var elem in ReadElements(0, Identifier.Cues))
                     {
                         using (var cueStream = elem.Data)
                         {
@@ -1325,8 +1325,8 @@ namespace Media.Container.Matroska
                                 //Determine what to do based on the found Identifier
                                 switch (found)
                                 {
-                                    case Identifier.MatroskaCuePoint: continue;
-                                    case Identifier.MatroskaCueTime:
+                                    case Identifier.CuePoint: continue;
+                                    case Identifier.CueTime:
                                         {
                                             ++sampleCount;
                                             cueStream.Read(buffer, 0, (int)length);

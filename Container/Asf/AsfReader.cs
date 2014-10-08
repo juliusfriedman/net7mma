@@ -561,7 +561,7 @@ namespace Media.Container.Asf
 
                 switch (mediaTypeName)
                 {
-                    case "ASFVideoMedia":
+                    case "VideoMedia":
                         {
                             //Read 32
                             //Read 32
@@ -605,7 +605,7 @@ namespace Media.Container.Asf
 
                             break;
                         }
-                    case "ASFAudioMedia":
+                    case "AudioMedia":
                         {
                             mediaType = Sdp.MediaType.audio;
                             //WaveHeader ... Used also in RIFF
@@ -632,12 +632,12 @@ namespace Media.Container.Asf
                             bitDepth = (byte)Common.Binary.ReadU16(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
                             break;
                         }
-                    case "ASFCommandMedia":
+                    case "CommandMedia":
                         {
                             mediaType = Sdp.MediaType.control;
                             break;
                         }
-                    case "ASFDegradableJPEGMedia":
+                    case "DegradableJPEGMedia":
                         {
                             //Read 32 Width
                             width = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
@@ -655,7 +655,7 @@ namespace Media.Container.Asf
                             codecIndication = Encoding.UTF8.GetBytes("JFIF");
                             break;
                         }
-                    case "ASFJFIFMedia":
+                    case "JFIFMedia":
                         {
                             //Read 32 Width
                             width = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
@@ -683,8 +683,8 @@ namespace Media.Container.Asf
                             codecIndication = Encoding.UTF8.GetBytes("JFIF");
                             break;
                         }
-                    case "ASFFileTransferMedia":
-                    case "ASFBinaryData":
+                    case "FileTransferMedia":
+                    case "BinaryData":
                         {
                             // Web Stream Format Data Size 16
                             // Fixed Sample HEader Size 16
@@ -702,7 +702,7 @@ namespace Media.Container.Asf
                             mediaType = Sdp.MediaType.data;
                             break;
                         }
-                    case "ASFTextMedia":
+                    case "TextMedia":
                         {
 
                             //Name,Value pairs

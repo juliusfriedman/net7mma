@@ -2220,7 +2220,7 @@ a=mpeg4-esid:101");
 
             #region BaseMediaReader
 
-            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
+            if (System.IO.Directory.Exists(localPath + "/Video/mp4/") || System.IO.Directory.Exists(localPath + "/Video/mov/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
             {
                 using (Media.Container.BaseMedia.BaseMediaReader reader = new Media.Container.BaseMedia.BaseMediaReader(fileName))
                 {
@@ -2257,7 +2257,7 @@ a=mpeg4-esid:101");
 
             #region RiffReader
 
-            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(fileName))
+            if (System.IO.Directory.Exists(localPath + "/Video/avi/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(fileName))
             {
                 Console.WriteLine("Path:" + reader.Source);
                 Console.WriteLine("Total Size:" + reader.Length);
@@ -2325,7 +2325,7 @@ a=mpeg4-esid:101");
 
             #region MatroskaReader
 
-            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
+            if (System.IO.Directory.Exists(localPath + "/Video/mkv/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
             {
                 using (Media.Container.Matroska.MatroskaReader reader = new Media.Container.Matroska.MatroskaReader(fileName))
                 {
@@ -2374,7 +2374,7 @@ a=mpeg4-esid:101");
 
             #region AsfReader
 
-            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
+            if (System.IO.Directory.Exists(localPath + "/Video/asf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
             {
                 using (Media.Container.Asf.AsfReader reader = new Media.Container.Asf.AsfReader(fileName))
                 {
@@ -2428,7 +2428,7 @@ a=mpeg4-esid:101");
 
             #region MxfReader
 
-            foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mxf/"))
+            if(System.IO.Directory.Exists(localPath + "/Video/mxf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mxf/"))
             {
                 using (Media.Container.Mxf.MxfReader reader = new Media.Container.Mxf.MxfReader(fileName))
                 {

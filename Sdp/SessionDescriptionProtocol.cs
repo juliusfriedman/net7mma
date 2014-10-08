@@ -499,7 +499,10 @@ namespace Media.Sdp
     {
 
         public long SessionStartTime { get; private set; }
+
         public long SessionStopTime { get; private set; }
+
+        //public bool Live { get { return SessionStartTime == 0 } }
 
         public List<long> RepeatTimes { get; private set; }
 
@@ -517,10 +520,18 @@ namespace Media.Sdp
             if (!sdpLine.StartsWith("t=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Time Description");
 
             sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("t=", string.Empty));
-            string[] parts = sdpLine.Split(' ');
-            SessionStartTime = long.Parse(SessionDescription.CleanLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
-            SessionStopTime = long.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
+            
+            string[] parts = sdpLine.Split(' ', '-');
+
+            if (parts[0] != "now")
+            {
+                SessionStartTime = long.Parse(SessionDescription.CleanLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
+
+                SessionStopTime = long.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
+            }
+
             RepeatTimes = new List<long>();
+
             //Iterate remaining lines
             for (; index < sdpLines.Length; ++index)
             {
