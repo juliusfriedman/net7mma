@@ -2444,16 +2444,66 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + mxfObject.Offset);
                         Console.WriteLine("Complete: " + mxfObject.IsComplete);
-                        Console.WriteLine("Name: " + Media.Container.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier));
+
+                        string name = Media.Container.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
+
+                        Console.WriteLine("Identifier: " + BitConverter.ToString(mxfObject.Identifier));
+                        
+                        Console.WriteLine("Name: " + name);
+
                         Console.WriteLine("Size: " + mxfObject.Size);
+
+                        switch (name)
+                        {
+                            case "PartitionPack":
+                            case "HeaderPartitionPack":
+                                {
+                                    Console.WriteLine("Partition Type: " + (Media.Container.Mxf.MxfReader.PartitionKind)mxfObject.Identifier[13]);
+                                    Console.WriteLine("Partition Status: " + (Media.Container.Mxf.MxfReader.PartitionStatus)mxfObject.Identifier[14]);
+                                    break;
+                                }
+                        }
+
                     }
 
 
                     Console.WriteLine("File Level Properties");
 
-                    Console.WriteLine("Movie Duration:" + reader.Duration);
+                    Console.WriteLine("HasRunIn:" + reader.HasRunIn);
+                    
+                    Console.WriteLine("RunInSize:" + reader.RunInSize);
 
-                    Console.WriteLine("Movie TotalFrames:" + reader.TotalFrames);
+                    Console.WriteLine("HeaderVersion:" + reader.HeaderVersion);
+
+                    Console.WriteLine("AlignmentGrid:" + reader.AlignmentGridByteSize);
+
+                    Console.WriteLine("IndexByteCount:" + reader.IndexByteCount);
+
+                    Console.WriteLine("OperationalPattern:" + reader.OperationalPattern);
+
+                    Console.WriteLine("ItemComplexity:" + reader.ItemComplexity);
+
+                    //Console.WriteLine("PackageComplexity:" + reader.PackageComplexity);
+
+                    Console.WriteLine("PrefaceLastModifiedDate:" + reader.PrefaceLastModifiedDate);
+
+                    Console.WriteLine("PrefaceVersion:" + reader.PrefaceVersion);
+
+                    Console.WriteLine("Platform:" + reader.Platform);
+
+                    Console.WriteLine("CompanyName:" + reader.CompanyName);
+
+                    Console.WriteLine("ProductName:" + reader.ProductName);
+
+                    Console.WriteLine("ProductVersion:" + reader.ProductVersion);
+
+                    Console.WriteLine("ProductUID:" + reader.ProductUID);
+
+                    Console.WriteLine("IdentificationModificationDate:" + reader.IdentificationModificationDate);
+
+                    Console.WriteLine("MaterialCreationDate:" + reader.MaterialCreationDate);
+
+                    Console.WriteLine("MaterialModifiedDate:" + reader.MaterialModifiedDate);
 
                     Console.WriteLine("Track Information:");
 
@@ -2478,7 +2528,7 @@ a=mpeg4-esid:101");
 
             if (track.MediaType == Media.Sdp.MediaType.audio)
             {
-                Console.WriteLine("Codec: " + (track.CodecIndication.Length > 2 ? Encoding.UTF8.GetString(track.CodecIndication) : ((Media.Utility.WaveFormat)Media.Common.Binary.ReadU16(track.CodecIndication, 0, false)).ToString()));
+                Console.WriteLine("Codec: " + (track.CodecIndication.Length > 2 ? Encoding.UTF8.GetString(track.CodecIndication) : ((Media.Utility.WaveFormatId)Media.Common.Binary.ReadU16(track.CodecIndication, 0, false)).ToString()));
                 Console.WriteLine("Channels: " + track.Channels);
                 Console.WriteLine("Sampling Rate: " + track.Rate);
                 Console.WriteLine("Bits Per Sample: " + track.BitDepth);

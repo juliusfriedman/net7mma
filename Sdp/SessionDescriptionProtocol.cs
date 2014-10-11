@@ -504,6 +504,9 @@ namespace Media.Sdp
 
         //public bool Live { get { return SessionStartTime == 0 } }
 
+        //Ntp Timestamps from above, NOTE they do not wrap in 2036
+        //public DateTime Start, Stop;
+
         public List<long> RepeatTimes { get; private set; }
 
         public TimeDescription(int startTime, int stopTime)            
@@ -520,10 +523,16 @@ namespace Media.Sdp
             if (!sdpLine.StartsWith("t=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Time Description");
 
             sdpLine = SessionDescription.CleanLineValue(sdpLine.Replace("t=", string.Empty));
-            
+
+            //https://net7mma.codeplex.com/workitem/17032
+
+            //The OP advised he was recieving a SDP with "now" ... not sure why this is not standard.
+
+            //Additionally he might have been talking about the Range header in which case "now" is handled propertly.
+
             string[] parts = sdpLine.Split(' ', '-');
 
-            if (parts[0] != "now")
+            if (parts.Length > 0 && parts[0] != "now")
             {
                 SessionStartTime = long.Parse(SessionDescription.CleanLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
 

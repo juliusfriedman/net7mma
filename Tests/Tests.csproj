@@ -195,6 +195,9 @@
     <None Include="Video\mkv\pages.mkv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="Video\mxf\freeMXF-mxf1.mxf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Media.csproj">

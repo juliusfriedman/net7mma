@@ -795,9 +795,9 @@ namespace Media
         #endregion        
         
         /// <summary>
-        /// Summary description for WaveFormatEncoding.
+        /// Identifies various formats for Audio Encodings
         /// </summary>
-        public enum WaveFormat : ushort
+        public enum WaveFormatId : ushort
         {
             /// <summary>UNKNOWN,	Microsoft Corporation</summary>
             Unknown = 0x0000,
