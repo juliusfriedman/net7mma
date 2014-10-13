@@ -7,14 +7,16 @@ using System.Threading.Tasks;
 namespace Media.Container.Mxf
 {
     /// <summary>
-    /// Represents the logic necessary to read files in the Material Exchange Format
+    /// Represents the logic necessary to read files in the Material Exchange Format.
+    /// The reader is also compatible with OMF and AAF Files.
     /// </summary>
     public class MxfReader : MediaFileStream, IMediaContainer
     {
         /// <summary>
-        /// Defines the known types in the Material Exchange Format
+        /// Defines common UniversalLabel's which are required to parse the container format.        
         /// </summary>
-        public static class Identifier
+        /// <notes>Several entries could be removed in favor of an enumertion</notes>
+        public static class UniversalLabel
         {
 
             /* 
@@ -48,10 +50,13 @@ namespace Media.Container.Mxf
 
 
             //Header, Body and Footer Klv - The last 2 bytes indicate type and open or closed.                                                         //Type, //Status, //Reserved
-            public static Guid HeaderPartitionPack = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x05, 0x01, 0x01, 0x0D, 0x01, 0x02, 0x01, 0x01, 0x02, 0x00, 0x00 });
+            public static Guid PartitionPack = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x05, 0x01, 0x01, 0x0D, 0x01, 0x02, 0x01, 0x01, 0x02, 0x00, 0x00 });
             
             //For tracks the last 4 are the trackId 
-            public static Guid TrackPack = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x01, 0x02, 0x01, 0x01, 0x0D, 0x01, 0x03, 0x01, 0, 0, 0, 0 });
+            public static Guid EssenceElement = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x01, 0x02, 0x01, 0x01, 0x0D, 0x01, 0x03, 0x01, 0, 0, 0, 0 });
+
+            //KnownUnknown?
+            //0x06,0x0E,0x2B,0x34,0x04,0x01,0x01,0x0A,0x01,0x01,0x02,0x01,0x01,0x00,0x00,0x00
 
             /*
              8.2 Generic Universal Label for All Operational Patterns
@@ -77,9 +82,8 @@ namespace Media.Container.Mxf
 
             public static Guid OperationalPattern = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0D, 0x01, 0x02, 0x01, 0, 0, 0, 0 });
 
-
             //Value 8 may be different >0 ? - ff
-            public static Guid PrimerPack = new Guid(new byte[] { 0x06, 0x0E, 0x2B , 0x34 , 0x02 , 0x05 , 0x01 , 0x01 , 0x0D , 0x01 , 0x02 , 0x01 , 0x01 , 0x05 , 0x01 , 0x00 });
+            //public static Guid PrimerPack = new Guid(new byte[] { 0x06, 0x0E, 0x2B , 0x34 , 0x02 , 0x05 , 0x01 , 0x01 , 0x0D , 0x01 , 0x02 , 0x01 , 0x01 , 0x05 , 0x01 , 0x00 });
 
             public static Guid RandomIndexPack = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x05 , 0x01 , 0x01 , 0x0D , 0x01 , 0x02 , 0x01 , 0x01 , 0x11 , 0x01 , 0x00 });
 
@@ -94,9 +98,11 @@ namespace Media.Container.Mxf
 
             public static Guid Index = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x02, 0x01, 0x01, 0x10, 0x01, 0x00 });
 
-            //public static Guid StructuralMetadata = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00 });
+            //Could be top level with an enum defining all 
 
-            //Structural MetaData Sets
+            public static Guid StructuralMetadata = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00 });
+
+            //Structural MetaData Sets (Also Generic by label)
 
             public static Guid InterchangeObject = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00 });
 
@@ -114,15 +120,16 @@ namespace Media.Container.Mxf
 
             public static Guid ContentStorage = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x18, 0x00 });
 
+            //Is almost like a FileDescriptor but useless...
             public static Guid EssenceContainerData = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x23, 0x00 });
 
+            //Incase no other one is present.
             public static Guid GenericDescriptor = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x24, 0x00 });
 
+            //Must be instance of FileDescriptor ... --- !!!!
             public static Guid FileDescriptor = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x25, 0x00 });
 
             public static Guid GenericPackage = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x34, 0x00 });
-
-            public static Guid GenericTrack = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x38, 0x00 });
 
             public static Guid SubDescriptor = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x59, 0x00 });
 
@@ -131,6 +138,8 @@ namespace Media.Container.Mxf
             public static Guid SourcePackage = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x37, 0x00 });
 
             public static Guid TimelineTrack = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x3B, 0x00 });
+
+            public static Guid GenericTrack = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x38, 0x00 });
 
             public static Guid EventTrack = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x39, 0x00 });
 
@@ -150,11 +159,11 @@ namespace Media.Container.Mxf
 
             public static Guid PackageMarkerObject = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0D, 0x01, 0x01, 0x01, 0x01, 0x01, 0x60, 0x00 });
 
-            // Also 6th Byte allowed to be 13
+            // Also 6th Byte allowed to be 13 (Note 1: According to SMPTE 336M, the xxh entry in Table 16 has the value of 13h for BER long or short form encoded length and 53h for 2-byte length)
 
-            public static Guid FillerAlt = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0D, 0x01, 0x01, 0x01, 0x01, 0x01, 0x09, 0x00 });
+            public static Guid FillerBer = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0D, 0x01, 0x01, 0x01, 0x01, 0x01, 0x09, 0x00 });
 
-            public static Guid PackageMarkerObjectAlt = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0D, 0x01, 0x01, 0x01, 0x01, 0x01, 0x60, 0x00 });            
+            public static Guid PackageMarkerObjectBer = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0D, 0x01, 0x01, 0x01, 0x01, 0x01, 0x60, 0x00 });            
 
             //
 
@@ -168,6 +177,8 @@ namespace Media.Container.Mxf
 
             public static Guid GenericDataEssenceDescriptor = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x43, 0x00 });
 
+            //Has Codec UL?
+
             public static Guid MultipleDescriptor = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x44, 0x00 });
 
             public static Guid NetworkLocator = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x32, 0x00 });
@@ -178,19 +189,17 @@ namespace Media.Container.Mxf
 
             public static Guid ApplicationReferencedObject = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x62, 0x00 });
 
-            //6th byte allowed to be 13
+            //6th byte allowed to be 13 // Also 6th Byte allowed to be 13 (Note 1: According to SMPTE 336M, the xxh entry in Table 16 has the value of 13h for BER long or short form encoded length and 53h for 2-byte length)
             
-            public static Guid  ApplicationPlugInObjectAlt = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x61, 0x00 });
+            public static Guid ApplicationPlugInObjectBer = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x61, 0x00 });
 
-            public static Guid ApplicationReferencedObjectAlt = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x62, 0x00 });
+            public static Guid ApplicationReferencedObjectBer = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x13, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x62, 0x00 });
 
             //
 
             public static Guid ApplicationObject = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x66, 0x00 });
 
             //
-
-           //D-10 Mapping 0x06,0x0e,0x2b,0x34,0x04,0x01,0x01,0x01,0x0d,0x01,0x03,0x01,0x02,0x01,0x00,0x00 = MPEG2Video
 
             public static Guid MPEG2VideoDescriptor = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x51, 0x00 });
 
@@ -199,6 +208,26 @@ namespace Media.Container.Mxf
             public static Guid AES3PCMDescriptor = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x47, 0x00 });
 
             public static Guid J2KPictureDescriptor = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x02, 0x53, 0x01, 0x01, 0x0d, 0x01, 0x01, 0x01, 0x01, 0x01, 0x5a, 0x00 });            
+
+            //DataDefinitions...
+            public static Guid DataDefinitionVideo = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x01, 0x03, 0x02, 0x02, 0x01, 0x00, 0x00, 0x00 });
+
+            public static Guid DataDefinitionVideoLegacy = new Guid(new byte[] { 0x80, 0x7D, 0x00, 0x60, 0x08, 0x14, 0x3E, 0x6F, 0x6F, 0x3C, 0x8C, 0xE1, 0x6C, 0xEF, 0x11, 0xD2 });
+
+            public static Guid DataDefinitionAudio = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x01, 0x03, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00 });
+
+            public static Guid DataDefinitionAudioLegacy = new Guid(new byte[] { 0x80, 0x7D, 0x00, 0x60, 0x08, 0x14, 0x3E, 0x6F, 0x78, 0xE1, 0xEB, 0xE1, 0x6C, 0xEF, 0x11, 0xD2 });
+
+            //EssenceContainer UL's
+                                                            
+            public static Guid Mpeg2 = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x02, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x04, 0x60, 0x01 });
+
+            //SMPTE D-10 Mapping
+            public static Guid Mpeg2Alt = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x01, 0x00, 0x00 });
+
+            public static Guid DV = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x02, 0x41, 0x01 });
+
+            public static Guid UncompressedPicture = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 0x02, 0x05, 0x00, 0x00 });
 
             //Codecs
 
@@ -212,8 +241,9 @@ namespace Media.Container.Mxf
 
             public static Guid MPEG2_HL_422_I = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x01, 0x02, 0x02, 0x01, 0x04, 0x02, 0x00 });
 
-            public static Guid MPEG4_XDCam_Proxy = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x01, 0x02, 0x02, 0x01, 0x20, 0x02, 0x03 });
+            public static Guid Mpeg4 = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x01, 0x02, 0x02, 0x01, 0x20, 0x02, 0x03 });
 
+            //DDVIDEO
             public static Guid DV_25_PAL = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x02, 0x02, 0x01, 0x02, 0x00 });
 
             //Jpeg
@@ -233,12 +263,26 @@ namespace Media.Container.Mxf
 
             public static Guid Raw = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x01, 0x7F, 0x00, 0x00, 0x00 });
 
+            public static Guid Raw_422 = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x01, 0x00 });
+
             public static Guid VC3_DNXD = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x02, 0x03, 0x02, 0x00, 0x00 });
 
+            public static Guid VC3_DNXD_Alt = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x01, 0x02, 0x02, 0x71, 0x00, 0x00, 0x00 });
+
+            public static Guid VC3_DNXD_Legacy = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x0E, 0x04, 0x02, 0x01, 0x02, 0x04, 0x01, 0x00 });
+
+            //H.264
+            //SPS and PPS In Band
+            public static Guid AVC_SPSPPS = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x02, 0x01, 0x31, 0x00, 0x00 });            
+            //Intra
             public static Guid AVC_INTRA = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x02, 0x01, 0x32, 0x00, 0x00 });
 
             public static Guid V210 = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x02, 0x00 });
 
+            //Sound
+            public static Guid Mpeg2_AAC_DTS_Legacy = new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x04, 0x01, 0x01, 0x03, 0x04, 0x02, 0x02, 0x02, 0x03, 0x03, 0x01, 0x00 });
+
+            //Uncompressed
             public static Guid PCM_S16LE_1 = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x02, 0x02, 0x01, 0x00, 0, 0, 0 });
 
             public static Guid PCM_S16LE_2 = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x02, 0x02, 0x01, 0x7F, 0, 0, 0 });
@@ -251,10 +295,21 @@ namespace Media.Container.Mxf
 
             public static Guid AC3 = new Guid ( new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x02, 0x02, 0x02, 0x03, 0x02, 0x01, 0x00 });
 
+            //Mp3
             public static Guid MP2 = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x02, 0x02, 0x02, 0x03, 0x02, 0x05, 0x00 });
+
+            public static Guid Dolby_E = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x01, 0x04, 0x02, 0x02, 0x02, 0x03, 0x02, 0x1C, 0x00 });
+
+            //Pixel Formats
+
+            public static Guid PixelFormat = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x01, 0, 0, 0, 0 });
+
+            public static Guid PixelFormatUYUV_422 = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01 });
+
+            public static Guid PixelFormatYUYV_422 = new Guid(new byte[] { 0x06, 0x0E, 0x2B, 0x34, 0x04, 0x01, 0x01, 0x0A, 0x04, 0x01, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02 });
         }
 
-        //Byte 14 of any Identifier
+        //Byte 14 of any Universal Label for a PartitionPack
         public enum PartitionKind
         {
             Unknown = 0,
@@ -262,9 +317,10 @@ namespace Media.Container.Mxf
             Header = 2,
             Body = 3,
             Footer = 4,
+            Primer = 5
         }
 
-        //Byte 15 of any Identifier
+        //Byte 15 of any Universal Label for a PartitionPack
         public enum PartitionStatus
         {
             Unknown = 0,
@@ -284,14 +340,26 @@ namespace Media.Container.Mxf
             //10h - 7h = Specialized
         }
 
-        //Byte 14 of operational pattern
-        public enum OperationalPatternPackageComplexity
+        //Byte 4 of a Universal Label
+        public enum Category
         {
-            Unknown = 0,
-            SinglePackage = 1,
-            GangedPackages = 2,
-            AlternatePackages = 3
+            Unknown,
+            Dictionary,
+            Group,
+            Wrapper,
+            Label,
+            Private,
+            Reserved
         }
+
+        ////Byte 14 of operational pattern under certain conditions
+        //public enum OperationalPatternPackageComplexity
+        //{
+        //    Unknown = 0,
+        //    SinglePackage = 1,
+        //    GangedPackages = 2,
+        //    AlternatePackages = 3
+        //}
 
         //Byte 15 in a OperationalPattern is bit wise
         // 0 Value = 1 Marker bit
@@ -304,50 +372,88 @@ namespace Media.Container.Mxf
 
         const int IdentifierSize = 16, MinimumSizeLength = 1, MinimumSize = IdentifierSize + MinimumSizeLength, UniqueIdBytes = 12, MultiByteLength = 0x80; //128
 
-        const string PictureTrack = "Picture Track", AudioTrack = "Audio Track", TextTrack = "Text Track", TimecodeTrack = "Timecode Track";
+        const string PictureTrack = "Picture Track", AudioTrack = "Audio Track", TextTrack = "Text Track", TimecodeTrack = "Timecode Track", DataTrack = "Data Track";
 
         #endregion
 
         #region Statics
-        
-        /// <summary>
-        /// KeyLengthValues have a UL (Identifier) which is 16 bytes.
-        /// UL is Similar to OID.
-        /// The last 4 bytes define various information about the UL which does not change it's value.
-        /// </summary>
-        internal class IdentifierComparer : IEqualityComparer<Guid>
-        {
-            public bool Equals(Guid a, Guid b)
-            {
-                if (a == null || b == null) return false;
-                return a.ToByteArray().Take(UniqueIdBytes).SequenceEqual(b.ToByteArray().Take(UniqueIdBytes));
-            }
 
-            public int GetHashCode(Guid a) { return a.GetHashCode(); }
+        /*
+         UL Designator: The first 8 bytes of a SMPTE Universal Label. They identify the register, its minor and major
+        versions, and may also convey other information that is used by the KLV encoding protocol. The register is
+        the normative reference for the values of the 8 bytes.
+        Note: This is different from the definition of UL Designator in SMPTE 336M. In that standard, the term UL Designator
+        refers to only bytes 3 to 8 of the Label; the first two bytes (i.e. byte 1 and 2) are referred to as the Label Header.
+         * 
+         * Note 1: According to SMPTE 336M, the xxh entry in Table 16 has the value of 13h for BER long or short form encoded length and 53h for 2-byte length.
+         */
+
+        static bool CompareUL(Guid a, Guid b, bool compareRegistry = false, bool compareVersion = false, bool compareKind = false)
+        {
+            if (a == null) return b == null;
+
+            //Use the hash code if exact
+            if (compareVersion && compareKind) return a.GetHashCode() == b.GetHashCode();
+
+            return CompareUL(a.ToByteArray(), b.ToByteArray(), compareRegistry, compareVersion, compareKind);
         }
 
-        static IEqualityComparer<Guid> CompareUniquePart = new IdentifierComparer();
+        static bool CompareUL(byte[] aBytes, byte[] bBytes, bool compareRegistry = false, bool compareVersion = false, bool compareKind = false)
+        {
+            if (aBytes == null) return bBytes == null;
+
+            //Use the hash code if exact
+            if (compareVersion && compareKind) return aBytes.GetHashCode() == bBytes.GetHashCode();
+
+            if (BitConverter.ToInt32(aBytes, 0) == BitConverter.ToInt32(bBytes, 0))
+            {
+                //Registry Designator  = byte 0x05 usually can be different in some cases
+                if (compareRegistry ? BitConverter.ToInt16(aBytes, 4) == BitConverter.ToInt16(bBytes, 4) : aBytes[4] == bBytes[4])
+                {
+                    //MXF decoders shall ignore the version number byte (i.e. byte 8) when determining if a KLV key is the Fill item key.
+                    if (compareVersion ? BitConverter.ToInt16(aBytes, 7) == BitConverter.ToInt16(bBytes, 7) : aBytes[7] == bBytes[7])
+                    {
+                        //9 - 12 should also match
+                        if (!compareKind) return BitConverter.ToInt32(aBytes, 8) == BitConverter.ToInt32(bBytes, 8);
+
+                        //kind usuaully is status
+                        return BitConverter.ToInt32(aBytes, 12) == BitConverter.ToInt32(bBytes, 12);
+                    }
+                }
+            }
+
+            //Not a match
+            return false;
+        }
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
             if (identifier == null) return Utility.Unknown;
 
-            var uniquePart = identifier.Skip(offset).Take(UniqueIdBytes);
-            
-            if (Identifier.HeaderPartitionPack.ToByteArray().Take(UniqueIdBytes).SequenceEqual(uniquePart)) return "HeaderPartitionPack"; //Last 4 bytes is version and open or closed
-            //else if (Identifier.StructuralMetaData.ToByteArray().Take(UniqueIdBytes).SequenceEqual(uniquePart)) return "StructuralMetaData"; //Last 4 bytes is version and open or closed
-            //else if (Identifier.GenericDataEssenceDescriptor.ToByteArray().Take(UniqueIdBytes).SequenceEqual(uniquePart)) return "GenericDataEssenceDescriptor";
-            else if (Identifier.OperationalPattern.ToByteArray().Take(UniqueIdBytes).SequenceEqual(uniquePart)) return "OperationalPattern";
-            else if (Identifier.TrackPack.ToByteArray().Take(UniqueIdBytes).SequenceEqual(uniquePart)) return "TrackData"; //Track Id is last 4 bytes?
+            string result = Utility.Unknown;
 
             Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
-            string result;
-
-            if (!IdentifierLookup.TryGetValue(id, out result)) result = Utility.Unknown;
+            //If not an exact match
+            if (!IdentifierLookup.TryGetValue(id, out result))
+            {
+                //Attempt by generic compare
+                if (CompareUL(UniversalLabel.PartitionPack.ToByteArray(), identifier, false, false, false)) return "PartitionPack"; //Last 4 bytes is version and open or closed
+                if (CompareUL(UniversalLabel.OperationalPattern.ToByteArray(), identifier, false, false, false)) return "OperationalPattern";
+                if (CompareUL(UniversalLabel.EssenceElement.ToByteArray(), identifier, false, false, false)) return "EssenceElement";
+                if (CompareUL(UniversalLabel.PartitionMetadata, id, false, false, false)) return "PartitionMetadata";
+                if (CompareUL(UniversalLabel.StructuralMetadata, id, false, false, false)) return "StructuralMetadata";
+                if (CompareUL(UniversalLabel.DataDefinitionVideo.ToByteArray(), identifier, true, true, true)) return "DataDefinitionVideo";
+                if (CompareUL(UniversalLabel.DataDefinitionAudio.ToByteArray(), identifier, true, true, true)) return "DataDefinitionAudio";
+            }
 
             return result;
         }
+
+
+        //ToFourCharacterCode(Guid universalLabel)
+
+        //Possibly seperate Read and Decode?
 
         /// <summary>
         /// Decodes the BER Length from the given packet at the given position
@@ -396,12 +502,10 @@ namespace Media.Container.Mxf
         {
             IdentifierLookup = new Dictionary<Guid, string>();
 
-            foreach (var fieldInfo in typeof(Identifier).GetFields()) IdentifierLookup.Add((Guid)fieldInfo.GetValue(null), fieldInfo.Name);
+            foreach (var fieldInfo in typeof(UniversalLabel).GetFields()) IdentifierLookup.Add((Guid)fieldInfo.GetValue(null), fieldInfo.Name);
         }
 
         #endregion
-
-        //struct Op ?
 
         public MxfReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
@@ -492,10 +596,15 @@ namespace Media.Container.Mxf
             using (var headerPartition = Root)
             {
 
+                if (headerPartition == null) return;
+
                 int offset = 0;
 
+                //Determine the amount of bytes in the Ber Length Field of the Root parition
+                int headerLengthSize = (int)(headerPartition.Offset - IdentifierSize);
+
                 //Determine if any Runin was present (data which is not part of the file header)
-                m_RunInSize = (int)headerPartition.Offset - 20;
+                m_RunInSize = (int)(headerPartition.Offset - (headerLengthSize + IdentifierSize));
 
                 m_MajorVersion = Common.Binary.Read16(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
                 
@@ -541,6 +650,8 @@ namespace Media.Container.Mxf
 
                 offset += 4;
 
+                //Sometimes indicates Essence type e.g. Mpeg2
+
                 //List<Guid> batches = new List<Guid>();
 
                 //if (batchLen > 0)
@@ -557,20 +668,8 @@ namespace Media.Container.Mxf
 
                 PartitionStatus status = (PartitionStatus)Root.Identifier[14];
 
-                /*
-                //Check for metaData and identifier to be open or closed and complete
-                if (headerByteCount > 0 && status == PartitionStatus.OpenAndComplete || status == PartitionStatus.ClosedAndComplete)
-                {
-
-                    //read all metaData within Header parition
-
-                    //if(indexByteCount > 0) //ParseIndex?
-
-                    
-                }
-                else */
-
-                if (footerPartitionOffset > 0 && (status == PartitionStatus.OpenAndIncomplete || status == PartitionStatus.ClosedAndIncomplete))
+                //Parse footer if status is not Complete and footer is present.
+                if ((status == PartitionStatus.OpenAndIncomplete || status == PartitionStatus.ClosedAndIncomplete) && footerPartitionOffset > 0)
                 {
                     Position = footerPartitionOffset;
 
@@ -641,9 +740,7 @@ namespace Media.Container.Mxf
                         //{
 
                         //}
-
                     }
-
                 }
             }
 
@@ -674,9 +771,9 @@ namespace Media.Container.Mxf
 
         void ParsePreface()
         {
-            using (var preface = ReadObject(Identifier.Preface, true, Root.Offset + Root.Size))
+            using (var preface = ReadObject(UniversalLabel.Preface, true, Root.Offset + Root.Size))
             {
-                int offset = 0, lenth = (int)preface.Size;
+                int offset = 0, lenth = (int)(preface == null ? 0 : preface.Size);
 
                 while (offset < lenth)
                 {
@@ -771,6 +868,7 @@ namespace Media.Container.Mxf
                 return m_CompanyName;
             }
         }
+
         public string ProductName
         {
             get
@@ -822,15 +920,15 @@ namespace Media.Container.Mxf
 
         void ParseIdentification()
         {
-            using (var preface = ReadObject(Identifier.Identification, true, Root.Offset + Root.Size))
+            using (var identification = ReadObject(UniversalLabel.Identification, true, Root.Offset + Root.Size))
             {
-                int offset = 0, lenth = (int)preface.Size;
+                int offset = 0, lenth = (int)(identification == null ? 0 : identification.Size);
 
                 while (offset < lenth)
                 {
 
-                    short tag = Common.Binary.Read16(preface.Raw, offset, BitConverter.IsLittleEndian),
-                        tagLen = Common.Binary.Read16(preface.Raw, offset + 2, BitConverter.IsLittleEndian);
+                    short tag = Common.Binary.Read16(identification.Raw, offset, BitConverter.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(identification.Raw, offset + 2, BitConverter.IsLittleEndian);
 
                     offset += 4;
 
@@ -838,12 +936,12 @@ namespace Media.Container.Mxf
                     {
                         case 0x3c01:
                             {
-                                m_CompanyName = Encoding.BigEndianUnicode.GetString(preface.Raw, offset, tagLen);
+                                m_CompanyName = Encoding.BigEndianUnicode.GetString(identification.Raw, offset, tagLen);
                                 goto default;
                             }
                         case 0x3c02:
                             {
-                                m_ProductName = Encoding.BigEndianUnicode.GetString(preface.Raw, offset, tagLen);
+                                m_ProductName = Encoding.BigEndianUnicode.GetString(identification.Raw, offset, tagLen);
                                 goto default;
                             }
                         //case 0x3c03:
@@ -862,45 +960,45 @@ namespace Media.Container.Mxf
                         //    }
                         case 0x3c04:
                             {
-                                m_ProductVersion = Encoding.BigEndianUnicode.GetString(preface.Raw, offset, tagLen);
+                                m_ProductVersion = Encoding.BigEndianUnicode.GetString(identification.Raw, offset, tagLen);
                                 goto default;
                             }
                         case 0x3c05:
                             {
-                                m_ProductUID = new Guid(preface.Raw.Skip(offset).Take(tagLen).ToArray());
+                                m_ProductUID = new Guid(identification.Raw.Skip(offset).Take(tagLen).ToArray());
                                 goto default;
                             }
                         case 0x3c06:
                             {
-                                m_IdentificationModificationDate = new DateTime((int)Common.Binary.ReadU16(preface.Raw, offset, BitConverter.IsLittleEndian),
-                                   (int)preface.Raw[offset + 2],
-                                   (int)preface.Raw[offset + 3],
-                                   (int)preface.Raw[offset + 4],
-                                   (int)preface.Raw[offset + 5],
-                                   (int)preface.Raw[offset + 6],
-                                   (int)preface.Raw[offset + 7],
+                                m_IdentificationModificationDate = new DateTime((int)Common.Binary.ReadU16(identification.Raw, offset, BitConverter.IsLittleEndian),
+                                   (int)identification.Raw[offset + 2],
+                                   (int)identification.Raw[offset + 3],
+                                   (int)identification.Raw[offset + 4],
+                                   (int)identification.Raw[offset + 5],
+                                   (int)identification.Raw[offset + 6],
+                                   (int)identification.Raw[offset + 7],
                                    DateTimeKind.Utc);
                                 goto default;
                             }
                         case 0x3c08:
                             {
-                                m_Platform = Encoding.BigEndianUnicode.GetString(preface.Raw, offset, tagLen);
+                                m_Platform = Encoding.BigEndianUnicode.GetString(identification.Raw, offset, tagLen);
                                 goto default;
                             }
                         default: offset += tagLen; continue;
                     }
 
                 }
+
+                if (m_Platform == null) m_Platform = string.Empty;
+
+                if (!m_IdentificationModificationDate.HasValue
+                    || !m_IdentificationModificationDate.HasValue
+                    //Important?
+                    || !m_ProductUID.HasValue
+                    || null == m_ProductName || null == m_ProductVersion || null == m_CompanyName) throw new InvalidOperationException("Invalid Preface Object");
+
             }
-
-            if (m_Platform == null) m_Platform = string.Empty;
-
-            if (!m_IdentificationModificationDate.HasValue
-                || !m_IdentificationModificationDate.HasValue
-                //Important?
-                || !m_ProductUID.HasValue
-                || null == m_ProductName || null == m_ProductVersion || null == m_CompanyName) throw new InvalidOperationException("Invalid Preface Object");
-
         }
 
         string m_MaterialName;
@@ -927,15 +1025,15 @@ namespace Media.Container.Mxf
 
         void ParseMaterialPackage()
         {
-            using (var preface = ReadObject(Identifier.MaterialPackage, true, Root.Offset + Root.Size))
+            using (var materialPackage = ReadObject(UniversalLabel.MaterialPackage, true, Root.Offset + Root.Size))
             {
-                int offset = 0, lenth = (int)preface.Size;
+                int offset = 0, lenth = (int)(materialPackage == null ? 0 : materialPackage.Size);
 
                 while (offset < lenth)
                 {
 
-                    short tag = Common.Binary.Read16(preface.Raw, offset, BitConverter.IsLittleEndian),
-                        tagLen = Common.Binary.Read16(preface.Raw, offset + 2, BitConverter.IsLittleEndian);
+                    short tag = Common.Binary.Read16(materialPackage.Raw, offset, BitConverter.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(materialPackage.Raw, offset + 2, BitConverter.IsLittleEndian);
 
                     offset += 4;
 
@@ -964,30 +1062,30 @@ namespace Media.Container.Mxf
                         //    }
                         case 0x4402:
                             {
-                                m_MaterialName = Encoding.BigEndianUnicode.GetString(preface.Raw, offset, tagLen);
+                                m_MaterialName = Encoding.BigEndianUnicode.GetString(materialPackage.Raw, offset, tagLen);
                                 goto default;
                             }
                         case 0x4404:
                             {
-                                m_MaterialModifiedDate = new DateTime((int)Common.Binary.ReadU16(preface.Raw, offset, BitConverter.IsLittleEndian),
-                                   (int)preface.Raw[offset + 2],
-                                   (int)preface.Raw[offset + 3],
-                                   (int)preface.Raw[offset + 4],
-                                   (int)preface.Raw[offset + 5],
-                                   (int)preface.Raw[offset + 6],
-                                   (int)preface.Raw[offset + 7],
+                                m_MaterialModifiedDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Raw, offset, BitConverter.IsLittleEndian),
+                                   (int)materialPackage.Raw[offset + 2],
+                                   (int)materialPackage.Raw[offset + 3],
+                                   (int)materialPackage.Raw[offset + 4],
+                                   (int)materialPackage.Raw[offset + 5],
+                                   (int)materialPackage.Raw[offset + 6],
+                                   (int)materialPackage.Raw[offset + 7],
                                    DateTimeKind.Utc);
                                 goto default;
                             }
                         case 0x4405:
                             {
-                                m_MaterialCreationDate = new DateTime((int)Common.Binary.ReadU16(preface.Raw, offset, BitConverter.IsLittleEndian),
-                                   (int)preface.Raw[offset + 2],
-                                   (int)preface.Raw[offset + 3],
-                                   (int)preface.Raw[offset + 4],
-                                   (int)preface.Raw[offset + 5],
-                                   (int)preface.Raw[offset + 6],
-                                   (int)preface.Raw[offset + 7],
+                                m_MaterialCreationDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Raw, offset, BitConverter.IsLittleEndian),
+                                   (int)materialPackage.Raw[offset + 2],
+                                   (int)materialPackage.Raw[offset + 3],
+                                   (int)materialPackage.Raw[offset + 4],
+                                   (int)materialPackage.Raw[offset + 5],
+                                   (int)materialPackage.Raw[offset + 6],
+                                   (int)materialPackage.Raw[offset + 7],
                                    DateTimeKind.Utc);
                                 goto default;
                             }
@@ -995,10 +1093,12 @@ namespace Media.Container.Mxf
                     }
 
                 }
+                if (!m_MaterialModifiedDate.HasValue || !m_MaterialCreationDate.HasValue) throw new InvalidOperationException("Invalid MaterialPackage");
             }
-
-            if (!m_MaterialModifiedDate.HasValue || !m_MaterialCreationDate.HasValue) throw new InvalidOperationException("Invalid MaterialPackage");
         }
+
+        //ParseContentStorage? 
+        //Contains an 1901 tag with Packages and 1902 tag with EssenceContainerData
 
         #region From FileInfo
 
@@ -1016,35 +1116,61 @@ namespace Media.Container.Mxf
 
         #endregion
 
-        public IEnumerable<Node> ReadObjects(long offset = 0, bool exact = false, params Guid[] names)
-        {
-            long position = Position;
-
-            Position = offset;
-
-            foreach (var mxfObject in this)
-            {
-                if (names == null || names.Count() == 0 || (exact ? names.Contains(new Guid(mxfObject.Identifier)) : names.Contains(new Guid(mxfObject.Identifier), CompareUniquePart)))
-                {
-                    yield return mxfObject;
-                    continue;
-                }
-            }
-
-            Position = position;
-
-            yield break;
-        }
+        public IEnumerable<Node> ReadObjects(long offset = 0, bool exact = false, params Guid[] names) { return Resolve(offset, Length - offset, exact, exact, exact, names); }
 
         public Node ReadObject(Guid name, bool exact = false, long offset = 0)
         {
             long positionStart = Position;
 
-            Node result = ReadObjects(offset, exact, name).FirstOrDefault();
+            Node result = Resolve(offset, Length - offset, exact, exact, exact, name).FirstOrDefault();
 
             Position = positionStart;
 
             return result;
+        }
+
+        //In the next update all readers should support the count when reading
+        //They should also have a way to determine what files types they support and their corresponding Mime information
+
+
+        /// <summary>
+        /// Matches any Key Length Value Pairs using the given parameters
+        /// </summary>
+        /// <param name="offset">The offset to start the search</param>
+        /// <param name="count">The amount of bytes to read</param>
+        /// <param name="ignoreRegistry">Determines if the registry byte of the Key's Universal Label should match</param>
+        /// <param name="ignoreVersion">Determines if the verison byte of the Key's Universal Label should match</param>
+        /// <param name="ignoreType">Determines if the last four byte's of the Key's Universal Label should match</param>
+        /// <param name="names">The Universal Labels to search for</param>
+        /// <returns>The <see cref="Node"/>'s which match the given criteria</returns>
+        public IEnumerable<Node> Resolve(long offset, long count, bool ignoreRegistry, bool ignoreVersion, bool ignoreType, params Guid[] names)
+        {
+            if (count <= 0) yield break;
+
+            long position = Position;
+
+            Position = offset;
+
+            bool exact = (ignoreRegistry == ignoreVersion == ignoreType) == true;
+
+            foreach (var mxfObject in this)
+            {
+                Guid objectId = new Guid(mxfObject.Identifier);
+
+                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, exact, exact, exact))))
+                {
+                    yield return mxfObject;
+                    continue;
+                }
+
+                count -= mxfObject.Size;
+
+                if (count <= 0) break;
+            }
+
+            Position = position;
+
+            yield break;
         }
 
         public Node ReadNext()
@@ -1078,6 +1204,8 @@ namespace Media.Container.Mxf
 
         List<Track> m_Tracks;
 
+        Common.ConcurrentThesaurus<int, Node> m_TrackDescriptors;
+
         public override IEnumerable<Track> GetTracks()
         {
 
@@ -1093,263 +1221,228 @@ namespace Media.Container.Mxf
 
             DateTime trackCreated = MaterialCreationDate, trackModified = MaterialModifiedDate;
 
-            int lastTrackId = -1;
+            Node timelineTrackObject = null;
 
-            //Get all the TimelineTrack objects
-            foreach (var timelineTrackObject in ReadObjects(Root.Offset + Root.Size, false, Identifier.TimelineTrack).ToArray()) 
+            string trackName = string.Empty;
+
+            //Essence?
+            byte[] codecIndication = Utility.Empty;
+
+            double startTime = 0, duration = 0, editRate = 0, rate = 0;
+
+            Sdp.MediaType mediaType = Sdp.MediaType.unknown;
+
+            int trackId = 0, trackNumber = 0, width = 0, height = 0, lastTrackNumber = -1;
+
+            byte channels = 0, bitDepth = 0;
+
+            #region Parse Descriptors
+
+            //Must assoicate a descriptor to a track so the properties can be read.
+
+            //To be more efficient all tags could be parsed and converted to a Dictionary<int, byte[]>
+            //Then rather than Node a Dictionary<int, byte[]> would be available for quick retrival.
+            //This would also stop the parsing a second time in the logic below.
+
+            //Create a lookup to asscioate a descriptor to the node
+            m_TrackDescriptors = new Common.ConcurrentThesaurus<int, Node>();
+
+            //Iterate the GenericDescriptors in the file parsing for trackId.
+            foreach (var descriptor in  ReadObjects(Root.Offset + Root.Size, false, UniversalLabel.GenericDescriptor).ToArray())
             {
+                int offset = 0, lenth = (int)descriptor.Size;
 
-                int offset = 0, lenth = (int)timelineTrackObject.Size, trackId = 0, trackNumber = 0;
-                
-                string trackName = string.Empty;
-
-                //Essence?
-                byte[] codecIndication = Utility.Empty;
-
-                double startTime = 0, origin = 0, duration = 0, editRate = 0, rate = 0;
-
+                //Iterate tags
                 while (offset < lenth)
                 {
+                    //Maybe should check Registry of descriptor.Identifier to determine if use Ber Length or otherwise...
 
-                    short tag = Common.Binary.Read16(timelineTrackObject.Raw, offset, BitConverter.IsLittleEndian), 
-                        tagLen = Common.Binary.Read16(timelineTrackObject.Raw, offset + 2, BitConverter.IsLittleEndian);
-                    
+                    short tag = Common.Binary.Read16(descriptor.Raw, offset, BitConverter.IsLittleEndian),
+                        tagLen = Common.Binary.Read16(descriptor.Raw, offset + 2, BitConverter.IsLittleEndian);
+
                     offset += 4;
 
                     switch (tag)
                     {
-                        case 0x4801:
+
+                        case 0x3006:// Linked Track ID
+                        case 0x4801:// Track ID
                             {
-                                //TrackId
-                                trackId = (int)Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-
-                                if (lastTrackId == trackId)
-                                {
-                                    //Break while
-                                    offset = lenth;
-
-                                    //Indicate to skip
-                                    trackNumber = 0;
-                                }
-
+                                trackId = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
                                 goto default;
                             }
-                        case 0x4804:
-                            {
-
-                                /*
-                                 The value of the Track Number should be set to zero in all Material Package and Lower-Level Source Package
-                                    Essence Tracks and in all Descriptive Metadata Tracks.
-                                    Note: Some MXF encoders create files that contain non-zero Track Number Properties in Material Package Essence Tracks.
-                                    Non-zero values of the Track Number Property in Essence Tracks of Material or Lower-Level Source Packages,
-                                    and non-zero values of the Track Number Property in Descriptive Metadata Tracks should be treated as Dark
-                                    Metadata.
-                                 */
-
-                                //TrackNumber
-                                trackNumber = (int)Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-
-                                //if(trackNumber < 0) //Dark MetaData?
-
-                                //Break loop and continue to next timelineTrack
-                                if (trackNumber == 0) offset = lenth;
-                                
-                                goto default;
-                            }
-                        case 0x4802:
-                            {
-                                //TrackName
-                                trackName = Encoding.BigEndianUnicode.GetString(timelineTrackObject.Raw, offset, tagLen);
-                                goto default;
-                            }
-                        case 0x4b01:
-                            {
-                                //Edit Rate in hertz
-                                editRate = Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                goto default;
-                            }
-                        case 0x4b02:
-                            {
-                                //Origin 
-                                //Start Time in Edit Units
-                                origin = Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                goto default;
-                            }
-                        //case 0x4803:
-                        //    {
-                        //        //Sequence (Defines the Sequence Set)....
-                        //        goto default;
-                        //    }
-                        case 0x0201:
-                            {
-                                //Data Definition
-                                //UL, Specifies the data type of this set
-                                codecIndication = timelineTrackObject.Raw.Skip(offset).Take(tagLen).ToArray();
-                                goto default;
-                            }
-                        case 0x0202: 
-                            {
-                                //Duration of Sequence (in units of Edit Rate)
-                                duration = Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                goto default;
-                            }
-                        default : offset += tagLen; continue;
+                        default: offset += tagLen; continue;
                     }
-
                 }
 
-                //Master Timecode?
-                if (trackNumber == 0) continue;
+                //Add to the lookup by trackNumber if allowed
+                if (trackId > 0) m_TrackDescriptors.Add(trackId, descriptor);
+            }
 
-                //Required to describe track duration and start time as well as rate
-                if(rate == 0 || duration == 0 || codecIndication == Utility.Empty) using (var trackTimecodeComponent = ReadObject(Identifier.TimecodeComponent, true, timelineTrackObject.Offset + timelineTrackObject.Size))
+            #endregion
+
+            //Iterate each descriptor related to a track and parse it
+            foreach (var descriptorKey in m_TrackDescriptors.Keys)
+            {
+                //Iterate descriptors realted to the track
+                foreach (var descriptor in m_TrackDescriptors[descriptorKey])
                 {
-                    offset = 0;
+                    //If the descriptor is the Timeline Track store a reference
+                    if (descriptor.Identifier.SequenceEqual(UniversalLabel.TimelineTrack.ToByteArray())) timelineTrackObject = descriptor;
 
-                    lenth = (int)(trackTimecodeComponent == null ? 0 : trackTimecodeComponent.Size);
+                    int offset = 0, lenth = (int)descriptor.Size;
 
+                    //Iterate tags and parse properties
                     while (offset < lenth)
                     {
+                        //Maybe should check Registry of descriptor.Identifier to determine if use Ber Length or otherwise...
+                        short tag = Common.Binary.Read16(descriptor.Raw, offset, BitConverter.IsLittleEndian),
+                            tagLen = Common.Binary.Read16(descriptor.Raw, offset + 2, BitConverter.IsLittleEndian);
 
-                        short tag = Common.Binary.Read16(trackTimecodeComponent.Raw, offset, BitConverter.IsLittleEndian),
-                            tagLen = Common.Binary.Read16(trackTimecodeComponent.Raw, offset + 2, BitConverter.IsLittleEndian);
-
+                        //Move offset for bytes consumed
                         offset += 4;
 
                         switch (tag)
                         {
-                            //case 0x1501: //may not be needed? usually come out to the same thing?
+                            case 0x3006:// Linked Track ID
+                            case 0x4801:// Track ID
+                                {
+                                    trackId = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            case 0x4804: //Track Number
+                                {
+
+                                    /*
+                                     The value of the Track Number should be set to zero in all Material Package and Lower-Level Source Package
+                                        Essence Tracks and in all Descriptive Metadata Tracks.
+                                        Note: Some MXF encoders create files that contain non-zero Track Number Properties in Material Package Essence Tracks.
+                                        Non-zero values of the Track Number Property in Essence Tracks of Material or Lower-Level Source Packages,
+                                        and non-zero values of the Track Number Property in Descriptive Metadata Tracks should be treated as Dark
+                                        Metadata.
+                                     */
+                                    trackNumber = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            case 0x4405: //Package Creation Date
+                                {
+                                    trackCreated = new DateTime((int)Common.Binary.ReadU16(descriptor.Raw, offset, BitConverter.IsLittleEndian),
+                                       (int)descriptor.Raw[offset + 2],
+                                       (int)descriptor.Raw[offset + 3],
+                                       (int)descriptor.Raw[offset + 4],
+                                       (int)descriptor.Raw[offset + 5],
+                                       (int)descriptor.Raw[offset + 6],
+                                       (int)descriptor.Raw[offset + 7],
+                                       DateTimeKind.Utc);
+                                    goto default;
+                                }
+                            case 0x4404: // Package Modified Date
+                            case 0x3c06: // Modification Date
+                            case 0x3b02: // Last Modified Date
+                                {
+                                    trackModified = new DateTime((int)Common.Binary.ReadU16(descriptor.Raw, offset, BitConverter.IsLittleEndian),
+                                        (int)descriptor.Raw[offset + 2],
+                                        (int)descriptor.Raw[offset + 3],
+                                        (int)descriptor.Raw[offset + 4],
+                                        (int)descriptor.Raw[offset + 5],
+                                        (int)descriptor.Raw[offset + 6],
+                                        (int)descriptor.Raw[offset + 7],
+                                        DateTimeKind.Utc);
+                                    goto default;
+                                }
+                            case 0x4402: //Generic Package .Name
+                            case 0x4802: //Track Name
+                                {
+                                    //TrackName
+                                    trackName = Encoding.BigEndianUnicode.GetString(descriptor.Raw, offset, tagLen);
+                                    goto default;
+                                }
+                            case 0x4b01: //Edit Rate (in hertz)
+                                {
+                                    editRate = Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            case 0x1501: //Start Timecode (Integer Frames XX:XX:XX:XX)
+                            case 0x1201: //Start Position (Position)
+                            case 0x4b02: //Origin (Position)
+                                {
+                                    startTime = Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            //case 0x3001: //Sample Rate ([RP 210 Specifies the number of addressable elements of essence data per second]
+                            case 0x1502: //Rounded Timecode Base (UInt16) (2 byte) (Nearest Integer Frames Per Second)
+                                {
+                                    rate = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            //case 0x1503: { goto default; } // DropFrame (Boolean 1 byte) Specifies wheater timecode is drop frame, non Drop Frame = 0                            
+                            case 0x0201: //Data Definition (Universal Label)
+                            case 0x3005: //Codec UL
+                                {
+
+                                    if (mediaType == Sdp.MediaType.unknown)
+                                    {
+                                        //Data Definition
+                                        //UL, Specifies the data type of this set
+                                        codecIndication = descriptor.Raw.Skip(offset).Take(tagLen).ToArray();
+                                        
+                                        if (CompareUL(codecIndication, Guid.Empty.ToByteArray(), true, true, true)) mediaType = Sdp.MediaType.data;
+                                        else if (CompareUL(codecIndication, UniversalLabel.DataDefinitionVideo.ToByteArray(), true, true, true)
+                                            ||
+                                            CompareUL(codecIndication, UniversalLabel.DataDefinitionVideoLegacy.ToByteArray(), true, true, true))
+                                        {
+                                            mediaType = Sdp.MediaType.video;
+                                        }
+                                        else if (CompareUL(codecIndication, UniversalLabel.DataDefinitionAudio.ToByteArray(), true, true, true)
+                                            ||
+                                            CompareUL(codecIndication, UniversalLabel.DataDefinitionAudioLegacy.ToByteArray(), true, true, true))
+                                        {
+                                            mediaType = Sdp.MediaType.audio;
+                                        }
+                                    }
+
+                                    goto default;
+                                }
+                            case 0x3002: //Container Duration (measured in Edit Units)
+                            case 0x0202: //Duration (in units of Edit Rate)
+                                {
+                                    duration = Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            case 0x3201: // Picture Essence Coding (UniversalLabel)
+                                {
+                                    mediaType = Sdp.MediaType.video;
+                                    codecIndication = descriptor.Raw.Skip(offset).Take(tagLen).ToArray();
+                                    goto default;
+                                }
+                            case 0x3202: //Stored Height
+                            case 0x3204: //Sampled Height
+                                {
+                                    mediaType = Sdp.MediaType.video;
+                                    height = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            case 0x3203: //Stored Width
+                            case 0x3205: //Sampled With
+                                {
+                                    mediaType = Sdp.MediaType.video;
+                                    width = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+
+                            case 0x3301: //Component Depth (Video)
+                                {
+                                    mediaType = Sdp.MediaType.video;
+                                    bitDepth = (byte)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
+                            //case 0x3303:
                             //    {
-                            //        //Start Timecode (Position Type) (8 byte)
-                            //        //Converted to integer frame count from -> 00:00:00:00
-                            //        double trackStart = Common.Binary.ReadInteger(trackTimecodeComponent.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-
-                            //        if (trackStart != origin) throw new InvalidOperationException("trackStart should equal origin?");
-
-                            //        startTime = origin = trackStart;
-
+                            //        //Color Sitting - 0 Specifies how to compute subsampled color difference values
+                            //        //Not sure if this is correct
+                            //        bitDepth *= trackCodecObject.Raw[offset];
                             //        goto default;
                             //    }
-                            case 0x0201:
-                                {
-                                    //Data Definition
-                                    //UL, Specifies the data type of this set
-                                    codecIndication = timelineTrackObject.Raw.Skip(offset).Take(tagLen).ToArray();
-                                    goto default;
-                                }
-                            case 0x0202:
-                                {
-                                    //Duration of Sequence (in units of Edit Rate)
-                                    duration = Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                    goto default;
-                                }
-                            case 0x1502:
-                                {
-                                    //Rounded Timecode Base (UInt16) (2 byte)
-                                    //Nearest Integer Frames Per Second
-                                    rate = (int)Common.Binary.ReadInteger(trackTimecodeComponent.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                    goto default;
-                                }
-                            //case 0x1503: { goto default; } // DropFrame (Boolean 1 byte) Specifies wheater timecode is drop frame, non Drop Frame = 0
-                            default: offset += tagLen; continue;
-                        }
-                    }
-                }
-
-                //Should have been present and had a positive value by now... if they are 0 then will have to be attained by finding all frames and calulcating
-
-                if (rate == 0) rate = 1;
-
-                if (duration == 0) duration = 1;
-
-                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
-
-                //Dont deterimine with the string, use the codecIndication
-                switch (trackName)
-                {
-                    case PictureTrack: mediaType = Sdp.MediaType.video; break;
-                    case AudioTrack: mediaType = Sdp.MediaType.audio; break;
-                    case TimecodeTrack: mediaType = Sdp.MediaType.timing; break;
-                    case TextTrack: mediaType = Sdp.MediaType.text; break;
-                }
-
-                int width = 0, height = 0;
-
-                byte channels = 0, bitDepth = 0;
-
-                //codecIndication is a UL right now
-                //Get real codec 4cc and additional info from codecIndication UL
-
-                //It seems SourceClip marks the next object as the codecIndication...
-
-                using (var sourceClip = ReadObject(Identifier.SourceClip, true, timelineTrackObject.Offset + timelineTrackObject.Size))
-                {
-                    long pos = Position;
-
-                    Position = sourceClip.Offset + sourceClip.Size;
-
-                    codecIndication = ReadNext().Identifier;
-
-                    Position = pos;
-                }
-
-                using (var trackCodecObject = ReadObject(new Guid(codecIndication), true, timelineTrackObject.Offset + timelineTrackObject.Size))
-                {
-                    offset = 0;
-
-                    lenth = (int)(trackCodecObject == null ? 0 : trackCodecObject.Size);
-
-                    while (offset < lenth)
-                    {
-
-                        short tag = Common.Binary.Read16(trackCodecObject.Raw, offset, BitConverter.IsLittleEndian),
-                            tagLen = Common.Binary.Read16(trackCodecObject.Raw, offset + 2, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-
-                        switch (tag)
-                        {                
-                            //case 0x3215: //signal standard.. 1 byte enum
-                            //case 0x3001: //SampleRate //The rate of non-divisible, contiguously accessible units of the byte stream of an Essence Element (not the Essence (Pixel) sampling clock rate)
-                            //case 0x3002: duration 8 byte in edit units
-                            //case 0x3004 essence container...
-                            //case 0x3005: ul to identify a codec compatible with this essence container...
-                            //case 0x320c:
-                            //    {
-                            //        //Interlace or Progrssive
-                            //        // 0 = fullframe
-                            //        //1 = seperate fields
-                            //        //2 = single field
-                            //        //3 = mixed fields
-                            //        //4 =  segmented frame
-                            //    }
-                            //case 0x3201 PictureEssenceCoding ... 16 byte ul
-                            case 0x3202:
-                            case 0x3204:
-                                {
-                                    height = (int)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                    goto default;
-                                }
-                            case 0x3203:
-                            case 0x3205:
-                                {
-                                    width = (int)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                    goto default;
-                                }
-                            case 0x3d01:
-                            case 0x3301:
-                                {
-                                    bitDepth = (byte)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
-                                    goto default;
-                                }
-                            case 0x3303:
-                                {
-                                    //Color Sitting - 0 Specifies how to compute subsampled color difference values
-
-                                    //Not sure if this is correct
-                                    bitDepth *= trackCodecObject.Raw[offset];
-                                    goto default;
-                                }
                             //case 0x3302:
                             //    {
                             //        //Horizontal Sub Sampling
@@ -1368,22 +1461,85 @@ namespace Media.Container.Mxf
                             //        int AlphaSubSampl = (int)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
                             //        goto default;
                             //    }
+                            case 0x3401:
+                                {
+                                    mediaType = Sdp.MediaType.video;
+                                    bitDepth = 0;
+                                    int localOffset = offset;
+                                    for (int i = 0; i < 16; ++i)
+                                    {
+                                        ++i;
+                                        //Component [ARGB, argb, F, YCBR]
+                                        ++localOffset;
+                                        //Bits per component
+                                        bitDepth += descriptor.Raw[localOffset++];
+                                    }
+                                    goto default;
+                                }
+                            case 0x3d06://SoundEssenceCompression
+                                {
+                                    mediaType = Sdp.MediaType.audio;
+                                    codecIndication = descriptor.Raw.Skip(offset).Take(tagLen).ToArray();
+                                    goto default;
+                                }
+                            case 0x3d07://ChannelCount
+                                {
+                                    mediaType = Sdp.MediaType.audio;
+                                    channels = (byte)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    goto default;
+                                }
                             case 0x3d03:
                                 {
-                                    //Audio Sampling Rate
-                                    rate = Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    //Audio Sampling Rate (8 bytes but the Distinguised Value is either 0 or 1)
+                                    mediaType = Sdp.MediaType.audio;
+                                    rate = Common.Binary.ReadU32(descriptor.Raw, offset, BitConverter.IsLittleEndian);
                                     goto default;
                                 }
-                            //3d06 SoundEssenceCompression
-                            case 0x3d07:
+                            case 0x3d01:  //Quantization bits (Audio)
                                 {
-                                    channels = (byte)Common.Binary.ReadInteger(trackCodecObject.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                    bitDepth = (byte)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
                                     goto default;
                                 }
+                            //case 0x4803:
+                            //    {
+                            //        //Sequence (Defines the Sequence Set)....
+                            //        goto default;
+                            //    }
+                            //case 0x1902: //EssenceContainerData (Batch of Universal Label)
+                            //case 0x1901: //Packages (Batch of Universal Label)
+                            //    {
+                            //        int amount = (int)Common.Binary.ReadInteger(timelineTrackObject.Raw, offset, 4, BitConverter.IsLittleEndian);
+
+                            //        int localOffset = offset + 4;
+
+                            //        List<Guid> sids = new List<Guid>();
+
+                            //        for (int i = 0; i < amount; ++i)
+                            //        {
+                            //            sids.Add(new Guid(timelineTrackObject.Raw.Skip(localOffset).Take(16).ToArray()));
+                            //            localOffset += 16;
+                            //        }
+
+                            //        goto default;
+                            //    }
                             default: offset += tagLen; continue;
                         }
+
                     }
                 }
+
+                //Do not yield Timecode Tracks or duplicate entries
+                if (trackNumber == 0 || lastTrackNumber == trackNumber) continue;
+
+                //Try to use the trackName if needed and we can
+                if (mediaType == Sdp.MediaType.unknown && !string.IsNullOrWhiteSpace(trackName)) switch (trackName)
+                    {
+                        case PictureTrack: mediaType = Sdp.MediaType.video; break;
+                        case AudioTrack: mediaType = Sdp.MediaType.audio; break;
+                        case TimecodeTrack: mediaType = Sdp.MediaType.timing; break;
+                        case TextTrack: mediaType = Sdp.MediaType.text; break;
+                        case DataTrack: mediaType = Sdp.MediaType.data; break;
+                    }                
 
                 //Convert codecIndication to 4cc?
 
@@ -1391,15 +1547,20 @@ namespace Media.Container.Mxf
 
                 int sampleCount = 0;
 
-                //Todo check calulcations for duration and startTime
+                //Todo check calulcations for duration and startTime once sampleCount is obtained
 
-                Track created = new Track(timelineTrackObject, trackName, trackId, trackCreated, trackModified, sampleCount, height, width, TimeSpan.FromSeconds(startTime * editRate), TimeSpan.FromSeconds(1 / duration * 1 / editRate), rate, mediaType, codecIndication, channels, bitDepth);
+                Track created = new Track(timelineTrackObject, trackName, trackId, trackCreated, trackModified, sampleCount, height, width, TimeSpan.FromSeconds(startTime * editRate), 
+                    (mediaType == Sdp.MediaType.audio ?
+                        TimeSpan.FromMilliseconds(duration * rate / Utility.MicrosecondsPerMillisecond) 
+                        : 
+                        TimeSpan.FromMilliseconds(duration * (1 / rate) * Utility.MicrosecondsPerMillisecond)), 
+                    rate, mediaType, codecIndication, channels, bitDepth);
 
                 yield return created;
 
                 tracks.Add(created);
 
-                lastTrackId = trackId;
+                lastTrackNumber = trackNumber;
             }
 
             Position = position;
@@ -1413,16 +1574,16 @@ namespace Media.Container.Mxf
         }
 
         /// <summary>
-        /// Provides either the First Header, Body or Footer ParitionPack found in the file
+        /// Provides either the First Header, Body or Footer (Primer) ParitionPack found in the file
         /// </summary>
-        public override Node Root { get { return ReadObject(Identifier.HeaderPartitionPack, false, 0); } }
+        public override Node Root { get { return ReadObject(UniversalLabel.PartitionPack, false, 0); } }
 
         /// <summary>
-        /// Provides the IndexElement if possible
+        /// Provides the Index if possible
         /// </summary>
         public override Node TableOfContents
         {
-            get { return IndexByteCount > 0 ? ReadObject(Identifier.Index, true, Root.Offset) : null; }
+            get { return IndexByteCount > 0 ? ReadObject(UniversalLabel.Index, true, Root.Offset + Root.Size) : null; }
         }
     }
 }
