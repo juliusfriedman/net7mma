@@ -66,9 +66,15 @@ namespace Media.Common
 
         ICollection<TKey> Collection { get { return (ICollection<TKey>)Dictionary; } }
 
+        public int Count { get { return Dictionary.Count; } }
+
+        public IEnumerable<TKey> Keys { get { return Dictionary.Keys; } }
+
         #endregion
 
         #region Methods
+
+        public void Clear() { Dictionary.Clear(); }
 
 
         public bool ContainsKey(TKey key)

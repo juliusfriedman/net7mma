@@ -2448,22 +2448,18 @@ a=mpeg4-esid:101");
                         string name = Media.Container.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
 
                         Console.WriteLine("Identifier: " + BitConverter.ToString(mxfObject.Identifier));
-                        
+
+                        Console.WriteLine("Category: " + (Media.Container.Mxf.MxfReader.Category)mxfObject.Identifier[4]);
+
                         Console.WriteLine("Name: " + name);
 
                         Console.WriteLine("Size: " + mxfObject.Size);
 
-                        switch (name)
+                        if (name == "PartitionPack")
                         {
-                            case "PartitionPack":
-                            case "HeaderPartitionPack":
-                                {
-                                    Console.WriteLine("Partition Type: " + (Media.Container.Mxf.MxfReader.PartitionKind)mxfObject.Identifier[13]);
-                                    Console.WriteLine("Partition Status: " + (Media.Container.Mxf.MxfReader.PartitionStatus)mxfObject.Identifier[14]);
-                                    break;
-                                }
+                            Console.WriteLine("Partition Type: " + (Media.Container.Mxf.MxfReader.PartitionKind)mxfObject.Identifier[13]);
+                            Console.WriteLine("Partition Status: " + (Media.Container.Mxf.MxfReader.PartitionStatus)mxfObject.Identifier[14]);
                         }
-
                     }
 
 
@@ -2482,8 +2478,6 @@ a=mpeg4-esid:101");
                     Console.WriteLine("OperationalPattern:" + reader.OperationalPattern);
 
                     Console.WriteLine("ItemComplexity:" + reader.ItemComplexity);
-
-                    //Console.WriteLine("PackageComplexity:" + reader.PackageComplexity);
 
                     Console.WriteLine("PrefaceLastModifiedDate:" + reader.PrefaceLastModifiedDate);
 
