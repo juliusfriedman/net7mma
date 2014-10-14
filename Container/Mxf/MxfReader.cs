@@ -430,7 +430,7 @@ namespace Media.Container.Mxf
         {
             if (identifier == null) return Utility.Unknown;
 
-            string result = Utility.Unknown;
+            string result;
 
             Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
@@ -445,6 +445,9 @@ namespace Media.Container.Mxf
                 if (CompareUL(UniversalLabel.StructuralMetadata, id, false, false, false)) return "StructuralMetadata";
                 if (CompareUL(UniversalLabel.DataDefinitionVideo.ToByteArray(), identifier, true, true, true)) return "DataDefinitionVideo";
                 if (CompareUL(UniversalLabel.DataDefinitionAudio.ToByteArray(), identifier, true, true, true)) return "DataDefinitionAudio";
+
+                //Unknown
+                result = Utility.Unknown;
             }
 
             return result;
