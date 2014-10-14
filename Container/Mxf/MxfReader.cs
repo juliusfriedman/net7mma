@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Media.Container.Mxf
 {
     /// <summary>
-    /// Represents the logic necessary to read files in the Material Exchange Format.
+    /// Represents the logic necessary to read files compatible with SMPTE 377-1-2009 (377M-2004) [the Material Exchange Format]
     /// The reader is also compatible with OMF and AAF Files.
     /// </summary>
     public class MxfReader : MediaFileStream, IMediaContainer
@@ -15,7 +15,7 @@ namespace Media.Container.Mxf
         /// <summary>
         /// Defines common UniversalLabel's which are required to parse the container format.        
         /// </summary>
-        /// <notes>Several entries could be removed in favor of an enumertion</notes>
+        /// <notes>Several entries could be removed in favor of an enumertion GenericDescriptorType</notes>
         public static class UniversalLabel
         {
 
@@ -317,7 +317,7 @@ namespace Media.Container.Mxf
             Header = 2,
             Body = 3,
             Footer = 4,
-            Primer = 5
+            Primer = 5 //Not in standard but does work
         }
 
         //Byte 15 of any Universal Label for a PartitionPack
@@ -453,10 +453,9 @@ namespace Media.Container.Mxf
             return result;
         }
 
-
         //ToFourCharacterCode(Guid universalLabel)
 
-        //Possibly seperate Read and Decode?
+        //Possibly seperate Read and Decode logic?
 
         /// <summary>
         /// Decodes the BER Length from the given packet at the given position
@@ -544,6 +543,8 @@ namespace Media.Container.Mxf
                 return m_IndexByteCount.Value;
             }
         }
+
+        public bool HasIndex { get { return IndexByteCount > 0; } }
 
         public bool HasRunIn
         {
@@ -641,9 +642,9 @@ namespace Media.Container.Mxf
 
                 offset += 16;
 
-                int batchLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
+                //int batchLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
 
-                offset += 4;
+                //offset += 4;
 
                 //Sometimes indicates Essence type e.g. Mpeg2
 
@@ -671,6 +672,11 @@ namespace Media.Container.Mxf
                     using (var footer = ReadNext())
                     {
 
+                        status = (PartitionStatus)footer.Identifier[14];
+
+                        //Don't parse an incomplete footer
+                        if (status != PartitionStatus.OpenAndIncomplete || status != PartitionStatus.ClosedAndIncomplete) return;
+
                         offset = 0;
 
                         m_MajorVersion = Common.Binary.Read16(footer.Raw, offset, BitConverter.IsLittleEndian);
@@ -687,13 +693,11 @@ namespace Media.Container.Mxf
                         previousPartition = Common.Binary.Read64(footer.Raw, offset + 8, BitConverter.IsLittleEndian);
                         footerPartitionOffset = Common.Binary.Read64(footer.Raw, offset + 16, BitConverter.IsLittleEndian);
                         headerByteCount = Common.Binary.Read64(footer.Raw, offset + 32, BitConverter.IsLittleEndian);
-
+                        
+                        //this partition should equal Footer
                         if (thisPartition != footerPartitionOffset) throw new InvalidOperationException("Invalid FooterParition");
 
                         m_IndexByteCount = (int)Common.Binary.Read64(footer.Raw, offset + 40, BitConverter.IsLittleEndian);
-
-                        //this partition should equal Footer
-                        
                         offset += 40;
 
                         indexSid = Common.Binary.Read32(footer.Raw, offset, BitConverter.IsLittleEndian);
@@ -711,6 +715,8 @@ namespace Media.Container.Mxf
 
                         offset += 16;
 
+                        //Some times defines the codecs in use...
+
                         //batchLen = Common.Binary.Read32(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
 
                         //offset += 4;
@@ -727,13 +733,6 @@ namespace Media.Container.Mxf
                         //        batches.Add(new Guid(headerPartition.Raw.Skip(offset).Take(itemLen).ToArray()));
                         //        offset += itemLen;
                         //    }
-                        //}
-
-                        //status = (PartitionStatus)footer.Identifier[14];
-
-                        //if (headerByteCount > 0 && status == PartitionStatus.OpenAndComplete || status == PartitionStatus.ClosedAndComplete)
-                        //{
-
                         //}
                     }
                 }
@@ -1155,7 +1154,7 @@ namespace Media.Container.Mxf
             {
                 //must also include identifier size and length size....
                 //Need a way to determine length bytes size
-                count -= mxfObject.Size + MinimumSize;
+                count -= mxfObject.Size + MinimumSize; //HACKUP use MinimumSize which includes Identifier and 1
 
                 if (count <= 0) break;
 
@@ -1204,41 +1203,21 @@ namespace Media.Container.Mxf
 
         List<Track> m_Tracks;
 
+        /// <summary>
+        /// Provides a lookup of a (Related/Linked)TrackId to a GenericDescriptor
+        /// </summary>
         Common.ConcurrentThesaurus<int, Node> m_TrackDescriptors;
 
-        public override IEnumerable<Track> GetTracks()
+        /// <summary>
+        /// Obtains information which describes all tracks in the container
+        /// </summary>
+        void ParseGenericDescriptors()
         {
+            if (m_TrackDescriptors != null) return;
 
-            if (m_Tracks != null)
-            {
-                foreach (Track track in m_Tracks) yield return track;
-                yield break;
-            }
-
-            var tracks = new List<Track>();
-
-            long position = Position;
-
-            DateTime trackCreated = MaterialCreationDate, trackModified = MaterialModifiedDate;
-
-            Node timelineTrackObject = null;
-
-            string trackName = string.Empty;
-
-            //Essence?
-            byte[] codecIndication = Utility.Empty;
-
-            double startTime = 0, duration = 0, editRate = 0, rate = 0;
-
-            Sdp.MediaType mediaType = Sdp.MediaType.unknown;
-
-            int offsetStart, trackId = 0, trackNumber = 0, width = 0, height = 0, lastTrackNumber = -1;
-
-            byte channels = 0, bitDepth = 0;
+            int offsetStart = 0, trackId = -1;
 
             using (var root = Root) offsetStart = (int)(root.Offset + root.Size);
-
-            #region Parse Descriptors
 
             //Must assoicate a descriptor to a track so the properties can be read.
 
@@ -1255,6 +1234,9 @@ namespace Media.Container.Mxf
             foreach (var descriptor in ReadObjects(offsetStart, false, UniversalLabel.GenericDescriptor).ToArray())
             {
                 int offset = 0, lenth = (int)descriptor.Size;
+                
+                //Don't reset the trackId because apparently it means that its the from the lastId encountered...
+                //trackId = -1;
 
                 //Dont part top level metaData for tracks
                 if (descriptor.Identifier.SequenceEqual(UniversalLabel.Preface.ToByteArray())) continue;
@@ -1293,8 +1275,40 @@ namespace Media.Container.Mxf
                 //Add to the lookup by trackNumber if allowed
                 if (trackId > 0) m_TrackDescriptors.Add(trackId, descriptor);
             }
+        }
 
-            #endregion
+        public override IEnumerable<Track> GetTracks()
+        {
+
+            if (m_Tracks != null)
+            {
+                foreach (Track track in m_Tracks) yield return track;
+                yield break;
+            }
+
+            var tracks = new List<Track>();
+
+            long position = Position;
+
+            DateTime trackCreated = MaterialCreationDate, trackModified = MaterialModifiedDate;
+
+            Node timelineTrackObject = null;
+
+            string trackName = string.Empty;
+
+            //Essence?
+            byte[] codecIndication = Utility.Empty;
+
+            double startTime = 0, duration = 0, editRate = 0, rate = 0;
+
+            Sdp.MediaType mediaType = Sdp.MediaType.unknown;
+
+            int trackId = 0, trackNumber = 0, width = 0, height = 0, lastTrackNumber = -1;
+
+            byte channels = 0, bitDepth = 0;
+
+            //Obtain track information from meta data
+            ParseGenericDescriptors();
 
             //Iterate each descriptor related to a track and parse it
             foreach (var descriptorKey in m_TrackDescriptors.Keys)
@@ -1560,7 +1574,7 @@ namespace Media.Container.Mxf
                         case DataTrack: mediaType = Sdp.MediaType.data; break;
                     }                
 
-                //Convert codecIndication to 4cc?
+                //Convert codecIndication to 4cc? sometimes is the last 4
 
                 //Get sampleCount if index is available? or count all frames...
 
@@ -1569,12 +1583,11 @@ namespace Media.Container.Mxf
                     //Modified with trackNumber
                     (byte)((trackNumber >> 24) & byte.MaxValue), (byte)((trackNumber >> 16) & byte.MaxValue), (byte)((trackNumber >> 8) & byte.MaxValue), (byte)(trackNumber & byte.MaxValue) })).Count();
 
-                //Todo check calulcations for duration and startTime once sampleCount is obtained
-
                 Track created = new Track(timelineTrackObject, trackName, trackId, trackCreated, trackModified, sampleCount, height, width, TimeSpan.FromSeconds(startTime * editRate), 
+                    //Duration calculation for Audio
                     (mediaType == Sdp.MediaType.audio ?
                         TimeSpan.FromMilliseconds(duration * rate / Utility.MicrosecondsPerMillisecond) 
-                        : 
+                        : //Video
                         TimeSpan.FromMilliseconds(duration * (1 / rate) * Utility.MicrosecondsPerMillisecond)), 
                     rate, mediaType, codecIndication, channels, bitDepth);
 
@@ -1634,7 +1647,7 @@ namespace Media.Container.Mxf
         {
             get
             {
-                if(IndexByteCount <= 0) return null;
+                if (!HasIndex) return null;
                 using (var root = Root) return ReadObject(UniversalLabel.Index, true, root.Offset + root.Size);
             }
         }
