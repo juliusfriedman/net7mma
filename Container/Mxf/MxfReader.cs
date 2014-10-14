@@ -393,7 +393,7 @@ namespace Media.Container.Mxf
             if (a == null) return b == null;
 
             //Use the hash code if exact
-            if (compareVersion && compareKind) return a.GetHashCode() == b.GetHashCode();
+            if (compareRegistry && compareVersion && compareKind) return a.GetHashCode() == b.GetHashCode();
 
             return CompareUL(a.ToByteArray(), b.ToByteArray(), compareRegistry, compareVersion, compareKind);
         }
@@ -403,7 +403,7 @@ namespace Media.Container.Mxf
             if (aBytes == null) return bBytes == null;
 
             //Use the hash code if exact
-            if (compareVersion && compareKind) return aBytes.GetHashCode() == bBytes.GetHashCode();
+            if (compareRegistry && compareVersion && compareKind) return aBytes.GetHashCode() == bBytes.GetHashCode();
 
             if (BitConverter.ToInt32(aBytes, 0) == BitConverter.ToInt32(bBytes, 0))
             {
@@ -546,8 +546,7 @@ namespace Media.Container.Mxf
         {
             get
             {
-                if (!m_RunInSize.HasValue) ParseHeader();
-                return m_RunInSize.Value > 0;
+                return RunInSize > 0;
             }
         }
 
@@ -555,8 +554,7 @@ namespace Media.Container.Mxf
         {
             get
             {
-                if (!m_RunInSize.HasValue) ParseHeader();
-                return m_RunInSize.Value;
+                using (Root) return m_RunInSize.Value;
             }
         }
 
@@ -599,12 +597,6 @@ namespace Media.Container.Mxf
                 if (headerPartition == null) return;
 
                 int offset = 0;
-
-                //Determine the amount of bytes in the Ber Length Field of the Root parition
-                int headerLengthSize = (int)(headerPartition.Offset - IdentifierSize);
-
-                //Determine if any Runin was present (data which is not part of the file header)
-                m_RunInSize = (int)(headerPartition.Offset - (headerLengthSize + IdentifierSize));
 
                 m_MajorVersion = Common.Binary.Read16(headerPartition.Raw, offset, BitConverter.IsLittleEndian);
                 
@@ -756,7 +748,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_PrefaceVersion.HasValue) ParsePreface();
-                return m_PrefaceVersion.Value;
+                return m_PrefaceVersion ?? HeaderVersion.MinorRevision;
             }
         }
 
@@ -765,7 +757,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_PrefaceLastModifiedDate.HasValue) ParsePreface();
-                return m_PrefaceLastModifiedDate.Value;
+                return m_PrefaceLastModifiedDate ?? MaterialModifiedDate;
             }
         }
 
@@ -773,7 +765,9 @@ namespace Media.Container.Mxf
         {
             using (var preface = ReadObject(UniversalLabel.Preface, true, Root.Offset + Root.Size))
             {
-                int offset = 0, lenth = (int)(preface == null ? 0 : preface.Size);
+                if (preface == null) return;
+
+                int offset = 0, lenth = (int)(preface.Size);
 
                 while (offset < lenth)
                 {
@@ -853,9 +847,8 @@ namespace Media.Container.Mxf
                     }
 
                 }
+                if (!m_PrefaceLastModifiedDate.HasValue && !m_PrefaceVersion.HasValue) throw new InvalidOperationException("Invalid Preface Object");
             }
-
-            if (!m_PrefaceLastModifiedDate.HasValue && !m_PrefaceVersion.HasValue) throw new InvalidOperationException("Invalid Preface Object");
         }
 
         string m_CompanyName, m_ProductName, m_ProductVersion, m_Platform;
@@ -903,7 +896,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_ProductUID.HasValue) ParseIdentification();
-                return m_ProductUID.Value;
+                return m_ProductUID ?? Guid.Empty;
             }
         }
 
@@ -914,7 +907,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_IdentificationModificationDate.HasValue) ParseIdentification();
-                return m_IdentificationModificationDate.Value;
+                return m_IdentificationModificationDate ?? FileLastWriteTimeUtc;
             }
         }
 
@@ -922,7 +915,8 @@ namespace Media.Container.Mxf
         {
             using (var identification = ReadObject(UniversalLabel.Identification, true, Root.Offset + Root.Size))
             {
-                int offset = 0, lenth = (int)(identification == null ? 0 : identification.Size);
+                if (identification == null) return;
+                int offset = 0, lenth = (int)(identification.Size);
 
                 while (offset < lenth)
                 {
@@ -1001,8 +995,6 @@ namespace Media.Container.Mxf
             }
         }
 
-        string m_MaterialName;
-
         DateTime? m_MaterialCreationDate, m_MaterialModifiedDate;
 
         public DateTime MaterialCreationDate
@@ -1010,7 +1002,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_MaterialCreationDate.HasValue) ParseMaterialPackage();
-                return m_MaterialCreationDate.Value;
+                return m_MaterialCreationDate ?? FileCreationTimeUtc;
             }
         }
 
@@ -1019,7 +1011,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_MaterialModifiedDate.HasValue) ParseMaterialPackage();
-                return m_MaterialModifiedDate.Value;
+                return m_MaterialModifiedDate ?? FileLastWriteTimeUtc;
             }
         }
 
@@ -1027,7 +1019,10 @@ namespace Media.Container.Mxf
         {
             using (var materialPackage = ReadObject(UniversalLabel.MaterialPackage, true, Root.Offset + Root.Size))
             {
-                int offset = 0, lenth = (int)(materialPackage == null ? 0 : materialPackage.Size);
+
+                if (materialPackage == null) return;
+
+                int offset = 0, lenth = (int)( materialPackage.Size);
 
                 while (offset < lenth)
                 {
@@ -1060,11 +1055,11 @@ namespace Media.Container.Mxf
 
                         //        goto default;
                         //    }
-                        case 0x4402:
-                            {
-                                m_MaterialName = Encoding.BigEndianUnicode.GetString(materialPackage.Raw, offset, tagLen);
-                                goto default;
-                            }
+                        //case 0x4402:
+                        //    {
+                        //        m_MaterialName = Encoding.BigEndianUnicode.GetString(materialPackage.Raw, offset, tagLen);
+                        //        goto default;
+                        //    }
                         case 0x4404:
                             {
                                 m_MaterialModifiedDate = new DateTime((int)Common.Binary.ReadU16(materialPackage.Raw, offset, BitConverter.IsLittleEndian),
@@ -1155,6 +1150,12 @@ namespace Media.Container.Mxf
 
             foreach (var mxfObject in this)
             {
+                //must also include identifier size and length size....
+                //Need a way to determine length bytes size
+                count -= mxfObject.Size + MinimumSize;
+
+                if (count <= 0) break;
+
                 Guid objectId = new Guid(mxfObject.Identifier);
 
                 if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, exact, exact, exact))))
@@ -1162,10 +1163,6 @@ namespace Media.Container.Mxf
                     yield return mxfObject;
                     continue;
                 }
-
-                count -= mxfObject.Size;
-
-                if (count <= 0) break;
             }
 
             Position = position;
@@ -1232,9 +1229,11 @@ namespace Media.Container.Mxf
 
             Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
-            int trackId = 0, trackNumber = 0, width = 0, height = 0, lastTrackNumber = -1;
+            int offsetStart, trackId = 0, trackNumber = 0, width = 0, height = 0, lastTrackNumber = -1;
 
             byte channels = 0, bitDepth = 0;
+
+            using (var root = Root) offsetStart = (int)(root.Offset + root.Size);
 
             #region Parse Descriptors
 
@@ -1244,15 +1243,26 @@ namespace Media.Container.Mxf
             //Then rather than Node a Dictionary<int, byte[]> would be available for quick retrival.
             //This would also stop the parsing a second time in the logic below.
 
+            //Could also make virtual Nodes with each tag but would increase IO
+
             //Create a lookup to asscioate a descriptor to the node
             m_TrackDescriptors = new Common.ConcurrentThesaurus<int, Node>();
 
             //Iterate the GenericDescriptors in the file parsing for trackId.
-            foreach (var descriptor in  ReadObjects(Root.Offset + Root.Size, false, UniversalLabel.GenericDescriptor).ToArray())
+            foreach (var descriptor in ReadObjects(offsetStart, false, UniversalLabel.GenericDescriptor).ToArray())
             {
                 int offset = 0, lenth = (int)descriptor.Size;
 
-                //Iterate tags
+                //Dont part top level metaData for tracks
+                if (descriptor.Identifier.SequenceEqual(UniversalLabel.Preface.ToByteArray())) continue;
+
+                if (descriptor.Identifier.SequenceEqual(UniversalLabel.Identification.ToByteArray())) continue;
+
+                if (descriptor.Identifier.SequenceEqual(UniversalLabel.ContentStorage.ToByteArray())) continue;
+
+                if (descriptor.Identifier.SequenceEqual(UniversalLabel.MaterialPackage.ToByteArray())) continue;
+
+                //Iterate tags in descriptor
                 while (offset < lenth)
                 {
                     //Maybe should check Registry of descriptor.Identifier to determine if use Ber Length or otherwise...
@@ -1269,6 +1279,8 @@ namespace Media.Container.Mxf
                         case 0x4801:// Track ID
                             {
                                 trackId = (int)Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
+                                //Only parse the trackId
+                                offset = lenth;
                                 goto default;
                             }
                         default: offset += tagLen; continue;
@@ -1362,7 +1374,7 @@ namespace Media.Container.Mxf
                                     editRate = Common.Binary.ReadInteger(descriptor.Raw, offset, tagLen, BitConverter.IsLittleEndian);
                                     goto default;
                                 }
-                            case 0x1501: //Start Timecode (Integer Frames XX:XX:XX:XX)
+                            //case 0x1501: //Start Timecode (Position) Starting Timecode (Converted to integer frame count from XX:XX:XX:XX)
                             case 0x1201: //Start Position (Position)
                             case 0x4b02: //Origin (Position)
                                 {
@@ -1380,12 +1392,12 @@ namespace Media.Container.Mxf
                             case 0x3005: //Codec UL
                                 {
 
+                                    //Data Definition
+                                    //UL, Specifies the data type of this set
+                                    codecIndication = descriptor.Raw.Skip(offset).Take(tagLen).ToArray();
+
                                     if (mediaType == Sdp.MediaType.unknown)
                                     {
-                                        //Data Definition
-                                        //UL, Specifies the data type of this set
-                                        codecIndication = descriptor.Raw.Skip(offset).Take(tagLen).ToArray();
-                                        
                                         if (CompareUL(codecIndication, Guid.Empty.ToByteArray(), true, true, true)) mediaType = Sdp.MediaType.data;
                                         else if (CompareUL(codecIndication, UniversalLabel.DataDefinitionVideo.ToByteArray(), true, true, true)
                                             ||
@@ -1464,13 +1476,17 @@ namespace Media.Container.Mxf
                             case 0x3401:
                                 {
                                     mediaType = Sdp.MediaType.video;
+                                    //reset bitDept to calculate from layout
                                     bitDepth = 0;
                                     int localOffset = offset;
                                     for (int i = 0; i < 16; ++i)
                                     {
+                                        //Increase index
                                         ++i;
+
                                         //Component [ARGB, argb, F, YCBR]
-                                        ++localOffset;
+                                        if(descriptor.Raw[++localOffset] == 0) break;
+                                        
                                         //Bits per component
                                         bitDepth += descriptor.Raw[localOffset++];
                                     }
@@ -1574,16 +1590,47 @@ namespace Media.Container.Mxf
         }
 
         /// <summary>
-        /// Provides either the First Header, Body or Footer (Primer) ParitionPack found in the file
+        /// Reads any "Run In" and Provides either the First Header, Body or Footer (Primer) ParitionPack found in the file.
         /// </summary>
-        public override Node Root { get { return ReadObject(UniversalLabel.PartitionPack, false, 0); } }
+        public override Node Root
+        {
+            get
+            {
+                if (!m_RunInSize.HasValue)
+                {
+                    while (Position < 65535)
+                    {
+                        byte read = (byte)ReadByte();
+
+                        if (read == 0x06)
+                        {
+                            read = (byte)ReadByte();
+
+                            if (read != 0x0e) continue;
+
+                            break;
+                        }
+                    }
+
+                    Position -= 2;
+
+                    m_RunInSize = (int)Position;
+                }
+
+                return ReadObject(UniversalLabel.PartitionPack, false, m_RunInSize.Value);
+            }
+        }
 
         /// <summary>
         /// Provides the Index if possible
         /// </summary>
         public override Node TableOfContents
         {
-            get { return IndexByteCount > 0 ? ReadObject(UniversalLabel.Index, true, Root.Offset + Root.Size) : null; }
+            get
+            {
+                if(IndexByteCount <= 0) return null;
+                using (var root = Root) return ReadObject(UniversalLabel.Index, true, root.Offset + root.Size);
+            }
         }
     }
 }
