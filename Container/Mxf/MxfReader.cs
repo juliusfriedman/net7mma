@@ -858,7 +858,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (m_CompanyName == null) ParseIdentification();
-                return m_CompanyName;
+                return m_CompanyName ?? string.Empty;
             }
         }
 
@@ -867,7 +867,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (m_ProductName == null) ParseIdentification();
-                return m_ProductName;
+                return m_ProductName ?? string.Empty;
             }
         }
 
@@ -876,7 +876,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (m_ProductVersion == null) ParseIdentification();
-                return m_ProductVersion;
+                return m_ProductVersion ?? string.Empty;
             }
         }
 
@@ -885,7 +885,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (m_Platform == null) ParseIdentification();
-                return m_Platform;
+                return m_Platform ?? string.Empty;
             }
         }
 
@@ -1561,7 +1561,10 @@ namespace Media.Container.Mxf
 
                 //Get sampleCount if index is available? or count all frames...
 
-                int sampleCount = 0;
+                                                        //Guid is EssenceElement
+                int sampleCount = ReadObjects(timelineTrackObject.Offset + timelineTrackObject.Size, false, new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x01, 0x02, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 
+                    //Modified with trackNumber
+                    (byte)((trackNumber >> 24) & byte.MaxValue), (byte)((trackNumber >> 16) & byte.MaxValue), (byte)((trackNumber >> 8) & byte.MaxValue), (byte)(trackNumber & byte.MaxValue) })).Count();
 
                 //Todo check calulcations for duration and startTime once sampleCount is obtained
 
@@ -1598,7 +1601,7 @@ namespace Media.Container.Mxf
             {
                 if (!m_RunInSize.HasValue)
                 {
-                    while (Position < 65535)
+                    while (Position <= ushort.MaxValue)
                     {
                         byte read = (byte)ReadByte();
 
