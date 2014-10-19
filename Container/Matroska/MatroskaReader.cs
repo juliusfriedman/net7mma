@@ -573,11 +573,11 @@ namespace Media.Container.Matroska
     }
 
     /// <summary>
-    /// Represents the logic necessary to read files in the Matroska Extensible Binary Meta-Language [Ebml] (.mkv)
+    /// Represents the logic necessary to read files in the (Matroska) Extensible Binary Meta-Language [Ebml] (.mkv, .mka, .mk3d, .webm).
     /// </summary>
     public class MatroskaReader : MediaFileStream, IMediaContainer
     {
-        const int DefaulTimeCodeScale = 1000000, DefaultMaxIdSize = 4, DefaultMaxSizeLength = 8;
+        const int DefaulTimeCodeScale = (int)Utility.NanosecondsPerMillisecond, DefaultMaxIdSize = 4, DefaultMaxSizeLength = 8;
 
         static DateTime BaseDate = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -1174,6 +1174,9 @@ namespace Media.Container.Matroska
                                 }
                             case Identifier.VideoColourSpace:
                                 {
+
+                                    //length == 1 !BitConverter.IsLittleEndian : BitConverter.IsLittleEndian? 
+
                                     stream.Read(buffer, 0, (int)length);
                                     bitsPerSample = (byte)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
 
@@ -1301,7 +1304,7 @@ namespace Media.Container.Matroska
                     //Need to find all CueTimes to accurately describe duration and start time and sample count...
                     // is WONDERFUL                    
                     //Only do this one time for now...
-                    if(sampleCount == 0) foreach (var elem in ReadElements(0, Identifier.Cues))
+                    if(sampleCount == 0) foreach (var elem in ReadElements(trackEntryElement.Offset, Identifier.Cues))
                     {
                         using (var cueStream = elem.Data)
                         {

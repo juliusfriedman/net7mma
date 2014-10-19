@@ -34,7 +34,7 @@ namespace Media.Container
             get
             {
                 if (m_Data != null) return m_Data;
-                else if (Size <= 0 || Master.BaseStream == null) return null;
+                else if (Size <= 0 || Master.BaseStream == null) return Utility.Empty;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
 
@@ -51,10 +51,15 @@ namespace Media.Container
 
                 return m_Data;
             }
+            //set
+            //{
+            //    int write;
+            //    if (Size > 0 && value != null && (write = value.Length) > 0) using (var stream = Data) stream.Write(value, 0, write);
+            //}
         }
 
         /// <summary>
-        /// Provides a <see cref="System.IO.MemoryStream"/> around <see cref="RawData"/>
+        /// Provides a <see cref="System.IO.MemoryStream"/> to <see cref="RawData"/>
         /// </summary>
         public System.IO.MemoryStream Data
         {
@@ -91,6 +96,24 @@ namespace Media.Container
             Identifier = identifier;
             Size = size;
             IsComplete = complete; //Should calulcate here?
+        }
+
+        /// <summary>
+        /// Writes all <see cref="Data"/> if <see cref="Size"/> is > 0.
+        /// </summary>
+        public void Update()
+        {
+            if (Size > 0)
+            {
+                //Slow, use from cached somehow
+                long offsetPrevious = Master.BaseStream.Position;
+
+                Master.BaseStream.Position = Offset;
+
+                Master.BaseStream.Write(Raw, 0, (int)Size);
+
+                Master.BaseStream.Position = offsetPrevious;
+            }
         }
 
         /// <summary>

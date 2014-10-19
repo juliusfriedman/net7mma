@@ -9,16 +9,18 @@ namespace Media.Container.BaseMedia
     /// <summary>
     /// Represents the logic necessary to read ISO Complaint Base Media Format Files.
     /// <see href="http://en.wikipedia.org/wiki/ISO_base_media_file_format">Wikipedia</see>
-    /// Formats include QuickTime (.mov, .mp4, .m4v, .m4a), 
+    /// Formats include QuickTime (.qt, .mov, .mp4, .m4v, .m4a), 
     /// Microsoft Smooth Streaming (.ismv, .isma, .ismc), 
     /// JPEG2000 (.jp2, .jpf, .jpx), Motion JPEG2000 (.mj2, .mjp2), 
     /// 3GPP/3GPP2 (.3gp, .3g2), Adobe Flash (.f4v, .f4p, .f4a, .f4b) and other conforming format extensions.
+    /// Samsung Video (.svi)
     /// </summary>
     public class BaseMediaReader : MediaFileStream
     {
 
         static DateTime IsoBaseDateUtc = new DateTime(1904, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+        //Todo Make Dictionary and have a ToTextualConvention that tries the Dictionary first. (KnownParents)        
         public static List<string> ParentBoxes = new List<string>()
         {
             "moof",
@@ -52,13 +54,7 @@ namespace Media.Container.BaseMedia
 
         public BaseMediaReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        /// <summary>
-        /// Given a box string '*' all boxes will be read.
-        /// Given a box string './*' all boxes in the current box will be read/
-        /// Given a box string '/someBox/anotherBox/*' someBox/anotherBox will be read.
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
+        //int[] names?
         public IEnumerable<Node> ReadBoxes(long offset = 0, params string[] names)
         {
             long positionStart = Position;
@@ -130,6 +126,8 @@ namespace Media.Container.BaseMedia
 
             //int nonDataBytes = IdentifierSize + lengthBytesRead;
 
+            //Could give this, identifier, Position, length - nonDataBytes
+            //Would pose the problem of not being able to deterine the lengthBytesRead from Node.Offset
             return  new Node(this, identifier, offset, length, length <= Remaining);
         }
 
@@ -145,6 +143,8 @@ namespace Media.Container.BaseMedia
                 //Parent boxes contain other boxes so do not skip them, parse right into their data
                 if (ParentBoxes.Contains(ToFourCharacterCode(next.Identifier))) continue;
                 
+                //Here using MinimumSize is technically not correct, it should be `Skip(next.Size - IdentifierSize + lengthBytesCount);`
+                //When the Node only reflects the data count then this would be simply `Skip(next.Size);`
                 Skip(next.Size - MinimumSize);
             }
         }
@@ -369,6 +369,8 @@ namespace Media.Container.BaseMedia
             if(!m_Duration.HasValue) ParseMovieHeader();
 
             //For each trak box in the file
+            //TODO Make only a single pass, the data required should always be in the RawData of trackBox
+            //E,g, switch on identifer name contained in trak
             foreach (var trakBox in ReadBoxes(Root.Offset, "trak").ToArray())
             {
                 var trakHead = ReadBox("tkhd", trakBox.Offset);
@@ -457,7 +459,7 @@ namespace Media.Container.BaseMedia
 
                 DateTime trackCreated = m_Created.Value, trackModified = m_Modified.Value;
 
-                //Read the mediaHeader
+                //Read the mediaHeader (use overload with count to ensure we do not over read)
                 var mediaHeader = ReadBox("mdhd", trakBox.Offset);
                 if (mediaHeader != null)
                 {
@@ -662,13 +664,16 @@ namespace Media.Container.BaseMedia
                         int len = Common.Binary.Read32(sampleDescriptionBox.Raw, offset, BitConverter.IsLittleEndian) - 4;
                         offset += 4;
 
-                        byte[] sampleEntry = sampleDescriptionBox.Raw.Skip(offset).Take(len).ToArray();
+                        var sampleEntry = sampleDescriptionBox.Raw.Skip(offset).Take(len);
                         offset += len;
 
                         switch (mediaType)
                         {
                             case Sdp.MediaType.audio:
                                 {
+                                    //Maybe == mp4a
+                                    codecIndication = sampleEntry.Take(4).ToArray();
+
                                     //32, 16, 16 (dref index)
                                     version = Common.Binary.Read16(sampleEntry, 8, BitConverter.IsLittleEndian);
 
@@ -681,18 +686,22 @@ namespace Media.Container.BaseMedia
                                     bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 22, BitConverter.IsLittleEndian);
 
                                     //CompressionId 16
-                                    codecIndication = sampleEntry.Skip(24).Take(2).ToArray();
+                                    var compressionId = sampleEntry.Skip(24).Take(2);
+
+                                    //Decode to a WaveFormatID (16 bit)
+                                    int waveFormatId = Common.Binary.Read16(compressionId, 0, BitConverter.IsLittleEndian);
 
                                     //The compression ID is set to -2 and redefined sample tables are used (see “Redefined Sample Tables”).
-                                    if (-2 == Common.Binary.Read16(codecIndication, 0, BitConverter.IsLittleEndian))
+                                    if (-2 == waveFormatId)
                                     {
-                                        var waveAtom = ReadBox("wave", sampleDescriptionBox.Offset);
-                                        if (waveAtom != null)
-                                        {
-                                            flags = Common.Binary.Read24(waveAtom.Raw, 9, BitConverter.IsLittleEndian);
-                                            //Extrack from flags?
-                                        }
-                                    }
+                                        //var waveAtom = ReadBox("wave", sampleDescriptionBox.Offset);
+                                        //if (waveAtom != null)
+                                        //{
+                                        //    flags = Common.Binary.Read24(waveAtom.Raw, 9, BitConverter.IsLittleEndian);
+                                        //    //Extrack from flags?
+                                        //}
+                                    }//If the formatId is known then use it
+                                    else if (waveFormatId > 0) codecIndication = compressionId.ToArray();
 
                                     //@ 26
 

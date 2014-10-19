@@ -7,11 +7,10 @@ using System.Threading.Tasks;
 namespace Media.Container.Asf
 {
     /// <summary>
-    /// Represents the logic necessary to read files in the Advanced Systems Format (.asf)
+    /// Represents the logic necessary to read files in the Advanced Systems Format (.asf, .wmv, .wma, .wtv[DVR_MS])
     /// </summary>
     public class AsfReader : MediaFileStream, IMediaContainer
     {
-
         static DateTime BaseDate = new DateTime(1601, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 
         const int IdentifierSize = 16, LengthSize = 8, MinimumSize = IdentifierSize + LengthSize;
@@ -121,6 +120,10 @@ namespace Media.Container.Asf
 
             return result;
         }
+
+        //Parse XML in ASX
+        //return string[] of resources
+        //FromAsx/GetResources(string)
 
         public AsfReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 

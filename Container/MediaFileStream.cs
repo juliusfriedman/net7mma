@@ -82,6 +82,8 @@ namespace Media.Container
 
         //Should abstract KnownExtensions? MimeTypes!!!!
 
+        //Should abstract NodeIdentifierSize, NodeLengthSize(-1 for Variable?), and MinimumNodeSize, MaximumNodeSize?
+
         /// <summary>
         /// When overriden in a derived class, Provides information for each 'Track' in the Media
         /// </summary>

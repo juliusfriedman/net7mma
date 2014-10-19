@@ -2508,6 +2508,103 @@ a=mpeg4-esid:101");
 
             #endregion
 
+            #region OggReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/ogg/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ogg/"))
+                {
+                    using (Media.Container.Ogg.OggReader reader = new Media.Container.Ogg.OggReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Page:" + Media.Container.Ogg.OggReader.ToTextualConvention(reader.Root.Identifier));
+
+                        Console.WriteLine("Pages:");
+
+                        foreach (var page in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + page.Offset);
+                            Console.WriteLine("Complete: " + page.IsComplete);
+                            Console.WriteLine("Name: " + Media.Container.Ogg.OggReader.ToTextualConvention(page.Identifier));
+                            Console.WriteLine("HeaderFlags: " + (Media.Container.Ogg.OggReader.HeaderFlags)(page.Identifier[5]));
+                            Console.WriteLine("Size: " + page.Size);
+                        }
+
+
+                        Console.WriteLine("File Level Properties");
+
+                        //Console.WriteLine("Movie Duration:" + reader.Duration);
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region NutReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/nut/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/nut/"))
+                {
+                    using (Media.Container.Nut.NutReader reader = new Media.Container.Nut.NutReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Tag:" + Media.Container.Nut.NutReader.ToTextualConvention(reader.Root.Identifier));
+
+                        Console.WriteLine("Tags:");
+
+                        foreach (var tag in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + tag.Offset);
+                            Console.WriteLine("Complete: " + tag.IsComplete);
+
+                            if (tag.Identifier[0] == default(byte))
+                                Console.WriteLine("FrameFlags: " + (Media.Container.Nut.NutReader.FrameFlags)tag.Identifier.Last());
+                            else
+                                Console.WriteLine("Name: " + Media.Container.Nut.NutReader.ToTextualConvention(tag.Identifier));
+                            
+                            Console.WriteLine("Size: " + tag.Size);
+                        }
+
+                        Console.WriteLine("File Level Properties");
+
+                        Console.WriteLine("File Id String:" + reader.FileIdString);
+
+                        Console.WriteLine("Version:" + reader.Version);
+
+                        Console.WriteLine("IsStableVersion:" + reader.IsStableVersion);
+
+                        Console.WriteLine("Stream Count:" + reader.StreamCount);
+
+                        Console.WriteLine("MaximumDistance:" + reader.MaximumDistance);
+
+                        Console.WriteLine("TimeBases:");
+
+                        Console.WriteLine("EllisionHeaderCount:" + reader.EllisionHeaderCount);
+
+                        Console.WriteLine("EllisionHeaders:");
+
+                        Console.WriteLine("HeaderOptions:");
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region McfReader
+
+            #endregion
+
         }
 
         static void DumpTrack(Media.Container.Track track)
@@ -2518,7 +2615,7 @@ a=mpeg4-esid:101");
             Console.WriteLine("Duration: " + track.Duration);
 
             Console.WriteLine("Type: " + track.MediaType);
-            
+            Console.WriteLine("Samples: " + track.SampleCount);
 
             if (track.MediaType == Media.Sdp.MediaType.audio)
             {
@@ -2535,8 +2632,6 @@ a=mpeg4-esid:101");
                 Console.WriteLine("Height: " + track.Height);
                 Console.WriteLine("BitsPerPixel: " + track.BitDepth);
             }
-
-            Console.WriteLine("Samples: " + track.SampleCount);
         }
 
         /// <summary>
