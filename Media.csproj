@@ -100,11 +100,16 @@
     <Compile Include="Common\SourceList.cs" />
     <Compile Include="Container\Asf\AsfReader.cs" />
     <Compile Include="Container\BaseMedia\BaseMediaReader.cs" />
+    <Compile Include="Container\Gxf\GxfReader.cs" />
+    <Compile Include="Container\Mcf\McfReader.cs" />
     <Compile Include="Container\Mxf\MxfReader.cs" />
     <Compile Include="Container\Node.cs" />
     <Compile Include="Container\Matroska\MatroskaReader.cs" />
     <Compile Include="Container\MediaFileStream.cs" />
     <Compile Include="Container\IMediaContainer.cs" />
+    <Compile Include="Container\Nut\NutReader.cs" />
+    <Compile Include="Container\Ogg\OggReader.cs" />
+    <Compile Include="Container\Real\RealReader.cs" />
     <Compile Include="Container\Riff\RiffReader.cs" />
     <Compile Include="Container\Track.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -123,6 +123,8 @@ namespace Media.Container.Riff
 
         #region FourCC conversion methods
 
+        //string GetSubType?
+
         public static string FromFourCC(int FourCC)
         {
             char[] chars = new char[4];

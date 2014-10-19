@@ -457,10 +457,17 @@ namespace Media.Container.Mxf
 
         //Possibly seperate Read and Decode logic?
 
+        //GetCategory
+
+        //GetParitionKind
+
+        //GetPartitionStatus
+
         /// <summary>
-        /// Decodes the BER Length from the given packet at the given position
+        /// Decodes the ASN.1 BER Length from the given packet at the given position.
+        /// NOTES that since definite legth is forced this is DER...
         /// </summary>
-        public static long DecodeLength(System.IO.Stream stream, out int read)
+        public static long DecodeVariableLength(System.IO.Stream stream, out int read)
         {
             read = 0;
             
@@ -472,7 +479,7 @@ namespace Media.Container.Mxf
             {
                 length &= ~MultiByteLength;
 
-                if (length == 0) throw new InvalidOperationException("BER32 Indefinite Length Not Supported.");
+                if (length == 0) throw new InvalidOperationException("BER32 Indefinite Length Not Supported. Use DER Form.");
 
                 if (length > 8) throw new InvalidOperationException("BER32 Lengths larger than 8 are Not Supported.");
 
@@ -545,6 +552,42 @@ namespace Media.Container.Mxf
         }
 
         public bool HasIndex { get { return IndexByteCount > 0; } }
+
+        //6.5 Run-In Sequence
+        void ReadRunIn()
+        {
+            if (!m_RunInSize.HasValue)
+            {
+                /*
+                MXF decoders shall ignore the Run-In sequence and parse the data until either the first 11 bytes of the
+               Partition Pack label have been located or the maximum Run-In length has been exceeded.
+               The Run-In sequence shall be less than 65536 bytes long and shall not contain the first 11 bytes of the
+               Partition Pack label.
+               Note: The maximum length of the run-in prevents a decoder from searching through an excessively large non-MXF file if
+               incorrectly applied to an MXF decoder.
+               The default Run-in sequence shall have a length of zero.
+               MXF encoders may insert any necessary Run-In sequence provided it conforms to the above provisions, and
+               any provisions of the respective specialized Operational Pattern specification. 
+                */
+                while (Position <= ushort.MaxValue)
+                {
+                    byte read = (byte)ReadByte();
+
+                    if (read == 0x06)
+                    {
+                        read = (byte)ReadByte();
+
+                        if (read != 0x0e) continue;
+
+                        Position -= 2;
+
+                        break;
+                    }
+                }
+
+                m_RunInSize = (int)Position;
+            }
+        }
 
         public bool HasRunIn
         {
@@ -1152,19 +1195,16 @@ namespace Media.Container.Mxf
 
             foreach (var mxfObject in this)
             {
+                Guid objectId = new Guid(mxfObject.Identifier);
+
+                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, exact, exact, exact))))
+                    yield return mxfObject;
+
                 //must also include identifier size and length size....
                 //Need a way to determine length bytes size
                 count -= mxfObject.Size + MinimumSize; //HACKUP use MinimumSize which includes Identifier and 1
 
                 if (count <= 0) break;
-
-                Guid objectId = new Guid(mxfObject.Identifier);
-
-                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, exact, exact, exact))))
-                {
-                    yield return mxfObject;
-                    continue;
-                }
             }
 
             Position = position;
@@ -1182,7 +1222,7 @@ namespace Media.Container.Mxf
 
             int sizeLength = 0;
 
-            long length = DecodeLength(this, out sizeLength);
+            long length = DecodeVariableLength(this, out sizeLength);
 
             if (sizeLength < MinimumSizeLength) throw new InvalidOperationException("Cannot Decode Length");
 
@@ -1271,6 +1311,8 @@ namespace Media.Container.Mxf
                         default: offset += tagLen; continue;
                     }
                 }
+
+                //Should keep parsed values to increase parsing time and decrease memory usage and IO.
 
                 //Add to the lookup by trackNumber if allowed
                 if (trackId > 0) m_TrackDescriptors.Add(trackId, descriptor);
@@ -1615,26 +1657,7 @@ namespace Media.Container.Mxf
         {
             get
             {
-                if (!m_RunInSize.HasValue)
-                {
-                    while (Position <= ushort.MaxValue)
-                    {
-                        byte read = (byte)ReadByte();
-
-                        if (read == 0x06)
-                        {
-                            read = (byte)ReadByte();
-
-                            if (read != 0x0e) continue;
-
-                            break;
-                        }
-                    }
-
-                    Position -= 2;
-
-                    m_RunInSize = (int)Position;
-                }
+                ReadRunIn();
 
                 return ReadObject(UniversalLabel.PartitionPack, false, m_RunInSize.Value);
             }
