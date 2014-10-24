@@ -16,7 +16,7 @@ namespace Media.Container.Nut
     //https://github.com/Distrotech/libnut/blob/master/docs/nut.txt
     //https://github.com/lu-zero/nut/blob/master/docs/nut4cc.txt
     //https://github.com/lu-zero/nut/blob/master/docs/nutissues.txt
-    public class NutReader : MediaFileStream, IMediaContainer
+    public class NutReader : MediaFileStream
     {
 
         [Flags]
@@ -381,6 +381,7 @@ namespace Media.Container.Nut
 
                 if (m_EllisionHeaderCount > 0 && m_EllisionHeaders.Sum() > MaximumEllisionTotal)  throw new InvalidOperationException("Invalid Ellision Header Summation");
 
+                //Usually has a BROADCAST flag?
                 m_MainHeaderFlags = DecodeVeraibleLength(stream, out bytesRead);
                 //reserved_bytes
             }
@@ -467,7 +468,8 @@ namespace Media.Container.Nut
                 }
                 else
                 {
-
+                    //Todo
+                    //Decode PTS
                 }
 
                 //Check to see if the size is coded in the data
@@ -550,7 +552,7 @@ namespace Media.Container.Nut
 
                 //Determine if discard frame.
 
-                if(result.Size > 0) Skip(result.Size);
+                Skip(result.Size);
             }
         }
 

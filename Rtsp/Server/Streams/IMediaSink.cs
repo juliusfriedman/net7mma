@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Rtsp.Server.Streams
 {
-    public interface IMediaSink
+    public interface IMediaSink : IMediaStream
     {
         void SendData(byte[] data);
 
