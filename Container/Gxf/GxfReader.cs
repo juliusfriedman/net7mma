@@ -12,11 +12,11 @@ namespace Media.Container.Gxf
 
     public class GxfReader : MediaFileStream, IMediaContainer
     {
-        //All are really should just be under an Identifier : byte
-
         public enum Identifier : byte
         {
-
+            Unknown = 0,
+            PacketStartA = 0xe1,
+            PacketStartB = 0xe2,
             //public enum PacketType
             //{
             Map = 0xbc,
@@ -30,7 +30,7 @@ namespace Media.Container.Gxf
             //{
             TagName = 0x40,
             FirstField = 0x41,
-            LaztField = 0x42,
+            LastField = 0x42,
             MarkIn = 0x43,
             MarkOut = 0x44,
             Size = 0x45,
@@ -51,7 +51,7 @@ namespace Media.Container.Gxf
 
         #region Constants
 
-        const int IdentiferSize = 6, MinimumSize = IdentiferSize + 1, LengthSize = 2;
+        const int IdentifierParts = 6, IdentiferSize = IdentifierParts * 2, LengthSize = 4, MinimumSize = IdentiferSize + LengthSize, VersionMajor = 0, VersionMinor = 1;
 
         #endregion
 
@@ -59,7 +59,8 @@ namespace Media.Container.Gxf
 
         public static string ToTextualConvention(byte[] identifier)
         {
-            return string.Empty;
+            if (identifier == null) return Utility.Unknown;
+            return ((Identifier)identifier[0]).ToString();
         }
 
         #endregion
@@ -96,13 +97,41 @@ namespace Media.Container.Gxf
 
         public Node ReadNext()
         {
-            byte[] identifier = new byte[IdentiferSize];
-            Read(identifier, 0, IdentiferSize);
+            //4 bytes all 0
 
+            //byte 1
+
+            //type byte
+
+            byte[] identifier = new byte[IdentiferSize];
+            Read(identifier, 0, IdentifierParts);
+
+            if (Common.Binary.ReadU32(identifier, 0, BitConverter.IsLittleEndian) > VersionMajor
+                ||
+                identifier[5] != VersionMinor) throw new InvalidOperationException("Invalid Packet Header");
+
+            //len 32
             byte[] lengthBytes = new byte[LengthSize];
             Read(lengthBytes, 0, LengthSize);
 
-            long length = Common.Binary.ReadU16(lengthBytes, 0, BitConverter.IsLittleEndian);
+            long length = Common.Binary.ReadU32(lengthBytes, 0, BitConverter.IsLittleEndian);
+
+            //4 byte all 0
+
+            //0xe1
+
+            //0xe2
+
+            Read(identifier, IdentifierParts, IdentifierParts);
+
+            //Length includes identifier size
+            length -= IdentiferSize;
+
+            if (length >> 24 > 0 || length < MinimumSize) length = 0;
+
+            if (Common.Binary.ReadU32(identifier, IdentifierParts, BitConverter.IsLittleEndian) > VersionMajor 
+                ||
+                identifier[IdentifierParts + 1] != (byte)Identifier.PacketStartA && identifier[IdentifierParts + 2] != (byte)Identifier.PacketStartB) throw new InvalidOperationException("Invalid Packet Header");
 
             return new Node(this, identifier, Position, length, length <= Remaining);
         }
@@ -119,6 +148,8 @@ namespace Media.Container.Gxf
                 Skip(next.Size);
             }
         }
+
+        //Parse Map, Material Packet
 
         List<Track> m_Tracks;
 

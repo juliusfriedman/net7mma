@@ -135,14 +135,58 @@ namespace Media.Rtp
         /// </summary>
         public static readonly TimeSpan DefaultReportInterval = TimeSpan.FromMilliseconds(96);
 
-        public static RtpClient FromSessionDescription(Sdp.SessionDescription sessionDescription)
+        public static RtpClient FromSessionDescription(Sdp.SessionDescription sessionDescription, Common.MemorySegment sharedMemory = null, bool incomingEvents = true, bool rtcpEnabled = true)
         {
-            throw new NotImplementedException();
+
+            if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
+
+            Sdp.Lines.SessionConnectionLine connectionLine = sessionDescription.ConnectionLine as Sdp.Lines.SessionConnectionLine;
+
+            IPAddress remoteIp = IPAddress.Parse(connectionLine.IPAddress), localIp = Utility.GetFirstIPAddress(remoteIp.AddressFamily);
+
+            RtpClient participant = RtpClient.Participant(remoteIp, sharedMemory, incomingEvents);
+
+            byte lastChannel = 0;
+
+            foreach (Media.Sdp.MediaDescription md in sessionDescription.MediaDescriptions)
+            {
+                TransportContext tc = FromMediaDescription(remoteIp, lastChannel++, lastChannel++, md, rtcpEnabled);
+
+                //Udp sockets are not created
+                if (tc.RtpSocket == null)
+                {
+                    int localPort = Utility.FindOpenPort(ProtocolType.Udp);
+                    tc.Initialize(localIp, remoteIp, localPort++, localPort++, md.MediaPort, md.MediaPort + 1);
+                }
+                else //Tcp socket is created but not connected
+                {
+                    tc.RtpSocket.Connect(remoteIp, md.MediaPort);
+                    tc.Initialize(tc.RtpSocket);
+                }
+
+                //Add the context
+                participant.Add(tc);
+            }
+
+            //Return the participant
+            return participant;
         }
 
-        public static TransportContext FromMediaDescription(Sdp.MediaDescription mediaDescription)
+        public static TransportContext FromMediaDescription(IPAddress remoteIp, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true)
         {
-            throw new NotImplementedException();
+
+            if (remoteIp == null) throw new ArgumentNullException("remoteIp");
+
+            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+
+            bool udp = string.Compare(mediaDescription.MediaProtocol, Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, true) == 0;
+
+            TransportContext tc;
+
+            if (udp) tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.ReceiversReport.PayloadType), mediaDescription, rtcpEnabled);
+            else tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.ReceiversReport.PayloadType), mediaDescription, new Socket(remoteIp.AddressFamily, SocketType.Stream, ProtocolType.Tcp), rtcpEnabled);
+
+            return tc;
         }
 
         /// <summary>
@@ -202,15 +246,6 @@ namespace Media.Rtp
         public static RtpClient Participant(IPAddress remoteAddress, Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
         {
             return new RtpClient(remoteAddress, sharedMemory)
-            {
-                IncomingPacketEventsEnabled = incomingEvents,
-                FrameChangedEventsEnabled = true
-            };
-        }
-
-        public static RtpClient Participant(Sdp.SessionDescription sdp, Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
-        {
-            return new RtpClient(System.Net.IPAddress.Parse(sdp.Lines.OfType<Sdp.Lines.SessionConnectionLine>().FirstOrDefault().IPAddress), sharedMemory)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
                 FrameChangedEventsEnabled = true
@@ -780,7 +815,7 @@ namespace Media.Rtp
             public void RandomizeSequenceNumber() { SequenceNumber = Utility.Random.Next(); }
 
             /// <summary>
-            /// Creates the required sockets for the Interleave and updates the associatd Properties and Fields
+            /// Creates the required Udp sockets for the TransportContext and updates the associatd Properties and Fields
             /// </summary>
             /// <param name="localIp"></param>
             /// <param name="remoteIp"></param>
@@ -1600,6 +1635,13 @@ namespace Media.Rtp
         #endregion
 
         #region Constructor / Destructor
+
+        const string RtpProtcol = "rtp://";
+
+        static RtpClient()
+        {
+            if (!UriParser.IsKnownScheme(RtpProtcol)) UriParser.Register(new HttpStyleUriParser(), RtpProtcol, 9670);
+        }
 
         RtpClient()
         {

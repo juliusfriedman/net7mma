@@ -46,7 +46,7 @@ namespace Media.Rtsp.Server.Streams
     /// This could also just be an interface, could have protected set for RtpClient
     /// could also be a class which suscribes to events from the assigned RtpClient for RtpPackets etc
     /// </summary>
-    public abstract class RtpSource : SourceStream, Media.Common.IThreadOwner
+    public class RtpSource : SourceStream, Media.Common.IThreadOwner
     {
         public const string RtpMediaProtocol = "RTP/AVP";
 
@@ -56,7 +56,7 @@ namespace Media.Rtsp.Server.Streams
         
         public bool DisableRtcp { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
 
-        public abstract Rtp.RtpClient RtpClient { get; }
+        public virtual Rtp.RtpClient RtpClient { get; protected set; }
 
         public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } } //This will take effect after the change, existing clients will still have their connection
 
@@ -100,7 +100,7 @@ namespace Media.Rtsp.Server.Streams
         {
             //Add handler for frame events
             //if (RtpClient != null) RtpClient.RtpFrameChanged += DecodeFrame;
-
+            if (RtpClient != null) RtpClient.Connect();
             base.Start();
         }
 
@@ -108,7 +108,7 @@ namespace Media.Rtsp.Server.Streams
         {
             //Remove handler
             //if (RtpClient != null) RtpClient.RtpFrameChanged -= DecodeFrame;
-
+            if (RtpClient != null) RtpClient.Disconnect();
             base.Stop();
         }
 
@@ -117,6 +117,12 @@ namespace Media.Rtsp.Server.Streams
             if (Disposed) return;
             base.Dispose();
             if (RtpClient != null) RtpClient.Dispose();
+        }
+
+        public RtpSource(string name, Sdp.SessionDescription sessionDescription)
+            : base(name, new Uri("rtp://" + ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).IPAddress))
+        {
+            RtpClient = Media.Rtp.RtpClient.FromSessionDescription(sessionDescription);            
         }
 
         IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
@@ -133,12 +139,6 @@ namespace Media.Rtsp.Server.Streams
         }
 
         public RtpSink(string name, Uri source) : base(name, source) { }
-
-        public RtpSink(string name)
-            : base(name, null)
-        {
-            m_Source = new Uri("rtsp://localhost/live/" + Id);
-        }
 
         public Rtp.RtpClient Client { get; protected set; }
 

@@ -10,7 +10,7 @@ namespace Media.Container.Ogg
     /// Provides an implementation of the Ogg Container defined by Xiph.org and <see cref="http://www.ietf.org/rfc/rfc3533.txt">RFC3533</see>.
     /// The implementation is compatible with ogg, oga, ogv, ogx and ogm files.
     /// </summary>
-    public class OggReader : MediaFileStream, IMediaContainer
+    public class OggReader : MediaFileStream
     {
 
         #region Constants
@@ -351,6 +351,7 @@ namespace Media.Container.Ogg
                             byte identifyingByte = startPage.Raw[4];
 
                             //Ensure not OGM 
+                            //TODO check if this is correct.
                             //If OGM this will be 56 bytes, a 4cc and either BitmapInfo Header or WaveFormatEx Header
                             switch (identifyingByte)
                             {

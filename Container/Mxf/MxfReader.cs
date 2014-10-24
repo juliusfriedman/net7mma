@@ -1366,7 +1366,7 @@ namespace Media.Container.Mxf
                     //Iterate tags and parse properties
                     while (offset < lenth)
                     {
-                        //Maybe should check Registry of descriptor.Identifier to determine if use Ber Length or otherwise...
+                        //Maybe should check Registry of descriptor.Identifier to determine if use Der Length or otherwise...
                         short tag = Common.Binary.Read16(descriptor.Raw, offset, BitConverter.IsLittleEndian),
                             tagLen = Common.Binary.Read16(descriptor.Raw, offset + 2, BitConverter.IsLittleEndian);
 

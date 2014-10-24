@@ -532,11 +532,13 @@ namespace Media.Sdp
 
             string[] parts = sdpLine.Split(' ', '-');
 
-            if (parts.Length > 0 && parts[0] != "now")
-            {
-                SessionStartTime = long.Parse(SessionDescription.CleanLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
+            int partsLength = parts.Length;
 
-                SessionStopTime = long.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
+            if (partsLength > 0)
+            {
+                if(parts[0] != "now") SessionStartTime = long.Parse(SessionDescription.CleanLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
+
+                if(partsLength > 1) SessionStopTime = long.Parse(SessionDescription.CleanLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
             }
 
             RepeatTimes = new List<long>();

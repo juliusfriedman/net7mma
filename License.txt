@@ -1,4 +1,4 @@
-Managed Media Aggregation RC 2 `Container` Alpha
+Managed Media Aggregation `Container` Alpha
 
 Copyright 2014
 

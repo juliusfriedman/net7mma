@@ -84,6 +84,10 @@ namespace Media.Container
 
         //Should abstract NodeIdentifierSize, NodeLengthSize(-1 for Variable?), and MinimumNodeSize, MaximumNodeSize?
 
+        //Fork .. etc
+
+        //Another class which just does the Position and Length
+
         /// <summary>
         /// When overriden in a derived class, Provides information for each 'Track' in the Media
         /// </summary>
