@@ -304,8 +304,6 @@ namespace Tests
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
                     SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
 
-                    sender.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
-
                     sender.RtcpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
                     sender.RtcpPacketReceieved += (s, p) => TryPrintClientPacket(s, true, p);
                     sender.RtpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
