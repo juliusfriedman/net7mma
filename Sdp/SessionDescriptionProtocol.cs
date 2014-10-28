@@ -79,6 +79,9 @@ namespace Media.Sdp
 
         const string CR = "\r";
         const string LF = "\n";
+        internal static string[] Colon = new string[] { ":" };
+        internal static char EQ = '=';
+
         internal const string CRLF = CR + LF;
 
         internal static string CleanLineValue(string value)
@@ -637,7 +640,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line.Length < 2 || line[1] != '=') Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line.Length < 2 || line[1] != SessionDescription.EQ) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -654,7 +657,7 @@ namespace Media.Sdp
         /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
         public override string ToString()
         {
-            return new String(Type, 1) + '=' + string.Join(";", m_Parts.ToArray()) + SessionDescription.CRLF;
+            return new String(Type, 1) + SessionDescription.EQ + string.Join(";", m_Parts.ToArray()) + SessionDescription.CRLF;
         }
 
         internal static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
@@ -662,7 +665,7 @@ namespace Media.Sdp
             string sdpLine = sdpLines[index] = sdpLines[index].Trim();
 
             if (sdpLine.Length <= 2) return null;
-            else if (sdpLine[1] != '=') return null;
+            else if (sdpLine[1] != SessionDescription.EQ) return null;
 
             char type = sdpLine[0];
 

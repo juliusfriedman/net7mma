@@ -60,10 +60,6 @@ namespace Media.Rtsp
 
         internal static char[] SpaceSplit = new char[] { ' ', ',' };
 
-        internal static string[] Colon = new string[] { ":" };
-
-        internal static char EQ = '=';
-
         #region Nested Types
 
         public enum ClientProtocolType
@@ -556,7 +552,7 @@ namespace Media.Rtsp
                             if (rangeInfo != null)
                             {
                                 //range: = 6
-                                string[] parts = rangeInfo.Parts[0].Substring(6).Split(TimeSplit[0], EQ);
+                                string[] parts = rangeInfo.Parts[0].Substring(6).Split(TimeSplit[0], Media.Sdp.SessionDescription.EQ);
 
                                 string rangeType = parts[0]; //npt, etc
 
@@ -962,7 +958,7 @@ namespace Media.Rtsp
                                 //Check for a timeout
                                 if (temp.Length > 1)
                                 {
-                                    int timeoutStart = 1 + temp[1].IndexOf(EQ);
+                                    int timeoutStart = 1 + temp[1].IndexOf(Media.Sdp.SessionDescription.EQ);
                                     if (timeoutStart > 0 && int.TryParse(temp[1].Substring(timeoutStart), out timeoutStart))
                                     {
                                         if (timeoutStart <= 0)
@@ -1153,7 +1149,7 @@ namespace Media.Rtsp
                 if (!string.IsNullOrWhiteSpace(controlPart))
                 {
                     //Prepare the part
-                    controlPart = controlPart.Split(Colon, 2, StringSplitOptions.RemoveEmptyEntries).Last();
+                    controlPart = controlPart.Split(Media.Sdp.SessionDescription.Colon, 2, StringSplitOptions.RemoveEmptyEntries).Last();
 
                     //Determine if its a Absolute Uri
                     if (controlPart.StartsWith(RtspMessage.ReliableTransport, StringComparison.OrdinalIgnoreCase) || controlPart.StartsWith(RtspMessage.UnreliableTransport, StringComparison.OrdinalIgnoreCase))
@@ -1273,12 +1269,12 @@ namespace Media.Rtsp
                 {
                     if (line.Parts[0].StartsWith("RR"))
                     {
-                        reportReceivingEvery = int.Parse(line.Parts[0].Split(Colon, StringSplitOptions.RemoveEmptyEntries)[1]);                        
+                        reportReceivingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.Colon, StringSplitOptions.RemoveEmptyEntries)[1]);                        
                     }
 
                     if (line.Parts[0].StartsWith("RS"))
                     {
-                        reportSendingEvery = int.Parse(line.Parts[0].Split(Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
+                        reportSendingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
                     }
 
                     //if (line.Parts[0].StartsWith("AS"))
@@ -1598,7 +1594,7 @@ namespace Media.Rtsp
                 //Should throw if RtpInfo was not present
                 if (!string.IsNullOrEmpty(rangeString))
                 {
-                    string[] times = rangeString.Trim().Split(EQ);
+                    string[] times = rangeString.Trim().Split(Media.Sdp.SessionDescription.EQ);
                     if (times.Length > 1)
                     {
                         //Determine Format
