@@ -619,7 +619,7 @@ namespace Media.Rtsp
             }
 
             //Get the parts which are delimited by ' ', ';' , '-' or '='
-            string[] parts = transportHeader.Split(RtspClient.SpaceSplit[0], RtspClient.TimeSplit[1], RtspClient.TimeSplit[0], RtspClient.EQ);
+            string[] parts = transportHeader.Split(RtspClient.SpaceSplit[0], RtspClient.TimeSplit[1], RtspClient.TimeSplit[0], Media.Sdp.SessionDescription.EQ);
 
             string[] channels = null, clientPorts = null;
 
