@@ -100,7 +100,11 @@ namespace Media.Rtsp.Server.Streams
         {
             //Add handler for frame events
             //if (RtpClient != null) RtpClient.RtpFrameChanged += DecodeFrame;
-            if (RtpClient != null) RtpClient.Connect();
+            if (RtpClient != null)
+            {
+                RtpClient.Connect();
+                base.Ready = true;
+            }
             base.Start();
         }
 
@@ -108,7 +112,11 @@ namespace Media.Rtsp.Server.Streams
         {
             //Remove handler
             //if (RtpClient != null) RtpClient.RtpFrameChanged -= DecodeFrame;
-            if (RtpClient != null) RtpClient.Disconnect();
+            if (RtpClient != null)
+            {
+                RtpClient.Disconnect();
+                base.Ready = false;
+            }
             base.Stop();
         }
 
