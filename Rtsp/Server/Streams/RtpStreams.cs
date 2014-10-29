@@ -50,74 +50,79 @@ namespace Media.Rtsp.Server.Streams
     {
         public const string RtpMediaProtocol = "RTP/AVP";
 
-        System.Drawing.Image m_lastDecodedFrame;
-
         public RtpSource(string name, Uri source) : base(name, source) { }
         
         public bool DisableRtcp { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
 
         public virtual Rtp.RtpClient RtpClient { get; protected set; }
 
-        public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } } //This will take effect after the change, existing clients will still have their connection
-
-        internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
-        {
-            if (RtpClient == null || RtpClient != sender) return;
-            try
-            {
-                //Get the MediaDescription (by ssrc so dynamic payload types don't conflict
-                Media.Sdp.MediaDescription mediaDescription = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier).MediaDescription;
-                if (mediaDescription.MediaType == Sdp.MediaType.audio)
-                {
-                    //Could have generic byte[] handlers OnAudioData OnVideoData OnEtc
-                    //throw new NotImplementedException();
-                }
-                else if (mediaDescription.MediaType == Sdp.MediaType.video)
-                {
-                    if (mediaDescription.MediaFormat == 26)
-                    {
-                        OnFrameDecoded(m_lastDecodedFrame = (new RFC2435Stream.RFC2435Frame(frame)).ToImage());
-                    }
-                    else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
-                    {
-                        //Dynamic..
-                        //throw new NotImplementedException();
-                    }
-                    else
-                    {
-                        //0 - 95 || >= 128
-                        //throw new NotImplementedException();
-                    }
-                }
-            }
-            catch
-            {
-                return;
-            }
-        }
+        //This will take effect after the change, existing clients will still have their connection
+        public bool ForceTCP { get { return m_ForceTCP; } set { m_ForceTCP = value; } } 
+        
+        //System.Drawing.Image m_lastDecodedFrame;
+        //internal virtual void DecodeFrame(Rtp.RtpClient sender, Rtp.RtpFrame frame)
+        //{
+        //    if (RtpClient == null || RtpClient != sender) return;
+        //    try
+        //    {
+        //        //Get the MediaDescription (by ssrc so dynamic payload types don't conflict
+        //        Media.Sdp.MediaDescription mediaDescription = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier).MediaDescription;
+        //        if (mediaDescription.MediaType == Sdp.MediaType.audio)
+        //        {
+        //            //Could have generic byte[] handlers OnAudioData OnVideoData OnEtc
+        //            //throw new NotImplementedException();
+        //        }
+        //        else if (mediaDescription.MediaType == Sdp.MediaType.video)
+        //        {
+        //            if (mediaDescription.MediaFormat == 26)
+        //            {
+        //                OnFrameDecoded(m_lastDecodedFrame = (new RFC2435Stream.RFC2435Frame(frame)).ToImage());
+        //            }
+        //            else if (mediaDescription.MediaFormat >= 96 && mediaDescription.MediaFormat < 128)
+        //            {
+        //                //Dynamic..
+        //                //throw new NotImplementedException();
+        //            }
+        //            else
+        //            {
+        //                //0 - 95 || >= 128
+        //                //throw new NotImplementedException();
+        //            }
+        //        }
+        //    }
+        //    catch
+        //    {
+        //        return;
+        //    }
+        //}
 
         public override void Start()
         {
             //Add handler for frame events
-            //if (RtpClient != null) RtpClient.RtpFrameChanged += DecodeFrame;
-            if (RtpClient != null)
+            if (State == StreamState.Stopped)
             {
-                RtpClient.Connect();
-                base.Ready = true;
+                if (RtpClient != null)
+                {
+                    RtpClient.Connect();
+
+                    base.Ready = true;
+
+                    base.Start();
+                }
             }
-            base.Start();
         }
 
         public override void Stop()
         {
             //Remove handler
-            //if (RtpClient != null) RtpClient.RtpFrameChanged -= DecodeFrame;
-            if (RtpClient != null)
+            if (State == StreamState.Started)
             {
-                RtpClient.Disconnect();
+                if (RtpClient != null) RtpClient.Disconnect();
+
                 base.Ready = false;
+
+                base.Stop();
             }
-            base.Stop();
         }
 
         public override void Dispose()
@@ -128,9 +133,11 @@ namespace Media.Rtsp.Server.Streams
         }
 
         public RtpSource(string name, Sdp.SessionDescription sessionDescription)
-            : base(name, new Uri("rtp://" + ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).IPAddress))
+            : base(name, new Uri(Rtp.RtpClient.RtpProtcolScheme + "://" + ((Sdp.Lines.SessionConnectionLine)sessionDescription.ConnectionLine).IPAddress))
         {
-            RtpClient = Media.Rtp.RtpClient.FromSessionDescription(sessionDescription);            
+            if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
+
+            RtpClient = Media.Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
         }
 
         IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
@@ -139,50 +146,50 @@ namespace Media.Rtsp.Server.Streams
         }
     }
 
+    /// <summary>
+    /// Provides the basic opertions for any locally created Rtp data
+    /// </summary>
     public class RtpSink : RtpSource, IMediaSink
     {
-        public override Rtp.RtpClient RtpClient
-        {
-            get { return Client; }
-        }
-
         public RtpSink(string name, Uri source) : base(name, source) { }
-
-        public Rtp.RtpClient Client { get; protected set; }
 
         public virtual bool Loop { get; set; }
 
         protected Queue<Media.Common.IPacket> Packets = new Queue<Media.Common.IPacket>();
 
-        public double MaxSendRate { get; protected set; }
+        //public double MaxSendRate { get; protected set; }
+
+        //Fix
 
         public void SendData(byte[] data)
         {
-            if (Client != null) Client.OnRtpPacketReceieved(new Rtp.RtpPacket(data, 0));
+            if (RtpClient != null) RtpClient.OnRtpPacketReceieved(new Rtp.RtpPacket(data, 0));
         }
 
         public void EnqueData(byte[] data)
         {
-            if (Client != null) Packets.Enqueue(new Rtp.RtpPacket(data, 0));
+            if (RtpClient != null) Packets.Enqueue(new Rtp.RtpPacket(data, 0));
         }
+
+        //
 
         public void SendPacket(Media.Common.IPacket packet)
         {
-            if (Client != null)
+            if (RtpClient != null)
             {
-                if (packet is Rtp.RtpPacket) Client.OnRtpPacketReceieved(packet as Rtp.RtpPacket);
-                else if (packet is Rtcp.RtcpPacket) Client.OnRtcpPacketReceieved(packet as Rtcp.RtcpPacket);
+                if (packet is Rtp.RtpPacket) RtpClient.OnRtpPacketReceieved(packet as Rtp.RtpPacket);
+                else if (packet is Rtcp.RtcpPacket) RtpClient.OnRtcpPacketReceieved(packet as Rtcp.RtcpPacket);
             }
         }
 
         public void EnquePacket(Media.Common.IPacket packet)
         {
-            if (Client != null) Packets.Enqueue(packet);
+            if (RtpClient != null) Packets.Enqueue(packet);
         }
 
         public void SendReports()
         {
-            if (Client != null) Client.SendReports();
+            if (RtpClient != null) RtpClient.SendReports();
         }
 
         internal virtual void SendPackets()
@@ -207,15 +214,6 @@ namespace Media.Rtsp.Server.Streams
 
                     //Check for bandwidth and sleep if necessary
                 }
-                catch (OverflowException)
-                {
-#if DEBUG
-                    System.Diagnostics.Debug.WriteLine("Sink " + Id + " Overflow");
-#endif
-                    System.Threading.Thread.Sleep(0);
-
-                    continue;
-                }
                 catch (Exception ex)
                 {
                     if (ex is System.Threading.ThreadAbortException) return;
@@ -224,14 +222,4 @@ namespace Media.Rtsp.Server.Streams
             }
         }
     }
-
-    //public class RtpDumpSource : RtpSource
-    //{
-        //Determine here or Rtsp
-    //}
-
-    //public abstract class RtpChildStream
-    //{
-    //}
-
 }
