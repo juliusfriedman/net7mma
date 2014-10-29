@@ -1297,6 +1297,9 @@ namespace Media.Rtsp
                 //Cache this to prevent having to go to get it every time down the line
                 IPAddress sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
+
+                //Todo Use FromSessionDescription?
+
                 ///The transport header contains the following information, this needs to be trimmed
                 for (int i = 0, e = parts.Length; i < e; ++i)
                 {
@@ -1470,14 +1473,15 @@ namespace Media.Rtsp
         //Setup for Interleaved
         SetupTcp:
             {
-                if (m_RtpClient != null)
+                if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
                 {
-                    m_RtpClient.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
-
+                    //Disconnect existing sockets
+                    foreach (var tc in m_RtpClient.TransportContexts) tc.DisconnectSockets();
                     //Clear existing transportChannels
                     m_RtpClient.TransportContexts.Clear();
                 }
-                else m_RtpProtocol = ProtocolType.Tcp;
+                
+                m_RtpProtocol = ProtocolType.Tcp;
 
                 //Recurse call to ensure propper setup
                 return SendSetup(location, mediaDescription);

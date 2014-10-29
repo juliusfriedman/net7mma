@@ -989,7 +989,7 @@ namespace Media.Rtsp
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
                 //If we received anything
-                if (received >= RtpClient.TCP_OVERHEAD)
+                if (received >= RtpClient.InterleavedOverhead)
                 {
                     //Count for the server
                     Interlocked.Add(ref m_Recieved, received);

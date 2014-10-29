@@ -533,6 +533,8 @@ namespace Media.Sdp
 
             //Additionally he might have been talking about the Range header in which case "now" is handled propertly.
 
+            //TODO Use constants...
+
             string[] parts = sdpLine.Split(' ', '-');
 
             int partsLength = parts.Length;
@@ -558,6 +560,7 @@ namespace Media.Sdp
                 //Parse and add the repeat time
                 try
                 {
+                    //Use parts and substring?
                     RepeatTimes.Add(long.Parse(SessionDescription.CleanLineValue(sdpLine.Replace("r=", string.Empty)), System.Globalization.CultureInfo.InvariantCulture));
                 }
                 catch (Exception ex)
@@ -596,10 +599,6 @@ namespace Media.Sdp
     //     */
     //}
 
-    /// <summary>
-    /// Thrown when a SessionDescription does not conform to the RFC 4566 outline
-    /// </summary>
-  
 
     /// <summary>
     /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
@@ -700,6 +699,8 @@ namespace Media.Sdp
 
         }
     }
+
+    //Public?
 
     #region Internal Line Types
    
