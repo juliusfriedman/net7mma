@@ -1298,7 +1298,7 @@ namespace Media.Rtsp
                 IPAddress sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
 
-                //Todo Use FromSessionDescription?
+                //Switch on string or Use FromSessionDescription?
 
                 ///The transport header contains the following information, this needs to be trimmed
                 for (int i = 0, e = parts.Length; i < e; ++i)
@@ -1454,13 +1454,6 @@ namespace Media.Rtsp
                             }
                         }
                     }
-#if DEBUG
-                    else //The part is not handled
-                    {
-
-                        System.Diagnostics.Debug.WriteLine("Unhandled Rtsp Response Transport Header Part: " + part);
-                    }
-#endif
                 }
 
                 //Setup Complete

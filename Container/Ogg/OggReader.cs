@@ -30,6 +30,7 @@ namespace Media.Container.Ogg
         {
             Unknown = 0,
             Oggs = 1399285583,
+            //Possibly add Oggs01
             //Might not need the others or even this enum...
             fishead = 28254585843050854,
             fisbone = 28550397319932262,
@@ -184,6 +185,8 @@ namespace Media.Container.Ogg
                         //Read a byte at a time to determine the length
                         //Could also verify CRC as reading
                         while (pageSegmentCount-- > 0) length += ReadByte();
+
+                        //Possible to determine if fishead/fisbone or index here?
 
                         break;
                     }

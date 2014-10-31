@@ -301,6 +301,8 @@ namespace Tests
                     //Create a Session Description
                     Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
 
+                    SessionDescription.Add(new Media.Sdp.SessionDescriptionLine("c=IN IP4 " + localIp.ToString()));
+
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
                     SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
 
@@ -311,12 +313,6 @@ namespace Tests
                     //Using a receiver
                     using (var receiver = Media.Rtp.RtpClient.Participant(Utility.GetFirstV4IPAddress()))
                     {
-
-                        //Set tcp 
-                        if (tcp)
-                        {
-                            sender.m_TransportProtocol = receiver.m_TransportProtocol = System.Net.Sockets.ProtocolType.Tcp;
-                        }
 
                         //Determine when the sender and receive should time out
                         //sender.InactivityTimeout = receiver.InactivityTimeout = TimeSpan.FromSeconds(7);
@@ -341,26 +337,63 @@ namespace Tests
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - " + receiver.m_Id + " - Recievers SSRC = " + receiversContext.SynchronizationSourceIdentifier);
 
-                        //Find open ports, 1 for Rtp, 1 for Media.Rtcp
-                        int incomingRtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17777, false), rtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17778),
-                        ougoingRtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10777, false), xrtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10778);
-
-                        //Initialzie the sockets required and add the context so the RtpClient can maintin it's state, once for the receiver and once for the sender in this example.
-                        //Most application would only have one or the other.
-
-                        receiversContext.Initialize(localIp, localIp, incomingRtpPort, rtcpPort, ougoingRtpPort, xrtcpPort);
-
                         receiver.Add(receiversContext);
-
-                        sendersContext.Initialize(localIp, localIp, ougoingRtpPort, xrtcpPort, incomingRtpPort, rtcpPort);
 
                         sender.Add(sendersContext);
 
-                        //Connect the sender
-                        sender.Connect();
+                        //For Tcp a higher level protocol such as RTSP / SIP usually sets things up.
+                        //Stand alone is also possible a socket just has to be created to facilitate accepts
+                        if (tcp)
+                        {
+                            //Make a socket for the sender
+                            var sendersSocket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
 
-                        //Connect the reciver (On the `otherside`)
-                        receiver.Connect();
+                            //Bind and listen
+                            sendersSocket.Bind(new System.Net.IPEndPoint(localIp, 17777));
+                            sendersSocket.Listen(1);
+
+                            //Start to accept connections
+                            var acceptResult = sendersSocket.BeginAccept(new AsyncCallback(iar =>
+                            {
+                                var receiversSocket = sendersSocket.EndAccept(iar);
+                                sendersContext.Initialize(sendersSocket);
+                                receiversContext.Initialize(receiversSocket);
+
+                                //Connect the sender
+                                sender.Connect();
+
+                                //Connect the reciver (On the `otherside`)
+                                receiver.Connect();
+
+                            }), null);
+
+                            //Make a socket for the receiver
+                            var rr = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+                            
+                            //Connect to the sender
+                            rr.Connect(new System.Net.IPEndPoint(localIp, 17777));
+
+                            while (!acceptResult.IsCompleted) { }
+
+                        }
+                        else //For Udp a port should be found unless the MediaDescription indicates a specific port.
+                        {
+                            int incomingRtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17777, false), rtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 17778),
+                            ougoingRtpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10777, false), xrtcpPort = Utility.FindOpenPort(System.Net.Sockets.ProtocolType.Udp, 10778);
+
+                            //Initialzie the sockets required and add the context so the RtpClient can maintin it's state, once for the receiver and once for the sender in this example.
+                            //Most application would only have one or the other.
+
+                            receiversContext.Initialize(localIp, localIp, incomingRtpPort, rtcpPort, ougoingRtpPort, xrtcpPort);
+                            sendersContext.Initialize(localIp, localIp, ougoingRtpPort, xrtcpPort, incomingRtpPort, rtcpPort);
+
+                            //Connect the sender
+                            sender.Connect();
+
+                            //Connect the reciver (On the `otherside`)
+                            receiver.Connect();
+
+                        }
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 

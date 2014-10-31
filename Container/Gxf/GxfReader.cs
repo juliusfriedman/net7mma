@@ -15,6 +15,10 @@ namespace Media.Container.Gxf
         public enum Identifier : byte
         {
             Unknown = 0,
+            //Usually 
+            //6) 4 bytes 0, 1, Code
+            //4) Length
+            //6) 4 bytes 0, e1, e2
             PacketStartA = 0xe1,
             PacketStartB = 0xe2,
             //public enum PacketType
