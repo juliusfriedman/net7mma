@@ -137,7 +137,7 @@ namespace Media.Rtp
         /// <summary>
         /// A managed abstraction of the first two octets, 16 bits of the RtpHeader.
         /// </summary>
-        CommonHeaderBits First16Bits;
+        Media.RFC3550.CommonHeaderBits First16Bits;
 
         /// <summary>
         /// A the last 10 octets of the RtpHeader.
@@ -296,7 +296,7 @@ namespace Media.Rtp
             {
 
                 //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
-                First16Bits = new CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
+                First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
 
                 //Allocate space for the other 10 octets
                 Last10Bytes = hasMoreThanOnebyte ? new byte[10] : Utility.Empty;
@@ -310,7 +310,7 @@ namespace Media.Rtp
             else
             {
                 //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
-                First16Bits = new CommonHeaderBits(octets[offset + 0], default(byte));
+                First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], default(byte));
 
                 //Allocate space for the other 10 octets
                 Last10Bytes =  Utility.Empty;
@@ -334,7 +334,7 @@ namespace Media.Rtp
             }
             else
             {
-                First16Bits = new CommonHeaderBits(other.First16Bits);
+                First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits);
                 Last10Bytes = new byte[10];
                 PointerToLast10Bytes = new Common.MemorySegment(Last10Bytes, 0, 10);
                 other.Last10Bytes.CopyTo(Last10Bytes, 0);
@@ -343,7 +343,7 @@ namespace Media.Rtp
 
         public RtpHeader(int version, bool padding, bool extension)
         {
-            First16Bits = new CommonHeaderBits(version, padding, extension);
+            First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, extension);
             
             //Allocate space for the other 10 octets
             Last10Bytes = new byte[10];

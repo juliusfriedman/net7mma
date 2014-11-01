@@ -827,7 +827,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
             /// <param name="bytesPerPacket">The amount of bytes each RtpPacket will contain</param>
             /// <param name="sourceList">The <see cref="SourceList"/> to be included in each packet of the frame</param>
-            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Common.SourceList sourceList = null)
+            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Media.RFC3550.SourceList sourceList = null)
                 : this()
             {
 
@@ -1783,7 +1783,7 @@ namespace Media.Rtsp.Server.Streams
             });
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, RtpSource.RtpMediaProtocol, RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks

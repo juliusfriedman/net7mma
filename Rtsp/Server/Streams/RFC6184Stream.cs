@@ -260,7 +260,7 @@ namespace Media.Rtsp.Server.Streams
             m_RtpClient.TransportContexts.Clear();
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, RtpSource.RtpMediaProtocol, 96));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks

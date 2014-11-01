@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -86,28 +87,27 @@ namespace Media.Container.BaseMedia
             return result;
         }
 
-        public byte[] ReadIdentifier()
+        public byte[] ReadIdentifier(Stream stream)
         {
-            if (Remaining < IdentifierSize) return null;
+            //if (Remaining < IdentifierSize) return null;
             
             byte[] identifier = new byte[IdentifierSize];
 
-            Read(identifier, 0, IdentifierSize);
+            stream.Read(identifier, 0, IdentifierSize);
 
             return identifier;
         }
 
-        public long ReadLength(out int bytesRead)
+        public long ReadLength(Stream stream, out int bytesRead)
         {
-            if (Remaining < LengthSize) return bytesRead = 0;
+            //if (Remaining < LengthSize) return bytesRead = 0;
             bytesRead = 0;
             long length = 0;
             byte[] lengthBytes = new byte[LengthSize];
             do
             {
-                Read(lengthBytes, 0, LengthSize);
+                bytesRead += stream.Read(lengthBytes, 0, LengthSize);
                 length = (lengthBytes[0] << 24) + (lengthBytes[1] << 16) + (lengthBytes[2] << 8) + lengthBytes[3];
-                bytesRead += 4;
             } while (length == 1 || (length & 0xffffffff) == 0);
             return length;
         }
@@ -120,9 +120,9 @@ namespace Media.Container.BaseMedia
 
             int lengthBytesRead = 0;
 
-            long length = ReadLength(out lengthBytesRead);
+            long length = ReadLength(this, out lengthBytesRead);
 
-            byte[] identifier = ReadIdentifier();
+            byte[] identifier = ReadIdentifier(this);
 
             //int nonDataBytes = IdentifierSize + lengthBytesRead;
 
@@ -369,10 +369,39 @@ namespace Media.Container.BaseMedia
             if(!m_Duration.HasValue) ParseMovieHeader();
 
             //For each trak box in the file
-            //TODO Make only a single pass, the data required should always be in the RawData of trackBox
-            //E,g, switch on identifer name contained in trak
+            //TODO Make only a single pass, the data required should always be in the RawData of trakBox
+            //E,g, use trackBox.Data stream and switch on identifer name contained in Data
             foreach (var trakBox in ReadBoxes(Root.Offset, "trak").ToArray())
             {
+                //MAKE ONLY A SINGLE PASS HERE TO REDUCE IO
+                //using (var stream = trakBox.Data)
+                //{
+                //    stream.Position += MinimumSize;
+
+                //    int bytesRead = 0;
+
+                //    long length = ReadLength(stream, out bytesRead);
+
+                //    byte[] identifier = ReadIdentifier(stream);
+
+                //    while (stream.Position < stream.Length)
+                //    {
+                //        switch (ToFourCharacterCode(identifier))
+                //        {
+                //            case "tkhd":
+                //                {
+                //                    break;
+                //                }
+                //            default:
+                //                {
+                //                    stream.Position += length; 
+                //                    continue;
+                //                }
+                //        }
+                //    }
+                //}
+
+                //Should come right after trak header
                 var trakHead = ReadBox("tkhd", trakBox.Offset);
 
                 int offset = MinimumSize;

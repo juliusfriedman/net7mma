@@ -90,14 +90,12 @@
     <Compile Include="Common\Binary.cs" />
     <Compile Include="Common\BitReader.cs" />
     <Compile Include="Common\BitWriter.cs" />
-    <Compile Include="Common\CommonHeaderBits.cs" />
     <Compile Include="Common\ConcurrentThesaurus.cs" />
     <Compile Include="Common\Exception.cs" />
     <Compile Include="Common\IPacket.cs" />
     <Compile Include="Common\ISocketOwner.cs" />
     <Compile Include="Common\IThreadOwner.cs" />
     <Compile Include="Common\MemorySegment.cs" />
-    <Compile Include="Common\SourceList.cs" />
     <Compile Include="Container\Asf\AsfReader.cs" />
     <Compile Include="Container\BaseMedia\BaseMediaReader.cs" />
     <Compile Include="Container\Gxf\GxfReader.cs" />
@@ -127,9 +125,6 @@
     <Compile Include="Rtcp\RtcpReport.cs" />
     <Compile Include="Rtcp\SendersReport.cs" />
     <Compile Include="Rtcp\SourceDescriptionReport.cs" />
-    <Compile Include="Rtcp\SourceDescriptionChunk.cs" />
-    <Compile Include="Rtcp\SourceDescriptionItem.cs" />
-    <Compile Include="Rtcp\SourceDescriptionItemList.cs" />
     <Compile Include="Rtmp\RtmpClient.cs" />
     <Compile Include="Rtmp\RtmpPacket.cs" />
     <Compile Include="RtpTools\FileFormat.cs" />
@@ -157,7 +152,6 @@
     <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
     <Compile Include="Rtsp\Server\ClientSession.cs" />
     <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\FileSourceStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaStream.cs" />
     <Compile Include="Rtsp\Server\Streams\IMediaSink.cs" />
     <Compile Include="Rtsp\Server\Streams\JPEGSourceStream.cs" />
