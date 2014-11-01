@@ -534,7 +534,9 @@ namespace Media.Container.Nut
                 }
                 else if (length > (2 * MaximumDistance)) throw new InvalidOperationException("frame size > 2 max_distance and no checksum");
 
-                return new Node(this, new byte[] {0, 0, 0, 0, 0, 0, 0, nextByte}, Position, length, length <= Remaining);
+                //Can store 6 more bytes in identifier
+
+                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, 0, (byte)frameFlags }, Position, length, length <= Remaining);
             }
         }
 

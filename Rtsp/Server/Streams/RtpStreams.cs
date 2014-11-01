@@ -46,8 +46,6 @@ namespace Media.Rtsp.Server.Streams
     /// </summary>
     public class RtpSource : SourceStream, Media.Common.IThreadOwner
     {
-        public const string RtpMediaProtocol = "RTP/AVP";
-
         public RtpSource(string name, Uri source) : base(name, source) { }
         
         public bool RtcpDisabled { get { return m_DisableQOS; } set { m_DisableQOS = value; } }

@@ -66,6 +66,19 @@ namespace Media.Container
             m_Length = base.Length;
         }
 
+        //Used for segmenting a stream, another class might be more useful which would also allow a offset start position.
+        internal MediaFileStream(MediaFileStream other, long? start, long? length)
+            : base(other.SafeFileHandle, System.IO.FileAccess.Read, 8192)
+        {
+            m_Source = other.m_Source;
+
+            m_FileInfo = other.m_FileInfo;
+
+            m_Position = start ?? other.Position;
+
+            m_Length = length ?? other.Length;
+        }
+
         #endregion
 
         public override void Close()
@@ -76,7 +89,12 @@ namespace Media.Container
             m_Source = null;
             m_FileInfo = null;
             base.Close();
-        }        
+        }
+
+        //public virtual MediaFileStream Fork(long offset, long count)
+        //{
+        //    return new MediaFileStream(this, offset - count);
+        //}
 
         #region Abstraction
 

@@ -304,7 +304,7 @@ namespace Tests
                     SessionDescription.Add(new Media.Sdp.SessionDescriptionLine("c=IN IP4 " + localIp.ToString()));
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtsp.Server.Streams.RtpSource.RtpMediaProtocol, Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtp.RtpClient.RtpAvpProfileIdentifier, Media.Rtsp.Server.Streams.RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
 
                     sender.RtcpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
                     sender.RtcpPacketReceieved += (s, p) => TryPrintClientPacket(s, true, p);
@@ -825,7 +825,7 @@ namespace Tests
                     Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
                     //Use a SourceDescriptionItemList to access the items within the Chunk
                     //This is performed auto magically when using the foreach pattern
-                    foreach (Media.Rtcp.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
+                    foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
                     {
                         Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
                         Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
@@ -866,7 +866,7 @@ namespace Tests
 
             sd = new Media.Rtcp.SourceDescriptionReport(2, false, 1, 0x0007);
             byte[] itemData = Encoding.UTF8.GetBytes("FLABIA-PC");
-            sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionItem(Media.Rtcp.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
+            sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
             rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
             //asPacket now contains 11 octets in the payload.
             //asPacket now has 1 block (1 chunk of 15 bytes)
@@ -936,7 +936,7 @@ namespace Tests
                                 Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
                                 //Use a SourceDescriptionItemList to access the items within the Chunk
                                 //This is performed auto magically when using the foreach pattern
-                                foreach (Media.Rtcp.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
+                                foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
                                 {
                                     Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
                                     Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));

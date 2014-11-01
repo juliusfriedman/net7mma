@@ -101,6 +101,8 @@ namespace Media.Container.Ogg
 
                 if (names == null || names.Count() == 0 || names.Contains(found) || names.Contains((CapturePattern)((ulong)found & uint.MaxValue))) yield return page;
 
+                //Could check raw for identifier
+
                 continue;
             }
 
@@ -133,64 +135,34 @@ namespace Media.Container.Ogg
 
             //Take a 8 bytes and convert to an ID( & uint.MaxValue to get OggS)
             //is this worth it?
-            CapturePattern found = (CapturePattern)(Common.Binary.ReadU64(identifier, 0, !BitConverter.IsLittleEndian));
+            //CapturePattern found = (CapturePattern)(Common.Binary.ReadU64(identifier, 0, !BitConverter.IsLittleEndian));
 
-            //Determine what to do by what was captured.
-            switch (found)
-            {
-                // DESIGN FLAW
-                    //These will never occur here
-                //case CapturePattern.fishead:
-                //    {
-                //        throw new NotImplementedException();
-                //        break;
-                //    }
-                //case CapturePattern.fisbone:
-                //    {
-                //        throw new NotImplementedException();
-                //        break;
-                //    }
-                //case CapturePattern.index:
-                //    {
-                //        throw new NotImplementedException();
-                //        break;
-                //    }
-                    //defalt should throw
-                case CapturePattern.Oggs: //Assume all entries are OggS
-                default:
-                    {
-                        //Check version
-                        if (identifier[4] > 0) throw new InvalidOperationException("Only Version 0 is Defined.");
+            //Check version
+            if (identifier[4] > 0) throw new InvalidOperationException("Only Version 0 is Defined.");
 
-                        //HeaderType headerType = (HeaderType)identifier[5];
+            //HeaderType headerType = (HeaderType)identifier[5];
 
-                        //A Special value of -1 indicates that no packets finish on this page.
-                        //long granule_position = Common.Binary.Read64(identifier, 6, !BitConverter.IsLittleEndian);
+            //A Special value of -1 indicates that no packets finish on this page.
+            //long granule_position = Common.Binary.Read64(identifier, 6, !BitConverter.IsLittleEndian);
 
-                        //uint serialNumber = Common.Binary.ReadU32(identifier, 14, !BitConverter.IsLittleEndian);
+            //uint serialNumber = Common.Binary.ReadU32(identifier, 14, !BitConverter.IsLittleEndian);
 
-                        //uint sequenceNumber = Common.Binary.ReadU32(identifier, 18, !BitConverter.IsLittleEndian);
+            //uint sequenceNumber = Common.Binary.ReadU32(identifier, 18, !BitConverter.IsLittleEndian);
 
-                        //Poly = 0x04c11db7
-                        //uint crc32 = Common.Binary.ReadU32(identifier, 22, !BitConverter.IsLittleEndian);
+            //Poly = 0x04c11db7
+            //uint crc32 = Common.Binary.ReadU32(identifier, 22, !BitConverter.IsLittleEndian);
 
-                        byte pageSegmentCount = identifier[26];
+            byte pageSegmentCount = identifier[26];
 
-                        if (pageSegmentCount < 1 || Remaining < pageSegmentCount) throw new InvalidOperationException("Invalid Header Page");
+            if (pageSegmentCount < 1 || Remaining < pageSegmentCount) throw new InvalidOperationException("Invalid Header Page");
 
-                        // (segment_table) @ 27 - number_page_segments Bytes containing the lacing
-                        //values of all segments in this page.  Each Byte contains one
-                        //lacing value.
+            // (segment_table) @ 27 - number_page_segments Bytes containing the lacing
+            //values of all segments in this page.  Each Byte contains one
+            //lacing value.
 
-                        //Read a byte at a time to determine the length
-                        //Could also verify CRC as reading
-                        while (pageSegmentCount-- > 0) length += ReadByte();
-
-                        //Possible to determine if fishead/fisbone or index here?
-
-                        break;
-                    }
-            }
+            //Read a byte at a time to determine the length
+            //Could also verify CRC as reading
+            while (pageSegmentCount-- > 0) length += ReadByte();
 
             Node result = new Node(this, identifier, Position, length, length <= Remaining);
 
@@ -849,9 +821,26 @@ namespace Media.Container.Ogg
 
         public override Node TableOfContents
         {
-            //Probably not right
-            //Probably is something like ReadPages(Flags.Begin, OggS).Where(n=> n.Size > 0 && CapturePattern@Raw[0] == fishead, fisbone, index etc.
-            get { using(var root = Root) return ReadPages(root.Offset + root.Size, Length - (root.Offset + root.Size), CapturePattern.fishead, CapturePattern.fisbone, CapturePattern.index).FirstOrDefault(); }
+            get
+            {
+                return ReadPages(0, Length, HeaderFlags.FirstPage, CapturePattern.Oggs).Where(n =>
+                {
+                    if (n.Size > 0)
+                    {
+                        CapturePattern found = (CapturePattern)Common.Binary.Read64(n.Raw, 0, BitConverter.IsLittleEndian);
+
+                        switch (found)
+                        {
+                            case CapturePattern.fishead:
+                            case CapturePattern.fisbone:
+                            case CapturePattern.index:
+                                return true;
+                        }
+                    }
+
+                    return false;
+                }).FirstOrDefault();
+            }
         }
     }
 }
