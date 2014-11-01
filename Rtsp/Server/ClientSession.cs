@@ -683,7 +683,7 @@ namespace Media.Rtsp
                 if (m_RtpClient == null)
                 {
                     //Create a sender
-                    m_RtpClient = RtpClient.Sender(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address);
+                    m_RtpClient = RtpClient.Sender(m_Buffer);
                 }
 
                 //Find an open port to send on (might want to reserve this port with a socket)
@@ -717,10 +717,10 @@ namespace Media.Rtsp
 
                 setupContext.m_SendInterval = sourceContext.m_SendInterval;
 
-                if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;
+                if (!rtcpDisabled) setupContext.m_ReceiveInterval = RtpClient.DefaultReportInterval;                
 
                 //Create the return Trasnport header
-                returnTransportHeader = "RTP/AVP;unicast;client_port=" + string.Join("-", clientPorts) + ";server_port=" + setupContext.ClientRtpPort + "-" + setupContext.ClientRtcpPort + /* ";destination=" + ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address + */ ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address +";ssrc=0x" + ((uint)ssrc).ToString("X");
+                returnTransportHeader = "RTP/AVP;unicast;client_port=" + string.Join("-", clientPorts) + ";server_port=" + ((IPEndPoint)setupContext.LocalRtp).Port + "-" + ((IPEndPoint)setupContext.LocalRtcp).Port + /* ";destination=" + ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address + */ ";source=" + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address + ";ssrc=0x" + ((uint)ssrc).ToString("X");
             }            
             else if(channels.Length == 2) /// Rtsp / Tcp (Interleaved)
             {
@@ -740,41 +740,13 @@ namespace Media.Rtsp
                 if (m_RtpClient == null)
                 {
                     //Create a new RtpClient
-                    m_RtpClient = RtpClient.Duplexed(m_RtspSocket, m_Buffer);
+                    m_RtpClient = RtpClient.Duplexed(m_Buffer);
 
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 
                     m_RtpClient.FrameChangedEventsEnabled = false;
 
                     //Create a new Interleave
-                    setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
-
-                    setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
-
-                    if (!rtcpDisabled) setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
-
-                    //Add the transportChannel the client requested
-                    m_RtpClient.Add(setupContext);
-
-                    //Initialize the Interleaved Socket
-                    setupContext.Initialize(m_RtspSocket);
-                }
-                else if (m_RtpClient != null && m_RtpClient.m_TransportProtocol != ProtocolType.Tcp)//switching From Udp to Tcp
-                {
-                    //Has Udp source from before switch must clear
-                    if (Attached.Count > 0) foreach (var kvp in Attached) RemoveSource(kvp.Value);                   
-
-                    //Switch the client to Tcp manually
-                    m_RtpClient.m_TransportProtocol = ProtocolType.Tcp;
-
-                    //Clear the existing transportChannels
-                    m_RtpClient.TransportContexts.Clear();
-
-                    //Get rid of existing packets
-                    lock (m_RtpClient.m_OutgoingRtpPackets) m_RtpClient.m_OutgoingRtpPackets.Clear();
-                    lock (m_RtpClient.m_OutgoingRtcpPackets) m_RtpClient.m_OutgoingRtcpPackets.Clear();
-
-                    //Add the transportChannel the client requested
                     setupContext = new RtpClient.TransportContext((byte)rtpChannel, (byte)rtcpChannel, ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
 
                     setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);

@@ -1351,6 +1351,21 @@ namespace Media.Rtsp
                     }
                     else if (part.StartsWith("interleaved=", true, System.Globalization.CultureInfo.InvariantCulture))
                     {
+                        //If there is not a client
+                        if (m_RtpClient == null)
+                        {
+                            int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
+
+                            Common.MemorySegment memory = null;
+
+                            if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
+
+                            //Create a Duplexed reciever using the RtspSocket
+                            m_RtpClient = RtpClient.Duplexed(memory);
+
+                            m_RtpClient.InterleavedData += ProcessInterleaveData;
+                        }
+
                         //Should only be for Tcp
                         string[] channels = part.Substring(12).Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
 
@@ -1358,32 +1373,18 @@ namespace Media.Rtsp
                         {
                             RtpClient.TransportContext transportContext = new RtpClient.TransportContext(byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture),
                                 byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture),
-                                RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, m_RtspSocket, !rtcpDisabled, ssrc, 2);
+                                RFC3550.Random32(Rtcp.ReceiversReport.PayloadType), mediaDescription, m_RtspSocket, !rtcpDisabled, ssrc, ssrc != 0 ? 0 : 2);
 
                             transportContext.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
+
                             transportContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
 
-                            //If there is not a client
-                            if (m_RtpClient == null)
-                            {
-
-                                int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
-
-                                Common.MemorySegment memory = null;
-
-                                if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
-
-                                //Create a Duplexed reciever using the RtspSocket
-                                m_RtpClient = RtpClient.Duplexed(m_RtspSocket, memory);
-
-                                m_RtpClient.InterleavedData += ProcessInterleaveData;
-                            }                            
+                            //and initialize the client from the RtspSocket
+                            transportContext.Initialize(m_RtspSocket);
 
                             //try to add the transportChannel
                             m_RtpClient.Add(transportContext);
 
-                            //and initialize the client from the RtspSocket
-                            transportContext.Initialize(m_RtspSocket);
                         }
                         else
                         {
@@ -1427,7 +1428,7 @@ namespace Media.Rtsp
                                     if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
 
                                     //Create a Udp Reciever
-                                    m_RtpClient = RtpClient.Participant(m_RemoteIP, memory);
+                                    m_RtpClient = RtpClient.Participant(memory);
                                 }
                                 else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
                             }
@@ -1492,9 +1493,6 @@ namespace Media.Rtsp
                 {
                     try
                     {
-                        //Reconnect without losing the events on the RtpClient
-                        Client.m_TransportProtocol = m_RtpProtocol = ProtocolType.Tcp;
-
                         //Send a Teardown
                         SendTeardown();
 

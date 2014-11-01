@@ -810,7 +810,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return OriginatorType + Media.Sdp.SessionDescription.EQ + string.Join(" ", Username, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
+                return OriginatorType.ToString() + Media.Sdp.SessionDescription.EQ + string.Join(" ", Username, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
             }
 
         }
@@ -861,7 +861,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return NameType + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.CRLF;
+                return NameType.ToString() + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.CRLF;
             }
         }
 
@@ -911,7 +911,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return PhoneType + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(PhoneNumber) ? string.Empty : PhoneNumber) + SessionDescription.CRLF;
+                return PhoneType.ToString() + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(PhoneNumber) ? string.Empty : PhoneNumber) + SessionDescription.CRLF;
             }
         }
 
@@ -960,7 +960,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return EmailType + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(Email) ? string.Empty : Email) + SessionDescription.CRLF;
+                return EmailType.ToString() + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(Email) ? string.Empty : Email) + SessionDescription.CRLF;
             }
         }
 
@@ -1131,7 +1131,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return ConnectionType + Media.Sdp.SessionDescription.EQ + string.Join(" ", NetworkType, AddressType, Address) + SessionDescription.CRLF;
+                return ConnectionType.ToString() + Media.Sdp.SessionDescription.EQ + string.Join(" ", NetworkType, AddressType, Address) + SessionDescription.CRLF;
             }
         }
     }

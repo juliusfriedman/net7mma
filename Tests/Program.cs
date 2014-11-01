@@ -296,7 +296,7 @@ namespace Tests
                 System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
 
                 //Using a sender
-                using (var sender = Media.Rtp.RtpClient.Sender(localIp))
+                using (var sender = Media.Rtp.RtpClient.Sender())
                 {
                     //Create a Session Description
                     Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
@@ -311,7 +311,7 @@ namespace Tests
                     sender.RtpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
 
                     //Using a receiver
-                    using (var receiver = Media.Rtp.RtpClient.Participant(Utility.GetFirstV4IPAddress()))
+                    using (var receiver = Media.Rtp.RtpClient.Participant())
                     {
 
                         //Determine when the sender and receive should time out
@@ -345,7 +345,7 @@ namespace Tests
                         //Stand alone is also possible a socket just has to be created to facilitate accepts
                         if (tcp)
                         {
-                            //Make a socket for the sender
+                            //Make a socket for the sender to receive connections on
                             var sendersSocket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
 
                             //Bind and listen
@@ -355,10 +355,13 @@ namespace Tests
                             //Start to accept connections
                             var acceptResult = sendersSocket.BeginAccept(new AsyncCallback(iar =>
                             {
-                                var receiversSocket = sendersSocket.EndAccept(iar);
-                                sendersContext.Initialize(sendersSocket);
-                                receiversContext.Initialize(receiversSocket);
-
+                                //Get the socket used
+                                var acceptedSocket = sendersSocket.EndAccept(iar);
+                                
+                                sendersContext.Initialize(acceptedSocket);
+                                
+                                receiversContext.Initialize(acceptedSocket);
+                                
                                 //Connect the sender
                                 sender.Connect();
 
@@ -367,11 +370,13 @@ namespace Tests
 
                             }), null);
 
-                            //Make a socket for the receiver
+                            //Make a socket for the receiver to connect to the sender on.
                             var rr = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
                             
                             //Connect to the sender
                             rr.Connect(new System.Net.IPEndPoint(localIp, 17777));
+
+                            //acceptedSocket is now rr
 
                             while (!acceptResult.IsCompleted) { }
 
