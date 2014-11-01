@@ -56,6 +56,8 @@ namespace Media.Rtp
         /// </summary>
         internal Common.ConcurrentThesaurus<int, RtpClient.TransportContext> SourceTable = new Common.ConcurrentThesaurus<int, RtpClient.TransportContext>();
 
+        //Offer ; Answer 
+
         /*
          
          * TODO

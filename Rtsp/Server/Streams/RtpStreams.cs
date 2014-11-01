@@ -42,9 +42,7 @@ using System.Text;
 namespace Media.Rtsp.Server.Streams
 {
     /// <summary>
-    /// Adds an abstract RtpClient To SourceStream,   
-    /// This could also just be an interface, could have protected set for RtpClient
-    /// could also be a class which suscribes to events from the assigned RtpClient for RtpPackets etc
+    /// Provides the basic operations for consuming a remote rtp stream for which there is an existing <see cref="SessionDescription"/>
     /// </summary>
     public class RtpSource : SourceStream, Media.Common.IThreadOwner
     {
@@ -52,7 +50,7 @@ namespace Media.Rtsp.Server.Streams
 
         public RtpSource(string name, Uri source) : base(name, source) { }
         
-        public bool DisableRtcp { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
+        public bool RtcpDisabled { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
 
         public virtual Rtp.RtpClient RtpClient { get; protected set; }
 

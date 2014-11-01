@@ -132,7 +132,7 @@ namespace Media.Rtp
         /// <param name="incomingEvents"></param>
         /// <param name="rtcpEnabled"></param>
         /// <returns></returns>
-        public static RtpClient FromSessionDescription(Sdp.SessionDescription sessionDescription, Common.MemorySegment sharedMemory = null, bool incomingEvents = true, bool rtcpEnabled = true)
+        public static RtpClient FromSessionDescription(Sdp.SessionDescription sessionDescription, Common.MemorySegment sharedMemory = null, bool incomingEvents = true, bool rtcpEnabled = true, Socket existingSocket = null)
         {
 
             if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
@@ -141,46 +141,13 @@ namespace Media.Rtp
 
             IPAddress remoteIp = IPAddress.Parse(connectionLine.IPAddress), localIp = Utility.GetFirstIPAddress(remoteIp.AddressFamily);
 
-            RtpClient participant = RtpClient.Participant(remoteIp, sharedMemory, incomingEvents);
+            RtpClient participant = RtpClient.Participant(sharedMemory, incomingEvents);
 
             byte lastChannel = 0;
 
             foreach (Media.Sdp.MediaDescription md in sessionDescription.MediaDescriptions)
             {
-                int reportReceivingEvery = 0, reportSendingEvery = 0;
-
-                if (rtcpEnabled)
-                {
-                    foreach (Media.Sdp.SessionDescriptionLine line in md.BandwidthLines)
-                    {
-                        if (line.Parts[0].StartsWith("RR"))
-                        {
-                            reportReceivingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
-                        }
-
-                        if (line.Parts[0].StartsWith("RS"))
-                        {
-                            reportSendingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
-                        }
-
-                        //if (line.Parts[0].StartsWith("AS"))
-                        //{
-                        //    applicationSpecific = int.Parse(line.Parts[0].Split(Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
-                        //}
-                    }
-                }
-
-                bool rtcpDisabled = !rtcpEnabled && reportReceivingEvery + reportSendingEvery == 0;
-
-                TransportContext tc = TransportContext.FromMediaDescription(remoteIp, lastChannel++, lastChannel++, md, !rtcpDisabled);
-
-                //If Rtcp is not disabled then this will set the read and write timeouts.
-                if (!rtcpDisabled)
-                {
-                    //contextReportInterval = TimeSpan.FromMilliseconds((reportReceivingEvery + reportSendingEvery) / 2);
-                    tc.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                    tc.m_SendInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                }
+                TransportContext tc = TransportContext.FromMediaDescription(remoteIp, lastChannel++, lastChannel++, md, rtcpEnabled, existingSocket);
 
                 //Udp sockets are not created
                 if (tc.RtpSocket == null)
@@ -215,7 +182,7 @@ namespace Media.Rtp
         /// <returns></returns>
         public static RtpClient Multicast(IPAddress groupAddress, int ttl, Common.MemorySegment sharedMemory = null, bool rtcpEnabled = true, bool incomingEvents = true)
         {
-            return new RtpClient(groupAddress)
+            return new RtpClient(sharedMemory)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
                 FrameChangedEventsEnabled = true
@@ -227,10 +194,10 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="existing">The exsiting socket to use</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Duplexed(Socket existing, Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
+        public static RtpClient Duplexed(Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
         {
             //Should verify socket type is TCP and use new socket if required ?? new Socket...
-            return new RtpClient(existing, sharedMemory)
+            return new RtpClient(sharedMemory)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
                 FrameChangedEventsEnabled = true
@@ -243,9 +210,9 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="remoteAddress">The remote address</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Sender(IPAddress remoteAddress, Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
+        public static RtpClient Sender(Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
         {
-            return new RtpClient(remoteAddress, sharedMemory)
+            return new RtpClient(sharedMemory)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
                 FrameChangedEventsEnabled = false
@@ -258,9 +225,9 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="remoteAddress">The remote address</param>
         /// <returns>A configured RtpClient</returns>
-        public static RtpClient Participant(IPAddress remoteAddress, Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
+        public static RtpClient Participant(Common.MemorySegment sharedMemory = null, bool incomingEvents = true)
         {
-            return new RtpClient(remoteAddress, sharedMemory)
+            return new RtpClient(sharedMemory)
             {
                 IncomingPacketEventsEnabled = incomingEvents,
                 FrameChangedEventsEnabled = true
@@ -325,7 +292,7 @@ namespace Media.Rtp
         {
 
             //Should have an option for existing sockets?
-            public static TransportContext FromMediaDescription(IPAddress remoteIp, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true)
+            public static TransportContext FromMediaDescription(IPAddress remoteIp, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, Socket existing = null)
             {
 
                 if (remoteIp == null) throw new ArgumentNullException("remoteIp");
@@ -337,16 +304,40 @@ namespace Media.Rtp
                 TransportContext tc;
 
                 if (udp) tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.ReceiversReport.PayloadType), mediaDescription, rtcpEnabled);
-                else tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.ReceiversReport.PayloadType), mediaDescription, new Socket(remoteIp.AddressFamily, SocketType.Stream, ProtocolType.Tcp), rtcpEnabled);
+                else tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.ReceiversReport.PayloadType), mediaDescription, existing ?? new Socket(remoteIp.AddressFamily, SocketType.Stream, ProtocolType.Tcp), rtcpEnabled);
 
-                //Should be configured ehre
+                int reportReceivingEvery = 0, reportSendingEvery = 0;
+
+                if (rtcpEnabled)
+                {
+                    foreach (Media.Sdp.SessionDescriptionLine line in mediaDescription.BandwidthLines)
+                    {
+                        if (line.Parts[0].StartsWith("RR"))
+                        {
+                            reportReceivingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
+                        }
+
+                        if (line.Parts[0].StartsWith("RS"))
+                        {
+                            reportSendingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
+                        }
+
+                        //if (line.Parts[0].StartsWith("AS"))
+                        //{
+                        //    applicationSpecific = int.Parse(line.Parts[0].Split(Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
+                        //}
+                    }
+                }
+
+                bool rtcpDisabled = !rtcpEnabled && reportReceivingEvery + reportSendingEvery == 0;
+
                 //If Rtcp is not disabled then this will set the read and write timeouts.
-                //if (rtcpEnabled)
-                //{
+                if (!rtcpDisabled)
+                {
                     //contextReportInterval = TimeSpan.FromMilliseconds((reportReceivingEvery + reportSendingEvery) / 2);
-                    //tc.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                    //tc.m_SendInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                //}
+                    tc.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
+                    tc.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
+                }
 
                 return tc;
             }
@@ -370,10 +361,6 @@ namespace Media.Rtp
             /// The sockets used for Transport of Rtp / Rtcp and Interleaved data
             /// </summary>
             internal Socket RtpSocket, RtcpSocket;
-
-            //Ports we are using / will use
-            internal int ServerRtpPort, ServerRtcpPort,  //Ports connected to
-                ClientRtpPort, ClientRtcpPort; ///Ports connected from
 
             //The EndPoints connected to (once connected don't need the Ports unless 0 is used to determine the port)
             internal EndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
@@ -547,7 +534,7 @@ namespace Media.Rtp
             /// <summary>
             /// <c>false</c> if NOT [RtpEnabled AND RtcpEnabled] AND [LocalMultiplexing OR RemoteMultiplexing]
             /// </summary>
-            public bool Duplexing { get { try { return Disposed ? false : (RtpEnabled && RtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
+            public bool Duplexing { get { try { return Disposed ?  false : (RtpEnabled && RtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
 
             /// <summary>
             /// The last <see cref="ReceiversReport"/> sent or received by this RtpClient.
@@ -893,20 +880,26 @@ namespace Media.Rtp
             /// </notes>
             public void Initialize(IPAddress localIp, IPAddress remoteIp, int localRtpPort, int localRtcpPort, int remoteRtpPort = 0, int remoteRtcpPort = 0, bool punchHole = true)
             {
+                Initialize(new IPEndPoint(localIp, localRtpPort), new IPEndPoint(remoteIp, remoteRtpPort), new IPEndPoint(localIp, localRtcpPort), new IPEndPoint(remoteIp, remoteRtcpPort), punchHole);
+            }
+
+            public void Initialize(IPEndPoint localRtp, IPEndPoint remoteRtp, IPEndPoint localRtcp, IPEndPoint remoteRtcp, bool punchHole = true)
+            {
                 if (Disposed) return;
 
+                if (localRtp.Address.AddressFamily != remoteRtp.Address.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
+                else if (!punchHole) punchHole = !Utility.IsOnIntranet(remoteRtp.Address); //Only punch a hole if the remoteIp is not on the LAN by default.
+                
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
-                if (localIp.AddressFamily != remoteIp.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
-                else if (!punchHole) punchHole = !Utility.IsOnIntranet(remoteIp); //Only punch a hole if the remoteIp is not on the LAN by default.
 
                 try
                 {
                     //Setup the RtpSocket
-                    RtpSocket = new Socket(remoteIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                    RtpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = localRtpPort));
-                    RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ServerRtpPort = remoteRtpPort));
+                    RtpSocket.Bind(LocalRtp = localRtp);
+                    RtpSocket.Connect(RemoteRtp = remoteRtp);
                     //RtpSocket.Blocking = false;
                     //RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
 
@@ -959,7 +952,7 @@ namespace Media.Rtp
                     }
 
                     //If Duplexing Rtp and Rtcp (on the same socket)
-                    if (remoteRtpPort == remoteRtcpPort)
+                    if (remoteRtp == remoteRtcp)
                     {
                         RtcpSocket = RtpSocket;
                     }
@@ -967,10 +960,10 @@ namespace Media.Rtp
                     {
 
                         //Setup the RtcpSocket
-                        RtcpSocket = new Socket(remoteIp.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                        RtcpSocket = new Socket(localRtcp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                        RtcpSocket.Bind(LocalRtcp = new IPEndPoint(localIp, ClientRtcpPort = localRtcpPort));
-                        RtcpSocket.Connect(RemoteRtcp = new IPEndPoint(remoteIp, ServerRtcpPort = remoteRtcpPort));
+                        RtcpSocket.Bind(LocalRtcp = localRtcp);
+                        RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
                         //RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
                         //RtcpSocket.Blocking = false;
 
@@ -1028,18 +1021,23 @@ namespace Media.Rtp
             /// <param name="remotePort"></param>
             public void Initialize(IPAddress localIp, IPAddress remoteIp, int remotePort)
             {
+                Initialize(new IPEndPoint(localIp, remotePort), new IPEndPoint(remoteIp, remotePort));
+            }
+            
+            public void Initialize(IPEndPoint local, IPEndPoint remote)
+            {
                 if (Disposed) return;
 
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
-                if (localIp.AddressFamily != remoteIp.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
+                if (local.Address.AddressFamily != remote.Address.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
                 try
                 {
                     //Setup the RtcpSocket / RtpSocket
-                    RtcpSocket = RtpSocket = new Socket(remoteIp.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                    //RtpSocket.Bind(LocalRtp = new IPEndPoint(localIp, ClientRtpPort = remotePort));
-                    RtpSocket.Connect(RemoteRtp = new IPEndPoint(remoteIp, ClientRtpPort = ServerRtpPort = remotePort));
-                    LocalRtp = RtpSocket.LocalEndPoint;
+                    RtcpSocket = RtpSocket = new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                    //RtpSocket.Bind(LocalRtp = LocalRtcp = local);
+                    RtpSocket.Connect(RemoteRtp = RemoteRtcp = remote);
+                    LocalRtp = LocalRtcp = RtpSocket.LocalEndPoint;
                 }
                 catch
                 {
@@ -1060,10 +1058,6 @@ namespace Media.Rtp
                 LocalRtcp = LocalRtp = ((IPEndPoint)duplexed.LocalEndPoint);
 
                 RemoteRtcp = RemoteRtp = LocalRtp.Create(((IPEndPoint)duplexed.RemoteEndPoint).Serialize());
-
-                ServerRtcpPort = ServerRtpPort = ((IPEndPoint)RemoteRtp).Port;
-
-                ClientRtcpPort = ClientRtpPort = ((IPEndPoint)LocalRtp).Port;
 
                 //duplexed.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
 
@@ -1090,17 +1084,6 @@ namespace Media.Rtp
 
                 LocalRtp = RtpSocket.LocalEndPoint;
                 RemoteRtp = RtpSocket.RemoteEndPoint;
-
-                ServerRtcpPort = ((IPEndPoint)RemoteRtcp).Port;
-                ServerRtpPort = ((IPEndPoint)RemoteRtp).Port;
-
-                ClientRtcpPort = ((IPEndPoint)LocalRtcp).Port;
-                ClientRtpPort = ((IPEndPoint)LocalRtp).Port;
-
-                //if (rtpSocket.ProtocolType == ProtocolType.Tcp) rtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
-
-
-                //if (rtcpSocket.ProtocolType == ProtocolType.Tcp) rtcpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
             }
 
             /// <summary>
@@ -1186,6 +1169,8 @@ namespace Media.Rtp
                         //else if (error != SocketError.Success) break;
                     }
 
+                    error = SocketError.Success;
+
                     return sent;
 
                 }
@@ -1265,9 +1250,6 @@ namespace Media.Rtp
         //Doing this in parallel doesn't really offset much because the decoder must be able to handle the data and if you back log the decoder you are just wasting cycles.
         Common.MemorySegment m_Buffer;
 
-        //How RtpTransport is taking place
-        internal ProtocolType m_TransportProtocol;
-
         //Each session gets its own thread to send and recieve
         internal Thread m_WorkerThread;
         internal bool m_StopRequested;
@@ -1278,8 +1260,6 @@ namespace Media.Rtp
 
         //Unless I missed something that damn HashSet is good for nothing except hashing.
         internal IList<TransportContext> TransportContexts = new List<TransportContext>();
-
-        internal IPAddress m_RemoteAddress;
 
         internal readonly Guid m_Id = Guid.NewGuid();
 
@@ -1716,17 +1696,17 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if the RtpClient is not disposed and the WorkerThread is alive.
         /// </summary>
-        public virtual bool Connected { get { return !Disposed && m_WorkerThread != null && m_WorkerThread.IsAlive /* && !m_StopRequested*/; } }
+        public virtual bool Connected { get { return !Disposed && m_WorkerThread != null && m_WorkerThread.IsAlive; } }
 
         /// <summary>
-        /// The RemoteAddress of the RtpClient
-        /// </summary>
-        public IPAddress RemoteAddress { get { return m_RemoteAddress; } }
-
-        /// <summary>
-        /// Gets a value which indicates if any underlying <see cref="RtpClient.TrasnportContext"/> owned by this RtpClient instance utilizes Rtcp.
+        /// Gets a value which indicates if any underlying <see cref="RtpClient.TransportContext"/> owned by this RtpClient instance utilizes Rtcp.
         /// </summary>
         public bool RtcpEnabled { get { return TransportContexts.Any(c => c.RtcpEnabled); } }
+
+        /// <summary>
+        /// Gets a value which indicates if any underlying <see cref="RtpClient.TransportContext"/> owned by this RtpClient instance utilizes Rtcp.
+        /// </summary>
+        public bool RtpEnabled { get { return TransportContexts.Any(c => c.RtpEnabled); } }
 
         /// <summary>
         /// Indicates if the amount of bandwith currently utilized for Rtcp reporting has exceeded the amount of bandwidth allowed by the <see cref="MaximumRtcpBandwidthPercentage"/> property.
@@ -1833,34 +1813,6 @@ namespace Media.Rtp
             RtcpPacketSent += new RtcpPacketHandler(HandleRtcpPacketSent);
             RtpFrameChanged += new RtpFrameHandler(HandleFrameChange);
             //InterleavedData += new InterleaveHandler(HandleInterleavedData);
-        }
-
-        /// <summary>
-        /// Creates a RtpClient Sender or Reciever using Udp
-        /// </summary>
-        /// <param name="address">The remote address</param>
-        /// <param name="rtpPort">The rtp port</param>
-        /// <param name="rtcpPort">The rtcp port</param>
-        RtpClient(IPAddress address, Common.MemorySegment sharedMemory = null)
-            : this(sharedMemory)
-        {
-            m_RemoteAddress = address;
-            m_TransportProtocol = ProtocolType.Udp;
-
-        }
-
-        /// <summary>
-        /// Creates a RtpClient using the given existing socket. Used for Duplexing Rtp and Rtcp on the same socket.
-        /// The socket will not be disposed with the RtpClient
-        /// </summary>
-        /// <param name="existing">The existing Tcp Socket</param>
-        /// <param name="memory"></param>
-        /// <param name="inactivityTimeout"></param>
-        RtpClient(Socket existing, Common.MemorySegment memory = null, TimeSpan? inactivityTimeout = null)
-            : this(memory)
-        {
-            m_RemoteAddress = ((IPEndPoint)existing.RemoteEndPoint).Address;
-            m_TransportProtocol = existing.ProtocolType;
         }
 
         //Removes listeners and references to objects
@@ -2247,13 +2199,13 @@ namespace Media.Rtp
                 //Check to see each packet which was sent
                 int csent = 0;
 
+                //Increment for Tcp InterleavedFrameHeader
+                if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp) csent += InterleavedOverhead;
+
                 foreach (RtcpPacket packet in packets)
                 {
                     //Increment for the length of the packet
                     csent += packet.Length;
-
-                    //Increment for Tcp InterleavedFrameHeader
-                    if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp) csent += InterleavedOverhead;
 
                     //If more data was contained then sent don't set Transferred and raise and event
                     if (csent > sent)
@@ -2401,7 +2353,7 @@ namespace Media.Rtp
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
                 m_WorkerThread.Priority = ThreadPriority.AboveNormal;
                 //m_WorkerThread.IsBackground = true;
-                m_WorkerThread.Name = "RtpClient-" + m_RemoteAddress.ToString() + m_Id;
+                m_WorkerThread.Name = "RtpClient-" + m_Id;
                 Started = DateTime.UtcNow;
                 m_StopRequested = false;
 
@@ -2647,6 +2599,7 @@ namespace Media.Rtp
                 }
 
             }
+
             //If rtp is parsed
             if (mRemaining > RtpHeader.Length && parseRtp)
             {
