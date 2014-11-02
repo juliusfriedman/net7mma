@@ -189,7 +189,35 @@ namespace Media.Rtsp
                 }
             }
             return result;
-        }        
+        }
+
+        public static bool TryParseTransportHeader(string value, out int ssrc, out System.Net.IPAddress source, out int rtpPort, out int rtcpPort, out byte dataChannel, out byte controlChannel)
+        {
+            throw new NotImplementedException();
+
+            ssrc = 0;
+            source = System.Net.IPAddress.Any;
+            rtpPort = rtcpPort = 0;
+            dataChannel = 0;
+            controlChannel = 1;
+            //unicast = true;
+            //multicast = false;
+            //string mode = string.Empty;
+            try
+            {
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        //Have Overloads like InterleavedTransportHeader, UnicastTransportHeader, MulticastTransportHeader which use this method
+        public static string TransportHeader(int ssrc, System.Net.IPAddress source, int clientRtpPort, int clientRtcpPort, int serverRtpPort, int serverRtcpPort, bool unicast, bool multicast, string ttl, byte dataChannel, byte controlChannel)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     #region Reference

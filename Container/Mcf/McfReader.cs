@@ -59,7 +59,7 @@ namespace Media.Container.Mcf
 
                 yield return next;
 
-                Skip(next.Size);
+                Skip(next.DataSize);
             }
         }
 

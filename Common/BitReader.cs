@@ -19,6 +19,8 @@ namespace Media.Common
 
         int m_ByteIndex = 0, m_BitIndex = 0; long m_StreamPosition, m_StreamLength;
 
+        //Endian?
+
         bool m_LeaveOpen;
 
         #endregion

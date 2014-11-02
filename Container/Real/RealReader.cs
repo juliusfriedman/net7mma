@@ -62,7 +62,7 @@ namespace Media.Container.Real
                 if (chunkTypes == null || chunkTypes.Count() == 0 || chunkTypes.Contains((ChunkType)Common.Binary.Read32(chunk.Identifier, 0, !BitConverter.IsLittleEndian)))
                     yield return chunk;
 
-                count -= chunk.Size;
+                count -= chunk.DataSize;
 
                 if (count <= 0) break;
             }
@@ -104,7 +104,7 @@ namespace Media.Container.Real
 
         public override Node TableOfContents
         {
-            get { using(var root = Root) return ReadChunks(root.Offset + root.Size, Length - root.Offset + root.Size, ChunkType.INDX).FirstOrDefault(); }
+            get { using(var root = Root) return ReadChunks(root.Offset + root.DataSize, Length - root.Offset + root.DataSize, ChunkType.INDX).FirstOrDefault(); }
         }
 
         public Node ReadNext()
@@ -158,7 +158,7 @@ namespace Media.Container.Real
                     }
             }
 
-            return new Node(this, identifier, Position, length, length <= Remaining);
+            return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -171,7 +171,7 @@ namespace Media.Container.Real
 
                 yield return next;
 
-                Skip(next.Size);
+                Skip(next.DataSize);
             }
         }
     }

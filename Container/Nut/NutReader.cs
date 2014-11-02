@@ -87,7 +87,7 @@ namespace Media.Container.Nut
                 if (names == null || names.Count() == 0 || names.Contains((StartCode)Common.Binary.ReadU64(tag.Identifier, 0, BitConverter.IsLittleEndian)))
                     yield return tag;
 
-                count -= tag.Size;
+                count -= tag.DataSize;
 
                 if (count <= 0) break;
 
@@ -239,7 +239,7 @@ namespace Media.Container.Nut
         {
             if (m_MaxDistance.HasValue) return;            
 
-            using (var root = Root) using(var stream = root.Data)
+            using (var root = Root) using(var stream = root.DataStream)
             {
                 int bytesRead = 0;
                 m_Version = (int)DecodeVeraibleLength(stream, out bytesRead);
@@ -403,7 +403,7 @@ namespace Media.Container.Nut
 
                 long length = DecodeVeraibleLength(this, out lengthSize);
 
-                return new Node(this, identifier, Position, length, length <= Remaining);
+                return new Node(this, identifier, lengthSize, Position, length, length <= Remaining);
             }
             else
             {
@@ -536,7 +536,7 @@ namespace Media.Container.Nut
 
                 //Can store 6 more bytes in identifier
 
-                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, 0, (byte)frameFlags }, Position, length, length <= Remaining);
+                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, 0, (byte)frameFlags }, 0, Position, length, length <= Remaining);
             }
         }
 
@@ -554,7 +554,7 @@ namespace Media.Container.Nut
 
                 //Determine if discard frame.
 
-                Skip(result.Size);
+                Skip(result.DataSize);
             }
         }
 
@@ -602,7 +602,7 @@ namespace Media.Container.Nut
 
             //Read all Stream Packages
             foreach (var tag in ReadTags(FileIdString.Length, Length - FileIdString.Length, StartCode.Stream).ToArray()) 
-                m_StreamPackages.Add((int)DecodeVeraibleLength(tag.Data, out bytesRead), tag);
+                m_StreamPackages.Add((int)DecodeVeraibleLength(tag.DataStream, out bytesRead), tag);
 
             //if (StreamCount != m_StreamPackages.Count) throw new InvalidOperationException("StreamCount does not match Packages with a Stream StartCode.");
         }
@@ -631,7 +631,7 @@ namespace Media.Container.Nut
 
                 long timeBase = m_TimeBases[streamId];
 
-                using (var stream = streamPackage.Data)
+                using (var stream = streamPackage.DataStream)
                 {
                     int bytesRead = 0;
 
@@ -767,7 +767,7 @@ namespace Media.Container.Nut
 
         public override Node TableOfContents
         {
-            get { using (var root = Root) return ReadTag(StartCode.Index, root.Offset + root.Size); }
+            get { using (var root = Root) return ReadTag(StartCode.Index, root.Offset + root.DataSize); }
         }
     }
 }

@@ -44,7 +44,7 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// Provides the basic operations for consuming a remote rtp stream for which there is an existing <see cref="SessionDescription"/>
     /// </summary>
-    public class RtpSource : SourceStream, Media.Common.IThreadOwner
+    public class RtpSource : SourceStream, Media.Common.IThreadReference
     {
         public RtpSource(string name, Uri source) : base(name, source) { }
         
@@ -136,7 +136,7 @@ namespace Media.Rtsp.Server.Streams
             RtpClient = Media.Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
         }
 
-        IEnumerable<System.Threading.Thread> Common.IThreadOwner.OwnedThreads
+        IEnumerable<System.Threading.Thread> Common.IThreadReference.ReferencedThreads
         {
             get { return RtpClient != null ? Utility.Yield(RtpClient.m_WorkerThread) : null; }
         }

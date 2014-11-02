@@ -724,7 +724,7 @@ namespace Media.Container.Matroska
 
             //The position of the Data is given here, the actual occurance of the data occurs at Position - rTotal
             //The data is already contained in indentifier and length though and should not be required again.
-            return new Node(this, identifier, Position, length, complete);
+            return new Node(this, identifier, read, Position, length, complete);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -747,7 +747,7 @@ namespace Media.Container.Matroska
                     //Otherwise skip the element's data to parse the next
                     default:
                         {
-                            Skip(next.Size);
+                            Skip(next.DataSize);
                             continue;
                         }
                 }
@@ -764,7 +764,7 @@ namespace Media.Container.Matroska
 
             using (var ebml = Root)
             {
-                if(ebml != null) using (var stream = ebml.Data)
+                if(ebml != null) using (var stream = ebml.DataStream)
                 {
                     long offset = stream.Position, streamLength = stream.Length;
 
@@ -852,7 +852,7 @@ namespace Media.Container.Matroska
             using (var matroskaSegmentInfo = ReadElement(Identifier.SegmentInfo, Root.Offset))
             {
 
-                if (matroskaSegmentInfo != null) using (var stream = matroskaSegmentInfo.Data)
+                if (matroskaSegmentInfo != null) using (var stream = matroskaSegmentInfo.DataStream)
                 {
 
                     long offset = stream.Position, streamLength = stream.Length;
@@ -1127,7 +1127,7 @@ namespace Media.Container.Matroska
             //Tracks is the parent element of all TrackEntry
             foreach (var trackEntryElement in ReadElements(Root.Offset, Identifier.TrackEntry).ToArray())
             {
-                using (var stream = trackEntryElement.Data)
+                using (var stream = trackEntryElement.DataStream)
                 {
                     long offset = stream.Position, streamLength = stream.Length, length = 0;
 
@@ -1306,7 +1306,7 @@ namespace Media.Container.Matroska
                     //Only do this one time for now...
                     if(sampleCount == 0) foreach (var elem in ReadElements(trackEntryElement.Offset, Identifier.Cues))
                     {
-                        using (var cueStream = elem.Data)
+                        using (var cueStream = elem.DataStream)
                         {
                             long cueOffset = cueStream.Position, cueLength = cueStream.Length;
 

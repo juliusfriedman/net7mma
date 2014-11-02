@@ -1772,7 +1772,7 @@ namespace Media.Rtsp.Server.Streams
 
             //Create a RtpClient so events can be sourced from the Server to many clients without this Client knowing about all participants
             //If this class was used to send directly to one person it would be setup with the recievers address
-            m_RtpClient = Rtp.RtpClient.Sender();
+            m_RtpClient = new Media.Rtp.RtpClient();
 
             SessionDescription = new Sdp.SessionDescription(1, "v√ƒ", Name );
             SessionDescription.Add(new Sdp.Lines.SessionConnectionLine()

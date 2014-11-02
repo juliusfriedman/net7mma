@@ -93,8 +93,8 @@
     <Compile Include="Common\ConcurrentThesaurus.cs" />
     <Compile Include="Common\Exception.cs" />
     <Compile Include="Common\IPacket.cs" />
-    <Compile Include="Common\ISocketOwner.cs" />
-    <Compile Include="Common\IThreadOwner.cs" />
+    <Compile Include="Common\ISocketReference.cs" />
+    <Compile Include="Common\IThreadReference.cs" />
     <Compile Include="Common\MemorySegment.cs" />
     <Compile Include="Container\Asf\AsfReader.cs" />
     <Compile Include="Container\BaseMedia\BaseMediaReader.cs" />

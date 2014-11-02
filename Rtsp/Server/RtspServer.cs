@@ -1037,24 +1037,25 @@ namespace Media.Rtsp
 
                 if (session == null) return;
 
-                EndPoint inBound = session.RemoteEndPoint;
+                EndPoint remote = session.RemoteEndPoint;
 
                 //Ensure the bytes were completely sent..
                 int sent = session.m_RtspSocket.EndSendTo(ar);
 
                 int neededLength = session.m_SendBuffer.Length;
 
+                //This logic IS NOT be correct when only a partial send occurs
                 if (sent >= neededLength)
                 {
                     Interlocked.Add(ref session.m_Sent, sent);
 
                     Interlocked.Add(ref m_Sent, sent);
 
-                    session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inBound, new AsyncCallback(ProcessReceive), session);
+                    session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref remote, new AsyncCallback(ProcessReceive), session);
                 }
                 else
                 {                   
-                    session.LastSend = session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, inBound, new AsyncCallback(ProcessSend), session);
+                    session.LastSend = session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, remote, new AsyncCallback(ProcessSend), session);
                 }
             }
             catch (Exception ex)

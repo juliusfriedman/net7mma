@@ -83,7 +83,7 @@ namespace Media.Container.Gxf
             {
                 if (identifiers == null || identifiers.Count() == 0 || identifiers.Contains((Identifier)element.Identifier[0])) yield return element;
 
-                count -= element.Size;
+                count -= element.DataSize;
 
                 if (element == null || count <= 0) break;
             }
@@ -137,7 +137,7 @@ namespace Media.Container.Gxf
                 ||
                 identifier[IdentifierParts + 1] != (byte)Identifier.PacketStartA && identifier[IdentifierParts + 2] != (byte)Identifier.PacketStartB) throw new InvalidOperationException("Invalid Packet Header");
 
-            return new Node(this, identifier, Position, length, length <= Remaining);
+            return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
         public override IEnumerator<Node> GetEnumerator()
         {
@@ -149,7 +149,7 @@ namespace Media.Container.Gxf
 
                 yield return next;
 
-                Skip(next.Size);
+                Skip(next.DataSize);
             }
         }
 

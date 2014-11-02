@@ -443,7 +443,7 @@ namespace Media.RtpTools.RtpDump
         internal Container.Node ToElement(RtpTools.RtpToolEntry entry)
         {
             return new Container.Node(this, entry.IsRtcp ? Encoding.UTF8.GetBytes("RTCP") : Encoding.UTF8.GetBytes("RTP"),
-                entry.Offset, entry.MaxSize, entry.MaxSize >= entry.Length);
+                entry.Offset, 2, entry.MaxSize, entry.MaxSize >= entry.Length);
         }
 
         public byte[] GetSample(Container.Track track, out TimeSpan duration)

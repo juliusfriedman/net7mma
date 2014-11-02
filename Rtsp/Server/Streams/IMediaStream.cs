@@ -13,7 +13,6 @@ namespace Media.Rtsp.Server.Streams
 
         String Name { get; }
 
-
         Guid Id { get; }
 
         SourceStream.StreamState State { get; }

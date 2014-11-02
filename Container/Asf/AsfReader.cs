@@ -185,7 +185,7 @@ namespace Media.Container.Asf
             //The ASFHeaderObject is a special case because it is a "parent" Object
             if(!identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray())) offset = Position;
 
-            return new Node(this, identifier, offset, length, length <= Remaining);
+            return new Node(this, identifier, LengthSize, offset, length, length <= Remaining);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -204,7 +204,7 @@ namespace Media.Container.Asf
                     continue; //Parsing
                 }
                 //Skip past object data
-                Skip(next.Size);
+                Skip(next.DataSize);
             }
         }      
 
@@ -347,7 +347,7 @@ namespace Media.Container.Asf
         {
             using (var fileProperties = ReadObject(Identifier.FilePropertiesObject, Root.Offset))
             {
-                using (var stream = fileProperties.Data)
+                using (var stream = fileProperties.DataStream)
                 {
                     //ASFFilePropertiesObject, Len
                     
@@ -446,7 +446,7 @@ namespace Media.Container.Asf
         {
             using (var contentDescription = ReadObject(Identifier.ContentDescriptionObject, Root.Offset))
             {
-                if(contentDescription != null) using (var stream = contentDescription.Data)
+                if(contentDescription != null) using (var stream = contentDescription.DataStream)
                 {
 
                     //ASFContentDescriptionObject, Len
@@ -522,7 +522,7 @@ namespace Media.Container.Asf
 
                 int offset = 0;
 
-                string mediaTypeName = ToTextualConvention(asfObject.Raw, offset);//, noCorrection;
+                string mediaTypeName = ToTextualConvention(asfObject.RawData, offset);//, noCorrection;
 
                 offset += IdentifierSize * 2;
 
@@ -533,21 +533,21 @@ namespace Media.Container.Asf
                 //if (noCorrection != "ASFNoErrorCorrection") throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
 
                 //TimeOffset
-                startTime = Common.Binary.ReadU64(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                startTime = Common.Binary.ReadU64(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                 offset += 8;
 
                 int typeSpecDataLen, eccDataLen;
 
-                typeSpecDataLen = Common.Binary.Read32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                typeSpecDataLen = Common.Binary.Read32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                 offset += 4;
 
-                eccDataLen = Common.Binary.Read32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                eccDataLen = Common.Binary.Read32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                 offset += 4;
 
-                short flags = Common.Binary.Read16(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                short flags = Common.Binary.Read16(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                 offset += 2;
 
@@ -558,7 +558,7 @@ namespace Media.Container.Asf
                 //Reserved
                 offset += 4;
 
-                if (asfObject.Size - offset < eccDataLen + typeSpecDataLen) throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
+                if (asfObject.DataSize - offset < eccDataLen + typeSpecDataLen) throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
 
                 //Position At TypeSpecificData
 
@@ -576,12 +576,12 @@ namespace Media.Container.Asf
                             mediaType = Sdp.MediaType.video;
 
                             //Read 32 Width
-                            width = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 4;
 
                             //Read 32 Height
-                            height = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 6;
 
@@ -590,11 +590,11 @@ namespace Media.Container.Asf
                             //Read 16 panes
 
                             //Read 16 BitDepth
-                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 2;
 
-                            codecIndication = asfObject.Raw.Skip(offset).Take(4).ToArray();
+                            codecIndication = asfObject.RawData.Skip(offset).Take(4).ToArray();
 
                             offset += 4;
 
@@ -613,17 +613,17 @@ namespace Media.Container.Asf
                             mediaType = Sdp.MediaType.audio;
                             //WaveHeader ... Used also in RIFF
                             //16 format_tag
-                            codecIndication = asfObject.Raw.Skip(offset).Take(2).ToArray();
+                            codecIndication = asfObject.RawData.Skip(offset).Take(2).ToArray();
                             //Expand Codec Indication based on iD?
 
                             offset += 2;
 
                             //16 number_channels
-                            channels = (byte)Common.Binary.ReadU16(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            channels = (byte)Common.Binary.ReadU16(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
                             offset += 2;
                             
                             //32 samples_per_second
-                            rate = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            rate = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 4;
 
@@ -632,7 +632,7 @@ namespace Media.Container.Asf
                             offset += 6;
 
                             //16 bits_per_sample
-                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
                             break;
                         }
                     case "CommandMedia":
@@ -643,12 +643,12 @@ namespace Media.Container.Asf
                     case "DegradableJPEGMedia":
                         {
                             //Read 32 Width
-                            width = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 4;
 
                             //Read 32 Height
-                            height = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 4;
 
@@ -661,12 +661,12 @@ namespace Media.Container.Asf
                     case "JFIFMedia":
                         {
                             //Read 32 Width
-                            width = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 4;
 
                             //Read 32 Height
-                            height = Common.Binary.ReadU32(asfObject.Raw, offset, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.ReadU32(asfObject.RawData, offset, !BitConverter.IsLittleEndian);
 
                             offset += 4;
 

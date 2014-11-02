@@ -27,15 +27,15 @@ namespace Media.Container
         Node TableOfContents { get; }
 
         /// <summary>
+        /// When overriden in a derived class, retrieves the <see cref="System.IO.Stream"/> assocaited with this MediaContainer
+        /// </summary>
+        System.IO.Stream BaseStream { get; }
+
+        /// <summary>
         /// When supported returns the <see cref="Track"/>'s contained in this MediaContainer
         /// </summary>
         /// <returns></returns>
         IEnumerable<Track> GetTracks();
-
-        /// <summary>
-        /// When overriden in a derived class, retrieves the <see cref="System.IO.Stream"/> assocaited with this MediaContainer
-        /// </summary>
-        System.IO.Stream BaseStream { get; }
 
         /// <summary>
         /// When overriden in a derived class, retrieves the data related to the given parameters

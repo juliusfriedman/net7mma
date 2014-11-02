@@ -113,13 +113,12 @@ namespace Media.Common
         /// <summary>
         /// The amount of bits it a single octet
         /// </summary>
-        internal const int BitSize = 8;
+        internal const byte BitSize = 8;
 
         /// <summary>
         /// (0000)1111 in Binary
         /// </summary>
-        [CLSCompliant(false)]
-        public const uint FourBitMaxValue = 15;
+        public const byte FourBitMaxValue = 15;
 
         /// <summary>
         /// (000)11111 in Binary
@@ -137,18 +136,20 @@ namespace Media.Common
         /// <summary>
         /// 00000000 11111111 11111111 11111111 in binary
         /// </summary>
-        [CLSCompliant(false)]
-        public const uint U24MaxValue = 16777215;
+        public const int U24MaxValue = 16777215;
 
         #endregion
 
         #region Sizes
 
-        public const int DoubleBitSize = BitSize * 2;
+        //16
+        public const byte DoubleBitSize = BitSize * 2;
 
-        public const int TripleBitSize = BitSize * 3;
+        //24
+        public const byte TripleBitSize = BitSize * 3;
 
-        public const int QuadrupleBitSize = BitSize * 4;
+        //32
+        public const byte QuadrupleBitSize = BitSize * 4;
 
         #endregion
 
@@ -170,7 +171,7 @@ namespace Media.Common
 
         public static int BitsSet(int i) { return BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
 
-        public static int BitsUnSet(int i) { return BitSize * 4 -  BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+        public static int BitsUnSet(int i) { return QuadrupleBitSize - BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
 
         /// <summary>
         /// Reads the given amount of bits from an octet via shifting.
@@ -598,7 +599,7 @@ namespace Media.Common
 
         public static int Reverse32(int source)
         {
-            if (source == 0 || source == int.MaxValue) return source;
+            if (source == 0) return source;
             uint unsigned = (uint)source;
             return (int)ReverseUnsignedInt(ref unsigned);
         }
@@ -607,23 +608,23 @@ namespace Media.Common
         public static ulong ReverseU64(ulong source)
         {
             if (source == 0 || source == ulong.MaxValue) return source;
-            return RollU64(source, 32);
+            return RollU64(source, QuadrupleBitSize);
         }
 
         public static long Reverse64(long source)
         {
             if (source == 0 || source == long.MaxValue) return source;
-            return Roll64(source, 32);
+            return Roll64(source, QuadrupleBitSize);
         }
 
         /// <summary>
-        /// Reverses the given unsigned 64 bit value via left and right shift on the register(s) in use to perform this operation.
+        /// Double shifts the given unsigned 64 bit value via left and right shift on the register(s) in use to perform this operation.
         /// </summary>
         /// <param name="source">The unsgined 64 bit value to reverse</param>
         /// <param name="amount">The amount of shifting left and right to perform</param>
         /// <returns>The reversed unsigned 64 bit value</returns>
         /// <remarks>
-        /// On 32 bit Architectures two registers are beging used to perform this operation
+        /// On 32 bit Architectures two registers are beging used to perform this operation and on some optomized a single instruction is unsed
         /// </remarks>
         [CLSCompliant(false)]
         public static ulong RollU64(ulong source, int amount)

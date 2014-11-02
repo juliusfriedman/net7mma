@@ -45,7 +45,7 @@ using System.Text;
 
 #endregion
 
-namespace Media.Common
+namespace Media.Common//.Collections
 {
     #region ConcurrentThesaurus
 
