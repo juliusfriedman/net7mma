@@ -683,7 +683,7 @@ namespace Media.Rtsp
                 if (m_RtpClient == null)
                 {
                     //Create a sender
-                    m_RtpClient = RtpClient.Sender(m_Buffer);
+                    m_RtpClient = new RtpClient(m_Buffer);
                 }
 
                 //Find an open port to send on (might want to reserve this port with a socket)
@@ -740,7 +740,7 @@ namespace Media.Rtsp
                 if (m_RtpClient == null)
                 {
                     //Create a new RtpClient
-                    m_RtpClient = RtpClient.Duplexed(m_Buffer);
+                    m_RtpClient = new RtpClient(m_Buffer);
 
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 

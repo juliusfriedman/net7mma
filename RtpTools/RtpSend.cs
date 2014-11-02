@@ -436,16 +436,16 @@ namespace Media.RtpTools
             if (sdes == null || sdes.Disposed) return blockString;
 
             //The blockString is formatted per chunk of the sdes
-            foreach (Rtcp.SourceDescriptionChunk chunk in sdes)
+            foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk chunk in sdes)
             {
                 //A SDES packet description requires an item sub description in `QuotedFormat`
                 string itemString = string.Empty;
 
                 //For each item in the chunk build up the item string
-                foreach (Rtcp.SourceDescriptionItem item in chunk)
+                foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk)
                     itemString += string.Format(QuotedFormat,
                         //0
-                        Enum.GetName(typeof(Rtcp.SourceDescriptionItem.SourceDescriptionItemType), item.ItemType).ToUpperInvariant(),
+                        Enum.GetName(typeof(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType), item.ItemType).ToUpperInvariant(),
                         //1
                         Encoding.ASCII.GetString(item.Data.ToArray()));
 
@@ -615,7 +615,7 @@ namespace Media.RtpTools
 
                 builder.Append(Common.ASCII.LineFeed);
 
-                using (Common.SourceList sl = new Common.SourceList(packet))
+                using (Media.RFC3550.SourceList sl = new Media.RFC3550.SourceList(packet))
                 {
 
                     if (sl == null)

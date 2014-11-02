@@ -296,7 +296,7 @@ namespace Tests
                 System.Net.IPAddress localIp = Utility.GetFirstV4IPAddress();
 
                 //Using a sender
-                using (var sender = Media.Rtp.RtpClient.Sender())
+                using (var sender = new Media.Rtp.RtpClient(null, false, false))
                 {
                     //Create a Session Description
                     Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
@@ -311,7 +311,7 @@ namespace Tests
                     sender.RtpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
 
                     //Using a receiver
-                    using (var receiver = Media.Rtp.RtpClient.Participant())
+                    using (var receiver = new Media.Rtp.RtpClient())
                     {
 
                         //Determine when the sender and receive should time out
@@ -1959,7 +1959,7 @@ namespace Tests
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
-                                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize((Media.Common.ISocketOwner)sender, i * bufferSize);
+                                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize((Media.Common.ISocketReference)sender, i * bufferSize);
                                 ++incompleteFrames;
                                 Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
@@ -2273,7 +2273,7 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Offset: " + box.Offset);
                         Console.WriteLine("Complete: " + box.IsComplete);
                         Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
-                        Console.WriteLine("Size: " + box.Size);
+                        Console.WriteLine("Size: " + box.DataSize);
                         Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
                     }
 
@@ -2347,9 +2347,9 @@ a=mpeg4-esid:101");
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFX.ToString() ||
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.LIST.ToString() ||
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.HDLR.ToString()) 
-                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Raw, 8, 4));
+                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.RawData, 8, 4));
 
-                    Console.WriteLine("Size: " + chunk.Size);
+                    Console.WriteLine("Size: " + chunk.DataSize);
                 }
 
                 Console.WriteLine("Track Information:");
@@ -2386,7 +2386,7 @@ a=mpeg4-esid:101");
                     {
                         Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
                         Console.WriteLine("Element Data Offset: " + element.Offset);
-                        Console.WriteLine("Element Size: " + element.Size);
+                        Console.WriteLine("Element Size: " + element.DataSize);
                         Console.WriteLine("Element.IsComplete: " + element.IsComplete);
                     }
 
@@ -2450,7 +2450,7 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + asfObject.Offset);
                         Console.WriteLine("Complete: " + asfObject.IsComplete);
-                        Console.WriteLine("Size: " + asfObject.Size);
+                        Console.WriteLine("Size: " + asfObject.DataSize);
                     }
 
                     Console.WriteLine("Track Information:");
@@ -2489,7 +2489,7 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("Name: " + name);
 
-                        Console.WriteLine("Size: " + mxfObject.Size);
+                        Console.WriteLine("Size: " + mxfObject.DataSize);
 
                         if (name == "PartitionPack")
                         {
@@ -2564,7 +2564,7 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Complete: " + page.IsComplete);
                             Console.WriteLine("Name: " + Media.Container.Ogg.OggReader.ToTextualConvention(page.Identifier));
                             Console.WriteLine("HeaderFlags: " + (Media.Container.Ogg.OggReader.HeaderFlags)(page.Identifier[5]));
-                            Console.WriteLine("Size: " + page.Size);
+                            Console.WriteLine("Size: " + page.DataSize);
                         }
 
 
@@ -2605,7 +2605,7 @@ a=mpeg4-esid:101");
                             else
                                 Console.WriteLine("Name: " + Media.Container.Nut.NutReader.ToTextualConvention(tag.Identifier));
                             
-                            Console.WriteLine("Size: " + tag.Size);
+                            Console.WriteLine("Size: " + tag.DataSize);
                         }
 
                         Console.WriteLine("File Level Properties");

@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Media.Container
 {
     /// <summary>
@@ -67,8 +63,8 @@ namespace Media.Container
         }
 
         //Used for segmenting a stream, another class might be more useful which would also allow a offset start position.
-        internal MediaFileStream(MediaFileStream other, long? start, long? length)
-            : base(other.SafeFileHandle, System.IO.FileAccess.Read, 8192)
+        internal MediaFileStream(MediaFileStream other, long? start, long? length, int bufferSize = 8192)
+            : base(other.SafeFileHandle, System.IO.FileAccess.Read, bufferSize)
         {
             m_Source = other.m_Source;
 
@@ -76,10 +72,12 @@ namespace Media.Container
 
             m_Position = start ?? other.Position;
 
-            m_Length = length ?? other.Length;
+            SetLength(m_Length = length ?? other.Length);
         }
 
         #endregion
+
+        #region Methods
 
         public override void Close()
         {
@@ -96,15 +94,23 @@ namespace Media.Container
         //    return new MediaFileStream(this, offset - count);
         //}
 
+        #endregion
+
         #region Abstraction
+
+        /// <summary>
+        /// Identifies the first <see cref="Node"/> found in the stream.
+        /// </summary>
+        public abstract Node Root { get; }
+
+        //Move to explicit declaration?
+        public abstract Node TableOfContents { get; }
+
+        public abstract IEnumerator<Node> GetEnumerator();
 
         //Should abstract KnownExtensions? MimeTypes!!!!
 
         //Should abstract NodeIdentifierSize, NodeLengthSize(-1 for Variable?), and MinimumNodeSize, MaximumNodeSize?
-
-        //Fork .. etc
-
-        //Another class which just does the Position and Length
 
         /// <summary>
         /// When overriden in a derived class, Provides information for each 'Track' in the Media
@@ -128,12 +134,6 @@ namespace Media.Container
         public System.IO.Stream BaseStream { get { return this; } }
 
         public Uri Location { get { return m_Source; } }
-
-        public abstract Node Root { get; }
-
-        public abstract Node TableOfContents { get; }
-
-        public abstract IEnumerator<Node> GetEnumerator();
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
 

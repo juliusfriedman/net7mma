@@ -11,6 +11,9 @@ namespace Media.Container
     /// </summary>
     public class Node : Common.BaseDisposable
     {
+        /// <summary>
+        /// The <see cref="IMediaContainer"/> from which this instance was created.
+        /// </summary>
         readonly IMediaContainer Master;
 
         /// <summary>
@@ -19,22 +22,36 @@ namespace Media.Container
         public readonly long Offset;
             
         /// <summary>
-        /// The Amount of bytes contained in the Node's <see cref="RawData" />
+        /// The amount of bytes contained in the Node's <see cref="RawData" />
         /// </summary>
-        public readonly long Size;
+        public readonly long DataSize;
 
-        //Todo - Keep Size and Identifier both in bytes and use offsets and lengths to read values when required, so a ToByte() method can create the original data
+        /// <summary>
+        /// The amount of bytes used to describe the <see cref="Identifer"/> of the Node.
+        /// </summary>
+        public readonly int IdentifierSize;
+
+        /// <summary>
+        /// The amount of bytes used to describe the <see cref="DataSize"/> of the Node.
+        /// </summary>
+        public readonly int LengthSize;
+
+        /// <summary>
+        /// The Total amount of bytes in the Node including the <see cref="Identifer"/> and <see cref="LengthSize"/>
+        /// </summary>
+        public long TotalSize { get { return DataSize + IdentifierSize + LengthSize; } }
+
         byte[] m_Data;
 
         /// <summary>
         /// The binary data of the Node, in some instances the Identifier and Length are contained and preceed the value.
         /// </summary>
-        public byte[] Raw
+        public byte[] RawData
         {
             get
             {
                 if (m_Data != null) return m_Data;
-                else if (Size <= 0 || Master.BaseStream == null) return Utility.Empty;
+                else if (DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
 
@@ -43,9 +60,9 @@ namespace Media.Container
 
                 Master.BaseStream.Position = Offset;
 
-                m_Data = new byte[Size];
+                m_Data = new byte[DataSize];
 
-                Master.BaseStream.Read(m_Data, 0, (int)Size);
+                Master.BaseStream.Read(m_Data, 0, (int)DataSize);
 
                 Master.BaseStream.Position = offsetPrevious;
 
@@ -61,16 +78,16 @@ namespace Media.Container
         /// <summary>
         /// Provides a <see cref="System.IO.MemoryStream"/> to <see cref="RawData"/>
         /// </summary>
-        public System.IO.MemoryStream Data
+        public System.IO.MemoryStream DataStream
         {
             get
             {
-                return new System.IO.MemoryStream(Raw);
+                return new System.IO.MemoryStream(RawData);
             }
         }
 
         /// <summary>
-        /// Indicates if this Node instance contains all requried data.
+        /// Indicates if this Node instance contains all requried data. (could calculate)
         /// </summary>
         public readonly bool IsComplete;
 
@@ -87,30 +104,32 @@ namespace Media.Container
         /// <param name="offset"></param>
         /// <param name="size"></param>
         /// <param name="complete"></param>
-        public Node(IMediaContainer master, byte[] identifier, long offset, long size, bool complete)
+        public Node(IMediaContainer master, byte[] identifier, int lengthSize, long offset, long size, bool complete)
         {
             if (master == null) throw new ArgumentNullException("master");
             if (identifier == null) throw new ArgumentNullException("identifier");
             Master = master;
             Offset = offset;
             Identifier = identifier;
-            Size = size;
+            IdentifierSize = identifier.Length;
+            LengthSize = lengthSize;
+            DataSize = size;
             IsComplete = complete; //Should calulcate here?
         }
 
         /// <summary>
-        /// Writes all <see cref="Data"/> if <see cref="Size"/> is > 0.
+        /// Writes all <see cref="DataStream"/> if <see cref="DataSize"/> is > 0.
         /// </summary>
         public void Update()
         {
-            if (Size > 0)
+            if (DataSize > 0 && m_Data != null)
             {
                 //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
                 Master.BaseStream.Position = Offset;
 
-                Master.BaseStream.Write(Raw, 0, (int)Size);
+                Master.BaseStream.Write(m_Data, 0, (int)DataSize);
 
                 Master.BaseStream.Position = offsetPrevious;
             }

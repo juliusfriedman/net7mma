@@ -581,11 +581,11 @@ namespace Media.Rtcp
                     if (itemType != SourceDescriptionItem.SourceDescriptionItemType.End)
                     {
                         itemLength = chunkData.Skip(1).First();
-                        chunkData = chunkData.Skip(2).Take(itemLength);
+                        chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).Take(itemLength);
                     }
                     else //Other wise it is determined by taking the null octets which proceed the previous data.
                     {
-                        chunkData = chunkData.Skip(2).TakeWhile(o => o == SourceDescriptionItem.Null);
+                        chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).TakeWhile(o => o == SourceDescriptionItem.Null);
                         itemLength = chunkData.Count();
                     }
 
