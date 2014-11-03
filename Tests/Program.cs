@@ -63,7 +63,7 @@ namespace Tests
 
             RunTest(RtspClientTests);
 
-            RunTest(WinRtspInspector);
+            RunTest(RtspInspector);
 
             RunTest(TestServer);
         }
@@ -1959,7 +1959,7 @@ namespace Tests
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
-                                Media.Common.ISocketOwnerExtensions.SetReceiveBufferSize((Media.Common.ISocketReference)sender, i * bufferSize);
+                                Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize((Media.Common.ISocketReference)sender, i * bufferSize);
                                 ++incompleteFrames;
                                 Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
@@ -2085,11 +2085,11 @@ namespace Tests
                             if (client.Playing)
                             {
 
-                                TimeSpan playingfor = (DateTime.UtcNow - client.StartedListening.Value);
+                                TimeSpan playingfor = (DateTime.UtcNow - client.StartedPlaying.Value);
 
                                 if (client.Playing) Console.WriteLine("Client Playing. for :" + playingfor.ToString());
 
-                                if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).ToString());
+                                if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
 
                                 if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
 
@@ -3234,9 +3234,16 @@ a=mpeg4-esid:101");
             
         }
 
-        static void WinRtspInspector()
+        static void RtspInspector()
         {
-            var f = new Tests.WinRtspInspector();
+            var f = new Tests.RtspInspector();
+
+            Application.Run(f);
+        }
+
+        static void ContainerInspector()
+        {
+            var f = new Tests.ContainerInspector();
 
             Application.Run(f);
         }

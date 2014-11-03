@@ -20,36 +20,36 @@ namespace Media.Common
     /// <summary>
     /// Provides functions which help with configuration of <see cref="System.Net.Sockets"/> of a <see cref="ISocketReference"/>
     /// </summary>
-    public static class ISocketOwnerExtensions
+    public static class ISocketReferenceExtensions
     {
-        public static void SetReceiveBufferSize(this ISocketReference owner, int size)
+        public static void SetReceiveBufferSize(this ISocketReference reference, int size)
         {
-            foreach (System.Net.Sockets.Socket s in owner.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
             {
                 s.ReceiveBufferSize = size;
             }
         }
 
-        public static void SetSendBufferSize(this ISocketReference owner, int size)
+        public static void SetSendBufferSize(this ISocketReference reference, int size)
         {
-            foreach (System.Net.Sockets.Socket s in owner.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
             {
                 s.SendBufferSize = size;
             }
         }
 
 
-        public static void SetReceiveTimeout(this ISocketReference owner, int timeoutMsec)
+        public static void SetReceiveTimeout(this ISocketReference reference, int timeoutMsec)
         {
-            foreach (System.Net.Sockets.Socket s in owner.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
             {
                 s.ReceiveTimeout = timeoutMsec;
             }
         }
 
-        public static void SetSendTimeout(this ISocketReference owner, int timeoutMsec)
+        public static void SetSendTimeout(this ISocketReference reference, int timeoutMsec)
         {
-            foreach (System.Net.Sockets.Socket s in owner.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
             {
                 s.SendTimeout = timeoutMsec;
             }

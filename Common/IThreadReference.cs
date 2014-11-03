@@ -17,11 +17,11 @@ namespace Media.Common
     /// <summary>
     /// Provides functions useful to <see cref="IThreadReference"/>
     /// </summary>
-    public static class IThreadOwnerExtensions
+    public static class IThreadReferenceExtensions
     {
-        public static void AbortAll(this IThreadReference owner, int timeoutSec)
+        public static void AbortAll(this IThreadReference reference, int timeoutSec)
         {
-            foreach (var tp in owner.ReferencedThreads)
+            foreach (var tp in reference.ReferencedThreads)
             {
                 System.Threading.Thread t = tp;
                 Utility.Abort(ref t, System.Threading.ThreadState.Running, timeoutSec);

@@ -1,6 +1,6 @@
 ﻿namespace Tests
 {
-    partial class WinRtspInspector
+    partial class RtspInspector
     {
         /// <summary>
         /// Required designer variable.

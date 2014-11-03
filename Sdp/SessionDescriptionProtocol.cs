@@ -77,11 +77,11 @@ namespace Media.Sdp
         
         public const string MimeType = "application/sdp";
 
-        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.Equals, Hyphen = '-';
+        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.Equals, Hyphen = '-', SemiColon = ';', Colon = ':';
 
         internal const string CR = "\r", LF = "\n", CRLF = CR + LF;
 
-        internal static string[] ColonSplit = new string[] { ":" }, CRLFSplit = new string[] { CRLF };
+        internal static string[] ColonSplit = new string[] { Colon.ToString() }, CRLFSplit = new string[] { CRLF };
 
         internal static string TrimLineValue(string value) { return string.IsNullOrWhiteSpace(value) ? value : value.Trim(); }
 
@@ -98,30 +98,138 @@ namespace Media.Sdp
             type = Utility.Unknown;
             start = TimeSpan.Zero;
             end = System.Threading.Timeout.InfiniteTimeSpan;
+
+            int offset = 0;
+
             try
             {
-                //range: = 6
-                string[] parts = value.Substring(6).Split(Media.Sdp.SessionDescription.Hyphen, Media.Sdp.SessionDescription.EQ);
+                //range: = 6 (may be present)
+                string[] parts = value.Split(Media.Sdp.SessionDescription.Colon, Media.Sdp.SessionDescription.Hyphen, Media.Sdp.SessionDescription.EQ);
 
-                type = parts[0]; //npt, etc
+                int partsLength = parts.Length;
+
+                type = parts[offset++]; //npt, etc
+
+                if (type == "range") type = parts[offset++];
 
                 double seconds = 0;
-                
-                //Notes might have to switch on Type
 
-
-                if (parts[1] != "now" && double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+                switch (type)
                 {
-                    start = TimeSpan.FromSeconds(seconds);
-                }
+                    case "npt":
+                        {
+                            if (parts[offset].ToLowerInvariant() == "now") start = TimeSpan.Zero;
+                            else if (partsLength == 3)
+                            {
+                                if (parts[offset].Contains(':'))
+                                {
+                                    start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                                else
+                                {
+                                    start = TimeSpan.FromSeconds(double.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture));
+                                }
+                            }
+                            else if (partsLength == 4)
+                            {
+                                if (parts[offset].Contains(':'))
+                                {
+                                    start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                    end = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                }
+                                else
+                                {
+                                    if (double.TryParse(parts[offset++].Trim(), out seconds)) start = TimeSpan.FromSeconds(seconds);
+                                    if (double.TryParse(parts[offset++].Trim(), out seconds)) end = TimeSpan.FromSeconds(seconds);
+                                    
+                                }
+                            }
+                            else throw new InvalidOperationException("Invalid Range Header: " + value);
 
-                //If there is a start and end time
-                if (parts.Length > 1)
-                {
-                    if (!string.IsNullOrWhiteSpace(parts[2]) && double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
-                    {
-                        end = TimeSpan.FromSeconds(seconds);
-                    }
+                            break;
+                        }
+                    case "clock":
+                        {
+                            //Check for live
+                            if (parts[offset].ToLowerInvariant() == "now") start = TimeSpan.Zero;
+                            //Check for start time only
+                            else if (partsLength == 3)
+                            {
+                                DateTime now = DateTime.UtcNow, startDate;
+                                ///Parse and determine the start time
+                                if (DateTime.TryParse(parts[offset++].Trim(), out startDate))
+                                {
+                                    //Time in the past
+                                    if (now > startDate) start = now - startDate;
+                                    //Future?
+                                    else start = startDate - now;
+                                }
+                                //Only start is live?
+                                //m_Live = true;
+                            }
+                            else if (partsLength == 4)
+                            {
+                                DateTime now = DateTime.UtcNow, startDate, endDate;
+                                ///Parse and determine the start time
+                                if (DateTime.TryParse(parts[offset++].Trim(), out startDate))
+                                {
+                                    //Time in the past
+                                    if (now > startDate) start = now - startDate;
+                                    //Future?
+                                    else start = startDate - now;
+                                }
+
+                                ///Parse and determine the end time
+                                if (DateTime.TryParse(parts[offset++].Trim(), out endDate))
+                                {
+                                    //Time in the past
+                                    if (now > endDate) end = now - endDate;
+                                    //Future?
+                                    else end = startDate - now;
+                                }
+                            }
+                            else throw new InvalidOperationException("Invalid Range Header Received: " + value);
+                            
+                            break;
+                        }
+                    case "smpte":
+                        {
+                            //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
+                            if (parts[offset].ToLowerInvariant() == "now") start = TimeSpan.Zero;
+                            else if (partsLength == 3)
+                            {
+                                start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            else if (partsLength == 4)
+                            {
+                                start = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                                end = TimeSpan.Parse(parts[offset++].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                            }
+                            else throw new InvalidOperationException("Invalid Range Header Received: " + value);
+                            
+                            break;
+                        }
+                    default:
+                        {
+                            //Notes might have to switch on Type
+                            if (partsLength > 0)
+                            {
+                                if (parts[1] != "now" && double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+                                {
+                                    start = TimeSpan.FromSeconds(seconds);
+                                }
+                            }
+
+                            //If there is a start and end time
+                            if (partsLength > 1)
+                            {
+                                if (!string.IsNullOrWhiteSpace(parts[2]) && double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+                                {
+                                    end = TimeSpan.FromSeconds(seconds);
+                                }
+                            }
+                            break;
+                        }
                 }
 
                 return true;
@@ -189,9 +297,8 @@ namespace Media.Sdp
         /// <param name="originatorAndSession">Compound string identifying origionator and session identifier</param>
         /// <param name="sessionName">name of the session</param>
         public SessionDescription(int protocolVersion, string originatorAndSession, string sessionName)
+            : this(protocolVersion)
         {
-            Version = protocolVersion;
-
             OriginatorAndSessionIdentifier = originatorAndSession;
 
             SessionName = sessionName;

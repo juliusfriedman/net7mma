@@ -141,7 +141,7 @@ namespace Media
         {
             if (packets == null) throw new ArgumentNullException("packets");
 
-            //if (packets.Length < 2) throw new InvalidOperationException("packets must contain at least 2 RtcpPackets");
+            if (packets.Count() < 2) goto End;
 
             RtcpPacket first = packets.First();
 
@@ -227,6 +227,7 @@ namespace Media
                 }
             }
 
+            End:
             //Return the projection of the sequence containing the compound data
              return packets.SelectMany(p => p.Prepare());
         }

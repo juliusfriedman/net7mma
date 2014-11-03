@@ -740,7 +740,7 @@ namespace Media.Rtsp
 
             int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds / 1000 : 3000;
 
-            m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
+            if(m_Maintainer != null) m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
         }
 
         /// <summary>

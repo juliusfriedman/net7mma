@@ -416,7 +416,7 @@ namespace Media.Rtsp
                     //Determine Format
                     if (times[0] == "npt")//ntp=1.060-20
                     {
-                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        times = times[1].Split(RtspHeaders.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
                         if (times[0].ToLowerInvariant() == "now") { }
                         else if (times.Length == 1)
                         {
@@ -448,7 +448,7 @@ namespace Media.Rtsp
                     else if (times[0] == "smpte")//smpte=0:10:20-;time=19970123T153600Z
                     {
                         //Get the times into the times array skipping the time from the server (order may be first so I explicitly did not use Substring overload with count)
-                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s => !s.StartsWith("time=")).ToArray();
+                        times = times[1].Split(RtspHeaders.TimeSplit, StringSplitOptions.RemoveEmptyEntries).Where(s => !s.StartsWith("time=")).ToArray();
                         if (times[0].ToLowerInvariant() == "now") { }
                         else if (times.Length == 1)
                         {
@@ -464,7 +464,7 @@ namespace Media.Rtsp
                     else if (times[0] == "clock")//clock=19961108T142300Z-19961108T143520Z
                     {
                         //Get the times into times array
-                        times = times[1].Split(RtspClient.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+                        times = times[1].Split(RtspHeaders.TimeSplit, StringSplitOptions.RemoveEmptyEntries);
                         //Check for live
                         if (times[0].ToLowerInvariant() == "now") { }
                         //Check for start time only
@@ -619,7 +619,7 @@ namespace Media.Rtsp
             }
 
             //Get the parts which are delimited by ' ', ';' , '-' or '='
-            string[] parts = transportHeader.Split(RtspClient.SpaceSplit[0], RtspClient.TimeSplit[1], RtspClient.TimeSplit[0], Media.Sdp.SessionDescription.EQ);
+            string[] parts = transportHeader.Split(RtspHeaders.SpaceSplit[0], RtspHeaders.Hyphen, RtspHeaders.SemiColon, (char)Common.ASCII.Equals);
 
             string[] channels = null, clientPorts = null;
 
