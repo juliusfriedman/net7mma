@@ -13,9 +13,9 @@ using System.Windows.Forms;
 
 namespace Tests
 {
-    public partial class WinRtspInspector : Form
+    public partial class RtspInspector : Form
     {
-        public WinRtspInspector()
+        public RtspInspector()
         {
             InitializeComponent();
         }
@@ -134,7 +134,7 @@ namespace Tests
 
             sender.m_RtpClient.RtcpPacketSent += ShowRtcpPacket;      
 
-            sender.m_RtpClient.MaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
+            sender.m_RtpClient.AverageMaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
 
             sender.OnStop += sender_OnStop;            
         }
@@ -166,7 +166,7 @@ namespace Tests
             try
             {
                 RTCPPacketBinding.Add(p);
-                if (!Client.LivePlay) label2.Text = "Remaining: " + (DateTime.UtcNow - Client.StartedListening.Value).Subtract(Client.EndTime.Value).ToString();
+                if (!Client.LivePlay) label2.Text = "Remaining: " + (DateTime.UtcNow - Client.StartedPlaying.Value).Subtract(Client.EndTime.Value).ToString();
                 DrawBandwidth(Color.Red);
             }            
             catch{}
@@ -178,7 +178,7 @@ namespace Tests
             try
             {
                 RTPPacketBinding.Add(p);
-                if (!Client.LivePlay) label2.Text = "Remaining: " + (DateTime.UtcNow - Client.StartedListening.Value).Subtract(Client.EndTime.Value).ToString();
+                if (!Client.LivePlay) label2.Text = "Remaining: " + (DateTime.UtcNow - Client.StartedPlaying.Value).Subtract(Client.EndTime.Value).ToString();
                 DrawBandwidth(Color.Blue);
             }
             catch { }
@@ -241,7 +241,7 @@ namespace Tests
             {
                 button1.Text = "(Playing)STOP";
 
-                if (!Client.LivePlay) label2.Text = "Remaining: " + (DateTime.UtcNow - Client.StartedListening.Value).Subtract(Client.EndTime.Value).ToString();
+                if (!Client.LivePlay) label2.Text = "Remaining: " + (DateTime.UtcNow - Client.StartedPlaying.Value).Subtract(Client.EndTime.Value).ToString();
             }
             else
             {

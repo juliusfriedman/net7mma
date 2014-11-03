@@ -41,12 +41,20 @@ using System.Text;
 
 namespace Media.Rtsp
 {
+
     /// <summary>
     /// Header Definitions from RFC2326
     /// http://www.ietf.org/rfc/rfc2326.txt
     /// </summary>
     public sealed class RtspHeaders
     {
+
+        internal const char Hyphen = '-', SemiColon = ';';
+
+        internal static string [] TimeSplit = new string[] { Hyphen.ToString(), SemiColon.ToString() };
+
+        internal static char[] SpaceSplit = new char[] { ' ', ',' };
+
         public const string Allow = "Allow";
         public const string Accept = "Accept";
         public const string AcceptCredentials = "Accept-Credentials";
@@ -105,7 +113,7 @@ namespace Media.Rtsp
 
         public static string RangeHeader(TimeSpan? start, TimeSpan? end, string type = "npt", string format = null)
         {
-            return type + "=" + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
+            return type + "=" + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue && end.Value > TimeSpan.Zero ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
         }
 
         public static string BasicAuthorizationHeader(Encoding encoding, System.Net.NetworkCredential credential) { return AuthorizationHeader(encoding, RtspMethod.UNKNOWN, null, System.Net.AuthenticationSchemes.Basic, credential); }
@@ -191,20 +199,112 @@ namespace Media.Rtsp
             return result;
         }
 
-        public static bool TryParseTransportHeader(string value, out int ssrc, out System.Net.IPAddress source, out int rtpPort, out int rtcpPort, out byte dataChannel, out byte controlChannel)
+        public static bool TryParseTransportHeader(string value, out int ssrc, out System.Net.IPAddress source, out int serverRtpPort, out int serverRtcpPort, out int clientRtpPort, out int clientRtcpPort, out bool interleaved, out byte dataChannel, out byte controlChannel, out string mode, out bool unicast, out bool multicast)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("value cannot be null or whitespace.");
 
             ssrc = 0;
             source = System.Net.IPAddress.Any;
-            rtpPort = rtcpPort = 0;
+            serverRtpPort = serverRtcpPort = clientRtpPort = clientRtcpPort = 0;
             dataChannel = 0;
             controlChannel = 1;
-            //unicast = true;
-            //multicast = false;
-            //string mode = string.Empty;
+            interleaved = unicast = multicast = false;
+            mode = string.Empty;
             try
             {
+                //Get the recognized parts of information from the transportHeader
+                string[] parts = value.Split(SemiColon);
+
+                for (int i = 0, e = parts.Length; i < e; ++i)
+                {
+                    string[] subParts = parts[i].Split((char)Common.ASCII.Equals);
+
+                    switch (subParts[0])
+                    {
+                        case "unicast":
+                            {
+                                if (multicast) throw new InvalidOperationException("Cannot be unicast and multicast");
+                                unicast = true;
+                                continue;
+                            }
+                        case "multicast":
+                            {
+                                if (unicast) throw new InvalidOperationException("Cannot be unicast and multicast");
+                                multicast = true;
+                                continue;
+                            }
+                        case "mode":
+                            {
+                                mode = subParts[1];
+                                continue;
+                            }
+                        case "source":
+                            {
+                                string sourcePart = subParts[1];
+
+                                source = System.Net.IPAddress.Parse(sourcePart);
+                                continue;
+                            }
+                        case "ssrc":
+                            {
+                                string ssrcPart = subParts[1];
+
+                                if (!int.TryParse(ssrcPart, out ssrc)) //plain int                        
+                                    ssrc = int.Parse(subParts[1], System.Globalization.NumberStyles.HexNumber); //hex
+                                
+                                continue;
+                            }
+                        case "client_port":
+                            {
+                                string[] clientPorts = subParts[1].Split(Hyphen);
+
+                                int clientPortsLength = clientPorts.Length;
+
+                                if (clientPortsLength > 0)
+                                {
+                                    clientRtpPort = int.Parse(clientPorts[0], System.Globalization.CultureInfo.InvariantCulture);
+                                    if (clientPortsLength > 1) clientRtcpPort = int.Parse(clientPorts[1], System.Globalization.CultureInfo.InvariantCulture);
+                                }
+
+                                continue;
+                            }
+                        case "interleaved":
+                            {
+                                interleaved = true;
+
+                                //Should only be for Tcp
+                                string[] channels = subParts[1].Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
+
+                                int channelsLength = channels.Length;
+
+                                if (channelsLength > 1)
+                                {
+                                    //DataChannel
+                                    dataChannel = byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture);
+                                    //Control Channel
+                                    if(channelsLength > 2) controlChannel = byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture);
+                                }
+
+                                continue;
+                            }
+                        case "server_port":
+                            {
+                                string[] serverPorts = subParts[1].Split(Hyphen);
+
+                                int serverPortsLength = serverPorts.Length;
+
+                                if (serverPortsLength > 0)
+                                {
+                                    serverRtpPort = int.Parse(serverPorts[0], System.Globalization.CultureInfo.InvariantCulture);
+                                    if (serverPortsLength > 1) serverRtcpPort = int.Parse(serverPorts[1], System.Globalization.CultureInfo.InvariantCulture);
+                                }
+
+                                continue;
+                            }
+                        default: continue;
+                    }
+                }
+
                 return true;
             }
             catch
@@ -217,6 +317,60 @@ namespace Media.Rtsp
         public static string TransportHeader(int ssrc, System.Net.IPAddress source, int clientRtpPort, int clientRtcpPort, int serverRtpPort, int serverRtcpPort, bool unicast, bool multicast, string ttl, byte dataChannel, byte controlChannel)
         {
             throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Parses a RFCXXXX range string often used in SDP to describe start and end times.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="type"></param>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <returns></returns>
+        public static bool TryParseRange(string value, out string type, out TimeSpan start, out TimeSpan end)
+        {
+            return Media.Sdp.SessionDescription.TryParseRange(value, out type, out start, out end);
+        }
+
+        public static string RangeHeader(string type, TimeSpan start, TimeSpan? end)
+        {
+            throw new NotImplementedException();
+        }
+
+        public static bool TryParseRtpInfo(string value, out int seq, out int timestamp)
+        {
+            throw new NotImplementedException();
+
+            //Should check for RtpInfo
+            //And if present validate context with it, e.g. reduce requried packets and set ssrcs and start sequence.
+
+            //string rtpInfo = response[RtspHeaders.RtpInfo];
+
+            //If needed and given
+            //                int startRtpSequence = -1;
+
+            //                //should throw not found RtpInfo
+            //                if (!string.IsNullOrEmpty(rtpInfo))
+            //                {
+            //                    string[] pieces = rtpInfo.Split(SpaceSplit[1]);
+            //                    foreach (string piece in pieces)
+            //                    {
+            //                        if (piece.Trim().StartsWith("url="))
+            //                        {
+            //                            //Location = new Uri(piece.Replace("url=", string.Empty).Trim());
+            //                        }
+            //                        else if (piece.Trim().StartsWith("seqno="))
+            //                        {
+            //                            startRtpSequence = Convert.ToInt32(piece.Replace("seqno=", string.Empty).Trim());
+            //                        }
+            //#if DEBUG
+            //                        else
+            //                        {
+            //                            System.Diagnostics.Debug.WriteLine("RtspClient Encountered unhandled Rtp-Info part: " + piece);
+            //                        }
+            //#endif
+            //                    }
+            //     
         }
     }
 

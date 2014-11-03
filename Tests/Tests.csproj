@@ -65,11 +65,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="WinRtspInspector.cs">
+    <Compile Include="ContainerInspector.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="WinRtspInspector.Designer.cs">
-      <DependentUpon>WinRtspInspector.cs</DependentUpon>
+    <Compile Include="ContainerInspector.Designer.cs">
+      <DependentUpon>ContainerInspector.cs</DependentUpon>
+    </Compile>
+    <Compile Include="RtspInspector.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="RtspInspector.Designer.cs">
+      <DependentUpon>RtspInspector.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -218,8 +224,11 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="WinRtspInspector.resx">
-      <DependentUpon>WinRtspInspector.cs</DependentUpon>
+    <EmbeddedResource Include="ContainerInspector.resx">
+      <DependentUpon>ContainerInspector.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="RtspInspector.resx">
+      <DependentUpon>RtspInspector.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
