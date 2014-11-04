@@ -287,6 +287,9 @@ namespace Tests
         static void TestRtpClient(bool tcp = true)
         {
 
+            //No tcp test right now.
+            if (tcp) tcp = false;
+
             //Start a test to send a single frame as quickly as possible to a single party.
             //Disconnect after sending said frame test the disposable implementation, packets not yet received will be lost at that time.
             using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))

@@ -550,6 +550,21 @@ namespace Media
 
         #endregion
 
+        public static byte Clamp(byte value, byte min, byte max)
+        {
+            return Math.Max(Math.Min(min, value), value);
+        }
+
+        public static int Clamp(int value, int min, int max)
+        {
+            return Math.Max(Math.Min(min, value), value);
+        }
+
+        public static double Clamp(double value, double min, double max)
+        {
+            return Math.Max(Math.Min(min, value), value);
+        }
+
         #region RgbYuv.cs
 
         /// <summary>

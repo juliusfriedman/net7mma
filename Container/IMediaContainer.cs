@@ -21,6 +21,7 @@ namespace Media.Container
         /// </summary>
         Node Root { get; }
 
+        //*Determine if helpful*
         /// <summary>
         /// When supported returns the <see cref="Node"/> which describes the type(s) of data contained in this MediaContainer
         /// </summary>

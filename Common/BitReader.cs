@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Media.Common
 {
     /// <summary>
-    /// Allows for reading bits from a <see cref="System.IO.Stream"/> with a variable sized buffer
+    /// Allows for reading bits from a <see cref="System.IO.Stream"/> with a variable sized buffer (should be a streamreader?)
     /// </summary>
     public class BitReader : BaseDisposable
     {
@@ -71,6 +71,11 @@ namespace Media.Common
             throw new NotImplementedException();
         }
 
+        public bool ReverseFind(byte[] bitPattern, int offset, int length)
+        {
+            throw new NotImplementedException();
+        }
+
         public long Seek(long offset, System.IO.SeekOrigin origin)
         {
             if (Disposed || m_Source == null || !m_Source.CanSeek) return -1;
@@ -105,6 +110,8 @@ namespace Media.Common
                 bytesToRead -= bytesRead;
             }
         }
+        
+        //Peeking shouldn't move index...
 
         public bool PeekBit()
         {

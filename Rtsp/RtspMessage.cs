@@ -49,7 +49,7 @@ namespace Media.Rtsp
     public sealed class RtspHeaders
     {
 
-        internal const char Hyphen = '-', SemiColon = ';';
+        internal const char Hyphen = '-', SemiColon = ';', Comma = ',';
 
         internal static string [] TimeSplit = new string[] { Hyphen.ToString(), SemiColon.ToString() };
 
@@ -111,9 +111,30 @@ namespace Media.Rtsp
 
         private RtspHeaders() { }
 
+        /// <summary>
+        /// Parses a RFCXXXX range string often used in SDP to describe start and end times.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="type"></param>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <returns></returns>
+        public static bool TryParseRange(string value, out string type, out TimeSpan start, out TimeSpan end)
+        {
+            return Media.Sdp.SessionDescription.TryParseRange(value, out type, out start, out end);
+        }
+
+        /// <summary>
+        /// Creates a RFCXXX range string
+        /// </summary>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <param name="type"></param>
+        /// <param name="format"></param>
+        /// <returns></returns>
         public static string RangeHeader(TimeSpan? start, TimeSpan? end, string type = "npt", string format = null)
         {
-            return type + "=" + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue && end.Value > TimeSpan.Zero ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
+            return type + ((char)Common.ASCII.Equals).ToString() + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue && end.Value > TimeSpan.Zero ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
         }
 
         public static string BasicAuthorizationHeader(Encoding encoding, System.Net.NetworkCredential credential) { return AuthorizationHeader(encoding, RtspMethod.UNKNOWN, null, System.Net.AuthenticationSchemes.Basic, credential); }
@@ -320,57 +341,82 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Parses a RFCXXXX range string often used in SDP to describe start and end times.
+        /// Parses a RFC2326 Rtp-Info header
         /// </summary>
         /// <param name="value"></param>
-        /// <param name="type"></param>
-        /// <param name="start"></param>
-        /// <param name="end"></param>
+        /// <param name="url"></param>
+        /// <param name="seq"></param>
+        /// <param name="rtpTime"></param>
         /// <returns></returns>
-        public static bool TryParseRange(string value, out string type, out TimeSpan start, out TimeSpan end)
+        public static bool TryParseRtpInfo(string value, out Uri url, out int seq, out int rtpTime, out int ssrc)
         {
-            return Media.Sdp.SessionDescription.TryParseRange(value, out type, out start, out end);
+            if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("value");
+
+            url = null;
+            seq = rtpTime = ssrc = 0;
+
+            try
+            {
+                string[] allParts = value.Split(SemiColon);
+
+                for (int i = 0, e = allParts.Length; i < e; ++i)
+                {
+
+                    string part = allParts[i];
+
+                    if (string.IsNullOrWhiteSpace(part)) continue;
+
+                    string[] subParts = part.Split((char)Common.ASCII.Equals);
+
+                    switch (subParts[0])
+                    {
+                        case "url":
+                            {
+                                url = new Uri(subParts[1], UriKind.RelativeOrAbsolute);
+                                continue;
+                            }
+                        case "seq":
+                            {
+                                seq = int.Parse(subParts[1]);
+                                continue;
+                            }
+                        case "rtptime":
+                            {
+                                rtpTime = int.Parse(subParts[1]);
+                                continue;
+                            }
+                        case "ssrc":
+                            {
+                                ssrc = int.Parse(subParts[1]);
+                                continue;
+                            }
+                        default: continue;
+                    }
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
-        public static string RangeHeader(string type, TimeSpan start, TimeSpan? end)
+        /// <summary>
+        /// Creates a RFC2326 Rtp-Info header
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="seq"></param>
+        /// <param name="rtpTime"></param>
+        /// <returns></returns>
+        public static string RtpInfoHeader(Uri url, int? seq, int? rtpTime, int? ssrc)
         {
-            throw new NotImplementedException();
-        }
-
-        public static bool TryParseRtpInfo(string value, out int seq, out int timestamp)
-        {
-            throw new NotImplementedException();
-
-            //Should check for RtpInfo
-            //And if present validate context with it, e.g. reduce requried packets and set ssrcs and start sequence.
-
-            //string rtpInfo = response[RtspHeaders.RtpInfo];
-
-            //If needed and given
-            //                int startRtpSequence = -1;
-
-            //                //should throw not found RtpInfo
-            //                if (!string.IsNullOrEmpty(rtpInfo))
-            //                {
-            //                    string[] pieces = rtpInfo.Split(SpaceSplit[1]);
-            //                    foreach (string piece in pieces)
-            //                    {
-            //                        if (piece.Trim().StartsWith("url="))
-            //                        {
-            //                            //Location = new Uri(piece.Replace("url=", string.Empty).Trim());
-            //                        }
-            //                        else if (piece.Trim().StartsWith("seqno="))
-            //                        {
-            //                            startRtpSequence = Convert.ToInt32(piece.Replace("seqno=", string.Empty).Trim());
-            //                        }
-            //#if DEBUG
-            //                        else
-            //                        {
-            //                            System.Diagnostics.Debug.WriteLine("RtspClient Encountered unhandled Rtp-Info part: " + piece);
-            //                        }
-            //#endif
-            //                    }
-            //     
+            return (
+                (url != null ? "url=" + url.ToString() + ';' : string.Empty)
+                + (seq.HasValue ? "seq=" + seq.Value + ';' : string.Empty)
+                + (rtpTime.HasValue ? "rtptime=" + rtpTime.Value + ';' : string.Empty)
+                + (ssrc.HasValue ? "ssrc=" + ssrc.Value : string.Empty)
+                );
         }
     }
 

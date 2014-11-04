@@ -118,9 +118,9 @@ namespace Media.Container
         }
 
         /// <summary>
-        /// Writes all <see cref="DataStream"/> if <see cref="DataSize"/> is > 0.
+        /// Writes all <see cref="RawData"/> if <see cref="DataSize"/> is > 0.
         /// </summary>
-        public void Update()
+        public void UpdateData()
         {
             if (DataSize > 0 && m_Data != null)
             {
