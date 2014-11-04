@@ -327,7 +327,7 @@ namespace Media.RtpTools
         /// <param name="format">The <see cref="FileFormat"/> to output.</param>
         /// <param name="packet">The <see cref="Rtcp.RtcpPacket"/> to describe</param>
         /// <returns>The text describes the packet if the <paramref name="format"/> is a text format, otherwise an empty string</returns>
-        internal static string ToTextualConvention(FileFormat format, Rtcp.RtcpPacket packet)
+        public static string ToTextualConvention(FileFormat format, Rtcp.RtcpPacket packet)
         {
             if (packet == null || packet.Payload.Count == 0 || format < FileFormat.Text || format == FileFormat.Short) return string.Empty;
 

@@ -129,12 +129,12 @@ namespace Tests
         void sender_OnPlay(RtspClient sender, object args)
         {
             sender.OnDisconnect += sender_OnDisconnect;
-            sender.m_RtpClient.RtpPacketReceieved += ShowRtpPacket;
-            sender.m_RtpClient.RtcpPacketReceieved += ShowRtcpPacket;
+            sender.Client.RtpPacketReceieved += ShowRtpPacket;
+            sender.Client.RtcpPacketReceieved += ShowRtcpPacket;
 
-            sender.m_RtpClient.RtcpPacketSent += ShowRtcpPacket;      
+            sender.Client.RtcpPacketSent += ShowRtcpPacket;
 
-            sender.m_RtpClient.AverageMaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
+            sender.Client.AverageMaximumRtcpBandwidthPercentage = (double)numericUpDown2.Value;
 
             sender.OnStop += sender_OnStop;            
         }
@@ -219,7 +219,7 @@ namespace Tests
                 pictureBox1.Image.RotateFlip(RotateFlipType.RotateNoneFlipX);
 
                 pictureBox1.Refresh();
-                label4.Text = LastDrawTime.ToString() + " (Delay =) " + x.TotalMilliseconds.ToString() + " @ " + Client.m_RtpClient.TotalBytesReceieved / Client.m_RtpClient.Uptime.TotalSeconds + " /Sec";
+                label4.Text = LastDrawTime.ToString() + " (Delay =) " + x.TotalMilliseconds.ToString() + " @ " + Client.Client.TotalBytesReceieved / Client.Client.Uptime.TotalSeconds + " /Sec";
 
                 LastDrawTime = DateTime.UtcNow;
             }
@@ -267,8 +267,8 @@ namespace Tests
 
             if (sender == null || sender.Disposed) return;
 
-            sender.m_RtpClient.RtpPacketReceieved -= ShowRtpPacket;
-            sender.m_RtpClient.RtcpPacketReceieved -= ShowRtcpPacket;
+            sender.Client.RtpPacketReceieved -= ShowRtpPacket;
+            sender.Client.RtcpPacketReceieved -= ShowRtcpPacket;
             
         
             sender.OnPlay -= sender_OnPlay;
@@ -276,10 +276,10 @@ namespace Tests
             sender.OnResponse -= sender_OnResponse;
 
             sender.OnDisconnect -= sender_OnDisconnect;
-            sender.m_RtpClient.RtpPacketReceieved -= ShowRtpPacket;
-            sender.m_RtpClient.RtcpPacketReceieved -= ShowRtcpPacket;
+            sender.Client.RtpPacketReceieved -= ShowRtpPacket;
+            sender.Client.RtcpPacketReceieved -= ShowRtcpPacket;
 
-            sender.m_RtpClient.RtcpPacketSent -= ShowRtcpPacket;
+            sender.Client.RtcpPacketSent -= ShowRtcpPacket;
 
             sender.OnStop -= sender_OnStop;            
 

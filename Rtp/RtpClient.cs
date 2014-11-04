@@ -104,7 +104,7 @@ namespace Media.Rtp
         //e.g Port mapping request http://tools.ietf.org/html/rfc6284#section-4.2 
         static byte[] WakeUpBytes = new byte[] { 0x70, 0x70, 0x70, 0x70 };
 
-        internal static byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => 100100
+        internal const byte BigEndianFrameControl = 36;//, // ASCII => $,  Hex => 24  Binary => 100100
         //LittleEndianFrameControl = 9;                   //                                     001001
 
         //The poing at which rollover occurs on the SequenceNumber
@@ -125,15 +125,17 @@ namespace Media.Rtp
         public static readonly TimeSpan DefaultReportInterval = TimeSpan.FromMilliseconds(96);
 
         /// <summary>
-        /// Read the RFC4751 Frame header.
+        /// Read the RFC2326 amd RFC4751 Frame header.
         /// Returns the amount of bytes in the frame.
         /// Outputs the channel of the frame in the channel variable.
         /// </summary>
         /// <param name="buffer">The data containing the RFC4751 frame</param>
         /// <param name="offset">The offset in the </param>
         /// <param name="channel">The byte which will contain the channel if the reading succeeded</param>
-        /// <returns> -1 If the buffer does not contain a RFC4751 at the offset given</returns>
-        internal static int TryReadFrameHeader(byte[] buffer, int offset, out byte channel)
+        /// <param name="readFrameByte">Indicates if the frameByte should be read (RFC2326)</param>
+        /// <param name="frameByte">Indicates the frameByte to read</param>
+        /// <returns> -1 If the buffer does not contain a RFC2326 / RFC4751 frame at the offset given</returns>
+        internal static int TryReadFrameHeader(byte[] buffer, int offset, out byte channel, bool readFrameByte = true, byte frameByte = BigEndianFrameControl)
         {
             //Must be assigned
             channel = default(byte);
@@ -143,7 +145,7 @@ namespace Media.Rtp
             //10.12 Embedded (Interleaved) Binary Data
 
             //If the buffer does not start with the magic byte this is not a RFC2326 frame, it could be a RFC4571 frame
-            if (buffer == null || buffer[offset] != BigEndianFrameControl) return -1; //goto ReadLengthOnly;
+            if (readFrameByte && buffer == null || buffer[offset] != frameByte) return -1; //goto ReadLengthOnly;
 
             /*
              Stream data such as RTP packets is encapsulated by an ASCII dollar
@@ -165,8 +167,8 @@ namespace Media.Rtp
             the Transport header(Section 12.39).
              */
 
-            //Assign the channel
-            channel = buffer[offset + 1];
+            //Assign the channel if reading framed.
+            if(readFrameByte)channel = buffer[offset + 1];
 
             #region Babble
 
@@ -212,9 +214,6 @@ namespace Media.Rtp
             //This would allow the receiving application to essentially ask that theat middle box not route packets any more or ask that it expedite routing et al.
 
             #endregion
-
-            ///ReadLengthOnly:
-
             //Return the result of reversing the Unsigned 16 bit integer at the offset (A total of 4 byte)
             return Common.Binary.ReadU16(buffer, offset + 2, BitConverter.IsLittleEndian);
         }
@@ -257,13 +256,13 @@ namespace Media.Rtp
                         string type;
                         Sdp.SessionDescription.TryParseRange(rangeInfo.Parts[0], out type, out tc.m_StartTime, out tc.m_EndTime);
                     }
+                    //else if (sessionDescription.TimeDescriptions.Count > 0)
+                    //{
+                    //tc.MediaStartTime = TimeSpan.FromMilliseconds();
+                    //tc.MediaEndTime = TimeSpan.FromMilliseconds();
+                    //}
                 }
-                //else if (sessionDescription.TimeDescriptions.Count > 0)
-                //{
-                //tc.MediaStartTime = TimeSpan.FromMilliseconds();
-                //tc.MediaEndTime = TimeSpan.FromMilliseconds();
-                //}
-
+                
                 //Check for udp if no existing socket was given
                 if (!hasSocket && string.Compare(md.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
                 {
@@ -2231,11 +2230,8 @@ namespace Media.Rtp
             //Store the Goodbye in the context
             context.Goodbye = goodBye;
 
-            //Disable service
-            //context.RtpEnabled = context.RtcpEnabled = false;
-
             //Send the packet
-            return SendRtcpPackets(compound);
+            return SendRtcpPackets(compound);            
         }
 
         /// <summary>
@@ -2446,22 +2442,14 @@ namespace Media.Rtp
 
                 //Include the SourceDescription
                 if (compound.Any() && !context.RtcpBandwidthExceeded) compound = Enumerable.Concat(compound, (context.SourceDescription = TransportContext.CreateSourceDescription(context)).Yield());
-            }
 
-            //Send all reports as compound
-            bytesSent = SendRtcpPackets(compound);
-
-            if (bytesSent > 0)
-            {
-                //Indicate when the last rtcp reports were sent now
-                context.m_LastRtcpOut = DateTime.UtcNow;
-
+                //Send all reports as compound
+                bytesSent = SendRtcpPackets(compound);
+                
                 //Reset the inactive time
                 context.m_InactiveTime = TimeSpan.Zero;
-
-                //Could apply a backoff algorithmn here if needed
             }
-
+            
             //Indicate if reports were sent in this interval
             return bytesSent > 0;
         }
@@ -2500,6 +2488,9 @@ namespace Media.Rtp
 
                     //mark inactive
                     inactive = true;
+
+                    //Disable further service
+                    context.IsRtpEnabled = context.IsRtcpEnabled = false;
                 }
             }
 
@@ -3133,7 +3124,6 @@ namespace Media.Rtp
                         //if Rtcp is enabled
                         if (rtcpEnabled)
                         {
-
                             if (//The last report was never received or recieved longer ago then required
                                 (tc.LastRtcpReportReceived == TimeSpan.Zero || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)
                                 &&//And the socket can read
