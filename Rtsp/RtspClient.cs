@@ -1140,11 +1140,11 @@ namespace Media.Rtsp
                     if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
                     {
                         RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;" + connectionType + "interleaved=" + (lastContext.DataChannel + 2) + RtspHeaders.Hyphen.ToString() + (lastContext.ControlChannel + 2));
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2)));
                     }
                     else
                     {
-                        setup.SetHeader(RtspHeaders.Transport, "RTP/AVP/TCP;" + connectionType + "interleaved=0-1");
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(0), (byte)(1)));
                     }
                 }
                 else if(string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
@@ -1163,7 +1163,7 @@ namespace Media.Rtsp
                     //{
                     //    Common.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
                     //}    
-                    setup.SetHeader(RtspHeaders.Transport, m_SessionDescription.MediaDescriptions[0].MediaProtocol + ";" + connectionType + "client_port=" + openPort + RtspHeaders.Hyphen.ToString() + (openPort + 1));
+                    setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, null, null, openPort, openPort + 1, null, null, true, false, null, false, 0, 0));
                 }
 
                 //Get the response for the setup
@@ -1317,7 +1317,7 @@ namespace Media.Rtsp
         protected virtual void SwitchProtocols(object state = null)
         {
             //If there is no socket or the protocol was forced return`
-            if (!Disposed && Playing && Client.TransportContexts.All(tc => tc.RtpEnabled && tc.RtpPacketsReceived == 0))
+            if (!Disposed && Playing && Client.TransportContexts.All(tc => tc.IsRtpEnabled && tc.RtpPacketsReceived == 0))
             {
                 try
                 {

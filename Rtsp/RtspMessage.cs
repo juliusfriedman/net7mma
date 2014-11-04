@@ -134,7 +134,7 @@ namespace Media.Rtsp
         /// <returns></returns>
         public static string RangeHeader(TimeSpan? start, TimeSpan? end, string type = "npt", string format = null)
         {
-            return type + ((char)Common.ASCII.Equals).ToString() + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue && end.Value > TimeSpan.Zero ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
+            return type + ((char)Common.ASCII.EqualsSign).ToString() + (start.HasValue ? start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + '-' + (end.HasValue && end.Value > TimeSpan.Zero ? end.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : string.Empty);
         }
 
         public static string BasicAuthorizationHeader(Encoding encoding, System.Net.NetworkCredential credential) { return AuthorizationHeader(encoding, RtspMethod.UNKNOWN, null, System.Net.AuthenticationSchemes.Basic, credential); }
@@ -238,7 +238,7 @@ namespace Media.Rtsp
 
                 for (int i = 0, e = parts.Length; i < e; ++i)
                 {
-                    string[] subParts = parts[i].Split((char)Common.ASCII.Equals);
+                    string[] subParts = parts[i].Split((char)Common.ASCII.EqualsSign);
 
                     switch (subParts[0])
                     {
@@ -334,10 +334,20 @@ namespace Media.Rtsp
             }
         }
 
-        //Have Overloads like InterleavedTransportHeader, UnicastTransportHeader, MulticastTransportHeader which use this method
-        public static string TransportHeader(int ssrc, System.Net.IPAddress source, int clientRtpPort, int clientRtcpPort, int serverRtpPort, int serverRtcpPort, bool unicast, bool multicast, string ttl, byte dataChannel, byte controlChannel)
+        public static string TransportHeader(string connectionType, int? ssrc, System.Net.IPAddress source, int? clientRtpPort, int? clientRtcpPort, int? serverRtpPort, int? serverRtcpPort, bool? unicast, bool? multicast, int? ttl, bool? interleaved, byte? dataChannel, byte? controlChannel)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrWhiteSpace(connectionType)) throw new ArgumentNullException("connectionType");
+            if (unicast.HasValue && multicast.HasValue && unicast.Value == multicast.Value) throw new InvalidOperationException("unicast and multicast cannot have the same value.");
+
+            return ( (connectionType + SemiColon.ToString())
+                + (source != null ? "source=" + source.ToString() + SemiColon : string.Empty)
+                + (unicast.HasValue && unicast.Value == true ? "unicast" + SemiColon : string.Empty)
+                + (multicast.HasValue && multicast.Value == true ? "multicast" + SemiColon : string.Empty)
+                + (clientRtpPort.HasValue ? "client_port=" + clientRtpPort.Value + (clientRtcpPort.HasValue ? Hyphen.ToString() + clientRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
+                + (serverRtpPort.HasValue ? "server_port=" + serverRtpPort.Value + (serverRtcpPort.HasValue ? Hyphen.ToString() + serverRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
+                + (interleaved.HasValue && interleaved.Value == true && dataChannel.HasValue ? "interleaved=" + dataChannel.Value + (controlChannel.HasValue ? Hyphen.ToString() + controlChannel.Value : string.Empty) + SemiColon : string.Empty)
+                + (ttl.HasValue ? "ttl=" + ttl.Value : string.Empty)
+                + (ssrc.HasValue ? "ssrc=" + ssrc.Value : string.Empty));
         }
 
         /// <summary>
@@ -366,7 +376,7 @@ namespace Media.Rtsp
 
                     if (string.IsNullOrWhiteSpace(part)) continue;
 
-                    string[] subParts = part.Split((char)Common.ASCII.Equals);
+                    string[] subParts = part.Split((char)Common.ASCII.EqualsSign);
 
                     switch (subParts[0])
                     {
@@ -412,9 +422,9 @@ namespace Media.Rtsp
         public static string RtpInfoHeader(Uri url, int? seq, int? rtpTime, int? ssrc)
         {
             return (
-                (url != null ? "url=" + url.ToString() + ';' : string.Empty)
-                + (seq.HasValue ? "seq=" + seq.Value + ';' : string.Empty)
-                + (rtpTime.HasValue ? "rtptime=" + rtpTime.Value + ';' : string.Empty)
+                (url != null ? "url=" + url.ToString() + SemiColon.ToString() : string.Empty)
+                + (seq.HasValue ? "seq=" + seq.Value + SemiColon.ToString() : string.Empty)
+                + (rtpTime.HasValue ? "rtptime=" + rtpTime.Value + SemiColon.ToString() : string.Empty)
                 + (ssrc.HasValue ? "ssrc=" + ssrc.Value : string.Empty)
                 );
         }

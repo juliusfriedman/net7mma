@@ -77,7 +77,7 @@ namespace Media.Sdp
         
         public const string MimeType = "application/sdp";
 
-        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.Equals, Hyphen = '-', SemiColon = ';', Colon = ':';
+        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.EqualsSign, Hyphen = '-', SemiColon = ';', Colon = ':';
 
         internal const string CR = "\r", LF = "\n", CRLF = CR + LF;
 

@@ -781,7 +781,7 @@ namespace Media.RtpTools
 
                             //Search for '='
 
-                            tokenIndex = Array.IndexOf<byte>(lineBytes, Common.ASCII.Equals);
+                            tokenIndex = Array.IndexOf<byte>(lineBytes, Common.ASCII.EqualsSign);
 
                             //If not found then this must be a Short entry.
                             if (tokenIndex == -1)

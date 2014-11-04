@@ -287,6 +287,10 @@ namespace Tests
         static void TestRtpClient(bool tcp = true)
         {
 
+            //Notes need to set EndTime on each context.
+
+            //Should re-write to use FromSessionDescription methods for cleaner test.
+
             //No tcp test right now.
             if (tcp) tcp = false;
 
