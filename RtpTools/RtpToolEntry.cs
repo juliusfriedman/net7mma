@@ -470,7 +470,7 @@ namespace Media.RtpTools
             return ToString(Format);
         }
 
-        public unsafe override void Dispose()
+        public override void Dispose()
         {
             base.Dispose();
             //Info = null;

@@ -85,106 +85,19 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Common\ASCII.cs" />
-    <Compile Include="Common\BaseDisposable.cs" />
-    <Compile Include="Common\Binary.cs" />
-    <Compile Include="Common\BitReader.cs" />
-    <Compile Include="Common\BitWriter.cs" />
-    <Compile Include="Common\ConcurrentThesaurus.cs" />
-    <Compile Include="Common\Exception.cs" />
-    <Compile Include="Common\IPacket.cs" />
-    <Compile Include="Common\ISocketReference.cs" />
-    <Compile Include="Common\IThreadReference.cs" />
-    <Compile Include="Common\MemorySegment.cs" />
-    <Compile Include="Container\Asf\AsfReader.cs" />
-    <Compile Include="Container\BaseMedia\BaseMediaReader.cs" />
-    <Compile Include="Container\Gxf\GxfReader.cs" />
-    <Compile Include="Container\Mcf\McfReader.cs" />
-    <Compile Include="Container\Mxf\MxfReader.cs" />
-    <Compile Include="Container\Node.cs" />
-    <Compile Include="Container\Matroska\MatroskaReader.cs" />
-    <Compile Include="Container\MediaFileStream.cs" />
-    <Compile Include="Container\IMediaContainer.cs" />
-    <Compile Include="Container\Nut\NutReader.cs" />
-    <Compile Include="Container\Ogg\OggReader.cs" />
-    <Compile Include="Container\Real\RealReader.cs" />
-    <Compile Include="Container\Riff\RiffReader.cs" />
-    <Compile Include="Container\Track.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RFC3550.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Rtcp\AppplicationSpecificReport.cs" />
-    <Compile Include="Rtcp\Expansion\RFC4585.cs" />
-    <Compile Include="Rtcp\GoodbyeReport.cs" />
-    <Compile Include="Rtcp\IReportBlock.cs" />
-    <Compile Include="Rtcp\ReceiversReport.cs" />
-    <Compile Include="Rtcp\ReportBlock.cs" />
-    <Compile Include="Rtcp\RtcpHeader.cs" />
-    <Compile Include="Rtcp\RtcpPacket.cs" />
-    <Compile Include="Rtcp\RtcpReport.cs" />
-    <Compile Include="Rtcp\SendersReport.cs" />
-    <Compile Include="Rtcp\SourceDescriptionReport.cs" />
     <Compile Include="Rtmp\RtmpClient.cs" />
     <Compile Include="Rtmp\RtmpPacket.cs" />
-    <Compile Include="RtpTools\FileFormat.cs" />
-    <Compile Include="RtpTools\RtpDump.cs" />
-    <Compile Include="RtpTools\RtpMix.cs" />
-    <Compile Include="RtpTools\RtpPlay.cs" />
-    <Compile Include="RtpTools\RtpSend.cs" />
-    <Compile Include="RtpTools\RtpToolEntry.cs" />
-    <Compile Include="RtpTools\RtpTrans.cs" />
-    <Compile Include="Rtp\Conference.cs" />
-    <Compile Include="Rtp\Mixer.cs" />
-    <Compile Include="Rtp\RtpClient.cs" />
-    <Compile Include="Rtp\RtpExtension.cs" />
-    <Compile Include="Rtp\RtpFrame.cs" />
-    <Compile Include="Rtp\RtpHeader.cs" />
-    <Compile Include="Rtp\RtpPacket.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Rtp\Translator.cs" />
-    <Compile Include="Rtsp\RtspClient.cs" />
-    <Compile Include="Rtsp\RtspMessage.cs" />
-    <Compile Include="Rtsp\Server\RtspServer.cs" />
-    <Compile Include="Rtsp\Server\RtspStreamArchiver.cs" />
-    <Compile Include="Rtsp\Server\RtspServerDebuggingLogger.cs" />
-    <Compile Include="Rtsp\Server\RtspServerLogger.cs" />
-    <Compile Include="Rtsp\Server\ClientSession.cs" />
-    <Compile Include="Rtsp\Server\Streams\ChildStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\IMediaStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\IMediaSink.cs" />
-    <Compile Include="Rtsp\Server\Streams\JPEGSourceStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\MJPEGSourceStream.cs" />
-    <Compile Include="Rtsp\Server\Streams\IMediaSource.cs" />
-    <Compile Include="Rtsp\Server\Streams\RFC2250Stream.cs" />
-    <Compile Include="Rtsp\Server\Streams\RFC4421Stream.cs" />
-    <Compile Include="Rtsp\Server\Streams\RFC6184Stream.cs" />
-    <Compile Include="Rtsp\Server\Streams\RFC2435Stream.cs" />
-    <Compile Include="Rtsp\Server\Streams\RtpStreams.cs" />
-    <Compile Include="Rtsp\Server\Streams\RtspStreams.cs" />
-    <Compile Include="Rtsp\Server\Streams\SourceStream.cs" />
-    <Compile Include="Sdp\SessionDescriptionProtocol.cs" />
-    <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Folder Include="Codec\Audio\flac\" />
-    <Folder Include="Codec\Audio\mpeg3\" />
-    <Folder Include="Codec\Audio\vorbis\" />
-    <Folder Include="Codec\Video\dirac\" />
-    <Folder Include="Codec\Video\h264\" />
-    <Folder Include="Codec\Video\jpeg\" />
-    <Folder Include="Codec\Video\mpeg1\" />
-    <Folder Include="Codec\Video\mpeg2\" />
-    <Folder Include="Codec\Video\mpeg4\" />
-    <Folder Include="Codec\Video\raw\" />
-    <Folder Include="Codec\Video\theora\" />
-    <Folder Include="Codec\Video\vp8\" />
-    <Folder Include="Compression\" />
-    <Folder Include="Secure\" />
+    <ProjectReference Include="Common\Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Common</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

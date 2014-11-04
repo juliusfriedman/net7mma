@@ -238,8 +238,8 @@ namespace Media.Rtsp
 
                         m_RtspPort = m_Location.Port;
 
-                        //Validate prots
-                        if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = RtspServer.DefaultPort;
+                        //Validate ports, should throw?
+                        if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = 554;
 
                         //Determine protocol
                         if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocolType.Tcp;
