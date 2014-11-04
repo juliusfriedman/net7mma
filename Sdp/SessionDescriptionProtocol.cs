@@ -95,6 +95,9 @@ namespace Media.Sdp
         /// <returns></returns>
         public static bool TryParseRange(string value, out string type, out TimeSpan start, out TimeSpan end)
         {
+
+            if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("value");
+
             type = Utility.Unknown;
             start = TimeSpan.Zero;
             end = System.Threading.Timeout.InfiniteTimeSpan;
@@ -211,10 +214,9 @@ namespace Media.Sdp
                         }
                     default:
                         {
-                            //Notes might have to switch on Type
                             if (partsLength > 0)
                             {
-                                if (parts[1] != "now" && double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+                                if (parts[offset] != "now" && double.TryParse(parts[offset++], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
                                 {
                                     start = TimeSpan.FromSeconds(seconds);
                                 }
@@ -223,11 +225,12 @@ namespace Media.Sdp
                             //If there is a start and end time
                             if (partsLength > 1)
                             {
-                                if (!string.IsNullOrWhiteSpace(parts[2]) && double.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
+                                if (!string.IsNullOrWhiteSpace(parts[offset]) && double.TryParse(parts[offset++], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out seconds))
                                 {
                                     end = TimeSpan.FromSeconds(seconds);
                                 }
                             }
+
                             break;
                         }
                 }

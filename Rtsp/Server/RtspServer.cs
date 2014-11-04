@@ -186,13 +186,9 @@ namespace Media.Rtsp
         /// </summary>
         public int SendTimeout { get { return m_TcpServerSocket.SendTimeout; } set { m_TcpServerSocket.SendTimeout = value; } }
 
-        ///// <summary>
-        ///// The amount of time before the RtpServer will remove a session if no Rtp activity has occured.
-        ///// </summary>
-        //public int ClientRtpInactivityTimeoutSeconds { get; set; }
-
         //For controlling Port ranges, Provide events so Upnp support can be plugged in? PortClosed/PortOpened(ProtocolType, startPort, endPort?)
         public int? MinimumUdpPort { get; set; } 
+        
         internal int? MaximumUdpPort { get; set; }
 
         /// <summary>

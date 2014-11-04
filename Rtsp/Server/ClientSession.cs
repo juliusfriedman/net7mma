@@ -522,18 +522,11 @@ namespace Media.Rtsp
 
                 if (context == null) continue;
 
-                //context.RtpTimestamp = tc.RtpTimestamp;
-                //context.NtpTimestamp = tc.NtpTimestamp;
-
-                //Make logic to make this clear and simple
-                string actualTrack = string.Empty;
-
-                actualTrack = "url=rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString();
-
-                rtpInfos.Add(actualTrack + ";seq=" + (uint)tc.SequenceNumber + ";rtptime=" + (uint)tc.RtpTimestamp + ";ssrc=0x" + ((uint)context.SynchronizationSourceIdentifier).ToString("X"));
+                rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()), 
+                    tc.SequenceNumber, tc.RtpTimestamp, context.SynchronizationSourceIdentifier));
                 
                 context = null;
-            }
+            }            
 
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
 

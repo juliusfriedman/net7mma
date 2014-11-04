@@ -26,7 +26,7 @@ namespace Media.Container
 
         public Uri Source { get { return Disposed ? null : m_Source; } }
 
-        public override long Position { get { return Disposed ? -1 : m_Position; } set { if (value == m_Position) return; m_Position = base.Seek(value, System.IO.SeekOrigin.Begin); } }
+        public override long Position { get { return Disposed ? -1 : m_Position; } set { if (value == m_Position) return; Seek(value, System.IO.SeekOrigin.Begin); } }
 
         public override long Length { get { return Disposed ? -1 : m_Length; } }
 
@@ -87,6 +87,11 @@ namespace Media.Container
             m_Source = null;
             m_FileInfo = null;
             base.Close();
+        }
+
+        public override long Seek(long offset, System.IO.SeekOrigin origin)
+        {
+            return m_Position = base.Seek(offset, origin);
         }
 
         //public virtual MediaFileStream Fork(long offset, long count)
