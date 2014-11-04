@@ -51,7 +51,7 @@
     <Compile Include="ISocketReference.cs" />
     <Compile Include="IThreadReference.cs" />
     <Compile Include="MemorySegment.cs" />
-    <Compile Include="Properties\MediaAsseblyInfo.cs" />
+    <Compile Include="Properties\MediaAssemblyInfo.cs" />
     <Compile Include="Properties\MediaCLSInternalVisibleToTestAttribute.cs" />
     <Compile Include="Properties\MediaCLSComplaintInfo.cs" />
     <Compile Include="Properties\MediaAssemblyVersionInfo.cs" />
