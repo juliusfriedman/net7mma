@@ -572,7 +572,7 @@ namespace Tests
             }
 
 
-            Console.BackgroundColor = pBackGound;
+            Console.BackgroundColor = pBackGound; 
 
             Console.ForegroundColor = pForeGround;
 
