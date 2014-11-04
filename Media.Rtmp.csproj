@@ -86,13 +86,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Rtmp\RtmpClient.cs" />
-    <Compile Include="Rtmp\RtmpPacket.cs" />
+    <Compile Include="RtmpClient.cs" />
+    <Compile Include="RtmpPacket.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Rtmp\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Common\Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>

@@ -9,7 +9,7 @@
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Tests</RootNamespace>
-    <AssemblyName>Tests</AssemblyName>
+    <AssemblyName>Media.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
@@ -225,9 +225,9 @@
       <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
       <Name>Media.Containers</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Media.csproj">
+    <ProjectReference Include="..\Media.Rtmp.csproj">
       <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
-      <Name>Media</Name>
+      <Name>Media.Rtmp</Name>
     </ProjectReference>
     <ProjectReference Include="..\RtpTools\Media.RtpTools.csproj">
       <Project>{05019b1d-58b3-44a4-8ef4-50a3fe740746}</Project>

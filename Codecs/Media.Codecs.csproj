@@ -39,12 +39,24 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Common\Properties\MediaAsseblyInfo.cs">
+      <Link>MediaAsseblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
+      <Link>MediaAssemblyVersionInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\Common\Properties\MediaCLSComplaintInfo.cs">
+      <Link>MediaCLSComplaintInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToTestAttribute.cs">
+      <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Media.csproj">
+    <ProjectReference Include="..\Media.Rtmp.csproj">
       <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
-      <Name>Media</Name>
+      <Name>Media.Rtmp</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
