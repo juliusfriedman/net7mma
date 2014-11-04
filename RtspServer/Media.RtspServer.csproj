@@ -40,8 +40,8 @@
     <Reference Include="System.Drawing" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Common\Properties\MediaAsseblyInfo.cs">
-      <Link>MediaAsseblyInfo.cs</Link>
+    <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
+      <Link>MediaAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
       <Link>MediaAssemblyVersionInfo.cs</Link>

@@ -65,6 +65,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
+      <Link>MediaAssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
+      <Link>MediaAssemblyVersionInfo.cs</Link>
+    </Compile>
     <Compile Include="ContainerInspector.cs">
       <SubType>Form</SubType>
     </Compile>
