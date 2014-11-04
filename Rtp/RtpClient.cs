@@ -634,12 +634,12 @@ namespace Media.Rtp
             /// <summary>
             /// Indicates if Rtp is enabled on the TransportContext
             /// </summary>
-            public bool RtpEnabled = true;
+            public bool IsRtpEnabled = true;
 
             /// <summary>
             /// Indicates if Rtcp will be used on this TransportContext
             /// </summary>
-            public bool RtcpEnabled = true;
+            public bool IsRtcpEnabled = true;
 
             /// <summary>
             /// Keeps track of any failures which occur when sending data.
@@ -670,7 +670,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    if (!RtcpEnabled) return true;
+                    if (!IsRtcpEnabled) return true;
 
                     //If disposed no limit is imposed do not check
                     if (!Disposed && MaximumRtcpBandwidthPercentage == 0) return false;
@@ -710,7 +710,7 @@ namespace Media.Rtp
                 internal protected set { m_EndTime = value; }
             }
 
-            public bool Continious
+            public bool IsContinious
             {
                 get { return m_EndTime == System.Threading.Timeout.InfiniteTimeSpan; }
             }
@@ -719,7 +719,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return Continious ? m_EndTime : Uptime - m_EndTime;
+                    return IsContinious ? m_EndTime : Uptime - m_EndTime;
                 }
             }
 
@@ -837,7 +837,7 @@ namespace Media.Rtp
             /// <summary>
             /// <c>false</c> if NOT [RtpEnabled AND RtcpEnabled] AND [LocalMultiplexing OR RemoteMultiplexing]
             /// </summary>
-            public bool Duplexing { get { try { return Disposed ?  false : (RtpEnabled && RtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
+            public bool Duplexing { get { try { return Disposed ?  false : (IsRtpEnabled && IsRtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
 
             /// <summary>
             /// The last <see cref="ReceiversReport"/> sent or received by this RtpClient.
@@ -961,7 +961,7 @@ namespace Media.Rtp
                 
                 SynchronizationSourceIdentifier = ssrc;
                 
-                RtcpEnabled = rtcpEnabled;
+                IsRtcpEnabled = rtcpEnabled;
 
                 //If 0 then all packets are answered
                 RemoteSynchronizationSourceIdentifier = senderSsrc;
@@ -1311,7 +1311,7 @@ namespace Media.Rtp
                     {
                         RtcpSocket = RtpSocket;
                     }
-                    else if (RtcpEnabled)
+                    else if (IsRtcpEnabled)
                     {
 
                         //Setup the RtcpSocket
@@ -1621,7 +1621,7 @@ namespace Media.Rtp
                 return;
               
             }
-            else if (!transportContext.RtcpEnabled) return;
+            else if (!transportContext.IsRtcpEnabled) return;
             else if (transportContext.SynchronizationSourceIdentifier == packet.SynchronizationSourceIdentifier)
             {
                 SendGoodbye(transportContext, Encoding.UTF8.GetBytes("ssrc"));
@@ -1973,12 +1973,12 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value which indicates if any underlying <see cref="RtpClient.TransportContext"/> owned by this RtpClient instance utilizes Rtcp.
         /// </summary>
-        public bool RtcpEnabled { get { return TransportContexts.Any(c => c.RtcpEnabled); } }
+        public bool RtcpEnabled { get { return TransportContexts.Any(c => c.IsRtcpEnabled); } }
 
         /// <summary>
         /// Gets a value which indicates if any underlying <see cref="RtpClient.TransportContext"/> owned by this RtpClient instance utilizes Rtcp.
         /// </summary>
-        public bool RtpEnabled { get { return TransportContexts.Any(c => c.RtpEnabled); } }
+        public bool RtpEnabled { get { return TransportContexts.Any(c => c.IsRtpEnabled); } }
 
         /// <summary>
         /// Indicates if the amount of bandwith currently utilized for Rtcp reporting has exceeded the amount of bandwidth allowed by the <see cref="AverageMaximumRtcpBandwidthPercentage"/> property.
@@ -2184,7 +2184,7 @@ namespace Media.Rtp
 
             foreach (TransportContext tc in TransportContexts)
             {
-                if (!tc.Disposed && tc.RtcpEnabled && SendReports(tc))
+                if (!tc.Disposed && tc.IsRtcpEnabled && SendReports(tc))
                 {
                     sentAny = true;
                 }
@@ -2253,7 +2253,7 @@ namespace Media.Rtp
         /// <param name="context">The context</param>
         internal protected virtual int SendSendersReport(TransportContext context)
         {
-            if (context == null || !context.RtcpEnabled || context.Disposed) return 0;
+            if (context == null || !context.IsRtcpEnabled || context.Disposed) return 0;
 
             //Ensure the SynchronizationSourceIdentifier of the transportChannel is assigned
             if (context.SynchronizationSourceIdentifier == 0)
@@ -2284,7 +2284,7 @@ namespace Media.Rtp
         /// <param name="context">The context</param>
         internal protected virtual int SendReceiversReport(TransportContext context)
         {
-            if (context == null || !context.RtcpEnabled || context.Disposed || context.RtpBytesSent > 0) return 0;
+            if (context == null || !context.IsRtcpEnabled || context.Disposed || context.RtpBytesSent > 0) return 0;
             //Ensure the SynchronizationSourceIdentifier of the transportChannel is assigned
             else if (context.SynchronizationSourceIdentifier == 0)
             {
@@ -2361,7 +2361,7 @@ namespace Media.Rtp
             TransportContext context = GetContextForPacket(packets.First());
 
             //If we don't have an transportChannel to send on or the transportChannel has not been identified or Rtcp is Disabled
-            if (context == null || context.SynchronizationSourceIdentifier == 0 || !context.RtcpEnabled)
+            if (context == null || context.SynchronizationSourceIdentifier == 0 || !context.IsRtcpEnabled)
             {
                 //Return
                 return 0;
@@ -2416,7 +2416,7 @@ namespace Media.Rtp
         {
             //Check for the stop signal (or disposal)
             if (m_StopRequested || Disposed ||  //Otherwise
-                !context.RtcpEnabled
+                !context.IsRtcpEnabled
                 || //Or Rtcp Bandwidth for this RtpClient has been exceeded
                 AverageRtcpBandwidthExceeded || context.RtcpBandwidthExceeded) return false; //No reports can be sent.
 
@@ -2467,7 +2467,10 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Sends a RtcpGoodbye Immediately if we have not recieved a packet in the required time.
+        /// Sends a RtcpGoodbye Immediately if the given context:
+        /// <see cref="IsRtcpEnabled"/>  and the context has not received a RtcpPacket during the last <see cref="ReceiveInterval"/>.
+        /// OR
+        /// <see cref="IsRtpEnabled"/> and the context <see cref="IsContinious"/> but <see cref="Uptime"/> is > the <see cref="MediaEndTime"/>
         /// </summary>
         /// <param name="lastActivity">The time the lastActivity has occured on the context (sending or recieving)</param>
         /// <param name="context">The context to check against</param>
@@ -2482,7 +2485,9 @@ namespace Media.Rtp
             }
 
             //Calulcate for the currently inactive time period
-            if (context.Goodbye == null && context.LastRtcpReportReceived > context.m_ReceiveInterval && context.LastRtpPacketReceived > context.m_ReceiveInterval)
+            if (context.Goodbye == null 
+                && 
+                (context.IsRtcpEnabled && context.LastRtcpReportReceived > context.m_ReceiveInterval) || (context.IsRtpEnabled && !context.IsContinious && Uptime > context.MediaEndTime))
             {
                 //Set the amount of time inactive
                 context.m_InactiveTime = DateTime.UtcNow - lastActivity;
@@ -2588,7 +2593,7 @@ namespace Media.Rtp
             int sent = 0;
 
             //Send a SendersReport before any data is sent.
-            if (transportContext.SendersReport == null && transportContext.RtcpEnabled) SendSendersReport(transportContext);
+            if (transportContext.SendersReport == null && transportContext.IsRtcpEnabled) SendSendersReport(transportContext);
 
             //The error encountered in the senddata operation as given by the send method of the socket used.
             SocketError error;
@@ -2986,7 +2991,7 @@ namespace Media.Rtp
                 if (!Disposed && frameLength > 0 && relevent != null)
                 {
                     //Determine if Rtp or Rtcp should be parsed
-                    expectRtp = !(expectRtcp = relevent.RtcpEnabled && frameChannel == relevent.ControlChannel);
+                    expectRtp = !(expectRtcp = relevent.IsRtcpEnabled && frameChannel == relevent.ControlChannel);
 
                     //Parse the data in the buffer
                     using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength)) ParseAndCompleteData(memory, expectRtcp, expectRtp, frameLength);
@@ -3106,37 +3111,43 @@ namespace Media.Rtp
                         //Check for a context which is able to receive data
                         if (tc == null || tc.Disposed || !tc.Connected
                             ||//If the context does not have continious media it must only receive data for the duration of the media.
-                            !tc.Continious && Uptime > tc.MediaEndTime) continue;
+                            !tc.IsContinious && Uptime > tc.MediaEndTime) continue;
 
                         //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
 
                         int receivedRtp = 0, receivedRtcp = 0;
 
-                        bool duplexing = tc.Duplexing, rtpEnabled = tc.RtpEnabled, rtcpEnabled = tc.RtcpEnabled;
+                        bool duplexing = tc.Duplexing, rtpEnabled = tc.IsRtpEnabled, rtcpEnabled = tc.IsRtcpEnabled;
 
                         //If receiving Rtp and the socket is able to read
                         if (rtpEnabled
                             //Check if the socket can read data
                             && tc.RtpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
                         {
+                            //Receive RtpData
                             receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, rtpEnabled, duplexing);
                             if (receivedRtp > 0) lastOperation = DateTime.UtcNow;
-                            //Try to send reports for the latest packets or abort if inactive
-                            if (SendReports(tc)) lastOperation = DateTime.UtcNow;
-                            else if (SendGoodbyeIfInactive(lastOperation, tc)) continue;//Don't throw for Goodbye
+
                         }
 
                         //if Rtcp is enabled
-                        if (rtcpEnabled
-                            && //The last report was never received or recieved longer ago then required
-                            (tc.LastRtcpReportReceived == TimeSpan.Zero || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)
-                            &&//And the socket can read
-                            tc.RtcpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
+                        if (rtcpEnabled)
                         {
 
-                            receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, duplexing, rtcpEnabled);
+                            if (//The last report was never received or recieved longer ago then required
+                                (tc.LastRtcpReportReceived == TimeSpan.Zero || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)
+                                &&//And the socket can read
+                                tc.RtcpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
+                            {
+                                //ReceiveRtcp Data
+                                receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, duplexing, rtcpEnabled);
+                                if (receivedRtcp > 0) lastOperation = DateTime.UtcNow;
 
-                            if (receivedRtcp > 0) lastOperation = DateTime.UtcNow;
+                            }
+
+                            //Try to send reports for the latest packets or continue if inactive
+                            if (SendReports(tc)) lastOperation = DateTime.UtcNow;
+                            else if (SendGoodbyeIfInactive(lastOperation, tc)) continue;//Don't throw for Goodbye
                         }
                     }
 
