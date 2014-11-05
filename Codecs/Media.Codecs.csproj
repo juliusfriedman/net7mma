@@ -61,12 +61,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Media.csproj">
-      <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
-      <Name>Media</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <Folder Include="Audio\flac\" />
     <Folder Include="Audio\mpeg3\" />
     <Folder Include="Audio\vorbis\" />
@@ -82,6 +76,16 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Compression\Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Compression</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
