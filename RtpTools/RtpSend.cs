@@ -615,7 +615,7 @@ namespace Media.RtpTools
 
                 builder.Append(Common.ASCII.LineFeed);
 
-                using (Media.Rtp.RFC3550.SourceList sl = new Media.Rtp.RFC3550.SourceList(packet))
+                using (Media.RFC3550.SourceList sl = new Media.RFC3550.SourceList(packet))
                 {
 
                     if (sl == null)

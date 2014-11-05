@@ -412,7 +412,7 @@ namespace Media.Rtsp
                     endRange = end;
 
                     //Ensure valid play times.
-                    if (endRange < start) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "End time must be greater than Start time.");
+                    if (endRange != System.Threading.Timeout.InfiniteTimeSpan && endRange < start) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "End time must be greater than Start time.");
                 }
 
                 //Set the range Range for the playResponse
@@ -424,35 +424,63 @@ namespace Media.Rtsp
 
             List<string> rtpInfos = new List<string>();
 
-            foreach (RtpClient.TransportContext tc in source.RtpClient)
-            {
-                var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
+            string lastSegment = playRequest.Location.Segments.Last();
 
-                if (context == null) continue;
+            Sdp.MediaType mediaType;
+
+            //If the mediaType was specified
+            if (Enum.TryParse(lastSegment, out mediaType))
+            {
+                var sourceContext = Attached.Keys.Where(tc => tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
+
+                var context = m_RtpClient.TransportContexts.Where(tc=>tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
 
                 //Ensure this context start on the appropraite time
                 if (startRange.HasValue) context.MediaStartTime = startRange.Value;
-                
+
                 //Ensure this context ends on the appropraite time
                 if (endRange.HasValue) context.MediaEndTime = endRange.Value;
 
                 //Create the RtpInfo header for this context.
-                rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()), 
-                    tc.SequenceNumber, tc.RtpTimestamp, context.SynchronizationSourceIdentifier));
+                rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
+                    sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
 
                 //Identify now to emulate GStreamer :P
                 m_RtpClient.SendSendersReport(context);
-                
+
                 //Done with context.
                 context = null;
-            }            
+            }
+            else
+            {
+                foreach (RtpClient.TransportContext tc in source.RtpClient)
+                {
+                    var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
+
+                    if (context == null) continue;
+
+                    //Ensure this context start on the appropraite time
+                    if (startRange.HasValue) context.MediaStartTime = startRange.Value;
+
+                    //Ensure this context ends on the appropraite time
+                    if (endRange.HasValue) context.MediaEndTime = endRange.Value;
+
+                    //Create the RtpInfo header for this context.
+                    rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
+                        tc.SequenceNumber, tc.RtpTimestamp, context.SynchronizationSourceIdentifier));
+
+                    //Done with context.
+                    context = null;
+                }
+
+                //Send all reports
+                m_RtpClient.SendSendersReports();
+            }
+
+                   
 
             //Sent the rtpInfo
-            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
-
-            //May double attach events if was already playing or paused
-            if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
-            else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));            
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
             if (!m_RtpClient.Connected) m_RtpClient.Connect();
@@ -588,7 +616,7 @@ namespace Media.Rtsp
             }            
             else //Not Interleaved
             {
-                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, mediaDescription.MediaPort, true);
+                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
                 
                 if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
 
@@ -640,6 +668,13 @@ namespace Media.Rtsp
             setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
             setupContext.MediaStartTime = sourceContext.MediaStartTime;
             setupContext.MediaEndTime = sourceContext.MediaEndTime;
+
+            //Only attach events once
+            if (!Attached.ContainsValue(sourceStream))
+            {
+                if (sourceStream.RtpClient.FrameChangedEventsEnabled) sourceStream.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
+                else sourceStream.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+            }
 
             //Add the new source
             Attached.Add(sourceContext, sourceStream);
@@ -934,8 +969,16 @@ namespace Media.Rtsp
                     md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS needs to be forwarded
                 }
 
-                //Should actually reflect outgoing port for this session?
+                //Should actually reflect outgoing port for this session
                 md.MediaPort = 0;
+
+                //Determine if attached and set the MediaPort.
+                if (m_RtpClient != null)
+                {
+                    var context = m_RtpClient.GetContextForMediaDescription(md);
+
+                    if (context != null) md.MediaPort = ((IPEndPoint)context.LocalRtp).Port;
+                }
 
                 //if (!stream.m_ForceTCP)
                 //{

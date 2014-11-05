@@ -70,7 +70,7 @@ namespace Media.Rtcp
         /// <param name="ssrc">The id of the senders of the report</param>
         /// <param name="sourcesLeaving">The SourceList which describes the sources who are leaving</param>
         /// <param name="reasonForLeaving">An optional reason for leaving(only the first 255 octets will be used)</param>
-        public GoodbyeReport(int version, int ssrc, Media.Rtp.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
+        public GoodbyeReport(int version, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
             : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count + 1 : 1, 0, reasonForLeaving != null ? reasonForLeaving.Length : 0)
         {
 
@@ -187,7 +187,7 @@ namespace Media.Rtcp
         /// Creates a <see cref="SourceList"/> from the information contained in the GoodbyeReport.
         /// </summary>
         /// <returns>The <see cref="SourceList"/> created.</returns>
-        public Media.Rtp.RFC3550.SourceList GetSourceList() { if (Disposed) return null; return new Media.Rtp.RFC3550.SourceList(this); }
+        public Media.RFC3550.SourceList GetSourceList() { if (Disposed) return null; return new Media.RFC3550.SourceList(this); }
 
         /// <summary>
         /// Clones this GoodbyeReport instance.

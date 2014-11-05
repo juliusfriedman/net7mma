@@ -47,7 +47,7 @@ using System.Text;
 
 #endregion
 
-namespace Media.Rtp
+namespace Media
 {
     /// <summary>
     /// Provides an implementation of various abstractions presented in <see cref="http://tools.ietf.org/html/rfc3550">RFC3550</see>

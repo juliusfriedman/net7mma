@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 namespace Media.Container
 {
@@ -8,6 +9,44 @@ namespace Media.Container
     /// </summary>
     public abstract class MediaFileStream : System.IO.FileStream, IDisposable, Container.IMediaContainer
     {
+
+        #region Statics
+
+        static Type MediaFileStreamType = typeof(MediaFileStream);
+
+        static Type[] ConstructorTypes = new Type[] { typeof(string), typeof(System.IO.FileAccess) };
+
+        public static MediaFileStream GetCompatbileImplementation(string fileName, AppDomain domain = null)
+        {
+
+            if (string.IsNullOrWhiteSpace(fileName)) throw new ArgumentNullException("fileName");
+
+            //Determine if to use Extension first?
+
+            //Get all loaded assemblies in the current application domain
+            foreach (var assembly in (domain ?? AppDomain.CurrentDomain).GetAssemblies())
+            {
+                //Iterate each derived type which is a SubClassOf RtcpPacket.
+                foreach (var derivedType in assembly.GetTypes().Where(t => t.IsSubclassOf(MediaFileStreamType)))
+                {
+                    //If the derivedType is an abstraction then add to the AbstractionBag and continue
+                    if (derivedType.IsAbstract) continue;
+
+                    MediaFileStream created = (MediaFileStream)derivedType.GetConstructor(ConstructorTypes).Invoke(new object[] { fileName });
+
+                    var rootNode = created.Root;
+
+                    if (rootNode != null && rootNode.IsComplete) return created;
+
+                    created.Dispose();
+                }
+            }
+
+            return null;
+        }
+
+        #endregion
+
         #region Fields
 
         bool m_Disposed;

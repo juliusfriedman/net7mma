@@ -1696,9 +1696,12 @@ namespace Media.Rtsp
             //Send the response to the client
             ProcessSendRtspResponse(resp, session);
 
-            session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
+            if (resp.StatusCode == RtspStatusCode.OK)
+            {
+                session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
 
-            session.ProcessPacketBuffer(found);
+                session.ProcessPacketBuffer(found);
+            }
         }
 
         /// <summary>

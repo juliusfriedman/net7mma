@@ -2189,7 +2189,19 @@ namespace Media.Rtp
         /// Gets any <see cref="TransportContext"/> used by this instance.
         /// </summary>
         /// <returns>The <see cref="TransportContexts"/> used by this instance.</returns>
-        public virtual IEnumerable<TransportContext> GetTransportContexts() { return TransportContexts.DefaultIfEmpty(); }
+        public virtual IEnumerable<TransportContext> GetTransportContexts()
+        {
+            if (Disposed) return Enumerable.Empty<TransportContext>();
+            try
+            {
+                return TransportContexts.DefaultIfEmpty();
+            }
+            catch (InvalidOperationException)
+            {
+                return GetTransportContexts();
+            }
+            catch { throw; }
+        }
 
         #region Rtcp
 
@@ -3046,7 +3058,7 @@ namespace Media.Rtp
                 // 209 - 223 is cited in the above as well as below
                 //RTCP packet types in the ranges 1-191 and 224-254 SHOULD only be used when other values have been exhausted.
 
-                using (Media.Rtp.RFC3550.CommonHeaderBits header = new Media.Rtp.RFC3550.CommonHeaderBits(memory))
+                using (Media.RFC3550.CommonHeaderBits header = new Media.RFC3550.CommonHeaderBits(memory))
                 {
                     //Just use the payload type to avoid confusion, payload types cannot and should not overlap
                     parseRtcp = !(parseRtcp = GetContextByPayloadType(header.RtpPayloadType) != null);
