@@ -661,7 +661,7 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            foreach (IMediaStream stream in Streams.Where(s => s.State == RtspSourceStream.StreamState.Started && s.Ready == false))
+            foreach (IMediaStream stream in Streams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
             {
                 //Ensure Stopped
                 stream.Stop();

@@ -579,7 +579,7 @@ namespace Media.Rtsp
                 setupContext.MediaEndTime = sourceContext.MediaEndTime;
 
                 //Create the returnTransportHeader
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, m_Server.LocalEndPoint.Address, null, null, null, null, true, false, null, true, dataChannel, controlChannel);
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, true, false, null, true, dataChannel, controlChannel);
             }            
             else //Not Interleaved
             {
@@ -619,13 +619,13 @@ namespace Media.Rtsp
                 }
 
                 //Initialize the Udp sockets
-                setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
 
                 //Add the transportChannel
                 m_RtpClient.Add(setupContext);
 
                 //Create the returnTransportHeader
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, ssrc, m_Server.LocalEndPoint.Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
                 
             }
 

@@ -8,7 +8,7 @@ namespace Media.Rtsp.Server.Streams
 {
     //Uncompressed Video 
     //http://tools.ietf.org/html/rfc4421
-    class RFC4421Stream
+    class RFC4421Media
     {
 
         /*
