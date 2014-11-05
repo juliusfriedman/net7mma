@@ -68,9 +68,9 @@
     <Compile Include="RtpTrans.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj">
+    <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
-      <Name>Common</Name>
+      <Name>Media.Common</Name>
     </ProjectReference>
     <ProjectReference Include="..\Containers\Media.Containers.csproj">
       <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>

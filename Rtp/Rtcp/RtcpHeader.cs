@@ -387,7 +387,11 @@ namespace Media.Rtcp
 
         #region Operators
 
-        public static bool operator ==(RtcpHeader a, RtcpHeader b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+        public static bool operator ==(RtcpHeader a, RtcpHeader b)
+        {
+            object boxA = a, boxB = b;
+            return boxA == null ? boxB == null : a.Equals(b);
+        }
 
         public static bool operator !=(RtcpHeader a, RtcpHeader b) { return !(a == b); }
 

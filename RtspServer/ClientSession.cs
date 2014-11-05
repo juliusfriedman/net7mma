@@ -431,9 +431,9 @@ namespace Media.Rtsp
             //If the mediaType was specified
             if (Enum.TryParse(lastSegment, out mediaType))
             {
-                var sourceContext = Attached.Keys.Where(tc => tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
+                var sourceContext = source.RtpClient.GetTransportContexts().Where(tc => tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
 
-                var context = m_RtpClient.TransportContexts.Where(tc=>tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
+                var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                 //Ensure this context start on the appropraite time
                 if (startRange.HasValue) context.MediaStartTime = startRange.Value;
@@ -453,7 +453,7 @@ namespace Media.Rtsp
             }
             else
             {
-                foreach (RtpClient.TransportContext tc in source.RtpClient)
+                foreach (RtpClient.TransportContext tc in source.RtpClient.GetTransportContexts())
                 {
                     var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
 
@@ -504,7 +504,7 @@ namespace Media.Rtsp
             IList<RtpPacket> packets;            
 
             //Iterate all TransportContext's in the Source
-            foreach (RtpClient.TransportContext sourceContext in source.RtpClient)
+            foreach (RtpClient.TransportContext sourceContext in source.RtpClient.GetTransportContexts())
             {
                 if (sourceContext == null) continue;
                 //If the PacketBuffer has any packets related remove packets from the PacketBuffer
@@ -595,7 +595,7 @@ namespace Media.Rtsp
                 else //The client was already created
                 {
                     //Have to calculate next data and control channel
-                    RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                    RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
                     
                     setupContext = new RtpClient.TransportContext(dataChannel = (byte)(lastContext.DataChannel + 2), controlChannel = (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
 
@@ -647,7 +647,7 @@ namespace Media.Rtsp
                 else //The client was already created.
                 {
                     //Have to calculate next data and control channel
-                    RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                    RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
                     setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);                    
                 }
 
@@ -691,7 +691,7 @@ namespace Media.Rtsp
             if (Attached.ContainsValue(source))
             {
                 //Iterate the source transport contexts
-                foreach (RtpClient.TransportContext sourceContext in source.RtpClient)
+                foreach (RtpClient.TransportContext sourceContext in source.RtpClient.GetTransportContexts())
                 {
                     //Adding the id will stop the packets from being enqueued into the RtpClient
                     PacketBuffer.Add((int)sourceContext.SynchronizationSourceIdentifier);
@@ -719,7 +719,7 @@ namespace Media.Rtsp
                 if (rtpSource.RtpClient != null)
                 {
                     //For each TransportContext in the RtpClient
-                    foreach (RtpClient.TransportContext tc in rtpSource.RtpClient) Attached.Remove(tc);
+                    foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.GetTransportContexts()) Attached.Remove(tc);
 
                     //Attach events
                     //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
@@ -762,7 +762,7 @@ namespace Media.Rtsp
             if (Enum.TryParse <Sdp.MediaType>(track, true, out mediaType))
             {
                 //bool GetContextBySdpControlLine... out mediaDescription
-                RtpClient.TransportContext sourceContext = Attached.Keys.FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
+                RtpClient.TransportContext sourceContext = source.RtpClient.GetTransportContexts().FirstOrDefault(sc => sc.MediaDescription.MediaType == mediaType);
 
                 //Cannot teardown media because we can't find the track they are asking to tear down
                 if (sourceContext == null)

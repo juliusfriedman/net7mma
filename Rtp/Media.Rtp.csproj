@@ -81,9 +81,9 @@
     <Compile Include="Translator.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj">
+    <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
-      <Name>Common</Name>
+      <Name>Media.Common</Name>
     </ProjectReference>
     <ProjectReference Include="..\Sdp\Media.Sdp.csproj">
       <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>

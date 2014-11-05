@@ -91,7 +91,7 @@ namespace Media.Rtp
     /// Provides an implementation of the <see cref="http://tools.ietf.org/html/rfc3550"> Real Time Protocol </see>.
     /// A RtpClient typically allows one <see cref="System.Net.Socket"/> to communicate (via RTP) to another <see cref="System.Net.Socket"/> via <see cref="RtpClient.TransportContext"/>'s in which some <see cref="SessionDescription"/> has been created.
     /// </summary>
-    public class RtpClient : Common.BaseDisposable, IEnumerable<RtpClient.TransportContext>, Media.Common.IThreadReference, Media.Common.ISocketReference
+    public class RtpClient : Common.BaseDisposable, Media.Common.IThreadReference, Media.Common.ISocketReference
     {
         #region Constants / Statics
 
@@ -3274,10 +3274,6 @@ namespace Media.Rtp
 
             DisableFeedbackReports(this);
         }
-
-        IEnumerator<RtpClient.TransportContext> IEnumerable<RtpClient.TransportContext>.GetEnumerator() { return GetTransportContexts().GetEnumerator(); }
-
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetTransportContexts().GetEnumerator(); }
 
         IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads() { return Disposed ? null : Utility.Yield(m_WorkerThread); }
 

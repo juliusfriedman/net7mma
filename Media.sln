@@ -17,13 +17,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.RtpTools", "RtpTools\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Sdp", "Sdp\Media.Sdp.csproj", "{CBE0C273-FB54-46E5-9A28-21C325A85D15}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Common\Common.csproj", "{C64CDAED-C863-454D-BFA6-95685868D054}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Common", "Common\Media.Common.csproj", "{C64CDAED-C863-454D-BFA6-95685868D054}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Rtsp", "Rtsp\Media.Rtsp.csproj", "{2DC7FD7B-2497-480B-A927-17F4846E5C74}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.RtspServer", "RtspServer\Media.RtspServer.csproj", "{905DEFFB-6DBC-4CF0-BED9-BB96AEA0193F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Compression", "Compression\Compression.csproj", "{03504A7F-63C9-481E-8FC4-AF0EAF7FB912}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Compression", "Compression\Media.Compression.csproj", "{03504A7F-63C9-481E-8FC4-AF0EAF7FB912}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Rtp", "Rtp\Media.Rtp.csproj", "{FD0101F4-1D22-434C-8025-42CAC8176C75}"
 EndProject
@@ -44,32 +44,32 @@ Global
 		SccProjectUniqueName3 = Containers\\Media.Containers.csproj
 		SccProjectName3 = Containers
 		SccLocalPath3 = Containers
-		SccProjectUniqueName4 = Common\\Common.csproj
-		SccProjectName4 = Common
-		SccLocalPath4 = Common
-		SccProjectUniqueName5 = Rtsp\\Media.Rtsp.csproj
-		SccProjectName5 = Rtsp
-		SccLocalPath5 = Rtsp
-		SccProjectUniqueName6 = Sdp\\Media.Sdp.csproj
-		SccProjectName6 = Sdp
-		SccLocalPath6 = Sdp
-		SccProjectUniqueName7 = Compression\\Compression.csproj
-		SccProjectName7 = Compression
-		SccLocalPath7 = Compression
-		SccProjectUniqueName8 = Rtp\\Media.Rtp.csproj
-		SccProjectName8 = Rtp
-		SccLocalPath8 = Rtp
-		SccProjectUniqueName9 = RtspServer\\Media.RtspServer.csproj
-		SccProjectName9 = RtspServer
-		SccLocalPath9 = RtspServer
-		SccProjectUniqueName10 = RtpTools\\Media.RtpTools.csproj
-		SccProjectName10 = RtpTools
-		SccLocalPath10 = RtpTools
-		SccProjectUniqueName11 = Media.csproj
-		SccLocalPath11 = .
-		SccProjectUniqueName12 = Rtmp\\Media.Rtmp.csproj
-		SccProjectName12 = Rtmp
-		SccLocalPath12 = Rtmp
+		SccProjectUniqueName4 = Rtsp\\Media.Rtsp.csproj
+		SccProjectName4 = Rtsp
+		SccLocalPath4 = Rtsp
+		SccProjectUniqueName5 = Sdp\\Media.Sdp.csproj
+		SccProjectName5 = Sdp
+		SccLocalPath5 = Sdp
+		SccProjectUniqueName6 = Rtp\\Media.Rtp.csproj
+		SccProjectName6 = Rtp
+		SccLocalPath6 = Rtp
+		SccProjectUniqueName7 = RtspServer\\Media.RtspServer.csproj
+		SccProjectName7 = RtspServer
+		SccLocalPath7 = RtspServer
+		SccProjectUniqueName8 = RtpTools\\Media.RtpTools.csproj
+		SccProjectName8 = RtpTools
+		SccLocalPath8 = RtpTools
+		SccProjectUniqueName9 = Media.csproj
+		SccLocalPath9 = .
+		SccProjectUniqueName10 = Rtmp\\Media.Rtmp.csproj
+		SccProjectName10 = Rtmp
+		SccLocalPath10 = Rtmp
+		SccProjectUniqueName11 = Common\\Media.Common.csproj
+		SccProjectName11 = Common
+		SccLocalPath11 = Common
+		SccProjectUniqueName12 = Compression\\Media.Compression.csproj
+		SccProjectName12 = Compression
+		SccLocalPath12 = Compression
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

@@ -57,6 +57,8 @@ namespace Media.Rtcp
     {
         #region Constants and Statics
 
+        static Type RtcpPacketType = typeof(RtcpPacket);
+
         /// <summary>
         /// The property which defines the name in which derivations of this type will utilize to specify their known PayloadType.
         /// The field must be static / const and must add it's type to the InstanceMap if it wishes to be known.
@@ -587,8 +589,7 @@ namespace Media.Rtcp
         /// Finds all types in all loaded assemblies which are a subclass of RtcpPacket and adds those types to either the InstanceMap or the AbstractionBag
         /// </summary>
         internal protected static void MapDerivedImplementations(AppDomain domain = null)
-        {
-            Type RtcpPacketType = typeof(RtcpPacket);
+        {            
 
             //Get all loaded assemblies in the current application domain
             foreach (var assembly in (domain ?? AppDomain.CurrentDomain).GetAssemblies())
@@ -629,7 +630,7 @@ namespace Media.Rtcp
         /// <param name="payloadType"></param>
         /// <param name="implementation"></param>
         /// <returns>The result of adding the implemention to the InstanceMap</returns>
-        internal static protected bool TryMapImplementation(byte payloadType, Type implementation) { return InstanceMap.TryAdd(payloadType, implementation); }
+        internal static protected bool TryMapImplementation(byte payloadType, Type implementation) { return implementation != null && implementation.IsAssignableFrom(RtcpPacketType) ? InstanceMap.TryAdd(payloadType, implementation) : false; }
 
         #endregion
 
@@ -685,7 +686,11 @@ namespace Media.Rtcp
 
         #region Operators
 
-        public static bool operator ==(RtcpPacket a, RtcpPacket b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+        public static bool operator ==(RtcpPacket a, RtcpPacket b)
+        {
+            object boxA = a, boxB = b;
+            return boxA == null ? boxB == null : a.Equals(b);
+        }
 
         public static bool operator !=(RtcpPacket a, RtcpPacket b) { return !(a == b); }
 

@@ -788,7 +788,11 @@ namespace Media
 
             public static implicit operator short(CommonHeaderBits bits) { return Common.Binary.Read16(bits, 0, BitConverter.IsLittleEndian); }
 
-            public static bool operator ==(CommonHeaderBits a, CommonHeaderBits b) { return (object)a == null ? (object)b == null : a.Equals(b); ; }
+            public static bool operator ==(CommonHeaderBits a, CommonHeaderBits b)
+            {
+                object boxA = a, boxB = b;
+                return boxA == null ? boxB == null : a.Equals(b);
+            }
 
             public static bool operator !=(CommonHeaderBits a, CommonHeaderBits b) { return !(a == b); }
 

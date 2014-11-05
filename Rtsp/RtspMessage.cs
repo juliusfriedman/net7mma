@@ -49,11 +49,11 @@ namespace Media.Rtsp
     public sealed class RtspHeaders
     {
 
-        internal const char Hyphen = '-', SemiColon = ';', Comma = ',';
+        internal const char HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Comma = (char)Common.ASCII.Comma;
 
-        internal static string [] TimeSplit = new string[] { Hyphen.ToString(), SemiColon.ToString() };
+        internal static string [] TimeSplit = new string[] { HyphenSign.ToString(), SemiColon.ToString() };
 
-        internal static char[] SpaceSplit = new char[] { ' ', ',' };
+        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space, Comma };
 
         public const string Allow = "Allow";
         public const string Accept = "Accept";
@@ -277,7 +277,7 @@ namespace Media.Rtsp
                             }
                         case "client_port":
                             {
-                                string[] clientPorts = subParts[1].Split(Hyphen);
+                                string[] clientPorts = subParts[1].Split(HyphenSign);
 
                                 int clientPortsLength = clientPorts.Length;
 
@@ -310,7 +310,7 @@ namespace Media.Rtsp
                             }
                         case "server_port":
                             {
-                                string[] serverPorts = subParts[1].Split(Hyphen);
+                                string[] serverPorts = subParts[1].Split(HyphenSign);
 
                                 int serverPortsLength = serverPorts.Length;
 
@@ -343,9 +343,9 @@ namespace Media.Rtsp
                 + (source != null ? "source=" + source.ToString() + SemiColon : string.Empty)
                 + (unicast.HasValue && unicast.Value == true ? "unicast" + SemiColon : string.Empty)
                 + (multicast.HasValue && multicast.Value == true ? "multicast" + SemiColon : string.Empty)
-                + (clientRtpPort.HasValue ? "client_port=" + clientRtpPort.Value + (clientRtcpPort.HasValue ? Hyphen.ToString() + clientRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
-                + (serverRtpPort.HasValue ? "server_port=" + serverRtpPort.Value + (serverRtcpPort.HasValue ? Hyphen.ToString() + serverRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
-                + (interleaved.HasValue && interleaved.Value == true && dataChannel.HasValue ? "interleaved=" + dataChannel.Value + (controlChannel.HasValue ? Hyphen.ToString() + controlChannel.Value : string.Empty) + SemiColon : string.Empty)
+                + (clientRtpPort.HasValue ? "client_port=" + clientRtpPort.Value + (clientRtcpPort.HasValue ? HyphenSign.ToString() + clientRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
+                + (serverRtpPort.HasValue ? "server_port=" + serverRtpPort.Value + (serverRtcpPort.HasValue ? HyphenSign.ToString() + serverRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
+                + (interleaved.HasValue && interleaved.Value == true && dataChannel.HasValue ? "interleaved=" + dataChannel.Value + (controlChannel.HasValue ? HyphenSign.ToString() + controlChannel.Value : string.Empty) + SemiColon : string.Empty)
                 + (ttl.HasValue ? "ttl=" + ttl.Value : string.Empty)
                 + (ssrc.HasValue ? "ssrc=" + ssrc.Value : string.Empty));
         }
@@ -1367,7 +1367,7 @@ namespace Media.Rtsp
 
         public override int GetHashCode()
         {
-            return (int)Method ^ Length;
+            return (int)Method ^ (string.IsNullOrWhiteSpace(m_Body) ? 0 : m_Body.GetHashCode()) | Length;
         }
 
         public override bool Equals(object obj)
@@ -1396,7 +1396,11 @@ namespace Media.Rtsp
 
         #region Operators
 
-        public static bool operator ==(RtspMessage a, RtspMessage b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+        public static bool operator ==(RtspMessage a, RtspMessage b)
+        {
+            object boxA = a, boxB = b;
+            return boxA == null ? boxB == null : a.Equals(b);
+        }
 
         public static bool operator !=(RtspMessage a, RtspMessage b) { return !(a == b); }
 

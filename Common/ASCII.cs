@@ -13,7 +13,10 @@ namespace Media.Common
             LineFeed = 0x0A, // `\n` => 10 Decimal
             NewLine = 0x0D, // `\r` => 13 Decimal
             EqualsSign = 0x3d,
-            //Hyphen = '-', SemiColon = ';', Colon = ':';
+            HyphenSign = 0x2d, 
+            Comma = 0x2c,
+            Colon = 0x3a,
+            SemiColon = 0x3b,
             R = 0x52; // 'R' = 82 Decimal
     }
 }
