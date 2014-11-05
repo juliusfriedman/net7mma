@@ -125,7 +125,7 @@ namespace Media.Rtsp.Server.Streams
         /// <summary>
         /// Is this RtspStream dependent on another
         /// </summary>
-        public bool IsParent { get { return !(this is ChildStream); } }
+        public bool IsParent { get { return !(this is ChildMedia); } }
 
         /// <summary>
         /// The Uri to the source media
