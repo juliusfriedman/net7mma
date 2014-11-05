@@ -2705,37 +2705,37 @@ a=mpeg4-esid:101");
             //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
             
             //Add the stream to the server
-            server.AddStream(source);
+            server.AddMedia(source);
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddStream(new Media.Rtsp.Server.Streams.RtspSource("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
 
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
+            server.AddMedia(new Media.Rtsp.Server.Streams.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
             Media.Rtsp.Server.Streams.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Expose Bandit's Pictures through Udp and Tcp
-            server.AddStream(imageStream = new Media.Rtsp.Server.Streams.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
+            server.AddMedia(imageStream = new Media.Rtsp.Server.Streams.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
             //Test H.264 Encoding
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
+            server.AddMedia(new Media.Rtsp.Server.Streams.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test MPEG Encoding
-            server.AddStream(new Media.Rtsp.Server.Streams.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
+            server.AddMedia(new Media.Rtsp.Server.Streams.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
             //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
@@ -2747,7 +2747,7 @@ a=mpeg4-esid:101");
 
             Media.Rtsp.Server.Streams.RFC2435Media screenShots = new Media.Rtsp.Server.Streams.RFC2435Media("Screen", null, false, 800, 600, false);
 
-            server.AddStream(screenShots);
+            server.AddMedia(screenShots);
 
             System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
             {

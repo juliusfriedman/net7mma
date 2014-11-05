@@ -110,7 +110,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all streams the server is aggregrating
         /// </summary>
-        Dictionary<Guid, IMediaStream> m_Streams = new Dictionary<Guid, IMediaStream>();
+        Dictionary<Guid, IMediaStream> m_MediaStreams = new Dictionary<Guid, IMediaStream>();
 
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
@@ -226,13 +226,12 @@ namespace Media.Rtsp
         /// <summary>
         /// The streams contained in the server
         /// </summary>
-        /// <remarks>Change to SourceStream and move counters there</remarks>
-        public IEnumerable<IMediaStream> Streams { get { lock (m_Streams) return m_Streams.Values.AsEnumerable(); } }
+        public IEnumerable<IMediaStream> MediaStreams { get { lock (m_MediaStreams) return m_MediaStreams.Values.AsEnumerable(); } }
 
         /// <summary>
         /// The amount of streams the server is prepared to listen to
         /// </summary>
-        public int TotalStreamCount { get { return m_Streams.Count; } }
+        public int TotalStreamCount { get { return m_MediaStreams.Count; } }
 
         /// <summary>
         /// The amount of active streams the server is listening to
@@ -242,7 +241,7 @@ namespace Media.Rtsp
             get
             {                
                 if (TotalStreamCount == 0) return 0;
-                return Streams.Where(s => s.State == SourceStream.StreamState.Stopped && s.Ready == true).Count();
+                return MediaStreams.Where(s => s.State == SourceStream.StreamState.Stopped && s.Ready == true).Count();
             }
         }
         
@@ -263,7 +262,7 @@ namespace Media.Rtsp
         {
             get
             {
-                return Streams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesReceieved : 0);
+                return MediaStreams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesReceieved : 0);
             }
         }
 
@@ -274,7 +273,7 @@ namespace Media.Rtsp
         {
             get
             {
-                return Streams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesSent : 0);
+                return MediaStreams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesSent : 0);
             }
         }
 
@@ -409,11 +408,14 @@ namespace Media.Rtsp
          
             Stop();
 
-            foreach (var stream in m_Streams.ToArray())
+            foreach (var stream in m_MediaStreams.ToArray())
             {
                 stream.Value.Dispose();
-                m_Streams.Remove(stream.Key);
+                m_MediaStreams.Remove(stream.Key);
             }
+
+            allDone.Dispose();
+            allDone = null;
         }
 
         #region Session Collection
@@ -457,15 +459,15 @@ namespace Media.Rtsp
         /// Adds a stream to the server. If the server is already started then the stream will also be started
         /// </summary>
         /// <param name="location">The uri of the stream</param>
-        public void AddStream(IMediaStream stream)
+        public void AddMedia(IMediaStream stream)
         {
-            if (ContainsStream(stream.Id)) throw new RtspServerException("Cannot add the given stream because it is already contained in the RtspServer");
+            if (ContainsMedia(stream.Id)) throw new RtspServerException("Cannot add the given stream because it is already contained in the RtspServer");
             else
             {
-                lock (m_Streams)
+                lock (m_MediaStreams)
                 {
                     //Remember to have clients indicate PlayFromStart if they want all sessions to start at 0
-                    m_Streams.Add(stream.Id, stream);
+                    m_MediaStreams.Add(stream.Id, stream);
                 }
 
                 //If we are listening start the stram
@@ -478,9 +480,9 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="streamId">The id of the stream</param>
         /// <returns>True if the stream is contained, otherwise false</returns>
-        public bool ContainsStream(Guid streamId)
+        public bool ContainsMedia(Guid streamId)
         {
-            return m_Streams.ContainsKey(streamId);
+            return m_MediaStreams.ContainsKey(streamId);
         }
 
         /// <summary>
@@ -489,11 +491,11 @@ namespace Media.Rtsp
         /// <param name="streamId">The id of the stream</param>
         /// <param name="stop">True if the stream should be stopped when removed</param>
         /// <returns>True if removed, otherwise false</returns>
-        public bool RemoveStream(Guid streamId, bool stop = true)
+        public bool RemoveMedia(Guid streamId, bool stop = true)
         {
             try
             {
-                if (m_Streams.ContainsKey(streamId))
+                if (m_MediaStreams.ContainsKey(streamId))
                 {
                     IMediaStream source = this[streamId];
                     if (stop) source.Stop();
@@ -504,9 +506,9 @@ namespace Media.Rtsp
                         RemoveCredential(source, "Digest");
                     }
 
-                    lock (m_Streams)
+                    lock (m_MediaStreams)
                     {
-                        return m_Streams.Remove(streamId);
+                        return m_MediaStreams.Remove(streamId);
                     }
                 }
                 return false;
@@ -520,7 +522,7 @@ namespace Media.Rtsp
         public IMediaStream GetStream(Guid streamId)
         {
             IMediaStream result;
-            m_Streams.TryGetValue(streamId, out result);
+            m_MediaStreams.TryGetValue(streamId, out result);
             return result;
         }
 
@@ -548,7 +550,7 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
-                foreach (IMediaStream stream in Streams)
+                foreach (IMediaStream stream in MediaStreams)
                 {
 
                     //If the name matches the streamName or stream Id then we found it
@@ -661,7 +663,7 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            foreach (IMediaStream stream in Streams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
+            foreach (IMediaStream stream in MediaStreams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
             {
                 //Ensure Stopped
                 stream.Stop();
@@ -768,7 +770,7 @@ namespace Media.Rtsp
             Utility.Abort(ref m_ServerThread);
 
             //Dispose the socket
-            m_TcpServerSocket.Dispose();
+            m_TcpServerSocket.Dispose();            
 
             //Stop other listeners
             DisableHttpTransport();
@@ -783,7 +785,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (IMediaStream stream in Streams)
+            foreach (IMediaStream stream in MediaStreams)
             {
                 try
                 {
@@ -801,7 +803,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (IMediaStream stream in Streams.ToArray())
+            foreach (IMediaStream stream in MediaStreams.ToArray())
             {
                 try
                 {
