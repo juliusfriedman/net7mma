@@ -61,9 +61,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Media.Rtmp.csproj">
+    <ProjectReference Include="..\Media.csproj">
       <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
-      <Name>Media.Rtmp</Name>
+      <Name>Media</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

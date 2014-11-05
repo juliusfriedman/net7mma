@@ -1,4 +1,4 @@
-Managed Media Aggregation `Media.Rtmp.dll`
+Managed Media Aggregation `Container` Beta
 
 Copyright 2014
 
