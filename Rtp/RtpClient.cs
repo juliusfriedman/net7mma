@@ -3046,7 +3046,7 @@ namespace Media.Rtp
                 // 209 - 223 is cited in the above as well as below
                 //RTCP packet types in the ranges 1-191 and 224-254 SHOULD only be used when other values have been exhausted.
 
-                using (Media.RFC3550.CommonHeaderBits header = new Media.RFC3550.CommonHeaderBits(memory))
+                using (Media.Rtp.RFC3550.CommonHeaderBits header = new Media.Rtp.RFC3550.CommonHeaderBits(memory))
                 {
                     //Just use the payload type to avoid confusion, payload types cannot and should not overlap
                     parseRtcp = !(parseRtcp = GetContextByPayloadType(header.RtpPayloadType) != null);

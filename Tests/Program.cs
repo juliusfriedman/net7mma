@@ -311,7 +311,7 @@ namespace Tests
                     SessionDescription.Add(new Media.Sdp.SessionDescriptionLine("c=IN IP4 " + localIp.ToString()));
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtp.RtpClient.RtpAvpProfileIdentifier, Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtp.RtpClient.RtpAvpProfileIdentifier, Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
 
                     sender.RtcpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
                     sender.RtcpPacketReceieved += (s, p) => TryPrintClientPacket(s, true, p);
@@ -330,7 +330,7 @@ namespace Tests
 
                         //Create and Add the required TransportContext's
 
-                        int sendersId = RFC3550.Random32(Media.Rtcp.SendersReport.PayloadType), receiversId = sendersId + 1;
+                        int sendersId = Media.Rtp.RFC3550.Random32(Media.Rtcp.SendersReport.PayloadType), receiversId = sendersId + 1;
 
                         //Create two transport contexts, one for the sender and one for the receiver.
                         //The Id of the parties must be known in advance in this stand alone example. (A conference would support more then 1 participant)
@@ -410,7 +410,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame testFrame = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame testFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
@@ -608,7 +608,7 @@ namespace Tests
             if (rtcpPacket.IsComplete == false) throw incompleteFalse;
 
             //Add nothing to the payload
-            rtcpPacket.AddBytesToPayload(RFC3550.CreatePadding(0), 0, 0);
+            rtcpPacket.AddBytesToPayload(Media.Rtp.RFC3550.CreatePadding(0), 0, 0);
 
             //Ensure the packet is complete
             if (rtcpPacket.IsComplete == false) throw incompleteFalse;
@@ -1675,7 +1675,7 @@ namespace Tests
                             //Check for a valid header
                             if (!p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
                                 || //Check for validation per RFC3550 A.1 when the test permits
-                                !bitValue && VersionCounter > 1 && PayloadCounter >= 200 && PayloadCounter <= 201 && !RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
+                                !bitValue && VersionCounter > 1 && PayloadCounter >= 200 && PayloadCounter <= 201 && !Media.Rtp.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
 
                             //Perform checks with length in words set incorrectly
                         }
@@ -2693,7 +2693,7 @@ a=mpeg4-esid:101");
 
             //The server will take in Media.RtspSourceStreams and make them available locally
 
-            Media.Rtsp.Server.Streams.RtspSource source = new Media.Rtsp.Server.Streams.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
+            Media.Rtsp.Server.Media.RtspSource source = new Media.Rtsp.Server.Media.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
             {
                 //Will force VLC et al to connect over TCP
                 //                m_ForceTCP = true
@@ -2707,35 +2707,35 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddMedia(source);
 
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
 
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.Streams.RtspSource("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
 
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddMedia(new Media.Rtsp.Server.Streams.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
+            server.AddMedia(new Media.Rtsp.Server.Media.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
-            Media.Rtsp.Server.Streams.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            Media.Rtsp.Server.Media.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Expose Bandit's Pictures through Udp and Tcp
-            server.AddMedia(imageStream = new Media.Rtsp.Server.Streams.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
+            server.AddMedia(imageStream = new Media.Rtsp.Server.Media.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
             //Test H.264 Encoding
-            server.AddMedia(new Media.Rtsp.Server.Streams.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
+            server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test MPEG Encoding
-            server.AddMedia(new Media.Rtsp.Server.Streams.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
+            server.AddMedia(new Media.Rtsp.Server.Media.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
             //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
@@ -2745,7 +2745,7 @@ a=mpeg4-esid:101");
             //server.RequestReceived events and custom handlers
             //server.ClientConnected / ClientDisconnected
 
-            Media.Rtsp.Server.Streams.RFC2435Media screenShots = new Media.Rtsp.Server.Streams.RFC2435Media("Screen", null, false, 800, 600, false);
+            Media.Rtsp.Server.Media.RFC2435Media screenShots = new Media.Rtsp.Server.Media.RFC2435Media("Screen", null, false, 800, 600, false);
 
             server.AddMedia(screenShots);
 
@@ -3021,7 +3021,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame())
+            using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
@@ -3059,7 +3059,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame())
+            using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
@@ -3099,7 +3099,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame())
+            using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
@@ -3127,7 +3127,7 @@ a=mpeg4-esid:101");
             }
 
             //Used in tests below
-            Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame f = null;
+            Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame f = null;
 
             //For each file in the JpegTest directory
             foreach (string fileName in System.IO.Directory.GetFiles("./JpegTest"))
@@ -3140,7 +3140,7 @@ a=mpeg4-esid:101");
                     f = null;
 
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization With Quant Tables)
-                    f = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame(jpegStream, 100);
+                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 100);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3163,7 +3163,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame(jpegStream, 100);
+                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 100);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3176,7 +3176,7 @@ a=mpeg4-esid:101");
                 }
 
                 //Create a JpegFrame from existing RtpPackets
-                using (Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame())
+                using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
                 {
                     foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
 
@@ -3194,7 +3194,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame(jpegStream, 50);
+                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 50);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3209,7 +3209,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame(jpegStream, 50);
+                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 50);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3222,7 +3222,7 @@ a=mpeg4-esid:101");
                 }
 
                 //Create a JpegFrame from existing RtpPackets
-                using (Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Streams.RFC2435Media.RFC2435Frame())
+                using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
                 {
                     foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
 

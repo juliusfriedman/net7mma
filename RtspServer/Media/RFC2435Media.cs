@@ -39,7 +39,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
 
     //Todo Seperate ImageStream from JpegRtpImageSource
@@ -54,7 +54,7 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// Sends System.Drawing.Images over Rtp by encoding them as a RFC2435 Jpeg
     /// </summary>
-    public class RFC2435Stream : RtpSink
+    public class RFC2435Media : RtpSink
     {
 
         #region NestedTypes
@@ -827,7 +827,7 @@ namespace Media.Rtsp.Server.Streams
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
             /// <param name="bytesPerPacket">The amount of bytes each RtpPacket will contain</param>
             /// <param name="sourceList">The <see cref="SourceList"/> to be included in each packet of the frame</param>
-            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Media.RFC3550.SourceList sourceList = null)
+            public RFC2435Frame(System.IO.Stream jpegData, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, Rtp.RFC3550.SourceList sourceList = null)
                 : this()
             {
 
@@ -1736,7 +1736,7 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        public RFC2435Stream(string name, string directory = null, bool watch = true)
+        public RFC2435Media(string name, string directory = null, bool watch = true)
             : base(name, new Uri("file://" + System.IO.Path.GetDirectoryName(directory)))
         {
 
@@ -1752,7 +1752,7 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
-        public RFC2435Stream(string name, string directory, bool watch, int width, int height, bool interlaced, int quality = 80)
+        public RFC2435Media(string name, string directory, bool watch, int width, int height, bool interlaced, int quality = 80)
             :this(name, directory, watch)
         {
             Width = width;
@@ -1772,7 +1772,7 @@ namespace Media.Rtsp.Server.Streams
 
             //Create a RtpClient so events can be sourced from the Server to many clients without this Client knowing about all participants
             //If this class was used to send directly to one person it would be setup with the recievers address
-            m_RtpClient = new Media.Rtp.RtpClient();
+            m_RtpClient = new Rtp.RtpClient();
 
             SessionDescription = new Sdp.SessionDescription(1, "v√ƒ", Name );
             SessionDescription.Add(new Sdp.Lines.SessionConnectionLine()
@@ -1783,7 +1783,7 @@ namespace Media.Rtsp.Server.Streams
             });
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2435Stream.RFC2435Frame.RtpJpegPayloadType));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
@@ -1922,7 +1922,7 @@ namespace Media.Rtsp.Server.Streams
                     }
                     else if (image.Width != Width || image.Height != Height) image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero);
 
-                    m_Frames.Enqueue(RFC2435Stream.RFC2435Frame.Packetize(image, Quality, Interlaced, (int)sourceId));
+                    m_Frames.Enqueue(RFC2435Media.RFC2435Frame.Packetize(image, Quality, Interlaced, (int)sourceId));
                 }
                 catch { throw; }
             }
@@ -1978,7 +1978,7 @@ namespace Media.Rtsp.Server.Streams
                         //Fire a frame changed event manually
                         if(m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpFrameChanged(frame);
 
-                        if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Stream.RFC2435Frame)frame);
+                        if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
 
                         System.Threading.Interlocked.Increment(ref m_FramesPerSecondCounter);
                     }

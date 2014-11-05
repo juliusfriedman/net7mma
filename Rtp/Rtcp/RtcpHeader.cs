@@ -89,7 +89,7 @@ namespace Media.Rtcp
         /// <summary>
         /// A managed abstraction of the first two octets, 16 bits of the RtcpHeader.
         /// </summary>
-        internal Media.RFC3550.CommonHeaderBits First16Bits;
+        internal Media.Rtp.RFC3550.CommonHeaderBits First16Bits;
 
         /// <summary>
         /// The last six octets of the RtcpHeader which contain the length in 32 bit words and the SSRC/CSRC of the sender of this RtcpHeader
@@ -230,7 +230,7 @@ namespace Media.Rtcp
             if (octetsLength == 0 || availableOctets < 4) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
 
             //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
-            First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
+            First16Bits = new Media.Rtp.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
 
             //Allocate space for the other 6 octets which consist of the 
             //LengthInWordsMinusOne (16 bits)
@@ -259,7 +259,7 @@ namespace Media.Rtcp
             }
             else
             {
-                First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits);
+                First16Bits = new Media.Rtp.RFC3550.CommonHeaderBits(other.First16Bits);
                 Last6Bytes = new byte[6];
                 PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
                 if (other.Last6Bytes != null)
@@ -277,7 +277,7 @@ namespace Media.Rtcp
         {
             if (Math.Abs(memory.Count - additionalOffset) < 4) throw new ArgumentException("memory must contain at least 4 elements", "memory");
 
-            First16Bits = new Media.RFC3550.CommonHeaderBits(memory, additionalOffset);
+            First16Bits = new Media.Rtp.RFC3550.CommonHeaderBits(memory, additionalOffset);
 
             //das infamous clamp max min
             PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
@@ -285,7 +285,7 @@ namespace Media.Rtcp
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
         {
-            First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
+            First16Bits = new Media.Rtp.RFC3550.CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
             Last6Bytes = new byte[6];
             PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
             //The default value must be set into the LengthInWords field otherwise it will reflect 65535.

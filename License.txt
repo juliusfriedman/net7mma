@@ -1,4 +1,4 @@
-Managed Media Aggregation `Media.Rtmp.dll` Alpha
+Managed Media Aggregation `Media.Rtmp.dll`
 
 Copyright 2014
 

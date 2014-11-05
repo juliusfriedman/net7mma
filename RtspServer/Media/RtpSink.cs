@@ -37,9 +37,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
 
     /// <summary>
@@ -51,7 +50,7 @@ namespace Media.Rtsp.Server.Streams
 
         public virtual bool Loop { get; set; }
 
-        protected Queue<Media.Common.IPacket> Packets = new Queue<Media.Common.IPacket>();
+        protected Queue<Common.IPacket> Packets = new Queue<Common.IPacket>();
 
         //public double MaxSendRate { get; protected set; }
 
@@ -69,7 +68,7 @@ namespace Media.Rtsp.Server.Streams
 
         //
 
-        public void SendPacket(Media.Common.IPacket packet)
+        public void SendPacket(Common.IPacket packet)
         {
             if (RtpClient != null)
             {
@@ -78,7 +77,7 @@ namespace Media.Rtsp.Server.Streams
             }
         }
 
-        public void EnquePacket(Media.Common.IPacket packet)
+        public void EnquePacket(Common.IPacket packet)
         {
             if (RtpClient != null) Packets.Enqueue(packet);
         }
@@ -101,7 +100,7 @@ namespace Media.Rtsp.Server.Streams
                     }
 
                     //Dequeue a frame or die
-                     Media.Common.IPacket packet = Packets.Dequeue();
+                     Common.IPacket packet = Packets.Dequeue();
 
                      SendPacket(packet);
 

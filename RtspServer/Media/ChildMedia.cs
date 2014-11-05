@@ -40,7 +40,7 @@ using System.Linq;
 using System.Text;
 using System.Net;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
     /// <summary>
     /// A Source Stream which is a facade` to another.
