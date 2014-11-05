@@ -8,7 +8,7 @@ using System.IO;
 
 namespace Media.Rtsp.Server.Streams
 {
-    public class RFC2250Stream : RFC2435Stream
+    public class RFC2250Media : RFC2435Media
     {
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace Media.Rtsp.Server.Streams
 
         public const int ProfileHeaderSize = 4;
 
-        public RFC2250Stream(int width, int height, string name, string directory = null, bool watch = true)
+        public RFC2250Media(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch, width, height, false)
         {
             Width = width;

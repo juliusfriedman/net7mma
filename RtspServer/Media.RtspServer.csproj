@@ -33,6 +33,14 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>false</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>
+    </AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -62,14 +70,15 @@
     <Compile Include="Streams\IMediaSink.cs" />
     <Compile Include="Streams\IMediaSource.cs" />
     <Compile Include="Streams\IMediaStream.cs" />
-    <Compile Include="Streams\JPEGSourceStream.cs" />
-    <Compile Include="Streams\MJPEGSourceStream.cs" />
-    <Compile Include="Streams\RFC2250Stream.cs" />
-    <Compile Include="Streams\RFC2435Stream.cs" />
-    <Compile Include="Streams\RFC4421Stream.cs" />
-    <Compile Include="Streams\RFC6184Stream.cs" />
-    <Compile Include="Streams\RtpStreams.cs" />
-    <Compile Include="Streams\RtspStreams.cs" />
+    <Compile Include="Streams\JPEGMedia.cs" />
+    <Compile Include="Streams\MJPEGMedia.cs" />
+    <Compile Include="Streams\RFC2250Media.cs" />
+    <Compile Include="Streams\RFC2435Media.cs" />
+    <Compile Include="Streams\RFC4421Media.cs" />
+    <Compile Include="Streams\RFC6184Media.cs" />
+    <Compile Include="Streams\RtpSink.cs" />
+    <Compile Include="Streams\RtpSource.cs" />
+    <Compile Include="Streams\RtspSource.cs" />
     <Compile Include="Streams\SourceStream.cs" />
   </ItemGroup>
   <ItemGroup>

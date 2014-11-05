@@ -15,30 +15,21 @@ namespace Media.Rtsp.Server.Streams
     using System.Security;
 
     /// <summary>
-    /// JPEG video source.
+    /// MJPEG video source.
     /// </summary>
     /// 
-    /// <remarks><para>The video source constantly downloads JPEG files from the specified URL.</para>
+    /// <remarks><para>The video source downloads JPEG images from the specified URL, which represents
+    /// MJPEG stream.</para>
     /// 
     /// <para>Sample usage:</para>
     /// <code>
-    /// // create JPEG video source
-    /// JPEGStream stream = new JPEGStream( "some url" );
-    /// // set NewFrame event handler
+    /// // create MJPEG video source
+    /// MJPEGStream stream = new MJPEGStream( "some url" );
+    /// // set event handlers
     /// stream.NewFrame += new NewFrameEventHandler( video_NewFrame );
     /// // start the video source
     /// stream.Start( );
     /// // ...
-    /// // signal to stop
-    /// stream.SignalToStop( );
-    /// // ...
-    /// 
-    /// private void video_NewFrame( object sender, NewFrameEventArgs eventArgs )
-    /// {
-    ///     // get new frame
-    ///     Bitmap bitmap = eventArgs.Frame;
-    ///     // process the frame
-    /// }
     /// </code>
     /// 
     /// <para><note>Some cameras produce HTTP header, which does not conform strictly to
@@ -56,7 +47,7 @@ namespace Media.Rtsp.Server.Streams
     /// </code>
     /// </remarks>
     /// 
-    public class JPEGSourceStream : RFC2435Stream
+    public class MJPEGMedia : RFC2435Media
     {
         // proxy information
         private IWebProxy proxy = null;
@@ -65,23 +56,22 @@ namespace Media.Rtsp.Server.Streams
         // recieved byte count
         private long bytesReceived;
         // use separate HTTP connection group or use default
-        private bool useSeparateConnectionGroup = false;
-        // prevent cashing or not
-        private bool preventCaching = true;
-        // frame interval in milliseconds
-        private int frameInterval = 0;
+        private bool useSeparateConnectionGroup = true;
         // timeout value for web request
         private int requestTimeout = 10000;
         // if we should use basic authentication when connecting to the video source
         private bool forceBasicAuthentication = false;
 
-        // buffer size used to download JPEG image
-        private const int bufferSize = 1024 * 1024;
+        // buffer size used to download MJPEG stream
+        private const int bufSize = 512 * 1024;
         // size of portion to read at once
         private const int readSize = 1024;
 
         private Thread thread = null;
         private ManualResetEvent stopEvent = null;
+        private ManualResetEvent reloadEvent = null;
+
+        private string userAgent = "Mozilla/5.0";
 
         /// <summary>
         /// Use or not separate connection group.
@@ -93,33 +83,6 @@ namespace Media.Rtsp.Server.Streams
         {
             get { return useSeparateConnectionGroup; }
             set { useSeparateConnectionGroup = value; }
-        }
-
-        /// <summary>
-        /// Use or not caching.
-        /// </summary>
-        /// 
-        /// <remarks>If the property is set to <b>true</b>, then a fake random parameter will be added
-        /// to URL to prevent caching. It's required for clients, who are behind proxy server.</remarks>
-        /// 
-        public bool PreventCaching
-        {
-            get { return preventCaching; }
-            set { preventCaching = value; }
-        }
-
-        /// <summary>
-        /// Frame interval.
-        /// </summary>
-        /// 
-        /// <remarks>The property sets the interval in milliseconds betwen frames. If the property is
-        /// set to 100, then the desired frame rate will be 10 frames per second. Default value is 0 -
-        /// get new frames as fast as possible.</remarks>
-        /// 
-        public int FrameInterval
-        {
-            get { return frameInterval; }
-            set { frameInterval = value; }
         }
 
         /// <summary>
@@ -139,6 +102,25 @@ namespace Media.Rtsp.Server.Streams
         {
             get { return proxy; }
             set { proxy = value; }
+        }
+
+        /// <summary>
+        /// User agent to specify in HTTP request header.
+        /// </summary>
+        /// 
+        /// <remarks><para>Some IP cameras check what is the requesting user agent and depending
+        /// on it they provide video in different formats or do not provide it at all. The property
+        /// sets the value of user agent string, which is sent to camera in request header.
+        /// </para>
+        /// 
+        /// <para>Default value is set to "Mozilla/5.0". If the value is set to <see langword="null"/>,
+        /// the user agent string is not sent in request header.</para>
+        /// </remarks>
+        /// 
+        public string HttpUserAgent
+        {
+            get { return userAgent; }
+            set { userAgent = value; }
         }
 
         /// <summary>
@@ -181,9 +163,8 @@ namespace Media.Rtsp.Server.Streams
         /// Request timeout value.
         /// </summary>
         /// 
-        /// <remarks><para>The property sets timeout value in milliseconds for web requests.</para>
-        /// 
-        /// <para>Default value is set <b>10000</b> milliseconds.</para></remarks>
+        /// <remarks>The property sets timeout value in milliseconds for web requests.
+        /// Default value is 10000 milliseconds.</remarks>
         /// 
         public int RequestTimeout
         {
@@ -207,8 +188,8 @@ namespace Media.Rtsp.Server.Streams
                     if (thread.Join(0) == false)
                         return true;
 
-                    // the thread is not running, free resources
-                    Free();                    
+                    // the thread is not running, so free resources
+                    Free();
                 }
                 return false;
             }
@@ -232,18 +213,19 @@ namespace Media.Rtsp.Server.Streams
             set { forceBasicAuthentication = value; }
         }
 
+
         /// <summary>
-        /// Initializes a new instance of the <see cref="JPEGSourceStream"/> class.
+        /// Initializes a new instance of the <see cref="MJPEGMedia"/> class.
         /// </summary>
         /// 
-        /// <param name="source">URL, which provides JPEG files.</param>
+        /// <param name="source">URL, which provides MJPEG stream.</param>
         /// 
-        public JPEGSourceStream(string name, Uri source) : base(name, null, false)
+        public MJPEGMedia(string name, Uri source) : base(name, null, false)
         {
             m_Source = source;
         }
 
-        public JPEGSourceStream(string name, string source) : this(name, new Uri(source)) { }
+        public MJPEGMedia(string name, string source) : this(name, new Uri(source)) { }
 
         /// <summary>
         /// Start video source.
@@ -268,10 +250,11 @@ namespace Media.Rtsp.Server.Streams
 
                 // create events
                 stopEvent = new ManualResetEvent(false);
+                reloadEvent = new ManualResetEvent(false);
 
                 // create and start new thread
                 thread = new Thread(new ThreadStart(WorkerThread));
-                thread.Name = m_Source.ToString(); // mainly for debugging
+                thread.Name = m_Source.ToString();
                 thread.Start();
 
                 base.Start();
@@ -347,42 +330,55 @@ namespace Media.Rtsp.Server.Streams
             // release events
             stopEvent.Close();
             stopEvent = null;
+            reloadEvent.Close();
+            reloadEvent = null;
         }
 
         // Worker thread
         private void WorkerThread()
         {
             // buffer to read stream
-            byte[] buffer = new byte[bufferSize];
-            // HTTP web request
-            HttpWebRequest request = null;
-            // web responce
-            WebResponse response = null;
-            // stream for JPEG downloading
-            Stream stream = null;
-            // download start time and duration
-            DateTime start;
-            TimeSpan span;
+            byte[] buffer = new byte[bufSize];
+            // JPEG magic number
+            byte[] jpegMagic = new byte[] { 0xFF, 0xD8, 0xFF };
+            int jpegMagicLength = 3;
+
+            ASCIIEncoding encoding = new ASCIIEncoding();
 
             while (!stopEvent.WaitOne(0, false))
             {
-                int read, total = 0;
+                // reset reload event
+                reloadEvent.Reset();
+
+                // HTTP web request
+                HttpWebRequest request = null;
+                // web responce
+                WebResponse response = null;
+                // stream for MJPEG downloading
+                Stream stream = null;
+                // boundary betweeen images (string and binary versions)
+                byte[] boundary = null;
+                string boudaryStr = null;
+                // length of boundary
+                int boundaryLen;
+                // flag signaling if boundary was checked or not
+                bool boundaryIsChecked = false;
+                // read amounts and positions
+                int read, todo = 0, total = 0, pos = 0, align = 1;
+                int start = 0, stop = 0;
+
+                // align
+                //  1 = searching for image start
+                //  2 = searching for image end
 
                 try
                 {
-                    // set dowbload start time
-                    start = DateTime.Now;
-
                     // create request
-                    if (!preventCaching)
+                    request = (HttpWebRequest)WebRequest.Create(m_Source);
+                    // set user agent
+                    if (userAgent != null)
                     {
-                        // request without cache prevention
-                        request = (HttpWebRequest)WebRequest.Create(m_Source);
-                    }
-                    else
-                    {
-                        // request with cache prevention
-                        request = (HttpWebRequest)WebRequest.Create(m_Source.ToString() + ((m_Source.ToString().IndexOf('?') == -1) ? '?' : '&') + "fake=" + Utility.Random.Next().ToString());
+                        request.UserAgent = userAgent;
                     }
 
                     // set proxy
@@ -392,6 +388,8 @@ namespace Media.Rtsp.Server.Streams
                     }
 
                     // set timeout value for the request
+                    request.Timeout = requestTimeout;
+                    // set login and password
                     if (SourceCredential != null)
                         request.Credentials = SourceCredential;
                     // set connection group name
@@ -406,55 +404,165 @@ namespace Media.Rtsp.Server.Streams
                     }
                     // get response
                     response = request.GetResponse();
+
+                    // check content type
+                    string contentType = response.ContentType;
+                    string[] contentTypeArray = contentType.Split('/');
+
+                    // "application/octet-stream"
+                    if ((contentTypeArray[0] == "application") && (contentTypeArray[1] == "octet-stream"))
+                    {
+                        boundaryLen = 0;
+                        boundary = new byte[0];
+                    }
+                    else if ((contentTypeArray[0] == "multipart") && (contentType.Contains("mixed")))
+                    {
+                        // get boundary
+                        int boundaryIndex = contentType.IndexOf("boundary", 0);
+                        if (boundaryIndex != -1)
+                        {
+                            boundaryIndex = contentType.IndexOf("=", boundaryIndex + 8);
+                        }
+
+                        if (boundaryIndex == -1)
+                        {
+                            // try same scenario as with octet-stream, i.e. without boundaries
+                            boundaryLen = 0;
+                            boundary = new byte[0];
+                        }
+                        else
+                        {
+                            boudaryStr = contentType.Substring(boundaryIndex + 1);
+                            // remove spaces and double quotes, which may be added by some IP cameras
+                            boudaryStr = boudaryStr.Trim(' ', '"');
+
+                            boundary = encoding.GetBytes(boudaryStr);
+                            boundaryLen = boundary.Length;
+                            boundaryIsChecked = false;
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Invalid content type.");
+                    }
+
                     // get response stream
                     stream = response.GetResponseStream();
                     stream.ReadTimeout = requestTimeout;
 
                     // loop
-                    while (!stopEvent.WaitOne(0, false))
+                    while ((!stopEvent.WaitOne(0, false)) && (!reloadEvent.WaitOne(0, false)))
                     {
                         // check total read
-                        if (total > bufferSize - readSize)
+                        if (total > bufSize - readSize)
                         {
-                            total = 0;
+                            total = pos = todo = 0;
                         }
 
                         // read next portion from stream
                         if ((read = stream.Read(buffer, total, readSize)) == 0)
-                            break;
+                            throw new ApplicationException();
 
                         total += read;
+                        todo += read;
 
                         // increment received bytes counter
                         bytesReceived += read;
-                    }
 
-                    if (!stopEvent.WaitOne(0, false))
-                    {
-                        // increment frames counter
-                        framesReceived++;
-
-                        // provide new image to clients
-                        // image at stop
-                        using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, 0, total), true, false))
+                        // do we need to check boundary ?
+                        if ((boundaryLen != 0) && (!boundaryIsChecked))
                         {
-                            // notify client
-                            //Could use the stream overload to give the JPEG Data directly to Packetize.
-                            Packetize(bitmap);
+                            // some IP cameras, like AirLink, claim that boundary is "myboundary",
+                            // when it is really "--myboundary". this needs to be corrected.
+
+                            pos = Utility.Find(buffer, boundary, 0, todo);
+                            // continue reading if boudary was not found
+                            if (pos == -1)
+                                continue;
+
+                            for (int i = pos - 1; i >= 0; i--)
+                            {
+                                byte ch = buffer[i];
+
+                                if ((ch == (byte)'\n') || (ch == (byte)'\r'))
+                                {
+                                    break;
+                                }
+
+                                boudaryStr = (char)ch + boudaryStr;
+                            }
+
+                            boundary = encoding.GetBytes(boudaryStr);
+                            boundaryLen = boundary.Length;
+                            boundaryIsChecked = true;
                         }
 
-                    }
+                        // search for image start
+                        if ((align == 1) && (todo >= jpegMagicLength))
+                        {
+                            start = Utility.Find( buffer, jpegMagic, pos, todo );
+                            if (start != -1)
+                            {
+                                // found JPEG start
+                                pos = start + jpegMagicLength;
+                                todo = total - pos;
+                                align = 2;
+                            }
+                            else
+                            {
+                                // delimiter not found
+                                todo = jpegMagicLength - 1;
+                                pos = total - todo;
+                            }
+                        }
 
-                    // wait for a while ?
-                    if (frameInterval > 0)
-                    {
-                        // get download duration
-                        span = DateTime.Now.Subtract(start);
-                        // miliseconds to sleep
-                        int msec = frameInterval - (int)span.TotalMilliseconds;
+                        // search for image end ( boundaryLen can be 0, so need extra check )
+                        while ((align == 2) && (todo != 0) && (todo >= boundaryLen))
+                        {
+                            stop = Utility.Find(buffer,
+                                (boundaryLen != 0) ? boundary : jpegMagic,
+                                pos, todo);
 
-                        if ((msec > 0) && (stopEvent.WaitOne(msec, false)))
-                            break;
+                            if (stop != -1)
+                            {
+                                pos = stop;
+                                todo = total - pos;
+
+                                // increment frames counter
+                                framesReceived++;
+
+                                // image at stop
+                                using (Bitmap bitmap = (Bitmap)Bitmap.FromStream(new MemoryStream(buffer, start, stop - start), true, false))
+                                {
+                                    // notify client
+
+                                    Packetize(bitmap);
+                                }
+
+                                // shift array
+                                pos = stop + boundaryLen;
+                                todo = total - pos;
+                                Array.Copy(buffer, pos, buffer, 0, todo);
+
+                                total = todo;
+                                pos = 0;
+                                align = 1;
+                            }
+                            else
+                            {
+                                // boundary not found
+                                if (boundaryLen != 0)
+                                {
+                                    todo = boundaryLen - 1;
+                                    pos = total - todo;
+                                }
+                                else
+                                {
+                                    todo = 0;
+                                    pos = total;
+                                }
+                            }
+                        }
                     }
                 }
                 catch (ThreadAbortException)
@@ -494,5 +602,4 @@ namespace Media.Rtsp.Server.Streams
             }
         }
     }
-
 }

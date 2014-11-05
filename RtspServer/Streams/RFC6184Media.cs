@@ -50,7 +50,7 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// RFC6184 H.264
     /// </summary>
-    public class RFC6184Stream : RFC2435Stream
+    public class RFC6184Media : RFC2435Media
     {
         //Some MP4 Related stuff
         //https://github.com/fyhertz/libstreaming/blob/master/src/net/majorkernelpanic/streaming/mp4/MP4Parser.java
@@ -234,7 +234,7 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        public RFC6184Stream(int width, int height, string name, string directory = null, bool watch = true)
+        public RFC6184Media(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch, width, height, false, 99)
         {
             Width = width;
@@ -297,7 +297,13 @@ namespace Media.Rtsp.Server.Streams
                                    System.Drawing.Imaging.ImageLockMode.ReadOnly, image.PixelFormat);
 
                         //Convert the bitmap to yuv420
-                        byte[] yuv = Utility.ABGRA2YUV420Managed(data.Width, data.Height, data.Scan0);
+
+                        //switch on image.PixelFormat
+
+                        //Utility.YUV2RGBManaged()
+                        // Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
+
+                        byte[] yuv = new byte[image.Width * image.Height];
 
                         ((System.Drawing.Bitmap)image).UnlockBits(data);
 

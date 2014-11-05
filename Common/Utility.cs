@@ -682,6 +682,8 @@ namespace Media
             }
         }
 
+        //Should follow the same api as below...
+
         internal static unsafe void YUV2RGBManaged(byte[] YUVData, byte[] RGBData, int width, int height)
         {
 
@@ -768,32 +770,39 @@ namespace Media
             int index = 0;
 
             //Parrallel
-
-            for (int j = 0; j < height; j++)
+            try
             {
-                for (int i = 0; i < width; i++)
+                for (int j = 0; j < height; j++)
                 {
-                    uint B = (rgbValues[index] & 0xff000000) >> 24;
-                    uint G = (rgbValues[index] & 0xff0000) >> 16;
-                    uint R = (rgbValues[index] & 0xff00) >> 8;
-                    uint a = (rgbValues[index] & 0xff) >> 0;
-
-                    //int yuvC = Utility.RgbYuv.GetYuv(Common.Binary.ReverseU32(rgbValues[index]));
-
-                    uint Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
-                    uint U = (uint)(((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128);
-                    uint V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
-
-                    yuv[yIndex++] = (byte)((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));// (byte)((yuvC & 0xff0000) >> 16); //
-
-                    if (j % 2 == 0 && index % 2 == 0)
+                    for (int i = 0; i < width; i++)
                     {
-                        yuv[uIndex++] = (byte)((U < 0) ? 0 : ((U > 255) ? 255 : U));//(byte)((yuvC  & 0xff00) >> 8);//
-                        yuv[vIndex++] = (byte)((V < 0) ? 0 : ((V > 255) ? 255 : V));// (byte)((yuvC & 0xff) >> 0);//
-                    }
+                        uint B = (rgbValues[index] & 0xff000000) >> 24;
+                        uint G = (rgbValues[index] & 0xff0000) >> 16;
+                        uint R = (rgbValues[index] & 0xff00) >> 8;
+                        uint a = (rgbValues[index] & 0xff) >> 0;
 
-                    index++;
+                        //int yuvC = Utility.RgbYuv.GetYuv(Common.Binary.ReverseU32(rgbValues[index]));
+
+                        uint Y = ((66 * R + 129 * G + 25 * B + 128) >> 8) + 16;
+                        uint U = (uint)(((-38 * R - 74 * G + 112 * B + 128) >> 8) + 128);
+                        uint V = ((112 * R - 94 * G - 18 * B + 128) >> 8) + 128;
+
+                        yuv[yIndex++] = (byte)((Y < 0) ? 0 : ((Y > 255) ? 255 : Y));// (byte)((yuvC & 0xff0000) >> 16); //
+
+                        if (j % 2 == 0 && index % 2 == 0)
+                        {
+                            yuv[uIndex++] = (byte)((U < 0) ? 0 : ((U > 255) ? 255 : U));//(byte)((yuvC  & 0xff00) >> 8);//
+                            yuv[vIndex++] = (byte)((V < 0) ? 0 : ((V > 255) ? 255 : V));// (byte)((yuvC & 0xff) >> 0);//
+                        }
+
+                        index++;
+                    }
                 }
+                
+            }
+            catch
+            {
+                throw;
             }
 
             return yuv;

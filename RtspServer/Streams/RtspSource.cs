@@ -45,7 +45,7 @@ namespace Media.Rtsp.Server.Streams
     /// <summary>
     /// A remote stream the RtspServer aggregates and can be played by clients.
     /// </summary>    
-    public class RtspSourceStream : RtpSource
+    public class RtspSource : RtpSource
     {
         //needs to have a way to indicate the stream should be kept in memory for play on demand from a source which is not continious, e.g. archiving / caching etc.
         //public static RtspChildStream CreateChild(RtspSourceStream source) { return new RtspChildStream(source); }        
@@ -141,10 +141,10 @@ namespace Media.Rtsp.Server.Streams
 
         #region Constructor
 
-        public RtspSourceStream(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize, specificMedia, startTime, endTime) { }
 
-        public RtspSourceStream(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize, specificMedia, startTime, endTime) { }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace Media.Rtsp.Server.Streams
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
-        public RtspSourceStream(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : base(name, sourceLocation)
         {
             //Create the listener if we are the top level stream (Parent)
@@ -282,24 +282,4 @@ namespace Media.Rtsp.Server.Streams
             }
         }
     }
-
-    /// <summary>
-    /// Encapsulates RtspStreams which are dependent on Parent RtspStreams
-    /// </summary>
-    //public class RtspChildStream : ChildStream
-    //{
-    //    public RtspChildStream(RtspSourceStream source) : base(source) { }
-
-    //    public RtspClient Client
-    //    {
-    //        get
-    //        {
-    //            return ((RtspSourceStream)m_Parent).RtspClient;
-    //        }
-    //        internal set
-    //        {
-    //            ((RtspSourceStream)m_Parent).RtspClient = value;
-    //        }
-    //    }
-    //}
 }
