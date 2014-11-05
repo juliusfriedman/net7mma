@@ -77,7 +77,7 @@ namespace Media.Sdp
         
         public const string MimeType = "application/sdp";
 
-        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.EqualsSign, Hyphen = '-', SemiColon = ';', Colon = ':';
+        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon;
 
         internal const string CR = "\r", LF = "\n", CRLF = CR + LF;
 
@@ -107,7 +107,7 @@ namespace Media.Sdp
             try
             {
                 //range: = 6 (may be present)
-                string[] parts = value.Split(Media.Sdp.SessionDescription.Colon, Media.Sdp.SessionDescription.Hyphen, Media.Sdp.SessionDescription.EQ);
+                string[] parts = value.Split(Media.Sdp.SessionDescription.Colon, Media.Sdp.SessionDescription.HyphenSign, Media.Sdp.SessionDescription.EQ);
 
                 int partsLength = parts.Length;
 

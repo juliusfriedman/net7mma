@@ -17,17 +17,24 @@ namespace Media.Rtcp.Expansion
             ApplicationLayerFeedback = 15,
             Reserved = 31
         }
-        
-        //Define Constant?
 
-        //Payload type (PT): 8 bits
-        //This is the RTCP packet type that identifies the packet as being
-        //an RTCP FB message.  Two values are defined by the IANA:
+        static RFC4585()
+        {
+            //Register Payload Types
+            //Define Constant?
 
-        //    Name   | Value | Brief Description
-        //----------+-------+------------------------------------
-        // RTPFB  |  205  | Transport layer FB message
-        // PSFB   |  206  | Payload-specific FB message
+            //Payload type (PT): 8 bits
+            //This is the RTCP packet type that identifies the packet as being
+            //an RTCP FB message.  Two values are defined by the IANA:
+
+            //    Name   | Value | Brief Description
+            //----------+-------+------------------------------------
+            // RTPFB  |  205  | Transport layer FB message
+            // PSFB   |  206  | Payload-specific FB message
+            RtcpPacket.TryMapImplementation(205, typeof(RtcpFeedbackPacket));
+            RtcpPacket.TryMapImplementation(206, typeof(RtcpFeedbackPacket));
+
+        }
 
         public class RtcpFeedbackPacket : RtcpReport
         {

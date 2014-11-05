@@ -78,13 +78,13 @@
     <Content Include="License.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj">
+    <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
-      <Name>Common</Name>
+      <Name>Media.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Compression\Compression.csproj">
+    <ProjectReference Include="..\Compression\Media.Compression.csproj">
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
-      <Name>Compression</Name>
+      <Name>Media.Compression</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

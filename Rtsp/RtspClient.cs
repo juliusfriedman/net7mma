@@ -842,7 +842,7 @@ namespace Media.Rtsp
 
                         string uri = parts.Where(p => p.StartsWith("uri", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault(); //parts.Where(p => p.Contains("uri")).FirstOrDefault();
 
-                        bool rfc2069 = !string.IsNullOrWhiteSpace(uri) && !uri.Contains(RtspHeaders.Hyphen);
+                        bool rfc2069 = !string.IsNullOrWhiteSpace(uri) && !uri.Contains(RtspHeaders.HyphenSign);
 
                         if (!string.IsNullOrWhiteSpace(uri))
                         {

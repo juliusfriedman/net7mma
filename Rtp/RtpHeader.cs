@@ -456,7 +456,11 @@ namespace Media.Rtp
 
         #region Operators
 
-        public static bool operator ==(RtpHeader a, RtpHeader b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+        public static bool operator ==(RtpHeader a, RtpHeader b)
+        {
+            object boxA = a, boxB = b;
+            return boxA == null ? boxB == null : a.Equals(b);
+        }
 
         public static bool operator !=(RtpHeader a, RtpHeader b) { return !(a == b); }
 

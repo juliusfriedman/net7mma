@@ -63,9 +63,9 @@
     <Compile Include="RtspMessage.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj">
+    <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
-      <Name>Common</Name>
+      <Name>Media.Common</Name>
     </ProjectReference>
     <ProjectReference Include="..\Rtp\Media.Rtp.csproj">
       <Project>{fd0101f4-1d22-434c-8025-42cac8176c75}</Project>

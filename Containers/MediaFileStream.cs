@@ -32,6 +32,8 @@ namespace Media.Container
                     //If the derivedType is an abstraction then add to the AbstractionBag and continue
                     if (derivedType.IsAbstract) continue;
 
+                    //Todo - Don't create the File Handle multiple times, use the existing one.
+
                     MediaFileStream created = (MediaFileStream)derivedType.GetConstructor(ConstructorTypes).Invoke(new object[] { fileName });
 
                     var rootNode = created.Root;

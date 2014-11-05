@@ -62,9 +62,9 @@
     <Compile Include="SessionDescriptionProtocol.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Common\Common.csproj">
+    <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
-      <Name>Common</Name>
+      <Name>Media.Common</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
