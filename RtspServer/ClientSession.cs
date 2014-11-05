@@ -656,7 +656,7 @@ namespace Media.Rtsp
             if (Attached.ContainsValue(source))
             {
                 //Iterate the source transport contexts
-                foreach (RtpClient.TransportContext sourceContext in source.RtpClient.TransportContexts)
+                foreach (RtpClient.TransportContext sourceContext in source.RtpClient)
                 {
                     //Adding the id will stop the packets from being enqueued into the RtpClient
                     PacketBuffer.Add((int)sourceContext.SynchronizationSourceIdentifier);
@@ -684,7 +684,7 @@ namespace Media.Rtsp
                 if (rtpSource.RtpClient != null)
                 {
                     //For each TransportContext in the RtpClient
-                    foreach (RtpClient.TransportContext tc in rtpSource.RtpClient.TransportContexts) Attached.Remove(tc);
+                    foreach (RtpClient.TransportContext tc in rtpSource.RtpClient) Attached.Remove(tc);
 
                     //Attach events
                     //rtpSource.RtpClient.RtcpPacketReceieved -= OnSourceRtcpPacketRecieved;
