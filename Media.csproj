@@ -98,9 +98,45 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <ProjectReference Include="Codecs\Media.Codecs.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codecs</Name>
+    </ProjectReference>
     <ProjectReference Include="Common\Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="Compression\Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="Containers\Media.Containers.csproj">
+      <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
+      <Name>Media.Containers</Name>
+    </ProjectReference>
+    <ProjectReference Include="Rtmp\Media.Rtmp.csproj">
+      <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>
+      <Name>Media.Rtmp</Name>
+    </ProjectReference>
+    <ProjectReference Include="RtpTools\Media.RtpTools.csproj">
+      <Project>{05019b1d-58b3-44a4-8ef4-50a3fe740746}</Project>
+      <Name>Media.RtpTools</Name>
+    </ProjectReference>
+    <ProjectReference Include="Rtp\Media.Rtp.csproj">
+      <Project>{fd0101f4-1d22-434c-8025-42cac8176c75}</Project>
+      <Name>Media.Rtp</Name>
+    </ProjectReference>
+    <ProjectReference Include="RtspServer\Media.RtspServer.csproj">
+      <Project>{905deffb-6dbc-4cf0-bed9-bb96aea0193f}</Project>
+      <Name>Media.RtspServer</Name>
+    </ProjectReference>
+    <ProjectReference Include="Rtsp\Media.Rtsp.csproj">
+      <Project>{2dc7fd7b-2497-480b-a927-17f4846e5c74}</Project>
+      <Name>Media.Rtsp</Name>
+    </ProjectReference>
+    <ProjectReference Include="Sdp\Media.Sdp.csproj">
+      <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
+      <Name>Media.Sdp</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

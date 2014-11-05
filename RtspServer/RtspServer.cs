@@ -293,18 +293,19 @@ namespace Media.Rtsp
 
         internal Dictionary<RtspMethod, RtspRequestHandler> m_ExtraHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
 
-        public void AddHandler(RtspMethod method, RtspRequestHandler handler) { try { m_ExtraHandlers.Add(method, handler); } catch { throw; } }
+        public void AddRequestHandler(RtspMethod method, RtspRequestHandler handler) { try { m_ExtraHandlers.Add(method, handler); } catch { throw; } }
 
-        public bool RemoveHandler(RtspMethod method) { return m_ExtraHandlers.Remove(method); }
-
-        #endregion
-
-        #region Events
-
-        //RequestReceived
-        //ResponseSent
+        public bool RemoveRequestHandler(RtspMethod method) { return m_ExtraHandlers.Remove(method); }
 
         #endregion
+
+        //Provide no immediate benefit
+        //#region Events
+
+        ////RequestReceived
+        ////ResponseSent
+
+        //#endregion
 
         #region Constructor
 
@@ -1993,6 +1994,7 @@ namespace Media.Rtsp
 
             if (m_UdpServerSocket != null) yield return m_UdpServerSocket;
 
+            //Get socket using reflection?
             //if (m_HttpListner != null) yield return m_HttpListner.;
         }
 
