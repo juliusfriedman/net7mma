@@ -2189,7 +2189,7 @@ namespace Media.Rtp
         /// Gets any <see cref="TransportContext"/> used by this instance.
         /// </summary>
         /// <returns>The <see cref="TransportContexts"/> used by this instance.</returns>
-        public virtual IEnumerable<TransportContext> GetTransportContexts() { return TransportContexts; }
+        public virtual IEnumerable<TransportContext> GetTransportContexts() { return TransportContexts.DefaultIfEmpty(); }
 
         #region Rtcp
 

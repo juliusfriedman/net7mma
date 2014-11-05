@@ -410,28 +410,33 @@ namespace Media.Rtsp
                 {
                     startRange = start;
                     endRange = end;
+
+                    //Ensure valid play times.
+                    if (endRange < start) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "End time must be greater than Start time.");
                 }
 
                 //Set the range Range for the playResponse
                 playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
             }
-            //else
-            //{
-                //Should come from sourceContext tc.MediaStartTime, tc.MediaEndTime
-                //playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
-            //}
 
             //Prepare the RtpInfo header
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
 
             List<string> rtpInfos = new List<string>();
 
-            foreach (RtpClient.TransportContext tc in source.RtpClient.TransportContexts)
+            foreach (RtpClient.TransportContext tc in source.RtpClient)
             {
                 var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
 
                 if (context == null) continue;
 
+                //Ensure this context start on the appropraite time
+                if (startRange.HasValue) context.MediaStartTime = startRange.Value;
+                
+                //Ensure this context ends on the appropraite time
+                if (endRange.HasValue) context.MediaEndTime = endRange.Value;
+
+                //Create the RtpInfo header for this context.
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()), 
                     tc.SequenceNumber, tc.RtpTimestamp, context.SynchronizationSourceIdentifier));
 
@@ -471,7 +476,7 @@ namespace Media.Rtsp
             IList<RtpPacket> packets;            
 
             //Iterate all TransportContext's in the Source
-            foreach (RtpClient.TransportContext sourceContext in source.RtpClient.TransportContexts.DefaultIfEmpty())
+            foreach (RtpClient.TransportContext sourceContext in source.RtpClient)
             {
                 if (sourceContext == null) continue;
                 //If the PacketBuffer has any packets related remove packets from the PacketBuffer
@@ -583,11 +588,11 @@ namespace Media.Rtsp
             }            
             else //Not Interleaved
             {
-                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, m_Server.MinimumUdpPort ?? 30000, true);
+                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, mediaDescription.MediaPort, true);
                 
                 if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
 
-                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, m_Server.MinimumUdpPort ?? 30000, true);
+                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, clientRtpPort, true);
 
                 if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
 
@@ -862,7 +867,7 @@ namespace Media.Rtsp
             //Rewrite a new connection line
             string addressString = LocalEndPoint.Address.ToString();// +"/127/2";
 
-            Utility.FindOpenPort( stream.m_ForceTCP ? ProtocolType.Tcp : ProtocolType.Udp);
+            //int lastPort = Utility.FindOpenPort( stream.m_ForceTCP ? ProtocolType.Tcp : ProtocolType.Udp);
 
             //Indicate a port in the sdp, setup should also use this port, this should essentially reserve the port for the setup process...
             //if (!stream.m_ForceTCP)
@@ -929,7 +934,7 @@ namespace Media.Rtsp
                     md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS needs to be forwarded
                 }
 
-                //Should actually reflect outgoing port
+                //Should actually reflect outgoing port for this session?
                 md.MediaPort = 0;
 
                 //if (!stream.m_ForceTCP)

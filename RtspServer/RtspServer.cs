@@ -287,14 +287,22 @@ namespace Media.Rtsp
 
         #endregion
 
+        #region Delegates
+
+        public delegate RtspMessage RtspRequestHandler(RtspMessage request);
+
+        internal Dictionary<RtspMethod, RtspRequestHandler> m_ExtraHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
+
+        public void AddHandler(RtspMethod method, RtspRequestHandler handler) { try { m_ExtraHandlers.Add(method, handler); } catch { throw; } }
+
+        public bool RemoveHandler(RtspMethod method) { return m_ExtraHandlers.Remove(method); }
+
+        #endregion
+
         #region Events
 
         //RequestReceived
         //ResponseSent
-
-        //Expose Session?
-        //SessionCreated
-        //SessionDisconnected
 
         #endregion
 
@@ -1134,7 +1142,7 @@ namespace Media.Rtsp
                 //Minor version reflects changes made to the protocol but not the 'general message parsing' `algorithm`
 
                 //Thus, RTSP/2.4 is a lower version than RTSP/2.13, which in turn is lower than RTSP/12.3.
-               //Leading zeros SHALL NOT be sent and MUST be ignored by recipients.
+                //Leading zeros SHALL NOT be sent and MUST be ignored by recipients.
 
                 //Version
                 if (request.Version > Version)
@@ -1160,25 +1168,21 @@ namespace Media.Rtsp
                     case RtspMethod.OPTIONS:
                         {
                             ProcessRtspOptions(request, session);
-                            //Check for pipline?
                             break;
                         }
                     case RtspMethod.DESCRIBE:
                         {
                             ProcessRtspDescribe(request, session);
-                            //Check for pipline?
                             break;
                         }
                     case RtspMethod.SETUP:
                         {
                             ProcessRtspSetup(request, session);
-                            //Check for pipline?
                             break;
                         }
                     case RtspMethod.PLAY:
                         {
                             ProcessRtspPlay(request, session);
-                            //Check for previously pipelined
                             break;
                         }
                     case RtspMethod.RECORD:
@@ -1206,22 +1210,27 @@ namespace Media.Rtsp
                             ProcessSetParameter(request, session);
                             break;
                         }
-                    // Redirect should only send not received
-                    //case RtspMethod.REDIRECT:
-                    //    {
-                    //        ProcessRedirect(request, session);
-                    //        break;
-                    //    }
                     case RtspMethod.UNKNOWN:
                     default:
                         {
+                            RtspRequestHandler custom;
+
+                            if (m_ExtraHandlers.TryGetValue(request.Method, out custom))
+                            {
+                                //Use the custom handler to create a response
+                                ProcessSendRtspResponse(custom(request), session);
+
+                                //Return
+                                return;
+                            }
+
                             //Per 2.0 Draft
-                            ProcessInvalidRtspRequest(session, RtspStatusCode.NotImplemented);                                                        
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.NotImplemented);
                             break;
                         }
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 //Log it
                 if (Logger != null) Logger.LogException(ex);
