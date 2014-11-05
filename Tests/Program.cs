@@ -330,7 +330,7 @@ namespace Tests
 
                         //Create and Add the required TransportContext's
 
-                        int sendersId = Media.Rtp.RFC3550.Random32(Media.Rtcp.SendersReport.PayloadType), receiversId = sendersId + 1;
+                        int sendersId = Media.RFC3550.Random32(Media.Rtcp.SendersReport.PayloadType), receiversId = sendersId + 1;
 
                         //Create two transport contexts, one for the sender and one for the receiver.
                         //The Id of the parties must be known in advance in this stand alone example. (A conference would support more then 1 participant)
@@ -608,7 +608,7 @@ namespace Tests
             if (rtcpPacket.IsComplete == false) throw incompleteFalse;
 
             //Add nothing to the payload
-            rtcpPacket.AddBytesToPayload(Media.Rtp.RFC3550.CreatePadding(0), 0, 0);
+            rtcpPacket.AddBytesToPayload(Media.RFC3550.CreatePadding(0), 0, 0);
 
             //Ensure the packet is complete
             if (rtcpPacket.IsComplete == false) throw incompleteFalse;
@@ -1675,7 +1675,7 @@ namespace Tests
                             //Check for a valid header
                             if (!p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
                                 || //Check for validation per RFC3550 A.1 when the test permits
-                                !bitValue && VersionCounter > 1 && PayloadCounter >= 200 && PayloadCounter <= 201 && !Media.Rtp.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
+                                !bitValue && VersionCounter > 1 && PayloadCounter >= 200 && PayloadCounter <= 201 && !Media.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
 
                             //Perform checks with length in words set incorrectly
                         }

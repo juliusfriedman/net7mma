@@ -408,7 +408,7 @@ namespace Media.Rtp
         /// Gets an Enumerator which can be used to read the contribuing sources contained in this RtpPacket.
         /// <see cref="SourceList"/> for more information.
         /// </summary>
-        public Media.Rtp.RFC3550.SourceList GetSourceList() { if (Disposed) return null; return new Media.Rtp.RFC3550.SourceList(this); }
+        public Media.RFC3550.SourceList GetSourceList() { if (Disposed) return null; return new Media.RFC3550.SourceList(this); }
 
         /// <summary>
         /// Gets the RtpExtension which would be created as a result of reading the data from the RtpPacket's payload which would be contained after any contained ContributingSourceList.
