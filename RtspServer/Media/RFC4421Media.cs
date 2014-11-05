@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
     //Uncompressed Video 
     //http://tools.ietf.org/html/rfc4421

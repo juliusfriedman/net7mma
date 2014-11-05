@@ -40,7 +40,7 @@ using System.Linq;
 using System.Text;
 using System.Net;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
     /// <summary>
     /// A remote stream the RtspServer aggregates and can be played by clients.

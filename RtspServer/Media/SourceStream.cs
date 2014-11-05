@@ -39,7 +39,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
     /// <summary>
     /// The base class of all sources the RtspServer can service.

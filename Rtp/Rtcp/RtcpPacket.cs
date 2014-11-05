@@ -247,7 +247,7 @@ namespace Media.Rtcp
             }
             
             //Create the owned octets by projecting the sequence and any padding
-            m_OwnedOctets = RFC3550.CreatePadding(padding).ToArray();
+            m_OwnedOctets = Rtp.RFC3550.CreatePadding(padding).ToArray();
 
             Payload = new Common.MemorySegment(m_OwnedOctets, 0, padding);
         }
@@ -297,7 +297,7 @@ namespace Media.Rtcp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (Disposed || !Header.Padding || Payload.Count == 0) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
+        public int PaddingOctets { get { if (Disposed || !Header.Padding || Payload.Count == 0) return 0; return Media.Rtp.RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
 
         /// <summary>
         /// The length in bytes of this RtcpPacket including the header and any padding. <see cref="IsCompound"/>

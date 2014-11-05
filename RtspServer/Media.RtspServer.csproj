@@ -61,30 +61,46 @@
       <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
     </Compile>
     <Compile Include="ClientSession.cs" />
+    <Compile Include="Media\ChildMedia.cs" />
+    <Compile Include="Media\IMediaSink.cs" />
+    <Compile Include="Media\IMediaSource.cs" />
+    <Compile Include="Media\IMediaStream.cs" />
+    <Compile Include="Media\JPEGMedia.cs" />
+    <Compile Include="Media\MJPEGMedia.cs" />
+    <Compile Include="Media\RFC2250Media.cs" />
+    <Compile Include="Media\RFC2435Media.cs" />
+    <Compile Include="Media\RFC4421Media.cs" />
+    <Compile Include="Media\RFC6184Media.cs" />
+    <Compile Include="Media\RtpSink.cs" />
+    <Compile Include="Media\RtpSource.cs" />
+    <Compile Include="Media\RtspSource.cs" />
+    <Compile Include="Media\SourceStream.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtspServer.cs" />
     <Compile Include="RtspServerDebuggingLogger.cs" />
     <Compile Include="RtspServerLogger.cs" />
     <Compile Include="RtspStreamArchiver.cs" />
-    <Compile Include="Streams\ChildMedia.cs" />
-    <Compile Include="Streams\IMediaSink.cs" />
-    <Compile Include="Streams\IMediaSource.cs" />
-    <Compile Include="Streams\IMediaStream.cs" />
-    <Compile Include="Streams\JPEGMedia.cs" />
-    <Compile Include="Streams\MJPEGMedia.cs" />
-    <Compile Include="Streams\RFC2250Media.cs" />
-    <Compile Include="Streams\RFC2435Media.cs" />
-    <Compile Include="Streams\RFC4421Media.cs" />
-    <Compile Include="Streams\RFC6184Media.cs" />
-    <Compile Include="Streams\RtpSink.cs" />
-    <Compile Include="Streams\RtpSource.cs" />
-    <Compile Include="Streams\RtspSource.cs" />
-    <Compile Include="Streams\SourceStream.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codecs</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Common\Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Compression\Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Media.Containers.csproj">
+      <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
+      <Name>Media.Containers</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Rtmp.csproj">
+      <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
+      <Name>Media.Rtmp</Name>
     </ProjectReference>
     <ProjectReference Include="..\RtpTools\Media.RtpTools.csproj">
       <Project>{05019b1d-58b3-44a4-8ef4-50a3fe740746}</Project>

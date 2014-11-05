@@ -39,12 +39,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Media.Rtsp.Server.Streams
+namespace Media.Rtsp.Server.Media
 {
     /// <summary>
     /// Provides the basic operations for consuming a remote rtp stream for which there is an existing <see cref="SessionDescription"/>
     /// </summary>
-    public class RtpSource : SourceStream, Media.Common.IThreadReference
+    public class RtpSource : SourceStream, Common.IThreadReference
     {
         public RtpSource(string name, Uri source) : base(name, source) { }
         
@@ -133,7 +133,7 @@ namespace Media.Rtsp.Server.Streams
         {
             if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
 
-            RtpClient = Media.Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
+            RtpClient = Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
         }
 
         IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads()

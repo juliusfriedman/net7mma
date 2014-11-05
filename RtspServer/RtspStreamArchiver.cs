@@ -1,9 +1,7 @@
-﻿using Media.Rtsp.Server.Streams;
+﻿using Media.Rtsp.Server.Media;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Media.Rtsp.Server
 {
@@ -39,7 +37,7 @@ namespace Media.Rtsp.Server
         }
 
         //Writes a .Sdp file
-        public virtual void WriteDescription(IMediaStream stream, Media.Sdp.SessionDescription sdp)
+        public virtual void WriteDescription(IMediaStream stream, Sdp.SessionDescription sdp)
         {
             if (!IsArchiving(stream)) return;
 
@@ -80,7 +78,7 @@ namespace Media.Rtsp.Server
             }
         }
 
-        void RtpClientPacketReceieved(object sender, Media.Common.IPacket packet)
+        void RtpClientPacketReceieved(object sender, Common.IPacket packet)
         {
             if(sender is Rtp.RtpClient)
                 WritePacket(Attached.Keys.FirstOrDefault(s => (s as RtpSource).RtpClient == sender as Rtp.RtpClient), packet);

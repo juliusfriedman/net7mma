@@ -42,7 +42,7 @@ using System.Threading;
 using System.Net;
 using Media.Rtp;
 using Media.Rtcp;
-using Media.Rtsp.Server.Streams;
+using Media.Rtsp.Server.Media;
 
 namespace Media.Rtsp
 {
