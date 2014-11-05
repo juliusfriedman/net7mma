@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Media.Rtmp")]
-[assembly: AssemblyDescription("Provides managed implemenations of the Rtmp protocol.")]
+[assembly: AssemblyTitle("Media")]
+[assembly: AssemblyDescription("Provides managed implemenations of various media technologies.")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -14,4 +14,4 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(true)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("b9788cdc-7365-4117-9711-2cfa2057e414")]
+[assembly: Guid("b9788cdc-7365-4117-9711-2cfa2057e420")]

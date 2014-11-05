@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Rtmp", "Media.Rtmp.csproj", "{3F19C035-AD27-4C88-817D-E2ABC550767D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media", "Media.csproj", "{3F19C035-AD27-4C88-817D-E2ABC550767D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}"
 EndProject
@@ -27,9 +27,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Compression", "Compression\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Rtp", "Rtp\Media.Rtp.csproj", "{FD0101F4-1D22-434C-8025-42CAC8176C75}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Rtmp", "Rtmp\Media.Rtmp.csproj", "{CE4FF4BF-1C21-440A-BD39-25B809803E71}"
+EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 12
+		SccNumberOfProjects = 13
 		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
 		SccTeamFoundationServer = https://tfs.codeplex.com/tfs/tfs04
 		SccLocalPath0 = .
@@ -63,8 +65,11 @@ Global
 		SccProjectUniqueName10 = RtpTools\\Media.RtpTools.csproj
 		SccProjectName10 = RtpTools
 		SccLocalPath10 = RtpTools
-		SccProjectUniqueName11 = Media.Rtmp.csproj
+		SccProjectUniqueName11 = Media.csproj
 		SccLocalPath11 = .
+		SccProjectUniqueName12 = Rtmp\\Media.Rtmp.csproj
+		SccProjectName12 = Rtmp
+		SccLocalPath12 = Rtmp
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -213,6 +218,18 @@ Global
 		{FD0101F4-1D22-434C-8025-42CAC8176C75}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{FD0101F4-1D22-434C-8025-42CAC8176C75}.Release|x64.ActiveCfg = Release|Any CPU
 		{FD0101F4-1D22-434C-8025-42CAC8176C75}.Release|x86.ActiveCfg = Release|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Release|x64.ActiveCfg = Release|Any CPU
+		{CE4FF4BF-1C21-440A-BD39-25B809803E71}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
