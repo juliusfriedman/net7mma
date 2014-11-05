@@ -426,6 +426,8 @@ namespace Media.Rtsp
 
             allDone.Dispose();
             allDone = null;
+
+            m_ExtraHandlers.Clear();
         }
 
         #region Session Collection
