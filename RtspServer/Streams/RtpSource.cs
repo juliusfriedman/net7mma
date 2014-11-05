@@ -136,9 +136,9 @@ namespace Media.Rtsp.Server.Streams
             RtpClient = Media.Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
         }
 
-        IEnumerable<System.Threading.Thread> Common.IThreadReference.ReferencedThreads
+        IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads()
         {
-            get { return RtpClient != null ? Utility.Yield(RtpClient.m_WorkerThread) : null; }
+            return RtpClient != null ? Utility.Yield(RtpClient.m_WorkerThread) : null;
         }
     }
 }

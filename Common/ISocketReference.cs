@@ -14,7 +14,7 @@ namespace Media.Common
         /// <summary>
         /// The <see cref="System.Net.Sockets"/> which belong to this instance.
         /// </summary>
-        IEnumerable<System.Net.Sockets.Socket> ReferencedSockets { get; }
+        IEnumerable<System.Net.Sockets.Socket> GetReferencedSockets();
     }
 
     /// <summary>
@@ -24,7 +24,7 @@ namespace Media.Common
     {
         public static void SetReceiveBufferSize(this ISocketReference reference, int size)
         {
-            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
                 s.ReceiveBufferSize = size;
             }
@@ -32,7 +32,7 @@ namespace Media.Common
 
         public static void SetSendBufferSize(this ISocketReference reference, int size)
         {
-            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
                 s.SendBufferSize = size;
             }
@@ -41,7 +41,7 @@ namespace Media.Common
 
         public static void SetReceiveTimeout(this ISocketReference reference, int timeoutMsec)
         {
-            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
                 s.ReceiveTimeout = timeoutMsec;
             }
@@ -49,7 +49,7 @@ namespace Media.Common
 
         public static void SetSendTimeout(this ISocketReference reference, int timeoutMsec)
         {
-            foreach (System.Net.Sockets.Socket s in reference.ReferencedSockets)
+            foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
                 s.SendTimeout = timeoutMsec;
             }

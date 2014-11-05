@@ -1476,9 +1476,9 @@ namespace Media.Rtsp
 
         #endregion
 
-        IEnumerable<Socket> Common.ISocketReference.ReferencedSockets
+        IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {
-            get { return m_RtspSocket.Yield(); }
+            return m_RtspSocket.Yield();
         }
     }
 }

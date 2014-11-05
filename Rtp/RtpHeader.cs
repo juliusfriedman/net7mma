@@ -381,30 +381,7 @@ namespace Media.Rtp
 
         #endregion
 
-        #region Instance Methods
-
-        public override void Dispose()
-        {
-            if (Disposed) return;
-
-            base.Dispose();
-
-            if (ShouldDispose) 
-            {
-                //Call dispose
-                First16Bits.Dispose();
-
-                //Remove the reference to the CommonHeaderBits instance
-                First16Bits = null;
-
-                //Invalidate the pointer
-                PointerToLast10Bytes.Dispose();
-                PointerToLast10Bytes = null;
-
-                //Remove the reference to the allocated array.
-                Last10Bytes = null;
-            }
-        }
+        #region Instance Methods        
 
         /// <summary>
         /// Clones this RtpHeader instance.
@@ -434,6 +411,57 @@ namespace Media.Rtp
         }
 
         #endregion
+
+        #region Overrides
+
+        public override void Dispose()
+        {
+            if (Disposed) return;
+
+            base.Dispose();
+
+            if (ShouldDispose)
+            {
+                //Call dispose
+                First16Bits.Dispose();
+
+                //Remove the reference to the CommonHeaderBits instance
+                First16Bits = null;
+
+                //Invalidate the pointer
+                PointerToLast10Bytes.Dispose();
+                PointerToLast10Bytes = null;
+
+                //Remove the reference to the allocated array.
+                Last10Bytes = null;
+            }
+        }
+
+        public override int GetHashCode() { return First16Bits ^ SynchronizationSourceIdentifier; }
+
+        public override bool Equals(object obj)
+        {
+            if (System.Object.ReferenceEquals(this, obj)) return true;
+
+            if (!(obj is RtpHeader)) return false;
+
+            RtpHeader other = obj as RtpHeader;
+
+            return other.First16Bits == First16Bits
+                &&
+                other.SynchronizationSourceIdentifier == SynchronizationSourceIdentifier;
+        }
+
+        #endregion
+
+        #region Operators
+
+        public static bool operator ==(RtpHeader a, RtpHeader b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+
+        public static bool operator !=(RtpHeader a, RtpHeader b) { return !(a == b); }
+
+        #endregion
+
     }
 
     #endregion

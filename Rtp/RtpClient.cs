@@ -91,7 +91,7 @@ namespace Media.Rtp
     /// Provides an implementation of the <see cref="http://tools.ietf.org/html/rfc3550"> Real Time Protocol </see>.
     /// A RtpClient typically allows one <see cref="System.Net.Socket"/> to communicate (via RTP) to another <see cref="System.Net.Socket"/> via <see cref="RtpClient.TransportContext"/>'s in which some <see cref="SessionDescription"/> has been created.
     /// </summary>
-    public class RtpClient : Common.BaseDisposable, Media.Common.IThreadReference, Media.Common.ISocketReference
+    public class RtpClient : Common.BaseDisposable, IEnumerable<RtpClient.TransportContext>, Media.Common.IThreadReference, Media.Common.ISocketReference
     {
         #region Constants / Statics
 
@@ -342,7 +342,7 @@ namespace Media.Rtp
         /// <summary>
         ///Contains the information and assets relevent to each stream in use by a RtpClient
         /// </summary>
-        public class TransportContext : Common.BaseDisposable
+        public class TransportContext : Common.BaseDisposable, Common.ISocketReference
         {
             #region Statics
 
@@ -429,7 +429,7 @@ namespace Media.Rtp
                 result.SendersOctetCount = (int)context.RtpBytesSent;
                 result.SendersPacketCount = (int)context.RtpPacketsSent;
 
-                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null);
+                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null && context.TotalRtpPacketsSent > 0);
 
                 //If source blocks are included include them and calculate their statistics
                 if (!empty)
@@ -491,7 +491,7 @@ namespace Media.Rtp
             {
                 ReceiversReport result = new ReceiversReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
 
-                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null);
+                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null && context.TotalRtpPacketsReceieved > 0);
 
                 if (!empty)
                 {
@@ -1510,6 +1510,17 @@ namespace Media.Rtp
             }
 
             #endregion
+
+            IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
+            {
+                if (Disposed) yield break;
+
+                yield return RtpSocket;
+
+                if (RtpSocket.ProtocolType == ProtocolType.Tcp || Duplexing) yield break;
+
+                yield return RtcpSocket;
+            }
         }
 
         #endregion
@@ -2167,7 +2178,18 @@ namespace Media.Rtp
             TransportContexts.Add(context);
         }
 
+        /// <summary>
+        /// Removes the given <see cref="TransportContext"/>
+        /// </summary>
+        /// <param name="context"></param>
+        /// <returns></returns>
         public virtual bool Remove(TransportContext context) { return TransportContexts.Remove(context); }
+
+        /// <summary>
+        /// Gets any <see cref="TransportContext"/> used by this instance.
+        /// </summary>
+        /// <returns>The <see cref="TransportContexts"/> used by this instance.</returns>
+        public virtual IEnumerable<TransportContext> GetTransportContexts() { return TransportContexts; }
 
         #region Rtcp
 
@@ -3241,25 +3263,22 @@ namespace Media.Rtp
             DisableFeedbackReports(this);
         }
 
-        IEnumerable<System.Threading.Thread> Common.IThreadReference.ReferencedThreads
-        {
-            get { return Disposed ? null : Utility.Yield(m_WorkerThread); }
-        }
+        IEnumerator<RtpClient.TransportContext> IEnumerable<RtpClient.TransportContext>.GetEnumerator() { return GetTransportContexts().GetEnumerator(); }
 
-        IEnumerable<Socket> Common.ISocketReference.ReferencedSockets
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetTransportContexts().GetEnumerator(); }
+
+        IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads() { return Disposed ? null : Utility.Yield(m_WorkerThread); }
+
+        IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {
-            get
+            if (Disposed) yield break;
+
+            foreach (TransportContext tc in TransportContexts)
             {
-
-                if (Disposed) yield break;
-
-                foreach (TransportContext tc in TransportContexts)
+                if (tc.Disposed) continue;
+                foreach (Socket referenced in ((Common.ISocketReference)tc).GetReferencedSockets())
                 {
-                    yield return tc.RtpSocket;
-
-                    if (tc.RtpSocket.ProtocolType == ProtocolType.Tcp || tc.Duplexing) continue;
-
-                    yield return tc.RtcpSocket;
+                    yield return referenced;
                 }
             }
         }

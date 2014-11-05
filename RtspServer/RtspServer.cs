@@ -51,7 +51,7 @@ namespace Media.Rtsp
     /// http://tools.ietf.org/html/rfc2326
     /// Suppports Reliable(Rtsp / Tcp or Rtsp / Http) and Unreliable(Rtsp / Udp) connections
     /// </summary>
-    public class RtspServer : Common.BaseDisposable
+    public class RtspServer : Common.BaseDisposable, Common.ISocketReference, Common.IThreadReference
     {
         public const int DefaultPort = 554;
 
@@ -379,6 +379,7 @@ namespace Media.Rtsp
 
         public void DisableHttpTransport()
         {
+            //Existing sessions will still be active
             if (m_HttpListner != null)
             {
                 m_HttpListner.Stop();
@@ -389,6 +390,7 @@ namespace Media.Rtsp
 
         public void DisableUnreliableTransport()
         {
+            //Existing sessions will still be active
             if (m_UdpServerSocket != null)
             {
                 m_UdpServerSocket.Shutdown(SocketShutdown.Both);
@@ -1973,5 +1975,19 @@ namespace Media.Rtsp
         #endregion
 
         #endregion        
+    
+        IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
+        {
+            yield return m_TcpServerSocket;
+
+            if (m_UdpServerSocket != null) yield return m_UdpServerSocket;
+
+            //if (m_HttpListner != null) yield return m_HttpListner.;
+        }
+
+        IEnumerable<Thread> Common.IThreadReference.GetReferencedThreads()
+        {
+             return Utility.Yield(m_ServerThread);
+        }
     }
 }
