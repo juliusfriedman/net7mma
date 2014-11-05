@@ -116,17 +116,7 @@ namespace Media
             return (version << 14 | payloadType);
         }
 
-        public static bool IsValidRtcpHeader(Rtcp.RtcpHeader header, int version = 2)
-        {
-            //ToInt32 return a 32 bit value in System Endian
-            ushort headerCast = BitConverter.ToUInt16(header.ToArray(), 0);
-
-            //If Little Endian the value must be reversed
-            if (BitConverter.IsLittleEndian) headerCast = Common.Binary.ReverseU16(headerCast);
-
-            //perform the check
-            return (headerCast & RtcpValidMask) == RtcpValidValue(version);
-        }
+        public static bool IsValidRtcpHeader(Rtcp.RtcpHeader header, int version = 2) { return (header.First16Bits & RtcpValidMask) == RtcpValidValue(version); }
 
         /// <summary>
         /// Creates a single RtcpPacket instance which is comprised of the given packets.
@@ -521,15 +511,6 @@ namespace Media
             }
 
             /// <summary>
-            /// Converts the 16 bits utilized in this implemention into a 32 bit integer
-            /// </summary>
-            /// <returns>The 32 bit value created as a result of interpreting the 16 bits as a 32 bit value</returns>
-            internal int ToInt32()
-            {
-                return Binary.ReadU16(this, 0, BitConverter.IsLittleEndian);
-            }
-
-            /// <summary>
             /// Gets or sets bits 0 and 1; from the lowest quartet of the first octet.
             /// Throws a Overflow exception if the value is less than 0 or greater than 3.
             /// </summary>
@@ -786,8 +767,31 @@ namespace Media
 
             #endregion
 
+            #region Overrides
+
+            public override int GetHashCode() { return (short)this; }
+
+            public override bool Equals(object obj)
+            {
+                if (!(obj is CommonHeaderBits)) return false;
+
+                CommonHeaderBits bits = obj as CommonHeaderBits;
+
+                if (bits.m_Memory != m_Memory) return false;
+
+                return GetHashCode() == bits.GetHashCode();
+            }
+
+            #endregion
+
             #region Implicit Operators
-            //(u)short / byte[] ?
+
+            public static implicit operator short(CommonHeaderBits bits) { return Common.Binary.Read16(bits, 0, BitConverter.IsLittleEndian); }
+
+            public static bool operator ==(CommonHeaderBits a, CommonHeaderBits b) { return (object)a == null ? (object)b == null : a.Equals(b); ; }
+
+            public static bool operator !=(CommonHeaderBits a, CommonHeaderBits b) { return !(a == b); }
+
             #endregion
         }
 

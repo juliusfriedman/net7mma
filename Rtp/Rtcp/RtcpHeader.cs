@@ -89,7 +89,7 @@ namespace Media.Rtcp
         /// <summary>
         /// A managed abstraction of the first two octets, 16 bits of the RtcpHeader.
         /// </summary>
-        Media.RFC3550.CommonHeaderBits First16Bits;
+        internal Media.RFC3550.CommonHeaderBits First16Bits;
 
         /// <summary>
         /// The last six octets of the RtcpHeader which contain the length in 32 bit words and the SSRC/CSRC of the sender of this RtcpHeader
@@ -317,6 +317,33 @@ namespace Media.Rtcp
             return PointerToLast6Bytes.Skip(2);
         }
 
+        /// <summary>
+        /// Clones this RtcpHeader instance.
+        /// If reference is true any changes performed in either this instance or the new instance will be reflected in both instances.
+        /// </summary>
+        /// <param name="reference">indictes if the new instance should reference this instance.</param>
+        /// <returns>The new instance</returns>
+        public RtcpHeader Clone(bool reference = false) { return new RtcpHeader(this, reference); }
+
+        internal IEnumerable<byte> GetEnumerableImplementation()
+        {
+             return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes);
+        }
+
+        #endregion
+
+        IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
+        {
+            return GetEnumerableImplementation().GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+        {
+            return GetEnumerableImplementation().GetEnumerator();
+        }
+
+        #region Overrides
+
         public override void Dispose()
         {
 
@@ -324,7 +351,7 @@ namespace Media.Rtcp
 
             base.Dispose();
 
-            if (ShouldDispose) 
+            if (ShouldDispose)
             {
                 //Dispose the instance
                 First16Bits.Dispose();
@@ -341,31 +368,31 @@ namespace Media.Rtcp
             }
         }
 
-        /// <summary>
-        /// Clones this RtcpHeader instance.
-        /// If reference is true any changes performed in either this instance or the new instance will be reflected in both instances.
-        /// </summary>
-        /// <param name="reference">indictes if the new instance should reference this instance.</param>
-        /// <returns>The new instance</returns>
-        public RtcpHeader Clone(bool reference = false) { return new RtcpHeader(this, reference); }
+        public override int GetHashCode() { return First16Bits ^ SendersSynchronizationSourceIdentifier; }
 
-        internal IEnumerable<byte> GetEnumerableImplementation()
+        public override bool Equals(object obj)
         {
-             return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes);
+            if(System.Object.ReferenceEquals(this, obj)) return true;
+
+            if (!(obj is RtcpHeader)) return false;
+
+            RtcpHeader other = obj as RtcpHeader;
+
+            return other.First16Bits == First16Bits
+                &&
+                other.SendersSynchronizationSourceIdentifier == SendersSynchronizationSourceIdentifier;
         }
 
         #endregion
-        
 
-        IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
-        {
-            return GetEnumerableImplementation().GetEnumerator();
-        }
+        #region Operators
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return GetEnumerableImplementation().GetEnumerator();
-        }
+        public static bool operator ==(RtcpHeader a, RtcpHeader b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+
+        public static bool operator !=(RtcpHeader a, RtcpHeader b) { return !(a == b); }
+
+        #endregion
+
     }
 
     #endregion

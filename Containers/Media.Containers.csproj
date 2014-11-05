@@ -79,10 +79,6 @@
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Media.Rtmp.csproj">
-      <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
-      <Name>Media.Rtmp</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Sdp\Media.Sdp.csproj">
       <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
       <Name>Media.Sdp</Name>

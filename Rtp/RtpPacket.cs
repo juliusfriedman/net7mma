@@ -516,33 +516,7 @@ namespace Media.Rtp
             {
                 throw;
             }
-        }
-
-        /// <summary>
-        /// Disposes of any private data this instance utilized.
-        /// </summary>
-        public override void Dispose()
-        {
-            //If the instance was previously disposed return
-            if (Disposed || !ShouldDispose) return;
-            
-            //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
-            base.Dispose();
-
-            //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.Disposed)
-            {
-                //Dispose it
-                Header.Dispose();
-            }
-
-            //Payload goes away when Disposing
-            Payload.Dispose();
-            Payload = null;
-
-            //The private data goes away after calling Dispose
-            m_OwnedOctets = null;
-        }
+        }       
 
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
@@ -726,10 +700,69 @@ namespace Media.Rtp
 
         #endregion
 
+        #region Overrides
+
+        /// <summary>
+        /// Disposes of any private data this instance utilized.
+        /// </summary>
+        public override void Dispose()
+        {
+            //If the instance was previously disposed return
+            if (Disposed || !ShouldDispose) return;
+
+            //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
+            base.Dispose();
+
+            //If there is a referenced RtpHeader
+            if (m_OwnsHeader && Header != null && !Header.Disposed)
+            {
+                //Dispose it
+                Header.Dispose();
+            }
+
+            //Payload goes away when Disposing
+            Payload.Dispose();
+            Payload = null;
+
+            //The private data goes away after calling Dispose
+            m_OwnedOctets = null;
+        }
+
+        public override bool Equals(object obj)
+        {
+
+            if (System.Object.ReferenceEquals(this, obj)) return true;
+
+            if (!(obj is RtpPacket)) return false;
+
+            RtpPacket other = obj as RtpPacket;
+
+            return other.Length == Length
+                 &&
+                 other.Payload == Payload
+                 &&
+                 other.GetHashCode() == GetHashCode();
+        }
+
+        public override int GetHashCode() { return Header.GetHashCode(); }
+
+        #endregion
+
+        #region Operators
+
+        public static bool operator ==(RtpPacket a, RtpPacket b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+
+        public static bool operator !=(RtpPacket a, RtpPacket b) { return !(a == b); }
+
+        #endregion
+
         object ICloneable.Clone()
         {
             return this.Clone(true, true, true, true, false);
         }
+
+
+
     }
 
     #endregion

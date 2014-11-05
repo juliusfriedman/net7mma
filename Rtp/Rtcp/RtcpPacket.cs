@@ -464,35 +464,7 @@ namespace Media.Rtcp
         /// Gets the data of the RtcpPacket without any padding.
         /// </summary>
         public IEnumerable<byte> RtcpData { get { return Payload.Array.Skip(Payload.Offset).Take(Payload.Count - PaddingOctets); } }
-
-        /// <summary>
-        /// Disposes of any private data this instance utilized.
-        /// </summary>
-        public override void Dispose()
-        {
-            //If the instance was previously disposed return
-            if (Disposed || !ShouldDispose) return;
-
-            //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
-            base.Dispose();
-
-            //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.Disposed)
-            {
-                //Dispose it
-                Header.Dispose();
-                //Remove of the reference
-                //Header = null;
-            }
-
-            //Payload goes away when disposing
-            Payload.Dispose();
-            Payload = null;
-
-            //The private data goes away after calling Dispose
-            m_OwnedOctets = null;
-        }
-
+        
         /// <summary>
         /// Provides the logic for cloning a RtcpPacket instance.
         /// The RtcpPacket class does not have a Copy Constructor because of the variations in which a RtcpPacket can be cloned.
@@ -658,6 +630,64 @@ namespace Media.Rtcp
         /// <param name="implementation"></param>
         /// <returns>The result of adding the implemention to the InstanceMap</returns>
         internal static protected bool TryMapImplementation(byte payloadType, Type implementation) { return InstanceMap.TryAdd(payloadType, implementation); }
+
+        #endregion
+
+        #region Overrides
+
+        /// <summary>
+        /// Disposes of any private data this instance utilized.
+        /// </summary>
+        public override void Dispose()
+        {
+            //If the instance was previously disposed return
+            if (Disposed || !ShouldDispose) return;
+
+            //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
+            base.Dispose();
+
+            //If there is a referenced RtpHeader
+            if (m_OwnsHeader && Header != null && !Header.Disposed)
+            {
+                //Dispose it
+                Header.Dispose();
+                //Remove of the reference
+                //Header = null;
+            }
+
+            //Payload goes away when disposing
+            Payload.Dispose();
+            Payload = null;
+
+            //The private data goes away after calling Dispose
+            m_OwnedOctets = null;
+        }
+
+
+        public override bool Equals(object obj)
+        {
+            if (System.Object.ReferenceEquals(this, obj)) return true;
+
+            if (!(obj is RtcpPacket)) return false;
+
+            RtcpPacket other = obj as RtcpPacket;
+
+            return other.Length == Length
+                &&
+                other.Payload == Payload
+                && 
+                other.GetHashCode() == GetHashCode();
+        }
+
+        public override int GetHashCode() { return Header.GetHashCode(); }
+
+        #endregion
+
+        #region Operators
+
+        public static bool operator ==(RtcpPacket a, RtcpPacket b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+
+        public static bool operator !=(RtcpPacket a, RtcpPacket b) { return !(a == b); }
 
         #endregion
 

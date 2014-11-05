@@ -1346,6 +1346,10 @@ namespace Media.Rtsp
 
         public IEnumerable<byte> Prepare() { return ToBytes(); }
 
+        #endregion
+
+        #region Overrides
+
         /// <summary>
         /// Disposes of all resourced used by the RtspMessage
         /// </summary>
@@ -1360,6 +1364,41 @@ namespace Media.Rtsp
             //Call the base implementation
             base.Dispose();
         }
+
+        public override int GetHashCode()
+        {
+            return (int)Method ^ Length;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (System.Object.ReferenceEquals(this, obj)) return true;
+
+            if (!(obj is RtspMessage)) return false;
+
+            RtspMessage other = obj as RtspMessage;
+
+            return other.Transferred != Transferred
+                ||
+                other.Version != Version
+                ||
+                other.Method != Method
+                ||
+                other.m_Headers.Count != m_Headers.Count()
+                ||
+                other.CSeq != CSeq
+                ||
+                other.Body != Body;
+        }
+
+        #endregion
+
+
+        #region Operators
+
+        public static bool operator ==(RtspMessage a, RtspMessage b) { return (object)a == null ? (object)b == null : a.Equals(b); }
+
+        public static bool operator !=(RtspMessage a, RtspMessage b) { return !(a == b); }
 
         #endregion
 
@@ -1428,6 +1467,5 @@ namespace Media.Rtsp
         }
 
         #endregion
-
     }
 }

@@ -11,7 +11,7 @@ namespace Media.Common
     /// </summary>
     public interface IThreadReference
     {
-        IEnumerable<System.Threading.Thread> ReferencedThreads { get; }
+        IEnumerable<System.Threading.Thread> GetReferencedThreads();
     }
 
     /// <summary>
@@ -21,7 +21,7 @@ namespace Media.Common
     {
         public static void AbortAll(this IThreadReference reference, int timeoutSec)
         {
-            foreach (var tp in reference.ReferencedThreads)
+            foreach (var tp in reference.GetReferencedThreads())
             {
                 System.Threading.Thread t = tp;
                 Utility.Abort(ref t, System.Threading.ThreadState.Running, timeoutSec);

@@ -6,17 +6,46 @@ using System.Threading.Tasks;
 
 namespace Media.Rtcp.Expansion
 {
-    class RFC4585
+    public static class RFC4585
     {
+        public enum FeedbackControlInformationType : byte
+        {
+            Unassigned = 0,
+            PictureLossIndication = 1,
+            SliceLossIndication = 2,
+            ReferencePictureSelectionIndication = 3,
+            ApplicationLayerFeedback = 15,
+            Reserved = 31
+        }
+        
+        //Define Constant?
 
-        //Convert from code in 101148
+        //Payload type (PT): 8 bits
+        //This is the RTCP packet type that identifies the packet as being
+        //an RTCP FB message.  Two values are defined by the IANA:
 
-        //Feedback Information
+        //    Name   | Value | Brief Description
+        //----------+-------+------------------------------------
+        // RTPFB  |  205  | Transport layer FB message
+        // PSFB   |  206  | Payload-specific FB message
 
-        //Etc
+        public class RtcpFeedbackPacket : RtcpReport
+        {
+            public RtcpFeedbackPacket(int version, int type, bool padding, int ssrc, byte[] feedbackControlInformation)
+                : base(version, type, padding, ssrc, 0, 0, feedbackControlInformation != null ? feedbackControlInformation.Length : 0)
+            {
 
-        //RSI
+                //type must be either RTPFB or PSFB ?
 
-        //etc..
+                if (feedbackControlInformation != null)
+                    feedbackControlInformation.CopyTo(Payload.Array, Payload.Offset);
+            }
+
+            public IEnumerable<byte> FeedbackControlInformation
+            {
+                get { return ExtensionData; }
+            }
+
+        }
     }
 }
