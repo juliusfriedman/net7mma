@@ -562,49 +562,35 @@ namespace Media.Rtp
             public readonly int Version = 2;
 
             /// <summary>
-            /// The channels which identity the TransportContext.
-            /// </summary>
-            public readonly byte DataChannel, ControlChannel;
-
-            //Any frames for this channel
-            public RtpFrame CurrentFrame { get; internal protected set; }
-
-            public RtpFrame LastFrame { get; internal protected set; }
-
-            /// <summary>
-            /// The socket used for Transport of Rtp and Interleaved data
-            /// </summary>
-            public Socket RtpSocket { get; internal protected set; }
-
-            /// <summary>
-            /// The socket used for Transport of Rtcp and Interleaved data
-            /// </summary>
-            public Socket RtcpSocket { get; internal protected set; }
-
-            //The EndPoints connected to (once connected don't need the Ports unless 0 is used to determine the port)
-            internal EndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
-
-            internal DateTime? m_FirstPacketReceived, m_FirstPacketSent;
-
-            internal TimeSpan m_StartTime = TimeSpan.Zero, m_EndTime = Utility.InfiniteTimeSpan;
-
-            /// <summary>
-            /// SequenceNumber of the channel, starts at 0, wraps to 1 when set through the property.
-            /// </summary>
-            ushort m_SequenceNumber;
-
-            /// <summary>
             /// The amount of <see cref="RtpPacket"/>'s which must be received before IsValid is true.
             /// </summary>
             public readonly int MinimumSequentialValidRtpPackets = DefaultMinimumSequentalRtpPackets;
 
+            /// <summary>
+            /// The channels which identity the TransportContext.
+            /// </summary>
+            public readonly byte DataChannel, ControlChannel;
+
+            /// <summary>
+            /// Indicates if Rtp is enabled on the TransportContext
+            /// </summary>
+            public bool IsRtpEnabled = true;
+
+            /// <summary>
+            /// Indicates if Rtcp will be used on this TransportContext
+            /// </summary>
+            public bool IsRtcpEnabled = true;
+
+            //The EndPoints connected to (once connected don't need the Ports unless 0 is used to determine the port)
+            internal protected EndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
+            
             //bytes and packet counters
             internal long RtpBytesSent, RtpBytesRecieved,
                          RtcpBytesSent, RtcpBytesRecieved,
                          RtpPacketsSent, RtcpPacketsSent,
                          RtpPacketsReceived, RtcpPacketsReceieved;
 
-            internal ushort RtpMaxSeq;//The highest Sequence recieved by the RtpClient
+            internal ushort m_SequenceNumber, RtpMaxSeq;//The highest Sequence recieved by the RtpClient
 
             //Used for Rtp and Rtcp Transport Calculations (Should be moved into State Structure)
             internal uint RtpTransit,
@@ -623,31 +609,35 @@ namespace Media.Rtp
                 //Jitter value
                 RtpJitter;
 
-            //Intervals are 96 milliseconds by default.
-            internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval, m_InactiveTime = TimeSpan.Zero;
+            internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval, m_InactiveTime = TimeSpan.Zero,m_StartTime = TimeSpan.Zero, m_EndTime = Utility.InfiniteTimeSpan;
 
             //When packets are succesfully transferred the DateTime (utc) is copied in these variables and will reflect the point in time in which  the last 
-            internal DateTime m_LastRtcpIn, m_LastRtcpOut,  //Rtcp packets were received and sent
+            internal DateTime m_FirstPacketReceived, m_FirstPacketSent, m_LastRtcpIn, m_LastRtcpOut,  //Rtcp packets were received and sent
                 m_LastRtpIn, m_LastRtpOut; //Rtp packets were received and sent
-
-            /// <summary>
-            /// Indicates if Rtp is enabled on the TransportContext
-            /// </summary>
-            public bool IsRtpEnabled = true;
-
-            /// <summary>
-            /// Indicates if Rtcp will be used on this TransportContext
-            /// </summary>
-            public bool IsRtcpEnabled = true;
 
             /// <summary>
             /// Keeps track of any failures which occur when sending data.
             /// </summary>
-            internal int m_FailedRtpTransmissions, m_FailedRtcpTransmissions;
+            internal protected int m_FailedRtpTransmissions, m_FailedRtcpTransmissions;
 
             #endregion
 
             #region Properties
+
+            //Any frames for this channel
+            public RtpFrame CurrentFrame { get; internal protected set; }
+
+            public RtpFrame LastFrame { get; internal protected set; }
+
+            /// <summary>
+            /// The socket used for Transport of Rtp and Interleaved data
+            /// </summary>
+            public Socket RtpSocket { get; internal protected set; }
+
+            /// <summary>
+            /// The socket used for Transport of Rtcp and Interleaved data
+            /// </summary>
+            public Socket RtcpSocket { get; internal protected set; }
 
             /// <summary>
             /// Indicates if the TransportContext has been connected.
@@ -679,18 +669,33 @@ namespace Media.Rtp
 
                     if (totalReceived == 0) return false;
 
-                    return totalReceived / Uptime.TotalSeconds <= (TotalBytesSent / Uptime.TotalSeconds) / MaximumRtcpBandwidthPercentage;
+                    TimeSpan timeReceiving = TimeReceiving;
+
+                    if (timeReceiving == TimeSpan.Zero) return false;
+
+                    return totalReceived / timeReceiving.TotalSeconds <= (TotalBytesSent / timeReceiving.TotalSeconds) / MaximumRtcpBandwidthPercentage;
                 }
             }
 
             /// <summary>
-            /// The amount of time the TransportContext has been receiving or sending packets.
+            /// The amount of time the TransportContext has been sending packets.
             /// </summary>
-            public TimeSpan Uptime
+            public TimeSpan TimeSending
             {
                 get
                 {
-                    return !Disposed && m_FirstPacketReceived.HasValue ? DateTime.UtcNow - m_FirstPacketReceived.Value : m_FirstPacketSent.HasValue ? DateTime.UtcNow - m_FirstPacketSent.Value : TimeSpan.Zero;
+                    return !Disposed && m_FirstPacketSent > DateTime.MinValue ? DateTime.UtcNow - m_FirstPacketSent : TimeSpan.Zero;
+                }
+            }
+
+            /// <summary>
+            /// The amount of time the TransportContext has been receiving packets.
+            /// </summary>
+            public TimeSpan TimeReceiving
+            {
+                get
+                {
+                    return !Disposed && m_FirstPacketReceived > DateTime.MinValue ? DateTime.UtcNow - m_FirstPacketReceived : TimeSpan.Zero;
                 }
             }
 
@@ -712,18 +717,16 @@ namespace Media.Rtp
                 internal protected set { m_EndTime = value; }
             }
 
-            public bool IsContinious
-            {
-                get { return m_EndTime == Utility.InfiniteTimeSpan; }
-            }
+            /// <summary>
+            /// Indicates if the <see cref="MediaEndTime"/> is <see cref="Utility.InfiniteTimeSpan"/>. (Has no determined end time)
+            /// </summary>
+            public bool IsContinious { get { return m_EndTime == Utility.InfiniteTimeSpan; } }
 
-            public TimeSpan RemainingTime
-            {
-                get
-                {
-                    return IsContinious ? m_EndTime : Uptime - m_EndTime;
-                }
-            }
+            /// <summary>
+            /// <see cref="Utility.InfiniteTimeSpan"/> if <see cref="IsContinious"/>,
+            /// othewise the amount of time remaining in the media.
+            /// </summary>
+            public TimeSpan TimeRemaining { get { return IsContinious ? m_EndTime : (DateTime.UtcNow - m_EndTime).TimeOfDay; } }
 
             /// <summary>
             /// Allows getting or setting of the interval which occurs between data transmissions
@@ -746,10 +749,7 @@ namespace Media.Rtp
             /// <summary>
             /// Gets the time in which in TranportContext was last active for a send or receive operation
             /// </summary>
-            public TimeSpan InactiveTime
-            {
-                get { return m_InactiveTime; }
-            }
+            public TimeSpan InactiveTime { get { return m_InactiveTime; } }
 
             /// <summary>
             /// Gets the time in which the last Rtcp reports were sent.
@@ -1463,7 +1463,8 @@ namespace Media.Rtp
 
                 LocalRtp = LocalRtcp = RemoteRtp = RemoteRtcp = null;
 
-                m_FirstPacketReceived = null;
+                m_FirstPacketReceived = DateTime.MinValue;
+                m_FirstPacketSent = DateTime.MinValue;
             }
 
             /// <summary>
@@ -1663,7 +1664,7 @@ namespace Media.Rtp
             Interlocked.Add(ref transportContext.RtcpBytesRecieved, localPacket.Length);
 
             //Set the time when the first rtcp packet was recieved
-            if (!transportContext.m_FirstPacketReceived.HasValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
+            if (transportContext.m_FirstPacketReceived  == DateTime.MinValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
 
             //Fire event
             OnRtcpPacketReceieved(packet);
@@ -1767,7 +1768,7 @@ namespace Media.Rtp
             Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count());
 
             //Set the time when the first RtpPacket was received
-            if (!transportContext.m_FirstPacketReceived.HasValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
+            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
 
             transportContext.UpdateJitterAndTimestamp(localPacket);
 
@@ -1883,7 +1884,7 @@ namespace Media.Rtp
             transportContext.m_LastRtpOut = packet.Transferred.Value;
 
             //Set the time the first packet was sent.
-            if (!transportContext.m_FirstPacketSent.HasValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
+            if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
         }
 
         protected internal virtual void HandleRtcpPacketSent(object sender, RtcpPacket packet)
@@ -1902,7 +1903,7 @@ namespace Media.Rtp
             transportContext.m_LastRtcpOut = packet.Transferred.Value;
 
             //Set the time the first packet was sent.
-            if (!transportContext.m_FirstPacketSent.HasValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
+            if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
 
             //Backoff based on ConverganceTime?
 
@@ -3148,7 +3149,7 @@ namespace Media.Rtp
                         //Check for a context which is able to receive data
                         if (tc == null || tc.Disposed || !tc.Connected
                             ||//If the context does not have continious media it must only receive data for the duration of the media.
-                            !tc.IsContinious && tc.RemainingTime > TimeSpan.Zero) continue;
+                            !tc.IsContinious && tc.TimeRemaining > TimeSpan.Zero) continue;
 
                         //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
 

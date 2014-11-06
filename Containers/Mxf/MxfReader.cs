@@ -351,7 +351,7 @@ namespace Media.Container.Mxf
             Private,
             Reserved
         }
-
+        
         ////Byte 14 of operational pattern under certain conditions
         //public enum OperationalPatternPackageComplexity
         //{
@@ -387,6 +387,27 @@ namespace Media.Container.Mxf
          * 
          * Note 1: According to SMPTE 336M, the xxh entry in Table 16 has the value of 13h for BER long or short form encoded length and 53h for 2-byte length.
          */
+
+        public static Category GetCategory(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return (Category)node.Identifier[4];
+        }
+
+        public static PartitionKind GetPartitionKind(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return (PartitionKind)node.Identifier[13];
+        }
+
+        public static PartitionStatus GetPartitionStatus(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return (PartitionStatus)node.Identifier[14];
+        }
 
         static bool CompareUL(Guid a, Guid b, bool compareRegistry = false, bool compareVersion = false, bool compareKind = false)
         {
