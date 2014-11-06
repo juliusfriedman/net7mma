@@ -584,7 +584,7 @@ namespace Media.Rtp
             //The EndPoints connected to (once connected don't need the Ports unless 0 is used to determine the port)
             internal EndPoint LocalRtp, LocalRtcp, RemoteRtp, RemoteRtcp;
 
-            internal DateTime? m_ConnectedTimeUtc;
+            internal DateTime? m_FirstPacketReceived, m_FirstPacketSent;
 
             internal TimeSpan m_StartTime = TimeSpan.Zero, m_EndTime = Utility.InfiniteTimeSpan;
 
@@ -684,11 +684,14 @@ namespace Media.Rtp
             }
 
             /// <summary>
-            /// The amount of time the TransportContext has been receiving packets.
+            /// The amount of time the TransportContext has been receiving or sending packets.
             /// </summary>
             public TimeSpan Uptime
             {
-                get { return !Disposed && m_ConnectedTimeUtc.HasValue ? DateTime.UtcNow - m_ConnectedTimeUtc.Value : TimeSpan.Zero; }
+                get
+                {
+                    return !Disposed && m_FirstPacketReceived.HasValue ? DateTime.UtcNow - m_FirstPacketReceived.Value : m_FirstPacketSent.HasValue ? DateTime.UtcNow - m_FirstPacketSent.Value : TimeSpan.Zero;
+                }
             }
 
             /// <summary>
@@ -1460,7 +1463,7 @@ namespace Media.Rtp
 
                 LocalRtp = LocalRtcp = RemoteRtp = RemoteRtcp = null;
 
-                m_ConnectedTimeUtc = null;
+                m_FirstPacketReceived = null;
             }
 
             /// <summary>
@@ -1659,8 +1662,8 @@ namespace Media.Rtp
             //Keep track of the the bytes sent in the context
             Interlocked.Add(ref transportContext.RtcpBytesRecieved, localPacket.Length);
 
-            //Set the connected time
-            if (!transportContext.m_ConnectedTimeUtc.HasValue) transportContext.m_ConnectedTimeUtc = DateTime.UtcNow;
+            //Set the time when the first rtcp packet was recieved
+            if (!transportContext.m_FirstPacketReceived.HasValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
 
             //Fire event
             OnRtcpPacketReceieved(packet);
@@ -1763,8 +1766,8 @@ namespace Media.Rtp
             //The counters for the bytes will now be be updated for the invalid packet
             Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count());
 
-            //Set the connected time when the first RtpPacket was received
-            if (!transportContext.m_ConnectedTimeUtc.HasValue) transportContext.m_ConnectedTimeUtc = DateTime.UtcNow;
+            //Set the time when the first RtpPacket was received
+            if (!transportContext.m_FirstPacketReceived.HasValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
 
             transportContext.UpdateJitterAndTimestamp(localPacket);
 
@@ -1878,6 +1881,9 @@ namespace Media.Rtp
 
             //Sample the clock for when the last rtp packet was sent
             transportContext.m_LastRtpOut = packet.Transferred.Value;
+
+            //Set the time the first packet was sent.
+            if (!transportContext.m_FirstPacketSent.HasValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
         }
 
         protected internal virtual void HandleRtcpPacketSent(object sender, RtcpPacket packet)
@@ -1894,6 +1900,9 @@ namespace Media.Rtp
             Interlocked.Increment(ref transportContext.RtcpPacketsSent);
 
             transportContext.m_LastRtcpOut = packet.Transferred.Value;
+
+            //Set the time the first packet was sent.
+            if (!transportContext.m_FirstPacketSent.HasValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
 
             //Backoff based on ConverganceTime?
 
@@ -2032,7 +2041,7 @@ namespace Media.Rtp
         public DateTime Started { get; private set; }
 
         /// <summary>
-        /// The amount of time the RtpClient has been Connected.
+        /// The amount of time the RtpClient has been recieving media
         /// </summary>
         public TimeSpan Uptime { get { return DateTime.UtcNow - Started; } }
 
