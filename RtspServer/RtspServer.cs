@@ -297,11 +297,11 @@ namespace Media.Rtsp
         /// <returns>True if NO futher processing is required otherwise false.</returns>
         public delegate bool RtspRequestHandler(RtspMessage request, out RtspMessage response);
 
-        internal Dictionary<RtspMethod, RtspRequestHandler> m_CustomHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
+        internal Dictionary<RtspMethod, RtspRequestHandler> m_RequestHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
 
-        public void AddRequestHandler(RtspMethod method, RtspRequestHandler handler) { try { m_CustomHandlers.Add(method, handler); } catch { throw; } }
+        public void AddRequestHandler(RtspMethod method, RtspRequestHandler handler) { try { m_RequestHandlers.Add(method, handler); } catch { throw; } }
 
-        public bool RemoveRequestHandler(RtspMethod method) { return m_CustomHandlers.Remove(method); }
+        public bool RemoveRequestHandler(RtspMethod method) { return m_RequestHandlers.Remove(method); }
 
         #endregion
 
@@ -428,7 +428,7 @@ namespace Media.Rtsp
             allDone.Dispose();
             allDone = null;
 
-            m_CustomHandlers.Clear();
+            m_RequestHandlers.Clear();
         }
 
         #region Session Collection
@@ -1164,7 +1164,7 @@ namespace Media.Rtsp
                 RtspRequestHandler custom;
 
                 //If there is
-                if (m_CustomHandlers.TryGetValue(request.Method, out custom))
+                if (m_RequestHandlers.TryGetValue(request.Method, out custom))
                 {
                     //Then create the response
                     RtspMessage response;
@@ -1172,7 +1172,7 @@ namespace Media.Rtsp
                     //By invoking the handler, if true is returned
                     if (custom(request, out response))
                     {
-                        //Use the custom handler to create a response
+                        //Use the response created by the custom handler
                         ProcessSendRtspResponse(response, session);
                         
                         //Return because the custom handler has handled the request.
