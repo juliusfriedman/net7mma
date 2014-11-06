@@ -214,7 +214,7 @@ namespace Media.Container.Ogg
 
             long position = Position;
 
-            using (var root = Root) Position = (root.Offset - MinimumSize);
+            using (var root = Root) Position = (root.DataOffset - MinimumSize);
 
             //Iterate all pages
             foreach (Node page in this)

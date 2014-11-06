@@ -849,7 +849,7 @@ namespace Media.Container.Matroska
 
         void ParseSegmentInfo()
         {
-            using (var matroskaSegmentInfo = ReadElement(Identifier.SegmentInfo, Root.Offset))
+            using (var matroskaSegmentInfo = ReadElement(Identifier.SegmentInfo, Root.DataOffset))
             {
 
                 if (matroskaSegmentInfo != null) using (var stream = matroskaSegmentInfo.DataStream)
@@ -1089,7 +1089,7 @@ namespace Media.Container.Matroska
         {
             //Could also give Cues?
             //Not parsed because some utilities which join files do not propertly create additional entries
-            get { return ReadElement(Identifier.SeekHead, Root.Offset); }
+            get { return ReadElement(Identifier.SeekHead, Root.DataOffset); }
         }
         
         List<Track> m_Tracks;
@@ -1125,7 +1125,7 @@ namespace Media.Container.Matroska
             Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
             //Tracks is the parent element of all TrackEntry
-            foreach (var trackEntryElement in ReadElements(Root.Offset, Identifier.TrackEntry).ToArray())
+            foreach (var trackEntryElement in ReadElements(Root.DataOffset, Identifier.TrackEntry).ToArray())
             {
                 using (var stream = trackEntryElement.DataStream)
                 {
@@ -1304,7 +1304,7 @@ namespace Media.Container.Matroska
                     //Need to find all CueTimes to accurately describe duration and start time and sample count...
                     // is WONDERFUL                    
                     //Only do this one time for now...
-                    if(sampleCount == 0) foreach (var elem in ReadElements(trackEntryElement.Offset, Identifier.Cues))
+                    if(sampleCount == 0) foreach (var elem in ReadElements(trackEntryElement.DataOffset, Identifier.Cues))
                     {
                         using (var cueStream = elem.DataStream)
                         {

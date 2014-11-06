@@ -116,7 +116,7 @@ namespace Media.Container.BaseMedia
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
 
-            long offset = Position;
+            //long offset = Position;
 
             int lengthBytesRead = 0;
 
@@ -128,7 +128,7 @@ namespace Media.Container.BaseMedia
 
             //Could give this, identifier, Position, length - nonDataBytes
             //Would pose the problem of not being able to deterine the lengthBytesRead from Node.Offset
-            return  new Node(this, identifier, lengthBytesRead, offset, length, length <= Remaining);
+            return  new Node(this, identifier, lengthBytesRead, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -168,7 +168,7 @@ namespace Media.Container.BaseMedia
         {
             //pssh/cenc
             //TrackLevel Encryption = tenc
-            get { return ReadBoxes(Root.Offset, "ipro", "sinf").Count() >= 1; }
+            get { return ReadBoxes(Root.DataOffset, "ipro", "sinf").Count() >= 1; }
         }
 
         DateTime? m_Created, m_Modified;
@@ -253,7 +253,7 @@ namespace Media.Container.BaseMedia
             using (var mediaHeader = ReadBox("mvhd", Root.Offset))
             {
 
-                int offset = MinimumSize;
+                int offset = 0;
 
                 int versionAndFlags = Common.Binary.Read32(mediaHeader.RawData, offset, BitConverter.IsLittleEndian), version = versionAndFlags >> 24 & 0xff;
 
@@ -447,7 +447,7 @@ namespace Media.Container.BaseMedia
                 //Should come right after trak header
                 var trakHead = ReadBox("tkhd", trakBox.Offset);
 
-                int offset = MinimumSize;
+                int offset = 0;
 
                 int version = trakHead.RawData[offset++], flags = Common.Binary.Read24(trakHead.RawData, offset, BitConverter.IsLittleEndian);
 
@@ -535,7 +535,7 @@ namespace Media.Container.BaseMedia
                 var mediaHeader = ReadBox("mdhd", trakBox.Offset);
                 if (mediaHeader != null)
                 {
-                    offset = MinimumSize;
+                    offset = 0;
 
                     version = mediaHeader.RawData[offset++];
 
@@ -600,7 +600,8 @@ namespace Media.Container.BaseMedia
 
                 if (sampleToTimeBox != null)
                 {
-                    offset = MinimumSize + IdentifierSize;
+                    //Skip Flags and Version
+                    offset = LengthSize;
 
                     int entryCount = Common.Binary.Read32(sampleToTimeBox.RawData, offset, BitConverter.IsLittleEndian);
 
@@ -619,8 +620,8 @@ namespace Media.Container.BaseMedia
 
                 if (sampleToSizeBox != null)
                 {
-
-                    offset = MinimumSize + IdentifierSize;
+                    //Skip Flags and Version
+                    offset = MinimumSize;
 
                     int defaultSize = Common.Binary.Read32(sampleToSizeBox.RawData, offset, BitConverter.IsLittleEndian);
 
@@ -649,7 +650,8 @@ namespace Media.Container.BaseMedia
 
                     if (chunkOffsetsBox != null)
                     {
-                        offset = MinimumSize + IdentifierSize;
+                        //Skip Flags and Version
+                        offset = MinimumSize;
 
                         int chunkCount = Common.Binary.Read32(chunkOffsetsBox.RawData, offset, BitConverter.IsLittleEndian);
 
@@ -666,7 +668,8 @@ namespace Media.Container.BaseMedia
                 }
                 else
                 {
-                    offset = MinimumSize + IdentifierSize;
+                    //Skip Flags and Version
+                    offset = LengthSize;
 
                     int chunkCount = Common.Binary.Read32(chunkOffsetsBox.RawData, offset, BitConverter.IsLittleEndian);
 
@@ -686,7 +689,7 @@ namespace Media.Container.BaseMedia
 
                 var hdlr = ReadBox("hdlr", trakBox.Offset);
 
-                string comp = ToFourCharacterCode(hdlr.RawData, MinimumSize + IdentifierSize), sub = ToFourCharacterCode(hdlr.RawData, MinimumSize * 2);
+                string comp = ToFourCharacterCode(hdlr.RawData, LengthSize), sub = ToFourCharacterCode(hdlr.RawData, LengthSize * 2);
 
                 switch (sub)
                 {
@@ -701,18 +704,7 @@ namespace Media.Container.BaseMedia
 
                 string name = string.Empty;
 
-                if (nameBox != null)
-                {
-                    int size = (int)(nameBox.DataSize - 12);
-
-                    byte[] nameBytes = new byte[size];
-                    using (var stream = nameBox.DataStream)
-                    {
-                        stream.Position += 12;
-                        stream.Read(nameBytes, 0, size);
-                        name = Encoding.UTF8.GetString(nameBytes);
-                    }
-                }
+                if (nameBox != null) name = Encoding.UTF8.GetString(nameBox.RawData);
 
                 ulong sampleCount = (ulong)sampleSizes.Count();
 
@@ -722,11 +714,11 @@ namespace Media.Container.BaseMedia
 
                 var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
 
-                int sampleDescriptionCount = Common.Binary.Read32(sampleDescriptionBox.RawData, 12, BitConverter.IsLittleEndian);
+                int sampleDescriptionCount = Common.Binary.Read32(sampleDescriptionBox.RawData, LengthSize, BitConverter.IsLittleEndian);
 
                 byte channels = 0, bitDepth = 0;
 
-                offset = 16;
+                offset = MinimumSize;
 
                 if (sampleDescriptionCount > 0)
                 {
@@ -878,7 +870,8 @@ namespace Media.Container.BaseMedia
 
                 if (elst != null)
                 {
-                    offset = MinimumSize + IdentifierSize;
+                    //Skip Flags and Version
+                    offset = LengthSize;
 
                     int entryCount = Common.Binary.Read32(elst.RawData, offset, BitConverter.IsLittleEndian);
 

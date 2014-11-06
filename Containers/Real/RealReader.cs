@@ -104,7 +104,7 @@ namespace Media.Container.Real
 
         public override Node TableOfContents
         {
-            get { using(var root = Root) return ReadChunks(root.Offset + root.DataSize, Length - root.Offset + root.DataSize, ChunkType.INDX).FirstOrDefault(); }
+            get { using(var root = Root) return ReadChunks(root.DataOffset + root.DataSize, Length - root.DataOffset + root.DataSize, ChunkType.INDX).FirstOrDefault(); }
         }
 
         public Node ReadNext()

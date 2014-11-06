@@ -17,9 +17,9 @@ namespace Media.Container
         readonly IMediaContainer Master;
 
         /// <summary>
-        /// The Offset in which the Node occurs in the <see cref="Master"/>
+        /// The Offset in which the <see cref="RawData"/> occurs in the <see cref="Master"/>
         /// </summary>
-        public readonly long Offset;
+        public readonly long DataOffset;
             
         /// <summary>
         /// The amount of bytes contained in the Node's <see cref="RawData" />
@@ -41,6 +41,11 @@ namespace Media.Container
         /// </summary>
         public long TotalSize { get { return DataSize + IdentifierSize + LengthSize; } }
 
+        /// <summary>
+        /// The offset at which the node occurs in the <see cref="Master"/>
+        /// </summary>
+        public long Offset { get { return DataOffset - (IdentifierSize + LengthSize); } }
+
         byte[] m_Data;
 
         /// <summary>
@@ -58,7 +63,7 @@ namespace Media.Container
                 //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
-                Master.BaseStream.Position = Offset;
+                Master.BaseStream.Position = DataOffset;
 
                 m_Data = new byte[DataSize];
 
@@ -109,7 +114,7 @@ namespace Media.Container
             if (master == null) throw new ArgumentNullException("master");
             if (identifier == null) throw new ArgumentNullException("identifier");
             Master = master;
-            Offset = offset;
+            DataOffset = offset;
             Identifier = identifier;
             IdentifierSize = identifier.Length;
             LengthSize = lengthSize;
@@ -127,7 +132,7 @@ namespace Media.Container
                 //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
-                Master.BaseStream.Position = Offset;
+                Master.BaseStream.Position = DataOffset;
 
                 Master.BaseStream.Write(m_Data, 0, (int)DataSize);
 
