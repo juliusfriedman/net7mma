@@ -290,18 +290,18 @@ namespace Media.Rtsp
         #region Delegates
 
         /// <summary>
-        /// A function which creates a RtspResponse
+        /// A function which creates a RtspResponse.
         /// </summary>
         /// <param name="request">The request</param>
-        /// <param name="response">The response created</param>
+        /// <param name="response">The response created, (Can be null and nothing will be sent)</param>
         /// <returns>True if NO futher processing is required otherwise false.</returns>
         public delegate bool RtspRequestHandler(RtspMessage request, out RtspMessage response);
 
-        internal Dictionary<RtspMethod, RtspRequestHandler> m_ExtraHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
+        internal Dictionary<RtspMethod, RtspRequestHandler> m_CustomHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
 
-        public void AddRequestHandler(RtspMethod method, RtspRequestHandler handler) { try { m_ExtraHandlers.Add(method, handler); } catch { throw; } }
+        public void AddRequestHandler(RtspMethod method, RtspRequestHandler handler) { try { m_CustomHandlers.Add(method, handler); } catch { throw; } }
 
-        public bool RemoveRequestHandler(RtspMethod method) { return m_ExtraHandlers.Remove(method); }
+        public bool RemoveRequestHandler(RtspMethod method) { return m_CustomHandlers.Remove(method); }
 
         #endregion
 
@@ -359,7 +359,9 @@ namespace Media.Rtsp
         //Impove this...
         int m_UdpPort = -1;
 
-        public void EnableUnreliableTransport(int port = 555, bool ipV6 = false) 
+        //Should allow multiple endpoints for any type of service.
+
+        public void EnableUnreliableTransport(int port = 555, AddressFamily addressFamily = AddressFamily.InterNetwork) 
         {
             if (m_UdpServerSocket == null)
             {
@@ -369,16 +371,8 @@ namespace Media.Rtsp
 
                     EndPoint inBound;
 
-                    if (ipV6)
-                    {
-                        m_UdpServerSocket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
-                        m_UdpServerSocket.Bind(inBound = new IPEndPoint(Utility.GetFirstIPAddress(AddressFamily.InterNetworkV6), port));
-                    }
-                    else
-                    {
-                        m_UdpServerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                        m_UdpServerSocket.Bind(inBound = new IPEndPoint(Utility.GetFirstV4IPAddress(), port));
-                    }
+                    m_UdpServerSocket = new Socket(addressFamily, SocketType.Dgram, ProtocolType.Udp);
+                    m_UdpServerSocket.Bind(inBound = new IPEndPoint(Utility.GetFirstIPAddress(addressFamily), port));
 
                     //Include the IP Header
                     m_UdpServerSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
@@ -434,7 +428,7 @@ namespace Media.Rtsp
             allDone.Dispose();
             allDone = null;
 
-            m_ExtraHandlers.Clear();
+            m_CustomHandlers.Clear();
         }
 
         #region Session Collection
@@ -1170,20 +1164,20 @@ namespace Media.Rtsp
                 RtspRequestHandler custom;
 
                 //If there is
-                if (m_ExtraHandlers.TryGetValue(request.Method, out custom))
+                if (m_CustomHandlers.TryGetValue(request.Method, out custom))
                 {
                     //Then create the response
                     RtspMessage response;
 
-                    //By invoking the handler, if true is returned then 
+                    //By invoking the handler, if true is returned
                     if (custom(request, out response))
                     {
                         //Use the custom handler to create a response
                         ProcessSendRtspResponse(response, session);
+                        
+                        //Return because the custom handler has handled the request.
+                        return;
                     }
-
-                    //Return because the custom handler has handled the request.
-                    return;
                 }
 
                 //Determine the handler for the request and process it
@@ -1785,6 +1779,7 @@ namespace Media.Rtsp
         internal void ProcessGetParameter(RtspMessage request, ClientSession session)
         {
             //We should process the body and return the parameters requested
+            //Determine API
             ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
         }
 
@@ -1797,7 +1792,8 @@ namespace Media.Rtsp
         {
             //Could be used for PTZ or other stuff
             //Should have a way to determine to forward send parameters... public bool ForwardSetParameter { get; set; }
-            //Should have a way to call SendSetParamter on the RtspSession.Listener
+            //Should have a way to call SendSetParamter on the source if required.
+            //Should allow sever parameters to be set?
             ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
         }        
 

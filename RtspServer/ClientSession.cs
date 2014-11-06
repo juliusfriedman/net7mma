@@ -406,7 +406,7 @@ namespace Media.Rtsp
             if (!string.IsNullOrWhiteSpace(rangeString))
             {
                 string type; TimeSpan start, end;
-                if (Media.Sdp.SessionDescription.TryParseRange(rangeString, out type, out start, out end))
+                if (RtspHeaders.TryParseRange(rangeString, out type, out start, out end))
                 {
                     //Determine the max start time
                     TimeSpan max = source.RtpClient.TransportContexts.Max(tc => tc.MediaEndTime);                  
@@ -417,7 +417,7 @@ namespace Media.Rtsp
                     //End playing after this time if given and not unspecified
                     endRange = end;
 
-                    if(end != System.Threading.Timeout.InfiniteTimeSpan
+                    if(end != Utility.InfiniteTimeSpan
                         &&
                         end > max) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Invalid End Range");
 
@@ -425,18 +425,17 @@ namespace Media.Rtsp
                     if (start > TimeSpan.Zero)
                     {
                         //If the maximum is not infinite and the start exceeds the max indicate this.
-                        if (max != System.Threading.Timeout.InfiniteTimeSpan
+                        if (max != Utility.InfiniteTimeSpan
                             &&
                             start > max) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Invalid Start Range");
                     }
 
-                    //If the start time is 0 and the max time is not infinite then start the start time to the uptime of the stream (how long it has been playing)
-                    if (start == TimeSpan.Zero && max != System.Threading.Timeout.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
-
                     //If the end time is infinite and the max is not infinite then the end is the max time.
-                    if (end == System.Threading.Timeout.InfiniteTimeSpan && max != System.Threading.Timeout.InfiniteTimeSpan) endRange = end = max;
+                    if (end == Utility.InfiniteTimeSpan && max != Utility.InfiniteTimeSpan) endRange = end = max;
 
-                }                
+                    //If the start time is 0 and the end time is not infinite then start the start time to the uptime of the stream (how long it has been playing)
+                    if (start == TimeSpan.Zero && end != Utility.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
+                }
             }
 
             //Prepare the RtpInfo header
@@ -488,7 +487,7 @@ namespace Media.Rtsp
             }
 
             //Set the range Range for the playResponse
-            playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
+            if(startRange.HasValue || endRange.HasValue) playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
             //Sent the rtpInfo
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));            
@@ -956,6 +955,7 @@ namespace Media.Rtsp
                 if(stream.m_DisableQOS) foreach (Sdp.SessionDescriptionLine line in bandwithLines) md.RemoveLine(md.Lines.IndexOf(line));
 
                 //Remove all other alternate information
+                //Should probably only remove certain ones.
                 foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
 
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
@@ -985,7 +985,10 @@ namespace Media.Rtsp
                 {
                     var context = m_RtpClient.GetContextForMediaDescription(md);
 
-                    if (context != null) md.MediaPort = ((IPEndPoint)context.LocalRtp).Port;
+                    if (context != null) md.MediaPort = ((IPEndPoint)context.RemoteRtp).Port;
+
+                    //Set any other variables which may be been changed in the session
+
                 }
 
                 //if (!stream.m_ForceTCP)

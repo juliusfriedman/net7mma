@@ -100,7 +100,7 @@ namespace Media.Sdp
 
             type = Utility.Unknown;
             start = TimeSpan.Zero;
-            end = System.Threading.Timeout.InfiniteTimeSpan;
+            end = Utility.InfiniteTimeSpan;
 
             int offset = 0;
 
