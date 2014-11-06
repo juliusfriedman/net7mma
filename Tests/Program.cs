@@ -2492,7 +2492,7 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("Identifier: " + BitConverter.ToString(mxfObject.Identifier));
 
-                        Console.WriteLine("Category: " + (Media.Container.Mxf.MxfReader.Category)mxfObject.Identifier[4]);
+                        Console.WriteLine("Category: " + Media.Container.Mxf.MxfReader.GetCategory(mxfObject));
 
                         Console.WriteLine("Name: " + name);
 
@@ -2500,8 +2500,8 @@ a=mpeg4-esid:101");
 
                         if (name == "PartitionPack")
                         {
-                            Console.WriteLine("Partition Type: " + (Media.Container.Mxf.MxfReader.PartitionKind)mxfObject.Identifier[13]);
-                            Console.WriteLine("Partition Status: " + (Media.Container.Mxf.MxfReader.PartitionStatus)mxfObject.Identifier[14]);
+                            Console.WriteLine("Partition Type: " + Media.Container.Mxf.MxfReader.GetPartitionKind(mxfObject));
+                            Console.WriteLine("Partition Status: " + Media.Container.Mxf.MxfReader.GetPartitionStatus(mxfObject));
                         }
                     }
 
@@ -2570,7 +2570,7 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Offset: " + page.Offset);
                             Console.WriteLine("Complete: " + page.IsComplete);
                             Console.WriteLine("Name: " + Media.Container.Ogg.OggReader.ToTextualConvention(page.Identifier));
-                            Console.WriteLine("HeaderFlags: " + (Media.Container.Ogg.OggReader.HeaderFlags)(page.Identifier[5]));
+                            Console.WriteLine("HeaderFlags: " +  Media.Container.Ogg.OggReader.GetHeaderFlags(page));
                             Console.WriteLine("Size: " + page.DataSize);
                         }
 
@@ -2607,8 +2607,11 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Offset: " + tag.Offset);
                             Console.WriteLine("Complete: " + tag.IsComplete);
 
-                            if (tag.Identifier[0] == default(byte))
-                                Console.WriteLine("FrameFlags: " + (Media.Container.Nut.NutReader.FrameFlags)tag.Identifier.Last());
+                            if (Media.Container.Nut.NutReader.IsFrame(tag))
+                            {
+                                Console.WriteLine("StreamId: " + Media.Container.Nut.NutReader.GetStreamId(tag));
+                                Console.WriteLine("FrameFlags: " + Media.Container.Nut.NutReader.GetFrameFlags(tag));
+                            }
                             else
                                 Console.WriteLine("Name: " + Media.Container.Nut.NutReader.ToTextualConvention(tag.Identifier));
                             

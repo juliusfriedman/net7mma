@@ -374,27 +374,70 @@ namespace Media.Container.BaseMedia
             foreach (var trakBox in ReadBoxes(Root.Offset, "trak").ToArray())
             {
                 //MAKE ONLY A SINGLE PASS HERE TO REDUCE IO
-                //using (var stream = trakBox.Data)
+                //using (var stream = trakBox.DataStream)
                 //{
-                //    stream.Position += MinimumSize;
-
                 //    int bytesRead = 0;
 
-                //    long length = ReadLength(stream, out bytesRead);
+                //    long length = 0, streamPosition = stream.Position, streamLength = stream.Length;
 
-                //    byte[] identifier = ReadIdentifier(stream);
+                //    byte[] identifier;
 
-                //    while (stream.Position < stream.Length)
+                //    //Note could use RawData from trakBox
+                //    //Would just need a way to ReadLength and Identifier from byte[] rather than Stream.
+
+                //    //While there is data in the stream
+                //    while (streamPosition < streamLength)
                 //    {
+                //        //Read the length
+                //        length = ReadLength(stream, out bytesRead);
+
+                //        //Read the identifier
+                //        identifier = ReadIdentifier(stream);
+
+                //        //Determine what to do
                 //        switch (ToFourCharacterCode(identifier))
                 //        {
+                //            // Next Node has data
+                //            case "trak": continue;
                 //            case "tkhd":
+                //                {
+                //                    break;
+                //                }
+                //            case "mdhd":
+                //                {
+                //                    break;
+                //                }
+                //            case "stsd":
+                //                {
+                //                    break;
+                //                }
+                //            case "stts":
+                //                {
+                //                    break;
+                //                }
+                //            case "stsz":
+                //                {
+                //                    break;
+                //                }
+                //            case "stco":
+                //                {
+                //                    break;
+                //                }
+                //            case "st64":
+                //                {
+                //                    break;
+                //                }
+                //            case "hdlr":
+                //                {
+                //                    break;
+                //                }
+                //            case "name":
                 //                {
                 //                    break;
                 //                }
                 //            default:
                 //                {
-                //                    stream.Position += length; 
+                //                    streamPosition = stream.Position += length;
                 //                    continue;
                 //                }
                 //        }
@@ -678,7 +721,6 @@ namespace Media.Container.BaseMedia
                 double rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
 
                 var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
-
 
                 int sampleDescriptionCount = Common.Binary.Read32(sampleDescriptionBox.RawData, 12, BitConverter.IsLittleEndian);
 

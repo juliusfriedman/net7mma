@@ -60,13 +60,39 @@ namespace Media.Container.Ogg
             return result.ToString();
         }
 
-        //GetHeaderFlags
+        public static HeaderFlags GetHeaderFlags(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+            return (HeaderFlags)node.Identifier[5];
+        }
 
-        //GetGrainulePosition
+        public static long GetGranulePosition(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
 
-        //GetSequenceNumber
+            return Common.Binary.Read64(node.Identifier, 6, !BitConverter.IsLittleEndian);
+        }
 
-        //GetCapturePattern
+        public static int GetSerialNumber(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return (int)Common.Binary.ReadU32(node.Identifier, 14, !BitConverter.IsLittleEndian);
+        }
+
+        public static int GetSequenceNumber(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return (int)Common.Binary.ReadU32(node.Identifier, 18, !BitConverter.IsLittleEndian);
+        }
+
+        public static int GetCrc(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return (int)Common.Binary.ReadU32(node.Identifier, 22, !BitConverter.IsLittleEndian);
+        }
 
         #endregion
 
@@ -137,18 +163,6 @@ namespace Media.Container.Ogg
 
             //Check version
             if (identifier[4] > 0) throw new InvalidOperationException("Only Version 0 is Defined.");
-
-            //HeaderType headerType = (HeaderType)identifier[5];
-
-            //A Special value of -1 indicates that no packets finish on this page.
-            //long granule_position = Common.Binary.Read64(identifier, 6, !BitConverter.IsLittleEndian);
-
-            //uint serialNumber = Common.Binary.ReadU32(identifier, 14, !BitConverter.IsLittleEndian);
-
-            //uint sequenceNumber = Common.Binary.ReadU32(identifier, 18, !BitConverter.IsLittleEndian);
-
-            //Poly = 0x04c11db7
-            //uint crc32 = Common.Binary.ReadU32(identifier, 22, !BitConverter.IsLittleEndian);
 
             byte pageSegmentCount = identifier[26];
 
@@ -226,10 +240,10 @@ namespace Media.Container.Ogg
                 }
 
                 //Get the pageHeaderType
-                HeaderFlags pageHeaderType = ((HeaderFlags)page.Identifier[5]);
+                HeaderFlags pageHeaderType = GetHeaderFlags(page);
 
                 //Read Serial
-                int serial = Common.Binary.Read32(page.Identifier, 14, !BitConverter.IsLittleEndian);
+                int serial = GetSerialNumber(page);
 
                 if (pageHeaderType.HasFlag(HeaderFlags.FirstPage))
                 {

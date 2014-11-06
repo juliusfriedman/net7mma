@@ -10,6 +10,7 @@ namespace Media.Container.Nut
     /// Provides an implementation of the Nut Container defined by (MPlayer, FFmpeg and Libav)
     /// </summary>
     /// <notes><see cref="http://ffmpeg.org/~michael/nut.txt">Specification</see></notes>
+    //http://wiki.multimedia.cx/index.php?title=NUT
     //https://www.ffmpeg.org/doxygen/2.3/nut_8c_source.html
     //http://people.xiph.org/~xiphmont/containers/nut/nut-english.txt
     //https://github.com/lu-zero/nut/wiki/Specification
@@ -68,6 +69,39 @@ namespace Media.Container.Nut
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
             return ((StartCode)Common.Binary.ReadU64(identifier, offset, BitConverter.IsLittleEndian)).ToString();
+        }
+
+        public static bool IsFrame(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return node.Identifier[0] == default(byte);
+        }
+
+        public static bool IsNutNode(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            return node.Identifier[0] == NutByte;
+        }
+
+        public static FrameFlags GetFrameFlags(Node node)
+        {
+
+            if(node == null) throw new ArgumentNullException("node");
+
+            if (!IsFrame(node)) return FrameFlags.Unknown;
+
+            return (FrameFlags)node.Identifier[IdentifierSize];
+        }
+
+        public static int GetStreamId(Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            if (!IsFrame(node)) return -1;
+
+            return node.Identifier[IdentifierBytesSize];
         }
 
         #endregion
@@ -387,6 +421,11 @@ namespace Media.Container.Nut
             }
         }
 
+        /// <summary>
+        /// Reads the next Tag or Frame.
+        /// If <see cref="IsFrame"/> is true then <see cref="Container.Node.LengthSize"/> will be negitive to indicate it's variable length from <see cref="Container.Node.Position"/>
+        /// </summary>
+        /// <returns>The <see cref="Container.Node"/> found</returns>
         public Node ReadNext()
         {
             //long offset = Position;
@@ -433,6 +472,8 @@ namespace Media.Container.Nut
                 //Check for invalid flag
                 if (frameFlags.HasFlag(FrameFlags.Invalid)) throw new InvalidOperationException("FrameCodes must not have the flag \"FrameFlags.Invalid\"");
 
+                long streamId = HeaderOptions[nextByte].Item2;
+
                 long reserved_count = HeaderOptions[nextByte].Rest.Item1;
 
                 int header_idx = (int)HeaderOptions[nextByte].Item7;
@@ -441,14 +482,15 @@ namespace Media.Container.Nut
 
                 long size_msb = 0, size_lsb = HeaderOptions[nextByte].Item4;
 
-                int bytesRead;
+                int bytesReadTotal = 0, bytesReadNow;
 
                 long length = size_lsb, temp;
 
                 //Check to see if the real flags are in the data
                 if (frameFlags.HasFlag(FrameFlags.Coded))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesRead);
+                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
                     frameFlags ^= (FrameFlags)temp;
                 }
 
@@ -457,14 +499,15 @@ namespace Media.Container.Nut
 
                 if (frameFlags.HasFlag(FrameFlags.StreamId))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesRead);
-
+                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
                     //Checks...
                 }
 
                 if (frameFlags.HasFlag(FrameFlags.CodedPTS))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesRead);
+                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
                 }
                 else
                 {
@@ -473,19 +516,31 @@ namespace Media.Container.Nut
                 }
 
                 //Check to see if the size is coded in the data
-                if (frameFlags.HasFlag(FrameFlags.SizeMSB)) size_msb = DecodeVeraibleLength(this, out bytesRead);
+                if (frameFlags.HasFlag(FrameFlags.SizeMSB))
+                {
+                    size_msb = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
+                }
 
-                if (frameFlags.HasFlag(FrameFlags.MatchTime)) temp = DecodeVeraibleLength(this, out bytesRead);
+                if (frameFlags.HasFlag(FrameFlags.MatchTime))
+                {
+                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
+                }
 
-                if (frameFlags.HasFlag(FrameFlags.HeaderIndex)) temp = DecodeVeraibleLength(this, out bytesRead);
+                if (frameFlags.HasFlag(FrameFlags.HeaderIndex))
+                {
+                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
+                }
 
                 //7  FLAG_RESERVED    If set, reserved_count is coded in the frame header.
                 //reserved_count[frame_code] (v)
                 //MUST be <256.
                 if (frameFlags.HasFlag(FrameFlags.Reserved))
                 {
-                    reserved_count = DecodeVeraibleLength(this, out bytesRead);
-
+                    reserved_count = DecodeVeraibleLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
                     //while (reserved_count-- > 0)
 
                     //for (int i = 0; i < temp; ++i)
@@ -535,8 +590,8 @@ namespace Media.Container.Nut
                 else if (length > (2 * MaximumDistance)) throw new InvalidOperationException("frame size > 2 max_distance and no checksum");
 
                 //Can store 6 more bytes in identifier
-
-                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, 0, (byte)frameFlags }, 0, Position, length, length <= Remaining);
+                //LengthSize is negitive which indicates its variable length from Position
+                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, 0, (byte)streamId, (byte)frameFlags }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
             }
         }
 
