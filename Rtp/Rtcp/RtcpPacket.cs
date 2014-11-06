@@ -627,10 +627,17 @@ namespace Media.Rtcp
         /// <summary>
         /// Tries to map the given implemented type to the given payloadType
         /// </summary>
-        /// <param name="payloadType"></param>
-        /// <param name="implementation"></param>
+        /// <param name="payloadType">Any byte value other than 0</param>
+        /// <param name="implementation">Any type which derives from <see cref="RtcpPacket"/></param>
         /// <returns>The result of adding the implemention to the InstanceMap</returns>
-        internal static protected bool TryMapImplementation(byte payloadType, Type implementation) { return implementation != null && implementation.IsAssignableFrom(RtcpPacketType) ? InstanceMap.TryAdd(payloadType, implementation) : false; }
+        internal static protected bool TryMapImplementation(byte payloadType, Type implementation)
+        {
+            return payloadType > default(byte) &&
+            implementation != null &&
+            !implementation.IsAbstract &&
+            implementation.IsSubclassOf(RtcpPacketType)
+                ? InstanceMap.TryAdd(payloadType, implementation) : false;
+        }
 
         #endregion
 

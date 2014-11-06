@@ -289,7 +289,13 @@ namespace Media.Rtsp
 
         #region Delegates
 
-        public delegate RtspMessage RtspRequestHandler(RtspMessage request);
+        /// <summary>
+        /// A function which creates a RtspResponse
+        /// </summary>
+        /// <param name="request">The request</param>
+        /// <param name="response">The response created</param>
+        /// <returns>True if NO futher processing is required otherwise false.</returns>
+        public delegate bool RtspRequestHandler(RtspMessage request, out RtspMessage response);
 
         internal Dictionary<RtspMethod, RtspRequestHandler> m_ExtraHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
 
@@ -1160,6 +1166,26 @@ namespace Media.Rtsp
                 //Log the reqeust now
                 if (Logger != null) Logger.LogRequest(request, session);
 
+                //Determine if there is a custom handler for the mthod
+                RtspRequestHandler custom;
+
+                //If there is
+                if (m_ExtraHandlers.TryGetValue(request.Method, out custom))
+                {
+                    //Then create the response
+                    RtspMessage response;
+
+                    //By invoking the handler, if true is returned then 
+                    if (custom(request, out response))
+                    {
+                        //Use the custom handler to create a response
+                        ProcessSendRtspResponse(response, session);
+                    }
+
+                    //Return because the custom handler has handled the request.
+                    return;
+                }
+
                 //Determine the handler for the request and process it
                 switch (request.Method)
                 {
@@ -1215,18 +1241,7 @@ namespace Media.Rtsp
                         }
                     case RtspMethod.UNKNOWN:
                     default:
-                        {
-                            RtspRequestHandler custom;
-
-                            if (m_ExtraHandlers.TryGetValue(request.Method, out custom))
-                            {
-                                //Use the custom handler to create a response
-                                ProcessSendRtspResponse(custom(request), session);
-
-                                //Return
-                                return;
-                            }
-
+                        {                            
                             //Per 2.0 Draft
                             ProcessInvalidRtspRequest(session, RtspStatusCode.NotImplemented);
                             break;
