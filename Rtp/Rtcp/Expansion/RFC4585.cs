@@ -31,8 +31,8 @@ namespace Media.Rtcp.Expansion
             //----------+-------+------------------------------------
             // RTPFB  |  205  | Transport layer FB message
             // PSFB   |  206  | Payload-specific FB message
-            RtcpPacket.TryMapImplementation(205, typeof(RtcpFeedbackPacket));
-            RtcpPacket.TryMapImplementation(206, typeof(RtcpFeedbackPacket));
+            //RtcpPacket.TryMapImplementation(205, typeof(RtcpFeedbackPacket));
+            //RtcpPacket.TryMapImplementation(206, typeof(RtcpFeedbackPacket));
 
         }
 

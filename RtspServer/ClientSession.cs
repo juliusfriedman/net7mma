@@ -402,21 +402,41 @@ namespace Media.Rtsp
             string rangeString = playRequest[RtspHeaders.Range];
             TimeSpan? startRange = null, endRange = null;
 
-            //If that is not present we cannot determine where the client wants to start playing from
+            //Determine if the client wants to start playing from a specific point in time or until a specific point
             if (!string.IsNullOrWhiteSpace(rangeString))
             {
                 string type; TimeSpan start, end;
                 if (Media.Sdp.SessionDescription.TryParseRange(rangeString, out type, out start, out end))
                 {
-                    startRange = start;
+                    //Determine the max start time
+                    TimeSpan max = source.RtpClient.TransportContexts.Max(tc => tc.MediaEndTime);                  
+
+                    //Start playing from here
+                    startRange = start;                    
+                    
+                    //End playing after this time if given and not unspecified
                     endRange = end;
 
-                    //Ensure valid play times.
-                    if (endRange != System.Threading.Timeout.InfiniteTimeSpan && endRange < start) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "End time must be greater than Start time.");
-                }
+                    if(end != System.Threading.Timeout.InfiniteTimeSpan
+                        &&
+                        end > max) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Invalid End Range");
 
-                //Set the range Range for the playResponse
-                playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
+                    //If the given time > zero
+                    if (start > TimeSpan.Zero)
+                    {
+                        //If the maximum is not infinite and the start exceeds the max indicate this.
+                        if (max != System.Threading.Timeout.InfiniteTimeSpan
+                            &&
+                            start > max) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Invalid Start Range");
+                    }
+
+                    //If the start time is 0 and the max time is not infinite then start the start time to the uptime of the stream (how long it has been playing)
+                    if (start == TimeSpan.Zero && max != System.Threading.Timeout.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
+
+                    //If the end time is infinite and the max is not infinite then the end is the max time.
+                    if (end == System.Threading.Timeout.InfiniteTimeSpan && max != System.Threading.Timeout.InfiniteTimeSpan) endRange = end = max;
+
+                }                
             }
 
             //Prepare the RtpInfo header
@@ -433,13 +453,9 @@ namespace Media.Rtsp
             {
                 var sourceContext = source.RtpClient.GetTransportContexts().Where(tc => tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
 
+                if (sourceContext == null) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Source Not Setup");
+
                 var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
-
-                //Ensure this context start on the appropraite time
-                if (startRange.HasValue) context.MediaStartTime = startRange.Value;
-
-                //Ensure this context ends on the appropraite time
-                if (endRange.HasValue) context.MediaEndTime = endRange.Value;
 
                 //Create the RtpInfo header for this context.
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
@@ -459,12 +475,6 @@ namespace Media.Rtsp
 
                     if (context == null) continue;
 
-                    //Ensure this context start on the appropraite time
-                    if (startRange.HasValue) context.MediaStartTime = startRange.Value;
-
-                    //Ensure this context ends on the appropraite time
-                    if (endRange.HasValue) context.MediaEndTime = endRange.Value;
-
                     //Create the RtpInfo header for this context.
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
                         tc.SequenceNumber, tc.RtpTimestamp, context.SynchronizationSourceIdentifier));
@@ -477,7 +487,8 @@ namespace Media.Rtsp
                 m_RtpClient.SendSendersReports();
             }
 
-                   
+            //Set the range Range for the playResponse
+            playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
             //Sent the rtpInfo
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));            
@@ -606,11 +617,6 @@ namespace Media.Rtsp
                     setupContext.Initialize(m_RtspSocket);
                 }
 
-                setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
-                setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
-                setupContext.MediaStartTime = sourceContext.MediaStartTime;
-                setupContext.MediaEndTime = sourceContext.MediaEndTime;
-
                 //Create the returnTransportHeader
                 returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, true, false, null, true, dataChannel, controlChannel);
             }            
@@ -620,7 +626,7 @@ namespace Media.Rtsp
                 
                 if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
 
-                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, clientRtpPort, true);
+                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
 
                 if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
 
@@ -666,6 +672,8 @@ namespace Media.Rtsp
             setupContext.SequenceNumber = sourceContext.SequenceNumber;
             setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
             setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
+
+            //Start and end times are always equal.
             setupContext.MediaStartTime = sourceContext.MediaStartTime;
             setupContext.MediaEndTime = sourceContext.MediaEndTime;
 
