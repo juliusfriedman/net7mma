@@ -62,6 +62,8 @@ namespace Media
 
         public const String Unknown = "Unknown";
 
+        public static TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
+
         #region Extensions
 
         public static IEnumerable<T> Yield<T>(this T t) { yield return t; }

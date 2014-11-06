@@ -586,7 +586,7 @@ namespace Media.Rtp
 
             internal DateTime? m_ConnectedTimeUtc;
 
-            internal TimeSpan m_StartTime = TimeSpan.Zero, m_EndTime = System.Threading.Timeout.InfiniteTimeSpan;
+            internal TimeSpan m_StartTime = TimeSpan.Zero, m_EndTime = Utility.InfiniteTimeSpan;
 
             /// <summary>
             /// SequenceNumber of the channel, starts at 0, wraps to 1 when set through the property.
@@ -654,7 +654,7 @@ namespace Media.Rtp
             /// </summary>
             public bool Connected
             {
-                get { return Uptime > TimeSpan.Zero; }
+                get { return (LocalRtp != null || LocalRtcp != null) && (RemoteRtp != null || RemoteRtcp != null); }
             }
 
             /// <summary>
@@ -684,7 +684,7 @@ namespace Media.Rtp
             }
 
             /// <summary>
-            /// The amount of time the TransportContext has been connected.
+            /// The amount of time the TransportContext has been receiving packets.
             /// </summary>
             public TimeSpan Uptime
             {
@@ -711,10 +711,10 @@ namespace Media.Rtp
 
             public bool IsContinious
             {
-                get { return m_EndTime == System.Threading.Timeout.InfiniteTimeSpan; }
+                get { return m_EndTime == Utility.InfiniteTimeSpan; }
             }
 
-            public TimeSpan Remaining
+            public TimeSpan RemainingTime
             {
                 get
                 {
@@ -1245,8 +1245,6 @@ namespace Media.Rtp
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
 
-                m_ConnectedTimeUtc = DateTime.UtcNow;
-
                 try
                 {
                     //Setup the RtpSocket
@@ -1389,7 +1387,6 @@ namespace Media.Rtp
                 if (local.Address.AddressFamily != remote.Address.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
-                m_ConnectedTimeUtc = DateTime.UtcNow;
                 try
                 {
                     //Setup the RtcpSocket / RtpSocket
@@ -1434,8 +1431,6 @@ namespace Media.Rtp
 
                 LocalRtp = RtpSocket.LocalEndPoint;
                 RemoteRtp = RtpSocket.RemoteEndPoint;
-
-                m_ConnectedTimeUtc = DateTime.UtcNow;
             }            
 
             /// <summary>
@@ -1462,6 +1457,8 @@ namespace Media.Rtp
                 //Close the RtpSocket
                 if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0)
                     RtpSocket.Close();
+
+                LocalRtp = LocalRtcp = RemoteRtp = RemoteRtcp = null;
 
                 m_ConnectedTimeUtc = null;
             }
@@ -1662,6 +1659,9 @@ namespace Media.Rtp
             //Keep track of the the bytes sent in the context
             Interlocked.Add(ref transportContext.RtcpBytesRecieved, localPacket.Length);
 
+            //Set the connected time
+            if (!transportContext.m_ConnectedTimeUtc.HasValue) transportContext.m_ConnectedTimeUtc = DateTime.UtcNow;
+
             //Fire event
             OnRtcpPacketReceieved(packet);
 
@@ -1683,7 +1683,7 @@ namespace Media.Rtp
             //    /*if (!goodBye) */SendReports(transportContext);                
             //}
 
-            //if (goodBye && packet.BlockCount > 0) transportContext.m_SendInterval = System.Threading.Timeout.InfiniteTimeSpan; //Then never send reports again?
+            //if (goodBye && packet.BlockCount > 0) transportContext.m_SendInterval = Utility.InfiniteTimeSpan; //Then never send reports again?
         }
 
         protected internal virtual void HandleFrameChange(object /*RtpClient*/ sender, RtpFrame frame)
@@ -1762,6 +1762,9 @@ namespace Media.Rtp
 
             //The counters for the bytes will now be be updated for the invalid packet
             Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count());
+
+            //Set the connected time when the first RtpPacket was received
+            if (!transportContext.m_ConnectedTimeUtc.HasValue) transportContext.m_ConnectedTimeUtc = DateTime.UtcNow;
 
             transportContext.UpdateJitterAndTimestamp(localPacket);
 
@@ -3136,7 +3139,7 @@ namespace Media.Rtp
                         //Check for a context which is able to receive data
                         if (tc == null || tc.Disposed || !tc.Connected
                             ||//If the context does not have continious media it must only receive data for the duration of the media.
-                            !tc.IsContinious && Uptime > tc.MediaEndTime) continue;
+                            !tc.IsContinious && tc.RemainingTime > TimeSpan.Zero) continue;
 
                         //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
 

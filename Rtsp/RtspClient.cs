@@ -1385,13 +1385,13 @@ namespace Media.Rtsp
                 //If we have a timeout to switch the protocols and the protocol has not been forced
                 if (m_RtpClient.TotalBytesReceieved == 0 && m_RtpProtocol != ProtocolType.Tcp)
                 {
-                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, ProtocolSwitchTime, System.Threading.Timeout.InfiniteTimeSpan);
+                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, ProtocolSwitchTime, Utility.InfiniteTimeSpan);
                 }
 
                 //If there is a timeout ensure it gets utilized
                 if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
                 {
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, System.Threading.Timeout.InfiniteTimeSpan);
+                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
                 }
 
                 //Connect and wait for Packets
@@ -1420,7 +1420,7 @@ namespace Media.Rtsp
                     SendOptions();
                 }
 
-                m_KeepAliveTimer.Change(m_RtspTimeout, System.Threading.Timeout.InfiniteTimeSpan);
+                m_KeepAliveTimer.Change(m_RtspTimeout, Utility.InfiniteTimeSpan);
 
             }
             catch
