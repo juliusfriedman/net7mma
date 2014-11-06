@@ -343,7 +343,7 @@ namespace Media.Container.Riff
 
         void ParseIdentity()
         {
-            using (var iditChunk = ReadChunk(FourCharacterCode.IDIT, Root.Offset))
+            using (var iditChunk = ReadChunk(FourCharacterCode.IDIT, Root.DataOffset))
             {
                 if (iditChunk != null)
                 {
@@ -532,7 +532,7 @@ namespace Media.Container.Riff
 
         void ParseAviHeader()
         {
-            using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.Offset))
+            using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.DataOffset))
             {
                 int offset = IdentifierSize + LengthSize;
 
@@ -585,7 +585,7 @@ namespace Media.Container.Riff
         /// </summary>
         public override Node TableOfContents
         {
-            get { return HasIndex ? ReadChunks(Root.Offset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.Offset, FourCharacterCode.avih, FourCharacterCode.dmlh).FirstOrDefault(); }
+            get { return HasIndex ? ReadChunks(Root.DataOffset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.DataOffset, FourCharacterCode.avih, FourCharacterCode.dmlh).FirstOrDefault(); }
         }
 
         //Index1Entry
@@ -612,7 +612,7 @@ namespace Media.Container.Riff
             int trackId = 0;
 
             //strh has all track level info, strn has stream name..
-            foreach (var chunk in ReadChunks(Root.Offset, FourCharacterCode.strh).ToArray())
+            foreach (var chunk in ReadChunks(Root.DataOffset, FourCharacterCode.strh).ToArray())
             {
                 int offset = MinimumSize, sampleCount = TotalFrames, startTime = 0, timeScale = 0, duration = (int)Duration.TotalMilliseconds, width = Width, height = Height, rate = MicrosecondsPerFrame;
 
@@ -642,7 +642,7 @@ namespace Media.Container.Riff
                             //avg_frame_rate = timebase
                             mediaType = Sdp.MediaType.video;
 
-                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.dc.ToString()),
+                            sampleCount = ReadChunks(Root.DataOffset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.dc.ToString()),
                                                                   ToFourCC(trackId.ToString("D2") + FourCharacterCode.db.ToString())).Count();
                             break;
                         }
@@ -651,13 +651,13 @@ namespace Media.Container.Riff
                         {
                             mediaType = Sdp.MediaType.audio;
 
-                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.wb.ToString())).Count();
+                            sampleCount = ReadChunks(Root.DataOffset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.wb.ToString())).Count();
 
                             break;
                         }
                     case FourCharacterCode.txts:
                         {
-                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.tx.ToString())).Count();
+                            sampleCount = ReadChunks(Root.DataOffset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.tx.ToString())).Count();
                             mediaType = Sdp.MediaType.text; break;
                         }
                     case FourCharacterCode.data:
@@ -712,7 +712,7 @@ namespace Media.Container.Riff
                 {
                     case Sdp.MediaType.video:
                         {
-                            var strf = ReadChunk(FourCharacterCode.strf, chunk.Offset);
+                            var strf = ReadChunk(FourCharacterCode.strf, chunk.DataOffset);
 
                             if (strf != null)
                             {
@@ -738,7 +738,7 @@ namespace Media.Container.Riff
                         {
                             //Expand Codec Indication based on iD?
 
-                            var strf = ReadChunk(FourCharacterCode.strf, chunk.Offset);
+                            var strf = ReadChunk(FourCharacterCode.strf, chunk.DataOffset);
 
                             if (strf != null)
                             {
@@ -753,7 +753,7 @@ namespace Media.Container.Riff
                     default: break;
                 }
 
-                var strn = ReadChunk(FourCharacterCode.strn, chunk.Offset);
+                var strn = ReadChunk(FourCharacterCode.strn, chunk.DataOffset);
 
                 if (strn != null) trackName = Encoding.UTF8.GetString(strn.RawData, 8, (int)(strn.DataSize - 8));
 

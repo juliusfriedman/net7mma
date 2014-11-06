@@ -829,7 +829,7 @@ namespace Media.Container.Mxf
 
         void ParsePreface()
         {
-            using (var preface = ReadObject(UniversalLabel.Preface, true, Root.Offset + Root.DataSize))
+            using (var preface = ReadObject(UniversalLabel.Preface, true, Root.DataOffset + Root.DataSize))
             {
                 if (preface == null) return;
 
@@ -979,7 +979,7 @@ namespace Media.Container.Mxf
 
         void ParseIdentification()
         {
-            using (var identification = ReadObject(UniversalLabel.Identification, true, Root.Offset + Root.DataSize))
+            using (var identification = ReadObject(UniversalLabel.Identification, true, Root.DataOffset + Root.DataSize))
             {
                 if (identification == null) return;
                 int offset = 0, lenth = (int)(identification.DataSize);
@@ -1083,7 +1083,7 @@ namespace Media.Container.Mxf
 
         void ParseMaterialPackage()
         {
-            using (var materialPackage = ReadObject(UniversalLabel.MaterialPackage, true, Root.Offset + Root.DataSize))
+            using (var materialPackage = ReadObject(UniversalLabel.MaterialPackage, true, Root.DataOffset + Root.DataSize))
             {
 
                 if (materialPackage == null) return;
@@ -1278,7 +1278,7 @@ namespace Media.Container.Mxf
 
             int offsetStart = 0, trackId = -1;
 
-            using (var root = Root) offsetStart = (int)(root.Offset + root.DataSize);
+            using (var root = Root) offsetStart = (int)(root.DataOffset + root.DataSize);
 
             //Must assoicate a descriptor to a track so the properties can be read.
 
@@ -1642,7 +1642,7 @@ namespace Media.Container.Mxf
                 //Get sampleCount if index is available? or count all frames...
 
                                                         //Guid is EssenceElement
-                int sampleCount = ReadObjects(timelineTrackObject.Offset + timelineTrackObject.DataSize, false, new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x01, 0x02, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 
+                int sampleCount = ReadObjects(timelineTrackObject.DataOffset + timelineTrackObject.DataSize, false, new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x01, 0x02, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 
                     //Modified with trackNumber
                     (byte)((trackNumber >> 24) & byte.MaxValue), (byte)((trackNumber >> 16) & byte.MaxValue), (byte)((trackNumber >> 8) & byte.MaxValue), (byte)(trackNumber & byte.MaxValue) })).Count();
 
@@ -1692,7 +1692,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!HasIndex) return null;
-                using (var root = Root) return ReadObject(UniversalLabel.Index, true, root.Offset + root.DataSize);
+                using (var root = Root) return ReadObject(UniversalLabel.Index, true, root.DataOffset + root.DataSize);
             }
         }
     }

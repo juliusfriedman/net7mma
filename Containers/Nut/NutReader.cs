@@ -822,7 +822,7 @@ namespace Media.Container.Nut
 
         public override Node TableOfContents
         {
-            get { using (var root = Root) return ReadTag(StartCode.Index, root.Offset + root.DataSize); }
+            get { using (var root = Root) return ReadTag(StartCode.Index, root.DataOffset + root.DataSize); }
         }
     }
 }

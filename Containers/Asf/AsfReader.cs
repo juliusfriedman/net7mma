@@ -345,7 +345,7 @@ namespace Media.Container.Asf
 
         void ParseFileProperties()
         {
-            using (var fileProperties = ReadObject(Identifier.FilePropertiesObject, Root.Offset))
+            using (var fileProperties = ReadObject(Identifier.FilePropertiesObject, Root.DataOffset))
             {
                 using (var stream = fileProperties.DataStream)
                 {
@@ -444,7 +444,7 @@ namespace Media.Container.Asf
 
         void ParseContentDescription()
         {
-            using (var contentDescription = ReadObject(Identifier.ContentDescriptionObject, Root.Offset))
+            using (var contentDescription = ReadObject(Identifier.ContentDescriptionObject, Root.DataOffset))
             {
                 if(contentDescription != null) using (var stream = contentDescription.DataStream)
                 {
@@ -489,7 +489,7 @@ namespace Media.Container.Asf
 
         public override Node TableOfContents
         {
-            get { return ReadObject(Identifier.FilePropertiesObject, Root.Offset); }
+            get { return ReadObject(Identifier.FilePropertiesObject, Root.DataOffset); }
         }
 
         List<Track> m_Tracks;
@@ -508,7 +508,7 @@ namespace Media.Container.Asf
 
             int trackId = 0;
 
-            foreach (var asfObject in ReadObjects(Root.Offset, Identifier.StreamPropertiesObject).ToArray())
+            foreach (var asfObject in ReadObjects(Root.DataOffset, Identifier.StreamPropertiesObject).ToArray())
             {
                 ulong sampleCount = 0, startTime = (ulong)PreRoll.TotalMilliseconds, timeScale = 1, duration = (ulong)Duration.TotalMilliseconds, width = 0, height = 0, rate = 0;
 

@@ -2278,9 +2278,11 @@ a=mpeg4-esid:101");
                     {
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + box.Offset);
+                        Console.WriteLine("DataOffset: " + box.DataOffset);
                         Console.WriteLine("Complete: " + box.IsComplete);
                         Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
-                        Console.WriteLine("Size: " + box.DataSize);
+                        Console.WriteLine("DataSize: " + box.DataSize);
+                        Console.WriteLine("TotalSize: " + box.TotalSize);
                         Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
                     }
 
@@ -2343,6 +2345,7 @@ a=mpeg4-esid:101");
                 {
                     Console.WriteLine("Position:" + reader.Position);
                     Console.WriteLine("Offset: " + chunk.Offset);
+                    Console.WriteLine("DataOffset: " + chunk.DataOffset);
                     Console.WriteLine("Complete: " + chunk.IsComplete);
 
                     string name = Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier);
@@ -2356,7 +2359,8 @@ a=mpeg4-esid:101");
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.HDLR.ToString()) 
                         Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.RawData, 8, 4));
 
-                    Console.WriteLine("Size: " + chunk.DataSize);
+                    Console.WriteLine("DataSize: " + chunk.DataSize);
+                    Console.WriteLine("TotalSize: " + chunk.DataSize);
                 }
 
                 Console.WriteLine("Track Information:");
@@ -2392,8 +2396,10 @@ a=mpeg4-esid:101");
                     foreach (var element in reader)
                     {
                         Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
-                        Console.WriteLine("Element Data Offset: " + element.Offset);
-                        Console.WriteLine("Element Size: " + element.DataSize);
+                        Console.WriteLine("Element Offset: " + element.Offset);
+                        Console.WriteLine("Element Data Offset: " + element.DataOffset);
+                        Console.WriteLine("Element DataSize: " + element.DataSize);
+                        Console.WriteLine("Element TotalSize: " + element.TotalSize);
                         Console.WriteLine("Element.IsComplete: " + element.IsComplete);
                     }
 
@@ -2456,8 +2462,10 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Name: " + Media.Container.Asf.AsfReader.ToTextualConvention(asfObject.Identifier));
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + asfObject.Offset);
+                        Console.WriteLine("DataOffset: " + asfObject.DataOffset);
                         Console.WriteLine("Complete: " + asfObject.IsComplete);
-                        Console.WriteLine("Size: " + asfObject.DataSize);
+                        Console.WriteLine("TotalSize: " + asfObject.TotalSize);
+                        Console.WriteLine("DataSize: " + asfObject.DataSize);
                     }
 
                     Console.WriteLine("Track Information:");
@@ -2486,6 +2494,7 @@ a=mpeg4-esid:101");
                     {
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + mxfObject.Offset);
+                        Console.WriteLine("DataOffset: " + mxfObject.DataOffset);
                         Console.WriteLine("Complete: " + mxfObject.IsComplete);
 
                         string name = Media.Container.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
@@ -2496,7 +2505,8 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("Name: " + name);
 
-                        Console.WriteLine("Size: " + mxfObject.DataSize);
+                        Console.WriteLine("TotalSize: " + mxfObject.TotalSize);
+                        Console.WriteLine("DataSize: " + mxfObject.DataSize);
 
                         if (name == "PartitionPack")
                         {
@@ -2567,7 +2577,7 @@ a=mpeg4-esid:101");
                         foreach (var page in reader)
                         {
                             Console.WriteLine("Position:" + reader.Position);
-                            Console.WriteLine("Offset: " + page.Offset);
+                            Console.WriteLine("Offset: " + page.DataOffset);
                             Console.WriteLine("Complete: " + page.IsComplete);
                             Console.WriteLine("Name: " + Media.Container.Ogg.OggReader.ToTextualConvention(page.Identifier));
                             Console.WriteLine("HeaderFlags: " +  Media.Container.Ogg.OggReader.GetHeaderFlags(page));
@@ -2605,6 +2615,7 @@ a=mpeg4-esid:101");
                         {
                             Console.WriteLine("Position:" + reader.Position);
                             Console.WriteLine("Offset: " + tag.Offset);
+                            Console.WriteLine("DataOffset: " + tag.DataOffset);
                             Console.WriteLine("Complete: " + tag.IsComplete);
 
                             if (Media.Container.Nut.NutReader.IsFrame(tag))
@@ -2614,8 +2625,9 @@ a=mpeg4-esid:101");
                             }
                             else
                                 Console.WriteLine("Name: " + Media.Container.Nut.NutReader.ToTextualConvention(tag.Identifier));
-                            
-                            Console.WriteLine("Size: " + tag.DataSize);
+
+                            Console.WriteLine("TotalSize: " + tag.TotalSize);
+                            Console.WriteLine("DataSize: " + tag.DataSize);
                         }
 
                         Console.WriteLine("File Level Properties");
