@@ -2357,7 +2357,7 @@ a=mpeg4-esid:101");
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFX.ToString() ||
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.LIST.ToString() ||
                         name == Media.Container.Riff.RiffReader.FourCharacterCode.HDLR.ToString()) 
-                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.RawData, 8, 4));
+                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.RawData, 4, 4));
 
                     Console.WriteLine("DataSize: " + chunk.DataSize);
                     Console.WriteLine("TotalSize: " + chunk.DataSize);

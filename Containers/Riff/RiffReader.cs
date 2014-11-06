@@ -225,8 +225,6 @@ namespace Media.Container.Riff
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
 
-            long offset = Position;
-
             bool complete = true;
 
             byte[] identifier = new byte[IdentifierSize];
@@ -244,38 +242,7 @@ namespace Media.Container.Riff
 
             FourCharacterCode name = (FourCharacterCode)Common.Binary.Read32(identifier, 0, !BitConverter.IsLittleEndian);
 
-            //Certain tags do not take the length into account
-
-            //Should be aware of all
-
-            //http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/RIFF.html
-
-            switch(name)
-            {
-                default : break;
-                //case FourCharacterCode.INFO:
-                case FourCharacterCode.IDIT:
-                case FourCharacterCode.ISFT:
-                case FourCharacterCode.INAM:
-                case FourCharacterCode.ISTR:
-                case FourCharacterCode.IART:
-                case FourCharacterCode.IWRI:
-                case FourCharacterCode.ICMT:
-                case FourCharacterCode.IGRN:
-                case FourCharacterCode.ICRD:
-                case FourCharacterCode.IPRT:
-                case FourCharacterCode.IFRM:
-                case FourCharacterCode.ICOP:
-                case FourCharacterCode.TITL:
-                case FourCharacterCode.COMM:
-                case FourCharacterCode.GENR:
-                case FourCharacterCode.PRT1:
-                case FourCharacterCode.PRT2:
-                    offset = Position;
-                    break;
-            }
-
-            return new Node(this, identifier, LengthSize, offset, length, length <= Remaining);
+            return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
 
@@ -534,7 +501,7 @@ namespace Media.Container.Riff
         {
             using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.DataOffset))
             {
-                int offset = IdentifierSize + LengthSize;
+                int offset = 0;
 
                 m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.RawData, offset, !BitConverter.IsLittleEndian);
 
@@ -614,7 +581,7 @@ namespace Media.Container.Riff
             //strh has all track level info, strn has stream name..
             foreach (var chunk in ReadChunks(Root.DataOffset, FourCharacterCode.strh).ToArray())
             {
-                int offset = MinimumSize, sampleCount = TotalFrames, startTime = 0, timeScale = 0, duration = (int)Duration.TotalMilliseconds, width = Width, height = Height, rate = MicrosecondsPerFrame;
+                int offset = 0, sampleCount = TotalFrames, startTime = 0, timeScale = 0, duration = (int)Duration.TotalMilliseconds, width = Width, height = Height, rate = MicrosecondsPerFrame;
 
                 string trackName = string.Empty;
 
@@ -718,19 +685,19 @@ namespace Media.Container.Riff
                             {
                                 //BitmapInfoHeader
                                 //Read 32 Width
-                                width = (int)Common.Binary.ReadU32(strf.RawData, 12, !BitConverter.IsLittleEndian);
+                                width = (int)Common.Binary.ReadU32(strf.RawData, 4, !BitConverter.IsLittleEndian);
 
                                 //Read 32 Height
-                                height = (int)Common.Binary.ReadU32(strf.RawData, 16, !BitConverter.IsLittleEndian);
+                                height = (int)Common.Binary.ReadU32(strf.RawData, 8, !BitConverter.IsLittleEndian);
 
                                 //Maybe...
                                 //Read 16 panes 
 
                                 //Read 16 BitDepth
-                                bitDepth = (byte)(int)Common.Binary.ReadU16(strf.RawData, 22, !BitConverter.IsLittleEndian);
+                                bitDepth = (byte)(int)Common.Binary.ReadU16(strf.RawData, 14, !BitConverter.IsLittleEndian);
 
                                 //Read codec
-                                codecIndication = strf.RawData.Skip(24).Take(4).ToArray();
+                                codecIndication = strf.RawData.Skip(16).Take(4).ToArray();
                             }
                             break;
                         }
@@ -743,9 +710,9 @@ namespace Media.Container.Riff
                             if (strf != null)
                             {
                                 //WaveFormat (EX) 
-                                codecIndication = strf.RawData.Skip(8).Take(2).ToArray();
-                                channels = (byte)Common.Binary.ReadU16(strf.RawData, 10, !BitConverter.IsLittleEndian);
-                                bitDepth = (byte)Common.Binary.ReadU16(strf.RawData, 12, !BitConverter.IsLittleEndian);
+                                codecIndication = strf.RawData.Take(2).ToArray();
+                                channels = (byte)Common.Binary.ReadU16(strf.RawData, 2, !BitConverter.IsLittleEndian);
+                                bitDepth = (byte)Common.Binary.ReadU16(strf.RawData, 4, !BitConverter.IsLittleEndian);
                             }
                             break;
                         }
