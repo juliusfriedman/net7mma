@@ -155,6 +155,8 @@ namespace Media.Rtsp
         /// </summary>
         public TimeSpan? EndTime { get { return Client != null ? (TimeSpan?)Client.TransportContexts.Max(tc => tc.MediaEndTime) : null; } }
 
+        //Remaining?
+
         /// <summary>
         /// If playing, indicates if the RtspClient is playing from a live source which means there is no absolute start or end time and seeking may not be supported.
         /// </summary>

@@ -2353,11 +2353,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Name: " + name);
 
                     //Show how the common type can be read.
-                    if (name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFF.ToString() ||
-                        name == Media.Container.Riff.RiffReader.FourCharacterCode.RIFX.ToString() ||
-                        name == Media.Container.Riff.RiffReader.FourCharacterCode.LIST.ToString() ||
-                        name == Media.Container.Riff.RiffReader.FourCharacterCode.HDLR.ToString()) 
-                        Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.RawData, 4, 4));
+                    if (Media.Container.Riff.RiffReader.HasSubType(chunk)) Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.GetSubType(chunk));
 
                     Console.WriteLine("DataSize: " + chunk.DataSize);
                     Console.WriteLine("TotalSize: " + chunk.DataSize);
@@ -2514,7 +2510,6 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Partition Status: " + Media.Container.Mxf.MxfReader.GetPartitionStatus(mxfObject));
                         }
                     }
-
 
                     Console.WriteLine("File Level Properties");
 
