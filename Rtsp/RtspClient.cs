@@ -145,6 +145,8 @@ namespace Media.Rtsp
         /// </summary>
         public readonly Dictionary<string, string> AdditionalHeaders = new Dictionary<string, string>();
 
+        //Determine if Start and EndTime are worth having?
+
         /// <summary>
         /// If playing, the TimeSpan which represents the time this media started playing from.
         /// </summary>
@@ -167,6 +169,9 @@ namespace Media.Rtsp
         /// </summary>
         public bool Playing { get { return Connected && (m_StartedPlaying.HasValue && LivePlay ? m_Playing : EndTime.HasValue ? (DateTime.UtcNow - m_StartedPlaying < EndTime.Value) : m_Playing); } }
 
+        /// <summary>
+        /// The DateTime in which the client started playing if playing, otherwise null.
+        /// </summary>
         public DateTime? StartedPlaying { get { return m_StartedPlaying; } }
 
         /// <summary>
