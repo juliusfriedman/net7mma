@@ -19,7 +19,6 @@ namespace Media.Container.Riff
 
         public enum FourCharacterCode
         {
-            Unknown = -1,
             //File Headers
             RIFF = 1179011410,
             RIFX = 1481001298,
@@ -40,7 +39,8 @@ namespace Media.Container.Riff
             RMID = 1145654610,
             //Types
             LIST = 1414744396,
-            HDLR = 1919706216,
+            hdlr = 1919706216,
+            HDLR = 1380729928,
             rec = 543384946,
             //Chunks
             JUNK = 1263424842,
@@ -194,6 +194,7 @@ namespace Media.Container.Riff
                 case FourCharacterCode.odml:
                 case FourCharacterCode.LIST:
                 case FourCharacterCode.HDLR:
+                case FourCharacterCode.hdlr:
                     return true;
                 default:
                     return false;
@@ -204,7 +205,7 @@ namespace Media.Container.Riff
         {
             if (chunk == null) throw new ArgumentNullException("chunk");
 
-            if (!HasSubType(chunk)) return FourCharacterCode.Unknown;
+            if (!HasSubType(chunk)) return (FourCharacterCode)ToFourCC(chunk.Identifier[0], chunk.Identifier[1], chunk.Identifier[2], chunk.Identifier[3]);
 
             return (FourCharacterCode)ToFourCC(chunk.RawData[0], chunk.RawData[1], chunk.RawData[2], chunk.RawData[3]);
         }
