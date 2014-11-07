@@ -19,6 +19,7 @@ namespace Media.Container.Riff
 
         public enum FourCharacterCode
         {
+            Unknown = -1,
             //File Headers
             RIFF = 1179011410,
             RIFX = 1481001298,
@@ -177,6 +178,36 @@ namespace Media.Container.Riff
         }
 
         public static int ToFourCC(byte c0, byte c1, byte c2, byte c3) { return ToFourCC((char)c0, (char)c1, (char)c2, (char)c3); }
+
+        public static bool HasSubType(Node chunk)
+        {
+
+            if (chunk == null) throw new ArgumentNullException("chunk");
+
+            FourCharacterCode fourCC = (FourCharacterCode)ToFourCC(chunk.Identifier[0], chunk.Identifier[1], chunk.Identifier[2], chunk.Identifier[3]);
+
+            switch(fourCC)
+            {
+                case FourCharacterCode.RIFF:
+                case FourCharacterCode.RIFX:
+                case FourCharacterCode.ON2:
+                case FourCharacterCode.odml:
+                case FourCharacterCode.LIST:
+                case FourCharacterCode.HDLR:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public static FourCharacterCode GetSubType(Node chunk)
+        {
+            if (chunk == null) throw new ArgumentNullException("chunk");
+
+            if (!HasSubType(chunk)) return FourCharacterCode.Unknown;
+
+            return (FourCharacterCode)ToFourCC(chunk.RawData[0], chunk.RawData[1], chunk.RawData[2], chunk.RawData[3]);
+        }
 
         #endregion        
 
@@ -499,7 +530,7 @@ namespace Media.Container.Riff
 
         void ParseAviHeader()
         {
-            using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.DataOffset))
+            using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.Offset))
             {
                 int offset = 0;
 

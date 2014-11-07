@@ -726,7 +726,7 @@ namespace Media.Rtp
             /// <see cref="Utility.InfiniteTimeSpan"/> if <see cref="IsContinious"/>,
             /// othewise the amount of time remaining in the media.
             /// </summary>
-            public TimeSpan TimeRemaining { get { return IsContinious ? m_EndTime : (DateTime.UtcNow - m_EndTime).TimeOfDay; } }
+            public TimeSpan TimeRemaining { get { return IsContinious ? m_EndTime : (DateTime.UtcNow.TimeOfDay - m_EndTime); } }
 
             /// <summary>
             /// Allows getting or setting of the interval which occurs between data transmissions
