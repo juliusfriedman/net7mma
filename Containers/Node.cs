@@ -44,12 +44,12 @@ namespace Media.Container
         /// <summary>
         /// The offset at which the node occurs in the <see cref="Master"/>
         /// </summary>
-        public long Offset { get { return DataOffset - (IdentifierSize + LengthSize); } }
+        public long Offset { get { return DataOffset - (IdentifierSize + LengthSize); } } //Allow negitive or Max(0, ())?
 
         byte[] m_Data;
 
         /// <summary>
-        /// The binary data of the Node, in some instances the Identifier and Length are contained and preceed the value.
+        /// The binary data of the Node without (<see cref="Identifier"/> and (<see cref="LengthSize"/>)
         /// </summary>
         public byte[] RawData
         {
@@ -75,8 +75,7 @@ namespace Media.Container
             }
             //set
             //{
-            //    int write;
-            //    if (Size > 0 && value != null && (write = value.Length) > 0) using (var stream = Data) stream.Write(value, 0, write);
+            //    if (DataSize > 0 && value != null) Array.Copy(value, 0, RawData, 0, Math.Min(value.Length, (int)DataSize));
             //}
         }
 

@@ -60,6 +60,8 @@ namespace Media.Container.Ogg
             return result.ToString();
         }
 
+        //Should check for Oggs?
+
         public static HeaderFlags GetHeaderFlags(Node node)
         {
             if (node == null) throw new ArgumentNullException("node");
@@ -110,7 +112,7 @@ namespace Media.Container.Ogg
 
             foreach (var page in this)
             {
-                count -= page.DataSize;
+                count -= page.TotalSize;
 
                 if (count <= 0) break;
 
@@ -835,7 +837,7 @@ namespace Media.Container.Ogg
         {
             get
             {
-                return ReadPages(0, Length, HeaderFlags.FirstPage, CapturePattern.Oggs).Where(n =>
+                return ReadPages(0, Length, HeaderFlags.FirstPage, CapturePattern.Oggs).FirstOrDefault(n =>
                 {
                     if (n.DataSize > 0)
                     {
@@ -851,7 +853,7 @@ namespace Media.Container.Ogg
                     }
 
                     return false;
-                }).FirstOrDefault();
+                });
             }
         }
     }

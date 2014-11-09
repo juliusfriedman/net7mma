@@ -92,7 +92,7 @@ namespace Media.Container.Nut
 
             if (!IsFrame(node)) return FrameFlags.Unknown;
 
-            return (FrameFlags)node.Identifier[IdentifierSize];
+            return (FrameFlags)node.Identifier[IdentifierBytesSize];
         }
 
         public static int GetStreamId(Node node)
@@ -101,7 +101,7 @@ namespace Media.Container.Nut
 
             if (!IsFrame(node)) return -1;
 
-            return node.Identifier[IdentifierBytesSize];
+            return node.Identifier[6];
         }
 
         #endregion
@@ -121,7 +121,7 @@ namespace Media.Container.Nut
                 if (names == null || names.Count() == 0 || names.Contains((StartCode)Common.Binary.ReadU64(tag.Identifier, 0, BitConverter.IsLittleEndian)))
                     yield return tag;
 
-                count -= tag.DataSize;
+                count -= tag.TotalSize;
 
                 if (count <= 0) break;
 
@@ -311,7 +311,7 @@ namespace Media.Container.Nut
 
                 long count = 0;
 
-                //This is essentially an index?
+                //This is essentially an index, could be byte[]64...
                 m_HeaderOptions = new List<Tuple<long, long, long, long, long, long, long, Tuple<long>>>();
 
                 for (int i = 0; i < MaximumHeaderOptions;)
@@ -345,7 +345,7 @@ namespace Media.Container.Nut
                         //Signed
                         tmp_match = DecodeVeraibleLength(stream, out bytesRead);
                         
-                        //Sanity
+                        //Sanity (short.MinValue, short.MaxValue)
                         if (tmp_match <= -32768 || tmp_match >= 32768 
                             &&
                             tmp_match != 1 - (1 << 62)) throw new InvalidOperationException("absolute delta match time must be less than 32768");
@@ -591,7 +591,7 @@ namespace Media.Container.Nut
 
                 //Can store 6 more bytes in identifier
                 //LengthSize is negitive which indicates its variable length from Position
-                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, 0, (byte)streamId, (byte)frameFlags }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
+                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, (byte)streamId, (byte)frameFlags }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
             }
         }
 

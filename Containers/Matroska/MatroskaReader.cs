@@ -704,27 +704,17 @@ namespace Media.Container.Matroska
 
             int read = 0, rTotal = 0;
 
-            bool complete = true;
-
             byte[] identifier = ReadIdentifier(this, out read);
-
-            //this.m_Position += read;
 
             rTotal += read;
 
             byte[] lengthBytes = ReadLength(this, out read);
 
-            //this.m_Position += read;
-
             rTotal += read;
 
             long length = Common.Binary.Read64(lengthBytes, 0, BitConverter.IsLittleEndian);
 
-            complete = length <= Remaining;
-
-            //The position of the Data is given here, the actual occurance of the data occurs at Position - rTotal
-            //The data is already contained in indentifier and length though and should not be required again.
-            return new Node(this, identifier, read, Position, length, complete);
+            return new Node(this, identifier, read, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -736,10 +726,8 @@ namespace Media.Container.Matroska
                 yield return next;
 
                 //Decode the Id
-                Identifier found = (Identifier)Common.Binary.ReadU32(next.Identifier, 0, BitConverter.IsLittleEndian);
-
                 //Determine what to do to read the next
-                switch (found)
+                switch ((Identifier)Common.Binary.ReadU32(next.Identifier, 0, BitConverter.IsLittleEndian))
                 {
                     //Some Items are top level and contain children (Only really segment should be listed?)
                     case Identifier.Tracks: //Track is listed for making Parsing Tracks easier for now
@@ -756,7 +744,7 @@ namespace Media.Container.Matroska
 
         public override Node Root
         {
-            get { return ReadElement(Identifier.EBMLHeader, 0); }
+            get { return ReadElement(Identifier.EBMLHeader); }
         }
 
         void ParseEbmlHeader()
@@ -845,6 +833,9 @@ namespace Media.Container.Matroska
                     }
                 }
             }
+
+            //should ensure all have value.
+
         }
 
         void ParseSegmentInfo()

@@ -208,9 +208,12 @@ namespace Media.Container.Asf
             }
         }      
 
+        /// <summary>
+        /// Returns the <see cref="Node"/> identified by <see cref="Identifier.HeaderObject"/>.
+        /// </summary>
         public override Node Root
         {
-            get { return ReadObject(Identifier.HeaderObject, 0); }
+            get { return ReadObject(Identifier.HeaderObject); }
         }
 
         long? m_FileSize, m_NumberOfPackets, m_PlayTime, m_SendTime, m_Ignore, m_PreRoll, m_Flags, m_MinimumPacketSize, m_MaximumPacketSize, m_MaximumBitRate;
@@ -347,64 +350,64 @@ namespace Media.Container.Asf
         {
             using (var fileProperties = ReadObject(Identifier.FilePropertiesObject, Root.DataOffset))
             {
-                using (var stream = fileProperties.DataStream)
-                {
-                    //ASFFilePropertiesObject, Len
-                    
-                    //FileId
-                    stream.Position += IdentifierSize;
 
-                    byte[] buffer = new byte[8];
+                if (fileProperties == null) throw new InvalidOperationException("FilePropertiesObject not found");
 
-                    //FileSize 64
-                    stream.Read(buffer, 0, 8);
-                    m_FileSize = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+                //FileId
+                int offset = IdentifierSize;
 
-                    //Created 64
-                    stream.Read(buffer, 0, 8);
-                    m_Created = BaseDate.AddTicks((long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian));
+                //FileSize 64
+                m_FileSize = (long)Common.Binary.ReadU64(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 8;
 
-                    //NumberOfPackets 64
-                    stream.Read(buffer, 0, 8);
-                    m_NumberOfPackets = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+                //Created 64
+                m_Created = BaseDate.AddTicks((long)Common.Binary.ReadU64(fileProperties.RawData, offset, !BitConverter.IsLittleEndian));
+                offset += 8;
+                
+                //NumberOfPackets 64
+                m_NumberOfPackets = (long)Common.Binary.ReadU64(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 8;
 
-                    //PlayTime 64
-                    stream.Read(buffer, 0, 8);
-                    m_PlayTime = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+                //PlayTime 64
+                m_PlayTime = (long)Common.Binary.ReadU64(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 8;
 
-                    //SendTime 64
-                    stream.Read(buffer, 0, 8);
-                    m_SendTime = (long)Common.Binary.ReadU64(buffer, 0, !BitConverter.IsLittleEndian);
+                //SendTime 64
+                m_SendTime = (long)Common.Binary.ReadU64(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 8;
 
-                    //PreRoll 32
-                    stream.Read(buffer, 0, 8);
-                    m_PreRoll = (long)Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                //PreRoll 32
+                m_PreRoll = (long)Common.Binary.ReadU32(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    //Ignore 32
-                    m_Ignore = (long)Common.Binary.ReadU32(buffer, 4, !BitConverter.IsLittleEndian);
+                //Ignore 32
+                m_Ignore = (long)Common.Binary.ReadU32(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    //Flags 32
-                    stream.Read(buffer, 0, 8);
-                    m_Flags = (long)Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
+                //Flags 32
+                m_Flags = (long)Common.Binary.ReadU32(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 4;
+                
+                //MinimumPacketSize 32
+                m_MinimumPacketSize = (long)Common.Binary.ReadU32(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    //MinimumPacketSize 32
-                    m_MinimumPacketSize = (long)Common.Binary.ReadU32(buffer, 4, !BitConverter.IsLittleEndian);
+                //MaximumPacketSize 32
+                m_MaximumPacketSize = (long)Common.Binary.ReadU32(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 4;
 
-                    //MaximumPacketSize 32
-                    stream.Read(buffer, 0, 8);
-                    m_MaximumPacketSize = (long)Common.Binary.ReadU32(buffer, 0, !BitConverter.IsLittleEndian);
-
-                    //MaximumBitRate 32
-                    m_MaximumBitRate = (long)Common.Binary.ReadU32(buffer, 4, !BitConverter.IsLittleEndian);
-
-                    //Any more data it belongs to some kind of extension...
-                }
+                //MaximumBitRate 32
+                m_MaximumBitRate = (long)Common.Binary.ReadU32(fileProperties.RawData, offset, !BitConverter.IsLittleEndian);
+                offset += 4;
+                
+                //Any more data it belongs to some kind of extension...
+                //if(offset < fileProperties.DataSize)
             }
 
             m_Modified = FileInfo.LastWriteTimeUtc;
         }
 
-        string m_Title, m_Author, m_Copyright, m_Comment;
+        string m_Title, m_Author, m_Copyright, m_Comment, m_Rating;
 
         public string Title
         {
@@ -442,47 +445,73 @@ namespace Media.Container.Asf
             }
         }
 
+        public string Rating
+        {
+            get
+            {
+                if (m_Rating == null) ParseContentDescription();
+                return m_Rating;
+            }
+        }
+
         void ParseContentDescription()
         {
             using (var contentDescription = ReadObject(Identifier.ContentDescriptionObject, Root.DataOffset))
             {
-                if(contentDescription != null) using (var stream = contentDescription.DataStream)
+                if(contentDescription != null)
                 {
+                    int offset = 0, len = Common.Binary.Read16(contentDescription.RawData, offset, !BitConverter.IsLittleEndian);
+                    offset += 2;
 
-                    //ASFContentDescriptionObject, Len
-                    //stream.Position += MinimumSize;
+                    if (len > 0)
+                    {
+                        m_Title = Encoding.ASCII.GetString(contentDescription.RawData, offset, len);
+                        offset += len;
+                    }
+                    else m_Title = string.Empty;
 
-                    byte[] buffer = new byte[32];
+                    len = Common.Binary.Read16(contentDescription.RawData, offset, !BitConverter.IsLittleEndian);
+                    offset += 2;
 
-                    stream.Read(buffer, 0, 4);
-                    int len1 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                    if (len > 0)
+                    {
+                        m_Author = Encoding.ASCII.GetString(contentDescription.RawData, offset, len);
+                        offset += len;
+                    }
+                    else m_Author = string.Empty;
 
-                    stream.Read(buffer, 0, 4);
-                    int len2 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                    len = Common.Binary.Read16(contentDescription.RawData, offset, !BitConverter.IsLittleEndian);
+                    offset += 2;
 
-                    stream.Read(buffer, 0, 4);
-                    int len3 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                    if (len > 0)
+                    {
+                        m_Copyright = Encoding.ASCII.GetString(contentDescription.RawData, offset, len);
+                        offset += len;
+                    }
+                    else m_Copyright = string.Empty;
 
-                    stream.Read(buffer, 0, 4);
-                    int len4 = Common.Binary.Read32(buffer, 0, !BitConverter.IsLittleEndian);
+                    len = Common.Binary.Read16(contentDescription.RawData, offset, !BitConverter.IsLittleEndian);
+                    offset += 2;
 
-                    stream.Read(buffer, 0, len1);
-                    m_Title = Encoding.ASCII.GetString(buffer, 0, len1);
+                    if (len > 0)
+                    {
+                        m_Comment = Encoding.ASCII.GetString(contentDescription.RawData, offset, len);
+                        offset += len;
+                    }
+                    else m_Comment = string.Empty;
 
-                    stream.Read(buffer, 0, len2);
-                    m_Author = Encoding.ASCII.GetString(buffer, 0, len1);
+                    len = Common.Binary.Read16(contentDescription.RawData, offset, !BitConverter.IsLittleEndian);
+                    offset += 2;
 
-                    stream.Read(buffer, 0, len3);
-                    m_Copyright = Encoding.ASCII.GetString(buffer, 0, len1);
-
-                    stream.Read(buffer, 0, len4);
-                    m_Comment = Encoding.ASCII.GetString(buffer, 0, len1);
+                    if (len > 0)
+                    {
+                        m_Rating = Encoding.ASCII.GetString(contentDescription.RawData, offset, len);
+                        offset += len;
+                    }
+                    else m_Rating = string.Empty;
                 }
+                else m_Title = m_Author = m_Copyright = m_Comment = m_Rating = string.Empty;
             }
-            if (m_Title == null) m_Title = string.Empty;
-            if (m_Author == null) m_Author = string.Empty;
-            if (m_Copyright == null) m_Copyright = string.Empty;
-            if (m_Comment == null) m_Comment = string.Empty;
         }
 
         //s ->keylen defines protection.
@@ -522,6 +551,7 @@ namespace Media.Container.Asf
 
                 int offset = 0;
 
+                //Would keep as GUID but can't switch on the Guid
                 string mediaTypeName = ToTextualConvention(asfObject.RawData, offset);//, noCorrection;
 
                 offset += IdentifierSize * 2;
@@ -731,7 +761,7 @@ namespace Media.Container.Asf
 
                 Track created = new Track(asfObject, trackName, trackId, Created, Modified, (int)sampleCount, (int)height, (int)width, TimeSpan.FromMilliseconds(startTime / timeScale), TimeSpan.FromMilliseconds(duration), 
                     //Frames Per Seconds
-                    // duration is in milliseconds, converted to seconds, scaled by 100 nanosecond units
+                    // duration is in milliseconds, converted to seconds, scaled
                     mediaType == Sdp.MediaType.video ? 
                     duration * Utility.MicrosecondsPerMillisecond / Utility.NanosecondsPerSecond * Utility.MicrosecondsPerMillisecond
                     : 

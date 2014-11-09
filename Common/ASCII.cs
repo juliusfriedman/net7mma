@@ -14,9 +14,10 @@ namespace Media.Common
             NewLine = 0x0D, // `\r` => 13 Decimal
             EqualsSign = 0x3d,
             HyphenSign = 0x2d, 
-            Comma = 0x2c,
-            Colon = 0x3a,
-            SemiColon = 0x3b,
+            Comma = 0x2c, // ,
+            Period = 0x2e, // .
+            Colon = 0x3a, // :
+            SemiColon = 0x3b, // ;
             R = 0x52; // 'R' = 82 Decimal
     }
 }
