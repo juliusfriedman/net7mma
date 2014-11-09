@@ -697,12 +697,12 @@ namespace Media.Rtsp
 
             m_StopRequested = false;
 
-            //Start streaming from m_Streams
+            //Start streaming from m_Streams before server can accept connections.
             StartStreams();
 
-            //Start listening for requests....
+            //Start listening for requests only after streams have been started.
 
-            ///Create the server EndPoint
+            ///Create the server EndPoint (Should be based on IP Given)
             m_ServerEndPoint = new IPEndPoint(IPAddress.Any, m_ServerPort);
 
             //Create the server Socket (Should allow InterNetworkV6)
@@ -1707,8 +1707,6 @@ namespace Media.Rtsp
 
             if (resp.StatusCode == RtspStatusCode.OK)
             {
-                session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
-
                 session.ProcessPacketBuffer(found);
             }
         }
