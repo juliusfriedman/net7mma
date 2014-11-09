@@ -128,7 +128,6 @@ namespace Media.Container
         {
             if (DataSize > 0 && m_Data != null)
             {
-                //Slow, use from cached somehow
                 long offsetPrevious = Master.BaseStream.Position;
 
                 Master.BaseStream.Position = DataOffset;
@@ -150,6 +149,8 @@ namespace Media.Container
 
             m_Data = null;
         }
+
+        //ToString?
 
     }
 }

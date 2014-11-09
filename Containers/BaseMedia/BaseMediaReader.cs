@@ -138,7 +138,7 @@ namespace Media.Container.BaseMedia
 
         public Node ReadBox(string name, long offset = 0) { return ReadBox(name, offset, Length - offset); }
 
-        public byte[] ReadIdentifier(Stream stream)
+        public static byte[] ReadIdentifier(Stream stream)
         {
             //if (Remaining < IdentifierSize) return null;
             
@@ -149,14 +149,22 @@ namespace Media.Container.BaseMedia
             return identifier;
         }
 
-        public long ReadLength(Stream stream, out int bytesRead)
+        public static long ReadLength(Stream stream, out int bytesRead)
         {
-            //if (Remaining < LengthSize) return bytesRead = 0;
+            //4.2 Object Structure 
             bytesRead = 0;
             long length = 0;
             byte[] lengthBytes = new byte[LengthSize];
             do
             {
+                /*
+                 * if (size==1) {
+                    unsigned int(64) largesize;
+                    } else if (size==0) {
+                    // box extends to end of file
+                    } 
+                 */
+
                 bytesRead += stream.Read(lengthBytes, 0, LengthSize);
                 //Check byte 3 == 1?
                 length = (lengthBytes[0] << 24) + (lengthBytes[1] << 16) + (lengthBytes[2] << 8) + lengthBytes[3];
@@ -382,7 +390,7 @@ namespace Media.Container.BaseMedia
             }
         }
 
-        //Should be a better box...
+        //Should be a better box... (meta ,moov, mfra?)?
         public override Node TableOfContents
         {
             get { return ReadBoxes(Root.Offset, "stco", "co64").FirstOrDefault(); }

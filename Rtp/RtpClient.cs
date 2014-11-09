@@ -95,6 +95,8 @@ namespace Media.Rtp
     {
         #region Constants / Statics
 
+        //Possibly should be moved to RFC3550
+
         public const string RtpProtcolScheme = "rtp", AvpProfileIdentifier = "avp", RtpAvpProfileIdentifier = "RTP/AVP";
 
         //Udp Hole Punch
@@ -2412,6 +2414,8 @@ namespace Media.Rtp
 
             SocketError error;
 
+            //Todo Determine from Context to use control channel and length. (Check MediaDescription)
+
             //When sending more then one packet compound packets must be padded correctly.
 
             //Don't Just `stack` the packets as indicated if sending, assume they are valid.
@@ -2756,6 +2760,8 @@ namespace Media.Rtp
 
                 return upperLayerData - InterleavedOverhead;
             }
+
+            //Todo Determine from Context to use control channel and length. (Check MediaDescription)
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
 
             //The amount of data needed for the frame
@@ -2899,6 +2905,8 @@ namespace Media.Rtp
                     //Under TCP use Framing to obtain the length of the packet as well as the context.
                     if (tcp)
                     {
+                        //Todo Determine from Context to use control channel and length. (Check MediaDescription)
+
                         //Check for a partial frame header
                         while (InterleavedOverhead > received) received += socket.ReceiveFrom(m_Buffer.Array, offset + received, InterleavedOverhead - received, SocketFlags.None, ref recievedFrom);
 
@@ -2958,6 +2966,8 @@ namespace Media.Rtp
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
             while (!Disposed && remainingInBuffer >= InterleavedOverhead)
             {
+                //Todo Determine from Context to use control channel and length. (Check MediaDescription)
+
                 //Parse the frameLength
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, offset, buffer);
 

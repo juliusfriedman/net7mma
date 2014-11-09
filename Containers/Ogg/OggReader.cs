@@ -841,6 +841,7 @@ namespace Media.Container.Ogg
                 {
                     if (n.DataSize > 0)
                     {
+
                         CapturePattern found = (CapturePattern)Common.Binary.Read64(n.RawData, 0, BitConverter.IsLittleEndian);
 
                         switch (found)
@@ -856,5 +857,9 @@ namespace Media.Container.Ogg
                 });
             }
         }
+
+        public DateTime Created { get { return FileInfo.CreationTimeUtc; } }
+
+        public DateTime Modified { get { return FileInfo.LastWriteTimeUtc; } }
     }
 }

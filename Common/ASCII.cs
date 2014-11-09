@@ -12,8 +12,8 @@ namespace Media.Common
         public const byte Space = 0x20,// ` `
             LineFeed = 0x0A, // `\n` => 10 Decimal
             NewLine = 0x0D, // `\r` => 13 Decimal
-            EqualsSign = 0x3d,
-            HyphenSign = 0x2d, 
+            EqualsSign = 0x3d, // =
+            HyphenSign = 0x2d, // -
             Comma = 0x2c, // ,
             Period = 0x2e, // .
             Colon = 0x3a, // :
