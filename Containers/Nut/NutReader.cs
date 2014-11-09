@@ -163,6 +163,10 @@ namespace Media.Container.Nut
             }
         }
 
+        public DateTime Created { get { return FileInfo.CreationTimeUtc; } }
+
+        public DateTime Modified { get { return FileInfo.LastWriteTimeUtc; } }
+
         string m_FileIdString;
 
         public string FileIdString

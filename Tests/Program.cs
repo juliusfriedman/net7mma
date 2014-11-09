@@ -2289,6 +2289,10 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("File Level Properties");
 
+                    Console.WriteLine("Created:" + reader.Created);
+
+                    Console.WriteLine("Last Modified:" + reader.Modified);
+
                     Console.WriteLine("Movie Duration:" + reader.Duration);
 
                     Console.WriteLine("Track Information:");
@@ -2338,6 +2342,10 @@ a=mpeg4-esid:101");
                 Console.WriteLine("Reserved:" + reader.Reserved);
 
                 Console.WriteLine("Duration:" + reader.Duration);
+
+                Console.WriteLine("Created:" + reader.Created);
+
+                Console.WriteLine("Last Modified:" + reader.Modified);
 
                 Console.WriteLine("Chunks:");
 
@@ -2403,7 +2411,9 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("Movie Writing Applicatiopn:" + reader.WritingApp);
 
-                    Console.WriteLine("Movie Created:" + reader.Created);
+                    Console.WriteLine("Created:" + reader.Created);
+
+                    Console.WriteLine("Modified:" + reader.Modified);
 
                     Console.WriteLine("Movie Duration:" + reader.Duration);
 
@@ -2431,6 +2441,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("File Level Information");
 
                     Console.WriteLine("Created: " + reader.Created);
+                    Console.WriteLine("Modified: " + reader.Modified);
                     Console.WriteLine("FileSize: " + reader.FileSize);
                     Console.WriteLine("NumberOfPackets: " + reader.NumberOfPackets);
                     Console.WriteLine("MinimumPacketSize: " + reader.MinimumPacketSize);
@@ -2513,6 +2524,10 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("File Level Properties");
 
+                    Console.WriteLine("Created: " + reader.Created);
+
+                    Console.WriteLine("Modified: " + reader.Modified);
+
                     Console.WriteLine("HasRunIn:" + reader.HasRunIn);
                     
                     Console.WriteLine("RunInSize:" + reader.RunInSize);
@@ -2543,9 +2558,9 @@ a=mpeg4-esid:101");
 
                     Console.WriteLine("IdentificationModificationDate:" + reader.IdentificationModificationDate);
 
-                    Console.WriteLine("MaterialCreationDate:" + reader.MaterialCreationDate);
+                    Console.WriteLine("MaterialCreationDate:" + reader.Created);
 
-                    Console.WriteLine("MaterialModifiedDate:" + reader.MaterialModifiedDate);
+                    Console.WriteLine("MaterialModifiedDate:" + reader.Modified);
 
                     Console.WriteLine("Track Information:");
 
@@ -2582,7 +2597,9 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("File Level Properties");
 
-                        //Console.WriteLine("Movie Duration:" + reader.Duration);
+                        Console.WriteLine("Created: " + reader.Created);
+
+                        Console.WriteLine("Modified: " + reader.Modified);
 
                         Console.WriteLine("Track Information:");
 
@@ -2629,6 +2646,10 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("File Id String:" + reader.FileIdString);
 
+                        Console.WriteLine("Created: " + reader.Created);
+
+                        Console.WriteLine("Modified: " + reader.Modified);
+
                         Console.WriteLine("Version:" + reader.Version);
 
                         Console.WriteLine("IsStableVersion:" + reader.IsStableVersion);
@@ -2637,13 +2658,13 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("MaximumDistance:" + reader.MaximumDistance);
 
-                        Console.WriteLine("TimeBases:");
+                        Console.WriteLine("TimeBases:" + reader.TimeBases.Count());
 
                         Console.WriteLine("EllisionHeaderCount:" + reader.EllisionHeaderCount);
 
-                        Console.WriteLine("EllisionHeaders:");
+                        //Console.WriteLine("EllisionHeaders:");
 
-                        Console.WriteLine("HeaderOptions:");
+                        Console.WriteLine("HeaderOptions:" + reader.HeaderOptions.Count());
 
                         Console.WriteLine("Track Information:");
 
@@ -2751,10 +2772,6 @@ a=mpeg4-esid:101");
             //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
             //server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
             
-            //TODO
-            //server.RequestReceived events and custom handlers
-            //server.ClientConnected / ClientDisconnected
-
             Media.Rtsp.Server.Media.RFC2435Media screenShots = new Media.Rtsp.Server.Media.RFC2435Media("Screen", null, false, 800, 600, false);
 
             server.AddMedia(screenShots);

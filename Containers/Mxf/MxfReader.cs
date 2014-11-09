@@ -621,7 +621,8 @@ namespace Media.Container.Mxf
         {
             get
             {
-                using (Root) return m_RunInSize.Value;
+                if (!m_RunInSize.HasValue) ReadRunIn();
+                return m_RunInSize.Value;
             }
         }
 
@@ -822,7 +823,7 @@ namespace Media.Container.Mxf
             get
             {
                 if (!m_PrefaceLastModifiedDate.HasValue) ParsePreface();
-                return m_PrefaceLastModifiedDate ?? MaterialModifiedDate;
+                return m_PrefaceLastModifiedDate ?? Modified;
             }
         }
 
@@ -1061,7 +1062,7 @@ namespace Media.Container.Mxf
 
         DateTime? m_MaterialCreationDate, m_MaterialModifiedDate;
 
-        public DateTime MaterialCreationDate
+        public DateTime Created
         {
             get
             {
@@ -1070,7 +1071,7 @@ namespace Media.Container.Mxf
             }
         }
 
-        public DateTime MaterialModifiedDate
+        public DateTime Modified
         {
             get
             {
@@ -1295,7 +1296,7 @@ namespace Media.Container.Mxf
                 //Don't reset the trackId because apparently it means that its the from the lastId encountered...
                 //trackId = -1;
 
-                //Dont part top level metaData for tracks
+                //Dont part top level metaData for tracks (Use CompareUL)?
                 if (descriptor.Identifier.SequenceEqual(UniversalLabel.Preface.ToByteArray())) continue;
 
                 if (descriptor.Identifier.SequenceEqual(UniversalLabel.Identification.ToByteArray())) continue;
@@ -1349,7 +1350,7 @@ namespace Media.Container.Mxf
 
             long position = Position;
 
-            DateTime trackCreated = MaterialCreationDate, trackModified = MaterialModifiedDate;
+            DateTime trackCreated = Created, trackModified = Modified;
 
             Node timelineTrackObject = null;
 
@@ -1375,7 +1376,7 @@ namespace Media.Container.Mxf
                 //Iterate descriptors realted to the track
                 foreach (var descriptor in m_TrackDescriptors[descriptorKey])
                 {
-                    //If the descriptor is the Timeline Track store a reference
+                    //If the descriptor is the Timeline Track store a reference (CompareUL ?)
                     if (descriptor.Identifier.SequenceEqual(UniversalLabel.TimelineTrack.ToByteArray())) timelineTrackObject = descriptor;
 
                     int offset = 0, lenth = (int)descriptor.DataSize;
@@ -1674,9 +1675,7 @@ namespace Media.Container.Mxf
         {
             get
             {
-                ReadRunIn();
-
-                return ReadObject(UniversalLabel.PartitionPack, false, m_RunInSize.Value);
+                return ReadObject(UniversalLabel.PartitionPack, false, RunInSize);
             }
         }
 

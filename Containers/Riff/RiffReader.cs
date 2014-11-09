@@ -270,8 +270,6 @@ namespace Media.Container.Riff
             //Calculate padded size (to word boundary)
             if (0 != (length & 1)) ++length;
 
-            FourCharacterCode name = (FourCharacterCode)Common.Binary.Read32(identifier, 0, !BitConverter.IsLittleEndian);
-
             return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
@@ -327,7 +325,7 @@ namespace Media.Container.Riff
 
         void ParseIdentity()
         {
-            using (var iditChunk = ReadChunk(FourCharacterCode.IDIT, Root.DataOffset))
+            using (var iditChunk = ReadChunk(FourCharacterCode.IDIT, Root.Offset))
             {
                 if (iditChunk != null)
                 {
@@ -337,13 +335,16 @@ namespace Media.Container.Riff
                     var parts = Encoding.UTF8.GetString(iditChunk.RawData).Split((char)Common.ASCII.Space);
 
                     if (parts.Length > 1) month = DateTime.ParseExact(parts[1], "MMM", System.Globalization.CultureInfo.CurrentCulture).Month;
+                    else month = FileInfo.CreationTimeUtc.Month;
 
                     if (parts.Length > 1) day = int.Parse(parts[2]);
+                    else day = FileInfo.CreationTimeUtc.Day;
 
                     if (parts.Length > 2) time = TimeSpan.Parse(parts[3]);
+                    else time = FileInfo.CreationTimeUtc.TimeOfDay;
 
                     if (parts.Length > 4) year = int.Parse(parts[4]);
-                    else year = DateTime.Now.Year; //BaseDate?
+                    else year = FileInfo.CreationTimeUtc.Year;
 
                     m_Created = new DateTime(year, month, day, time.Hours, time.Minutes, time.Seconds, DateTimeKind.Utc);
                 }

@@ -199,6 +199,9 @@ namespace Media
                     result.Add((byte)(HexCharToByte(str[i]) << 4 | HexCharToByte(str[i + 1])));
                 }
             }
+
+            //Dont use a List..
+
             //Return the bytes
             return result.ToArray();
         }
