@@ -3159,7 +3159,7 @@ namespace Media.Rtp
                         //Check for a context which is able to receive data
                         if (tc == null || tc.Disposed || !tc.Connected
                             ||//If the context does not have continious media it must only receive data for the duration of the media.
-                            !tc.IsContinious && tc.TimeRemaining > TimeSpan.Zero) continue;
+                            !tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero) continue;
 
                         //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
 

@@ -1,4 +1,4 @@
-Managed Media Aggregation `Container` Beta
+Managed Media Aggregation `Container`
 
 Copyright 2014
 
