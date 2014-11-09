@@ -69,7 +69,7 @@ namespace Media.Rtcp
         /// Maps the PayloadType field to the implementation which best represents it.
         /// Derived instance which can be instantied are found in this collection after <see cref="MapDerivedImplementations"/> is called.
         /// </summary>
-        internal protected static System.Collections.Concurrent.ConcurrentDictionary<byte, Type> InstanceMap = new System.Collections.Concurrent.ConcurrentDictionary<byte, Type>();
+        internal protected static System.Collections.Concurrent.ConcurrentDictionary<byte, Type> ImplementationMap = new System.Collections.Concurrent.ConcurrentDictionary<byte, Type>();
 
         /// <summary>
         /// Provides a collection of abstractions which dervive from RtcpPacket, e.g. RtcpReport.
@@ -145,7 +145,7 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// Builds the InstanceMap from all loaded types
+        /// Builds the <see cref="ImplementationMap"/> from all loaded types
         /// </summary>
         static RtcpPacket() { MapDerivedImplementations(); }
 
@@ -562,7 +562,7 @@ namespace Media.Rtcp
         /// Return all Implementations of RtcpPacket in which the types are not Abstract.
         /// </summary>
         /// <returns></returns>
-        public static IEnumerable<KeyValuePair<byte, Type>> GetImplementations() { return InstanceMap; }
+        public static IEnumerable<KeyValuePair<byte, Type>> GetImplementations() { return ImplementationMap; }
 
         /// <summary>
         /// Returns the PayloadTypes which are associated to derived implementations of RtcpPacket.
@@ -571,7 +571,7 @@ namespace Media.Rtcp
         // <remarks>
         //Replaced code like "payload >= (byte)Rtcp.SendersReport.PayloadType && payload <= (byte)Rtcp.ApplicationSpecificReport.PayloadType || payload >= 72 && payload <= 76"
         // </remarks>
-        public static IEnumerable<byte> GetImplementedPayloadTypes() { return InstanceMap.Keys; }
+        public static IEnumerable<byte> GetImplementedPayloadTypes() { return ImplementationMap.Keys; }
 
         /// <summary>
         /// Returns the implementation which best represents the given <paramref name="payloadType"/> if found.
@@ -581,7 +581,7 @@ namespace Media.Rtcp
         public static Type GetImplementationForPayloadType(byte payloadType)
         {
             Type result = null;
-            if (InstanceMap.TryGetValue(payloadType, out result)) return result;
+            if (ImplementationMap.TryGetValue(payloadType, out result)) return result;
             return null;
         }
 
@@ -630,14 +630,16 @@ namespace Media.Rtcp
         /// <param name="payloadType">Any byte value other than 0</param>
         /// <param name="implementation">Any type which derives from <see cref="RtcpPacket"/></param>
         /// <returns>The result of adding the implemention to the InstanceMap</returns>
-        internal static protected bool TryMapImplementation(byte payloadType, Type implementation)
+        internal static bool TryMapImplementation(byte payloadType, Type implementation)
         {
             return payloadType > default(byte) &&
             implementation != null &&
             !implementation.IsAbstract &&
             implementation.IsSubclassOf(RtcpPacketType)
-                ? InstanceMap.TryAdd(payloadType, implementation) : false;
+                ? ImplementationMap.TryAdd(payloadType, implementation) : false;
         }
+
+        internal static bool TryUnMapImplementation(byte payloadType, out Type implementation) { implementation = null;  return payloadType > default(byte) && ImplementationMap.TryRemove(payloadType, out implementation); }
 
         #endregion
 

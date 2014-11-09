@@ -455,6 +455,11 @@ namespace Media.Container.Mxf
 
             Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
+
+            //Reduces code but defeats lookup
+            //foreach (var kvp in IdentifierLookup) if (CompareUL(kvp.Key.ToByteArray(), identifier, false, false, false)) return kvp.Value;
+                
+
             //If not an exact match
             if (!IdentifierLookup.TryGetValue(id, out result))
             {
@@ -462,8 +467,8 @@ namespace Media.Container.Mxf
                 if (CompareUL(UniversalLabel.PartitionPack.ToByteArray(), identifier, false, false, false)) return "PartitionPack"; //Last 4 bytes is version and open or closed
                 if (CompareUL(UniversalLabel.OperationalPattern.ToByteArray(), identifier, false, false, false)) return "OperationalPattern";
                 if (CompareUL(UniversalLabel.EssenceElement.ToByteArray(), identifier, false, false, false)) return "EssenceElement";
-                if (CompareUL(UniversalLabel.PartitionMetadata, id, false, false, false)) return "PartitionMetadata";
-                if (CompareUL(UniversalLabel.StructuralMetadata, id, false, false, false)) return "StructuralMetadata";
+                if (CompareUL(UniversalLabel.PartitionMetadata.ToByteArray(), identifier, false, false, false)) return "PartitionMetadata";
+                if (CompareUL(UniversalLabel.StructuralMetadata.ToByteArray(), identifier, false, false, false)) return "StructuralMetadata";
                 if (CompareUL(UniversalLabel.DataDefinitionVideo.ToByteArray(), identifier, true, true, true)) return "DataDefinitionVideo";
                 if (CompareUL(UniversalLabel.DataDefinitionAudio.ToByteArray(), identifier, true, true, true)) return "DataDefinitionAudio";
 
@@ -477,12 +482,6 @@ namespace Media.Container.Mxf
         //ToFourCharacterCode(Guid universalLabel)
 
         //Possibly seperate Read and Decode logic?
-
-        //GetCategory
-
-        //GetParitionKind
-
-        //GetPartitionStatus
 
         /// <summary>
         /// Decodes the ASN.1 BER Length from the given packet at the given position.
@@ -1053,7 +1052,6 @@ namespace Media.Container.Mxf
                 if (m_Platform == null) m_Platform = string.Empty;
 
                 if (!m_IdentificationModificationDate.HasValue
-                    || !m_IdentificationModificationDate.HasValue
                     //Important?
                     || !m_ProductUID.HasValue
                     || null == m_ProductName || null == m_ProductVersion || null == m_CompanyName) throw new InvalidOperationException("Invalid Preface Object");
@@ -1088,7 +1086,7 @@ namespace Media.Container.Mxf
 
                 if (materialPackage == null) return;
 
-                int offset = 0, lenth = (int)( materialPackage.DataSize);
+                int offset = 0, lenth = (int)(materialPackage.DataSize);
 
                 while (offset < lenth)
                 {
@@ -1218,12 +1216,10 @@ namespace Media.Container.Mxf
             {
                 Guid objectId = new Guid(mxfObject.Identifier);
 
-                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, exact, exact, exact))))
+                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, !ignoreRegistry, !ignoreVersion, !ignoreType))))
                     yield return mxfObject;
 
-                //must also include identifier size and length size....
-                //Need a way to determine length bytes size
-                count -= mxfObject.DataSize + MinimumSize; //HACKUP use MinimumSize which includes Identifier and 1
+                count -= mxfObject.TotalSize;
 
                 if (count <= 0) break;
             }

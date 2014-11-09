@@ -17,6 +17,7 @@ namespace Media.Container.Riff
 
         #region FourCharacterCode
 
+        //Chunk Types?
         public enum FourCharacterCode
         {
             //File Headers
@@ -40,7 +41,6 @@ namespace Media.Container.Riff
             //Types
             LIST = 1414744396,
             hdlr = 1919706216,
-            HDLR = 1380729928,
             rec = 543384946,
             //Chunks
             JUNK = 1263424842,
@@ -193,8 +193,6 @@ namespace Media.Container.Riff
                 case FourCharacterCode.ON2:
                 case FourCharacterCode.odml:
                 case FourCharacterCode.LIST:
-                case FourCharacterCode.HDLR:
-                case FourCharacterCode.hdlr:
                     return true;
                 default:
                     return false;
@@ -285,26 +283,13 @@ namespace Media.Container.Riff
                 Node next = ReadNext();
 
                 if (next == null) yield break;
-                
-                //Could check for next.Offset == 0 and this is the Root to support more file types?
-
-                FourCharacterCode fourCC = (FourCharacterCode)Common.Binary.Read32(next.Identifier, 0, !BitConverter.IsLittleEndian);
-
-                switch (fourCC)
-                {
-                    case FourCharacterCode.RIFF:
-                    case FourCharacterCode.RIFX:
-                    case FourCharacterCode.ON2:
-                    case FourCharacterCode.LIST:
-                        Skip(IdentifierSize);
-                        break;
-                    default:
-                        Skip(next.DataSize);
-                        break;
-                }
-
-
+                               
                 yield return next;
+
+                //If this is a list parse into the list
+                if (HasSubType(next)) Skip(IdentifierSize);
+                //Otherwise skip the data of the chunk
+                else Skip(next.DataSize);
             }
         }      
 
@@ -313,7 +298,7 @@ namespace Media.Container.Riff
             get
             {
                 long position = Position;
-                Node root = ReadChunks(0, FourCharacterCode.RIFF, FourCharacterCode.RIFX).FirstOrDefault();
+                Node root = ReadChunks(0, FourCharacterCode.RIFF, FourCharacterCode.RIFX, FourCharacterCode.ON2, FourCharacterCode.odml).FirstOrDefault();
                 Position = position;
                 return root;
             }
@@ -349,7 +334,7 @@ namespace Media.Container.Riff
                     int month = 0, day = 0, year = 0;
                     TimeSpan time = TimeSpan.Zero;
 
-                    var parts = Encoding.UTF8.GetString(iditChunk.RawData).Split(' ');
+                    var parts = Encoding.UTF8.GetString(iditChunk.RawData).Split((char)Common.ASCII.Space);
 
                     if (parts.Length > 1) month = DateTime.ParseExact(parts[1], "MMM", System.Globalization.CultureInfo.CurrentCulture).Month;
 
@@ -531,8 +516,11 @@ namespace Media.Container.Riff
 
         void ParseAviHeader()
         {
+            //Must be present!
             using (var headerChunk = ReadChunk(FourCharacterCode.avih, Root.Offset))
             {
+                if (headerChunk == null) throw new InvalidOperationException("no 'avih' Chunk found");
+
                 int offset = 0;
 
                 m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.RawData, offset, !BitConverter.IsLittleEndian);
@@ -584,7 +572,7 @@ namespace Media.Container.Riff
         /// </summary>
         public override Node TableOfContents
         {
-            get { return HasIndex ? ReadChunks(Root.DataOffset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.DataOffset, FourCharacterCode.avih, FourCharacterCode.dmlh).FirstOrDefault(); }
+            get { return HasIndex ? ReadChunks(Root.Offset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.Offset, FourCharacterCode.avih, FourCharacterCode.dmlh).FirstOrDefault(); }
         }
 
         //Index1Entry

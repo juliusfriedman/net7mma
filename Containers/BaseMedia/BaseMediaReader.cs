@@ -16,6 +16,7 @@ namespace Media.Container.BaseMedia
     /// 3GPP/3GPP2 (.3gp, .3g2), Adobe Flash (.f4v, .f4p, .f4a, .f4b) and other conforming format extensions.
     /// Samsung Video (.svi)
     /// </summary>
+    //https://dvcs.w3.org/hg/html-media/raw-file/tip/media-source/isobmff-byte-stream-format.html
     public class BaseMediaReader : MediaFileStream
     {
 
@@ -24,19 +25,60 @@ namespace Media.Container.BaseMedia
         //Todo Make Dictionary and have a ToTextualConvention that tries the Dictionary first. (KnownParents)        
         public static List<string> ParentBoxes = new List<string>()
         {
-            "moof",
+            "moof", //movie fragment
+            "mfhd", //movie fragment header
+            "traf", //track fragment
+            //tfhd track fragment header
+            //trun track fragment run
+            //sbgp sample-to-group 
+            //sgpd sample group description 
+            //subs sub-sample information 
+            //saiz sample auxiliary information sizes 
+            //saio sample auxiliary information offsets 
+            //tfdt track fragment decode time 
+            "mfra", //movie framgment radom access
+            //"tfra", //8.8.10 track fragment random access
+            //"mfro", //* 8.8.11 movie fragment random access offset 
             "moov",
             "trak",
             "mdia",
+            //"mdhd",
+            //"hdlr",
             "minf",
             "dinf",
             "stbl",
             "edts",            
             "stsd",
-            "udta"
+            //"tkhd", //Track Header
+            "tref", //Track Reference Container
+            "trgr", //Track Grouping Indicator
+            "skip",
+            //"udta",
+            "mvex", //movie extends box
+            //mehd 8.8.2 movie extends header box
+            //trex * 8.8.3 track extends defaults
+            //leva 8.8.13 level assignment 
+            "cprt",
+            "strk", //sub track
+            //"stri", //sub track information box
+            //"strd" //sub track definition box
+            "meta",
+            "iloc",
+            "ipro",
+            "sinf",
+            //frma 8.12.2 original format box
+            //schm 8.12.5 scheme type box
+            //schi 8.12.6 scheme information box 
+            "fiin", //file delivery item information 
+            "paen", //partition entry 
+            "segr", //file delivery session group 
+            "gitn", //group id to name 
+            "meco" //additional metadata container 
         };
 
-        const int MinimumSize = IdentifierSize + LengthSize, IdentifierSize = 4, LengthSize = 4;
+        //TryRegisterParentBox
+
+        const int MinimumSize = IdentifierSize + LengthSize, IdentifierSize = 4, LengthSize = IdentifierSize;
 
         public static string ToFourCharacterCode(byte[] identifier, int offset = 0, int count = 4) { return ToFourCharacterCode(Encoding.UTF8, identifier, offset, count); }
 
@@ -56,7 +98,7 @@ namespace Media.Container.BaseMedia
         public BaseMediaReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
         //int[] names?
-        public IEnumerable<Node> ReadBoxes(long offset = 0, params string[] names)
+        public IEnumerable<Node> ReadBoxes(long offset, long count, params string[] names)
         {
             long positionStart = Position;
 
@@ -69,6 +111,11 @@ namespace Media.Container.BaseMedia
                     yield return box;
                     continue;
                 }
+
+                count -= box.TotalSize;
+
+                if (count <= 0) break;
+
             }
 
             Position = positionStart;
@@ -76,16 +123,20 @@ namespace Media.Container.BaseMedia
             yield break;
         }
 
-        public Node ReadBox(string name, long offset = 0)
+        public IEnumerable<Node> ReadBoxes(long offset = 0, params string[] names) { return ReadBoxes(offset, Length - offset, names); }
+
+        public Node ReadBox(string name, long offset, long count)
         {
             long positionStart = Position;
 
-            Node result = ReadBoxes(offset, name).FirstOrDefault();
+            Node result = ReadBoxes(offset, count, name).FirstOrDefault();
 
             Position = positionStart;
 
             return result;
         }
+
+        public Node ReadBox(string name, long offset = 0) { return ReadBox(name, offset, Length - offset); }
 
         public byte[] ReadIdentifier(Stream stream)
         {
@@ -107,6 +158,7 @@ namespace Media.Container.BaseMedia
             do
             {
                 bytesRead += stream.Read(lengthBytes, 0, LengthSize);
+                //Check byte 3 == 1?
                 length = (lengthBytes[0] << 24) + (lengthBytes[1] << 16) + (lengthBytes[2] << 8) + lengthBytes[3];
             } while (length == 1 || (length & 0xffffffff) == 0);
             return length;
@@ -116,18 +168,12 @@ namespace Media.Container.BaseMedia
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
 
-            //long offset = Position;
-
             int lengthBytesRead = 0;
 
             long length = ReadLength(this, out lengthBytesRead);
 
             byte[] identifier = ReadIdentifier(this);
 
-            //int nonDataBytes = IdentifierSize + lengthBytesRead;
-
-            //Could give this, identifier, Position, length - nonDataBytes
-            //Would pose the problem of not being able to deterine the lengthBytesRead from Node.Offset
             return  new Node(this, identifier, lengthBytesRead, Position, length, length <= Remaining);
         }
 
@@ -252,6 +298,8 @@ namespace Media.Container.BaseMedia
             //Obtain the timeScale and duration from the LAST mdhd box
             using (var mediaHeader = ReadBox("mvhd", Root.Offset))
             {
+
+                if (mediaHeader == null) throw new InvalidOperationException("Cannot find 'mvhd' box.");
 
                 int offset = 0;
 

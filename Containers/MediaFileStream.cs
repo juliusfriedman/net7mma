@@ -12,6 +12,39 @@ namespace Media.Container
 
         #region Statics
 
+        static Dictionary<string, MediaFileStream> m_ExtensionMap = new Dictionary<string, MediaFileStream>();
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public static bool TryRegisterExtension(string extenstion, MediaFileStream implementation)
+        {
+            if (string.IsNullOrWhiteSpace(extenstion)) return false;
+
+            if (extenstion[0] == (char)Common.ASCII.Period) extenstion = extenstion.Substring(1);
+
+            try
+            {
+                m_ExtensionMap.Add(extenstion, implementation);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public static bool TryUnRegisterExtension(string extenstion)
+        {
+            if (string.IsNullOrWhiteSpace(extenstion)) return false;
+
+            if (extenstion[0] == (char)Common.ASCII.Period) extenstion = extenstion.Substring(1);
+
+            return m_ExtensionMap.Remove(extenstion);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public static IEnumerable<string> GetRegisteredExtensions() { return m_ExtensionMap.Keys; }
+
         static Type MediaFileStreamType = typeof(MediaFileStream);
 
         static Type[] ConstructorTypes = new Type[] { typeof(string), typeof(System.IO.FileAccess) };
@@ -87,7 +120,7 @@ namespace Media.Container
 
         #region Constructor / Destructor
 
-        ~MediaFileStream() { m_Disposed = true; Dispose(); }
+        ~MediaFileStream() { m_Disposed = true; Close(); }
 
         public MediaFileStream(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : this(new Uri(filename), access) { }
 
