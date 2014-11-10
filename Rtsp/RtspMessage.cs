@@ -1056,9 +1056,9 @@ namespace Media.Rtsp
 
             //Get what we believe to be the first line
             //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-            string m_RequestLine = Encoding.GetString(data, messageStart, endFirstLine);
+            string StatusLine = Encoding.GetString(data, messageStart, endFirstLine);
 
-            MessageType = m_RequestLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
+            MessageType = StatusLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
             #region FirstLine Version, (Method / Location or StatusCode)
 
@@ -1068,7 +1068,7 @@ namespace Media.Rtsp
             if (MessageType == RtspMessageType.Request)
             {
                 //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
-                string[] parts = m_RequestLine.Split(' ');
+                string[] parts = StatusLine.Split(' ');
 
                 if (parts.Length < 2 || !Enum.TryParse<RtspMethod>(parts[0], true, out Method) || !Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) || !double.TryParse(parts[2].Substring(parts[2].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
@@ -1079,7 +1079,7 @@ namespace Media.Rtsp
             else if (MessageType == RtspMessageType.Response)
             {
                 //S->C[0]RTSP/1.0[1]200[2]OK
-                string[] parts = m_RequestLine.Split(' ');
+                string[] parts = StatusLine.Split(' ');
 
                 if (parts.Length < 2 || !double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || !int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
                 {
