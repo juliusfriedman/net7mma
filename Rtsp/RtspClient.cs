@@ -1479,6 +1479,13 @@ namespace Media.Rtsp
                 m_InterleaveEvent.Dispose();
                 m_InterleaveEvent = null;
             }
+
+            OnConnect = null;
+            OnDisconnect = null;
+            OnStop = null;
+            OnPlay = null;
+            OnRequest = null;
+            OnResponse = null;
         }
 
         #endregion
