@@ -1539,14 +1539,21 @@ namespace Media.Rtsp
 
             //Check for additional options of the stream... e.g. allow recording or not
 
-            RtspMessage resp = session.CreateRtspResponse(request);
-            
-            resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN, GET_PARAMETER"); //RECORD etc
+            using (RtspMessage resp = session.CreateRtspResponse(request))
+            {
+                resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER");
 
-            //Should allow server to have certain options removed from this result
-            //ClientSession.ProcessOptions
+                //Private / Prividgled
+                //resp.SetHeader(RtspHeaders.Private, "ANNOUNCE, RECORD, SET_PARAMETER");
 
-            ProcessSendRtspResponse(resp, session);
+                //Add from handlers?
+                //if(m_RequestHandlers.Count > 0) string.Join(" ", m_RequestHandlers.Keys.ToArray())
+
+                //Should allow server to have certain options removed from this result
+                //ClientSession.ProcessOptions
+
+                ProcessSendRtspResponse(resp, session);
+            }
         }
 
         /// <summary>
@@ -1585,34 +1592,34 @@ namespace Media.Rtsp
                 return;
             }
 
-            ProcessSendRtspResponse(session.ProcessDescribe(request, found), session);
+            using (var resp = session.ProcessDescribe(request, found)) ProcessSendRtspResponse(resp, session);
         }
 
         internal void ProcessRtspInterleaveData(object sender, byte[] data, int offset, int length)
         {
-
-            ClientSession sessionFrom = sender as ClientSession;
-
-            if(sessionFrom == null) 
-
+            //ClientSession sessionFrom = sender as ClientSession;
+            if (data == null || length <= 0) return;
             try
             {
-                RtspMessage created = new RtspMessage(data, offset, length);
-
-                if (created.MessageType != RtspMessageType.Invalid)
+                using (RtspMessage created = new RtspMessage(data, offset, length))
                 {
-                    //Persistently suspicious behavior: 2326 p 74
-                    ClientSession referredTo = GetSession(created.GetHeader(RtspHeaders.Session));
-                    
-                    //Check the the session being reffered to comes from the session it was received from...
-                    //if (sessionFrom != referredTo) 
-                    //{
-                    //    ProcessInvalidRtspRequest(sessionFrom, RtspStatusCode.Forbidden);
-                    //    return;
-                    //}
-                    
-                    //All should be well....
-                    ProcessRtspRequest(created, referredTo);
+                    //Check Incomplete?
+
+                    if (created.MessageType != RtspMessageType.Invalid)
+                    {
+                        //Persistently suspicious behavior: 2326 p 74
+                        ClientSession referredTo = GetSession(created.GetHeader(RtspHeaders.Session));
+
+                        //Check the the session being reffered to comes from the session it was received from...
+                        //if (sessionFrom != referredTo) 
+                        //{
+                        //    ProcessInvalidRtspRequest(sessionFrom, RtspStatusCode.Forbidden);
+                        //    return;
+                        //}
+
+                        //All should be well....
+                        ProcessRtspRequest(created, referredTo);
+                    }
                 }
             }
             catch(Exception ex)
@@ -1689,10 +1696,11 @@ namespace Media.Rtsp
             }
            
             //Create the response and initialize the sockets if required
-            RtspMessage resp = session.ProcessSetup(request, found, sourceContext);
-
-            //Send the response
-            ProcessSendRtspResponse(resp, session);
+            using (RtspMessage resp = session.ProcessSetup(request, found, sourceContext))
+            {
+                //Send the response
+                ProcessSendRtspResponse(resp, session);
+            }
         }
 
         /// <summary>
@@ -1722,14 +1730,15 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspMessage resp = session.ProcessPlay(request, found);
-
-            //Send the response to the client
-            ProcessSendRtspResponse(resp, session);
-
-            if (resp.StatusCode == RtspStatusCode.OK)
+            using (RtspMessage resp = session.ProcessPlay(request, found))
             {
-                session.ProcessPacketBuffer(found);
+                //Send the response to the client
+                ProcessSendRtspResponse(resp, session);
+
+                if (resp.StatusCode == RtspStatusCode.OK)
+                {
+                    session.ProcessPacketBuffer(found);
+                }
             }
         }
 
@@ -1755,10 +1764,13 @@ namespace Media.Rtsp
                 return;
             }
 
-            session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.BelowNormal;
+            //session.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.BelowNormal;
 
-            //Might need to add some headers
-            ProcessSendRtspResponse(session.ProcessPause(request, found), session);
+            using (var resp = session.ProcessPause(request, found))
+            {
+                //Might need to add some headers
+                ProcessSendRtspResponse(resp, session);
+            }
         }
 
         /// <summary>
@@ -1802,7 +1814,7 @@ namespace Media.Rtsp
             //packets_sent
             //jitter
             //rtcp_interval
-            ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
+            using (var resp = session.CreateRtspResponse(request)) ProcessSendRtspResponse(resp, session);
         }
 
         /// <summary>
@@ -1816,7 +1828,7 @@ namespace Media.Rtsp
             //Should have a way to determine to forward send parameters... public bool ForwardSetParameter { get; set; }
             //Should have a way to call SendSetParamter on the source if required.
             //Should allow sever parameters to be set?
-            ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
+            using (var resp = session.CreateRtspResponse(request)) ProcessSendRtspResponse(resp, session);
         }        
 
         /// <summary>

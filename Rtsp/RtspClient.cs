@@ -1365,6 +1365,9 @@ namespace Media.Rtsp
 
         public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
         {
+
+            if (!SupportedMethods.Contains(RtspMethod.PLAY)) throw new InvalidOperationException("Server does not support PLAY.");
+
             try
             {
                 RtspMessage play = new RtspMessage(RtspMessageType.Request)
@@ -1408,6 +1411,8 @@ namespace Media.Rtsp
             }
             catch { throw; }
         }
+
+        //SendPause
 
         internal void SendKeepAlive(object state)
         {
