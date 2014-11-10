@@ -1878,7 +1878,7 @@ namespace Media.Rtp
             }
 
             //increment the counters
-            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Payload.Count());
+            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
 
             Interlocked.Increment(ref transportContext.RtpPacketsSent);
 
@@ -1908,7 +1908,6 @@ namespace Media.Rtp
             if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = DateTime.UtcNow;
 
             //Backoff based on ConverganceTime?
-
         }
 
         protected internal void OnInterleavedData(byte[] data, int offset, int length)
@@ -2426,9 +2425,6 @@ namespace Media.Rtp
             {
                 //Check to see each packet which was sent
                 int csent = 0;
-
-                //Increment for Tcp InterleavedFrameHeader
-                if (context.RtcpSocket.ProtocolType == ProtocolType.Tcp) csent += InterleavedOverhead;
 
                 //Iterate each managed packet to determine if it was completely sent.
                 foreach (RtcpPacket packet in packets)

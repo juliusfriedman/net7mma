@@ -1340,6 +1340,28 @@ namespace Media.Rtsp
 
                         //if (!response.ContainsHeader(RtspHeaders.Date)) response.SetHeader(RtspHeaders.Date, ...);
 
+                        #region RFC2326 12.38 Timestamp / Delay
+
+                        /*
+                         12.38 Timestamp
+
+                           The timestamp general header describes when the client sent the
+                           request to the server. The value of the timestamp is of significance
+                           only to the client and may use any timescale. The server MUST echo
+                           the exact same value and MAY, if it has accurate information about
+                           this, add a floating point number indicating the number of seconds
+                           that has elapsed since it has received the request. The timestamp is
+                           used by the client to compute the round-trip time to the server so
+                           that it can adjust the timeout value for retransmissions.
+
+                           Timestamp  = "Timestamp" ":" *(DIGIT) [ "." *(DIGIT) ] [ delay ]
+                           delay      =  *(DIGIT) [ "." *(DIGIT) ]
+                         */
+
+                        //if(response.ContainsHeader(RtspHeaders.Timestamp))
+
+                        #endregion
+
                         string sess = response.GetHeader(RtspHeaders.Session);
 
                         //Not closing
@@ -1776,8 +1798,10 @@ namespace Media.Rtsp
         /// <param name="ci">The RtspSession from which the request was receieved</param>
         internal void ProcessGetParameter(RtspMessage request, ClientSession session)
         {
-            //We should process the body and return the parameters requested
-            //Determine API
+            //TODO Determine API
+            //packets_sent
+            //jitter
+            //rtcp_interval
             ProcessSendRtspResponse(session.CreateRtspResponse(request), session);
         }
 

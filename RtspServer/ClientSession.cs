@@ -419,7 +419,7 @@ namespace Media.Rtsp
 
                     if(end != Utility.InfiniteTimeSpan
                         &&
-                        end > max) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Invalid End Range");
+                        end > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid End Range");
 
                     //If the given time > zero
                     if (start > TimeSpan.Zero)
@@ -427,7 +427,7 @@ namespace Media.Rtsp
                         //If the maximum is not infinite and the start exceeds the max indicate this.
                         if (max != Utility.InfiniteTimeSpan
                             &&
-                            start > max) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Invalid Start Range");
+                            start > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid Start Range");
                     }
 
                     //If the end time is infinite and the max is not infinite then the end is the max time.
@@ -437,6 +437,8 @@ namespace Media.Rtsp
                     if (start == TimeSpan.Zero && end != Utility.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
                 }
             }
+
+            //Todo Process Scale, Speed
 
             //Prepare the RtpInfo header
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
@@ -490,7 +492,7 @@ namespace Media.Rtsp
             if(startRange.HasValue || endRange.HasValue) playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
             //Sent the rtpInfo
-            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));            
+            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));                        
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
             if (!m_RtpClient.Connected) m_RtpClient.Connect();
@@ -579,6 +581,8 @@ namespace Media.Rtsp
             RtpClient.TransportContext setupContext = null;            
 
             //Should determine intervals here for Rtcp from SessionDescription
+
+            //Should determine if aggregate operation is allowed
 
             //Check for TCP being forced and then for given udp ports
             if (interleaved) 
