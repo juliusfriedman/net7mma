@@ -390,7 +390,7 @@ namespace Media.Rtp
 
                 //check for range in mediaDescription
 
-                var rangeInfo = mediaDescription.RangeLine ?? sessionDescription.RangeLine;
+                var rangeInfo = mediaDescription.RangeLine ?? (sessionDescription != null ? sessionDescription.RangeLine : null);
 
                 if (rangeInfo != null)
                 {

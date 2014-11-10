@@ -87,6 +87,7 @@ namespace Media.Rtsp
         public const string ProxyAuthenticate = "Proxy-Authenticate";
         public const string ProxyRequire = "Proxy-Require";
         public const string Public = "Public";
+        //Private / Prividgled?
         public const string Range = "Range";
         public const string Referer = "Referer";
         public const string Require = "Require";
@@ -219,6 +220,8 @@ namespace Media.Rtsp
             }
             return result;
         }
+
+        //TryParseAuthorizationHeader
 
         public static bool TryParseTransportHeader(string value, out int ssrc, out System.Net.IPAddress source, out int serverRtpPort, out int serverRtcpPort, out int clientRtpPort, out int clientRtcpPort, out bool interleaved, out byte dataChannel, out byte controlChannel, out string mode, out bool unicast, out bool multicast)
         {
