@@ -874,8 +874,10 @@ namespace Media.Rtp
             /// </summary>
             public long TotalRtpPacketsSent { get { return Disposed ? 0 : RtpPacketsSent; } }
 
+            //Expose RtpBytesSent?
+
             /// <summary>
-            /// The total amount of bytes related to Rtp sent
+            /// The total amount of bytes related to Rtp sent (including headers)
             /// </summary>
             public long TotalRtpBytesSent { get { return Disposed ? 0 : RtpBytesSent + RtpHeader.Length * RtpPacketsSent; } }
 
@@ -1766,8 +1768,8 @@ namespace Media.Rtp
             //Increment RtpPacketsReceived for the context relating to the packet.
             Interlocked.Increment(ref transportContext.RtpPacketsReceived);
 
-            //The counters for the bytes will now be be updated for the invalid packet
-            Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count());
+            //The counters for the bytes will now be be updated
+            Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count);
 
             //Set the time when the first RtpPacket was received
             if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = DateTime.UtcNow;
@@ -1877,8 +1879,8 @@ namespace Media.Rtp
                 transportContext.UpdateJitterAndTimestamp(packet);
             }
 
-            //increment the counters
-            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Length);
+            //increment the counters (Only use the Payload.Count per the RFC)
+            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Payload.Count);
 
             Interlocked.Increment(ref transportContext.RtpPacketsSent);
 
@@ -2397,7 +2399,7 @@ namespace Media.Rtp
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public int SendRtcpPackets(IEnumerable<RtcpPacket> packets)
+        public virtual int SendRtcpPackets(IEnumerable<RtcpPacket> packets)
         {
 
             if (Disposed || packets == null || packets.Count() == 0) return 0;
@@ -2424,16 +2426,16 @@ namespace Media.Rtp
             if (error == SocketError.Success)
             {
                 //Check to see each packet which was sent
-                int csent = 0;
+                int csent = sent;
 
                 //Iterate each managed packet to determine if it was completely sent.
                 foreach (RtcpPacket packet in packets)
                 {
                     //Increment for the length of the packet
-                    csent += packet.Length;
+                    csent -= packet.Length;
 
                     //If more data was contained then sent don't set Transferred and raise and event
-                    if (csent > sent)
+                    if (csent < 0)
                     {
                         ++context.m_FailedRtcpTransmissions;
                         break;
@@ -2455,6 +2457,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="context">The <see cref="TransportContext"/> to send a report for</param>
         /// <returns>A value indicating if reports were sent</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal virtual bool SendReports(TransportContext context)
         {
             //Check for the stop signal (or disposal)
@@ -3278,6 +3281,12 @@ namespace Media.Rtp
 
             RtpPacketSent -= new RtpPacketHandler(HandleRtpPacketSent);
             RtcpPacketSent -= new RtcpPacketHandler(HandleRtcpPacketSent);
+
+            RtpPacketSent = null;
+            RtcpPacketSent = null;
+            RtpPacketReceieved = null;
+            RtcpPacketReceieved = null;
+            InterleavedData = null;
 
             Utility.Abort(ref m_WorkerThread);
 
