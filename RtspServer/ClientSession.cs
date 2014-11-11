@@ -108,6 +108,9 @@ namespace Media.Rtsp
 
         internal byte[] m_SendBuffer;
 
+        //Use the m_RtpClient to determine if Bandwidth is exceeded and Buffer packets until not exceeded.
+        //internal double MaximumBandwidth = 0;
+
         #endregion
 
         #region Properties
@@ -166,7 +169,7 @@ namespace Media.Rtsp
         {
             try
             {
-                if (m_RtspSocket.Connected)
+                if (m_RtspSocket.Connected && data != null)
                 {
                     m_SendBuffer = data;
                     LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
@@ -177,15 +180,31 @@ namespace Media.Rtsp
 
         RtpClient.TransportContext GetSourceContextForPacket(RtpPacket packet)
         {
-            foreach (RtpClient.TransportContext context in Attached.Keys)
-                if (packet.SynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier) return context;
+            try
+            {
+                foreach (RtpClient.TransportContext context in Attached.Keys)
+                    if (packet.SynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier) return context;
+            }
+            catch (InvalidOperationException)
+            {
+                return GetSourceContextForPacket(packet);
+            }
+            catch { }
             return null;
         }
 
         RtpClient.TransportContext GetSourceContextForPacket(Sdp.MediaDescription md)
         {
-            foreach (RtpClient.TransportContext context in Attached.Keys)
-                if (md.MediaType == context.MediaDescription.MediaType) return context;
+            try
+            {
+                foreach (RtpClient.TransportContext context in Attached.Keys)
+                    if (md.MediaType == context.MediaDescription.MediaType) return context;
+            }
+            catch (InvalidOperationException)
+            {
+                return GetSourceContextForPacket(md);
+            }
+            catch { }
             return null;
         }
 
@@ -199,7 +218,7 @@ namespace Media.Rtsp
 
             //If the packet is null or not allowed then return
             if (packet == null || packet.Disposed || m_RtpClient == null) return;
-            
+
             //Get a source context
             RtpClient.TransportContext context = null, sourceContext = GetSourceContextForPacket(packet);
 
@@ -216,19 +235,14 @@ namespace Media.Rtsp
             if (context == null) return;
 
             var localPacket = packet;
-            
-            if(PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier)) 
+
+            if (PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier))
             {
                 PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, new Rtp.RtpPacket(packet.Prepare(context.MediaDescription.MediaFormat, context.SynchronizationSourceIdentifier).ToArray(), 0));
             }
             else if (m_RtpClient != null)
             {
                 int sent = m_RtpClient.SendRtpPacket(localPacket, context.SynchronizationSourceIdentifier);
-
-#if DEBUG
-                if(sent < packet.Length) System.Diagnostics.Debug.WriteLine("Truncated : " + (packet.Length - sent).ToString() + " bytes of RtpPacket");
-#endif
-
             }
         }
 
@@ -324,7 +338,7 @@ namespace Media.Rtsp
                 }
 
                 //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
-                if (m_RtpClient != null)
+                if (m_RtpClient != null && m_RtpClient.Connected)
                 {
                     m_RtpClient.SendGoodbyes();
 
@@ -438,7 +452,7 @@ namespace Media.Rtsp
                 }
             }
 
-            //Todo Process Scale, Speed
+            //Todo Process Scale, Speed, Bandwidth, Blocksize
 
             //Prepare the RtpInfo header
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
@@ -797,7 +811,7 @@ namespace Media.Rtsp
         internal RtspMessage ProcessRecord(RtspMessage request, IMediaStream source)
         {
             //Can't record when no Archiver is present
-            if (m_Server.Archiver == null) return CreateRtspResponse(request, RtspStatusCode.PreconditionFailed);
+            if (m_Server.Archiver == null) return CreateRtspResponse(request, RtspStatusCode.PreconditionFailed, "No Server Archiver.");
 
             //If already archiving then indicate created
             if (m_Server.Archiver.IsArchiving(source)) return CreateRtspResponse(request, RtspStatusCode.Created);
@@ -817,41 +831,12 @@ namespace Media.Rtsp
         /// <returns>The RtspResponse created</returns>
         internal RtspMessage CreateRtspResponse(RtspMessage request = null, RtspStatusCode statusCode = RtspStatusCode.OK, string body = null)
         {
-            bool inRequest = request != null;
-
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
             response.StatusCode = statusCode;
 
             response.CSeq = request != null ? request.CSeq : LastRequest != null ? LastRequest.CSeq : 1;
             if (!string.IsNullOrWhiteSpace(SessionId))
                 response.SetHeader(RtspHeaders.Session, SessionId);
-
-            /*
-             RFC2326 - Page57
-             * 12.38 Timestamp
-
-               The timestamp general header describes when the client sent the
-               request to the server. The value of the timestamp is of significance
-               only to the client and may use any timescale. The server MUST echo
-               the exact same value and MAY, if it has accurate information about
-               this, add a floating point number indicating the number of seconds
-               that has elapsed since it has received the request. The timestamp is
-               used by the client to compute the round-trip time to the server so
-               that it can adjust the timeout value for retransmissions.
-
-               Timestamp  = "Timestamp" ":" *(DIGIT) [ "." *(DIGIT) ] [ delay ]
-               delay      =  *(DIGIT) [ "." *(DIGIT) ]
-             
-             */
-            if (inRequest)
-            {
-                string timestamp = request.GetHeader(RtspHeaders.Timestamp);
-                if (!string.IsNullOrWhiteSpace(timestamp))
-                {
-                    response.SetHeader(RtspHeaders.Timestamp, timestamp);
-                    //Calculate Delay?
-                }
-            }
 
             if (!string.IsNullOrWhiteSpace(body)) response.Body = body;
 

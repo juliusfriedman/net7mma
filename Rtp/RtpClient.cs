@@ -361,6 +361,7 @@ namespace Media.Rtp
                 {
                     foreach (Media.Sdp.SessionDescriptionLine line in mediaDescription.BandwidthLines)
                     {
+                        //Should be constant
                         if (line.Parts[0].StartsWith("RR"))
                         {
                             reportReceivingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries)[1]);

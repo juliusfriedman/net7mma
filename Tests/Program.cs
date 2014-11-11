@@ -1954,7 +1954,7 @@ namespace Tests
                             TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
                         };
 
-                        int i = 1;
+                        int totalFrames = 0, i = 1;
 
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
                         {
@@ -1972,6 +1972,7 @@ namespace Tests
                             }
                             else
                             {
+                                ++totalFrames;
                                 Console.BackgroundColor = ConsoleColor.Blue; consoleWriter.WriteLine("\tGot a RTPFrame("+ rtpFrame.PayloadTypeByte +") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
                         };
@@ -2162,6 +2163,7 @@ namespace Tests
                             consoleWriter.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
                             consoleWriter.WriteLine("Encountered Frames with missing packets: " + incompleteFrames);
                             consoleWriter.WriteLine("Encountered Empty Frames: " + emptyFrames);
+                            consoleWriter.WriteLine("Total Frames: " + totalFrames);
                             Console.BackgroundColor = ConsoleColor.Cyan;
                             consoleWriter.WriteLine("RTSP".PadRight(Console.BufferWidth - 7, '▓'));
                             consoleWriter.WriteLine("Rtsp Requets Sent: " + rtspIn);
@@ -2714,7 +2716,7 @@ a=mpeg4-esid:101");
         static void TestServer()
         {
             //Setup a Media.RtspServer on port 554
-            Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer()
+            Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
             {
                 Logger = new Media.Rtsp.Server.RtspServerDebuggingLogger()
             };

@@ -847,7 +847,8 @@ namespace Media.Rtsp
         public String UserAgent { get { return GetHeader(RtspHeaders.UserAgent); } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException(); SetHeader(RtspHeaders.UserAgent, value); } }
 
         /// <summary>
-        /// Indicates the StatusCode of the RtspResponse
+        /// Indicates the StatusCode of the RtspResponse.
+        ///  A value of 200 or less usually indicates success.
         /// </summary>
         public RtspStatusCode StatusCode { get { return (RtspStatusCode)m_StatusCode; } set { m_StatusCode = (int)value; } }
 
