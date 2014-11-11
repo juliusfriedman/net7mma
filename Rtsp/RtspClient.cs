@@ -956,30 +956,33 @@ namespace Media.Rtsp
         /// <returns>The <see cref="RtspMessage"/> as a response to the request</returns>
         public RtspMessage SendOptions(bool useStar = false)
         {
-            RtspMessage response = SendRtspRequest(new RtspMessage(RtspMessageType.Request)
+            using(var options = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.OPTIONS,
                 Location = useStar ? null : Location
-            });
-
-            if (response == null || response.StatusCode != RtspStatusCode.OK) Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to get options");
-            else
+            })
             {
-                m_SupportedMethods.Clear();
+                RtspMessage response = SendRtspRequest(options);
 
-                string publicMethods = response[RtspHeaders.Public];
-
-                if (string.IsNullOrWhiteSpace(publicMethods)) return response;
-
-                foreach (string method in publicMethods.Split(RtspHeaders.Comma))
+                if (response == null || response.StatusCode != RtspStatusCode.OK) Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to get options");
+                else
                 {
-                    m_SupportedMethods.Add((RtspMethod)Enum.Parse(typeof(RtspMethod), method.Trim(), true));
+                    m_SupportedMethods.Clear();
+
+                    string publicMethods = response[RtspHeaders.Public];
+
+                    if (string.IsNullOrWhiteSpace(publicMethods)) return response;
+
+                    foreach (string method in publicMethods.Split(RtspHeaders.Comma))
+                    {
+                        m_SupportedMethods.Add((RtspMethod)Enum.Parse(typeof(RtspMethod), method.Trim(), true));
+                    }
+
+                    //Should also store Supported:
                 }
 
-                //Should also store Supported:
+                return response;
             }
-            
-            return response;
         }
 
         /// <summary>
@@ -993,38 +996,39 @@ namespace Media.Rtsp
 
             try
             {
-                RtspMessage describe = new RtspMessage(RtspMessageType.Request)
+                using (RtspMessage describe = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.DESCRIBE,
                     Location = Location
-                };
-
-                #region Reference
-
-                 // The DESCRIBE method retrieves the description of a presentation or
-                 // media object identified by the request URL from a server. It may use
-                 // the Accept header to specify the description formats that the client
-                 // understands. The server responds with a description of the requested
-                 // resource. The DESCRIBE reply-response pair constitutes the media
-                 // initialization phase of RTSP.
-
-                #endregion
-
-                describe.SetHeader(RtspHeaders.Accept, Sdp.SessionDescription.MimeType);
-
-                response = SendRtspRequest(describe);
-
-                if (response == null) Common.ExceptionExtensions.CreateAndRaiseException(describe, "Unable to describe media, no response to DESCRIBE request. The request is in the Tag property.");
-                else if (response.StatusCode != RtspStatusCode.OK)
+                })
                 {
-                    Common.ExceptionExtensions.CreateAndRaiseException(response.StatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
+                    #region Reference
+
+                    // The DESCRIBE method retrieves the description of a presentation or
+                    // media object identified by the request URL from a server. It may use
+                    // the Accept header to specify the description formats that the client
+                    // understands. The server responds with a description of the requested
+                    // resource. The DESCRIBE reply-response pair constitutes the media
+                    // initialization phase of RTSP.
+
+                    #endregion
+
+                    describe.SetHeader(RtspHeaders.Accept, Sdp.SessionDescription.MimeType);
+
+                    response = SendRtspRequest(describe);
+
+                    if (response == null) Common.ExceptionExtensions.CreateAndRaiseException(describe, "Unable to describe media, no response to DESCRIBE request. The request is in the Tag property.");
+                    else if (response.StatusCode != RtspStatusCode.OK)
+                    {
+                        Common.ExceptionExtensions.CreateAndRaiseException(response.StatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
+                    }
+                    else if (response.GetHeader(RtspHeaders.ContentType).Trim() != Sdp.SessionDescription.MimeType || string.IsNullOrWhiteSpace(response.Body))
+                    {
+                        Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to describe media, Missing Session Description");
+                    }
+
+                    m_SessionDescription = new Sdp.SessionDescription(response.Body);
                 }
-                else if (response.GetHeader(RtspHeaders.ContentType).Trim() != Sdp.SessionDescription.MimeType || string.IsNullOrWhiteSpace(response.Body))
-                {
-                    Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to describe media, Missing Session Description");
-                }
-                
-                m_SessionDescription = new Sdp.SessionDescription(response.Body);
             }
             catch (Common.Exception<RtspClient>)
             {
@@ -1078,11 +1082,12 @@ namespace Media.Rtsp
                 }
 
                 //Return the result of the Teardown
-                return SendRtspRequest(new RtspMessage(RtspMessageType.Request)
+                using (var teardown = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.TEARDOWN,
                     Location = Location
-                });
+                }) return SendRtspRequest(teardown);
+                
             }
             catch (Common.Exception<RtspClient>)
             {
@@ -1127,143 +1132,109 @@ namespace Media.Rtsp
         //Remove unicast...
         internal RtspMessage SendSetup(Uri location, MediaDescription mediaDescription, bool unicast = true)//False to use manually set protocol
         {
+            if (!SupportedMethods.Contains(RtspMethod.SETUP)) throw new InvalidOperationException("Server does not support SETUP.");
+
             if (location == null) throw new ArgumentNullException("location");
             if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
             try
             {
-                RtspMessage setup = new RtspMessage(RtspMessageType.Request)
+                using(RtspMessage setup = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.SETUP,
                     Location = location ?? Location
-                };
-
-                //Todo Determine if Unicast or Multicast from mediaDescription ....?
-                string connectionType = unicast ? "unicast;" : "multicast";
-
-                // TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
-                if (m_RtpProtocol == ProtocolType.Tcp)
+                })
                 {
-                    //If there is already a RtpClient with at-least 1 TransportContext
-                    if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
+                    //Todo Determine if Unicast or Multicast from mediaDescription ....?
+                    string connectionType = unicast ? "unicast;" : "multicast";
+
+                    // TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
+                    if (m_RtpProtocol == ProtocolType.Tcp)
                     {
-                        RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2)));
+                        //If there is already a RtpClient with at-least 1 TransportContext
+                        if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
+                        {
+                            RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2)));
+                        }
+                        else
+                        {
+                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(0), (byte)(1)));
+                        }
                     }
-                    else
+                    else if (string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
                     {
-                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(0), (byte)(1)));
+                        //Is probably Ip, set to Udp
+                        m_RtpProtocol = ProtocolType.Udp;
+
+                        //Might want to reserver this port now by making a socket...
+
+                        //Could send 0 to have server pick port?
+
+                        int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000 + (m_RtpClient != null ? 2 : 0), true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
+
+                        if (openPort == -1) Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not find open Udp Port");
+                        //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                        //{
+                        //    Common.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
+                        //}    
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, null, null, openPort, openPort + 1, null, null, true, false, null, false, 0, 0));
                     }
-                }
-                else if(string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
-                {
-                    //Is probably Ip, set to Udp
-                    m_RtpProtocol = ProtocolType.Udp;
 
-                    //Might want to reserver this port now by making a socket...
+                    //Get the response for the setup
+                    RtspMessage response = SendRtspRequest(setup);
 
-                    //Could send 0 to have server pick port?
-
-                    int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000 + (m_RtpClient != null ? 2 : 0), true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
-
-                    if (openPort == -1) Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not find open Udp Port");
-                    //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
-                    //{
-                    //    Common.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
-                    //}    
-                    setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, null, null, openPort, openPort + 1, null, null, true, false, null, false, 0, 0));
-                }
-
-                //Get the response for the setup
-                RtspMessage response = SendRtspRequest(setup);
-
-                if (response == null) Common.ExceptionExtensions.CreateAndRaiseException(this, "No response to SETUP");
-
-                //Response not OK
-                else if (response.StatusCode != RtspStatusCode.OK)
-                {
-                    //Transport requested not valid
-                    if (response.StatusCode == RtspStatusCode.UnsupportedTransport && m_RtpProtocol != ProtocolType.Tcp)
+                    if (response == null) Common.ExceptionExtensions.CreateAndRaiseException(this, "No response to SETUP");
+                    //Response not OK
+                    else if (response.StatusCode != RtspStatusCode.OK)
                     {
-                        goto SetupTcp;
+                        //Transport requested not valid
+                        if (response.StatusCode == RtspStatusCode.UnsupportedTransport && m_RtpProtocol != ProtocolType.Tcp)
+                        {
+                            goto SetupTcp;
+                        }
+                        else if (response.StatusCode == RtspStatusCode.SessionNotFound)
+                        {
+                            SendTeardown();
+                            return SendSetup(location, mediaDescription);
+                        }
+                        else
+                        {
+                            Common.ExceptionExtensions.CreateAndRaiseException(response.StatusCode, "Unable to setup media. The status code is in the Tag property.");
+                        }
                     }
-                    else if (response.StatusCode == RtspStatusCode.SessionNotFound)
-                    {
-                        SendTeardown();
-                        return SendSetup(location, mediaDescription);
-                    }
-                    else
-                    {
-                        Common.ExceptionExtensions.CreateAndRaiseException(response.StatusCode, "Unable to setup media. The status code is in the Tag property.");
-                    }
-                }
 
-                string transportHeader = response[RtspHeaders.Transport];
+                    string transportHeader = response[RtspHeaders.Transport];
 
-                //Values in the header we need
-                int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, ssrc = 0;
+                    //Values in the header we need
+                    int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, ssrc = 0;
 
-                //Cache this to prevent having to go to get it every time down the line
-                IPAddress sourceIp = IPAddress.Any;
+                    //Cache this to prevent having to go to get it every time down the line
+                    IPAddress sourceIp = IPAddress.Any;
 
-                string mode;
+                    string mode;
 
-                bool multicast = false, interleaved = false;
+                    bool multicast = false, interleaved = false;
 
-                byte dataChannel = 0, controlChannel = 1;
+                    byte dataChannel = 0, controlChannel = 1;
 
-                //We need a valid TransportHeader with RTP
-                if (string.IsNullOrEmpty(transportHeader) || !transportHeader.Contains("RTP")
-                    ||
-                    !RtspHeaders.TryParseTransportHeader(transportHeader, 
-                    out ssrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort, 
-                    out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast)) 
+                    //We need a valid TransportHeader with RTP
+                    if (string.IsNullOrEmpty(transportHeader) || !transportHeader.Contains("RTP")
+                        ||
+                        !RtspHeaders.TryParseTransportHeader(transportHeader,
+                        out ssrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
+                        out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
                         Common.ExceptionExtensions.CreateAndRaiseException(this, "Cannot setup media, Invalid Transport Header in Rtsp Response: " + transportHeader);
 
-                //Just incase the source was not given
-                if (sourceIp == IPAddress.Any) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+                    //Just incase the source was not given
+                    if (sourceIp == IPAddress.Any) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
-                if (interleaved)
-                {
-                    //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
-                    RtpClient.TransportContext created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
-
-                    //If there is not a client
-                    if (m_RtpClient == null)
+                    if (interleaved)
                     {
-                        int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
+                        //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
+                        RtpClient.TransportContext created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
 
-                        Common.MemorySegment memory = null;
-
-                        if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
-
-                        //Create a Duplexed reciever using the RtspSocket
-                        m_RtpClient = new RtpClient(memory);
-
-                        m_RtpClient.InterleavedData += ProcessInterleaveData;
-
-                        //If Rtcp is not disabled then this will set the read and write timeouts. 
-                        SocketWriteTimeout = (int)created.ReceiveInterval.TotalMilliseconds;
-                        SocketReadTimeout = (int)created.SendInterval.TotalMilliseconds;
-
-                    }
-                    else if (m_RtpProtocol != ProtocolType.Tcp) goto SetupTcp;
-
-                    //and initialize the client from the RtspSocket depdning on if the source is on the same server as the existing connection
-                    if (IPAddress.Equals(sourceIp, ((IPEndPoint)m_RemoteRtsp).Address)) created.Initialize(m_RtspSocket);
-                    else created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort);
-
-                    //try to add the TransportContext
-                    m_RtpClient.Add(created);
-                }
-                else
-                {
-                    //Check if the port is 554 which means they must want Interleaved?
-                    if (serverRtpPort == 554) goto SetupTcp;
-
-                    //If we need to make a client then do so
-                    if (m_RtpClient == null)
-                    {
-                        if (m_RtpProtocol == ProtocolType.Udp)
+                        //If there is not a client
+                        if (m_RtpClient == null)
                         {
                             int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
 
@@ -1271,31 +1242,67 @@ namespace Media.Rtsp
 
                             if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
 
-                            //Create a Udp Reciever
+                            //Create a Duplexed reciever using the RtspSocket
                             m_RtpClient = new RtpClient(memory);
+
+                            m_RtpClient.InterleavedData += ProcessInterleaveData;
+
+                            //If Rtcp is not disabled then this will set the read and write timeouts. 
+                            SocketWriteTimeout = (int)created.ReceiveInterval.TotalMilliseconds;
+                            SocketReadTimeout = (int)created.SendInterval.TotalMilliseconds;
+
                         }
-                        else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
-                    }
+                        else if (m_RtpProtocol != ProtocolType.Tcp) goto SetupTcp;
 
-                    RtpClient.TransportContext created;
+                        //and initialize the client from the RtspSocket depdning on if the source is on the same server as the existing connection
+                        if (IPAddress.Equals(sourceIp, ((IPEndPoint)m_RemoteRtsp).Address)) created.Initialize(m_RtspSocket);
+                        else created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort);
 
-                    if (m_RtpClient.TransportContexts.Count == 0)
-                    {
-                        created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                        //try to add the TransportContext
+                        m_RtpClient.Add(created);
                     }
                     else
                     {
-                        RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                        created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                        //Check if the port is 554 which means they must want Interleaved?
+                        if (serverRtpPort == 554) goto SetupTcp;
+
+                        //If we need to make a client then do so
+                        if (m_RtpClient == null)
+                        {
+                            if (m_RtpProtocol == ProtocolType.Udp)
+                            {
+                                int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
+
+                                Common.MemorySegment memory = null;
+
+                                if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
+
+                                //Create a Udp Reciever
+                                m_RtpClient = new RtpClient(memory);
+                            }
+                            else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
+                        }
+
+                        RtpClient.TransportContext created;
+
+                        if (m_RtpClient.TransportContexts.Count == 0)
+                        {
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                        }
+                        else
+                        {
+                            RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                        }
+
+                        created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+
+                        m_RtpClient.Add(created);
                     }
 
-                    created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
-                    
-                    m_RtpClient.Add(created);
+                    //Setup Complete
+                    return response;
                 }
-
-                //Setup Complete
-                return response;
             }
             catch (Exception ex)
             {
@@ -1370,49 +1377,54 @@ namespace Media.Rtsp
 
             try
             {
-                RtspMessage play = new RtspMessage(RtspMessageType.Request)
+                using(RtspMessage play = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.PLAY,
                     Location = location ?? Location
-                };
-
-                play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime, rangeType, rangeFormat));
-
-                RtspMessage response = SendRtspRequest(play);
-
-                //Handle allowed problems with reception
-                if (response == null) goto PlayingMedia;
-                else if (response.StatusCode == RtspStatusCode.Unknown) goto PlayingMedia;
-                else if (response.StatusCode == RtspStatusCode.InvalidRange)
+                })
                 {
-                    play.RemoveHeader(Rtsp.RtspHeaders.Range);
-                    ++play.CSeq;
-                    return SendRtspRequest(play);
+                    play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime, rangeType, rangeFormat));
+
+                    RtspMessage response = SendRtspRequest(play);
+
+                    //Handle allowed problems with reception
+                    if (response == null) goto PlayingMedia;
+                    else if (response.StatusCode == RtspStatusCode.Unknown) goto PlayingMedia;
+                    else if (response.StatusCode == RtspStatusCode.InvalidRange)
+                    {
+                        play.RemoveHeader(Rtsp.RtspHeaders.Range);
+                        ++play.CSeq;
+                        return SendRtspRequest(play);
+                    }
+
+                PlayingMedia:
+
+                    //If we have a timeout to switch the protocols and the protocol has not been forced
+                    if (m_RtpClient.TotalBytesReceieved == 0 && m_RtpProtocol != ProtocolType.Tcp)
+                    {
+                        m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, ProtocolSwitchTime, Utility.InfiniteTimeSpan);
+                    }
+
+                    //If there is a timeout ensure it gets utilized
+                    if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
+                    {
+                        m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
+                    }
+
+                    //Connect and wait for Packets
+                    if (!m_RtpClient.Connected) m_RtpClient.Connect();
+
+                    return response;
                 }
-
-            PlayingMedia:
-
-                //If we have a timeout to switch the protocols and the protocol has not been forced
-                if (m_RtpClient.TotalBytesReceieved == 0 && m_RtpProtocol != ProtocolType.Tcp)
-                {
-                    m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, ProtocolSwitchTime, Utility.InfiniteTimeSpan);
-                }
-
-                //If there is a timeout ensure it gets utilized
-                if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
-                {
-                    m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
-                }
-
-                //Connect and wait for Packets
-                if (!m_RtpClient.Connected) m_RtpClient.Connect();
-
-                return response;
             }
             catch { throw; }
         }
 
         //SendPause
+
+        //SendRecord
+
+        //SendAccounce
 
         internal void SendKeepAlive(object state)
         {
@@ -1445,13 +1457,15 @@ namespace Media.Rtsp
 
         public RtspMessage SendGetParameter(string body = null)
         {
-            RtspMessage get = new RtspMessage(RtspMessageType.Request)
+            using (RtspMessage get = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.GET_PARAMETER,
                 Location = Location,
                 Body = body ?? string.Empty //"\r\n$\00"
-            };
-            return SendRtspRequest(get);
+            })
+            {
+                return SendRtspRequest(get);
+            }
         }
 
         #endregion
