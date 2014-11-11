@@ -737,9 +737,9 @@ namespace Media.Sdp
 
         public string ToString(SessionDescription sdp = null)
         {
-            string result = TimeDescriptionType.ToString() + Sdp.SessionDescription.EQ + SessionStartTime.ToString() + " " + SessionStopTime.ToString() + SessionDescription.CRLF;
+            string result = TimeDescriptionType.ToString() + Sdp.SessionDescription.EQ.ToString() + SessionStartTime.ToString() + ( SessionStopTime > 0 ?  " " + SessionStopTime.ToString() : string.Empty) + SessionDescription.CRLF;
             foreach (long repeatTime in RepeatTimes)
-                result += RepeatTimeType.ToString() + Sdp.SessionDescription.EQ + repeatTime + SessionDescription.CRLF;
+                result += RepeatTimeType.ToString() + Sdp.SessionDescription.EQ.ToString() + repeatTime + SessionDescription.CRLF;
             return result;
         }
     }

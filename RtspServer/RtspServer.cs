@@ -84,6 +84,8 @@ namespace Media.Rtsp
             //Counters for bytes sent and recieved
             m_Recieved, m_Sent;
 
+        IPAddress m_ServerIP;
+
         /// <summary>
         /// The socket used for recieving RtspRequests
         /// </summary>
@@ -315,12 +317,20 @@ namespace Media.Rtsp
 
         #region Constructor
 
-        public RtspServer(int listenPort = DefaultPort)
+        public RtspServer(AddressFamily addressFamily = AddressFamily.InterNetwork, int listenPort = DefaultPort)
+            : this(new IPEndPoint(Utility.GetFirstIPAddress(addressFamily), listenPort)) { }
+
+        public RtspServer(IPAddress listenAddress, int listenPort) 
+            : this(new IPEndPoint(listenAddress, listenPort)) { }
+
+        public RtspServer(IPEndPoint listenEndPoint)
         {
             //Handle this according to RFC
             RtspClientInactivityTimeoutSeconds = 60;
-            ServerName = "ASTI Media Server RTSP " + Version; //, RTSP " + Version; //Google does this, but it causes unintended results with VLC and other players in some cases (which may be needed to get crappy software revamped)
-            m_ServerPort = listenPort;
+            ServerName = "ASTI Media Server RTSP " + Version;
+            m_ServerEndPoint = listenEndPoint;
+            m_ServerIP = listenEndPoint.Address;
+            m_ServerPort = listenEndPoint.Port;
             RequiredCredentials = new CredentialCache();
         }
 
@@ -702,11 +712,8 @@ namespace Media.Rtsp
 
             //Start listening for requests only after streams have been started.
 
-            ///Create the server EndPoint (Should be based on IP Given)
-            m_ServerEndPoint = new IPEndPoint(IPAddress.Any, m_ServerPort);
-
             //Create the server Socket (Should allow InterNetworkV6)
-            m_TcpServerSocket = new Socket(IPAddress.Any.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+            m_TcpServerSocket = new Socket(m_ServerIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             //Bind the server Socket to the server EndPoint
             m_TcpServerSocket.Bind(m_ServerEndPoint);
@@ -735,7 +742,6 @@ namespace Media.Rtsp
 
             if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
             if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
-
         }
 
         /// <summary>
@@ -783,7 +789,8 @@ namespace Media.Rtsp
             Utility.Abort(ref m_ServerThread);
 
             //Dispose the socket
-            m_TcpServerSocket.Dispose();            
+            m_TcpServerSocket.Dispose();
+            m_TcpServerSocket = null;
 
             //Stop other listeners
             DisableHttpTransport();
@@ -1358,7 +1365,16 @@ namespace Media.Rtsp
                            delay      =  *(DIGIT) [ "." *(DIGIT) ]
                          */
 
-                        //if(response.ContainsHeader(RtspHeaders.Timestamp))
+                        string timestampHeader = response.GetHeader(RtspHeaders.Timestamp);
+
+                        if(session.LastRequest != null
+                            &&
+                            !string.IsNullOrWhiteSpace(timestampHeader)
+                            &&
+                            !timestampHeader.Contains("delay"))
+                        {
+                            response.AppendOrSetHeader(RtspHeaders.Timestamp, "delay=" + (DateTime.UtcNow - session.LastRequest.Created).TotalSeconds);
+                        }
 
                         #endregion
 
@@ -1367,7 +1383,6 @@ namespace Media.Rtsp
                         //Not closing
                         if (!response.ContainsHeader(RtspHeaders.Connection) &&//Check for if timeout needs to be added
                             RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
-
 
                         //Log response
                         if (Logger != null) Logger.LogResponse(response, session);
@@ -1543,8 +1558,8 @@ namespace Media.Rtsp
             {
                 resp.SetHeader(RtspHeaders.Public, "OPTIONS, DESCRIBE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER");
 
-                //Private / Prividgled
-                //resp.SetHeader(RtspHeaders.Private, "ANNOUNCE, RECORD, SET_PARAMETER");
+                //Allow for Authorized
+                resp.SetHeader(RtspHeaders.Allow, "ANNOUNCE, RECORD, SET_PARAMETER");
 
                 //Add from handlers?
                 //if(m_RequestHandlers.Count > 0) string.Join(" ", m_RequestHandlers.Keys.ToArray())

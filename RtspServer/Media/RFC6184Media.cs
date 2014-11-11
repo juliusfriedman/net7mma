@@ -147,7 +147,7 @@ namespace Media.Rtsp.Server.Media
                         int tmp_nal_size = count;
 
                         //EAT DON (check if this is the correct place to eat the don)
-                        if (nal_type == 26 || nal_type == 27) offset += 2;
+                        if (nal_type >= 25 && nal_type <= 27) offset += 2;
 
                         while (offset + tmp_nal_size < count)
                         {
@@ -160,11 +160,21 @@ namespace Media.Rtsp.Server.Media
                             offset += tmp_nal_size;
                             
                             //check type again?
-
                         }
                     }
                     else if (nal_type == 28 || nal_type == 29) //FU - A or FU - B
                     {
+                        /*
+                         Informative note: When an FU-A occurs in interleaved mode, it
+                         always follows an FU-B, which sets its DON.
+                         * Informative note: If a transmitter wants to encapsulate a single
+                          NAL unit per packet and transmit packets out of their decoding
+                          order, STAP-B packet type can be used.
+
+                         */
+
+                        //Eat don
+                        if (nal_type == 29) offset += 2;
 
                         bool Start = (packetData[offset] & 0x80) > 0, End = (packetData[offset] & 0x40) > 0;
 
@@ -172,9 +182,6 @@ namespace Media.Rtsp.Server.Media
                         //    NRI = (byte)((packetData[offset] & 0x60) >> 5);
 
                         offset += 2;
-
-                        //EAT DON
-                        if (nal_type == 29) offset += 2;
 
                         int fragment_size = count - offset;
 
