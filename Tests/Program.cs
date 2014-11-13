@@ -227,7 +227,7 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "rtsp://118.70.125.33/mediainput/h264", //Single media item
+                    Uri = "rtsp://avollmar.dyndns.org:3030/0", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
