@@ -116,10 +116,7 @@ namespace Media.Rtsp.Server.Media
         #region Constructor
 
         public RFC6190Media(int width, int height, string name, string directory = null, bool watch = true)
-            : base(width, height, name, directory, watch)
-        {
-
-        }
+            : base(width, height, name, directory, watch) { }
 
         #endregion
 
@@ -131,7 +128,7 @@ namespace Media.Rtsp.Server.Media
 
             base.Start();
 
-            //Remove JPEG Track
+            //Remove H264 Track
             SessionDescription.RemoveMediaDescription(0);
             m_RtpClient.TransportContexts.Clear();
 
