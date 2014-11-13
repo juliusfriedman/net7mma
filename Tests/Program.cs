@@ -2764,15 +2764,15 @@ a=mpeg4-esid:101");
             //Expose Bandit's Pictures through Udp and Tcp
             server.AddMedia(imageStream = new Media.Rtsp.Server.Media.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
-            //Test H.264 Encoding
-            server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
+            //Test Experimental H.264 Encoding
+            //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
 
-            //Test MPEG Encoding
-            server.AddMedia(new Media.Rtsp.Server.Media.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
+            //Test Experimental MPEG Encoding
+            //server.AddMedia(new Media.Rtsp.Server.Media.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
 
             //Test Http Jpeg Transcoding
-            //server.AddStream(new Media.Rtsp.Server.Streams.JPEGSourceStream("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
-            //server.AddStream(new Media.Rtsp.Server.Streams.MJPEGSourceStream("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
+            //server.AddMedia(new Media.Rtsp.Server.Media.JPEGMedia("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
+            //server.AddMedia(new Media.Rtsp.Server.Media.MJPEGMedia("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
             
             Media.Rtsp.Server.Media.RFC2435Media screenShots = new Media.Rtsp.Server.Media.RFC2435Media("Screen", null, false, 800, 600, false);
 

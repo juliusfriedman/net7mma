@@ -238,11 +238,14 @@ namespace Media.Rtsp
 
             if (PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier))
             {
-                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, new Rtp.RtpPacket(packet.Prepare(context.MediaDescription.MediaFormat, context.SynchronizationSourceIdentifier).ToArray(), 0));
+                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, localPacket);
             }
             else if (m_RtpClient != null)
             {
-                int sent = m_RtpClient.SendRtpPacket(localPacket, context.SynchronizationSourceIdentifier);
+                //int sent = m_RtpClient.SendRtpPacket(localPacket, context.SynchronizationSourceIdentifier);
+
+                //Send packet on Client Thread
+                m_RtpClient.EnquePacket(localPacket);
             }
         }
 
@@ -255,6 +258,8 @@ namespace Media.Rtsp
         {
 
             if (packet == null || packet.Disposed || m_RtpClient == null) return;
+
+            //Should check for Goodbye and Disconnect this source
 
             //m_RtpClient.SendReports();
 
@@ -316,8 +321,6 @@ namespace Media.Rtsp
                 {
                     try
                     {
-                        EndPoint inBound = RemoteEndPoint;
-
                         //Ensure the bytes were completely sent..
                         int sent = m_RtspSocket.EndSendTo(LastSend);
                     }
@@ -468,6 +471,7 @@ namespace Media.Rtsp
             {
                 var sourceContext = source.RtpClient.GetTransportContexts().Where(tc => tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
 
+                //AggreateOperationNotAllowed?
                 if (sourceContext == null) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Source Not Setup");
 
                 var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
@@ -503,6 +507,7 @@ namespace Media.Rtsp
             }
 
             //Set the range Range for the playResponse
+            //!string.IsNullOrWhiteSpace(rangeString)
             if(startRange.HasValue || endRange.HasValue) playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
             //Sent the rtpInfo
@@ -584,7 +589,7 @@ namespace Media.Rtsp
                     out ssrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
                     out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
             {
-                return CreateRtspResponse(request, RtspStatusCode.BadRequest);
+                return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Invalid Transport Header");
             }
 
             //Create a unique 32 bit id if required
