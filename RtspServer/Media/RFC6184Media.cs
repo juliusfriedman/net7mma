@@ -315,15 +315,9 @@ namespace Media.Rtsp.Server.Media
                                     //If the start bit was set
                                     if (Start)
                                     {
-                                        //Write the start code
-                                        Buffer.Write(NalStart, 0, 3);
-
                                         //Reconstruct the nal header
                                         //Use the first 3 bits of the first byte and last 5 bites of the FU Header
                                         byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
-
-                                        //Write the re-construced header
-                                        Buffer.WriteByte(nalHeader);
 
                                         //Could have been SPS / PPS / SEI
                                         if (nalHeader > 5)
@@ -344,6 +338,12 @@ namespace Media.Rtsp.Server.Media
                                                 containsSps = true;
                                             }
                                         }
+
+                                        //Write the start code
+                                        Buffer.Write(NalStart, 0, 3);
+
+                                        //Write the re-construced header
+                                        Buffer.WriteByte(nalHeader);
 
                                         if (nalHeader == 1) containsSlice = true;
 
