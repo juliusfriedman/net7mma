@@ -151,11 +151,12 @@ namespace Media.Rtsp.Server.Media
                     //Determine if the forbidden bit is set and the type of nal from the first byte
                     byte firstByte = packetData[offset];
 
-                    bool forbiddenZeroBit = ((firstByte & 0x80) >> 7) != 0;
+                    //bool forbiddenZeroBit = ((firstByte & 0x80) >> 7) != 0;
 
-                    if (forbiddenZeroBit) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
+                    byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
 
-                    byte refId = (byte)((firstByte & 0x60) >> 5), nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
+                    //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
+                    //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
 
                     //Determine what to do
                     switch (nalUnitType)
@@ -170,9 +171,6 @@ namespace Media.Rtsp.Server.Media
                         case 26: //MTAP - 16
                         case 27: //MTAP - 24
                             {
-                                //Probably 
-                                //SPS and PPS or SEI
-
                                 //Todo Determine if need to Order by DON first.
                                 //EAT DON for ALL BUT STAP - A
                                 if (nalUnitType != 24) offset += 2;
@@ -180,7 +178,7 @@ namespace Media.Rtsp.Server.Media
                                 //Consume the rest of the data from the packet
                                 while (offset < count)
                                 {
-                                    //Determine the nal size (RFC Indicates that Size include the DOND and TSOFFSET when present)
+                                    //Determine the nal size (RFC Indicates that Size might include the DOND and TSOFFSET when present)
                                     int tmp_nal_size = Common.Binary.Read16(packetData, offset, BitConverter.IsLittleEndian);
                                     offset += 2;
 
@@ -189,11 +187,41 @@ namespace Media.Rtsp.Server.Media
                                     //If the nal had data then write it
                                     if (tmp_nal_size > 0)
                                     {
-                                        //SEI?
-                                        //SPS and PPS are (probably) Present.
-                                        containsSps = containsPps = true;
+                                        //int headerOffset = offset;
 
-                                        //Should probably check header which may occur + 4 or +6 bytes depending on nalUnitType.
+                                        //For DOND and TSOFFSET
+                                        switch (nalUnitType)
+                                        {
+                                            case 25:// MTAP - 16
+                                                {
+                                                    //headerOffset += 3;
+                                                    offset += 3;
+                                                    goto default;
+                                                }
+                                            case 26:// MTAP - 24
+                                                {
+                                                    //headerOffset += 4;
+                                                    offset += 4;
+                                                    goto default;
+                                                }
+                                            default:
+                                                {
+                                                    //byte nalHeader = (byte)(packetData[headerOffset] & Common.Binary.FiveBitMaxValue);
+                                                    byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
+
+                                                    if (nalHeader > 5)
+                                                    {
+                                                        //Could have been SPS / PPS / SEI
+                                                        if (!containsSei && nalHeader == 6) containsSei = true;
+
+                                                        if (!containsPps && nalHeader == 7) containsPps = true;
+
+                                                        if (!containsSps && nalHeader == 8) containsSps = true;
+                                                    }
+
+                                                    break;
+                                                }
+                                        }
 
                                         //Write the start code
                                         Buffer.Write(NalStart, 0, 3);
@@ -219,54 +247,61 @@ namespace Media.Rtsp.Server.Media
                           NAL unit per packet and transmit packets out of their decoding
                           order, STAP-B packet type can be used.
                          */
-                                //Move to FU Header
-                                byte FUHeader = packetData[++offset];
+                                //Indicator = firstByte;
 
-                                bool Start = (FUHeader & 0x80) > 0;
-
-                                bool End = (FUHeader & 0x40) > 0;
-
-                                bool Receiver = (FUHeader & 0x20) != 0;
-
-                                if (Receiver) throw new InvalidOperationException("Receiver Bit Set");                                
-
-                                //Move to data
-                                ++offset;
-
-                                //Todo Determine if need to Order by DON first.
-                                //DON Present in FU - B (Determine if should be kept)
-                                if (nalUnitType == 29) offset += 2;
-
-                                //Determine the fragment size
-                                int fragment_size = count - offset;
-
-                                //If the size was valid
-                                if (fragment_size > 0)
+                                if (count > 1)
                                 {
-                                    //If the start bit was set
-                                    if (Start)
+                                    //Read the Header
+                                    byte FUHeader = packetData[++offset];
+
+                                    bool Start = ((FUHeader & 0x80) >> 7) > 0;
+
+                                    //bool End = ((FUHeader & 0x40) >> 6) > 0;
+
+                                    bool Receiver = (FUHeader & 0x20) != 0;
+
+                                    if (Receiver) throw new InvalidOperationException("Receiver Bit Set");
+
+                                    //Move to data
+                                    ++offset;
+
+                                    //Todo Determine if need to Order by DON first.
+                                    //DON Present in FU - B (Determine if should be kept)
+                                    if (nalUnitType == 29) offset += 2;
+
+                                    //Determine the fragment size
+                                    int fragment_size = count - offset;
+
+                                    //If the size was valid
+                                    if (fragment_size > 0)
                                     {
-                                        //Write the start code
-                                        Buffer.Write(NalStart, 0, 3);
+                                        //If the start bit was set
+                                        if (Start)
+                                        {
+                                            //Write the start code
+                                            Buffer.Write(NalStart, 0, 3);
 
-                                        //Reconstruct the nal header from the last five bits of the FU Header
-                                        //Combine with the Reference Id from the firstByte
+                                            //Reconstruct the nal header
+                                            //Use the first 3 bits of the first byte and last 5 bites of the FU Header
+                                            byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
-                                        byte nalHeader = (byte)((FUHeader & Common.Binary.FiveBitMaxValue) | refId);
+                                            //Write the re-construced header
+                                            Buffer.WriteByte(nalHeader);
 
-                                        //Write the re-construced header
-                                        Buffer.WriteByte(nalHeader);
+                                            //Could have been SPS / PPS / SEI
+                                            if (nalHeader > 5)
+                                            {
+                                                if (!containsSei && nalHeader == 6) containsSei = true;
 
-                                        //Could have been SPS / PPS / SEI
-                                        if (!containsSei && nalHeader == 6) containsSei = true;
+                                                if (!containsPps && nalHeader == 7) containsPps = true;
 
-                                        if (!containsPps && nalHeader == 7) containsPps = true;
+                                                if (!containsSps && nalHeader == 8) containsSps = true;
+                                            }
+                                        }
 
-                                        if (!containsSps && nalHeader == 8) containsSps = true;
+                                        //Write the data of the fragment.
+                                        Buffer.Write(packetData, offset, fragment_size);
                                     }
-
-                                    //Write the data of the fragment.
-                                    Buffer.Write(packetData, offset, fragment_size);
                                 }
 
                                 //Next Packet
@@ -274,18 +309,21 @@ namespace Media.Rtsp.Server.Media
                             }
                         default:
                             {
-                                // 7 and 8 are SPS and PPS
-                                if (!containsSei && nalUnitType == 6) containsSei = true;
+                                // 6 SEI, 7 and 8 are SPS and PPS
+                                if (nalUnitType > 5)
+                                {
+                                    if (!containsSei && nalUnitType == 6) containsSei = true;
 
-                                if (!containsPps && nalUnitType == 7) containsPps = true;
+                                    if (!containsPps && nalUnitType == 7) containsPps = true;
 
-                                if (!containsSps && nalUnitType == 8) containsSps = true;
+                                    if (!containsSps && nalUnitType == 8) containsSps = true;
+                                }
 
                                 //Write the start code
                                 Buffer.Write(NalStart, 0, 3);
 
                                 //Write the nal data
-                                Buffer.Write(packetData, offset, count);
+                                Buffer.Write(packetData, offset, count - offset);
 
                                 //Next Packet
                                 continue;
@@ -371,14 +409,14 @@ namespace Media.Rtsp.Server.Media
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
+            //Add the control line and media attributes to the Media Description
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000"));
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, !BitConverter.IsLittleEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
+
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
-
-            //Add the control line
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000"));
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id="+ Common.Binary.ReadU24(sps, 4, false).ToString("X2") +";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length  - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
         }
 
         //Move to Codec/h264
