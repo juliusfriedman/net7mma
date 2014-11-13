@@ -122,11 +122,19 @@ namespace Media.Rtsp.Server.Media
                 else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal.Skip(offset).ToArray()));
             }
 
-            public void Depacketize() { bool sps, pps, sei; Depacketize(out sps, out pps, out sei); }
+            public void Depacketize() { bool sps, pps, sei, slice, idr; Depacketize(out sps, out pps, out sei, out slice, out idr); }
 
-            public void Depacketize(out bool containsSps, out bool containsPps, out bool containsSei)
+            /// <summary>
+            /// Parses all contained packets and writes any contained Nal Units to <see cref="Buffer"/>.
+            /// </summary>
+            /// <param name="containsSps">Indicates if a Sequence Parameter Set was found</param>
+            /// <param name="containsPps">Indicates if a Picture Parameter Set was found</param>
+            /// <param name="containsSei">Indicates if Supplementatal Encoder Information was found</param>
+            /// <param name="containsSlice">Indicates if a Slice was found</param>
+            /// <param name="isIdr">Indicates if a IDR Slice was found</param>
+            public void Depacketize(out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
             {
-                containsSps = containsPps = containsSei = false;
+                containsSps = containsPps = containsSei = containsSlice = isIdr = false;
                 DisposeBuffer();
 
                 MemoryStream Buffer = new MemoryStream();
@@ -178,35 +186,34 @@ namespace Media.Rtsp.Server.Media
                                 //Consume the rest of the data from the packet
                                 while (offset < count)
                                 {
-                                    //Determine the nal size (RFC Indicates that Size might include the DOND and TSOFFSET when present)
+                                    //Determine the nal unit size which does not include the nal header
                                     int tmp_nal_size = Common.Binary.Read16(packetData, offset, BitConverter.IsLittleEndian);
                                     offset += 2;
 
-                                    //Determine if MTAPs Require that DOND and TS OFFSET be removed.
-
                                     //If the nal had data then write it
                                     if (tmp_nal_size > 0)
-                                    {
-                                        //int headerOffset = offset;
-
+                                    {                                        
                                         //For DOND and TSOFFSET
                                         switch (nalUnitType)
                                         {
                                             case 25:// MTAP - 16
                                                 {
-                                                    //headerOffset += 3;
+                                                    //SKIP DOND and TSOFFSET
                                                     offset += 3;
                                                     goto default;
                                                 }
                                             case 26:// MTAP - 24
                                                 {
-                                                    //headerOffset += 4;
+                                                    //SKIP DOND and TSOFFSET
                                                     offset += 4;
                                                     goto default;
                                                 }
                                             default:
                                                 {
-                                                    //byte nalHeader = (byte)(packetData[headerOffset] & Common.Binary.FiveBitMaxValue);
+                                                    //Include the nal header
+                                                    ++tmp_nal_size;
+
+                                                    //Read the nal header but don't move the offset
                                                     byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
 
                                                     if (nalHeader > 5)
@@ -219,6 +226,11 @@ namespace Media.Rtsp.Server.Media
                                                         if (!containsSps && nalHeader == 8) containsSps = true;
                                                     }
 
+                                                    if (!containsSlice && nalHeader == 1) containsSlice = true;
+
+                                                    if (!isIdr && nalHeader == 5) isIdr = true;
+
+                                                    //Done reading
                                                     break;
                                                 }
                                         }
@@ -226,10 +238,10 @@ namespace Media.Rtsp.Server.Media
                                         //Write the start code
                                         Buffer.Write(NalStart, 0, 3);
 
-                                        //Write the nal data
+                                        //Write the nal header and data
                                         Buffer.Write(packetData, offset, tmp_nal_size);
 
-                                        //Move the offset
+                                        //Move the offset past the nal
                                         offset += tmp_nal_size;
                                     }
                                 }
@@ -247,9 +259,8 @@ namespace Media.Rtsp.Server.Media
                           NAL unit per packet and transmit packets out of their decoding
                           order, STAP-B packet type can be used.
                          */
-                                //Indicator = firstByte;
-
-                                if (count > 1)
+                                //Need 2 bytes
+                                if (count > 2)
                                 {
                                     //Read the Header
                                     byte FUHeader = packetData[++offset];
@@ -266,7 +277,7 @@ namespace Media.Rtsp.Server.Media
                                     ++offset;
 
                                     //Todo Determine if need to Order by DON first.
-                                    //DON Present in FU - B (Determine if should be kept)
+                                    //DON Present in FU - B
                                     if (nalUnitType == 29) offset += 2;
 
                                     //Determine the fragment size
@@ -297,6 +308,10 @@ namespace Media.Rtsp.Server.Media
 
                                                 if (!containsSps && nalHeader == 8) containsSps = true;
                                             }
+
+                                            if (!containsSlice && nalHeader == 1) containsSlice = true;
+
+                                            if (!isIdr && nalHeader == 5) isIdr = true;
                                         }
 
                                         //Write the data of the fragment.
@@ -319,10 +334,14 @@ namespace Media.Rtsp.Server.Media
                                     if (!containsSps && nalUnitType == 8) containsSps = true;
                                 }
 
+                                if (!containsSlice && nalUnitType == 1) containsSlice = true;
+
+                                if (!isIdr && nalUnitType == 5) isIdr = true;
+
                                 //Write the start code
                                 Buffer.Write(NalStart, 0, 3);
 
-                                //Write the nal data
+                                //Write the nal heaer and data data
                                 Buffer.Write(packetData, offset, count - offset);
 
                                 //Next Packet
@@ -330,6 +349,8 @@ namespace Media.Rtsp.Server.Media
                             }
                     }
                 }
+
+                //Order by DON
 
                 //Assign the buffer
                 this.Buffer = Buffer;
@@ -403,10 +424,9 @@ namespace Media.Rtsp.Server.Media
 
             //Remove JPEG Track
             SessionDescription.RemoveMediaDescription(0);
-
             m_RtpClient.TransportContexts.Clear();
 
-            //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
+            //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the given payload type            
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
             //Add the control line and media attributes to the Media Description
@@ -414,8 +434,6 @@ namespace Media.Rtsp.Server.Media
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, !BitConverter.IsLittleEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
 
-            //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
-            //See the notes about having a Dictionary to support various tracks
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
         }
 
@@ -528,7 +546,7 @@ namespace Media.Rtsp.Server.Media
             }
         }
 
-        IEnumerable<byte> EncodeMacroblock(int i, int j, byte[] data)
+        IEnumerable<byte> EncodeMacroblock(int i, int j, byte[] yuvData)
         {
 
             IEnumerable<byte> result = Utility.Empty;
@@ -555,12 +573,12 @@ namespace Media.Rtsp.Server.Media
             }
 
             //Take the Luma Values
-            result = result.Concat(data.Skip(yIndex ).Take(16 * 8));
+            result = result.Concat(yuvData.Skip(yIndex ).Take(16 * 8));
 
             //Take the Chroma Values
-            result = result.Concat(data.Skip(uIndex ).Take(8 * 8));
+            result = result.Concat(yuvData.Skip(uIndex ).Take(8 * 8));
 
-            result = result.Concat(data.Skip(vIndex ).Take(8 * 8));
+            result = result.Concat(yuvData.Skip(vIndex ).Take(8 * 8));
 
             return result;
         }
