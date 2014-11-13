@@ -1931,12 +1931,8 @@ namespace Tests
                         //Connection event
                         client.OnConnect += (sender, args) =>
                         {
-
                             if (client.Connected)
                             {
-                                //Set a timeout to wait for responses (in milliseconds), they will be recalulcated when the Setup is performed according to information in the SDP.
-                                //client.SocketWriteTimeout = client.SocketReadTimeout = 0;
-
                                 //Try to start listening
                                 try
                                 {
@@ -1993,7 +1989,10 @@ namespace Tests
                         //Handle Request event
                         client.OnRequest += (sender, request) =>
                         {
-                            ++rtspOut; Console.WriteLine("Client Requested :" + request.Location + " " + request.Method);
+                            if (request != null)
+                            {
+                                ++rtspOut; Console.WriteLine("Client Requested :" + request.Location + " " + request.Method);
+                            }
                         };
 
                         //When the RtpClient disconnects this event is raised.
@@ -2011,7 +2010,7 @@ namespace Tests
                                 ++rtspIn;
                                 if (response.StatusCode == Media.Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
                             }
-                            else
+                            else if(request != null)
                             {
                                 consoleWriter.WriteLine("\t*****************\nClient got response :" + response.StatusCode.ToString() + ", for request: " + request.Location + " " + request.Method);
                             }
@@ -2039,18 +2038,20 @@ namespace Tests
                             {
                                 consoleWriter.WriteLine("\t*****************Playing from Live Source");
                             }
-
-                            //Indicate if StartTime is found
-                            if (client.StartTime.HasValue)
+                            else
                             {
-                                consoleWriter.WriteLine("\t*****************Media Start Time:" + client.StartTime);
+                                //Indicate if StartTime is found
+                                if (client.StartTime.HasValue)
+                                {
+                                    consoleWriter.WriteLine("\t*****************Media Start Time:" + client.StartTime);
 
-                            }
+                                }
 
-                            //Indicate if EndTime is found
-                            if (client.EndTime.HasValue)
-                            {
-                                consoleWriter.WriteLine("\t*****************Media End Time:" + client.EndTime);
+                                //Indicate if EndTime is found
+                                if (client.EndTime.HasValue)
+                                {
+                                    consoleWriter.WriteLine("\t*****************Media End Time:" + client.EndTime);
+                                }
                             }
 
                             foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.TransportContexts)
