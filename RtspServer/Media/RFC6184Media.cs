@@ -59,7 +59,7 @@ namespace Media.Rtsp.Server.Media
         //https://bitbucket.org/jerky/rtp-streaming-server
 
         /// <summary>
-        /// Handles the creation of Stap and Frag packets from a large nal as well the creation of single large nals from Stap and Frag
+        /// Implements Packetization and Depacketization of packets defined in <see href="https://tools.ietf.org/html/rfc6184">RFC6184</see>.
         /// </summary>
         public class RFC6184Frame : Rtp.RtpFrame
         {
@@ -76,6 +76,11 @@ namespace Media.Rtsp.Server.Media
 
             public System.IO.MemoryStream Buffer { get; set; }
 
+            /// <summary>
+            /// Creates any <see cref="Rtp.RtpPacket"/>'s required for the given nal
+            /// </summary>
+            /// <param name="nal">The nal</param>
+            /// <param name="mtu">The mtu</param>
             public virtual void Packetize(byte[] nal, int mtu = 1500)
             {
                 if (nal == null) return;
@@ -83,13 +88,6 @@ namespace Media.Rtsp.Server.Media
                 int nalLength = nal.Length;
 
                 int offset = 0;
-
-                //No Start Codes (May contain length of nal?)
-                if (nal[3] == 1)
-                {
-                    offset += 3;
-                    nalLength -= 3;
-                }
 
                 if (nalLength >= mtu)
                 {
@@ -119,13 +117,16 @@ namespace Media.Rtsp.Server.Media
                         offset += mtu;
                     }
                 } //Should check for first byte to be 1 - 23?
-                else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal.Skip(offset).ToArray()));
+                else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
             }
 
+            /// <summary>
+            /// Creates <see cref="Buffer"/> with a H.264 RBSP from the contained packets
+            /// </summary>
             public virtual void Depacketize() { bool sps, pps, sei, slice, idr; Depacketize(out sps, out pps, out sei, out slice, out idr); }
 
             /// <summary>
-            /// Parses all contained packets and writes any contained Nal Units to <see cref="Buffer"/>.
+            /// Parses all contained packets and writes any contained Nal Units in the RBSP to <see cref="Buffer"/>.
             /// </summary>
             /// <param name="containsSps">Indicates if a Sequence Parameter Set was found</param>
             /// <param name="containsPps">Indicates if a Picture Parameter Set was found</param>
@@ -520,54 +521,8 @@ namespace Media.Rtsp.Server.Media
 
                         macroBlocks.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
 
-                        int seq = 0;
-
-                        IEnumerable<byte> packetData = Utility.Empty;
-
-                        //Build the RtpPacket data from the MacroBlocks
-                        foreach (IEnumerable<byte> macroBlock in macroBlocks)
-                        {
-                            //If there is more data then allowed in the packet
-                            if (packetData.Count() > 1024)
-                            {
-
-                                //A Fragment Unit Header is probably required here to indicate the NAL is fragmented
-                                if (newFrame.Count == 0)
-                                {
-                                    packetData = packetData.Concat(new byte[] { (byte)(0x28 & 0x1f), (byte)(1 << 7 | (0x28 & 0x1f)) });
-                                }
-                                else
-                                {
-                                    //Should probably set End bit in the last packet 1 << 6
-                                    packetData = packetData.Concat(new byte[]{ (byte)(0x28 & 0x1f), (byte)(0x28 & 0x1f) });
-                                }
-
-                                //Add a packet to the frame with the existing data
-                                newFrame.Add(new Rtp.RtpPacket(2, false, false, false, 96, 0, sourceId, ++seq, 0, packetData.ToArray()));
-
-                                //reset the data for the next packet
-                                packetData = Utility.Empty;
-                            }
-                            
-                            //If this was the first packet added include the sps and pps in band
-                            if (newFrame.Count == 0)
-                            {
-                                packetData = packetData.Concat(sps.Concat(pps).Concat(useSliceHeader1 ? slice_header1 : slice_header2).Concat(macroBlock));
-
-                                //Alternate slice headers for next frame
-                                useSliceHeader1 = !useSliceHeader1;
-                            }
-                            else //Otherwise just use the macroBlock
-                            {
-                                packetData = packetData.Concat(macroBlock);
-                            }
-                        }
-
-                        //Set the marker in the RtpHeader
-                        newFrame.Last().Marker = true;
-
-                        //Set the last bit in the Nal header, Forbidden bit already set
-                        newFrame.Last().Payload[newFrame.Last().NonPayloadOctets + 1] |= 1 << 6;
+                        //Packetize the data
+                        newFrame.Packetize(macroBlocks.SelectMany(mb => mb).ToArray());
 
                         //Add the frame
                         AddFrame(newFrame);
