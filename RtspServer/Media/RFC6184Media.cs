@@ -122,44 +122,55 @@ namespace Media.Rtsp.Server.Media
 
                 foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
                 {
-                    if (packet.Payload.Count <= 2) continue;
-
+                    //Starting at offset 0
                     offset = 0;
 
-                    count = packet.Payload.Count;
-
+                    //Obtain the data of the packet (without source list or padding
                     byte[] packetData = packet.Coefficients.ToArray();
 
-                    byte nal_type = (byte)(packetData[offset++] & Common.Binary.FourBitMaxValue);
+                    //Cache the length
+                    count = packetData.Length;
+
+                    //Must have at least 2 bytes
+                    if (count <= 2) continue;
+
+                    //Determine the type of nal from the first byte
+                    byte firstByte = packetData[offset++],  nal_type = (byte)(firstByte & Common.Binary.FourBitMaxValue);
+
+                    bool Start = false, End = false;
 
                     //Single unit Nal
                     if (nal_type >= 1 && nal_type <= 23)
                     {
-
                         // 7 and 8 are SPS and PPS
-
                         Buffer.Write(NalStart, 0, 3);
 
                         Buffer.Write(packetData, 0, count);
                     }
                     else if (nal_type == 24 || nal_type == 25 || nal_type == 26 || nal_type == 27) //STAP - A or STAP - B or MTAP - 16 or MTAP 24
                     {
-                        int tmp_nal_size = count;
+                        //EAT DON for ALL BUT STAP - A
+                        if (nal_type != 24) offset += 2;
 
-                        //EAT DON (check if this is the correct place to eat the don)
-                        if (nal_type >= 25 && nal_type <= 27) offset += 2;
-
-                        while (offset + tmp_nal_size < count)
+                        //Consume the rest of the data from the packet
+                        while (offset < count)
                         {
-                            Buffer.Write(NalStart, 0, 3);
+                            //Determine the nal size
+                            int tmp_nal_size = Common.Binary.Read16(packetData, offset, BitConverter.IsLittleEndian);
+                            offset += 2;
 
-                            tmp_nal_size = (byte)(packetData[offset++] << 8 | packetData[offset++]);
+                            //If the nal had data then write it
+                            if (tmp_nal_size > 0)
+                            {
+                                //Write the start code
+                                Buffer.Write(NalStart, 0, 3);
 
-                            Buffer.Write(packetData, offset, tmp_nal_size);
+                                //Write the nal data
+                                Buffer.Write(packetData, offset, tmp_nal_size);
 
-                            offset += tmp_nal_size;
-                            
-                            //check type again?
+                                //Move the offset
+                                offset += tmp_nal_size;                                
+                            }
                         }
                     }
                     else if (nal_type == 28 || nal_type == 29) //FU - A or FU - B
@@ -173,22 +184,42 @@ namespace Media.Rtsp.Server.Media
 
                          */
 
+                        Start = (packetData[offset] & 0x80) > 0;
+
+                        End = (packetData[offset] & 0x40) > 0;
+
                         //Eat don
                         if (nal_type == 29) offset += 2;
 
-                        bool Start = (packetData[offset] & 0x80) > 0, End = (packetData[offset] & 0x40) > 0;
+                        //If the start bit was set
+                        if (Start)
+                        {
+                            //Get the NRI bits
+                            byte NRI = (byte)(firstByte & 0xe0);
 
-                        //byte Type = (byte)(packetData[offset] & Common.Binary.FourBitMaxValue),
-                        //    NRI = (byte)((packetData[offset] & 0x60) >> 5);
+                            //Reconstruct the nal header
+                            nal_type = (byte)(packetData[++offset] & 0xe0);
 
-                        offset += 2;
+                            nal_type |= (byte)(NRI >> 5);
+                        }
 
+                        //Determine the fragment size
                         int fragment_size = count - offset;
 
+                        //If the size was valid
                         if (fragment_size > 0)
                         {
-                            if (Start) Buffer.Write(NalStart, 0, 3);
+                            //If the start bit was set
+                            if (Start)
+                            {
+                                //Write the start code
+                                Buffer.Write(NalStart, 0, 3);
 
+                                //Write the re-construced header
+                                Buffer.WriteByte(nal_type);
+                            }
+
+                            //Write the data of the fragment.
                             Buffer.Write(packetData, offset, fragment_size);
                         }
                     }
