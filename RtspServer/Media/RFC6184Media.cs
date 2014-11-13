@@ -84,7 +84,7 @@ namespace Media.Rtsp.Server.Media
 
                 int offset = 0;
 
-                //No Start Codes
+                //No Start Codes (May contain length of nal?)
                 if (nal[3] == 1)
                 {
                     offset += 3;
@@ -119,11 +119,14 @@ namespace Media.Rtsp.Server.Media
                         offset += mtu;
                     }
                 } //Should check for first byte to be 1 - 23?
-                else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal.Skip(offset).ToArray());
+                else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal.Skip(offset).ToArray()));
             }
 
-            public void Depacketize()
+            public void Depacketize() { bool sps, pps, sei; Depacketize(out sps, out pps, out sei); }
+
+            public void Depacketize(out bool containsSps, out bool containsPps, out bool containsSei)
             {
+                containsSps = containsPps = containsSei = false;
                 DisposeBuffer();
 
                 MemoryStream Buffer = new MemoryStream();
@@ -167,6 +170,9 @@ namespace Media.Rtsp.Server.Media
                         case 26: //MTAP - 16
                         case 27: //MTAP - 24
                             {
+                                //Probably 
+                                //SPS and PPS or SEI
+
                                 //Todo Determine if need to Order by DON first.
                                 //EAT DON for ALL BUT STAP - A
                                 if (nalUnitType != 24) offset += 2;
@@ -183,8 +189,11 @@ namespace Media.Rtsp.Server.Media
                                     //If the nal had data then write it
                                     if (tmp_nal_size > 0)
                                     {
+                                        //SEI?
+                                        //SPS and PPS are (probably) Present.
+                                        containsSps = containsPps = true;
 
-                                        //SPS and PPS are Present.
+                                        //Should probably check header which may occur + 4 or +6 bytes depending on nalUnitType.
 
                                         //Write the start code
                                         Buffer.Write(NalStart, 0, 3);
@@ -242,8 +251,18 @@ namespace Media.Rtsp.Server.Media
 
                                         //Reconstruct the nal header from the last five bits of the FU Header
                                         //Combine with the Reference Id from the firstByte
+
+                                        byte nalHeader = (byte)((FUHeader & Common.Binary.FiveBitMaxValue) | refId);
+
                                         //Write the re-construced header
-                                        Buffer.WriteByte((byte)((FUHeader & Common.Binary.FiveBitMaxValue) | refId));
+                                        Buffer.WriteByte(nalHeader);
+
+                                        //Could have been SPS / PPS / SEI
+                                        if (!containsSei && nalHeader == 6) containsSei = true;
+
+                                        if (!containsPps && nalHeader == 7) containsPps = true;
+
+                                        if (!containsSps && nalHeader == 8) containsSps = true;
                                     }
 
                                     //Write the data of the fragment.
@@ -256,6 +275,11 @@ namespace Media.Rtsp.Server.Media
                         default:
                             {
                                 // 7 and 8 are SPS and PPS
+                                if (!containsSei && nalUnitType == 6) containsSei = true;
+
+                                if (!containsPps && nalUnitType == 7) containsPps = true;
+
+                                if (!containsSps && nalUnitType == 8) containsSps = true;
 
                                 //Write the start code
                                 Buffer.Write(NalStart, 0, 3);
