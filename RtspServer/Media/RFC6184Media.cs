@@ -76,7 +76,7 @@ namespace Media.Rtsp.Server.Media
 
             public System.IO.MemoryStream Buffer { get; set; }
 
-            public void Packetize(byte[] nal, int mtu = 1500)
+            public virtual void Packetize(byte[] nal, int mtu = 1500)
             {
                 if (nal == null) return;
 
@@ -122,7 +122,7 @@ namespace Media.Rtsp.Server.Media
                 else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal.Skip(offset).ToArray()));
             }
 
-            public void Depacketize() { bool sps, pps, sei, slice, idr; Depacketize(out sps, out pps, out sei, out slice, out idr); }
+            public virtual void Depacketize() { bool sps, pps, sei, slice, idr; Depacketize(out sps, out pps, out sei, out slice, out idr); }
 
             /// <summary>
             /// Parses all contained packets and writes any contained Nal Units to <see cref="Buffer"/>.
@@ -132,228 +132,265 @@ namespace Media.Rtsp.Server.Media
             /// <param name="containsSei">Indicates if Supplementatal Encoder Information was found</param>
             /// <param name="containsSlice">Indicates if a Slice was found</param>
             /// <param name="isIdr">Indicates if a IDR Slice was found</param>
-            public void Depacketize(out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
+            public virtual void Depacketize(out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
             {
                 containsSps = containsPps = containsSei = containsSlice = isIdr = false;
+
                 DisposeBuffer();
 
                 MemoryStream Buffer = new MemoryStream();
 
-                int offset = 0, count = 0;
-
                 //Get all packets in the frame
-                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
-                {
-                    //Starting at offset 0
-                    offset = 0;
+                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct()) 
+                    ProcessPacket(packet, out containsSps, out containsPps, out containsSei, out containsSlice, out isIdr);
 
-                    //Obtain the data of the packet (without source list or padding)
-                    byte[] packetData = packet.Coefficients.ToArray();
-
-                    //Cache the length
-                    count = packetData.Length;
-
-                    //Must have at least 2 bytes
-                    if (count <= 2) continue;
-
-                    //Determine if the forbidden bit is set and the type of nal from the first byte
-                    byte firstByte = packetData[offset];
-
-                    //bool forbiddenZeroBit = ((firstByte & 0x80) >> 7) != 0;
-
-                    byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
-
-                    //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
-                    //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
-
-                    //Determine what to do
-                    switch (nalUnitType)
-                    {
-                        //Ignores
-                        case 0:
-                        case 30:
-                        case 31:
-                            continue; //Next Packet
-                        case 24: //STAP - A
-                        case 25: //STAP - B
-                        case 26: //MTAP - 16
-                        case 27: //MTAP - 24
-                            {
-                                //Todo Determine if need to Order by DON first.
-                                //EAT DON for ALL BUT STAP - A
-                                if (nalUnitType != 24) offset += 2;
-
-                                //Consume the rest of the data from the packet
-                                while (offset < count)
-                                {
-                                    //Determine the nal unit size which does not include the nal header
-                                    int tmp_nal_size = Common.Binary.Read16(packetData, offset, BitConverter.IsLittleEndian);
-                                    offset += 2;
-
-                                    //If the nal had data then write it
-                                    if (tmp_nal_size > 0)
-                                    {                                        
-                                        //For DOND and TSOFFSET
-                                        switch (nalUnitType)
-                                        {
-                                            case 25:// MTAP - 16
-                                                {
-                                                    //SKIP DOND and TSOFFSET
-                                                    offset += 3;
-                                                    goto default;
-                                                }
-                                            case 26:// MTAP - 24
-                                                {
-                                                    //SKIP DOND and TSOFFSET
-                                                    offset += 4;
-                                                    goto default;
-                                                }
-                                            default:
-                                                {
-                                                    //Include the nal header
-                                                    ++tmp_nal_size;
-
-                                                    //Read the nal header but don't move the offset
-                                                    byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
-
-                                                    if (nalHeader > 5)
-                                                    {
-                                                        //Could have been SPS / PPS / SEI
-                                                        if (!containsSei && nalHeader == 6) containsSei = true;
-
-                                                        if (!containsPps && nalHeader == 7) containsPps = true;
-
-                                                        if (!containsSps && nalHeader == 8) containsSps = true;
-                                                    }
-
-                                                    if (!containsSlice && nalHeader == 1) containsSlice = true;
-
-                                                    if (!isIdr && nalHeader == 5) isIdr = true;
-
-                                                    //Done reading
-                                                    break;
-                                                }
-                                        }
-
-                                        //Write the start code
-                                        Buffer.Write(NalStart, 0, 3);
-
-                                        //Write the nal header and data
-                                        Buffer.Write(packetData, offset, tmp_nal_size);
-
-                                        //Move the offset past the nal
-                                        offset += tmp_nal_size;
-                                    }
-                                }
-
-                                //Next Packet
-                                continue;
-                            }
-                        case 28: //FU - A
-                        case 29: //FU - B
-                            {
-                        /*
-                         Informative note: When an FU-A occurs in interleaved mode, it
-                         always follows an FU-B, which sets its DON.
-                         * Informative note: If a transmitter wants to encapsulate a single
-                          NAL unit per packet and transmit packets out of their decoding
-                          order, STAP-B packet type can be used.
-                         */
-                                //Need 2 bytes
-                                if (count > 2)
-                                {
-                                    //Read the Header
-                                    byte FUHeader = packetData[++offset];
-
-                                    bool Start = ((FUHeader & 0x80) >> 7) > 0;
-
-                                    //bool End = ((FUHeader & 0x40) >> 6) > 0;
-
-                                    bool Receiver = (FUHeader & 0x20) != 0;
-
-                                    if (Receiver) throw new InvalidOperationException("Receiver Bit Set");
-
-                                    //Move to data
-                                    ++offset;
-
-                                    //Todo Determine if need to Order by DON first.
-                                    //DON Present in FU - B
-                                    if (nalUnitType == 29) offset += 2;
-
-                                    //Determine the fragment size
-                                    int fragment_size = count - offset;
-
-                                    //If the size was valid
-                                    if (fragment_size > 0)
-                                    {
-                                        //If the start bit was set
-                                        if (Start)
-                                        {
-                                            //Write the start code
-                                            Buffer.Write(NalStart, 0, 3);
-
-                                            //Reconstruct the nal header
-                                            //Use the first 3 bits of the first byte and last 5 bites of the FU Header
-                                            byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
-
-                                            //Write the re-construced header
-                                            Buffer.WriteByte(nalHeader);
-
-                                            //Could have been SPS / PPS / SEI
-                                            if (nalHeader > 5)
-                                            {
-                                                if (!containsSei && nalHeader == 6) containsSei = true;
-
-                                                if (!containsPps && nalHeader == 7) containsPps = true;
-
-                                                if (!containsSps && nalHeader == 8) containsSps = true;
-                                            }
-
-                                            if (!containsSlice && nalHeader == 1) containsSlice = true;
-
-                                            if (!isIdr && nalHeader == 5) isIdr = true;
-                                        }
-
-                                        //Write the data of the fragment.
-                                        Buffer.Write(packetData, offset, fragment_size);
-                                    }
-                                }
-
-                                //Next Packet
-                                continue;
-                            }
-                        default:
-                            {
-                                // 6 SEI, 7 and 8 are SPS and PPS
-                                if (nalUnitType > 5)
-                                {
-                                    if (!containsSei && nalUnitType == 6) containsSei = true;
-
-                                    if (!containsPps && nalUnitType == 7) containsPps = true;
-
-                                    if (!containsSps && nalUnitType == 8) containsSps = true;
-                                }
-
-                                if (!containsSlice && nalUnitType == 1) containsSlice = true;
-
-                                if (!isIdr && nalUnitType == 5) isIdr = true;
-
-                                //Write the start code
-                                Buffer.Write(NalStart, 0, 3);
-
-                                //Write the nal heaer and data data
-                                Buffer.Write(packetData, offset, count - offset);
-
-                                //Next Packet
-                                continue;
-                            }
-                    }
-                }
-
-                //Order by DON
+                //Order by DON?
 
                 //Assign the buffer
                 this.Buffer = Buffer;
+            }
+
+            /// <summary>
+            /// Depacketizes a single packet.
+            /// </summary>
+            /// <param name="packet"></param>
+            /// <param name="containsSps"></param>
+            /// <param name="containsPps"></param>
+            /// <param name="containsSei"></param>
+            /// <param name="containsSlice"></param>
+            /// <param name="isIdr"></param>
+            internal protected virtual void ProcessPacket(Rtp.RtpPacket packet, out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
+            {
+                containsSps = containsPps = containsSei = containsSlice = isIdr = false;
+
+                //Starting at offset 0
+                int offset = 0;
+
+                //Obtain the data of the packet (without source list or padding)
+                byte[] packetData = packet.Coefficients.ToArray();
+
+                //Cache the length
+                int count = packetData.Length;
+
+                //Must have at least 2 bytes
+                if (count <= 2) return;
+
+                //Determine if the forbidden bit is set and the type of nal from the first byte
+                byte firstByte = packetData[offset];
+
+                //bool forbiddenZeroBit = ((firstByte & 0x80) >> 7) != 0;
+
+                byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
+
+                //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
+                //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
+
+                //Determine what to do
+                switch (nalUnitType)
+                {
+                    //Reserved - Ignore
+                    case 0:
+                    case 30:
+                    case 31:
+                        {
+                            return;
+                        }
+                    case 24: //STAP - A
+                    case 25: //STAP - B
+                    case 26: //MTAP - 16
+                    case 27: //MTAP - 24
+                        {
+                            //Todo Determine if need to Order by DON first.
+                            //EAT DON for ALL BUT STAP - A
+                            if (nalUnitType != 24) offset += 2;
+
+                            //Consume the rest of the data from the packet
+                            while (offset < count)
+                            {
+                                //Determine the nal unit size which does not include the nal header
+                                int tmp_nal_size = Common.Binary.Read16(packetData, offset, BitConverter.IsLittleEndian);
+                                offset += 2;
+
+                                //If the nal had data then write it
+                                if (tmp_nal_size > 0)
+                                {
+                                    //For DOND and TSOFFSET
+                                    switch (nalUnitType)
+                                    {
+                                        case 25:// MTAP - 16
+                                            {
+                                                //SKIP DOND and TSOFFSET
+                                                offset += 3;
+                                                goto default;
+                                            }
+                                        case 26:// MTAP - 24
+                                            {
+                                                //SKIP DOND and TSOFFSET
+                                                offset += 4;
+                                                goto default;
+                                            }
+                                        default:
+                                            {
+                                                //Read the nal header but don't move the offset
+                                                byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
+
+                                                if (nalHeader > 5)
+                                                {
+                                                    if (nalHeader == 6)
+                                                    {
+                                                        Buffer.WriteByte(0);
+                                                        containsSei = true;
+                                                    }
+                                                    else if (nalHeader == 7)
+                                                    {
+                                                        Buffer.WriteByte(0);
+                                                        containsPps = true;
+                                                    }
+                                                    else if (nalHeader == 8)
+                                                    {
+                                                        Buffer.WriteByte(0);
+                                                        containsSps = true;
+                                                    }
+                                                }
+
+                                                if (nalHeader == 1) containsSlice = true;
+
+                                                if (nalHeader == 5) isIdr = true;
+
+                                                //Done reading
+                                                break;
+                                            }
+                                    }
+
+                                    //Write the start code
+                                    Buffer.Write(NalStart, 0, 3);
+
+                                    //Write the nal header and data
+                                    Buffer.Write(packetData, offset, tmp_nal_size);
+
+                                    //Move the offset past the nal
+                                    offset += tmp_nal_size;
+                                }
+                            }
+
+                            return;
+                        }
+                    case 28: //FU - A
+                    case 29: //FU - B
+                        {
+                            /*
+                             Informative note: When an FU-A occurs in interleaved mode, it
+                             always follows an FU-B, which sets its DON.
+                             * Informative note: If a transmitter wants to encapsulate a single
+                              NAL unit per packet and transmit packets out of their decoding
+                              order, STAP-B packet type can be used.
+                             */
+                            //Need 2 bytes
+                            if (count > 2)
+                            {
+                                //Read the Header
+                                byte FUHeader = packetData[++offset];
+
+                                bool Start = ((FUHeader & 0x80) >> 7) > 0;
+
+                                //bool End = ((FUHeader & 0x40) >> 6) > 0;
+
+                                //bool Receiver = (FUHeader & 0x20) != 0;
+
+                                //if (Receiver) throw new InvalidOperationException("Receiver Bit Set");
+
+                                //Move to data
+                                ++offset;
+
+                                //Todo Determine if need to Order by DON first.
+                                //DON Present in FU - B
+                                if (nalUnitType == 29) offset += 2;
+
+                                //Determine the fragment size
+                                int fragment_size = count - offset;
+
+                                //If the size was valid
+                                if (fragment_size > 0)
+                                {
+                                    //If the start bit was set
+                                    if (Start)
+                                    {
+                                        //Write the start code
+                                        Buffer.Write(NalStart, 0, 3);
+
+                                        //Reconstruct the nal header
+                                        //Use the first 3 bits of the first byte and last 5 bites of the FU Header
+                                        byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
+
+                                        //Write the re-construced header
+                                        Buffer.WriteByte(nalHeader);
+
+                                        //Could have been SPS / PPS / SEI
+                                        if (nalHeader > 5)
+                                        {
+                                            if (nalHeader == 6)
+                                            {
+                                                Buffer.WriteByte(0);
+                                                containsSei = true;
+                                            }
+                                            else if (nalHeader == 7)
+                                            {
+                                                Buffer.WriteByte(0);
+                                                containsPps = true;
+                                            }
+                                            else if (nalHeader == 8)
+                                            {
+                                                Buffer.WriteByte(0);
+                                                containsSps = true;
+                                            }
+                                        }
+
+                                        if (nalHeader == 1) containsSlice = true;
+
+                                        if (nalHeader == 5) isIdr = true;
+                                    }
+
+                                    //Write the data of the fragment.
+                                    Buffer.Write(packetData, offset, fragment_size);
+                                }
+                            }
+                            return;
+                        }
+                    default:
+                        {
+                            // 6 SEI, 7 and 8 are SPS and PPS
+                            if (nalUnitType > 5)
+                            {
+                                if (nalUnitType == 6)
+                                {
+                                    Buffer.WriteByte(0);
+                                    containsSei = true;
+                                }
+                                else if (nalUnitType == 7)
+                                {
+                                    Buffer.WriteByte(0);
+                                    containsPps = true;
+                                }
+                                else if (nalUnitType == 8)
+                                {
+                                    Buffer.WriteByte(0);
+                                    containsSps = true;
+                                }
+                            }
+
+                            if (nalUnitType == 1) containsSlice = true;
+
+                            if (nalUnitType == 5) isIdr = true;
+
+                            //Write the start code
+                            Buffer.Write(NalStart, 0, 3);
+
+                            //Write the nal heaer and data data
+                            Buffer.Write(packetData, offset, count - offset);
+
+                            return;
+                        }
+                }
             }
 
             internal void DisposeBuffer()
@@ -386,9 +423,9 @@ namespace Media.Rtsp.Server.Media
 
         //TODO, Use a better starting point e.g. https://github.com/jordicenzano/h264simpleCoder/blob/master/src/CJOCh264encoder.h or the OpenH264 stuff @ https://github.com/cisco/openh264
 
-        byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
+        protected byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
 
-        byte[] pps = { 0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80 };
+        protected byte[] pps = { 0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80 };
 
         byte[] slice_header = { 0x00, 0x00, 0x00, 0x01, 0x05, 0x88, 0x84, 0x21, 0xa0 },
             slice_header1 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x84, 0x21, 0xa0 },
