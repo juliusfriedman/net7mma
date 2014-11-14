@@ -52,11 +52,12 @@ namespace Media.Rtsp.Server.Media
     /// </summary>
     public class RFC6416Media : RFC2435Media //RtpSink
     {
-        /// <summary>
-        /// Handles the creation of Stap and Frag packets from a large nal as well the creation of single large nals from Stap and Frag
-        /// </summary>
         public class RFC6416Frame : Rtp.RtpFrame
         {
+            static byte[] StartCode = new byte[] { 0x00, 0x00, 0x01 };
+
+            static byte VisalObjectSequenceStart = 0xB0;
+
             public RFC6416Frame(byte payloadType) : base(payloadType) { }
 
             public RFC6416Frame(Rtp.RtpFrame existing) : base(existing) { }
@@ -98,7 +99,7 @@ namespace Media.Rtsp.Server.Media
             {
                 DisposeBuffer();
 
-                Buffer = new MemoryStream(Assemble().ToArray());
+                Buffer = new MemoryStream(StartCode.Concat(VisalObjectSequenceStart.Yield()).Concat(StartCode).Concat(Assemble()).ToArray());
             }
 
             internal void DisposeBuffer()

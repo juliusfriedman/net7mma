@@ -50,7 +50,7 @@ namespace Media.Rtsp.Server.Media
     /// <summary>
     /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc6184">RFC6184</see> which is used for H.264 Encoded video.
     /// </summary>
-    public class RFC6184Media : RFC2435Media //RtpSink
+    public class RFC6184Media : RFC2435Media //Todo use RtpSink not RFC2435Media
     {
         //Some MP4 Related stuff
         //https://github.com/fyhertz/libstreaming/blob/master/src/net/majorkernelpanic/streaming/mp4/MP4Parser.java
@@ -340,15 +340,15 @@ namespace Media.Rtsp.Server.Media
                                             }
                                         }
 
+                                        if (nalHeader == 1) containsSlice = true;
+
+                                        if (nalHeader == 5) isIdr = true;
+
                                         //Write the start code
                                         Buffer.Write(NalStart, 0, 3);
 
                                         //Write the re-construced header
                                         Buffer.WriteByte(nalHeader);
-
-                                        if (nalHeader == 1) containsSlice = true;
-
-                                        if (nalHeader == 5) isIdr = true;
                                     }
 
                                     //Write the data of the fragment.
