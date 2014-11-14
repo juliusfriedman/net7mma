@@ -113,7 +113,9 @@ namespace Media.Rtsp.Server.Media
                   145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
                  */
 
-                Buffer = new MemoryStream(StartCode.Concat(VisalObjectSequenceStart.Yield()).Concat(profileLevelId.Yield()).Concat(StartCode).Concat(Assemble()).ToArray());
+                Buffer = new MemoryStream(StartCode. //00 00 01
+                    Concat(VisalObjectSequenceStart.Yield()).Concat(profileLevelId.Yield()). // B0 XX (ID)
+                    Concat(StartCode).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
             }
 
             internal void DisposeBuffer()
@@ -165,6 +167,7 @@ namespace Media.Rtsp.Server.Media
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4V-ES/90000"));
+            
             //Should be a field set in constructor.
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("fmtp:96 profile-level-id=1"));
 

@@ -12,20 +12,42 @@ namespace Media.Rtsp.Server.Media
     {
 
         /// <summary>
-        /// http://tools.ietf.org/html/rfc2250
+        /// Provides an implementation of <see href="http://tools.ietf.org/html/rfc2250">RFC2250</see> Commonly used with MPEG Encoded Video.
         /// </summary>
         public class RFC2250Frame : Rtp.RtpFrame
         {
+            public const int ProfileHeaderSize = 4;
+
+            /*
+              This header shall be attached to each RTP packet after the RTP fixed
+               header.
+
+                0                   1                   2                   3
+                0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+               |    MBZ  |T|         TR        | |N|S|B|E|  P  | | BFC | | FFC |
+               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+                                               AN              FBV     FFV
+            */
+            public static byte[] CreateMpegRtpVideoHeader(bool headerExtension, uint temporalReference, bool active, bool newPicture, bool sequenceHeader, bool sliceBegin, bool sliceEnd, byte pictureType, byte bfc = 0, byte ffc = 0)
+            {
+                temporalReference = Math.Max(0, Math.Min(1023, temporalReference));
+                return new byte[] { (byte)(headerExtension ? 1 : 0 | (byte)(temporalReference >>= 1)),
+                (byte)(temporalReference << 8), 
+                (byte)((newPicture ? 1 : 0) | (sequenceHeader ? 2 : 0) | (sliceBegin ? 3 : 0) | (sliceEnd ? 4 : 0) | pictureType >> 4),
+                (byte)(bfc | ffc << 4) };
+            }
+
             public RFC2250Frame() : base(32) { }
 
             public MemoryStream Buffer { get; protected set; }
 
-            public void Packetize()
+            public virtual void Packetize(byte[] data)
             {
                 throw new NotImplementedException();
             }
 
-            public void Depacketize()
+            public virtual void Depacketize()
             {
                 throw new NotImplementedException();
             }
@@ -45,9 +67,12 @@ namespace Media.Rtsp.Server.Media
                 base.Dispose();
                 DisposeBuffer();
             }
-        }
 
-        public const int ProfileHeaderSize = 4;
+            public override IEnumerable<byte> Assemble(bool useExtensions = false, int profileHeaderSize = ProfileHeaderSize)
+            {
+                return base.Assemble(useExtensions, profileHeaderSize);
+            }
+        }        
 
         public RFC2250Media(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch, width, height, false)
@@ -81,28 +106,6 @@ namespace Media.Rtsp.Server.Media
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
         }
 
-        /*
-          This header shall be attached to each RTP packet after the RTP fixed
-           header.
-
-            0                   1                   2                   3
-            0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-           |    MBZ  |T|         TR        | |N|S|B|E|  P  | | BFC | | FFC |
-           +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-                                           AN              FBV     FFV
-         * 
-         */
-
-        byte[] CreateMpegRtpVideoHeader(bool headerExtension, uint temporalReference, bool active, bool newPicture, bool sequenceHeader, bool sliceBegin, bool sliceEnd, byte pictureType, byte bfc = 0, byte ffc = 0)
-        {
-            temporalReference = Math.Max(0, Math.Min(1023, temporalReference));            
-            return new byte[] { (byte)(headerExtension ? 1 : 0 | (byte)(temporalReference >>= 1)),
-                (byte)(temporalReference << 8), 
-                (byte)((newPicture ? 1 : 0) | (sequenceHeader ? 2 : 0) | (sliceBegin ? 3 : 0) | (sliceEnd ? 4 : 0) | pictureType >> 4),
-                (byte)(bfc | ffc << 4) };
-        }
-
         public override void Packetize(System.Drawing.Image image)
         {
             lock (m_Frames)
@@ -113,10 +116,10 @@ namespace Media.Rtsp.Server.Media
                     using (var thumbnail = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
 
-                        //Todo Add 4 byte header http://tools.ietf.org/html/rfc2250
+                        //Should use RFC2250Frame to properly packetize
                         AddFrame(new Rtp.RtpFrame(32)
                         {
-                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), CreateMpegRtpVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)thumbnail)))
+                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), RFC2250Frame.CreateMpegRtpVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)thumbnail)))
                         });
                     }
                 }
@@ -344,7 +347,6 @@ namespace Media.Rtsp.Server.Media
                 }
             }
         }
-
 
         /// <summary>
         /// http://www.codeproject.com/Articles/5834/A-C-MPEG-Image-Compression-Class

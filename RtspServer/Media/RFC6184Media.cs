@@ -139,16 +139,14 @@ namespace Media.Rtsp.Server.Media
 
                 DisposeBuffer();
 
-                MemoryStream Buffer = new MemoryStream();
+                this.Buffer = new MemoryStream();
 
                 //Get all packets in the frame
                 foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct()) 
                     ProcessPacket(packet, out containsSps, out containsPps, out containsSei, out containsSlice, out isIdr);
 
                 //Order by DON?
-
-                //Assign the buffer
-                this.Buffer = Buffer;
+                this.Buffer.Position = 0;
             }
 
             /// <summary>
@@ -201,6 +199,9 @@ namespace Media.Rtsp.Server.Media
                     case 26: //MTAP - 16
                     case 27: //MTAP - 24
                         {
+                            //Move to Nal Data
+                            ++offset;
+
                             //Todo Determine if need to Order by DON first.
                             //EAT DON for ALL BUT STAP - A
                             if (nalUnitType != 24) offset += 2;
