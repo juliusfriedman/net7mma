@@ -182,7 +182,6 @@ namespace Media.Rtsp.Server.Media
 
         #endregion
 
-
         /// <summary>
         /// Beings streaming from the source
         /// </summary>
