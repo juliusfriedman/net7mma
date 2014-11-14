@@ -310,6 +310,8 @@ namespace Media.Rtp
                     }
                 }
 
+                //Should chyeck Coefficients is > profileHeaderSize ?
+
                 sequence = sequence.Concat(packet.Coefficients.Skip(profileHeaderSize));
             }
 
