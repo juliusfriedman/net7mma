@@ -72,7 +72,8 @@ namespace Media.Rtsp.Server.Media
 
                 int nalLength = nal.Length;
 
-                //May have length in front ?
+                //May have length in front ? (AVC Nal)
+                //if(nal[0] == 0x01)
 
                 if (nalLength >= mtu)
                 {
@@ -95,11 +96,24 @@ namespace Media.Rtsp.Server.Media
                 else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
             }
 
-            public void Depacketize()
+            /// <summary>
+            /// Write the required prerequesite data to the Buffer along with the Video Frame.
+            /// </summary>
+            /// <param name="profileLevelId">The profileLevelId (if not 1)</param>
+            public void Depacketize(byte profileLevelId = 1)
             {
                 DisposeBuffer();
 
-                Buffer = new MemoryStream(StartCode.Concat(VisalObjectSequenceStart.Yield()).Concat(StartCode).Concat(Assemble()).ToArray());
+                if (profileLevelId < 1) throw new ArgumentException("Must be a valid Mpeg 4 Profile Level Id with a value >= 1", "profileLevelId");
+
+                /*
+                  Example usages for the "profile-level-id" parameter are:
+                  1  : MPEG-4 Visual Simple Profile/Level 1
+                  34 : MPEG-4 Visual Core Profile/Level 2
+                  145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
+                 */
+
+                Buffer = new MemoryStream(StartCode.Concat(VisalObjectSequenceStart.Yield()).Concat(profileLevelId.Yield()).Concat(StartCode).Concat(Assemble()).ToArray());
             }
 
             internal void DisposeBuffer()
@@ -118,28 +132,6 @@ namespace Media.Rtsp.Server.Media
                 DisposeBuffer();
             }
         }
-
-        #region Fields
-
-        //Should be created dynamically
-
-        //http://www.cardinalpeak.com/blog/the-h-264-sequence-parameter-set/
-
-        //TODO, Use a better starting point e.g. https://github.com/jordicenzano/h264simpleCoder/blob/master/src/CJOCh264encoder.h or the OpenH264 stuff @ https://github.com/cisco/openh264
-
-        byte[] sps = { 0x00, 0x00, 0x00, 0x01, 0x67, 0x42, 0x00, 0x0a, 0xf8, 0x41, 0xa2 };
-
-        byte[] pps = { 0x00, 0x00, 0x00, 0x01, 0x68, 0xce, 0x38, 0x80 };
-
-        byte[] slice_header = { 0x00, 0x00, 0x00, 0x01, 0x05, 0x88, 0x84, 0x21, 0xa0 },
-            slice_header1 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x84, 0x21, 0xa0 },
-            slice_header2 = { 0x00, 0x00, 0x00, 0x01, 0x65, 0x88, 0x94, 0x21, 0xa0 };
-
-        bool useSliceHeader1 = true;
-        
-        byte[] macroblock_header = { 0x0d, 0x00 };
-
-        #endregion
 
         #region Constructor
 
@@ -173,6 +165,8 @@ namespace Media.Rtsp.Server.Media
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4V-ES/90000"));
+            //Should be a field set in constructor.
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("fmtp:96 profile-level-id=1"));
 
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
         }
