@@ -7,17 +7,17 @@ using System.Threading.Tasks;
 namespace Media.Rtsp.Server.Media
 {
     /// <summary>
-    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc4421">RFC4421</see> which is used for Uncompressed Video
+    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc4867">RFC4867</see> which is used for Adaptive Multi-Rate (AMR) and Adaptive Multi-Rate Wideband (AMR-WB) Audio Codecs
     /// </summary>
-    public class RFC4421Media : RFC2435Media //RtpSink
+    public class RFC4867Media : RFC2435Media //RtpSink
     {
-        public class RFC4421Frame : Rtp.RtpFrame
+        public class RFC4867Frame : Rtp.RtpFrame
         {
-            public RFC4421Frame(byte payloadType) : base(payloadType) { }
+            public RFC4867Frame(byte payloadType) : base(payloadType) { }
 
-            public RFC4421Frame(Rtp.RtpFrame existing) : base(existing) { }
+            public RFC4867Frame(Rtp.RtpFrame existing) : base(existing) { }
 
-            public RFC4421Frame(RFC4421Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
+            public RFC4867Frame(RFC4867Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
             public System.IO.MemoryStream Buffer { get; set; }
 
@@ -28,7 +28,11 @@ namespace Media.Rtsp.Server.Media
 
             public void Depacketize()
             {
-                this.Buffer = new System.IO.MemoryStream(this.Assemble(false, 14).ToArray());
+                /*
+                 http://tools.ietf.org/html/rfc4867
+                  */
+
+                throw new NotImplementedException();
             }
 
             internal void DisposeBuffer()
@@ -50,14 +54,14 @@ namespace Media.Rtsp.Server.Media
 
         #region Constructor
 
-        public RFC4421Media(int width, int height, string name, string directory = null, bool watch = true)
+        public RFC4867Media(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch, width, height, false, 99)
         {
             Width = width;
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 90;
+            clockRate = 16000;
         }
 
         #endregion
@@ -75,27 +79,15 @@ namespace Media.Rtsp.Server.Media
             m_RtpClient.TransportContexts.Clear();
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the given payload type         
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.audio, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             //Should be a field set in constructor.
-            //sampling=RG+B; depth=5; colorimetry=SMPTE240M
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " raw/" + clockRate));
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:" + SessionDescription.MediaDescriptions[0].MediaFormat + " sampling=RG+B; width=" + Width + "; height=" + Height + ";")); //depth=5; colorimetry=SMPTE240M
-
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " AMR/" + clockRate));
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
         }
-
-        /// <summary>
-        /// Packetize's an Image for Sending
-        /// </summary>
-        /// <param name="image">The Image to Encode and Send</param>
-        public override void Packetize(System.Drawing.Image image)
-        {
-            throw new NotImplementedException();
-        }
-
+        
         #endregion
     }
 }

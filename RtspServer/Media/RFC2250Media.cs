@@ -16,26 +16,34 @@ namespace Media.Rtsp.Server.Media
         /// </summary>
         public class RFC2250Frame : Rtp.RtpFrame
         {
+            public const byte RtpMpegPayloadType = 32;
+
             public const int ProfileHeaderSize = 4;
 
             /*
               This header shall be attached to each RTP packet after the RTP fixed
                header.
-
-                0                   1                   2                   3
+    * Bytes     0             1               2               3              
+             * -----------------------------------------------------------------
+    * Bits      0                   10                  20                  30
                 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                |    MBZ  |T|         TR        | |N|S|B|E|  P  | | BFC | | FFC |
                +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                                                AN              FBV     FFV
             */
-            public static byte[] CreateMpegRtpVideoHeader(bool headerExtension, uint temporalReference, bool active, bool newPicture, bool sequenceHeader, bool sliceBegin, bool sliceEnd, byte pictureType, byte bfc = 0, byte ffc = 0)
+            public static byte[] CreateVideoHeader(bool headerExtension, int temporalReference, bool active, bool newPicture, bool sequenceHeader, bool sliceBegin, bool sliceEnd, byte pictureType, bool fbv = false, byte bfc = 0, bool ffv = false, byte ffc = 0)
             {
                 temporalReference = Math.Max(0, Math.Min(1023, temporalReference));
                 return new byte[] { (byte)(headerExtension ? 1 : 0 | (byte)(temporalReference >>= 1)),
-                (byte)(temporalReference << 8), 
-                (byte)((newPicture ? 1 : 0) | (sequenceHeader ? 2 : 0) | (sliceBegin ? 3 : 0) | (sliceEnd ? 4 : 0) | pictureType >> 4),
-                (byte)(bfc | ffc << 4) };
+                (byte)((temporalReference << 8) | (active ? 1 : 0)), 
+                (byte)((newPicture ? 1 : 0) | (sequenceHeader ? 2 : 0) | (sliceBegin ? 3 : 0) | (sliceEnd ? 4 : 0) | (byte)(pictureType >> 5)),
+                (byte)(fbv ? 0x80 : 0 | (bfc >> 1 | (ffv ? 0x80 : 0) | ffc)) };
+            }
+
+            public static byte[] CreateAudioHeader()
+            {
+                throw new NotImplementedException();
             }
 
             public RFC2250Frame() : base(32) { }
@@ -95,8 +103,8 @@ namespace Media.Rtsp.Server.Media
 
             m_RtpClient.TransportContexts.Clear();
 
-            //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 32));
+            //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpMpegPayloadType            
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2250Frame.RtpMpegPayloadType));
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
@@ -119,7 +127,7 @@ namespace Media.Rtsp.Server.Media
                         //Should use RFC2250Frame to properly packetize
                         AddFrame(new Rtp.RtpFrame(32)
                         {
-                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), RFC2250Frame.CreateMpegRtpVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)thumbnail)))
+                            new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, true, 32, 0, sourceId, 0, 0), RFC2250Frame.CreateVideoHeader(false, 0, true, true, true, true, true, 1).Concat(WriteMPEGSequence((Bitmap)thumbnail)))
                         });
                     }
                 }
