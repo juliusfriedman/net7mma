@@ -59,6 +59,8 @@
       <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Video\mpeg4\ObjectTypeIndication.cs" />
+    <Compile Include="Video\mpeg4\StreamType.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Audio\flac\" />
@@ -69,7 +71,6 @@
     <Folder Include="Video\jpeg\" />
     <Folder Include="Video\mpeg1\" />
     <Folder Include="Video\mpeg2\" />
-    <Folder Include="Video\mpeg4\" />
     <Folder Include="Video\raw\" />
     <Folder Include="Video\theora\" />
     <Folder Include="Video\vp8\" />

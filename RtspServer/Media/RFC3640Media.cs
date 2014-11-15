@@ -83,7 +83,7 @@ namespace Media.Rtsp.Server.Media
                 // size += GetBits(sizeLength)
                 // index += GetBits(indexLength)
                 // Skip Length + 2.
-                this.Buffer = new MemoryStream(this.SelectMany(rtp =>
+                this.Buffer = new MemoryStream(this.Distinct().SelectMany(rtp =>
                 {
                     var coef = rtp.Coefficients;
 

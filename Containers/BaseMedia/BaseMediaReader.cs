@@ -23,6 +23,10 @@ namespace Media.Container.BaseMedia
         static DateTime IsoBaseDateUtc = new DateTime(1904, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         //Todo Make Dictionary and have a ToTextualConvention that tries the Dictionary first. (KnownParents)        
+
+        /// <summary>
+        /// <see href="http://www.mp4ra.org/atoms.html">MP4REG</see>
+        /// </summary>
         public static List<string> ParentBoxes = new List<string>()
         {
             "moof", //movie fragment

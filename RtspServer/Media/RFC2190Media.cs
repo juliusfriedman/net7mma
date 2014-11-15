@@ -7,17 +7,19 @@ using System.Threading.Tasks;
 namespace Media.Rtsp.Server.Media
 {
     /// <summary>
-    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc4421">RFC4421</see> which is used for Uncompressed Video
+    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc2190">RFC2190</see> which is used for H.263 Video Streams
     /// </summary>
-    public class RFC4421Media : RFC2435Media //RtpSink
+    public class RFC2190Media : RFC2435Media //RtpSink
     {
-        public class RFC4421Frame : Rtp.RtpFrame
+        public class RFC2190Frame : Rtp.RtpFrame
         {
-            public RFC4421Frame(byte payloadType) : base(payloadType) { }
+            public const byte RtpH323PayloadType = 34;
 
-            public RFC4421Frame(Rtp.RtpFrame existing) : base(existing) { }
+            public RFC2190Frame(byte payloadType) : base(payloadType) { }
 
-            public RFC4421Frame(RFC4421Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
+            public RFC2190Frame(Rtp.RtpFrame existing) : base(existing) { }
+
+            public RFC2190Frame(RFC2190Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
             public System.IO.MemoryStream Buffer { get; set; }
 
@@ -28,7 +30,7 @@ namespace Media.Rtsp.Server.Media
 
             public void Depacketize()
             {
-                this.Buffer = new System.IO.MemoryStream(this.Assemble(false, 14).ToArray());
+                throw new NotImplementedException();
             }
 
             internal void DisposeBuffer()
@@ -50,7 +52,7 @@ namespace Media.Rtsp.Server.Media
 
         #region Constructor
 
-        public RFC4421Media(int width, int height, string name, string directory = null, bool watch = true)
+        public RFC2190Media(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch, width, height, false, 99)
         {
             Width = width;
@@ -75,14 +77,13 @@ namespace Media.Rtsp.Server.Media
             m_RtpClient.TransportContexts.Clear();
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the given payload type         
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2190Frame.RtpH323PayloadType));
 
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             //Should be a field set in constructor.
-            //sampling=RG+B; depth=5; colorimetry=SMPTE240M
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " raw/" + clockRate));
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:" + SessionDescription.MediaDescriptions[0].MediaFormat + " sampling=RG+B; width=" + Width + "; height=" + Height + ";")); //depth=5; colorimetry=SMPTE240M
+            //=fmtp:xx CPCF=36,1000,0,1,1,0,0,2;CUSTOM=640,480,2;CIF=1;QCIF=1
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " H263/" + clockRate));
 
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
         }

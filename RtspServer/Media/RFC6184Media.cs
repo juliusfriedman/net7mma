@@ -186,10 +186,13 @@ namespace Media.Rtsp.Server.Media
                     //Consume the original header and move the offset into the data
                     byte nalHeader = nal[offset++],
                         nalFNRI = (byte)(nalHeader & 0xE0), //Extract the F and NRI bit fields
-                        nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue); //Extra the Type
+                        nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue); //Extract the Type
 
                     //No Marker yet
                     bool marker = false;
+
+                    //Get the highest sequence number
+                    int highestSequenceNumber = HighestSequenceNumber;
 
                     //Consume the bytes left in the nal
                     while (offset < nalLength)
@@ -198,17 +201,18 @@ namespace Media.Rtsp.Server.Media
                         if (FUHeader == null)
                         {
                             //FU (A/B) Indicator with F and NRI
-                            //Start with Original NalType
+                            //Start Bit Set with Original NalType
                             FUHeader = new byte[] { (byte)(nalFNRI | (DON.HasValue ? 29 : 28)), (byte)(0x80 | nalType) };
                         }
                         else if (offset + mtu > nalLength)
                         {
-                            //End with Original NalType
+                            //End Bit Set with Original NalType
                             FUHeader[1] = (byte)(0x40 | nalType);
+
                             //Rtp marker bit is also set
                             marker = true;
                         }
-                        else if (offset > 0) //For packets other than the start
+                        else//For packets other than the start or end
                         {
                             //No Start, No End
                             FUHeader[1] = nalType;
@@ -218,7 +222,7 @@ namespace Media.Rtsp.Server.Media
                         IEnumerable<byte> data = FUHeader.Concat(nal.Skip(offset).Take(mtu));
 
                         //FU - B has DON at the very beginning
-                        if (DON.HasValue && HighestSequenceNumber == 0)
+                        if (DON.HasValue && highestSequenceNumber == 0)
                         {
 
                             byte[] DONBytes = BitConverter.GetBytes((ushort)DON.Value);
@@ -228,8 +232,8 @@ namespace Media.Rtsp.Server.Media
                             data = DONBytes.Concat(data);
                         }
                         
-                        //Add the packet
-                        Add(new Rtp.RtpPacket(2, false, false, marker, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, data.ToArray()));
+                        //Add the packet using the next highest sequence number
+                        Add(new Rtp.RtpPacket(2, false, false, marker, PayloadTypeByte, 0, SynchronizationSourceIdentifier, ++highestSequenceNumber, 0, data.ToArray()));
 
                         //Move the offset
                         offset += mtu;
