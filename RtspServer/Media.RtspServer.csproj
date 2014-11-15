@@ -69,9 +69,11 @@
     <Compile Include="Media\MJPEGMedia.cs" />
     <Compile Include="Media\RFC2250Media.cs" />
     <Compile Include="Media\RFC2435Media.cs" />
+    <Compile Include="Media\RFC5219Media.cs" />
     <Compile Include="Media\RFC4421Media.cs" />
     <Compile Include="Media\RFC6190Media.cs" />
     <Compile Include="Media\RFC6185Media.cs" />
+    <Compile Include="Media\RFC3640Media.cs" />
     <Compile Include="Media\RFC6416Media.cs" />
     <Compile Include="Media\RFC6184Media.cs" />
     <Compile Include="Media\RtpSink.cs" />

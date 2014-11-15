@@ -1307,6 +1307,7 @@ namespace Media.Rtp
                     if (punchHole)
                     {
                         //Send some bytes to ensure the result is open, if we get a SocketException the port is closed
+                        //new RtpPacket(Version, false, false, false, MediaDescription.MediaFormat, SynchronizationSourceIdentifier, RemoteSynchronizationSourceIdentifier ?? 0, 0, 0, null);
                         try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtp); }
                         catch (SocketException) { } //We don't care about the response or any issues during the holePunch
                     }
@@ -1361,6 +1362,7 @@ namespace Media.Rtp
 
                         if (punchHole)
                         {
+                            //new RtcpPacket(Version, Rtcp.ReceiversReport.PayloadType, 0, 0, SynchronizationSourceIdentifier, 0);
                             try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
                             catch (SocketException) { }//We don't care about the response or any issues during the holePunch
                         }

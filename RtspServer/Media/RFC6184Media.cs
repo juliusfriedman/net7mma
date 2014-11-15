@@ -63,6 +63,95 @@ namespace Media.Rtsp.Server.Media
         /// </summary>
         public class RFC6184Frame : Rtp.RtpFrame
         {
+
+            public static byte[] CreateSingleTimeAggregationPacket(int? DON = null, params byte[][] nals)
+            {
+
+                if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
+
+                //Get the data required which consists of the Length and the nal.
+                IEnumerable<byte> data = nals.SelectMany(n => {
+
+                    byte[] lengthBytes = new byte[2];
+                    Common.Binary.WriteNetwork16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+
+                    return lengthBytes.Concat(n);
+                });
+
+                //STAP - B has DON at the very beginning
+                if (DON.HasValue)
+                {
+                    byte[] DONBytes = new byte[2];
+                    Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+
+                    data = ((byte)25).Yield().Concat(DONBytes).Concat(data);
+                }//STAP - A
+                else data = ((byte)24).Yield().Concat(data);
+
+                return data.ToArray();
+            }
+
+            public static byte[] CreateMultiTimeAggregationPacket(int DON, byte dond, int tsOffset, params byte[][] nals)
+            {
+
+                if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
+
+                //Get the data required which consists of the Length and the nal.
+                IEnumerable<byte> data = nals.SelectMany(n =>
+                {
+                    byte[] lengthBytes = new byte[2];
+                    Common.Binary.WriteNetwork16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+
+                    //DOND
+                    //TS OFFSET
+
+                    byte[] tsOffsetBytes = new byte[3];
+
+                    Common.Binary.WriteNetwork24(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
+
+                    return dond.Yield().Concat(lengthBytes).Concat(n);
+                });
+
+                //MTAP has DON at the very beginning
+                byte[] DONBytes = new byte[2];
+                Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+
+                data = ((byte)(0x26)).Yield().Concat(DONBytes).Concat(data);
+
+                return data.ToArray();
+            }
+
+            public static byte[] CreateMultiTimeAggregationPacket(int DON, byte dond, short tsOffset, params byte[][] nals)
+            {
+
+                if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
+
+                //Get the data required which consists of the Length and the nal.
+                IEnumerable<byte> data = nals.SelectMany(n =>
+                {
+                    byte[] lengthBytes = new byte[2];
+                    Common.Binary.WriteNetwork16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+
+                    //DOND
+
+                    //TS OFFSET
+
+                    byte[] tsOffsetBytes = new byte[2];
+
+                    Common.Binary.WriteNetwork16(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
+                    
+                    return dond.Yield().Concat(tsOffsetBytes).Concat(lengthBytes).Concat(n);
+                });
+
+                //MTAP has DON at the very beginning
+                byte[] DONBytes = new byte[2];
+                Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+
+                data = ((byte)(0x27)).Yield().Concat(DONBytes).Concat(data);
+
+                return data.ToArray();
+            }
+
             /// <summary>
             /// Emulation Prevention
             /// </summary>
@@ -81,7 +170,7 @@ namespace Media.Rtsp.Server.Media
             /// </summary>
             /// <param name="nal">The nal</param>
             /// <param name="mtu">The mtu</param>
-            public virtual void Packetize(byte[] nal, int mtu = 1500)
+            public virtual void Packetize(byte[] nal, int mtu = 1500, int? DON = null)
             {
                 if (nal == null) return;
 
@@ -91,27 +180,56 @@ namespace Media.Rtsp.Server.Media
 
                 if (nalLength >= mtu)
                 {
-                    //Make a Fragment Indicator with start bit
-                    byte[] FUI = new byte[] { (byte)(1 << 7), 0x00 };
+                    //Make a Fragmentation Header
+                    byte[] FUHeader = null;
 
+                    //Consume the original header and move the offset into the data
+                    byte nalHeader = nal[offset++],
+                        nalFNRI = (byte)(nalHeader & 0xE0), //Extract the F and NRI bit fields
+                        nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue); //Extra the Type
+
+                    //No Marker yet
                     bool marker = false;
 
+                    //Consume the bytes left in the nal
                     while (offset < nalLength)
                     {
-                        //Set the end bit if no more data remains
-                        if (offset + mtu > nalLength)
+                        //Create the Fragmentation Unit Header
+                        if (FUHeader == null)
                         {
-                            FUI[0] |= (byte)(1 << 6);
+                            //FU (A/B) Indicator with F and NRI
+                            //Start with Original NalType
+                            FUHeader = new byte[] { (byte)(nalFNRI | (DON.HasValue ? 29 : 28)), (byte)(0x80 | nalType) };
+                        }
+                        else if (offset + mtu > nalLength)
+                        {
+                            //End with Original NalType
+                            FUHeader[1] = (byte)(0x40 | nalType);
+                            //Rtp marker bit is also set
                             marker = true;
                         }
                         else if (offset > 0) //For packets other than the start
                         {
                             //No Start, No End
-                            FUI[0] = 0;
+                            FUHeader[1] = nalType;
                         }
 
+                        //Get the data required which consists of the FUHeader and the data.
+                        IEnumerable<byte> data = FUHeader.Concat(nal.Skip(offset).Take(mtu));
+
+                        //FU - B has DON at the very beginning
+                        if (DON.HasValue && HighestSequenceNumber == 0)
+                        {
+
+                            byte[] DONBytes = BitConverter.GetBytes((ushort)DON.Value);
+
+                            if (BitConverter.IsLittleEndian) Array.Reverse(DONBytes);
+
+                            data = DONBytes.Concat(data);
+                        }
+                        
                         //Add the packet
-                        Add(new Rtp.RtpPacket(2, false, false, marker, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, FUI.Concat(nal.Skip(offset).Take(mtu)).ToArray()));
+                        Add(new Rtp.RtpPacket(2, false, false, marker, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, data.ToArray()));
 
                         //Move the offset
                         offset += mtu;
@@ -471,6 +589,8 @@ namespace Media.Rtsp.Server.Media
             //Add the control line and media attributes to the Media Description
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000"));
+
+            //Sps and pps should be given...
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, !BitConverter.IsLittleEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
 
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
@@ -495,19 +615,17 @@ namespace Media.Rtsp.Server.Media
                         //Create a new frame
                         var newFrame = new RFC6184Frame(96);
 
-
                         //Get RGB Stride
-                        System.Drawing.Imaging.BitmapData data = ((System.Drawing.Bitmap)image).LockBits(new System.Drawing.Rectangle(0, 0, image.Width, image.Height),
-                                   System.Drawing.Imaging.ImageLockMode.ReadOnly, image.PixelFormat);
+                        System.Drawing.Imaging.BitmapData data = ((System.Drawing.Bitmap)thumb).LockBits(new System.Drawing.Rectangle(0, 0, thumb.Width, thumb.Height),
+                                   System.Drawing.Imaging.ImageLockMode.ReadOnly, thumb.PixelFormat);
 
-                        //Convert the bitmap to yuv420
-
+                        //MUST Convert the bitmap to yuv420
                         //switch on image.PixelFormat
-
                         //Utility.YUV2RGBManaged()
                         // Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
+                        //etc
 
-                        byte[] yuv = new byte[image.Width * image.Height];
+                        byte[] yuv = Utility.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);//new byte[thumb.Width * thumb.Height];
 
                         ((System.Drawing.Bitmap)image).UnlockBits(data);
 
