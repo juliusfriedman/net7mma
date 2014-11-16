@@ -50,11 +50,51 @@ namespace Media.Codecs.Video.mpeg4
         public const byte InteractionStream = 0x0A;
 
         public const byte IPMPToolStream = 0x0B;
-
+         
         public const byte FontDataStream = 0x0C;
 
         public const byte StreamingText = 0x0D;
 
+        public const byte ProgramEnd = 0xB9;
+
+        public const byte PackHeader = 0xBA;
+
+        public const byte ProgramStreamMap = 0xBC;
+
+        public const byte PrivateStream1 = 0xBD;
+
+        public const byte PaddingStream = 0xBE;
+
+        public const byte PrivateStream2 = 0xBF;
+
+        public static bool IsMpeg1or2AudioStream(byte code) { return code >= 0xC0 && code <= 0xDF; }
+
+        public static bool IsMpeg1or2VideoStream(byte code) { return code >= 0xE0 && code <= 0xEF; }
+
+        public const byte ECMStream = 0xF0;
+
+        public const byte EMMStream = 0xF1;
+
+        public const byte DMSCCStream = 0xF2;
+
+        public const byte ISO13522Stream = 0xF3;
+
+        public const byte H222TypeA = 0xF4;
+
+        public const byte H222TypeB = 0xF5;
+
+        public const byte H222TypeC = 0xF6;
+
+        public const byte H222TypeD = 0xF7;
+
+        public const byte H222TypeE = 0xF8;
+
+        public const byte AncillaryStream = 0xF8;
+
+        public static bool IsReserverd(byte b) { return b >= 0xFA && b <= 0xFE; }
+
         public static bool IsUserPrivate(byte b) { return b >= 0x20 && b <= 0x3f; }
+
+        public const byte ProgramStreamDirectory = byte.MaxValue;
     }
 }

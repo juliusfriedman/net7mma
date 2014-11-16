@@ -70,6 +70,8 @@
     <Compile Include="Media\RFC2250Media.cs" />
     <Compile Include="Media\RFC2435Media.cs" />
     <Compile Include="Media\RFC2190Media.cs" />
+    <Compile Include="Media\RFC6295Media.cs" />
+    <Compile Include="Media\RFC4733Media.cs" />
     <Compile Include="Media\RFC4867Media.cs" />
     <Compile Include="Media\RFC5215Media.cs" />
     <Compile Include="Media\RFC5993Media.cs" />

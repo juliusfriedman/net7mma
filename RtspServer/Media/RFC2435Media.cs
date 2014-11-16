@@ -41,16 +41,6 @@ using System.Text;
 
 namespace Media.Rtsp.Server.Media
 {
-
-    //Todo Seperate ImageStream from JpegRtpImageSource
-
-    //public class ImageStream : SourceStream
-    //{
-    //    public Rtp.RtpFrame CreateFrames() { }
-    //    public virtual void Encoode() { }
-    //    public virtual void Decode() { }
-    //}
-
     /// <summary>
     /// Sends System.Drawing.Images over Rtp by encoding them as a RFC2435 Jpeg
     /// </summary>
@@ -79,46 +69,6 @@ namespace Media.Rtsp.Server.Media
             public const byte RtpJpegPayloadType = 26;
 
             internal static System.Drawing.Imaging.ImageCodecInfo JpegCodecInfo = System.Drawing.Imaging.ImageCodecInfo.GetImageDecoders().First(d => d.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
-
-            /// <summary>
-            /// Markers which are contained in a valid Jpeg Image
-            /// <see cref="http://www.jpeg.org/public/fcd15444-10.pdf">A.1 Extended capabilities</see>
-            /// </summary>
-            public sealed class JpegMarkers
-            {
-                static JpegMarkers() { }
-
-                /// <summary>
-                /// In every marker segment the first two bytes after the marker shall be an unsigned value [In Network Endian] that denotes the length in bytes of 
-                /// the marker segment parameters (including the two bytes of this length parameter but not the two bytes of the marker itself). 
-                /// </summary>
-
-                public const byte Prefix = 0xff;
-
-                public const byte TextComment = 0xfe;
-
-                public const byte StartOfBaselineFrame = 0xc0;
-
-                public const byte StartOfProgressiveFrame = 0xc2;
-
-                public const byte HuffmanTable = 0xc4;
-
-                public const byte StartOfInformation = 0xd8;
-
-                public const byte AppFirst = 0xe0;
-
-                public const byte AppLast = 0xee;
-
-                public const byte EndOfInformation = 0xd9;
-
-                public const byte QuantizationTable = 0xdb;
-
-                public const byte DataRestartInterval = 0xdd;
-
-                public const byte StartOfScan = 0xda;
-
-                
-            }
 
             /// <summary>
             /// Creates RST header for JPEG/RTP packet.
@@ -257,8 +207,8 @@ namespace Media.Rtsp.Server.Media
 
                 int tablesCount = tables.Count;
 
-                result.Add(JpegMarkers.Prefix);
-                result.Add(JpegMarkers.StartOfInformation);//SOI                
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.Prefix);
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.StartOfInformation);//SOI                
 
                 //Quantization Tables
                 result.AddRange(CreateQuantizationTableMarkers(tables, precision));
@@ -300,15 +250,15 @@ namespace Media.Rtsp.Server.Media
                  */
 
                 //Need a progrssive indication, problem is that CMYK and RGB also use that indication
-                bool progressive = false; /* = typeSpec == JpegMarkers.StartOfProgressiveFrame;
+                bool progressive = false; /* = typeSpec == global::Media.Codecs.Video.Jpeg.Markers.StartOfProgressiveFrame;
                 if (progressive) typeSpec = 0;*/
 
-                result.Add(JpegMarkers.Prefix);
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.Prefix);
 
                 if(progressive)
-                    result.Add(JpegMarkers.StartOfProgressiveFrame);//SOF
+                    result.Add(global::Media.Codecs.Video.Jpeg.Markers.StartOfProgressiveFrame);//SOF
                 else
-                    result.Add(JpegMarkers.StartOfBaselineFrame);//SOF
+                    result.Add(global::Media.Codecs.Video.Jpeg.Markers.StartOfBaselineFrame);//SOF
 
                 //Todo properly build headers?
                 //If only 1 table (AND NOT PROGRESSIVE)
@@ -383,8 +333,8 @@ namespace Media.Rtsp.Server.Media
                 }
 
                 //Start Of Scan
-                result.Add(JpegMarkers.Prefix);
-                result.Add(JpegMarkers.StartOfScan);//Marker SOS
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.Prefix);
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.StartOfScan);//Marker SOS
 
                 //If only 1 table (AND NOT PROGRESSIVE)
                 if (tablesCount == 64)
@@ -554,8 +504,8 @@ namespace Media.Rtsp.Server.Media
                 byte[] result = new byte[(5 * tableCount) + (tableSize * tableCount)];
 
                 //Define QTable
-                result[0] = JpegMarkers.Prefix;
-                result[1] = JpegMarkers.QuantizationTable;
+                result[0] = global::Media.Codecs.Video.Jpeg.Markers.Prefix;
+                result[1] = global::Media.Codecs.Video.Jpeg.Markers.QuantizationTable;
 
                 result[2] = 0;//Len
                 result[3] = len;
@@ -568,8 +518,8 @@ namespace Media.Rtsp.Server.Media
 
                 if (tableCount > 1)
                 {
-                    result[tableSize + 5] = JpegMarkers.Prefix;
-                    result[tableSize + 6] = JpegMarkers.QuantizationTable;
+                    result[tableSize + 5] = global::Media.Codecs.Video.Jpeg.Markers.Prefix;
+                    result[tableSize + 6] = global::Media.Codecs.Video.Jpeg.Markers.QuantizationTable;
 
                     result[tableSize + 7] = 0;//Len LSB
                     result[tableSize + 8] = len;
@@ -583,8 +533,8 @@ namespace Media.Rtsp.Server.Media
 
                 if (tableCount > 2)
                 {
-                    result[tableSize + 10] = JpegMarkers.Prefix;
-                    result[tableSize + 11] = JpegMarkers.QuantizationTable;
+                    result[tableSize + 10] = global::Media.Codecs.Video.Jpeg.Markers.Prefix;
+                    result[tableSize + 11] = global::Media.Codecs.Video.Jpeg.Markers.QuantizationTable;
 
                     result[tableSize + 12] = 0;//Len LSB
                     result[tableSize + 13] = len;
@@ -718,8 +668,8 @@ namespace Media.Rtsp.Server.Media
             internal static byte[] CreateHuffmanTableMarker(byte[] codeLens, byte[] symbols, int tableNo, int tableClass)
             {
                 List<byte> result = new List<byte>();
-                result.Add(JpegMarkers.Prefix);
-                result.Add(JpegMarkers.HuffmanTable);
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.Prefix);
+                result.Add(global::Media.Codecs.Video.Jpeg.Markers.HuffmanTable);
                 result.Add(0x00); //Legnth
                 result.Add((byte)(3 + codeLens.Length + symbols.Length)); //Length
                 result.Add((byte)((tableClass << 4) | tableNo)); //Id
@@ -730,7 +680,7 @@ namespace Media.Rtsp.Server.Media
 
             internal static byte[] CreateDataRestartIntervalMarker(ushort dri)
             {
-                return new byte[] { JpegMarkers.Prefix, JpegMarkers.DataRestartInterval, 0x00, 0x04, (byte)(dri >> 8), (byte)(dri) };
+                return new byte[] { global::Media.Codecs.Video.Jpeg.Markers.Prefix, global::Media.Codecs.Video.Jpeg.Markers.DataRestartInterval, 0x00, 0x04, (byte)(dri >> 8), (byte)(dri) };
             }
 
             #endregion
@@ -869,7 +819,7 @@ namespace Media.Rtsp.Server.Media
                     jpegStream.Seek(0, System.IO.SeekOrigin.Begin);
 
                     //Check for the Start of Information Marker
-                    if (jpegStream.ReadByte() != JpegMarkers.Prefix && jpegStream.ReadByte() != JpegMarkers.StartOfInformation)
+                    if (jpegStream.ReadByte() != global::Media.Codecs.Video.Jpeg.Markers.Prefix && jpegStream.ReadByte() != global::Media.Codecs.Video.Jpeg.Markers.StartOfInformation)
                         throw new NotSupportedException("Data does not start with Start Of Information Marker");
 
                     //Check for the End of Information Marker, //If present do not include it.
@@ -877,7 +827,7 @@ namespace Media.Rtsp.Server.Media
 
                     long streamLength = jpegStream.Length, 
                         //Check for the eoi since we don't read in aligned MCU's yet
-                        endOffset = jpegStream.ReadByte() == JpegMarkers.EndOfInformation ? streamLength - 2 : streamLength;
+                        endOffset = jpegStream.ReadByte() == global::Media.Codecs.Video.Jpeg.Markers.EndOfInformation ? streamLength - 2 : streamLength;
 
                     //From the beginning of the buffered stream after the Start of Information Marker
                     jpegStream.Seek(2, System.IO.SeekOrigin.Begin);
@@ -926,7 +876,7 @@ namespace Media.Rtsp.Server.Media
                         ++streamOffset;
 
                         //If the prefix is a tag prefix then read another byte as the Tag
-                        if (FunctionCode == JpegMarkers.Prefix)
+                        if (FunctionCode == global::Media.Codecs.Video.Jpeg.Markers.Prefix)
                         {
                             //Get the underlying FunctionCode
                             FunctionCode = jpegStream.ReadByte();
@@ -937,10 +887,10 @@ namespace Media.Rtsp.Server.Media
                             if (FunctionCode == -1) break;
 
                             //Ensure not padded
-                            if (FunctionCode == JpegMarkers.Prefix) continue;
+                            if (FunctionCode == global::Media.Codecs.Video.Jpeg.Markers.Prefix) continue;
 
                             //Last Tag
-                            if (FunctionCode == JpegMarkers.EndOfInformation) break;
+                            if (FunctionCode == global::Media.Codecs.Video.Jpeg.Markers.EndOfInformation) break;
 
                             //Read the Marker Length
 
@@ -958,7 +908,7 @@ namespace Media.Rtsp.Server.Media
                             //Determine what to do based on the FunctionCode
                             switch (FunctionCode)
                             {
-                                case JpegMarkers.QuantizationTable:
+                                case global::Media.Codecs.Video.Jpeg.Markers.QuantizationTable:
                                     {
                                         if (Quality < 100) goto default;
 
@@ -994,8 +944,8 @@ namespace Media.Rtsp.Server.Media
 
                                         break;
                                     }
-                                case JpegMarkers.StartOfBaselineFrame:
-                                case JpegMarkers.StartOfProgressiveFrame:
+                                case global::Media.Codecs.Video.Jpeg.Markers.StartOfBaselineFrame:
+                                case global::Media.Codecs.Video.Jpeg.Markers.StartOfProgressiveFrame:
                                     {
                                         //Read the StartOfFrame Marker
                                         byte[] data = new byte[CodeSize];
@@ -1076,7 +1026,7 @@ namespace Media.Rtsp.Server.Media
 
                                         break;
                                     }
-                                case JpegMarkers.DataRestartInterval:
+                                case global::Media.Codecs.Video.Jpeg.Markers.DataRestartInterval:
                                     {
                                         #region RFC2435 - Restart Marker Header
 
@@ -1136,7 +1086,7 @@ namespace Media.Rtsp.Server.Media
 
                                         break;
                                     }
-                                case JpegMarkers.StartOfScan: //Last marker encountered
+                                case global::Media.Codecs.Video.Jpeg.Markers.StartOfScan: //Last marker encountered
                                     {
                                         long pos = streamOffset;
 
@@ -1179,7 +1129,7 @@ namespace Media.Rtsp.Server.Media
                                         if (pos + CodeSize != streamOffset) throw new Exception("Invalid StartOfScan Marker");
 
                                         //Check for alternate endSpectral
-                                        //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = JpegMarkers.StartOfProgressiveFrame;
+                                        //if (RtpJpegType > 0 && Ns > 0 && endSpectralSelection != 0x3f) RtpJpegTypeSpecific = global::Media.Codecs.Video.Jpeg.Markers.StartOfProgressiveFrame;
 
                                         //Create RtpJpegHeader and CopyTo currentPacket advancing currentPacketOffset
                                         //If Quality >= 100 then the QuantizationTableHeader + QuantizationTables also reside here (after any RtpRestartMarker if present).
@@ -1616,10 +1566,10 @@ namespace Media.Rtsp.Server.Media
                 if (Buffer.Position == Buffer.Length)
                 {
                     Buffer.Seek(-1, System.IO.SeekOrigin.Current);
-                    if (Buffer.ReadByte() != JpegMarkers.EndOfInformation)
+                    if (Buffer.ReadByte() != global::Media.Codecs.Video.Jpeg.Markers.EndOfInformation)
                     {
-                        Buffer.WriteByte(JpegMarkers.Prefix);
-                        Buffer.WriteByte(JpegMarkers.EndOfInformation);
+                        Buffer.WriteByte(global::Media.Codecs.Video.Jpeg.Markers.Prefix);
+                        Buffer.WriteByte(global::Media.Codecs.Video.Jpeg.Markers.EndOfInformation);
                     }
                 }                
             }

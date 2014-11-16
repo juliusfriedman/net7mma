@@ -349,21 +349,12 @@ namespace Media.Rtsp.Server.Media
             m_RtpClient.TransportContexts.Clear();
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the given payload type         
-            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.audio, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 mpa-robust/" + clockRate));
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
-        }
-
-        /// <summary>
-        /// Packetize's an Image for Sending
-        /// </summary>
-        /// <param name="image">The Image to Encode and Send</param>
-        public override void Packetize(System.Drawing.Image image)
-        {
-            throw new NotImplementedException();
         }
 
         #endregion

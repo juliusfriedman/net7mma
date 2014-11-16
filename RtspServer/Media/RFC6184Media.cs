@@ -64,7 +64,7 @@ namespace Media.Rtsp.Server.Media
         public class RFC6184Frame : Rtp.RtpFrame
         {
 
-            public static byte[] CreateSingleTimeAggregationPacket(int? DON = null, params byte[][] nals)
+            public static byte[] CreateSingleTimeAggregationUnit(int? DON = null, params byte[][] nals)
             {
 
                 if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
@@ -84,14 +84,14 @@ namespace Media.Rtsp.Server.Media
                     byte[] DONBytes = new byte[2];
                     Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
 
-                    data = ((byte)25).Yield().Concat(DONBytes).Concat(data);
+                    data = global::Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB.Yield().Concat(DONBytes).Concat(data);
                 }//STAP - A
-                else data = ((byte)24).Yield().Concat(data);
+                else data = global::Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA.Yield().Concat(data);
 
                 return data.ToArray();
             }
 
-            public static byte[] CreateMultiTimeAggregationPacket(int DON, byte dond, int tsOffset, params byte[][] nals)
+            public static byte[] CreateMultiTimeAggregationUnit(int DON, byte dond, int tsOffset, params byte[][] nals)
             {
 
                 if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
@@ -116,12 +116,12 @@ namespace Media.Rtsp.Server.Media
                 byte[] DONBytes = new byte[2];
                 Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
 
-                data = ((byte)(0x26)).Yield().Concat(DONBytes).Concat(data);
+                data = global::Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16.Yield().Concat(DONBytes).Concat(data);
 
                 return data.ToArray();
             }
 
-            public static byte[] CreateMultiTimeAggregationPacket(int DON, byte dond, short tsOffset, params byte[][] nals)
+            public static byte[] CreateMultiTimeAggregationUnit(int DON, byte dond, short tsOffset, params byte[][] nals)
             {
 
                 if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
@@ -147,15 +147,10 @@ namespace Media.Rtsp.Server.Media
                 byte[] DONBytes = new byte[2];
                 Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
 
-                data = ((byte)(0x27)).Yield().Concat(DONBytes).Concat(data);
+                data = global::Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24.Yield().Concat(DONBytes).Concat(data);
 
                 return data.ToArray();
             }
-
-            /// <summary>
-            /// Emulation Prevention
-            /// </summary>
-            static byte[] NalStart = { 0x00, 0x00, 0x01 };
 
             public RFC6184Frame(byte payloadType) : base(payloadType) { }
 
@@ -180,13 +175,12 @@ namespace Media.Rtsp.Server.Media
 
                 if (nalLength >= mtu)
                 {
-                    //Make a Fragmentation Header
-                    byte[] FUHeader = null;
-
                     //Consume the original header and move the offset into the data
                     byte nalHeader = nal[offset++],
                         nalFNRI = (byte)(nalHeader & 0xE0), //Extract the F and NRI bit fields
-                        nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue); //Extract the Type
+                        nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue), //Extract the Type
+                        fragmentType = (byte)(DON.HasValue ? global::Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB : global::Media.Codecs.Video.H264.NalUnitType.FragmentationUnitA),
+                        fragmentIndicator = (byte)(nalFNRI | fragmentType);//Create the Fragment Indicator Octet
 
                     //No Marker yet
                     bool marker = false;
@@ -197,17 +191,22 @@ namespace Media.Rtsp.Server.Media
                     //Consume the bytes left in the nal
                     while (offset < nalLength)
                     {
-                        //Create the Fragmentation Unit Header
-                        if (FUHeader == null)
+                        //Get the data required which consists of the fragmentIndicator, Constructed Header and the data.
+                        IEnumerable<byte> data;
+
+                        //Build the Fragmentation Header
+
+                        //First Packet
+                        if (offset == 1)
                         {
                             //FU (A/B) Indicator with F and NRI
                             //Start Bit Set with Original NalType
-                            FUHeader = new byte[] { (byte)(nalFNRI | (DON.HasValue ? 29 : 28)), (byte)(0x80 | nalType) };
+                            data = Enumerable.Concat(fragmentIndicator.Yield(), ((byte)(0x80 | nalType)).Yield());
                         }
                         else if (offset + mtu > nalLength)
                         {
                             //End Bit Set with Original NalType
-                            FUHeader[1] = (byte)(0x40 | nalType);
+                            data = Enumerable.Concat(fragmentIndicator.Yield(), ((byte)(0x40 | nalType)).Yield());
 
                             //Rtp marker bit is also set
                             marker = true;
@@ -215,21 +214,18 @@ namespace Media.Rtsp.Server.Media
                         else//For packets other than the start or end
                         {
                             //No Start, No End
-                            FUHeader[1] = nalType;
+                            data = Enumerable.Concat(fragmentIndicator.Yield(), nalType.Yield());
                         }
 
-                        //Get the data required which consists of the FUHeader and the data.
-                        IEnumerable<byte> data = FUHeader.Concat(nal.Skip(offset).Take(mtu));
+                        //Add the data the fragment data from the original nal
+                        data = Enumerable.Concat(data, nal.Skip(offset).Take(mtu));
 
                         //FU - B has DON at the very beginning
-                        if (DON.HasValue && highestSequenceNumber == 0)
+                        if (fragmentType == global::Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB && highestSequenceNumber == 0)
                         {
-
-                            byte[] DONBytes = BitConverter.GetBytes((ushort)DON.Value);
-
-                            if (BitConverter.IsLittleEndian) Array.Reverse(DONBytes);
-
-                            data = DONBytes.Concat(data);
+                            byte[] DONBytes = new byte[2];
+                            Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+                            data = Enumerable.Concat(DONBytes, data);
                         }
                         
                         //Add the packet using the next highest sequence number
@@ -303,30 +299,35 @@ namespace Media.Rtsp.Server.Media
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
 
+                //TODO
+
                 //o  The F bit MUST be cleared if all F bits of the aggregated NAL units are zero; otherwise, it MUST be set.
                 //if (forbiddenZeroBit && nalUnitType <= 23 && nalUnitType > 29) throw new InvalidOperationException("Forbidden Zero Bit is Set.");
+
+                //Optomize setting out parameters, could be done with a label or with a static function.
 
                 //Determine what to do
                 switch (nalUnitType)
                 {
                     //Reserved - Ignore
-                    case 0:
-                    case 30:
-                    case 31:
+                    case global::Media.Codecs.Video.H264.NalUnitType.Unknown:
+                    case global::Media.Codecs.Video.H264.NalUnitType.PayloadContentScalabilityInformation:
+                    case global::Media.Codecs.Video.H264.NalUnitType.Reserved:
                         {
+                            //Do not handle
                             return;
                         }
-                    case 24: //STAP - A
-                    case 25: //STAP - B
-                    case 26: //MTAP - 16
-                    case 27: //MTAP - 24
+                    case global::Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA: //STAP - A
+                    case global::Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB: //STAP - B
+                    case global::Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16: //MTAP - 16
+                    case global::Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24: //MTAP - 24
                         {
                             //Move to Nal Data
                             ++offset;
 
                             //Todo Determine if need to Order by DON first.
                             //EAT DON for ALL BUT STAP - A
-                            if (nalUnitType != 24) offset += 2;
+                            if (nalUnitType != global::Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA) offset += 2;
 
                             //Consume the rest of the data from the packet
                             while (offset < count)
@@ -341,13 +342,13 @@ namespace Media.Rtsp.Server.Media
                                     //For DOND and TSOFFSET
                                     switch (nalUnitType)
                                     {
-                                        case 25:// MTAP - 16
+                                        case global::Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16:// MTAP - 16
                                             {
                                                 //SKIP DOND and TSOFFSET
                                                 offset += 3;
                                                 goto default;
                                             }
-                                        case 26:// MTAP - 24
+                                        case global::Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24:// MTAP - 24
                                             {
                                                 //SKIP DOND and TSOFFSET
                                                 offset += 4;
@@ -387,7 +388,7 @@ namespace Media.Rtsp.Server.Media
                                     }
 
                                     //Write the start code
-                                    Buffer.Write(NalStart, 0, 3);
+                                    Buffer.Write(global::Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
                                     //Write the nal header and data
                                     Buffer.Write(packetData, offset, tmp_nal_size);
@@ -399,8 +400,8 @@ namespace Media.Rtsp.Server.Media
 
                             return;
                         }
-                    case 28: //FU - A
-                    case 29: //FU - B
+                    case global::Media.Codecs.Video.H264.NalUnitType.FragmentationUnitA: //FU - A
+                    case global::Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB: //FU - B
                         {
                             /*
                              Informative note: When an FU-A occurs in interleaved mode, it
@@ -468,11 +469,13 @@ namespace Media.Rtsp.Server.Media
                                         if (nalHeader == 5) isIdr = true;
 
                                         //Write the start code
-                                        Buffer.Write(NalStart, 0, 3);
+                                        Buffer.Write(global::Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
                                         //Write the re-construced header
                                         Buffer.WriteByte(nalHeader);
                                     }
+
+                                    //Allow If End to Write End Sequence?
 
                                     //Write the data of the fragment.
                                     Buffer.Write(packetData, offset, fragment_size);
@@ -507,7 +510,7 @@ namespace Media.Rtsp.Server.Media
                             if (nalUnitType == 5) isIdr = true;
 
                             //Write the start code
-                            Buffer.Write(NalStart, 0, 3);
+                            Buffer.Write(global::Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
                             //Write the nal heaer and data data
                             Buffer.Write(packetData, offset, count - offset);
