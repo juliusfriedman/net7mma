@@ -72,19 +72,19 @@ namespace Media.Rtsp.Server.Media
                 //Determine if extended nals are present
                 switch (nalUnitType)
                 {
-                    case 14: //Prefix Nal
+                    case global::Media.Codecs.Video.H264.NalUnitType.Prefix: //Prefix Nal
                         {
                             return;
                         }
-                    case 15: // Subset sequence parameter set
+                    case global::Media.Codecs.Video.H264.NalUnitType.SequenceParameterSetSubset: // Subset sequence parameter set
                         {
                             return;
                         }
-                    case 20: // Coded slice in scalable extension
+                    case global::Media.Codecs.Video.H264.NalUnitType.SliceExtension: // Coded slice in scalable extension
                         {
                             return;
                         }
-                    case 30: // PACSI NAL unit
+                    case global::Media.Codecs.Video.H264.NalUnitType.PayloadContentScalabilityInformation: // PACSI NAL unit
                         {
                             //if more than 10 bytes present containesSei = true.
 
@@ -96,8 +96,9 @@ namespace Media.Rtsp.Server.Media
 
                             return;
                         }
-                    case 31: // Empty, NT-MTAP etc.
+                    case global::Media.Codecs.Video.H264.NalUnitType.NonInterleavedMultiTimeAggregation: // Empty, NT-MTAP etc.
                         {
+                            //Get subType
                             //Read nal unit size
                             //skip TS offset (2 bytes)
                             //Skip DON if present

@@ -54,10 +54,6 @@ namespace Media.Rtsp.Server.Media
     {
         public class RFC6416Frame : Rtp.RtpFrame
         {
-            static byte[] StartCode = new byte[] { 0x00, 0x00, 0x01 };
-
-            static byte VisalObjectSequenceStart = 0xB0;
-
             public RFC6416Frame(byte payloadType) : base(payloadType) { }
 
             public RFC6416Frame(Rtp.RtpFrame existing) : base(existing) { }
@@ -113,9 +109,9 @@ namespace Media.Rtsp.Server.Media
                   145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
                  */
 
-                Buffer = new MemoryStream(StartCode. //00 00 01
-                    Concat(VisalObjectSequenceStart.Yield()).Concat(profileLevelId.Yield()). // B0 XX (ID)
-                    Concat(StartCode).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
+                Buffer = new MemoryStream(global::Media.Codecs.Video.Mpeg4.StartCode.Prefix. //00 00 01
+                    Concat(global::Media.Codecs.Video.Mpeg4.StartCode.VisalObjectSequence.Yield()).Concat(profileLevelId.Yield()). // B0 XX (ID)
+                    Concat(global::Media.Codecs.Video.Mpeg4.StartCode.Prefix).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
             }
 
             internal void DisposeBuffer()
