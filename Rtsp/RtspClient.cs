@@ -1420,7 +1420,24 @@ namespace Media.Rtsp
             catch { throw; }
         }
 
-        //SendPause
+        /// <summary>
+        /// Sends a PAUSE Request
+        /// </summary>
+        /// <param name="location">The location to indicate in the request</param>
+        /// <returns>The response</returns>
+        public RtspMessage SendPause(Uri location = null)
+        {
+            if (!SupportedMethods.Contains(RtspMethod.PAUSE)) throw new InvalidOperationException("Server does not support PAUSE.");
+            //if (!Playing) throw new InvalidOperationException("RtspClient is not Playing.");
+            using (RtspMessage pause = new RtspMessage(RtspMessageType.Request)
+                {
+                    Method = RtspMethod.PAUSE,
+                    Location = location ?? Location
+                })
+            {
+                return SendRtspRequest(pause);
+            }
+        }
 
         //SendRecord
 
