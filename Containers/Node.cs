@@ -14,7 +14,7 @@ namespace Media.Container
         /// <summary>
         /// The <see cref="IMediaContainer"/> from which this instance was created.
         /// </summary>
-        readonly IMediaContainer Master;
+        public readonly IMediaContainer Master;
 
         /// <summary>
         /// The Offset in which the <see cref="RawData"/> occurs in the <see cref="Master"/>

@@ -2682,6 +2682,102 @@ a=mpeg4-esid:101");
 
             #endregion
 
+            #region TransportStreamReader
+            
+            if (System.IO.Directory.Exists(localPath + "/Video/ts/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ts/"))
+                {
+                    using (Media.Container.Mpeg.TransportStreamReader reader = new Media.Container.Mpeg.TransportStreamReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + Media.Container.Mpeg.TransportStreamReader.ToTextualConvention(reader.Root));
+
+                        Console.WriteLine("Packets:");
+
+                        foreach (var packet in reader)
+                        {
+                            Console.WriteLine("Element Offset: " + packet.Offset);
+                            Console.WriteLine("Element Data Offset: " + packet.DataOffset);
+                            Console.WriteLine("Element DataSize: " + packet.DataSize);
+                            Console.WriteLine("Element TotalSize: " + packet.TotalSize);
+                            Console.WriteLine("Element.IsComplete: " + packet.IsComplete);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
+
+            #region ProgramStreamReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/ps/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ps/"))
+                {
+                    using (Media.Container.Mpeg.ProgramStreamReader reader = new Media.Container.Mpeg.ProgramStreamReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + Media.Container.Mpeg.ProgramStreamReader.ToTextualConvention(reader.Root));
+
+                        Console.WriteLine("Packets:");
+
+                        foreach (var packet in reader)
+                        {
+                            Console.WriteLine("Element Offset: " + packet.Offset);
+                            Console.WriteLine("Element Data Offset: " + packet.DataOffset);
+                            Console.WriteLine("Element DataSize: " + packet.DataSize);
+                            Console.WriteLine("Element TotalSize: " + packet.TotalSize);
+                            Console.WriteLine("Element.IsComplete: " + packet.IsComplete);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
+
+            #region ElementaryStreamReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/es/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/es/"))
+                {
+                    using (Media.Container.Mpeg.ElementaryStreamReader reader = new Media.Container.Mpeg.ElementaryStreamReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + Media.Container.Mpeg.ElementaryStreamReader.ToTextualConvention(reader.Root));
+
+                        Console.WriteLine("Packets:");
+
+                        foreach (var mpegObject in reader)
+                        {
+                            Console.WriteLine("Element Offset: " + mpegObject.Offset);
+                            Console.WriteLine("Element Data Offset: " + mpegObject.DataOffset);
+                            Console.WriteLine("Element DataSize: " + mpegObject.DataSize);
+                            Console.WriteLine("Element TotalSize: " + mpegObject.TotalSize);
+                            Console.WriteLine("Element.IsComplete: " + mpegObject.IsComplete);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
+
         }
 
         static void DumpTrack(Media.Container.Track track)
