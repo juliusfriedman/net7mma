@@ -65,6 +65,9 @@
     <Compile Include="Matroska\MatroskaReader.cs" />
     <Compile Include="Mcf\McfReader.cs" />
     <Compile Include="MediaFileStream.cs" />
+    <Compile Include="Mpeg\ElementaryStreamReader.cs" />
+    <Compile Include="Mpeg\ProgramStreamReader.cs" />
+    <Compile Include="Mpeg\TransportStreamReader.cs" />
     <Compile Include="Mxf\MxfReader.cs" />
     <Compile Include="Node.cs" />
     <Compile Include="Nut\NutReader.cs" />
