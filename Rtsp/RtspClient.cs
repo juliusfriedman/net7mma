@@ -1437,11 +1437,31 @@ namespace Media.Rtsp
             {
                 return SendRtspRequest(pause);
             }
+        }        
+
+        /// <summary>
+        /// Sends a ANNOUNCE Request
+        /// </summary>
+        /// <param name="location">The location to indicate in the request, otherwise null to use the <see cref="Location"/></param>
+        /// <param name="sdp">The <see cref="SessionDescription"/> to ANNOUNCE</param>
+        /// <returns>The response</returns>
+        public RtspMessage SendAccount(Uri location, SessionDescription sdp)
+        {
+            if (!SupportedMethods.Contains(RtspMethod.ANNOUNCE)) throw new InvalidOperationException("Server does not support ANNOUNCE.");
+            if (sdp == null) throw new ArgumentNullException("sdp");
+            using (RtspMessage announce = new RtspMessage(RtspMessageType.Request)
+            {
+                Method = RtspMethod.ANNOUNCE,
+                Location = location ?? Location,
+                Body = sdp.ToString()
+            })
+            {
+                announce.SetHeader(RtspHeaders.ContentType, Sdp.SessionDescription.MimeType);
+                return SendRtspRequest(announce);
+            }
         }
 
         //SendRecord
-
-        //SendAccounce
 
         internal void SendKeepAlive(object state)
         {
@@ -1478,7 +1498,7 @@ namespace Media.Rtsp
             {
                 Method = RtspMethod.GET_PARAMETER,
                 Location = Location,
-                Body = body ?? string.Empty //"\r\n$\00"
+                Body = body ?? string.Empty
             })
             {
                 return SendRtspRequest(get);
