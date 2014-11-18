@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Media.Codecs.Video.Mpeg4
 {
     /// <summary>
-    /// This type implements the ObjectTypeIndication used in MPEG-4 systems to indicate the type of streams. 
+    /// This type implements the ObjectTypeIndication used in MPEG-4 systems to indicate the type of data contained in a stream. 
     /// Applications for a new codec type will also automatically receive an object type indication.
     /// <see href="http://www.mp4ra.org/object.html#obj-a">MP4REG</see>
     /// </summary>
