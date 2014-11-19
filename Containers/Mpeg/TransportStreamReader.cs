@@ -47,67 +47,85 @@ namespace Media.Container.Mpeg
     {
         public const byte Marker = 0x47, VariableLength = 0x20, NonZeroLength = 0x10;
 
-        public const int IdentiferSize = 4, LengthSize = 0, PacketLength = 188;
+        public const int IdentifierSize = 4, LengthSize = 0, PacketLength = 188;
 
-        public static string ToTextualConvention(Container.Node node)
-        {
-            throw new NotImplementedException();
+        //Forms a dependence on Codecs.dll.
+        //Maybe move StreamType to here
+        public static string ToTextualConvention(Container.Node node) { return node.DataSize == 0 ? "AdaptionFieldOnlyPacket" : Media.Codecs.Video.Mpeg4.StreamType.ToTextualConvention(node.RawData[0]); }
 
-            //if (node == null) throw new ArgumentNullException("node");
-        }
+        public static int GetStreamId(Container.Node node) { return node.Identifier[1]; }
 
-        public static int GetStreamId(Container.Node node) { return node.Identifier[0]; }
+        public static bool HasTransportErrorIndicator(Container.Node node) { return (node.Identifier[1] & 0x80) > 0; }
 
-        public static bool IsPayloadStart(Container.Node node) { return (Common.Binary.ReadU16(node.Identifier, 1, BitConverter.IsLittleEndian) & 0x1FFF) > 0; }
+        public static bool HasPayloadUnitStartIndicator(Container.Node node) { return (node.Identifier[1] & 0x40) > 0; }
 
-        public static byte[] GetVariableLengthData(Container.Node node)
+        public static bool HasTransportPriority(Container.Node node) { return (node.Identifier[1] & VariableLength) > 0; }
+
+        public static int GetProgramId(Container.Node node) { return (node.Identifier[1] << 3) * 256 + node.Identifier[2]; }
+
+        public static bool HasAdaptationField(Container.Node node) { return (node.Identifier[3] & VariableLength) != 0; }
+
+        public static int TransportScramblingControl(Container.Node node) { return (node.Identifier[3] << 3) & 0xF0; }        
+
+        public static int AdaptationFieldControl(Container.Node node) { return (node.Identifier[3] << 4); }
+
+        public static int AdaptationFieldContinuityCounter(Container.Node node) { return node.Identifier[3] & 0xF; }
+
+        public static byte[] GetAdaptationFieldData(Container.Node node)
         {
             if (node == null) throw new ArgumentNullException("node");
 
-            if (node.LengthSize < 1) return Utility.Empty;
+            if (node.LengthSize < 1 || !HasAdaptationField(node)) return Utility.Empty;
 
             int size = node.LengthSize - 1;
 
-            long position = node.Master.BaseStream.Position;
+            long position = node.Master.BaseStream.Position, neededPosition = node.Offset + IdentifierSize + 1;
 
-            node.Master.BaseStream.Position = node.DataOffset - size;
+            node.Master.BaseStream.Seek(neededPosition, System.IO.SeekOrigin.Begin);
 
             byte[] data = new byte[size];
 
             node.Master.BaseStream.Read(data, 0, size);
             
-            node.Master.BaseStream.Position = position;
+            node.Master.BaseStream.Seek(position, System.IO.SeekOrigin.Begin);
 
             return data;
         }
+
+        //Values from AdaptationField
 
         public TransportStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public TransportStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        /// <summary>
-        /// Always seeks in different of the offset given and the modulo ofr the TransportStream PacketLength (188)
-        /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="origin"></param>
-        /// <returns></returns>
-        public override long Seek(long offset, System.IO.SeekOrigin origin) { return base.Seek(offset - (offset % PacketLength), origin); }
+        ///// <summary>
+        ///// Always seeks in different of the offset given and the modulo ofr the TransportStream PacketLength (188)
+        ///// </summary>
+        ///// <param name="offset"></param>
+        ///// <param name="origin"></param>
+        ///// <returns></returns>
+        //public override long Seek(long offset, System.IO.SeekOrigin origin) { return base.Seek(offset - (offset % PacketLength), origin); }
+
+        ///// <summary>
+        ///// Skips in terms of packets
+        ///// </summary>
+        ///// <param name="count"></param>
+        ///// <returns></returns>
+        //public override long Skip(long count) { return base.Skip(count); }
 
         public Container.Node ReadNext()
         {
-            byte[] identifier = new byte[IdentiferSize];
+            byte[] identifier = new byte[IdentifierSize];
 
-            Read(identifier, 0, IdentiferSize);
+            Read(identifier, 0, IdentifierSize);
 
             if (identifier[0] != Marker) throw new InvalidOperationException("Cannot Find Marker");
 
             //The last byte determine if there is a variable length (adaptation) field
             byte last = identifier[3];
 
-            //long counter = last & 0xf;
-
             //Determine the length of the packet and amount of bytes required to read the length
-            int length = PacketLength - IdentiferSize, lengthSize = LengthSize;
+            int length = PacketLength - IdentifierSize, lengthSize = LengthSize;
 
             //Check for varible length field
             if ((last & VariableLength) != 0)
@@ -116,10 +134,13 @@ namespace Media.Container.Mpeg
                 lengthSize = (byte)((ReadByte()) & byte.MaxValue);
                 
                 //If it has any more data skip past it (obtained with read at DataOffset - LengthSize)
-                if (lengthSize > 0) base.Seek(lengthSize, System.IO.SeekOrigin.Current);
+                if (lengthSize > 0) Skip(lengthSize);
 
-                //Include the size byte in the length size
+                //Do include the size byte in the length size
                 lengthSize++;
+
+                //Don't include the variable length data in the size
+                length -= lengthSize;
             }
 
             //Check for Zero Length Flag (only variable length field)
@@ -137,20 +158,30 @@ namespace Media.Container.Mpeg
 
                 if (next == null) yield break;
 
-                base.Seek(next.DataSize, System.IO.SeekOrigin.Current);
+                yield return next;
+
+                Skip(next.DataSize);
             }
         }  
 
         public override Container.Node Root
         {
-            get { return this.FirstOrDefault(); }
+            get
+            {
+                long position = Position;
+                var result = this.FirstOrDefault();
+                Position = position;
+                return result;
+            }
         }
 
+        //First with ProgramStreamMap?
         public override Container.Node TableOfContents
         {
             get { throw new NotImplementedException(); }
         }
 
+        //Read all with Start of Payload then determine from Stream Ids.
         public override IEnumerable<Container.Track> GetTracks()
         {
             throw new NotImplementedException();

@@ -104,7 +104,7 @@ namespace Media.Container
 
         public override long Length { get { return Disposed ? -1 : m_Length; } }
 
-        public long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
+        public virtual long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
 
         //public virtual byte[] ReadBytes(int count) { if(count <= 0) return Utility.Empty; byte[] result = new byte[count]; int i = 0; while((count -= (i += Read(result, i, count))) > 0);  return result; }
 
@@ -112,7 +112,7 @@ namespace Media.Container
 
         public override int ReadByte() { int result = base.ReadByte(); if (result != -1) ++m_Position; return result; }
 
-        public long Skip(long count) { return count <= 0 ? Position : Position += count; }
+        public virtual long Skip(long count) { return count <= 0 ? Position : Position += count; }
 
         protected System.IO.FileInfo FileInfo { get { return m_FileInfo; } }
 

@@ -1247,10 +1247,10 @@ namespace Media.Rtsp
 
                             m_RtpClient.InterleavedData += ProcessInterleaveData;
 
+                            //SETUP shouldn't effect read and write timeouts.
                             //If Rtcp is not disabled then this will set the read and write timeouts. 
-                            SocketWriteTimeout = (int)created.ReceiveInterval.TotalMilliseconds;
-                            SocketReadTimeout = (int)created.SendInterval.TotalMilliseconds;
-
+                            //SocketWriteTimeout = (int)created.ReceiveInterval.TotalMilliseconds;
+                            //SocketReadTimeout = (int)created.SendInterval.TotalMilliseconds;
                         }
                         else if (m_RtpProtocol != ProtocolType.Tcp) goto SetupTcp;
 
@@ -1279,6 +1279,7 @@ namespace Media.Rtsp
 
                                 //Create a Udp Reciever
                                 m_RtpClient = new RtpClient(memory);
+
                             }
                             else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
                         }
@@ -1467,9 +1468,6 @@ namespace Media.Rtsp
         {
             try
             {
-
-                if (!Connected) Connect();
-
                 if (!Connected) return;
                 //Darwin DSS and other servers might not support GET_PARAMETER
                 else if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))

@@ -4,14 +4,14 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Media.Codecs.Video.mpeg4
+namespace Media.Codecs.Video.Mpeg4
 {
    /// <summary>
-    /// Describes the various MPEG Stream Types. (ISO13818-2 and compatible)
+   /// Describes the various MPEG Stream Types. (ISO13818-2 and compatible)
    /// <see href="http://www.mp4ra.org/object.html">MP4REG</see>
    /// </summary>
    //http://xhelmboyx.tripod.com/formats/mpeg-layout.txt
-    public static class StreamType
+   public static class StreamType
     {
         public const byte Forbidden = 0x00;
 
@@ -92,12 +92,31 @@ namespace Media.Codecs.Video.mpeg4
 
         public const byte H222TypeE = 0xF8;
 
-        public const byte AncillaryStream = 0xF8;
+        public const byte AncillaryStream = 0xF9;
 
         public static bool IsReserverd(byte b) { return b >= 0xFA && b <= 0xFE; }
 
-        public static bool IsUserPrivate(byte b) { return b >= 0x20 && b <= 0x3f; }
+        public static bool IsUserPrivate(byte b) { return b >= 0x20 && b <= 0x3F; }
 
         public const byte ProgramStreamDirectory = byte.MaxValue;
+
+        internal static Dictionary<byte, string> StreamTypes = new Dictionary<byte, string>();
+
+        public static string ToTextualConvention(byte b)
+        {
+            string name;
+            if (StreamTypes.TryGetValue(b, out name)) return name;
+            if (IsMpeg1or2AudioStream(b)) return "Audio";
+            if (IsMpeg1or2VideoStream(b)) return "Video";
+            if (IsReserverd(b)) return "Reserved";
+            if (IsUserPrivate(b)) return "UserPrivate";
+            return Utility.Unknown;
+        }
+
+        static StreamType()
+        {
+            foreach (var fieldInfo in typeof(StreamType).GetFields()) StreamTypes.Add((byte)fieldInfo.GetValue(null), fieldInfo.Name);
+        }
+
     }
 }
