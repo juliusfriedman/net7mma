@@ -149,17 +149,20 @@ namespace Media.Common//.Collections
             //If the predicates for the key are null then create them with the given value
             if (allocteOnly) predicates = new List<TValue>();
             else if (predicates == null) predicates = new List<TValue>() { value };
-            else predicates.Add(value);//Othewise add the value to the predicates
+            else predicates.Add(value);//Othewise add the value to the predicates which is a reference to the key
 
-            //Attempt to set the value of the Dictionary
-            if (inDictionary)
-            {
-                Dictionary[key] = predicates;
-                return true;
-            }
+            //Add the value if not already in the dictionary
+            if (!inDictionary) return Dictionary.TryAdd(key, predicates);
 
-            return Dictionary.TryAdd(key, predicates);
+            return true;    
         }
+
+        //public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+        //{
+        //    foreach (var list in Dictionary)
+        //        foreach (var value in list.Value)
+        //            yield return new KeyValuePair<TKey, TValue>(list.Key, value);
+        //}
 
         #endregion
 

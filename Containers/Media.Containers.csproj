@@ -78,6 +78,10 @@
     <Compile Include="Track.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codecs</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
