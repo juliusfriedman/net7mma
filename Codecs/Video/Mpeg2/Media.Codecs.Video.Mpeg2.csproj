@@ -63,7 +63,7 @@
       <Name>Media.Codecs</Name>
     </ProjectReference>
     <ProjectReference Include="..\Mpeg1\Media.Codecs.Video.Mpeg1.csproj">
-      <Project>{ba8eb104-a0f1-4b04-955a-60978f23b250}</Project>
+      <Project>{33f44cd8-cbc1-4e64-9a2f-c395fb1780e9}</Project>
       <Name>Media.Codecs.Video.Mpeg1</Name>
     </ProjectReference>
   </ItemGroup>
