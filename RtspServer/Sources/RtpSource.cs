@@ -44,7 +44,7 @@ namespace Media.Rtsp.Server.Sources
     /// <summary>
     /// Provides the basic operations for consuming a remote rtp stream for which there is an existing <see cref="SessionDescription"/>
     /// </summary>
-    public class RtpSource : SourceStream, Common.IThreadReference
+    public class RtpSource : SourceMedia, Common.IThreadReference
     {
         public RtpSource(string name, Uri source) : base(name, source) { }
         

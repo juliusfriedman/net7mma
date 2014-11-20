@@ -243,7 +243,7 @@ namespace Media.Rtsp
             get
             {                
                 if (TotalStreamCount == 0) return 0;
-                return MediaStreams.Where(s => s.State == SourceStream.StreamState.Stopped && s.Ready == true).Count();
+                return MediaStreams.Where(s => s.State == SourceMedia.StreamState.Stopped && s.Ready == true).Count();
             }
         }
         
@@ -620,7 +620,7 @@ namespace Media.Rtsp
         /// <param name="source"></param>
         /// <param name="credential"></param>
         /// <param name="authType"></param>
-        public void AddCredential(SourceStream source, NetworkCredential credential, string authType)
+        public void AddCredential(SourceMedia source, NetworkCredential credential, string authType)
         {
             RequiredCredentials.Add(source.ServerLocation, authType, credential);
         }
