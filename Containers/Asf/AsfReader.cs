@@ -1,4 +1,5 @@
-﻿/*
+﻿
+/*
 This file came from Managed Media Aggregation, You can always find the latest version @ https://net7mma.codeplex.com/
   
  Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
@@ -37,8 +38,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Media.Container;
 
-namespace Media.Container.Asf
+namespace Media.Containers.Asf
 {
     /// <summary>
     /// Represents the logic necessary to read files in the Advanced Systems Format (.asf, .wmv, .wma, .wtv[DVR_MS])

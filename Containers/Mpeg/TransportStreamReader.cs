@@ -38,7 +38,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Media.Container.Mpeg
+namespace Media.Containers.Mpeg
 {
     /// <summary>
     /// Represents the logic necessary to read Mpeg Transport Streams.
@@ -242,7 +242,7 @@ namespace Media.Container.Mpeg
 
         #region AdaptationField
 
-        public static AdaptationFieldFlags GetAdaptationFieldFlags(Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(tsUnit)[0]; }
+        public static AdaptationFieldFlags GetAdaptationFieldFlags(Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(tsUnit)[0]; }
 
         public static byte[] GetAdaptationFieldData(Container.Node tsUnit)
         {
@@ -384,7 +384,7 @@ namespace Media.Container.Mpeg
         ///// <returns></returns>
         //public override long Skip(long count) { return base.Skip(count); }
 
-        public IEnumerable<Node> ReadUnits(long offset, long count, params PacketIdentifier[] names)
+        public IEnumerable<Media.Container.Node> ReadUnits(long offset, long count, params PacketIdentifier[] names)
         {
             long position = Position;
 
@@ -409,11 +409,11 @@ namespace Media.Container.Mpeg
             yield break;
         }
 
-        public Node ReadUnit(PacketIdentifier name, long offset = 0)
+        public Media.Container.Node ReadUnit(PacketIdentifier name, long offset = 0)
         {
             long positionStart = Position;
 
-            Node result = ReadUnits(offset, Length - offset, name).FirstOrDefault();
+            Media.Container.Node result = ReadUnits(offset, Length - offset, name).FirstOrDefault();
 
             Position = positionStart;
 

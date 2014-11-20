@@ -311,7 +311,7 @@ namespace Tests
                     SessionDescription.Add(new Media.Sdp.SessionDescriptionLine("c=IN IP4 " + localIp.ToString()));
 
                     //Add a MediaDescription to our Sdp on any port 17777 for RTP/AVP Transport using the RtpJpegPayloadType
-                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtp.RtpClient.RtpAvpProfileIdentifier, Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
+                    SessionDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 17777, (tcp ? "TCP/" : string.Empty) + Media.Rtp.RtpClient.RtpAvpProfileIdentifier, Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
 
                     sender.RtcpPacketSent += (s, p) => TryPrintClientPacket(s, false, p);
                     sender.RtcpPacketReceieved += (s, p) => TryPrintClientPacket(s, true, p);
@@ -410,7 +410,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame testFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame testFrame = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
@@ -2268,12 +2268,12 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/mp4/") || System.IO.Directory.Exists(localPath + "/Video/mov/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
             {
-                using (Media.Container.BaseMedia.BaseMediaReader reader = new Media.Container.BaseMedia.BaseMediaReader(fileName))
+                using (Media.Containers.BaseMedia.BaseMediaReader reader = new Media.Containers.BaseMedia.BaseMediaReader(fileName))
                 {
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Box:" + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
+                    Console.WriteLine("Root Box:" + Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
 
                     Console.WriteLine("Boxes:");
 
@@ -2283,10 +2283,10 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Offset: " + box.Offset);
                         Console.WriteLine("DataOffset: " + box.DataOffset);
                         Console.WriteLine("Complete: " + box.IsComplete);
-                        Console.WriteLine("Name: " + Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
+                        Console.WriteLine("Name: " + Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
                         Console.WriteLine("DataSize: " + box.DataSize);
                         Console.WriteLine("TotalSize: " + box.TotalSize);
-                        Console.WriteLine("ParentBox: " + Media.Container.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Container.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
+                        Console.WriteLine("ParentBox: " + Media.Containers.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
                     }
 
 
@@ -2309,12 +2309,12 @@ a=mpeg4-esid:101");
 
             #region RiffReader
 
-            if (System.IO.Directory.Exists(localPath + "/Video/avi/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Container.Riff.RiffReader reader = new Media.Container.Riff.RiffReader(fileName))
+            if (System.IO.Directory.Exists(localPath + "/Video/avi/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Containers.Riff.RiffReader reader = new Media.Containers.Riff.RiffReader(fileName))
             {
                 Console.WriteLine("Path:" + reader.Source);
                 Console.WriteLine("Total Size:" + reader.Length);
 
-                Console.WriteLine("Root Chunk:" + Media.Container.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
+                Console.WriteLine("Root Chunk:" + Media.Containers.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
 
                 Console.WriteLine("File Level Information");
 
@@ -2359,12 +2359,12 @@ a=mpeg4-esid:101");
                     Console.WriteLine("DataOffset: " + chunk.DataOffset);
                     Console.WriteLine("Complete: " + chunk.IsComplete);
 
-                    string name = Media.Container.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier);
+                    string name = Media.Containers.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier);
 
                     Console.WriteLine("Name: " + name);
 
                     //Show how the common type can be read.
-                    if (Media.Container.Riff.RiffReader.HasSubType(chunk)) Console.WriteLine("Type: " + Media.Container.Riff.RiffReader.GetSubType(chunk));
+                    if (Media.Containers.Riff.RiffReader.HasSubType(chunk)) Console.WriteLine("Type: " + Media.Containers.Riff.RiffReader.GetSubType(chunk));
 
                     Console.WriteLine("DataSize: " + chunk.DataSize);
                     Console.WriteLine("TotalSize: " + chunk.DataSize);
@@ -2381,12 +2381,12 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/mkv/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
             {
-                using (Media.Container.Matroska.MatroskaReader reader = new Media.Container.Matroska.MatroskaReader(fileName))
+                using (Media.Containers.Matroska.MatroskaReader reader = new Media.Containers.Matroska.MatroskaReader(fileName))
                 {
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Element:" + Media.Container.Matroska.MatroskaReader.ToTextualConvention(reader.Root.Identifier));
+                    Console.WriteLine("Root Element:" + Media.Containers.Matroska.MatroskaReader.ToTextualConvention(reader.Root.Identifier));
 
                     Console.WriteLine("File Level Information");
 
@@ -2402,7 +2402,7 @@ a=mpeg4-esid:101");
 
                     foreach (var element in reader)
                     {
-                        Console.WriteLine("Name: " + Media.Container.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
+                        Console.WriteLine("Name: " + Media.Containers.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
                         Console.WriteLine("Element Offset: " + element.Offset);
                         Console.WriteLine("Element Data Offset: " + element.DataOffset);
                         Console.WriteLine("Element DataSize: " + element.DataSize);
@@ -2434,12 +2434,12 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/asf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
             {
-                using (Media.Container.Asf.AsfReader reader = new Media.Container.Asf.AsfReader(fileName))
+                using (Media.Containers.Asf.AsfReader reader = new Media.Containers.Asf.AsfReader(fileName))
                 {
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Element:" + Media.Container.Asf.AsfReader.ToTextualConvention(reader.Root.Identifier));
+                    Console.WriteLine("Root Element:" + Media.Containers.Asf.AsfReader.ToTextualConvention(reader.Root.Identifier));
 
                     Console.WriteLine("File Level Information");
 
@@ -2469,7 +2469,7 @@ a=mpeg4-esid:101");
                     foreach (var asfObject in reader)
                     {
                         Console.WriteLine("Identifier:" + BitConverter.ToString(asfObject.Identifier));
-                        Console.WriteLine("Name: " + Media.Container.Asf.AsfReader.ToTextualConvention(asfObject.Identifier));
+                        Console.WriteLine("Name: " + Media.Containers.Asf.AsfReader.ToTextualConvention(asfObject.Identifier));
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + asfObject.Offset);
                         Console.WriteLine("DataOffset: " + asfObject.DataOffset);
@@ -2491,12 +2491,12 @@ a=mpeg4-esid:101");
 
             if(System.IO.Directory.Exists(localPath + "/Video/mxf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mxf/"))
             {
-                using (Media.Container.Mxf.MxfReader reader = new Media.Container.Mxf.MxfReader(fileName))
+                using (Media.Containers.Mxf.MxfReader reader = new Media.Containers.Mxf.MxfReader(fileName))
                 {
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Object:" + Media.Container.Mxf.MxfReader.ToTextualConvention(reader.Root.Identifier));
+                    Console.WriteLine("Root Object:" + Media.Containers.Mxf.MxfReader.ToTextualConvention(reader.Root.Identifier));
 
                     Console.WriteLine("Objects:");
 
@@ -2507,11 +2507,11 @@ a=mpeg4-esid:101");
                         Console.WriteLine("DataOffset: " + mxfObject.DataOffset);
                         Console.WriteLine("Complete: " + mxfObject.IsComplete);
 
-                        string name = Media.Container.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
+                        string name = Media.Containers.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
 
                         Console.WriteLine("Identifier: " + BitConverter.ToString(mxfObject.Identifier));
 
-                        Console.WriteLine("Category: " + Media.Container.Mxf.MxfReader.GetCategory(mxfObject));
+                        Console.WriteLine("Category: " + Media.Containers.Mxf.MxfReader.GetCategory(mxfObject));
 
                         Console.WriteLine("Name: " + name);
 
@@ -2520,8 +2520,8 @@ a=mpeg4-esid:101");
 
                         if (name == "PartitionPack")
                         {
-                            Console.WriteLine("Partition Type: " + Media.Container.Mxf.MxfReader.GetPartitionKind(mxfObject));
-                            Console.WriteLine("Partition Status: " + Media.Container.Mxf.MxfReader.GetPartitionStatus(mxfObject));
+                            Console.WriteLine("Partition Type: " + Media.Containers.Mxf.MxfReader.GetPartitionKind(mxfObject));
+                            Console.WriteLine("Partition Status: " + Media.Containers.Mxf.MxfReader.GetPartitionStatus(mxfObject));
                         }
                     }
 
@@ -2578,12 +2578,12 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/ogg/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ogg/"))
                 {
-                    using (Media.Container.Ogg.OggReader reader = new Media.Container.Ogg.OggReader(fileName))
+                    using (Media.Containers.Ogg.OggReader reader = new Media.Containers.Ogg.OggReader(fileName))
                     {
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Page:" + Media.Container.Ogg.OggReader.ToTextualConvention(reader.Root.Identifier));
+                        Console.WriteLine("Root Page:" + Media.Containers.Ogg.OggReader.ToTextualConvention(reader.Root.Identifier));
 
                         Console.WriteLine("Pages:");
 
@@ -2592,8 +2592,8 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Position:" + reader.Position);
                             Console.WriteLine("Offset: " + page.DataOffset);
                             Console.WriteLine("Complete: " + page.IsComplete);
-                            Console.WriteLine("Name: " + Media.Container.Ogg.OggReader.ToTextualConvention(page.Identifier));
-                            Console.WriteLine("HeaderFlags: " +  Media.Container.Ogg.OggReader.GetHeaderFlags(page));
+                            Console.WriteLine("Name: " + Media.Containers.Ogg.OggReader.ToTextualConvention(page.Identifier));
+                            Console.WriteLine("HeaderFlags: " + Media.Containers.Ogg.OggReader.GetHeaderFlags(page));
                             Console.WriteLine("Size: " + page.DataSize);
                         }
 
@@ -2617,12 +2617,12 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/nut/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/nut/"))
                 {
-                    using (Media.Container.Nut.NutReader reader = new Media.Container.Nut.NutReader(fileName))
+                    using (Media.Containers.Nut.NutReader reader = new Media.Containers.Nut.NutReader(fileName))
                     {
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Tag:" + Media.Container.Nut.NutReader.ToTextualConvention(reader.Root.Identifier));
+                        Console.WriteLine("Root Tag:" + Media.Containers.Nut.NutReader.ToTextualConvention(reader.Root.Identifier));
 
                         Console.WriteLine("Tags:");
 
@@ -2633,13 +2633,13 @@ a=mpeg4-esid:101");
                             Console.WriteLine("DataOffset: " + tag.DataOffset);
                             Console.WriteLine("Complete: " + tag.IsComplete);
 
-                            if (Media.Container.Nut.NutReader.IsFrame(tag))
+                            if (Media.Containers.Nut.NutReader.IsFrame(tag))
                             {
-                                Console.WriteLine("StreamId: " + Media.Container.Nut.NutReader.GetStreamId(tag));
-                                Console.WriteLine("FrameFlags: " + Media.Container.Nut.NutReader.GetFrameFlags(tag));
+                                Console.WriteLine("StreamId: " + Media.Containers.Nut.NutReader.GetStreamId(tag));
+                                Console.WriteLine("FrameFlags: " + Media.Containers.Nut.NutReader.GetFrameFlags(tag));
                             }
                             else
-                                Console.WriteLine("Name: " + Media.Container.Nut.NutReader.ToTextualConvention(tag.Identifier));
+                                Console.WriteLine("Name: " + Media.Containers.Nut.NutReader.ToTextualConvention(tag.Identifier));
 
                             Console.WriteLine("TotalSize: " + tag.TotalSize);
                             Console.WriteLine("DataSize: " + tag.DataSize);
@@ -2686,38 +2686,38 @@ a=mpeg4-esid:101");
             
             if (System.IO.Directory.Exists(localPath + "/Video/ts/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ts/"))
                 {
-                    using (Media.Container.Mpeg.TransportStreamReader reader = new Media.Container.Mpeg.TransportStreamReader(fileName))
+                    using (Media.Containers.Mpeg.TransportStreamReader reader = new Media.Containers.Mpeg.TransportStreamReader(fileName))
                     {
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Element:" + Media.Container.Mpeg.TransportStreamReader.ToTextualConvention(reader.Root));
+                        Console.WriteLine("Root Element:" + Media.Containers.Mpeg.TransportStreamReader.ToTextualConvention(reader.Root));
 
                         Console.WriteLine("Packets:");
 
                         foreach (var tsUnit in reader)
                         {
-                            Console.WriteLine("Unit Type:" + Media.Container.Mpeg.TransportStreamReader.ToTextualConvention(tsUnit));
+                            Console.WriteLine("Unit Type:" + Media.Containers.Mpeg.TransportStreamReader.ToTextualConvention(tsUnit));
                             Console.WriteLine("Unit Offset: " + tsUnit.Offset);
                             Console.WriteLine("Unit Data Offset: " + tsUnit.DataOffset);
                             Console.WriteLine("Unit DataSize: " + tsUnit.DataSize);
                             Console.WriteLine("Unit TotalSize: " + tsUnit.TotalSize);
-                            Console.WriteLine("Unit.IsComplete: " + tsUnit.IsComplete);                            
-                            Console.WriteLine("HasTransportPriority: " + Media.Container.Mpeg.TransportStreamReader.HasTransportPriority(tsUnit));
-                            Console.WriteLine("HasTransportErrorIndicator: " + Media.Container.Mpeg.TransportStreamReader.HasTransportErrorIndicator(tsUnit));
-                            Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Container.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(tsUnit));
-                            Console.WriteLine("PacketIdentifier: " + Media.Container.Mpeg.TransportStreamReader.GetPacketIdentifier(tsUnit));
-                            Console.WriteLine("ScramblingControl: " + Media.Container.Mpeg.TransportStreamReader.GetScramblingControl(tsUnit));
+                            Console.WriteLine("Unit.IsComplete: " + tsUnit.IsComplete);
+                            Console.WriteLine("HasTransportPriority: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportPriority(tsUnit));
+                            Console.WriteLine("HasTransportErrorIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportErrorIndicator(tsUnit));
+                            Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(tsUnit));
+                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(tsUnit));
+                            Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(tsUnit));
 
-                            bool hasAdaptation = Media.Container.Mpeg.TransportStreamReader.HasAdaptationField(tsUnit);
+                            bool hasAdaptation = Media.Containers.Mpeg.TransportStreamReader.HasAdaptationField(tsUnit);
 
                             Console.WriteLine("HasAdaptationField: " + hasAdaptation);
-                            Console.WriteLine("ContinuityCounter: " + Media.Container.Mpeg.TransportStreamReader.GetContinuityCounter(tsUnit));
+                            Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(tsUnit));
 
                             if (hasAdaptation)
                             {
-                                var data = Media.Container.Mpeg.TransportStreamReader.GetAdaptationFieldData(tsUnit);
-                                Console.WriteLine("AdaptationField Flags: " + (Media.Container.Mpeg.TransportStreamReader.AdaptationFieldFlags)(data[0]));
+                                var data = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(tsUnit);
+                                Console.WriteLine("AdaptationField Flags: " + (Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldFlags)(data[0]));
                                 Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(data, 1));
                             }
                             
@@ -2737,18 +2737,18 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/ps/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ps/"))
                 {
-                    using (Media.Container.Mpeg.ProgramStreamReader reader = new Media.Container.Mpeg.ProgramStreamReader(fileName))
+                    using (Media.Containers.Mpeg.ProgramStreamReader reader = new Media.Containers.Mpeg.ProgramStreamReader(fileName))
                     {
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Element:" + Media.Container.Mpeg.ProgramStreamReader.ToTextualConvention(reader.Root));
+                        Console.WriteLine("Root Element:" + Media.Containers.Mpeg.ProgramStreamReader.ToTextualConvention(reader.Root));
 
                         Console.WriteLine("Packets:");
 
                         foreach (var pesPacket in reader)
                         {
-                            Console.WriteLine("StreamIdentifier:" + Media.Container.Mpeg.ProgramStreamReader.ToTextualConvention(pesPacket));
+                            Console.WriteLine("StreamIdentifier:" + Media.Containers.Mpeg.ProgramStreamReader.ToTextualConvention(pesPacket));
                             Console.WriteLine("Element Offset: " + pesPacket.Offset);
                             Console.WriteLine("Element Data Offset: " + pesPacket.DataOffset);
                             Console.WriteLine("Element DataSize: " + pesPacket.DataSize);
@@ -2770,12 +2770,12 @@ a=mpeg4-esid:101");
 
             if (System.IO.Directory.Exists(localPath + "/Video/es/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/es/"))
                 {
-                    using (Media.Container.Mpeg.ElementaryStreamReader reader = new Media.Container.Mpeg.ElementaryStreamReader(fileName))
+                    using (Media.Containers.Mpeg.ElementaryStreamReader reader = new Media.Containers.Mpeg.ElementaryStreamReader(fileName))
                     {
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Element:" + Media.Container.Mpeg.ElementaryStreamReader.ToTextualConvention(reader.Root));
+                        Console.WriteLine("Root Element:" + Media.Containers.Mpeg.ElementaryStreamReader.ToTextualConvention(reader.Root));
 
                         Console.WriteLine("Packets:");
 
@@ -2843,7 +2843,7 @@ a=mpeg4-esid:101");
 
             //The server will take in Media.RtspSourceStreams and make them available locally
 
-            Media.Rtsp.Server.Media.RtspSource source = new Media.Rtsp.Server.Media.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
+            Media.Rtsp.Server.Sources.RtspSource source = new Media.Rtsp.Server.Sources.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
             {
                 //Will force VLC et al to connect over TCP
                 //                m_ForceTCP = true
@@ -2857,29 +2857,29 @@ a=mpeg4-esid:101");
             //Add the stream to the server
             server.AddMedia(source);
 
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
 
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.Media.RtspSource("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+            server.AddMedia(new Media.Rtsp.Server.Sources.RtspSource("ASTI", "rtsp://50.28.209.206/axis-media/media.amp"));
 
             string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
             string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddMedia(new Media.Rtsp.Server.Media.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
+            server.AddMedia(new Media.Rtsp.Server.Sources.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
-            Media.Rtsp.Server.Media.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+            Media.Rtsp.Server.Sources.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
             //Expose Bandit's Pictures through Udp and Tcp
-            server.AddMedia(imageStream = new Media.Rtsp.Server.Media.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
+            server.AddMedia(imageStream = new Media.Rtsp.Server.Sources.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
             //Test Experimental H.264 Encoding
             //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
@@ -2891,7 +2891,7 @@ a=mpeg4-esid:101");
             //server.AddMedia(new Media.Rtsp.Server.Media.JPEGMedia("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
             //server.AddMedia(new Media.Rtsp.Server.Media.MJPEGMedia("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
             
-            Media.Rtsp.Server.Media.RFC2435Media screenShots = new Media.Rtsp.Server.Media.RFC2435Media("Screen", null, false, 800, 600, false);
+            Media.Rtsp.Server.Sources.RFC2435Media screenShots = new Media.Rtsp.Server.Sources.RFC2435Media("Screen", null, false, 800, 600, false);
 
             server.AddMedia(screenShots);
 
@@ -3167,7 +3167,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
+            using (Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
@@ -3205,7 +3205,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
+            using (Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
@@ -3245,7 +3245,7 @@ a=mpeg4-esid:101");
                 };
 
             //Allocate the frame to hold the packets
-            using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
+            using (Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame restartFrame = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame())
             {
                 //Build a RtpFrame from the jpegPackets
                 foreach (byte[] binary in jpegPackets)
@@ -3273,7 +3273,7 @@ a=mpeg4-esid:101");
             }
 
             //Used in tests below
-            Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame f = null;
+            Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame f = null;
 
             //For each file in the JpegTest directory
             foreach (string fileName in System.IO.Directory.GetFiles("./JpegTest"))
@@ -3286,7 +3286,7 @@ a=mpeg4-esid:101");
                     f = null;
 
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization With Quant Tables)
-                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 100);
+                    f = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame(jpegStream, 100);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3309,7 +3309,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 100);
+                    f = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame(jpegStream, 100);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3322,7 +3322,7 @@ a=mpeg4-esid:101");
                 }
 
                 //Create a JpegFrame from existing RtpPackets
-                using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
+                using (Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame())
                 {
                     foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
 
@@ -3340,7 +3340,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 50);
+                    f = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame(jpegStream, 50);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3355,7 +3355,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization Without Quant Tables)
-                    f = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame(jpegStream, 50);
+                    f = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame(jpegStream, 50);
 
                     //Save the JpegFrame as a Image (Decoding performed)
                     using (System.Drawing.Image jpeg = f)
@@ -3368,7 +3368,7 @@ a=mpeg4-esid:101");
                 }
 
                 //Create a JpegFrame from existing RtpPackets
-                using (Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Media.RFC2435Media.RFC2435Frame())
+                using (Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame x = new Media.Rtsp.Server.Sources.RFC2435Media.RFC2435Frame())
                 {
                     foreach (Media.Rtp.RtpPacket p in f) x.Add(p);
 

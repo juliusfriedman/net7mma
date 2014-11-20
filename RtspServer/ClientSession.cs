@@ -43,7 +43,7 @@ using System.Net;
 using System.Net.Sockets;
 using Media.Rtp;
 using Media.Rtcp;
-using Media.Rtsp.Server.Media;
+using Media.Rtsp.Server.Sources;
 using System.Threading;
 
 namespace Media.Rtsp
@@ -813,7 +813,7 @@ namespace Media.Rtsp
             return CreateRtspResponse(request);
         }
 
-        internal RtspMessage ProcessRecord(RtspMessage request, IMediaStream source)
+        internal RtspMessage ProcessRecord(RtspMessage request, IMedia source)
         {
             //Can't record when no Archiver is present
             if (m_Server.Archiver == null) return CreateRtspResponse(request, RtspStatusCode.PreconditionFailed, "No Server Archiver.");

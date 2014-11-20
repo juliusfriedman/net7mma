@@ -225,9 +225,17 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
+      <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
+      <Name>Media.Codecs.Audio</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
       <Name>Media.Codecs</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
+      <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
+      <Name>Media.Codecs.Video</Name>
     </ProjectReference>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
@@ -237,13 +245,53 @@
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
       <Name>Media.Compression</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Containers\Media.Containers.csproj">
-      <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
-      <Name>Media.Containers</Name>
+    <ProjectReference Include="..\Containers\Asf\Media.Containers.Asf.csproj">
+      <Project>{aa92d188-646f-47fe-8fff-bd0b9ca720a0}</Project>
+      <Name>Media.Containers.Asf</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Media.csproj">
-      <Project>{3f19c035-ad27-4c88-817d-e2abc550767d}</Project>
-      <Name>Media</Name>
+    <ProjectReference Include="..\Containers\BaseMedia\Media.Containers.BaseMedia.csproj">
+      <Project>{b389b0f4-c788-436e-a108-d01f38fcb3ed}</Project>
+      <Name>Media.Containers.BaseMedia</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Gxf\Media.Containers.Gxf.csproj">
+      <Project>{e51e5ce2-7ebe-4e60-936e-df5b63c63699}</Project>
+      <Name>Media.Containers.Gxf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Matroska\Media.Containers.Matroska.csproj">
+      <Project>{74a5112f-9638-4ad0-973d-60e558ecb93a}</Project>
+      <Name>Media.Containers.Matroska</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Mcf\Media.Containers.Mcf.csproj">
+      <Project>{1561de7a-8ed5-4bb0-9951-e7d807581c72}</Project>
+      <Name>Media.Containers.Mcf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Media.Container.csproj">
+      <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
+      <Name>Media.Container</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Mpeg\Media.Containers.Mpeg.csproj">
+      <Project>{50484884-d642-4c02-90fe-cb6b41342deb}</Project>
+      <Name>Media.Containers.Mpeg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Mxf\Media.Containers.Mxf.csproj">
+      <Project>{6e068dae-2a49-497d-bd67-adf92730156e}</Project>
+      <Name>Media.Containers.Mxf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Nut\Media.Containers.Nut.csproj">
+      <Project>{a799b0e7-6d05-46b4-b276-9b12f73596b7}</Project>
+      <Name>Media.Containers.Nut</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Ogg\Media.Containers.Ogg.csproj">
+      <Project>{20228080-72cf-4bad-b3cc-7db267643175}</Project>
+      <Name>Media.Containers.Ogg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Real\Media.Containers.Real.csproj">
+      <Project>{b45a4b28-cd7e-4b09-9b33-d447a63626e7}</Project>
+      <Name>Media.Containers.Real</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Riff\Media.Containers.Riff.csproj">
+      <Project>{beaa546e-6c3d-47f4-85d9-6bb598b5d8b8}</Project>
+      <Name>Media.Containers.Riff</Name>
     </ProjectReference>
     <ProjectReference Include="..\Rtmp\Media.Rtmp.csproj">
       <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>

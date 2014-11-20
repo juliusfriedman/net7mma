@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Media.Container;
 
-namespace Media.Container.Real
+namespace Media.Containers.Real
 {
     //Reads .rm files
     //http://wiki.multimedia.cx/?title=RealMedia

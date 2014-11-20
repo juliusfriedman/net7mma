@@ -1,4 +1,4 @@
-﻿using Media.Rtsp.Server.Media;
+﻿using Media.Rtsp.Server.Sources;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ namespace Media.Rtsp.Server
     {
         string BaseDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "archive";
 
-        IDictionary<IMediaStream, RtpTools.RtpDump.Program> Attached = new System.Collections.Concurrent.ConcurrentDictionary<IMediaStream, RtpTools.RtpDump.Program>();
+        IDictionary<IMedia, RtpTools.RtpDump.Program> Attached = new System.Collections.Concurrent.ConcurrentDictionary<IMedia, RtpTools.RtpDump.Program>();
         
         RtspStreamArchiver()
         {
@@ -20,7 +20,7 @@ namespace Media.Rtsp.Server
         }
 
         //Creates directories
-        public virtual void Prepare(IMediaStream stream)
+        public virtual void Prepare(IMedia stream)
         {
             if (!System.IO.Directory.Exists(BaseDirectory + '/' + stream.Id))
             {
@@ -31,13 +31,13 @@ namespace Media.Rtsp.Server
         }        
 
         //Determine if directory is created
-        public virtual bool IsArchiving(IMediaStream stream)
+        public virtual bool IsArchiving(IMedia stream)
         {
             return Attached.ContainsKey(stream);
         }
 
         //Writes a .Sdp file
-        public virtual void WriteDescription(IMediaStream stream, Sdp.SessionDescription sdp)
+        public virtual void WriteDescription(IMedia stream, Sdp.SessionDescription sdp)
         {
             if (!IsArchiving(stream)) return;
 
@@ -47,7 +47,7 @@ namespace Media.Rtsp.Server
         }
 
         //Writes a RtpToolEntry for the packet
-        public virtual void WritePacket(IMediaStream stream, Common.IPacket packet)
+        public virtual void WritePacket(IMedia stream, Common.IPacket packet)
         {
             if (stream == null) return;
 
@@ -58,7 +58,7 @@ namespace Media.Rtsp.Server
             program.Writer.WritePacket(packet as Rtcp.RtcpPacket);
         }
 
-        public virtual void Start(IMediaStream stream, RtpTools.FileFormat format = RtpTools.FileFormat.Binary)
+        public virtual void Start(IMedia stream, RtpTools.FileFormat format = RtpTools.FileFormat.Binary)
         {
 
             if (stream is RtpSource)
@@ -85,7 +85,7 @@ namespace Media.Rtsp.Server
         }
 
         //Stop recoding a stream
-        public virtual void Stop(IMediaStream stream)
+        public virtual void Stop(IMedia stream)
         {
             if (stream is RtpSource)
             {

@@ -72,9 +72,9 @@
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Containers\Media.Containers.csproj">
+    <ProjectReference Include="..\Containers\Media.Container.csproj">
       <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
-      <Name>Media.Containers</Name>
+      <Name>Media.Container</Name>
     </ProjectReference>
     <ProjectReference Include="..\Rtp\Media.Rtp.csproj">
       <Project>{fd0101f4-1d22-434c-8025-42cac8176c75}</Project>

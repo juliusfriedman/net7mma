@@ -37,7 +37,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Media.Container.Mpeg
+namespace Media.Containers.Mpeg
 {
     /// <summary>
     /// Represents the logic necessary to read Mpeg Elementary Streams. 
@@ -45,7 +45,7 @@ namespace Media.Container.Mpeg
     /// </summary>
     public class ElementaryStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
     {
-        public static string ToTextualConvention(Node node)
+        public static string ToTextualConvention(Media.Container.Node node)
         {
             throw new NotImplementedException();
         }

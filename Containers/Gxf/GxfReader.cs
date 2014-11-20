@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Media.Container;
 
-namespace Media.Container.Gxf
+namespace Media.Containers.Gxf
 {
     //Namespace SMPTE ?
     // SMPTE 360M-2001: General Exchange Format (GXF)
