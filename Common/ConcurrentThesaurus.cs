@@ -152,9 +152,7 @@ namespace Media.Common//.Collections
             else predicates.Add(value);//Othewise add the value to the predicates which is a reference to the key
 
             //Add the value if not already in the dictionary
-            if (!inDictionary) return Dictionary.TryAdd(key, predicates);
-
-            return true;    
+            return !inDictionary ? Dictionary.TryAdd(key, predicates) : true;
         }
 
         //public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
@@ -168,15 +166,11 @@ namespace Media.Common//.Collections
 
         #region Interface Implementation
 
-        public IList<TValue> this[TKey key]
+        public IEnumerable<TValue> this[TKey key]
         {
             get
             {
                 return Dictionary[key];
-            }
-            set
-            {
-                Dictionary[key] = value;
             }
         }
 
