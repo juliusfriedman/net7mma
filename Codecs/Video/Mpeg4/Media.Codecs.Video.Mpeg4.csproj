@@ -64,13 +64,13 @@
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
       <Name>Media.Codecs</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Mpeg2\Media.Codecs.Video.Mpeg2.csproj">
-      <Project>{979bbc32-6a26-4b2e-b657-928844cc5468}</Project>
-      <Name>Media.Codecs.Video.Mpeg2</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Mpeg1\Media.Codecs.Video.Mpeg1.csproj">
       <Project>{ba8eb104-a0f1-4b04-955a-60978f23b250}</Project>
       <Name>Media.Codecs.Video.Mpeg1</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Mpeg2\Media.Codecs.Video.Mpeg2.csproj">
+      <Project>{979bbc32-6a26-4b2e-b657-928844cc5468}</Project>
+      <Name>Media.Codecs.Video.Mpeg2</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
