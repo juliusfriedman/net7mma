@@ -57,13 +57,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Containers.Mcf", "Con
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Video.H264", "Codecs\Video\H264\Media.Codecs.Video.H264.csproj", "{FF0EE03E-0A02-40F1-8064-D055EF41F949}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Video.Mpeg1", "Codecs\Video\Mpeg1\Media.Codecs.Video.Mpeg1.csproj", "{BA8EB104-A0F1-4B04-955A-60978F23B250}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Video.Jpeg", "Codecs\Video\Jpeg\Media.Codecs.Video.Jpeg.csproj", "{A12D2EDA-C1BA-4D4E-8E7D-38F8048BC161}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Video.Mpeg2", "Codecs\Video\Mpeg2\Media.Codecs.Video.Mpeg2.csproj", "{979BBC32-6A26-4B2E-B657-928844CC5468}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Video.Mpeg4", "Codecs\Video\Mpeg4\Media.Codecs.Video.Mpeg4.csproj", "{6E191592-ACC7-4444-A7E3-88258C8709FE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Media.Codecs.Video.Mpeg1", "Codecs\Video\Mpeg1\Media.Codecs.Video.Mpeg1.csproj", "{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}"
 EndProject
 Global
 	GlobalSection(TeamFoundationVersionControl) = preSolution
@@ -148,18 +148,18 @@ Global
 		SccProjectUniqueName26 = Codecs\\Video\\H264\\Media.Codecs.Video.H264.csproj
 		SccProjectName26 = Codecs/Video/H264
 		SccLocalPath26 = Codecs\\Video\\H264
-		SccProjectUniqueName27 = Codecs\\Video\\Mpeg1\\Media.Codecs.Video.Mpeg1.csproj
-		SccProjectName27 = Codecs/Video/Mpeg1
-		SccLocalPath27 = Codecs\\Video\\Mpeg1
-		SccProjectUniqueName28 = Codecs\\Video\\Jpeg\\Media.Codecs.Video.Jpeg.csproj
-		SccProjectName28 = Codecs/Video/Jpeg
-		SccLocalPath28 = Codecs\\Video\\Jpeg
-		SccProjectUniqueName29 = Codecs\\Video\\Mpeg2\\Media.Codecs.Video.Mpeg2.csproj
-		SccProjectName29 = Codecs/Video/Mpeg2
-		SccLocalPath29 = Codecs\\Video\\Mpeg2
-		SccProjectUniqueName30 = Codecs\\Video\\Mpeg4\\Media.Codecs.Video.Mpeg4.csproj
-		SccProjectName30 = Codecs/Video/Mpeg4
-		SccLocalPath30 = Codecs\\Video\\Mpeg4
+		SccProjectUniqueName27 = Codecs\\Video\\Jpeg\\Media.Codecs.Video.Jpeg.csproj
+		SccProjectName27 = Codecs/Video/Jpeg
+		SccLocalPath27 = Codecs\\Video\\Jpeg
+		SccProjectUniqueName28 = Codecs\\Video\\Mpeg2\\Media.Codecs.Video.Mpeg2.csproj
+		SccProjectName28 = Codecs/Video/Mpeg2
+		SccLocalPath28 = Codecs\\Video\\Mpeg2
+		SccProjectUniqueName29 = Codecs\\Video\\Mpeg4\\Media.Codecs.Video.Mpeg4.csproj
+		SccProjectName29 = Codecs/Video/Mpeg4
+		SccLocalPath29 = Codecs\\Video\\Mpeg4
+		SccProjectUniqueName30 = Codecs\\Video\\Mpeg1\\Media.Codecs.Video.Mpeg1.csproj
+		SccProjectName30 = Codecs/Video/Mpeg1
+		SccLocalPath30 = Codecs\\Video\\Mpeg1
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -488,18 +488,6 @@ Global
 		{FF0EE03E-0A02-40F1-8064-D055EF41F949}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{FF0EE03E-0A02-40F1-8064-D055EF41F949}.Release|x64.ActiveCfg = Release|Any CPU
 		{FF0EE03E-0A02-40F1-8064-D055EF41F949}.Release|x86.ActiveCfg = Release|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Release|Mixed Platforms.Build.0 = Release|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Release|x64.ActiveCfg = Release|Any CPU
-		{BA8EB104-A0F1-4B04-955A-60978F23B250}.Release|x86.ActiveCfg = Release|Any CPU
 		{A12D2EDA-C1BA-4D4E-8E7D-38F8048BC161}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A12D2EDA-C1BA-4D4E-8E7D-38F8048BC161}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A12D2EDA-C1BA-4D4E-8E7D-38F8048BC161}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
@@ -536,6 +524,18 @@ Global
 		{6E191592-ACC7-4444-A7E3-88258C8709FE}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{6E191592-ACC7-4444-A7E3-88258C8709FE}.Release|x64.ActiveCfg = Release|Any CPU
 		{6E191592-ACC7-4444-A7E3-88258C8709FE}.Release|x86.ActiveCfg = Release|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Release|x64.ActiveCfg = Release|Any CPU
+		{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}.Release|x86.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
