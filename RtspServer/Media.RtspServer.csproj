@@ -111,10 +111,6 @@
       <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
       <Name>Media.Codecs.Video</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Video\Mpeg1\Media.Codecs.Video.Mpeg1.csproj">
-      <Project>{ba8eb104-a0f1-4b04-955a-60978f23b250}</Project>
-      <Name>Media.Codecs.Video.Mpeg1</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\Mpeg2\Media.Codecs.Video.Mpeg2.csproj">
       <Project>{979bbc32-6a26-4b2e-b657-928844cc5468}</Project>
       <Name>Media.Codecs.Video.Mpeg2</Name>
