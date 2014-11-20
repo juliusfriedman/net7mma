@@ -4,20 +4,20 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Media.Rtsp.Server.Media
+namespace Media.Rtsp.Server.Sources
 {
     /// <summary>
-    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc5391">RFC5391</see> which is used for ITU-T Recommendation G.711.1 Audio.
+    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc5215">RFC5215</see> which is used for Vorbis Encoded Audio
     /// </summary>
-    public class RFC5391Media : RFC2435Media //RtpSink
+    public class RFC5215Media : RFC2435Media //RtpSink
     {
-        public class RFC5391Frame : Rtp.RtpFrame
+        public class RFC5215Frame : Rtp.RtpFrame
         {
-            public RFC5391Frame(byte payloadType) : base(payloadType) { }
+            public RFC5215Frame(byte payloadType) : base(payloadType) { }
 
-            public RFC5391Frame(Rtp.RtpFrame existing) : base(existing) { }
+            public RFC5215Frame(Rtp.RtpFrame existing) : base(existing) { }
 
-            public RFC5391Frame(RFC5391Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
+            public RFC5215Frame(RFC5215Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
             public System.IO.MemoryStream Buffer { get; set; }
 
@@ -48,7 +48,7 @@ namespace Media.Rtsp.Server.Media
 
             Sollaud                     Standards Track                     [Page 2]
  
-            RFC 5391             RTP Payload Format for G.711.1        November 2008
+            RFC 5215             RTP Payload Format for G.711.1        November 2008
 
 
                The encoder produces an embedded bitstream structured in three layers
@@ -104,7 +104,7 @@ namespace Media.Rtsp.Server.Media
 
             Sollaud                     Standards Track                     [Page 3]
  
-            RFC 5391             RTP Payload Format for G.711.1        November 2008
+            RFC 5215             RTP Payload Format for G.711.1        November 2008
 
 
                   SHOULD be distinguished by setting the marker bit in the RTP data
@@ -160,7 +160,7 @@ namespace Media.Rtsp.Server.Media
 
             Sollaud                     Standards Track                     [Page 4]
  
-            RFC 5391             RTP Payload Format for G.711.1        November 2008
+            RFC 5215             RTP Payload Format for G.711.1        November 2008
 
 
                The five most significant bits are reserved for further extension and
@@ -216,7 +216,7 @@ namespace Media.Rtsp.Server.Media
 
             Sollaud                     Standards Track                     [Page 5]
  
-            RFC 5391             RTP Payload Format for G.711.1        November 2008
+            RFC 5215             RTP Payload Format for G.711.1        November 2008
 
 
                      +-------------------------------+
@@ -268,14 +268,14 @@ namespace Media.Rtsp.Server.Media
 
         #region Constructor
 
-        public RFC5391Media(int width, int height, string name, string directory = null, bool watch = true)
+        public RFC5215Media(int width, int height, string name, string directory = null, bool watch = true)
             : base(name, directory, watch, width, height, false, 99)
         {
             Width = width;
             Height = height;
             Width += Width % 8;
             Height += Height % 8;
-            clockRate = 16000;
+            clockRate = 44100;
         }
 
         #endregion
@@ -297,9 +297,8 @@ namespace Media.Rtsp.Server.Media
 
             //Add the control line
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
-            //Should be a field set in constructor.
-            //PCMA-WB or PCMU-WB
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " PCMA-WB/" + clockRate));
+            //Channels should be a field set in constructor.
+            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " vorbis/" + clockRate)); // + " /" + channels
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
         }
         
