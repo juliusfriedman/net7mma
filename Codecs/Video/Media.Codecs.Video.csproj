@@ -51,20 +51,15 @@
     <Compile Include="..\..\Common\Properties\MediaCLSInternalVisibleToTestAttribute.cs">
       <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
     </Compile>
-    <Compile Include="H264\NalUnitSubType.cs" />
-    <Compile Include="H264\NalUnitType.cs" />
-    <Compile Include="H264\SliceType.cs" />
-    <Compile Include="H264\SupplementalEncoderInformationType.cs" />
-    <Compile Include="Jpeg\Markers.cs" />
-    <Compile Include="Mpeg1\StartCode.cs" />
-    <Compile Include="Mpeg2\StartCode.cs" />
-    <Compile Include="Mpeg4\ObjectTypeIndication.cs" />
-    <Compile Include="Mpeg4\StartCode.cs" />
-    <Compile Include="Mpeg4\StreamType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="dirac\" />
+    <Folder Include="H264\" />
+    <Folder Include="Jpeg\" />
+    <Folder Include="Mpeg1\" />
+    <Folder Include="Mpeg2\" />
+    <Folder Include="Mpeg4\" />
     <Folder Include="raw\" />
     <Folder Include="theora\" />
     <Folder Include="vp8\" />
