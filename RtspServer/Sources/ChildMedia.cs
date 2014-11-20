@@ -45,11 +45,11 @@ namespace Media.Rtsp.Server.Sources
     /// <summary>
     /// A Source Stream which is a facade` to another.
     /// </summary>
-    public class ChildMedia: SourceStream
+    public class ChildMedia: SourceMedia
     {
-        internal SourceStream m_Parent;
+        internal SourceMedia m_Parent;
 
-        public ChildMedia(SourceStream source)
+        public ChildMedia(SourceMedia source)
             :base(source.Name, source.Source)
         {
             if (!source.IsParent) throw new ArgumentException("Cannot make a Child of a Child.");

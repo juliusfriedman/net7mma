@@ -47,7 +47,7 @@ namespace Media.Rtsp.Server.Sources
     /// <remarks>
     /// Provides a way to augment all classes from one place.
     /// </remarks>
-    public abstract class SourceStream : Common.BaseDisposable, IMediaSource
+    public abstract class SourceMedia : Common.BaseDisposable, IMediaSource
     {
         const string UriScheme = "rtspserver://";
 
@@ -146,7 +146,7 @@ namespace Media.Rtsp.Server.Sources
 
         #region Constructor        
 
-        public SourceStream(string name, Uri source)
+        public SourceMedia(string name, Uri source)
         {
             //The stream name cannot be null or consist only of whitespace
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("The stream name cannot be null or consist only of whitespace", "name");
@@ -155,7 +155,7 @@ namespace Media.Rtsp.Server.Sources
             m_Source = source;
         }
 
-        public SourceStream(string name, Uri source, NetworkCredential sourceCredential)
+        public SourceMedia(string name, Uri source, NetworkCredential sourceCredential)
             :this(name, source)
         {
             m_SourceCred = sourceCredential;

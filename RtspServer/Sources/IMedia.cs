@@ -15,7 +15,7 @@ namespace Media.Rtsp.Server.Sources
 
         Guid Id { get; }
 
-        SourceStream.StreamState State { get; }
+        SourceMedia.StreamState State { get; }
 
         Sdp.SessionDescription SessionDescription { get; }
 

@@ -53,17 +53,7 @@
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="dirac\" />
-    <Folder Include="H264\" />
-    <Folder Include="Jpeg\" />
-    <Folder Include="Mpeg1\" />
-    <Folder Include="Mpeg2\" />
-    <Folder Include="Mpeg4\" />
-    <Folder Include="raw\" />
-    <Folder Include="theora\" />
-    <Folder Include="vp8\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <Content Include="License.txt" />
   </ItemGroup>

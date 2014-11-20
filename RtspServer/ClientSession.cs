@@ -74,7 +74,7 @@ namespace Media.Rtsp
         /// </summary>
         //internal HashSet<SourceStream> AttachedSources = new HashSet<SourceStream>();
 
-        internal Dictionary<RtpClient.TransportContext, SourceStream> Attached = new Dictionary<RtpClient.TransportContext, SourceStream>();
+        internal Dictionary<RtpClient.TransportContext, SourceMedia> Attached = new Dictionary<RtpClient.TransportContext, SourceMedia>();
 
         /// <summary>
         /// A one to many collection which is keyed by the source media's SSRC to which subsequently the values are packets which also came from the source
@@ -377,7 +377,7 @@ namespace Media.Rtsp
         /// <param name="describeRequest">The request received from the server</param>
         /// <param name="source">Tje source stream to describe</param>
         /// <returns>A RtspMessage with a Sdp.SessionDescription in the Body and ContentType set to application/sdp</returns>
-        internal RtspMessage ProcessDescribe(RtspMessage describeRequest, SourceStream source)
+        internal RtspMessage ProcessDescribe(RtspMessage describeRequest, SourceMedia source)
         {
             RtspMessage describeResponse = CreateRtspResponse(describeRequest);
 
@@ -741,7 +741,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="source">The SourceStream to detach</param>
         /// <param name="session">The session to detach from</param>
-        internal void RemoveSource(SourceStream source)
+        internal void RemoveSource(SourceMedia source)
         {
             if (source is RtpSource)
             {
@@ -854,7 +854,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="stream">The source stream to create a SessionDescription for</param>
         /// <returns>The created SessionDescription</returns>
-        internal Sdp.SessionDescription CreateSessionDescription(SourceStream stream)
+        internal Sdp.SessionDescription CreateSessionDescription(SourceMedia stream)
         {
             if (stream == null) throw new ArgumentNullException("stream");
             //else if (SessionDescription != null) throw new NotImplementedException("There is already a m_SessionDescription for this session, updating is not implemented at this time");
