@@ -42,7 +42,7 @@ using System.Threading;
 using System.Net;
 using Media.Rtp;
 using Media.Rtcp;
-using Media.Rtsp.Server.Media;
+using Media.Rtsp.Server.Sources;
 
 namespace Media.Rtsp
 {
@@ -112,7 +112,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all streams the server is aggregrating
         /// </summary>
-        Dictionary<Guid, IMediaStream> m_MediaStreams = new Dictionary<Guid, IMediaStream>();
+        Dictionary<Guid, IMedia> m_MediaStreams = new Dictionary<Guid, IMedia>();
 
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
@@ -174,7 +174,7 @@ namespace Media.Rtsp
         /// The amount of time before the RtpServer will remove a session if no Rtsp activity has occured.
         /// </summary>
         /// <remarks>Probably should back this property and ensure that the value is !0</remarks>
-        public int RtspClientInactivityTimeoutSeconds { get; set; }
+        public TimeSpan RtspClientInactivityTimeout { get; set; }
 
         //Check access on these values, may not need to make them available public
 
@@ -223,12 +223,12 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="streamId">The unique identifer</param>
         /// <returns>The RtspClient assocaited with the given id if found, otherwise null</returns>
-        public IMediaStream this[Guid streamId] { get { return GetStream(streamId); } }
+        public IMedia this[Guid streamId] { get { return GetStream(streamId); } }
 
         /// <summary>
         /// The streams contained in the server
         /// </summary>
-        public IEnumerable<IMediaStream> MediaStreams { get { lock (m_MediaStreams) return m_MediaStreams.Values.AsEnumerable(); } }
+        public IEnumerable<IMedia> MediaStreams { get { lock (m_MediaStreams) return m_MediaStreams.Values.AsEnumerable(); } }
 
         /// <summary>
         /// The amount of streams the server is prepared to listen to
@@ -326,7 +326,7 @@ namespace Media.Rtsp
         public RtspServer(IPEndPoint listenEndPoint)
         {
             //Handle this according to RFC
-            RtspClientInactivityTimeoutSeconds = 60;
+            RtspClientInactivityTimeout = TimeSpan.FromSeconds(60);
             ServerName = "ASTI Media Server RTSP " + Version;
             m_ServerEndPoint = listenEndPoint;
             m_ServerIP = listenEndPoint.Address;
@@ -482,7 +482,7 @@ namespace Media.Rtsp
         /// Adds a stream to the server. If the server is already started then the stream will also be started
         /// </summary>
         /// <param name="location">The uri of the stream</param>
-        public void AddMedia(IMediaStream stream)
+        public void AddMedia(IMedia stream)
         {
             if (ContainsMedia(stream.Id)) throw new RtspServerException("Cannot add the given stream because it is already contained in the RtspServer");
             else
@@ -520,7 +520,7 @@ namespace Media.Rtsp
             {
                 if (m_MediaStreams.ContainsKey(streamId))
                 {
-                    IMediaStream source = this[streamId];
+                    IMedia source = this[streamId];
                     if (stop) source.Stop();
 
                     if (RequiredCredentials != null)
@@ -542,9 +542,9 @@ namespace Media.Rtsp
             }            
         }
 
-        public IMediaStream GetStream(Guid streamId)
+        public IMedia GetStream(Guid streamId)
         {
-            IMediaStream result;
+            IMedia result;
             m_MediaStreams.TryGetValue(streamId, out result);
             return result;
         }
@@ -553,9 +553,9 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal IMediaStream FindStreamByLocation(Uri mediaLocation)
+        internal IMedia FindStreamByLocation(Uri mediaLocation)
         {
-            IMediaStream found = null;
+            IMedia found = null;
 
             string streamBase = null, streamName = null;
 
@@ -573,7 +573,7 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
-                foreach (IMediaStream stream in MediaStreams)
+                foreach (IMedia stream in MediaStreams)
                 {
 
                     //If the name matches the streamName or stream Id then we found it
@@ -630,7 +630,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="source"></param>
         /// <param name="authType"></param>
-        public void RemoveCredential(IMediaStream source, string authType)
+        public void RemoveCredential(IMedia source, string authType)
         {
             RequiredCredentials.Remove(source.ServerLocation, authType);
         }
@@ -658,7 +658,7 @@ namespace Media.Rtsp
                     }
 
                     //Check if a GET_PARAMETER has NOT been received in the allowed time
-                    if (RtspClientInactivityTimeoutSeconds != -1 && session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created).TotalSeconds > RtspClientInactivityTimeoutSeconds)
+                    if (RtspClientInactivityTimeout != Utility.InfiniteTimeSpan && session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout)
                     {
                         inactive.Add(session.Id);
                         continue;
@@ -686,7 +686,7 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            foreach (IMediaStream stream in MediaStreams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
+            foreach (IMedia stream in MediaStreams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
             {
                 //Ensure Stopped
                 stream.Stop();
@@ -733,10 +733,7 @@ namespace Media.Rtsp
             //m_ServerThread.Priority = ThreadPriority.BelowNormal;
             m_ServerThread.Start();
 
-            //Should allow all this frequencies to be controlled with a property (used half the amount of the RtspClientInactivityTimeoutSeconds)
-            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds / 1000 : 3000;
-            
-            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, frequency, System.Threading.Timeout.Infinite);
+            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
 
             m_Started = DateTime.UtcNow;
 
@@ -755,9 +752,7 @@ namespace Media.Rtsp
             RestartFaultedStreams(state);
             DisconnectAndRemoveInactiveSessions(state);
 
-            int frequency = RtspClientInactivityTimeoutSeconds > 0 ? RtspClientInactivityTimeoutSeconds / 1000 : 3000;
-
-            if(m_Maintainer != null) m_Maintainer.Change(frequency, System.Threading.Timeout.Infinite);
+            if (m_Maintainer != null) m_Maintainer.Change(RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
         }
 
         /// <summary>
@@ -805,7 +800,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (IMediaStream stream in MediaStreams)
+            foreach (IMedia stream in MediaStreams)
             {
                 try
                 {
@@ -823,7 +818,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (IMediaStream stream in MediaStreams.ToArray())
+            foreach (IMedia stream in MediaStreams.ToArray())
             {
                 try
                 {
@@ -1382,7 +1377,7 @@ namespace Media.Rtsp
 
                         //Not closing
                         if (!response.ContainsHeader(RtspHeaders.Connection) &&//Check for if timeout needs to be added
-                            RtspClientInactivityTimeoutSeconds > 0 && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + RtspClientInactivityTimeoutSeconds);
+                            RtspClientInactivityTimeout > TimeSpan.Zero && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) response.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)RtspClientInactivityTimeout.TotalSeconds);
 
                         //Log response
                         if (Logger != null) Logger.LogResponse(response, session);
@@ -1424,7 +1419,7 @@ namespace Media.Rtsp
             ProcessInvalidRtspRequest(ci, RtspStatusCode.NotFound);
         }
 
-        internal virtual void ProcessAuthorizationRequired(IMediaStream source, ClientSession session)
+        internal virtual void ProcessAuthorizationRequired(IMedia source, ClientSession session)
         {
 
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
@@ -1539,7 +1534,7 @@ namespace Media.Rtsp
             //See if the location requires a certain stream
             if (request.Location.ToString() != "*")
             {
-                IMediaStream found = FindStreamByLocation(request.Location);
+                IMedia found = FindStreamByLocation(request.Location);
 
                 //No stream with name
                 if (found == null)
@@ -1852,7 +1847,7 @@ namespace Media.Rtsp
         /// <param name="request">The RtspRequest to authenticate</param>
         /// <param name="source">The RtspStream to authenticate against</param>
         /// <returns>True if authroized, otherwise false</returns>
-        public virtual bool AuthenticateRequest(RtspMessage request, IMediaStream source)
+        public virtual bool AuthenticateRequest(RtspMessage request, IMedia source)
         {
 
             if (request == null) throw new ArgumentNullException("request");

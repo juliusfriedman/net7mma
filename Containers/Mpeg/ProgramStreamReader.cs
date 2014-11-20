@@ -37,7 +37,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Media.Container.Mpeg
+namespace Media.Containers.Mpeg
 {
     /// <summary>
     /// Represents the logic necessary to read Mpeg Program Streams.
@@ -133,14 +133,14 @@ namespace Media.Container.Mpeg
         }
 
 
-        public static StreamIdentifier GetStreamIdentifier(Node pesPacket)
+        public static StreamIdentifier GetStreamIdentifier(Media.Container.Node pesPacket)
         {
             if (pesPacket == null) throw new ArgumentNullException("pesPacket");
             return (StreamIdentifier)pesPacket.Identifier[3];
         }
 
 
-        public static string ToTextualConvention(Node pesPacket)
+        public static string ToTextualConvention(Media.Container.Node pesPacket)
         {
             StreamIdentifier sid = GetStreamIdentifier(pesPacket);
             if (IsReserved(sid)) return "Reserved";
@@ -170,7 +170,7 @@ namespace Media.Container.Mpeg
 
             //Optional PES Header and Stuffing Bytes if length > 0
 
-            return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);
+            return new Media.Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Container.Node> GetEnumerator()

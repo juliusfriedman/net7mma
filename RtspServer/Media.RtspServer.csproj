@@ -61,36 +61,29 @@
       <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
     </Compile>
     <Compile Include="ClientSession.cs" />
-    <Compile Include="Media\ChildMedia.cs" />
-    <Compile Include="Media\IMediaSink.cs" />
-    <Compile Include="Media\IMediaSource.cs" />
-    <Compile Include="Media\IMediaStream.cs" />
-    <Compile Include="Media\JPEGMedia.cs" />
-    <Compile Include="Media\MJPEGMedia.cs" />
-    <Compile Include="Media\RFC2250Media.cs" />
-    <Compile Include="Media\RFC2435Media.cs" />
-    <Compile Include="Media\RFC2190Media.cs" />
-    <Compile Include="Media\RFC6295Media.cs" />
-    <Compile Include="Media\RFC4733Media.cs" />
-    <Compile Include="Media\RFC4867Media.cs" />
-    <Compile Include="Media\RFC5215Media.cs" />
-    <Compile Include="Media\RFC5993Media.cs" />
-    <Compile Include="Media\RFC5577Media.cs" />
-    <Compile Include="Media\RFC5404Media.cs" />
-    <Compile Include="Media\RFC5391Media.cs" />
-    <Compile Include="Media\RFC3952Media.cs" />
-    <Compile Include="Media\RFC4629Media.cs" />
-    <Compile Include="Media\RFC5219Media.cs" />
-    <Compile Include="Media\RFC4421Media.cs" />
-    <Compile Include="Media\RFC6190Media.cs" />
-    <Compile Include="Media\RFC6185Media.cs" />
-    <Compile Include="Media\RFC3640Media.cs" />
-    <Compile Include="Media\RFC6416Media.cs" />
-    <Compile Include="Media\RFC6184Media.cs" />
-    <Compile Include="Media\RtpSink.cs" />
-    <Compile Include="Media\RtpSource.cs" />
-    <Compile Include="Media\RtspSource.cs" />
-    <Compile Include="Media\SourceStream.cs" />
+    <Compile Include="Sources\ChildMedia.cs" />
+    <Compile Include="Sources\IMediaSink.cs" />
+    <Compile Include="Sources\IMediaSource.cs" />
+    <Compile Include="Sources\IMedia.cs" />
+    <Compile Include="Sources\JPEGMedia.cs" />
+    <Compile Include="Sources\MJPEGMedia.cs" />
+    <Compile Include="Sources\RFC2250Media.cs" />
+    <Compile Include="Sources\RFC2435Media.cs" />
+    <Compile Include="Sources\RFC6295Media.cs" />
+    <Compile Include="Sources\RFC4733Media.cs" />
+    <Compile Include="Sources\RFC5215Media.cs" />
+    <Compile Include="Sources\RFC5391Media.cs" />
+    <Compile Include="Sources\RFC5219Media.cs" />
+    <Compile Include="Sources\RFC4421Media.cs" />
+    <Compile Include="Sources\RFC6190Media.cs" />
+    <Compile Include="Sources\RFC6185Media.cs" />
+    <Compile Include="Sources\RFC3640Media.cs" />
+    <Compile Include="Sources\RFC6416Media.cs" />
+    <Compile Include="Sources\RFC6184Media.cs" />
+    <Compile Include="Sources\RtpSink.cs" />
+    <Compile Include="Sources\RtpSource.cs" />
+    <Compile Include="Sources\RtspSource.cs" />
+    <Compile Include="Sources\SourceStream.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtspServer.cs" />
     <Compile Include="RtspServerDebuggingLogger.cs" />
@@ -98,9 +91,13 @@
     <Compile Include="RtspStreamArchiver.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
-      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
-      <Name>Media.Codecs</Name>
+    <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
+      <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
+      <Name>Media.Codecs.Audio</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
+      <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
+      <Name>Media.Codecs.Video</Name>
     </ProjectReference>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
@@ -110,9 +107,9 @@
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
       <Name>Media.Compression</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Containers\Media.Containers.csproj">
+    <ProjectReference Include="..\Containers\Media.Container.csproj">
       <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
-      <Name>Media.Containers</Name>
+      <Name>Media.Container</Name>
     </ProjectReference>
     <ProjectReference Include="..\Rtmp\Media.Rtmp.csproj">
       <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>

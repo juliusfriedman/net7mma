@@ -457,7 +457,7 @@ namespace Media.Common
 
         #endregion
 
-        //Could Write and IEnumerable with reflection or unsafe code.
+        //GetBytes Methods?
 
         #region Writing (Provided to reduce unsafe transition when using BitConverter)
 
@@ -466,6 +466,7 @@ namespace Media.Common
             buffer[index] = reverse ? ReverseU8(value) : value;
         }
 
+        //Todo
         /// <summary>
         /// Writes a the given unsgined 16 bit value to the buffer at the given index.
         /// </summary>
@@ -477,6 +478,7 @@ namespace Media.Common
         {
             BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
         }
+
         [CLSCompliant(false)]
         public static void WriteNetwork16(byte[] buffer, int index, bool reverse, ushort value)
         {
@@ -514,6 +516,7 @@ namespace Media.Common
             WriteNetwork32(buffer, index, reverse, (int)value);
         }
 
+        //Todo
         public static void WriteNetwork32(byte[] buffer, int index, bool reverse, int value)
         {
             BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
@@ -532,6 +535,7 @@ namespace Media.Common
             WriteNetwork64(buffer, index, reverse, (long)value);
         }
 
+        //Todo
         public static void WriteNetwork64(byte[] buffer, int index, bool reverse, long value)
         {
             BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);

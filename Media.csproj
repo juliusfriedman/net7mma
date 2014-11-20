@@ -110,9 +110,9 @@
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
       <Name>Media.Compression</Name>
     </ProjectReference>
-    <ProjectReference Include="Containers\Media.Containers.csproj">
+    <ProjectReference Include="Containers\Media.Container.csproj">
       <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
-      <Name>Media.Containers</Name>
+      <Name>Media.Container</Name>
     </ProjectReference>
     <ProjectReference Include="Rtmp\Media.Rtmp.csproj">
       <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>

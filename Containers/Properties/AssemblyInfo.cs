@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Media.Containers")]
-[assembly: AssemblyDescription("Implementations of various digital media container formats")]
+[assembly: AssemblyDescription("Provides a superset over various digital media container formats")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -14,4 +14,4 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(true)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("b9788cdc-7365-4117-9711-2cfa2057e413")] 
+[assembly: Guid("b9788cdc-7365-4117-9711-2cfa2057C000")] 
