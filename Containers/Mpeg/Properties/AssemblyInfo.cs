@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Media.Containers.Mpeg")]
-[assembly: AssemblyDescription("Implementations of various Motion Picture Expert Group Formats")]
+[assembly: AssemblyDescription("Implementations of various Motion Picture Expert Group Container Formats")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

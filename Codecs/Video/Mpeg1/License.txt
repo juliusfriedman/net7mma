@@ -1,4 +1,4 @@
-Managed Media Aggregation `Media.Codecs.Video.Mpeg1.dll`
+Managed Media Aggregation `Media.Codecs.Video.Mpeg.dll`
 
 Copyright 2014
 

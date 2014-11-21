@@ -40,34 +40,45 @@ using System.Linq;
 namespace Media.Containers.Mpeg
 {
     /// <summary>
-    /// Represents the logic necessary to read Mpeg Program Streams. (.VOB, .EVO, .ps)
-    /// Program stream (PS or MPEG-PS) is a container format for multiplexing digital audio, video and more. The PS format is specified in MPEG-1 Part 1 (ISO/IEC 11172-1) and MPEG-2 Part 1, Systems (ISO/IEC standard 13818-1[6]/ITU-T H.222.0[4][5]). The MPEG-2 Program Stream is analogous and similar to ISO/IEC 11172 Systems layer and it is forward compatible.[7][8]
-    /// ProgramStreams are created by combining one or more Packetized Elementary Streams (PES), which have a common time base, into a single stream.
+    /// Represents the logic necessary to read a Packetized Elementary Stream.
+    /// Packetized Elementary Stream (PES) is a specification in the MPEG-2 Part 1 (Systems) (ISO/IEC 13818-1) and ITU-T H.222.0[1][2] that defines carrying of elementary streams (usually the output of an audio or video encoder) in packets within MPEG program stream and MPEG transport stream.
+    /// The elementary stream is packetized by encapsulating sequential data bytes from the elementary stream inside PES packet headers
     /// </summary>
-    //http://www.incospec.com/resources/webinars/files/MPEG%20101%20Demyst%20Analysis%20&%20Picture%20Symptoms%2020110808_opt.pdf
-    public class ProgramStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
+    public class PacketizedElementaryStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
     {
-        internal const int IdentifierSize = 14, LengthSize = 0, MinimumSize = IdentifierSize + LengthSize;
+        internal const int IdentifierSize = 4, LengthSize = 2, MinimumSize = IdentifierSize + LengthSize;
 
-        public ProgramStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
+        public static int GetStreamId(Container.Node node) { return node.Identifier[3]; }
 
-        public ProgramStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
-        
+        public static string ToTextualConvention(Media.Container.Node node)
+        {
+            throw new NotImplementedException();
+        }
+
+        public PacketizedElementaryStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
+
+        public PacketizedElementaryStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         /// <summary>
-        /// 
+        /// Reads a PES Header
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The Node which represents the PESPacket</returns>
         public Container.Node ReadNext()
         {
-            //Read the Pack Header
+            //Read the PES Header (Prefix and StreamId)
             byte[] identifier = new byte[IdentifierSize];
 
             Read(identifier, 0, IdentifierSize);
 
-            if (/*Common.Binary.Read24(identifier, 0, !BitConverter.IsLittenEndian) != 1 &&*/ identifier[3] != Mpeg.StartCodes.SyncByte) throw new InvalidOperationException("Cannot Find SyncByte");
+            //Read Length
+            byte[] lengthBytes = new byte[2];
 
-            //Determine Stuffing length
-            int length = Common.Binary.ReverseU8((byte)(identifier[13] & 0xF8));
+            Read(lengthBytes, 0, LengthSize);
+
+            //Determine length
+            int length = Common.Binary.ReadU16(lengthBytes, 0, BitConverter.IsLittleEndian);
+
+            //Optional PES Header and Stuffing Bytes if length > 0
 
             return new Media.Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
@@ -86,13 +97,11 @@ namespace Media.Containers.Mpeg
             }
         }  
 
-        //Find a Pack Header?
         public override Container.Node Root
         {
             get { throw new NotImplementedException(); }
         }
 
-        //Maybe from the PacketizedElementaryStreamReader
         public override Container.Node TableOfContents
         {
             get { throw new NotImplementedException(); }
@@ -100,18 +109,12 @@ namespace Media.Containers.Mpeg
 
         public override IEnumerable<Container.Track> GetTracks()
         {
-            //Find each ProgramStream Marker (Pack Header Format) http://en.wikipedia.org/wiki/MPEG_program_stream#Coding_details
-            //Find each PESPacket within the ProgramStream Marker
-            //create a PacketizedElementaryStreamReader from special constructor
-            //return the GetTracks from that
             throw new NotImplementedException();
         }
 
         public override byte[] GetSample(Container.Track track, out TimeSpan duration)
         {
             throw new NotImplementedException();
-        }
-
-        //GetPacketizedElementaryStreams?
+        }       
     }
 }
