@@ -246,10 +246,13 @@ namespace Media.Containers.Mpeg
 
         public static AdaptationFieldFlags GetAdaptationFieldFlags(Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(tsUnit)[0]; }
 
+        //Todo Must come from tsUnit.Data
+
         public static byte[] GetAdaptationFieldData(Container.Node tsUnit)
         {
             if (tsUnit == null) throw new ArgumentNullException("tsUnit");
 
+            //Size is known but includes length byte
             int size = tsUnit.LengthSize - 1;
 
             if (size < 1 || !HasAdaptationField(tsUnit)) return Utility.Empty;
@@ -398,7 +401,7 @@ namespace Media.Containers.Mpeg
                 {
                     yield return tsUnit;
 
-                    count -= tsUnit.TotalSize;
+                    count -= tsUnit.TotalSize; //Could use Constant
 
                     if (count <= 0) break;
 
@@ -422,6 +425,10 @@ namespace Media.Containers.Mpeg
             return result;
         }
 
+        /// <summary>
+        /// Reads a single 188 byte TransportUnit.
+        /// </summary>
+        /// <returns>The <see cref="Node"/> which represents the TransportUnit.</returns>
         public Container.Node ReadNext()
         {
             byte[] identifier = new byte[IdentifierSize];
@@ -430,13 +437,18 @@ namespace Media.Containers.Mpeg
 
             if (identifier[0] != SyncByte) throw new InvalidOperationException("Cannot Find Marker");
 
+            //Should be part of Node Data to be more efficient
+            //Length would always be 188.
+            //Methods would change to read from the Data
+            //No checking would be performed
+            //int length = UnitLength - IdentifierSize;
+            //return new Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
+
             //The last byte determine if there is a variable length (adaptation) field
             byte last = identifier[3];
 
             //Determine the length of the packet and amount of bytes required to read the length
             int length = UnitLength - IdentifierSize, lengthSize = LengthSize;
-
-            //Should be part of Node Data to be more efficient
 
             //Check for varible length field
             if ((last & AdaptationFieldMask) != 0)
@@ -463,18 +475,13 @@ namespace Media.Containers.Mpeg
 
         public override IEnumerator<Container.Node> GetEnumerator()
         {
-
             while (Remaining >= UnitLength)
             {
                 Container.Node next = ReadNext();
 
                 if (next == null) yield break;
 
-                //Check Counter when demuxing because each stream has its own count.
-
                 yield return next;
-
-                //If has crc validate
 
                 Skip(next.DataSize);
             }

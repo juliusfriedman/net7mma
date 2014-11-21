@@ -17,12 +17,12 @@ namespace Media.Container
         public readonly IMediaContainer Master;
 
         /// <summary>
-        /// The Offset in which the <see cref="RawData"/> occurs in the <see cref="Master"/>
+        /// The Offset in which the <see cref="Data"/> occurs in the <see cref="Master"/>
         /// </summary>
         public readonly long DataOffset;
             
         /// <summary>
-        /// The amount of bytes contained in the Node's <see cref="RawData" />
+        /// The amount of bytes contained in the Node's <see cref="Data" />
         /// </summary>
         public readonly long DataSize;
 
@@ -49,9 +49,9 @@ namespace Media.Container
         byte[] m_Data;
 
         /// <summary>
-        /// The binary data of the Node without (<see cref="Identifier"/> and (<see cref="LengthSize"/>)
+        /// The binary data of the contained in the Node (without (<see cref="Identifier"/> and (<see cref="LengthSize"/>))
         /// </summary>
-        public byte[] RawData
+        public byte[] Data
         {
             get
             {
@@ -59,13 +59,17 @@ namespace Media.Container
                 else if (DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
+                m_Data = new byte[DataSize];
 
-                //Slow, use from cached somehow
+                if (Master.BaseStream is MediaFileStream)
+                {
+                    ((MediaFileStream)Master.BaseStream).AbsoluteRead(DataOffset, m_Data, 0, (int) DataSize);
+                    return m_Data;
+                }
+
                 long offsetPrevious = Master.BaseStream.Position;
 
                 Master.BaseStream.Position = DataOffset;
-
-                m_Data = new byte[DataSize];
 
                 Master.BaseStream.Read(m_Data, 0, (int)DataSize);
 
@@ -80,13 +84,13 @@ namespace Media.Container
         }
 
         /// <summary>
-        /// Provides a <see cref="System.IO.MemoryStream"/> to <see cref="RawData"/>
+        /// Provides a <see cref="System.IO.MemoryStream"/> to <see cref="Data"/>
         /// </summary>
         public System.IO.MemoryStream DataStream
         {
             get
             {
-                return new System.IO.MemoryStream(RawData);
+                return new System.IO.MemoryStream(Data);
             }
         }
 
@@ -122,12 +126,18 @@ namespace Media.Container
         }
 
         /// <summary>
-        /// Writes all <see cref="RawData"/> if <see cref="DataSize"/> is > 0.
+        /// Writes all <see cref="Data"/> if <see cref="DataSize"/> is > 0.
         /// </summary>
         public void UpdateData()
         {
             if (DataSize > 0 && m_Data != null)
             {
+                if (Master.BaseStream is MediaFileStream)
+                {
+                    ((MediaFileStream)Master.BaseStream).AbsoluteWrite(DataOffset, m_Data, 0, (int)DataSize);
+                    return;
+                }
+
                 long offsetPrevious = Master.BaseStream.Position;
 
                 Master.BaseStream.Position = DataOffset;
