@@ -4,18 +4,17 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{979BBC32-6A26-4B2E-B657-928844CC5468}</ProjectGuid>
+    <ProjectGuid>{667CDE0B-0AE3-4DF5-9D81-D91EF0BDCEDA}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Media.Codecs.Video.Mpeg2</RootNamespace>
-    <AssemblyName>Media.Codecs.Video.Mpeg2</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <RootNamespace>Mpeg</RootNamespace>
+    <AssemblyName>Mpeg</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -36,6 +35,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\..\Common\Properties\MediaAssemblyInfo.cs">
@@ -51,23 +56,6 @@
       <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\Common\Media.Common.csproj">
-      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
-      <Name>Media.Common</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Media.Codecs.csproj">
-      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
-      <Name>Media.Codecs</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Mpeg1\Media.Codecs.Video.Mpeg1.csproj">
-      <Project>{33f44cd8-cbc1-4e64-9a2f-c395fb1780e9}</Project>
-      <Name>Media.Codecs.Video.Mpeg1</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="License.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
