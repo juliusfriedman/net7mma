@@ -66,8 +66,16 @@ namespace Media.Containers.Mpeg
 
             if (/*Common.Binary.Read24(identifier, 0, !BitConverter.IsLittenEndian) != 1 &&*/ identifier[3] != Mpeg.StartCodes.SyncByte) throw new InvalidOperationException("Cannot Find SyncByte");
 
+            //Could read just 4 bytes to determine code then based on code determine next action.
+
+            //In some cases a PES Packet is found.
+
             //Determine Stuffing length
             int length = Common.Binary.ReverseU8((byte)(identifier[13] & 0xF8));
+
+            //If the system header follows SyncByte will not be found.
+
+            //After SystemHeader is a PES Packet.
 
             return new Media.Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }

@@ -263,7 +263,7 @@ namespace Media.Containers.Ogg
                     //Ensure not a skeleton or index
 
                     //Decode the CapturePattern
-                    CapturePattern pattern = (CapturePattern)(Common.Binary.ReadU64(page.RawData, 0, !BitConverter.IsLittleEndian));
+                    CapturePattern pattern = (CapturePattern)(Common.Binary.ReadU64(page.Data, 0, !BitConverter.IsLittleEndian));
 
                     //fishead has LastPacket flag, not sure about fisbone
                     if (pattern == CapturePattern.fisbone || pattern == CapturePattern.fishead) continue;
@@ -366,14 +366,14 @@ namespace Media.Containers.Ogg
                 Node startPage = streamBegin.Value;
 
                 //Determine what to do based on data in the page
-                switch (startPage.RawData[0])
+                switch (startPage.Data[0])
                 {
                     //https://wiki.xiph.org/OggText
                     //Note where is Text iden handling?
 
                     case 1: //vorbis (or OGM)
                         {
-                            byte identifyingByte = startPage.RawData[4];
+                            byte identifyingByte = startPage.Data[4];
 
                             //Ensure not OGM 
                             //TODO check if this is correct.
@@ -391,13 +391,13 @@ namespace Media.Containers.Ogg
                                 default:
                                     {
                                         mediaType = Sdp.MediaType.audio;
-                                        codecIndication = startPage.RawData.Take(7).ToArray();
+                                        codecIndication = startPage.Data.Take(7).ToArray();
 
                                         //Version 4 bytes
 
-                                        channels = startPage.RawData[11];
+                                        channels = startPage.Data[11];
 
-                                        rate = Common.Binary.Read32(startPage.RawData, 12, !BitConverter.IsLittleEndian);
+                                        rate = Common.Binary.Read32(startPage.Data, 12, !BitConverter.IsLittleEndian);
 
                                         /* http://www.xiph.org/vorbis/doc/Vorbis_I_spec.html
                                          All three fields set to the same value implies a fixed rate, or tightly bounded, nearly fixed-rate bitstream
@@ -411,7 +411,7 @@ namespace Media.Containers.Ogg
                                         //should check if > 0
 
                                         //bitrate nominal 4 (Note that 8000 comes from 8 * 1000 and is probably an incorrect calulcation)
-                                        bitDepth = (byte)(Common.Binary.ReadU32(startPage.RawData, 20, !BitConverter.IsLittleEndian) / 8000);
+                                        bitDepth = (byte)(Common.Binary.ReadU32(startPage.Data, 20, !BitConverter.IsLittleEndian) / 8000);
 
                                         //should check if > 0
 
@@ -425,7 +425,7 @@ namespace Media.Containers.Ogg
                         }
                     case 0x80:
                         {
-                            if (startPage.RawData[1] == 'k') //kate
+                            if (startPage.Data[1] == 'k') //kate
                             {
                                 mediaType = Sdp.MediaType.text;
                                 goto default;
@@ -433,7 +433,7 @@ namespace Media.Containers.Ogg
                             else //theora
                             {
                                 mediaType = Sdp.MediaType.video;
-                                codecIndication = startPage.RawData.Take(7).ToArray();
+                                codecIndication = startPage.Data.Take(7).ToArray();
 
                                 //Theora Mapping
 
@@ -442,16 +442,16 @@ namespace Media.Containers.Ogg
                                 //height = Common.Binary.Read16(page.Raw, 12, BitConverter.IsLittleEndian) << 4;
 
                                 //Display Resolution
-                                width = (int)Common.Binary.ReadU24(startPage.RawData, 14, BitConverter.IsLittleEndian);
-                                height = (int)Common.Binary.ReadU24(startPage.RawData, 17, BitConverter.IsLittleEndian);
+                                width = (int)Common.Binary.ReadU24(startPage.Data, 14, BitConverter.IsLittleEndian);
+                                height = (int)Common.Binary.ReadU24(startPage.Data, 17, BitConverter.IsLittleEndian);
 
                                 //Offset
                                 //X page.Raw[20]
                                 //Y page.Raw[21]
 
                                 //Frames Per Seconds 4 byte fps_numerator, 4 byte fps_denominator          
-                                rate = Common.Binary.Read64(startPage.RawData, 22, BitConverter.IsLittleEndian);
-                                rate /= Common.Binary.Read64(startPage.RawData, 26, BitConverter.IsLittleEndian);
+                                rate = Common.Binary.Read64(startPage.Data, 22, BitConverter.IsLittleEndian);
+                                rate /= Common.Binary.Read64(startPage.Data, 26, BitConverter.IsLittleEndian);
 
                                 //4 byte aspect_numerator        
                                 //4 byte aspect_denominator                              
@@ -491,10 +491,10 @@ namespace Media.Containers.Ogg
                     case 177: //FLAC
                         {
                             mediaType = Sdp.MediaType.audio;
-                            codecIndication = startPage.RawData.Take(5).ToArray();
+                            codecIndication = startPage.Data.Take(5).ToArray();
 
                             //define OGG_FLAC_METADATA_TYPE_STREAMINFO 0x7F
-                            if ((startPage.RawData[6] & 1) == 0x7f)
+                            if ((startPage.Data[6] & 1) == 0x7f)
                             {
                                 //StreamInfoStart
                                 //FLAG (4 bytes)
@@ -510,7 +510,7 @@ namespace Media.Containers.Ogg
                     case (byte)'B': //Dirac
                         {
                             mediaType = Sdp.MediaType.video;
-                            codecIndication = startPage.RawData.Take(5).ToArray();
+                            codecIndication = startPage.Data.Take(5).ToArray();
 
                             //Dirac Mapping
                             //http://diracvideo.org/download/mapping-specs/dirac-mapping-ogg-1.0.pdf
@@ -519,18 +519,18 @@ namespace Media.Containers.Ogg
                         }
                     case (byte)'C': //CXXX
                         {
-                            if (startPage.RawData[1] == 'M') //CMML
+                            if (startPage.Data[1] == 'M') //CMML
                             {
                                 mediaType = Sdp.MediaType.text;
-                                codecIndication = startPage.RawData.Take(5).ToArray();
+                                codecIndication = startPage.Data.Take(5).ToArray();
                             }
                             else //CELT
                             {
                                 mediaType = Sdp.MediaType.audio;
 
-                                rate = Common.Binary.Read32(startPage.RawData, 36, !BitConverter.IsLittleEndian);
+                                rate = Common.Binary.Read32(startPage.Data, 36, !BitConverter.IsLittleEndian);
 
-                                channels = (byte)Common.Binary.ReadU32(startPage.RawData, 40, !BitConverter.IsLittleEndian);
+                                channels = (byte)Common.Binary.ReadU32(startPage.Data, 40, !BitConverter.IsLittleEndian);
 
                                 //frame_size
 
@@ -577,16 +577,16 @@ namespace Media.Containers.Ogg
                             mediaType = Sdp.MediaType.audio;
 
                             //PCM Format
-                            codecIndication = startPage.RawData.Skip(4).Take(4).ToArray();
+                            codecIndication = startPage.Data.Skip(4).Take(4).ToArray();
 
                             //Sample rate
-                            rate = Common.Binary.ReadU32(startPage.RawData, 12, BitConverter.IsLittleEndian);
+                            rate = Common.Binary.ReadU32(startPage.Data, 12, BitConverter.IsLittleEndian);
 
                             //Number of significant bits
-                            bitDepth = startPage.RawData[15];
+                            bitDepth = startPage.Data[15];
 
                             //Number of Channels (< 256)
-                            channels = startPage.RawData[16];
+                            channels = startPage.Data[16];
 
                             //16  [uint] Maximum number of frames per packet
                             //32  [uint] Number of extra header packets
@@ -596,7 +596,7 @@ namespace Media.Containers.Ogg
                         }
                     case (byte)'S': //Speex
                         {
-                            if (startPage.RawData[2] == 'e')
+                            if (startPage.Data[2] == 'e')
                             {
                                 //https://wiki.xiph.org/OggSpeex
 
@@ -649,13 +649,13 @@ namespace Media.Containers.Ogg
                                 mediaType = Sdp.MediaType.audio;
 
                                 //rate
-                                rate = Common.Binary.ReadU32(startPage.RawData, 36, BitConverter.IsLittleEndian);
+                                rate = Common.Binary.ReadU32(startPage.Data, 36, BitConverter.IsLittleEndian);
 
                                 //channels
-                                channels = (byte)Common.Binary.ReadU32(startPage.RawData, 48, BitConverter.IsLittleEndian);
+                                channels = (byte)Common.Binary.ReadU32(startPage.Data, 48, BitConverter.IsLittleEndian);
 
                                 //bitrate
-                                bitDepth = (byte)Common.Binary.ReadU32(startPage.RawData, 52, BitConverter.IsLittleEndian);
+                                bitDepth = (byte)Common.Binary.ReadU32(startPage.Data, 52, BitConverter.IsLittleEndian);
                             }
                             else //SPOTS
                             {
@@ -695,11 +695,11 @@ namespace Media.Containers.Ogg
                                 | Align-Horiz   | Align-Vert    | Options                       | 48-51
                                  */
 
-                                codecIndication = startPage.RawData.Skip(32).Take(8).ToArray();
+                                codecIndication = startPage.Data.Skip(32).Take(8).ToArray();
 
-                                width = Common.Binary.Read16(startPage.RawData, 40, !BitConverter.IsLittleEndian);
+                                width = Common.Binary.Read16(startPage.Data, 40, !BitConverter.IsLittleEndian);
 
-                                height = Common.Binary.Read16(startPage.RawData, 42, !BitConverter.IsLittleEndian);
+                                height = Common.Binary.Read16(startPage.Data, 42, !BitConverter.IsLittleEndian);
 
                                 //Attain additional info from data within?
                             }
@@ -752,14 +752,14 @@ namespace Media.Containers.Ogg
                               * 0x80808083   OGGUVS_FMT_ARGBDIB   8 bits per component, stored BGRA, rows stored bottom
                              */
 
-                            width = Common.Binary.Read16(startPage.RawData, 12, !BitConverter.IsLittleEndian);
-                            height = Common.Binary.Read16(startPage.RawData, 14, !BitConverter.IsLittleEndian);
-                            rate = Common.Binary.Read64(startPage.RawData, 20, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.Read16(startPage.Data, 12, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.Read16(startPage.Data, 14, !BitConverter.IsLittleEndian);
+                            rate = Common.Binary.Read64(startPage.Data, 20, !BitConverter.IsLittleEndian);
 
                             //timebase @ 28
 
                             //Set BitDepth if possible
-                            switch (Common.Binary.ReadU32(startPage.RawData, 40, !BitConverter.IsLittleEndian))
+                            switch (Common.Binary.ReadU32(startPage.Data, 40, !BitConverter.IsLittleEndian))
                             {
                                 case 0x80808081: //OGGUVS_FMT_RGB24DIB
                                 case 0x80808082: //OGGUVS_FMT_RGB32DIB
@@ -791,12 +791,12 @@ namespace Media.Containers.Ogg
                     case 211: //PNG
                         {
                             mediaType = Sdp.MediaType.video;
-                            codecIndication = startPage.RawData.Take(8).ToArray();
+                            codecIndication = startPage.Data.Take(8).ToArray();
                             continue;
                         }
                     default: //Not sure, probably a new or undocumented mapping?
                         {
-                            codecIndication = startPage.RawData.Take(8).ToArray();
+                            codecIndication = startPage.Data.Take(8).ToArray();
                             continue;
                         }
                 }
@@ -878,7 +878,7 @@ namespace Media.Containers.Ogg
                     if (n.DataSize > 0)
                     {
 
-                        CapturePattern found = (CapturePattern)Common.Binary.Read64(n.RawData, 0, BitConverter.IsLittleEndian);
+                        CapturePattern found = (CapturePattern)Common.Binary.Read64(n.Data, 0, BitConverter.IsLittleEndian);
 
                         switch (found)
                         {
