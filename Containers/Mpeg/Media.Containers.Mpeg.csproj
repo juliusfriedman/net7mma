@@ -50,9 +50,11 @@
     <Compile Include="..\..\Common\Properties\MediaCLSInternalVisibleToTestAttribute.cs">
       <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
     </Compile>
-    <Compile Include="ElementaryStreamReader.cs" />
+    <Compile Include="PacketizedElementaryStreamReader.cs" />
     <Compile Include="ProgramStreamReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StartCodes.cs" />
+    <Compile Include="StreamTypes.cs" />
     <Compile Include="TransportStreamReader.cs" />
   </ItemGroup>
   <ItemGroup>

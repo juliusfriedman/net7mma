@@ -7,11 +7,29 @@ using System.Threading.Tasks;
 namespace Media.Container
 {
     /// <summary>
-    /// A Track is a describes the information related to samples within a MediaFileStream
+    /// A Track describes the information related to samples within a MediaFileStream
     /// </summary>
     public class Track
     {
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="name"></param>
+        /// <param name="id"></param>
+        /// <param name="created"></param>
+        /// <param name="modified"></param>
+        /// <param name="sampleCount"></param>
+        /// <param name="height"></param>
+        /// <param name="width"></param>
+        /// <param name="position"></param>
+        /// <param name="duration"></param>
+        /// <param name="frameRate"></param>
+        /// <param name="mediaType">This could be a type defined either here or in Common to reduce the need to have SDP as a reference</param>
+        /// <param name="codecIndication">There needs to be either a method on each IMediaContainer to get a 4cc or a common mapping.</param>
+        /// May not always be present...
+        /// <param name="channels"></param>
+        /// <param name="bitDepth"></param>
         public Track(Node header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication, byte channels = 0, byte bitDepth = 0)
         {
             this.Header = header;

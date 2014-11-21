@@ -42,6 +42,8 @@ namespace Media.Containers.Mpeg
 {
     /// <summary>
     /// Represents the logic necessary to read Mpeg Transport Streams.
+    /// Transport Stream is specified in MPEG-2 Part 1, Systems (formally known as ISO/IEC standard 13818-1 or ITU-T Rec. H.222.0).[3]
+    /// Transport stream specifies a container format encapsulating packetized elementary streams, with error correction and stream synchronization features for maintaining transmission integrity when the signal is degraded.
     /// </summary>
     public class TransportStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
     {
@@ -434,7 +436,7 @@ namespace Media.Containers.Mpeg
             //Determine the length of the packet and amount of bytes required to read the length
             int length = UnitLength - IdentifierSize, lengthSize = LengthSize;
 
-            //Determine if needs to be read here, certain streams might have CRC etc.
+            //Should be part of Node Data to be more efficient
 
             //Check for varible length field
             if ((last & AdaptationFieldMask) != 0)
@@ -505,6 +507,8 @@ namespace Media.Containers.Mpeg
         public override byte[] GetSample(Container.Track track, out TimeSpan duration)
         {
             throw new NotImplementedException();
-        }        
+        }
+
+        ////GetPacketizedElementaryStreams?
     }
 }
