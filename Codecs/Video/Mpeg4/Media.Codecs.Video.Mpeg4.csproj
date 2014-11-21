@@ -63,10 +63,6 @@
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
       <Name>Media.Codecs</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Mpeg1\Media.Codecs.Video.Mpeg.csproj">
-      <Project>{33F44CD8-CBC1-4E64-9A2F-C395FB1780E9}</Project>
-      <Name>Media.Codecs.Video.Mpeg</Name>
-    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />
