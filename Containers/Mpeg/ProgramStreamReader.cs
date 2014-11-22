@@ -52,7 +52,14 @@ namespace Media.Containers.Mpeg
         public ProgramStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public ProgramStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
-        
+
+        public ProgramStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
+        public static string ToTextualConvention(byte[] identifier)
+        {
+            return "PsUnit";
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -92,7 +99,13 @@ namespace Media.Containers.Mpeg
 
                 Skip(next.DataSize);
             }
-        }  
+        }
+
+        public override string ToTextualConvention(Container.Node node)
+        {
+            if (node.Master.Equals(this)) return ProgramStreamReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
+        }
 
         //Find a Pack Header?
         public override Container.Node Root

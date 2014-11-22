@@ -74,6 +74,8 @@ namespace Media.Containers.Mcf
 
         public McfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public McfReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public Node ReadNext()
         {
             //Read Code?

@@ -2273,7 +2273,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Box:" + Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(reader.Root.Identifier));
+                    Console.WriteLine("Root Box:" + reader.Root.ToString());
 
                     Console.WriteLine("Boxes:");
 
@@ -2283,7 +2283,7 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Offset: " + box.Offset);
                         Console.WriteLine("DataOffset: " + box.DataOffset);
                         Console.WriteLine("Complete: " + box.IsComplete);
-                        Console.WriteLine("Name: " + Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier));
+                        Console.WriteLine("Name: " + box.ToString());
                         Console.WriteLine("DataSize: " + box.DataSize);
                         Console.WriteLine("TotalSize: " + box.TotalSize);
                         Console.WriteLine("ParentBox: " + Media.Containers.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
@@ -2386,7 +2386,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Element:" + Media.Containers.Matroska.MatroskaReader.ToTextualConvention(reader.Root.Identifier));
+                    Console.WriteLine("Root Element:" + reader.Root.ToString());
 
                     Console.WriteLine("File Level Information");
 
@@ -2402,7 +2402,7 @@ a=mpeg4-esid:101");
 
                     foreach (var element in reader)
                     {
-                        Console.WriteLine("Name: " + Media.Containers.Matroska.MatroskaReader.ToTextualConvention(element.Identifier));
+                        Console.WriteLine("Name: " + element.ToString());
                         Console.WriteLine("Element Offset: " + element.Offset);
                         Console.WriteLine("Element Data Offset: " + element.DataOffset);
                         Console.WriteLine("Element DataSize: " + element.DataSize);
@@ -2439,7 +2439,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Element:" + Media.Containers.Asf.AsfReader.ToTextualConvention(reader.Root.Identifier));
+                    Console.WriteLine("Root Element:" + reader.Root.ToString());
 
                     Console.WriteLine("File Level Information");
 
@@ -2469,7 +2469,7 @@ a=mpeg4-esid:101");
                     foreach (var asfObject in reader)
                     {
                         Console.WriteLine("Identifier:" + BitConverter.ToString(asfObject.Identifier));
-                        Console.WriteLine("Name: " + Media.Containers.Asf.AsfReader.ToTextualConvention(asfObject.Identifier));
+                        Console.WriteLine("Name: " + asfObject.ToString());
                         Console.WriteLine("Position:" + reader.Position);
                         Console.WriteLine("Offset: " + asfObject.Offset);
                         Console.WriteLine("DataOffset: " + asfObject.DataOffset);
@@ -2496,7 +2496,7 @@ a=mpeg4-esid:101");
                     Console.WriteLine("Path:" + reader.Source);
                     Console.WriteLine("Total Size:" + reader.Length);
 
-                    Console.WriteLine("Root Object:" + Media.Containers.Mxf.MxfReader.ToTextualConvention(reader.Root.Identifier));
+                    Console.WriteLine("Root Object:" + reader.Root.ToString());
 
                     Console.WriteLine("Objects:");
 
@@ -2691,22 +2691,22 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Element:" + Media.Containers.Mpeg.TransportStreamReader.ToTextualConvention(reader.Root));
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
 
                         Console.WriteLine("Packets:");
 
                         foreach (var tsUnit in reader)
                         {
-                            Console.WriteLine("Unit Type:" + Media.Containers.Mpeg.TransportStreamReader.ToTextualConvention(tsUnit));
+                            Console.WriteLine("Unit Type:" + tsUnit.ToString());
                             Console.WriteLine("Unit Offset: " + tsUnit.Offset);
                             Console.WriteLine("Unit Data Offset: " + tsUnit.DataOffset);
                             Console.WriteLine("Unit DataSize: " + tsUnit.DataSize);
                             Console.WriteLine("Unit TotalSize: " + tsUnit.TotalSize);
                             Console.WriteLine("Unit.IsComplete: " + tsUnit.IsComplete);
+                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(tsUnit.Identifier));
                             Console.WriteLine("HasTransportPriority: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportPriority(tsUnit));
                             Console.WriteLine("HasTransportErrorIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportErrorIndicator(tsUnit));
                             Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(tsUnit));
-                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(tsUnit));
                             Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(tsUnit));
 
                             bool hasAdaptation = Media.Containers.Mpeg.TransportStreamReader.HasAdaptationField(tsUnit);
@@ -2772,13 +2772,13 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Element:" + Media.Containers.Mpeg.PacketizedElementaryStreamReader.ToTextualConvention(reader.Root));
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
 
                         Console.WriteLine("Packets:");
 
                         foreach (var packet in reader)
                         {
-                            int streamId = Media.Containers.Mpeg.PacketizedElementaryStreamReader.GetStreamId(packet);
+                            int streamId = Media.Containers.Mpeg.PacketizedElementaryStreamReader.GetStreamId(packet.Identifier);
                             Console.WriteLine("StreamId:" + streamId);
                             Console.WriteLine("StreamType:" + Media.Containers.Mpeg.StreamTypes.ToTextualConvention((byte) streamId));
                             Console.WriteLine("Packet Offset: " + packet.Offset);

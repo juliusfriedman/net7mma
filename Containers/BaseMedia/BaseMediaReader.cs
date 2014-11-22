@@ -136,6 +136,8 @@ namespace Media.Containers.BaseMedia
 
         public BaseMediaReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public BaseMediaReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         //int[] names?
         public IEnumerable<Node> ReadBoxes(long offset, long count, params string[] names)
         {
@@ -256,6 +258,12 @@ namespace Media.Containers.BaseMedia
         }
 
         public override Node Root { get { return ReadBox("ftyp", 0); } }
+
+        public override string ToTextualConvention(Node node)
+        {
+            if (node.Master.Equals(this)) return BaseMediaReader.ToFourCharacterCode(node.Identifier);
+            return base.ToTextualConvention(node);
+        }
 
         public bool HasProtection
         {

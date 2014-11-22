@@ -68,12 +68,12 @@ namespace Media.Common
         /// <summary>
         /// Indicates if Dispose has been called previously.
         /// </summary>
-        public bool Disposed { get; protected set; }
+        public virtual bool Disposed { get; protected set; }
 
         /// <summary>
         /// Indicates if the instance should dispose any resourced when disposed.
         /// </summary>
-        public bool ShouldDispose { get; protected set; }
+        public virtual bool ShouldDispose { get; protected set; }
 
         /// <summary>
         /// Throws an ObjectDisposedException if Disposed is true.

@@ -138,6 +138,8 @@ namespace Media.Containers.Ogg
 
         public OggReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public OggReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public IEnumerable<Node> ReadPages(long offset, long count, params CapturePattern[] names) { return ReadPages(offset, count, null, names); }
 
         public IEnumerable<Node> ReadPages(long offset, long count, HeaderFlags? headerFlags, params CapturePattern[] names)

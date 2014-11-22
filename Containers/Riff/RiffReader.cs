@@ -251,6 +251,8 @@ namespace Media.Containers.Riff
 
         public RiffReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public RiffReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public IEnumerable<Node> ReadChunks(long offset = 0, params FourCharacterCode[] names) { return ReadChunks(offset, Array.ConvertAll<FourCharacterCode, int>(names, value => (int) value)); }
 
         public IEnumerable<Node> ReadChunks(long offset = 0, params int[] names)
@@ -335,6 +337,12 @@ namespace Media.Containers.Riff
                 Position = position;
                 return root;
             }
+        }
+
+        public override string ToTextualConvention(Container.Node node)
+        {
+            if (node.Master.Equals(this)) return RiffReader.ToFourCharacterCode(node.Identifier);
+            return base.ToTextualConvention(node);
         }
 
 

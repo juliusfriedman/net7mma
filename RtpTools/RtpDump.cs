@@ -440,10 +440,29 @@ namespace Media.RtpTools.RtpDump
             get { return m_Reader.BaseStream; }
         }
 
-        internal Container.Node ToElement(RtpTools.RtpToolEntry entry)
+        int Media.Container.IMediaContainer.ReadAt(long position, byte[] buffer, int offset, int count)
+        {
+            m_Reader.BaseStream.Seek(position, System.IO.SeekOrigin.Begin);
+            return m_Reader.BaseStream.Read(buffer, offset, count);
+        }
+
+        void Media.Container.IMediaContainer.WriteAt(long position, byte[] buffer, int offset, int count)
+        {
+            m_Reader.BaseStream.Seek(position, System.IO.SeekOrigin.Begin);
+            m_Reader.BaseStream.Write(buffer, offset, count);
+        }
+
+        string Media.Container.IMediaContainer.ToTextualConvention(Container.Node n)
+        {
+            return "RtpDump-Node";
+            //Create a packet from the node, 3 byte identifer is RTP
+            //return RtpSend.ToTextualConvention(packet);
+        }
+
+        internal Container.Node ToNode(RtpTools.RtpToolEntry entry)
         {
             return new Container.Node(this, entry.IsRtcp ? Encoding.UTF8.GetBytes("RTCP") : Encoding.UTF8.GetBytes("RTP"),
-                entry.Offset, 2, entry.MaxSize, entry.MaxSize >= entry.Length);
+                entry.Offset, 0/*2?*/, entry.MaxSize, entry.MaxSize >= entry.Length);
         }
 
         public byte[] GetSample(Container.Track track, out TimeSpan duration)
@@ -465,7 +484,7 @@ namespace Media.RtpTools.RtpDump
 
         IEnumerator<Container.Node> IEnumerable<Container.Node>.GetEnumerator()
         {
-            while (HasNext) yield return ToElement(ReadNext());
+            while (HasNext) yield return ToNode(ReadNext());
         }
 
         #endregion
