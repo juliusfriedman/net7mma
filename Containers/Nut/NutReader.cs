@@ -145,6 +145,8 @@ namespace Media.Containers.Nut
 
         public NutReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public NutReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public IEnumerable<Node> ReadTags(long offset, long count, params StartCode[] names)
         {
             long position = Position;
@@ -857,6 +859,12 @@ namespace Media.Containers.Nut
         public override Node Root
         {
             get { return ReadTag(StartCode.Main, FileIdString.Length); }
+        }
+
+        public override string ToTextualConvention(Container.Node node)
+        {
+            if (node.Master.Equals(this)) return NutReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
         }
 
         public override Node TableOfContents

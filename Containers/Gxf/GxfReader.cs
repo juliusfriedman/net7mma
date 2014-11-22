@@ -74,6 +74,8 @@ namespace Media.Containers.Gxf
 
         public GxfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public GxfReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public IEnumerable<Node> ReadElements(long offset, long count, params Identifier[] identifiers)
         {
             long position = Position;

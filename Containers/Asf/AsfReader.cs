@@ -165,6 +165,8 @@ namespace Media.Containers.Asf
 
         public AsfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public AsfReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public IEnumerable<Node> ReadObjects(long offset = 0, params Guid[] names)
         {
             long position = Position;
@@ -229,6 +231,7 @@ namespace Media.Containers.Asf
             while (Remaining > MinimumSize)
             {
                 Node next = ReadNext();
+
                 if (next == null) yield break;
                 yield return next;
 
@@ -813,6 +816,12 @@ namespace Media.Containers.Asf
             m_Tracks = tracks;
 
             Position = position;
+        }
+
+        public override string ToTextualConvention(Node node)
+        {
+            if (node.Master.Equals(this)) return AsfReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
         }
 
         public override byte[] GetSample(Track track, out TimeSpan duration)

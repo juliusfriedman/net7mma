@@ -65,7 +65,7 @@ namespace Media.Container
                     //If the derivedType is an abstraction then add to the AbstractionBag and continue
                     if (derivedType.IsAbstract) continue;
 
-                    //Todo - Don't create the File Handle multiple times, use the existing one.
+                    //Todo - Don't create the File Handle multiple times, use the existing one. Create a FileInfo and OpenRead and then use FileStream overload
 
                     MediaFileStream created = (MediaFileStream)derivedType.GetConstructor(ConstructorTypes).Invoke(new object[] { fileName });
 
@@ -106,6 +106,11 @@ namespace Media.Container
 
         public virtual long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
 
+        /// <summary>
+        /// Reads the given amount of bytes into the buffer. If reading past the end of the stream an exception is thrown.
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns></returns>
         public virtual byte[] ReadBytes(int count) { if(count <= 0) return Utility.Empty; byte[] result = new byte[count]; int i = 0; while((count -= (i += Read(result, i, count))) > 0);  return result; }
 
         /// <summary>
@@ -128,6 +133,8 @@ namespace Media.Container
             {
                 using (var appender = FileInfo.OpenWrite())
                 {
+                    //Check end
+                    //if (Length != appender.Seek(0, System.IO.SeekOrigin.End)) throw new InvalidOperationException("Unable to obtain the given position");
                     appender.Seek(0, System.IO.SeekOrigin.End);
                     appender.Write(buffer, offset, count);
                     m_Length += count;
@@ -137,20 +144,20 @@ namespace Media.Container
         }
 
         /// <summary>
-        /// Reads data at the given position
+        /// using a new FileStream with ReadOnly access a seek to the given position is performed and a subsequent read at the given position is performed.
         /// </summary>
         /// <param name="position"></param>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns>The amount of bytes read</returns>
-        public virtual int AbsoluteRead(long position, byte[] buffer, int offset, int count)
+        public virtual int ReadAt(long position, byte[] buffer, int offset, int count)
         {
             if (position + count > Length) throw new InvalidOperationException("position and count must reflect data accessible by Position and Length");
             if (count == 0) return 0;
             using (var stream = FileInfo.OpenRead())
             {
-                stream.Seek(position, System.IO.SeekOrigin.Begin);
+                if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
 
                 int i = 0; while ((count -= (i += stream.Read(buffer, i, count))) > 0) ;
 
@@ -160,19 +167,26 @@ namespace Media.Container
             }            
         }
 
-        public virtual int AbsoluteWrite(long position, byte[] buffer, int offset, int count)
+        /// <summary>
+        /// using a new FileStream with WriteOnly access a seek to the given position is performed and a subsequent write at the given position is performed.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        public virtual void WriteAt(long position, byte[] buffer, int offset, int count)
         {
             if (position + count > Length) throw new InvalidOperationException("position and count must reflect data accessible by Position and Length");
-            if (count == 0) return 0;
+            if (count == 0) return;
             using (var stream = FileInfo.OpenWrite())
             {
-                stream.Seek(position, System.IO.SeekOrigin.Begin);
+                if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
 
                 stream.Write(buffer, offset, count);
 
                 FileInfo.Refresh();
 
-                return count;
+                return;
             }           
         }
 
@@ -182,12 +196,39 @@ namespace Media.Container
 
         ~MediaFileStream() { m_Disposed = true; Close(); }
 
+        /// <summary>
+        /// Creates a new FileStream from the given
+        /// </summary>
+        /// <param name="filename"></param>
+        /// <param name="access"></param>
         public MediaFileStream(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : this(new Uri(filename), access) { }
 
+        /// <summary>
+        /// Creates a new FileStream from the given
+        /// </summary>
+        /// <param name="location"></param>
+        /// <param name="access"></param>
         public MediaFileStream(Uri location, System.IO.FileAccess access = System.IO.FileAccess.Read)
             : base(location.LocalPath, System.IO.FileMode.Open, access, System.IO.FileShare.ReadWrite)
         {
             m_Source = location;
+
+            FileInfo = new System.IO.FileInfo(m_Source.LocalPath);
+
+            m_Position = base.Position;
+
+            m_Length = base.Length;
+        }
+
+        /// <summary>
+        /// Creates a new FileStream from the given.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="access"></param>
+        public MediaFileStream(System.IO.FileStream stream, System.IO.FileAccess access = System.IO.FileAccess.Read)
+            : base(stream.SafeFileHandle, access)
+        {
+            m_Source = new Uri(FileInfo.FullName);
 
             FileInfo = new System.IO.FileInfo(m_Source.LocalPath);
 
@@ -210,27 +251,34 @@ namespace Media.Container
             base.Close();
         }
 
-        public override long Seek(long offset, System.IO.SeekOrigin origin) { return m_Position = base.Seek(offset, origin); }
+        public override long Seek(long offset, System.IO.SeekOrigin origin) { try { return m_Position = base.Seek(offset, origin); } finally { FileInfo.Refresh(); } }
 
-        public override int Read(byte[] buffer, int offset, int count) { int result = base.Read(buffer, offset, count); m_Position += result; return result; }
+        public override int Read(byte[] buffer, int offset, int count) { try { int result = base.Read(buffer, offset, count); m_Position += result; return result; } finally { FileInfo.Refresh(); } }
 
-        public override int ReadByte() { int result = base.ReadByte(); if (result != -1) ++m_Position; return result; }        
+        public override int ReadByte() { try { int result = base.ReadByte(); if (result != -1) ++m_Position; return result; } finally { FileInfo.Refresh(); } }        
 
         public override void Write(byte[] array, int offset, int count)
         {
-            if (m_Position == m_Length) m_Length += count;
-            base.Write(array, offset, count);
-            m_Position += count;
-            FileInfo.Refresh();
+            try
+            {
+                if (m_Position == m_Length) m_Length += count;
+                base.Write(array, offset, count);
+                m_Position += count;
+            }
+            finally { FileInfo.Refresh(); }
         }
 
         public override void WriteByte(byte value)
         {
-            if (m_Position == m_Length) ++m_Length;
-            base.WriteByte(value);
-            ++m_Position;
-            FileInfo.Refresh();
+            try
+            {
+                if (m_Position == m_Length) ++m_Length;
+                base.WriteByte(value);
+                ++m_Position;
+            }
+            finally { FileInfo.Refresh(); }
         }
+
         public override IAsyncResult BeginWrite(byte[] array, int offset, int numBytes, AsyncCallback userCallback, object stateObject)
         {
             //If at the end of the stream when done writing then update positions
@@ -305,6 +353,8 @@ namespace Media.Container
         public Uri Location { get { return m_Source; } }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() { return GetEnumerator(); }
+
+        public virtual string ToTextualConvention(Node node) { return GetType().Name + "-Node"; }
 
         #endregion
     }

@@ -698,6 +698,8 @@ namespace Media.Containers.Matroska
 
         public MatroskaReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public MatroskaReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         public Node ReadElement(Identifier identifier, long position = 0) { return ReadElement((int)identifier, position); }
 
         public Node ReadElement(int identifier, long position = 0)
@@ -780,6 +782,12 @@ namespace Media.Containers.Matroska
         public override Node Root
         {
             get { return ReadElement(Identifier.EBMLHeader); }
+        }
+
+        public override string ToTextualConvention(Node node)
+        {
+            if (node.Master.Equals(this)) return MatroskaReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
         }
 
         void ParseEbmlHeader()

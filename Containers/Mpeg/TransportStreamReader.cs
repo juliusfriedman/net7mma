@@ -215,9 +215,9 @@ namespace Media.Containers.Mpeg
 
         public const int IdentifierSize = 4, LengthSize = 0, UnitLength = 188;
 
-        public static string ToTextualConvention(Container.Node tsUnit)
+        public static string ToTextualConvention(byte[] identifier)
         {
-            PacketIdentifier result = GetPacketIdentifier(tsUnit);
+            PacketIdentifier result = GetPacketIdentifier(identifier);
             if (IsReserved(result)) return "Reserved";
             if (IsDVBMetaData(result)) return "DVBMetaData";
             if (result != PacketIdentifier.ATSCMetaData && IsUserDefined(result)) return "UserDefined";
@@ -232,7 +232,7 @@ namespace Media.Containers.Mpeg
 
         public static bool HasTransportPriority(Container.Node tsUnit) { return (tsUnit.Identifier[1] & PriorityMask) > 0; }
 
-        public static PacketIdentifier GetPacketIdentifier(Container.Node tsUnit) { return (PacketIdentifier)(Common.Binary.ReadU16(tsUnit.Identifier, 1, BitConverter.IsLittleEndian) & PacketIdentifierMask); }
+        public static PacketIdentifier GetPacketIdentifier(byte[] identifier) { return (PacketIdentifier)(Common.Binary.ReadU16(identifier, 1, BitConverter.IsLittleEndian) & PacketIdentifierMask); }
 
         public static bool HasAdaptationField(Container.Node tsUnit) { return (tsUnit.Identifier[3] & AdaptationFieldMask) != 0; }
 
@@ -374,6 +374,8 @@ namespace Media.Containers.Mpeg
 
         public TransportStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public TransportStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         ///// <summary>
         ///// Always seeks in different of the offset given and the modulo ofr the TransportStream PacketLength (188)
         ///// </summary>
@@ -397,7 +399,7 @@ namespace Media.Containers.Mpeg
 
             foreach (var tsUnit in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(GetPacketIdentifier(tsUnit)))
+                if (names == null || names.Count() == 0 || names.Contains(GetPacketIdentifier(tsUnit.Identifier)))
                 {
                     yield return tsUnit;
 
@@ -485,7 +487,13 @@ namespace Media.Containers.Mpeg
 
                 Skip(next.DataSize);
             }
-        }  
+        }
+
+        public override string ToTextualConvention(Container.Node node)
+        {
+            if (node.Master.Equals(this)) return TransportStreamReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
+        }
 
         //Maps from Program to PacketIdentifer?
 

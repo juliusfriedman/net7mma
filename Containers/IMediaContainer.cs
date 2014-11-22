@@ -12,6 +12,11 @@ namespace Media.Container
     public interface IMediaContainer : IEnumerable<Node>,  /*IEnumerable<Track>,*/ IDisposable
     {
         /// <summary>
+        /// Indicates if the instance was disposed.
+        /// </summary>
+        bool Disposed { get; }
+
+        /// <summary>
         /// The Uri which describes the location of the data contained in this IMediaContainer
         /// </summary>
         Uri Location { get; }
@@ -45,5 +50,32 @@ namespace Media.Container
         /// <param name="duration">The amount of time related to the result</param>
         /// <returns>The sample data</returns>
         byte[] GetSample(Track track, out TimeSpan duration);
+
+        /// <summary>
+        /// Reads the data from the given position from the <see cref="BaseStream"/>
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        int ReadAt(long position, byte[] buffer, int offset, int count);
+
+
+        /// <summary>
+        /// Write the data from the given position into the <see cref="BaseStream"/>
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        void WriteAt(long position, byte[] buffer, int offset, int count);
+
+        /// <summary>
+        /// Provides a string description of the given <see cref="Node"/>
+        /// </summary>
+        /// <param name="node"></param>
+        /// <returns></returns>
+        string ToTextualConvention(Node node);
     }
 }

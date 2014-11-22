@@ -48,11 +48,11 @@ namespace Media.Containers.Mpeg
     {
         internal const int IdentifierSize = 4, LengthSize = 2, MinimumSize = IdentifierSize + LengthSize;
 
-        public static int GetStreamId(Container.Node node) { return node.Identifier[3]; }
+        public static int GetStreamId(byte[] identifier, int offset = 3) { return identifier[offset]; }
 
-        public static string ToTextualConvention(Media.Container.Node node)
+        public static string ToTextualConvention(byte[] identifer, int offset = 0)
         {
-            throw new NotImplementedException();
+            return "StreamId-" + GetStreamId(identifer);
         }
 
         public PacketizedElementaryStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
@@ -95,7 +95,13 @@ namespace Media.Containers.Mpeg
 
                 Skip(next.DataSize);
             }
-        }  
+        }
+
+        public override string ToTextualConvention(Container.Node node)
+        {
+            if (node.Master.Equals(this)) return PacketizedElementaryStreamReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
+        }
 
         public override Container.Node Root
         {

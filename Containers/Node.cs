@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace Media.Container
 {
     /// <summary>
-    /// Represents a superset of binary data which usually comes from a Media File.
+    /// Represents a superset of binary data within a <see cref="IMediaContainer"/>.
     /// </summary>
     public class Node : Common.BaseDisposable
     {
@@ -46,6 +46,11 @@ namespace Media.Container
         /// </summary>
         public long Offset { get { return DataOffset - (IdentifierSize + LengthSize); } } //Allow negitive or Max(0, ())?
 
+        /// <summary>
+        /// Indicates if the <see cref="Master"/> or this instance was Disposed.
+        /// </summary>
+        public override bool Disposed { get { return Master.Disposed || base.Disposed; } }
+
         byte[] m_Data;
 
         /// <summary>
@@ -56,24 +61,12 @@ namespace Media.Container
             get
             {
                 if (m_Data != null) return m_Data;
-                else if (DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
+                else if (Disposed || DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
                 m_Data = new byte[DataSize];
 
-                if (Master.BaseStream is MediaFileStream)
-                {
-                    ((MediaFileStream)Master.BaseStream).AbsoluteRead(DataOffset, m_Data, 0, (int) DataSize);
-                    return m_Data;
-                }
-
-                long offsetPrevious = Master.BaseStream.Position;
-
-                Master.BaseStream.Position = DataOffset;
-
-                Master.BaseStream.Read(m_Data, 0, (int)DataSize);
-
-                Master.BaseStream.Position = offsetPrevious;
+                Master.ReadAt(DataOffset, m_Data, 0, (int)DataSize);
 
                 return m_Data;
             }
@@ -130,21 +123,10 @@ namespace Media.Container
         /// </summary>
         public void UpdateData()
         {
-            if (DataSize > 0 && m_Data != null)
+            if (!Disposed && DataSize > 0 && m_Data != null)
             {
-                if (Master.BaseStream is MediaFileStream)
-                {
-                    ((MediaFileStream)Master.BaseStream).AbsoluteWrite(DataOffset, m_Data, 0, (int)DataSize);
-                    return;
-                }
-
-                long offsetPrevious = Master.BaseStream.Position;
-
-                Master.BaseStream.Position = DataOffset;
-
-                Master.BaseStream.Write(m_Data, 0, (int)DataSize);
-
-                Master.BaseStream.Position = offsetPrevious;
+                Master.WriteAt(DataOffset, m_Data, 0, (int)DataSize);
+                return;
             }
         }
 
@@ -160,7 +142,9 @@ namespace Media.Container
             m_Data = null;
         }
 
-        //ToString?
-
+        public override string ToString()
+        {
+            return Master.ToTextualConvention(this);
+        }
     }
 }

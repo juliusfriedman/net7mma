@@ -514,6 +514,13 @@ namespace Media.Containers.Mxf
             return result;
         }
 
+        public override string ToTextualConvention(Container.Node node)
+        {
+            if (node.Master.Equals(this)) return MxfReader.ToTextualConvention(node.Identifier);
+            return base.ToTextualConvention(node);
+        }
+
+
         //ToFourCharacterCode(Guid universalLabel)
 
         //Possibly seperate Read and Decode logic?
@@ -574,6 +581,8 @@ namespace Media.Containers.Mxf
         public MxfReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public MxfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
+        public MxfReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
         int? m_RunInSize, m_MajorVersion, m_MinorVersion, m_IndexByteCount, m_KagSize;
 

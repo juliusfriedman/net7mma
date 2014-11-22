@@ -44,6 +44,8 @@ namespace Media.Containers.Real
 
         public RealReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public RealReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         void ParseHeader()
         {
             using (var root = Root)
