@@ -104,6 +104,7 @@ namespace Media.Container
 
         public override long Length { get { return Disposed ? -1 : m_Length; } }
 
+        //-1 instead of 0 when disposed?
         public virtual long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
 
         /// <summary>
@@ -111,7 +112,9 @@ namespace Media.Container
         /// </summary>
         /// <param name="count"></param>
         /// <returns></returns>
-        public virtual byte[] ReadBytes(int count) { if(count <= 0) return Utility.Empty; byte[] result = new byte[count]; int i = 0; while((count -= (i += Read(result, i, count))) > 0);  return result; }
+        public virtual byte[] ReadBytes(int count) { if(count <= 0) return Utility.Empty;  byte[] result = new byte[count]; int i = 0; while((count -= (i += Read(result, i, count))) > 0);  return result; }
+
+        //if(m_Position + count > m_Length) count = (m_Position + count - m_Length) to ensure correct amount of byes read
 
         /// <summary>
         /// Updates <see cref="Position"/> if the given value is positive.
@@ -153,7 +156,6 @@ namespace Media.Container
         /// <returns>The amount of bytes read</returns>
         public virtual int ReadAt(long position, byte[] buffer, int offset, int count)
         {
-            if (position + count > Length) throw new InvalidOperationException("position and count must reflect data accessible by Position and Length");
             if (count == 0) return 0;
             using (var stream = FileInfo.OpenRead())
             {
@@ -176,7 +178,6 @@ namespace Media.Container
         /// <param name="count"></param>
         public virtual void WriteAt(long position, byte[] buffer, int offset, int count)
         {
-            if (position + count > Length) throw new InvalidOperationException("position and count must reflect data accessible by Position and Length");
             if (count == 0) return;
             using (var stream = FileInfo.OpenWrite())
             {
@@ -185,8 +186,6 @@ namespace Media.Container
                 stream.Write(buffer, offset, count);
 
                 FileInfo.Refresh();
-
-                return;
             }           
         }
 
@@ -261,8 +260,9 @@ namespace Media.Container
         {
             try
             {
-                if (m_Position == m_Length) m_Length += count;
+                long total = m_Position + count;
                 base.Write(array, offset, count);
+                if (total > m_Length) m_Length += total - m_Length;
                 m_Position += count;
             }
             finally { FileInfo.Refresh(); }
@@ -272,8 +272,8 @@ namespace Media.Container
         {
             try
             {
-                if (m_Position == m_Length) ++m_Length;
                 base.WriteByte(value);
+                if (m_Position > m_Length) ++m_Length;
                 ++m_Position;
             }
             finally { FileInfo.Refresh(); }
@@ -282,10 +282,17 @@ namespace Media.Container
         public override IAsyncResult BeginWrite(byte[] array, int offset, int numBytes, AsyncCallback userCallback, object stateObject)
         {
             //If at the end of the stream when done writing then update positions
-            if (m_Position == m_Length) userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
+            long total = m_Position + numBytes;
+            if (total > m_Length) userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
+            {
+                //Update Length and Positions
+                m_Length += total - m_Length;
+                m_Position += numBytes;
+                FileInfo.Refresh();
+            }), userCallback);
+            else userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
             {
                 //Update Positions
-                m_Length += numBytes;
                 m_Position += numBytes;
                 FileInfo.Refresh();
             }), userCallback);
@@ -297,19 +304,50 @@ namespace Media.Container
         {
             System.Threading.Tasks.Task t = base.WriteAsync(buffer, offset, count, cancellationToken);
 
-            if (m_Position == m_Length) t.ContinueWith(task =>
+            long total = m_Position + count;
+
+            if (total > m_Length) t.ContinueWith(task =>
             {
                 if (!task.IsCanceled && !task.IsFaulted && task.IsCompleted)
                 {
                     //Update Positions
-                    m_Length += count;
+                    m_Length += total - m_Length;
                     m_Position += count;
                     FileInfo.Refresh();
                 }
             });
 
             return t;
-        }       
+        }
+
+        public override IAsyncResult BeginRead(byte[] array, int offset, int numBytes, AsyncCallback userCallback, object stateObject)
+        {
+            userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
+            {
+                //Update Positions
+                m_Position += numBytes;
+                FileInfo.Refresh();
+            }), userCallback);
+
+            return base.BeginRead(array, offset, numBytes, userCallback, stateObject);
+        }
+
+        public override System.Threading.Tasks.Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken)
+        {
+            System.Threading.Tasks.Task<int> t = base.ReadAsync(buffer, offset, count, cancellationToken);
+
+            t.ContinueWith(task =>
+            {
+                if (!task.IsCanceled && !task.IsFaulted && task.IsCompleted)
+                {
+                    //Update Positions
+                    m_Position += count;
+                    FileInfo.Refresh();
+                }
+            });
+
+            return t;
+        }
         
         #endregion
 
