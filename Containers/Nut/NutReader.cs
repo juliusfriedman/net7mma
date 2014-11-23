@@ -171,17 +171,21 @@ namespace Media.Containers.Nut
             {
                 //Compatibility
                 //If SizeData in the header was set this is a draft version and the data is at the end of the frame.
-                long sidedata_size = reader.HeaderOptions[node.Identifier[IdentifierBytesSize]].Rest.Item2;
+                long header_sidedata_size = reader.HeaderOptions[node.Identifier[IdentifierBytesSize]].Rest.Item2,
+                    frame_sidedata_size = node.Identifier[4];
+
+                //Just incase it was indicated that this frame uses a normal side data size of 0 and includes specific side data
+                //Check the frame headers value which was stored when reading the frame.
 
                 //Check for that condition
-                if (sidedata_size > 0)
+                if (header_sidedata_size > 0 || frame_sidedata_size > 0)
                 {
                     //Use the value which was already decoded when reading the frame.
-                    sidedata_size = node.Identifier[4];
+                    header_sidedata_size = frame_sidedata_size;
 
                     metaData = null; //Not included in spec.
 
-                    int dataSize = (int)(node.DataSize - sidedata_size);
+                    int dataSize = (int)(node.DataSize - header_sidedata_size);
 
                     frameData = Enumerable.Concat(frameData,  node.Data.Take(dataSize));
 
@@ -718,13 +722,9 @@ namespace Media.Containers.Nut
                     bytesReadTotal += bytesReadNow;
                 }
 
-                //Could slightly optomize this with a version but due to draft status its easier to do a single check to find out if there are any bytes 'extra'.
-
-                //Get an indication of how many bytes remain after the reserved bytes would be read.
-                long reservedToRead = reserved_count - sidedata_size;
-
-                //Check for additional fields only for Draft Compatibility (20130327)
-                if (reservedToRead > 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
+                //If the header set a sidedata_size > 0 then it was set in the header, if was set to 0 then this means to ignore it for this frame.
+                //Read the side data ONLY for Draft Compatibility (20130327)
+                if (sidedata_size > 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
                 {
                     //Optionally side data size can be specified here, this was not required because the structure contains the sidedata_size implicitly
                     //1 - Because it is structured as a Info packet
@@ -736,14 +736,16 @@ namespace Media.Containers.Nut
                     */
                     sidedata_size = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
+                    //Reduce reserved_count by sidedata_size
+                    reserved_count -= sidedata_size;
                 }
 
-                //Read any reserved data
-                while (reservedToRead > 0)
+                //Read any reserved data is left
+                while (reserved_count > 0)
                 {
                     DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
-                    reservedToRead -= bytesReadNow;
+                    reserved_count -= bytesReadNow;
                 }
 
                 //from MainHeader

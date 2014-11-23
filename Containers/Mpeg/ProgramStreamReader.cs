@@ -73,7 +73,7 @@ namespace Media.Containers.Mpeg
             //Check for sync
             if(identifier[2] != 0x01) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
 
-            int length = 0, lengthSize = LengthSize;
+            int length = 0, lengthSize = PacketizedElementaryStreamReader.LengthSize;
 
             switch (identifier[3])
             {
@@ -83,16 +83,22 @@ namespace Media.Containers.Mpeg
                     } //Could not also be handled as a PES?
                 case Mpeg.StartCodes.SyncByte: //Pack Header - Mpeg.StreamTypes.PackHeader
                     {
+                        //No bytes are related to the length
+                        lengthSize = 0;
+
                         //Always 14 +
                         //Read 10 more bytes when getting the data
                         Array.Resize(ref identifier, 14);
                         Read(identifier, IdentifierSize, 10);
+
                         //Include Stuffing length with mask (00000111) reversed bits
                         length = (byte)(identifier[13] & 0x07);
+
                         break;
                     }
                 default: //PESPacket
                     {
+                        //lengthSize already set
                         byte[] lengthBytes = PacketizedElementaryStreamReader.ReadLength(this);
                         length = PacketizedElementaryStreamReader.DecodeLength(lengthBytes);
                         break;
