@@ -124,29 +124,6 @@ namespace Media.Container
         public virtual long Skip(long count) { return count <= 0 ? Position : Position += count; }
 
         /// <summary>
-        /// using a new FileStream with WriteOnly access a seek to the end is performed and a subsequent write of the given data.
-        /// <see cref="Length"/> is updated to reflect the operation when successful and <see cref="FileInfo"/> is Refreshed.
-        /// </summary>
-        /// <param name="buffer">The data to write</param>
-        /// <param name="offset">The offset in data to begin writing</param>
-        /// <param name="count">The amount of bytes from <paramref name="offset"/> within <paramref name="data"/></param>
-        public virtual void Append(byte[] buffer, int offset, int count)
-        {
-            if (count > 0)
-            {
-                using (var appender = FileInfo.OpenWrite())
-                {
-                    //Check end
-                    //if (Length != appender.Seek(0, System.IO.SeekOrigin.End)) throw new InvalidOperationException("Unable to obtain the given position");
-                    appender.Seek(0, System.IO.SeekOrigin.End);
-                    appender.Write(buffer, offset, count);
-                    m_Length += count;
-                    FileInfo.Refresh();
-                }
-            }
-        }
-
-        /// <summary>
         /// using a new FileStream with ReadOnly access a seek to the given position is performed and a subsequent read at the given position is performed.
         /// </summary>
         /// <param name="position"></param>
@@ -189,6 +166,19 @@ namespace Media.Container
             }           
         }
 
+        /// <summary>
+        /// using a new FileStream with WriteOnly access a seek to the end is performed and a subsequent write of the given data.
+        /// <see cref="Length"/> is updated to reflect the operation when successful and <see cref="FileInfo"/> is Refreshed.
+        /// </summary>
+        /// <param name="buffer">The data to write</param>
+        /// <param name="offset">The offset in data to begin writing</param>
+        /// <param name="count">The amount of bytes from <paramref name="offset"/> within <paramref name="data"/></param>
+        public virtual void Append(byte[] buffer, int offset, int count) { WriteAt(Length, buffer, offset, count); }
+
+        internal protected long GetPosition() { return base.Position; }
+
+        internal protected long GetLength() { return base.Length; }
+
         #endregion
 
         #region Constructor / Destructor
@@ -227,13 +217,13 @@ namespace Media.Container
         public MediaFileStream(System.IO.FileStream stream, System.IO.FileAccess access = System.IO.FileAccess.Read)
             : base(stream.SafeFileHandle, access)
         {
-            m_Source = new Uri(FileInfo.FullName);
+            m_Source = new Uri(stream.Name);
 
             FileInfo = new System.IO.FileInfo(m_Source.LocalPath);
 
-            m_Position = base.Position;
+            Position = stream.Position;
 
-            m_Length = base.Length;
+            m_Length = stream.Length;
         }
 
         #endregion

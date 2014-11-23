@@ -97,13 +97,18 @@ namespace Media.Common
 
         #region Statics
 
-        static byte[] BitsSetTable;
+        internal static byte[] BitsSetTable;
+
+        internal static byte[] BitsReverseTable;
 
         static Binary()
         {
             BitsSetTable = new byte[256];
             BitsSetTable[0] = 0;
-            for (int i = 0; i < 256; ++i) BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+            for (int i = byte.MinValue; i <= byte.MaxValue; ++i) BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+            
+            BitsReverseTable = new byte[256];
+            for (int i = byte.MinValue; i <= byte.MaxValue; ++i) BitsReverseTable[i] = MultiplyReverseU8((byte)i);
         }
 
         #endregion
@@ -555,7 +560,14 @@ namespace Media.Common
         {
             //http://graphics.stanford.edu/~seander/bithacks.html
             //per Rich Schroeppel in the Programming Hacks section of  Beeler, M., Gosper, R. W., and Schroeppel, R. HAKMEM. MIT AI Memo 239, Feb. 29, 1972. 
-            return (byte)((source * 0x0202020202UL & 0x010884422010UL) % 1023);
+            return BitsReverseTable[source];
+        }
+
+        public static byte MultiplyReverseU8(byte source)
+        {
+            //http://graphics.stanford.edu/~seander/bithacks.html
+            //per Rich Schroeppel in the Programming Hacks section of  Beeler, M., Gosper, R. W., and Schroeppel, R. HAKMEM. MIT AI Memo 239, Feb. 29, 1972. 
+            return (byte)(((source * 0x80200802UL) & 0x0884422110UL) * 0x0101010101UL >> 32);
         }
 
         [CLSCompliant(false)]

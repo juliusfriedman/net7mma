@@ -468,7 +468,7 @@ namespace Media.Containers.Mpeg
                 length -= lengthSize;
             }
 
-            //Check for absence of PayloadMask which indicates 0 length
+            //Check for absence of PayloadMask which indicates 0 length ????
             if ((last & PayloadMask) == 0) length = 0;
 
             //Return the Node
