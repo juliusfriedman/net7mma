@@ -2635,8 +2635,12 @@ a=mpeg4-esid:101");
 
                             if (Media.Containers.Nut.NutReader.IsFrame(tag))
                             {
-                                Console.WriteLine("StreamId: " + Media.Containers.Nut.NutReader.GetStreamId(tag));
-                                Console.WriteLine("FrameFlags: " + Media.Containers.Nut.NutReader.GetFrameFlags(tag));
+                                Console.WriteLine("Frame:");
+                                Console.WriteLine("FrameFlags: " + Media.Containers.Nut.NutReader.GetFrameFlags(reader, tag));
+                                int streamId = Media.Containers.Nut.NutReader.GetStreamId(tag);
+                                Console.WriteLine("StreamId: " + streamId);
+                                Console.WriteLine("HeaderOptions: " + reader.HeaderOptions[streamId]);
+                                Console.WriteLine("FrameHeader: " + BitConverter.ToString(Media.Containers.Nut.NutReader.GetFrameHeader(reader, tag)));
                             }
                             else
                                 Console.WriteLine("Name: " + Media.Containers.Nut.NutReader.ToTextualConvention(tag.Identifier));
@@ -2657,6 +2661,8 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("IsStableVersion:" + reader.IsStableVersion);
 
+                        if (reader.HasMainHeaderFlags) Console.WriteLine("HeaderFlags:" + reader.MainHeaderFlags);
+
                         Console.WriteLine("Stream Count:" + reader.StreamCount);
 
                         Console.WriteLine("MaximumDistance:" + reader.MaximumDistance);
@@ -2664,8 +2670,6 @@ a=mpeg4-esid:101");
                         Console.WriteLine("TimeBases:" + reader.TimeBases.Count());
 
                         Console.WriteLine("EllisionHeaderCount:" + reader.EllisionHeaderCount);
-
-                        //Console.WriteLine("EllisionHeaders:");
 
                         Console.WriteLine("HeaderOptions:" + reader.HeaderOptions.Count());
 

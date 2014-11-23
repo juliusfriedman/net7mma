@@ -59,6 +59,8 @@ namespace Media.Containers.Mpeg
 
         public PacketizedElementaryStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public PacketizedElementaryStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
         /// <summary>
         /// Reads a PES Header
         /// </summary>

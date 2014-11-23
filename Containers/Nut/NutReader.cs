@@ -66,10 +66,19 @@ namespace Media.Containers.Nut
             SizeMSB = 32,
             Checksum = 64,
             Reserved = 128,
+            SideMetaData = 256,
             HeaderIndex = 1024,
             MatchTime = 2048,
             Coded = 4096,
             Invalid = 8192
+        }
+
+        [Flags]
+        public enum HeaderFlags
+        {
+            Unknown = 0,
+            Broadcast = 1,
+            Pipe = 2
         }
 
         #region Constants
@@ -120,14 +129,14 @@ namespace Media.Containers.Nut
             return node.Identifier[0] == NutByte;
         }
 
-        public static FrameFlags GetFrameFlags(Node node)
+        public static FrameFlags GetFrameFlags(NutReader reader, Node node)
         {
 
             if(node == null) throw new ArgumentNullException("node");
 
             if (!IsFrame(node)) return FrameFlags.Unknown;
 
-            return (FrameFlags)node.Identifier[IdentifierBytesSize];
+            return (FrameFlags)reader.HeaderOptions[node.Identifier[IdentifierBytesSize]].Item1;
         }
 
         public static int GetStreamId(Node node)
@@ -137,6 +146,15 @@ namespace Media.Containers.Nut
             if (!IsFrame(node)) return -1;
 
             return node.Identifier[6];
+        }
+
+        public static byte[] GetFrameHeader(NutReader reader, Node node)
+        {
+            if (node == null) throw new ArgumentNullException("node");
+
+            if (!IsFrame(node)) return Utility.Empty;
+
+            return reader.EllisionHeaders[node.Identifier[5]];
         }
 
         #endregion
@@ -178,7 +196,7 @@ namespace Media.Containers.Nut
             return result;
         }
 
-        public long DecodeVeraibleLength(System.IO.Stream stream, out int bytesRead)
+        public long DecodeVariableLength(System.IO.Stream stream, out int bytesRead)
         {
 
             bytesRead = 0;
@@ -233,7 +251,7 @@ namespace Media.Containers.Nut
             m_FileIdString = Encoding.UTF8.GetString(bytes.ToArray());
         }
 
-        int? m_Version, m_StreamCount, m_MaxDistance;
+        int? m_MajorVersion, m_MinorVersion, m_StreamCount, m_MaxDistance;
 
         List<long> m_TimeBases;
 
@@ -248,18 +266,29 @@ namespace Media.Containers.Nut
 
         long? m_EllisionHeaderCount, m_MainHeaderFlags;
 
-        List<long> m_EllisionHeaders;
+        List<byte[]> m_EllisionHeaders;
 
-        public int Version
+        public Version Version
         {
             get
             {
-                if (!m_Version.HasValue) ParseMainHeader();
-                return m_Version.Value;
+                if (!m_MajorVersion.HasValue) ParseMainHeader();
+                return new Version(m_MajorVersion.Value, m_MinorVersion ?? 0);
             }
         }
 
-        public bool IsStableVersion { get { return Version >= StableVersion; } }
+        public bool IsStableVersion { get { return Version.Major >= StableVersion; } }
+
+        public bool HasMainHeaderFlags { get { return Version.Major > StableVersion; } }
+
+        public HeaderFlags MainHeaderFlags
+        {
+            get
+            {
+                if (!HasMainHeaderFlags) return HeaderFlags.Unknown;
+                return (HeaderFlags)m_MainHeaderFlags.Value;
+            }
+        }
 
         public int StreamCount
         {
@@ -288,7 +317,7 @@ namespace Media.Containers.Nut
             }
         }
 
-        public List<long> EllisionHeaders
+        public List<byte[]> EllisionHeaders
         {
             get
             {
@@ -297,8 +326,9 @@ namespace Media.Containers.Nut
             }
         }
 
+        //(Main)Frame(Headers/Options) is possibly a better name.
         //Shouldn't need the 8th item or the 6th item
-        public List<Tuple<long, long, long, long, long, long, long, Tuple<long>>> HeaderOptions
+        public List<Tuple<long, long, long, long, long, long, long, Tuple<long, long>>> HeaderOptions
         {
             get
             {
@@ -307,27 +337,30 @@ namespace Media.Containers.Nut
             }
         }
 
-        List<Tuple<long, long, long, long, long, long, long, Tuple<long>>> m_HeaderOptions;
+        List<Tuple<long, long, long, long, long, long, long, Tuple<long, long>>> m_HeaderOptions;
 
-        //MainPackage?
         void ParseMainHeader()
         {
             if (m_MaxDistance.HasValue) return;            
 
             using (var root = Root) using(var stream = root.DataStream)
             {
-                int bytesRead = 0;
-                m_Version = (int)DecodeVeraibleLength(stream, out bytesRead);
+                int bytesRead = 0, end = (int)root.DataSize;
 
-                if (m_Version < MinimumVersion || m_Version > MaximumVersion) throw new InvalidOperationException("Unsupported Version");
+                m_MajorVersion = (int)DecodeVariableLength(stream, out bytesRead);
 
-                m_StreamCount = (int)DecodeVeraibleLength(stream, out bytesRead);
+                if (m_MajorVersion < MinimumVersion || m_MajorVersion > MaximumVersion) throw new InvalidOperationException("Unsupported Version");
 
-                m_MaxDistance = (int)DecodeVeraibleLength(stream, out bytesRead);
+                //2.4 reads minor version
+                if (m_MajorVersion > StableVersion) m_MinorVersion = (int)DecodeVariableLength(stream, out bytesRead);
+
+                m_StreamCount = (int)DecodeVariableLength(stream, out bytesRead);
+
+                m_MaxDistance = (int)DecodeVariableLength(stream, out bytesRead);
 
                 if (m_MaxDistance > 65536) throw new InvalidOperationException("Invalid MaxiumDistance (Must be less than 65536) Found: " + m_MaxDistance.Value);
 
-                int timeBaseCount = (int)DecodeVeraibleLength(stream, out bytesRead);
+                int timeBaseCount = (int)DecodeVariableLength(stream, out bytesRead);
 
                 if (timeBaseCount == 0) throw new InvalidOperationException("No Timebase");
 
@@ -338,7 +371,7 @@ namespace Media.Containers.Nut
                 //None must be > 1 << 31
                 //None should be equal
                 for (int i = 0; i < timeBaseCount; ++i)
-                    m_TimeBases.Add(DecodeVeraibleLength(stream, out bytesRead) / DecodeVeraibleLength(stream, out bytesRead));
+                    m_TimeBases.Add(DecodeVariableLength(stream, out bytesRead) / DecodeVariableLength(stream, out bytesRead));
 
                 long tmp_pts = 0;
                 long tmp_mul = 1;
@@ -349,31 +382,32 @@ namespace Media.Containers.Nut
                 long tmp_fields = 0;
                 long tmp_size = 0;
                 long tmp_res = 0;
+                long tmp_side = 0;
 
                 long count = 0;
 
-                //This is essentially an index, could be byte[]64...
-                m_HeaderOptions = new List<Tuple<long, long, long, long, long, long, long, Tuple<long>>>();
+                //This is essentially an index, could be byte[]64... but spec is under development...
+                m_HeaderOptions = new List<Tuple<long, long, long, long, long, long, long, Tuple<long, long>>>();
 
                 for (int i = 0; i < MaximumHeaderOptions;)
                 {
-                    tmp_flag = DecodeVeraibleLength(stream, out bytesRead);
-                    tmp_fields = DecodeVeraibleLength(stream, out bytesRead);
+                    tmp_flag = DecodeVariableLength(stream, out bytesRead);
+                    tmp_fields = DecodeVariableLength(stream, out bytesRead);
 
                     //Signed
-                    if (tmp_fields > 0) tmp_pts = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 0) tmp_pts = DecodeVariableLength(stream, out bytesRead);
 
-                    if (tmp_fields > 1) tmp_mul = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 1) tmp_mul = DecodeVariableLength(stream, out bytesRead);
 
-                    if (tmp_fields > 2) tmp_stream = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 2) tmp_stream = DecodeVariableLength(stream, out bytesRead);
 
-                    if (tmp_fields > 3) tmp_size = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 3) tmp_size = DecodeVariableLength(stream, out bytesRead);
                     else tmp_size = 0;
 
-                    if (tmp_fields > 4) tmp_res = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 4) tmp_res = DecodeVariableLength(stream, out bytesRead);
                     tmp_res = 0;
 
-                    if (tmp_fields > 5) count = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 5) count = DecodeVariableLength(stream, out bytesRead);
                     else
                     {
                         if (tmp_size > tmp_mul) throw new InvalidOperationException("count underflow");
@@ -384,7 +418,7 @@ namespace Media.Containers.Nut
                     if (tmp_fields > 6)
                     {
                         //Signed
-                        tmp_match = DecodeVeraibleLength(stream, out bytesRead);
+                        tmp_match = DecodeVariableLength(stream, out bytesRead);
                         
                         //Sanity (short.MinValue, short.MaxValue)
                         if (tmp_match <= -32768 || tmp_match >= 32768 
@@ -392,10 +426,12 @@ namespace Media.Containers.Nut
                             tmp_match != 1 - (1 << 62)) throw new InvalidOperationException("absolute delta match time must be less than 32768");
                     }
 
-                    if (tmp_fields > 7) tmp_head_idx = DecodeVeraibleLength(stream, out bytesRead);
+                    if (tmp_fields > 7) tmp_head_idx = DecodeVariableLength(stream, out bytesRead);
+
+                    if (tmp_fields > 8) tmp_side = DecodeVariableLength(stream, out bytesRead);
 
                     //for (int j = 8; j < tmp_fields; ++j) tmp_res = DecodeLength(stream, out bytesRead);
-                    while (tmp_fields-- > 8) DecodeVeraibleLength(stream, out bytesRead);
+                    while (tmp_fields-- > 8) DecodeVariableLength(stream, out bytesRead);
 
                     if (count == 0 || i + count > MaximumHeaderOptions) throw new InvalidOperationException("Invalid count for header: " + i + ", count: " + count);
 
@@ -406,30 +442,23 @@ namespace Media.Containers.Nut
 
                         if (i == NutByte)
                         {
-                            m_HeaderOptions.Add(new Tuple<long, long, long, long, long, long, long, Tuple<long>>((long)FrameFlags.Invalid, 0, 0, 0, 0, 0, 0, new Tuple<long>(0)));
+                            m_HeaderOptions.Add(new Tuple<long, long, long, long, long, long, long, Tuple<long, long>>((long)FrameFlags.Invalid, 0, 0, 0, 0, 0, 0, new Tuple<long, long>(0, 0)));
                             j--;
                             continue;
                         }
-                        /* Must read this because header_idx is found here
-                         * Must read this because reserved_count is defined here
-                            flags[i]= tmp_flag;
-                            stream_id[i]= tmp_stream;
-                            data_size_mul[i]= tmp_mul;
-                            data_size_lsb[i]= tmp_size + j;
-                            pts_delta[i]= tmp_pts;
-                            reserved_count[i]= tmp_res;
-                            match_time_delta[i]= tmp_match;
-                            header_idx[i]= tmp_head_idx;
-                        */
-                        m_HeaderOptions.Add(new Tuple<long, long, long, long, long, long, long, Tuple<long>>(tmp_flag, tmp_stream, tmp_mul, tmp_size + j, tmp_pts, tmp_match, tmp_head_idx, new Tuple<long>(tmp_res)));
+
+                        m_HeaderOptions.Add(new Tuple<long, long, long, long, long, long, long, Tuple<long, long>>(tmp_flag, tmp_stream, tmp_mul, tmp_size + j, tmp_pts, tmp_match, tmp_head_idx, new Tuple<long, long>(tmp_res, tmp_side)));
                     }
                 }
 
                 if ((FrameFlags)m_HeaderOptions[NutByte].Item1 != FrameFlags.Invalid) throw new InvalidOperationException("Invalid Header Tables");
 
-                m_EllisionHeaderCount = Math.Min(DecodeVeraibleLength(stream, out bytesRead), MultiByteLength);
+                //The number of distinct non empty elision headers.
+                //MUST be <128.
+                m_EllisionHeaderCount = Math.Min(DecodeVariableLength(stream, out bytesRead), MultiByteLength);
 
-                //The first Ellision Header must be 0
+                if (m_EllisionHeaderCount >= MultiByteLength) throw new InvalidOperationException("Invalid Header Tables");
+
                 /*
                 elision_header[header_idx] (vb)
                 For frames with a final size <= 4096 this header is prepended to the
@@ -440,25 +469,45 @@ namespace Media.Containers.Nut
                 The length of each elision_header except header 0 MUST be < 256 and >0.
                 The sum of the lengthes of all elision_headers MUST be <=1024.
                 */
+                
+                //The first Ellision Header must be 0
+                m_EllisionHeaders = new List<byte[]>((int)m_EllisionHeaderCount + 1) { Utility.Empty };
 
-                m_EllisionHeaders = new List<long>((int)m_EllisionHeaderCount + 1) { 0 };
+                long position = stream.Position;
 
-                //Read Ellision Headers (Note bounded by length)
-                for (int h = 0, end = (int)(stream.Length - 1); h < m_EllisionHeaderCount && stream.Position < end; ++h)
+                //Read Ellision Headers (Note bounded by length of header)
+                for (int h = 0; h < m_EllisionHeaderCount && position < end; ++h)
                 {
-                    long headerLength = DecodeVeraibleLength(stream, out bytesRead);
+                    long headerLength = DecodeVariableLength(stream, out bytesRead);
+
+                    position += bytesRead;
 
                     //FROM FFMPEG Should ensure every value is > 0 && < 256
                     if (headerLength < 0 || headerLength > MaximumHeaderOptions) throw new InvalidOperationException("headerLength Must be > 0 && < 256, found: " + headerLength);
 
-                    m_EllisionHeaders.Add(headerLength);
+                    //Get the header data
+                    byte[] headerData = new byte[headerLength];
+
+                    stream.Read(headerData, 0, (int)headerLength);
+
+                    //Add the header
+                    m_EllisionHeaders.Add(headerData);
+
+                    position += headerLength;
                 }
 
-                if (m_EllisionHeaderCount > 0 && m_EllisionHeaders.Sum() > MaximumEllisionTotal)  throw new InvalidOperationException("Invalid Ellision Header Summation");
+                if (m_EllisionHeaderCount > 0 && m_EllisionHeaders.Sum(h=> h.Length) > MaximumEllisionTotal)  throw new InvalidOperationException("Invalid Ellision Header Summation");
 
-                //Usually has a BROADCAST flag?
-                m_MainHeaderFlags = DecodeVeraibleLength(stream, out bytesRead);
-                //reserved_bytes
+                // flags had been effectively introduced in version 4.
+                // I have also allowed that if there is 4 more bytes then this is read from what is possibly reserved
+                if (HasMainHeaderFlags && end - position > 4)
+                {
+                    //Usually has a BROADCAST flag?
+                    m_MainHeaderFlags = DecodeVariableLength(stream, out bytesRead);
+                }
+                else m_MainHeaderFlags = (long)HeaderFlags.Unknown;
+
+                //reserved_bytes can be ignored.
             }
         }
 
@@ -481,7 +530,7 @@ namespace Media.Containers.Nut
 
                 int lengthSize = 0;
 
-                long length = DecodeVeraibleLength(this, out lengthSize);
+                long length = DecodeVariableLength(this, out lengthSize);
 
                 return new Node(this, identifier, lengthSize, Position, length, length <= Remaining);
             }
@@ -521,7 +570,9 @@ namespace Media.Containers.Nut
 
                 long size_mul = HeaderOptions[nextByte].Item3;
 
-                long size_msb = 0, size_lsb = HeaderOptions[nextByte].Item4;
+                long size_msb = 0, size_lsb = HeaderOptions[nextByte].Item4, 
+                     // Size in bytes at the end inside data which represent frame sidedata and frame metadata.
+                     sidedata_size = HeaderOptions[nextByte].Rest.Item2;
 
                 int bytesReadTotal = 0, bytesReadNow;
 
@@ -530,24 +581,26 @@ namespace Media.Containers.Nut
                 //Check to see if the real flags are in the data
                 if (frameFlags.HasFlag(FrameFlags.Coded))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    frameFlags ^= (FrameFlags)(DecodeVariableLength(this, out bytesReadNow));
                     bytesReadTotal += bytesReadNow;
-                    frameFlags ^= (FrameFlags)temp;
                 }
 
                 //Check for invalid flag
                 if (frameFlags.HasFlag(FrameFlags.Invalid)) throw new InvalidOperationException("FrameCodes must not have the flag \"FrameFlags.Invalid\"");
 
+                //Check for StreamId
                 if (frameFlags.HasFlag(FrameFlags.StreamId))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    streamId = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
-                    //Checks...
+                    if (streamId > MaximumHeaderOptions) throw new InvalidOperationException("StreamId cannot be > 256"); 
                 }
 
+                //Check for the PTS
+                //Should probably be stored in Identifier.
                 if (frameFlags.HasFlag(FrameFlags.CodedPTS))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    temp = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
                 }
                 else
@@ -559,19 +612,21 @@ namespace Media.Containers.Nut
                 //Check to see if the size is coded in the data
                 if (frameFlags.HasFlag(FrameFlags.SizeMSB))
                 {
-                    size_msb = DecodeVeraibleLength(this, out bytesReadNow);
+                    size_msb = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
                 }
 
                 if (frameFlags.HasFlag(FrameFlags.MatchTime))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    temp = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
                 }
 
+                //Check for alternate header index
                 if (frameFlags.HasFlag(FrameFlags.HeaderIndex))
                 {
-                    temp = DecodeVeraibleLength(this, out bytesReadNow);
+                    header_idx = (int)DecodeVariableLength(this, out bytesReadNow);
+                    if (header_idx > m_HeaderOptions.Count()) throw new InvalidOperationException("Invalid header index found: '" +  header_idx + "'. Cannot indicate a header which does not exist");
                     bytesReadTotal += bytesReadNow;
                 }
 
@@ -580,37 +635,54 @@ namespace Media.Containers.Nut
                 //MUST be <256.
                 if (frameFlags.HasFlag(FrameFlags.Reserved))
                 {
-                    reserved_count = DecodeVeraibleLength(this, out bytesReadNow);
+                    reserved_count = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
-                    //while (reserved_count-- > 0)
+                }
 
-                    //for (int i = 0; i < temp; ++i)
-                    //{
-                    //    DecodeLength(this, out bytesRead);
-                    //    if (bytesRead == 0) break;//?
-                    //}
+                /*
+                 +    if(frame_flags&FLAG_SIDEDATA)
+                 +        sidedata_size                   v
+                 +    for(i=0; i<frame_res - !(frame_flags&FLAG_SIDEDATA); i++)
+                 */
+
+                if (frameFlags.HasFlag(FrameFlags.SideMetaData))
+                {
+                    sidedata_size = DecodeVariableLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
+                }
+
+                long reservedToRead = reserved_count - sidedata_size;
+
+                if (reservedToRead > 0)
+                {
+                    while (reservedToRead > 0)
+                    {
+                        DecodeVariableLength(this, out bytesReadNow);
+                        bytesReadTotal += bytesReadNow;
+                        reservedToRead -= bytesReadNow;
+                    }
                 }
 
                 //from MainHeader
-                //if (length > MaximumDistance) header_idx = 0;
-
-                //length -= EllisionHeaders[header_idx];
-
                 length = size_msb * size_mul + size_lsb;
 
+                //Frames with a final size of les than ForwardPointerWithChecksum (4096) will have the header data preprended.
+                //thus TotalLength cannot include EllisionHeaders[header_idx] length
+                if (length > ForwardPointerWithChecksum) header_idx = 0;
+                else length -= EllisionHeaders[header_idx].Length;
+
                 /*
-                EOR frames MUST be zero-length and must be set keyframe.
+               EOR frames MUST be zero-length and must be set keyframe.
                All streams SHOULD end with EOR, where the pts of the EOR indicates the (NOT AN EXCEPTION CASE)
                end presentation time of the final frame.
                An EOR set stream is unset by the first content frame.
                EOR can only be unset in streams with zero decode_delay .
                FLAG_CHECKSUM MUST be set if the frame's data_size is strictly greater than
                2*max_distance or the difference abs(pts-last_pts) is strictly greater than
-               max_pts_distance (where pts represents this frame's pts and last_pts is
-               defined as below).
+               max_pts_distance (where pts represents this frame's pts and last_pts is defined as below).
+                */                
 
-                */
-
+                //Ensure Key Frame for Eor and that Length is positive
                 if (frameFlags.HasFlag(FrameFlags.EOR))
                 {
                     if (!frameFlags.HasFlag(FrameFlags.Key)) throw new InvalidOperationException("EOR Frames must be key");
@@ -618,7 +690,7 @@ namespace Media.Containers.Nut
                     if (length != 0) throw new InvalidOperationException("EOR Frames must have size 0");
                 }
                 
-
+                //Check for Checksum flag only because if it is present length is not checked.
                 if (frameFlags.HasFlag(FrameFlags.Checksum))
                 {
                     //Checksum
@@ -628,11 +700,13 @@ namespace Media.Containers.Nut
                     //Do this so the Frame can be optionall CRC'd by the Enumerator if CheckCRC is true
                     //length += 4;
                 }
-                else if (length > (2 * MaximumDistance)) throw new InvalidOperationException("frame size > 2 max_distance and no checksum");
+                else if (!(HasMainHeaderFlags && !MainHeaderFlags.HasFlag(HeaderFlags.Pipe))
+                    && 
+                    length > (2 * MaximumDistance)) throw new InvalidOperationException("frame size > 2 max_distance and no checksum");               
 
-                //Can store 6 more bytes in identifier
+                //Can store 5 more bytes in identifier
                 //LengthSize is negitive which indicates its variable length from Position
-                return new Node(this, new byte[] { 0, 0, 0, 0, 0, 0, (byte)streamId, (byte)frameFlags }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
+                return new Node(this, new byte[] { 0, 0, 0, 0, (byte)sidedata_size, (byte)header_idx, (byte)streamId, nextByte }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
             }
         }
 
@@ -651,6 +725,24 @@ namespace Media.Containers.Nut
                 //Determine if discard frame.
 
                 Skip(result.DataSize);
+
+                //2.4 Check for SizeMetaData because apparently the Info header was not enough nor was the ellision header.
+                ////if (HasMainHeaderFlags && IsFrame(result))
+                ////{
+                ////    //Check for Side / Meta Data Flag in the Node.
+                ////    if (GetFrameFlags(this, result).HasFlag(FrameFlags.SideMetaData))
+                ////    {
+                ////        int bytesReadNow;
+                        
+                ////        //Read the length of the data
+                ////        long sideCount = DecodeVariableLength(this, out bytesReadNow);
+                        
+                ////        //Return a virtual node by creating a start code which is absent because it is not included in the frame.
+
+                ////        //This parses just like a Info packet. (Double check offset is calulcated correctly)
+                ////        yield return new Node(this, BitConverter.GetBytes((ulong)StartCode.Info), bytesReadNow - IdentifierSize, Position, sideCount, sideCount <= Remaining);
+                ////    }
+                ////}
             }
         }
 
@@ -698,10 +790,14 @@ namespace Media.Containers.Nut
 
             //Read all Stream Packages
             foreach (var tag in ReadTags(FileIdString.Length, Length - FileIdString.Length, StartCode.Stream).ToArray()) 
-                m_StreamPackages.Add((int)DecodeVeraibleLength(tag.DataStream, out bytesRead), tag);
+                m_StreamPackages.Add((int)DecodeVariableLength(tag.DataStream, out bytesRead), tag);
 
             //if (StreamCount != m_StreamPackages.Count) throw new InvalidOperationException("StreamCount does not match Packages with a Stream StartCode.");
         }
+
+        //void ParseInfoPackage / SideMetaData (Optional)
+
+        //void ParseSyncPoint
 
         public override IEnumerable<Track> GetTracks()
         {
@@ -731,11 +827,11 @@ namespace Media.Containers.Nut
                 {
                     int bytesRead = 0;
 
-                    long tempStreamId = DecodeVeraibleLength(stream, out bytesRead);
+                    long tempStreamId = DecodeVariableLength(stream, out bytesRead);
 
                     if (tempStreamId != streamId) throw new InvalidOperationException("Stream Package Mismatch");
 
-                    long streamClass = DecodeVeraibleLength(stream, out bytesRead);
+                    long streamClass = DecodeVariableLength(stream, out bytesRead);
 
                     Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
@@ -767,29 +863,29 @@ namespace Media.Containers.Nut
                             }
                         default:
                             {
-                                stream.Read(codecIndication, 0, (int)DecodeVeraibleLength(stream, out bytesRead));
+                                stream.Read(codecIndication, 0, (int)DecodeVariableLength(stream, out bytesRead));
                                 break;
                             }
                     }
                     
                     //timeBaseId
-                    long tempTimeBase = DecodeVeraibleLength(stream, out bytesRead);
+                    long tempTimeBase = DecodeVariableLength(stream, out bytesRead);
 
                     //if (tempTimeBase != timeBase) throw new InvalidOperationException("Stream Timebase Mismatch");
 
                     if (tempTimeBase != timeBase) timeBase = m_TimeBases[(int)tempTimeBase];
 
-                    long msb_pts_shift = DecodeVeraibleLength(stream, out bytesRead);
-                    long pts_distance = DecodeVeraibleLength(stream, out bytesRead);
-                    long decode_delay = DecodeVeraibleLength(stream, out bytesRead);
-                    long stream_flags = DecodeVeraibleLength(stream, out bytesRead);
+                    long msb_pts_shift = DecodeVariableLength(stream, out bytesRead);
+                    long pts_distance = DecodeVariableLength(stream, out bytesRead);
+                    long decode_delay = DecodeVariableLength(stream, out bytesRead);
+                    long stream_flags = DecodeVariableLength(stream, out bytesRead);
 
                     long duration = msb_pts_shift * pts_distance;
 
                     duration += (int)m_HeaderOptions[streamId].Item6 << (int)msb_pts_shift;
 
                     //extraData for codec
-                    stream.Position += DecodeVeraibleLength(stream, out bytesRead) + bytesRead;
+                    stream.Position += DecodeVariableLength(stream, out bytesRead) + bytesRead;
 
                     int width = 0, height = 0;
 
@@ -804,15 +900,15 @@ namespace Media.Containers.Nut
                                 //Already read
                                 rate = pts_distance;
 
-                                width = (int)DecodeVeraibleLength(stream, out bytesRead);
-                                height = (int)DecodeVeraibleLength(stream, out bytesRead);
+                                width = (int)DecodeVariableLength(stream, out bytesRead);
+                                height = (int)DecodeVariableLength(stream, out bytesRead);
                                 //Aspect Ration (num/dum)
 
-                                DecodeVeraibleLength(stream, out bytesRead);
-                                DecodeVeraibleLength(stream, out bytesRead);
+                                DecodeVariableLength(stream, out bytesRead);
+                                DecodeVariableLength(stream, out bytesRead);
 
                                 //csp type
-                                bitDepth = (byte)DecodeVeraibleLength(stream, out bytesRead);
+                                bitDepth = (byte)DecodeVariableLength(stream, out bytesRead);
                                 break;
                             }
                         case Sdp.MediaType.audio:
@@ -821,9 +917,9 @@ namespace Media.Containers.Nut
                                 duration = pts_distance;
 
                                 //Rational
-                                rate = DecodeVeraibleLength(stream, out bytesRead);
-                                rate /= DecodeVeraibleLength(stream, out bytesRead);
-                                channels = (byte)DecodeVeraibleLength(stream, out bytesRead);
+                                rate = DecodeVariableLength(stream, out bytesRead);
+                                rate /= DecodeVariableLength(stream, out bytesRead);
+                                channels = (byte)DecodeVariableLength(stream, out bytesRead);
                                 break;
                             }
                     }

@@ -851,7 +851,7 @@ namespace Media
 
             public SourceList(IEnumerable<uint> sources, int start = 0)
             {
-                m_SourceCount = Math.Max(15, sources.Count());
+                m_SourceCount = Math.Max(Common.Binary.FourBitMaxValue, sources.Count());
 
                 IEnumerable<byte> binary = Utility.Empty;
 
