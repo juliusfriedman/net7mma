@@ -45,10 +45,8 @@ namespace Media.Containers.Mpeg
     /// ProgramStreams are created by combining one or more Packetized Elementary Streams (PES), which have a common time base, into a single stream.
     /// </summary>
     //http://www.incospec.com/resources/webinars/files/MPEG%20101%20Demyst%20Analysis%20&%20Picture%20Symptoms%2020110808_opt.pdf
-    public class ProgramStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
+    public class ProgramStreamReader : PacketizedElementaryStreamReader
     {
-        internal const int IdentifierSize = 4, LengthSize = 0, MinimumSize = IdentifierSize + LengthSize;
-
         public ProgramStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public ProgramStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
@@ -60,22 +58,17 @@ namespace Media.Containers.Mpeg
         {
             //Should determine based on header code, 00, 00, 01, XX
             //Mpeg.StartCodes.ToTextualConvention(identifier[3])
-            return "PsUnit";
+            return PacketizedElementaryStreamReader.ToTextualConvention(identifier);
         }
-
-        //Better to inherit from then accumulate packets when a PES Length == 0 or no PayloadStartUnitIndicator is set
-        PacketizedElementaryStreamReader pes;
 
         /// <summary>
         /// 
         /// </summary>
         /// <returns></returns>
-        public Container.Node ReadNext()
+        public override Container.Node ReadNext()
         {
             //Read 14 bytes (Reads too many, only should read 4)
-            byte[] identifier = new byte[IdentifierSize];
-
-            Read(identifier, 0, IdentifierSize);
+            byte[] identifier = PacketizedElementaryStreamReader.ReadIdentifier(this);
 
             //Check for sync
             if(identifier[2] != 0x01) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
@@ -98,32 +91,11 @@ namespace Media.Containers.Mpeg
                         length = (byte)(identifier[13] & 0x07);
                         break;
                     }
-                //Handle as PES
-                //case Mpeg.StartCodes.SystemHeader: //Systems Header, etc have length after code
-                //    {
-                //        //Length does not include bytes read (00 00 01, BB, XX, XX)
-                //        //Read 2 byte length
-                //        lengthSize = 2;
-                //        byte[] lengthBytes = new byte[lengthSize];
-                //        Read(lengthBytes, 0, lengthSize);
-                //        //This is the Descriptors count which follow when divided by 3.
-                //        length = Common.Binary.ReadU16(lengthBytes, 0, BitConverter.IsLittleEndian);
-                //        break;
-                //    }
                 default: //PESPacket
                     {
-                        if(pes == null) pes = new PacketizedElementaryStreamReader(this, System.IO.FileAccess.Read);
-                        //Could just have a static method to read the TsUnit from and would eliminate seeking back or having to keep an instance.
-                        
-                        //Could also inherit from PacketizedElementaryStreamReader
-                        var result = pes.ReadNext();
-
-                        //Update this streams position based on the size of the result from the PES
-                        Position += result.TotalSize;
-
-                        return result;
-                        
-                        //Should accumulate then return a new Node with the first offset and Sum of the total size
+                        byte[] lengthBytes = PacketizedElementaryStreamReader.ReadLength(this);
+                        length = PacketizedElementaryStreamReader.DecodeLength(lengthBytes);
+                        break;
                     }
             }
 
@@ -132,7 +104,7 @@ namespace Media.Containers.Mpeg
 
         public override IEnumerator<Container.Node> GetEnumerator()
         {
-            while (Remaining >= MinimumSize)
+            while (Remaining >= PacketizedElementaryStreamReader.IdentifierSize)
             {
                 Container.Node next = ReadNext();
 
@@ -165,9 +137,7 @@ namespace Media.Containers.Mpeg
         public override IEnumerable<Container.Track> GetTracks()
         {
             //Find each ProgramStream Marker (Pack Header Format) http://en.wikipedia.org/wiki/MPEG_program_stream#Coding_details
-            //Find each PESPacket within the ProgramStream Marker
-            //create a PacketizedElementaryStreamReader from this, with FileAccess.Read
-            //return the GetTracks from that
+            //Parse to create a track.
             throw new NotImplementedException();
         }
 
@@ -175,7 +145,5 @@ namespace Media.Containers.Mpeg
         {
             throw new NotImplementedException();
         }
-
-        //GetPacketizedElementaryStreams?
     }
 }

@@ -234,6 +234,8 @@ namespace Media.Containers.Mpeg
 
         public static PacketIdentifier GetPacketIdentifier(byte[] identifier) { return (PacketIdentifier)(Common.Binary.ReadU16(identifier, 1, BitConverter.IsLittleEndian) & PacketIdentifierMask); }
 
+        public static bool HasPayload(Container.Node tsUnit) { return (tsUnit.Identifier[3] & PayloadMask) > 0; }
+
         public static bool HasAdaptationField(Container.Node tsUnit) { return (tsUnit.Identifier[3] & AdaptationFieldMask) != 0; }
 
         public static ScramblingControl GetScramblingControl(Container.Node tsUnit) { return (ScramblingControl)((tsUnit.Identifier[3] & ScramblingControlMask) >> 6); }        
@@ -246,28 +248,22 @@ namespace Media.Containers.Mpeg
 
         public static AdaptationFieldFlags GetAdaptationFieldFlags(Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(tsUnit)[0]; }
 
-        //Todo Must come from tsUnit.Data
+        public static int GetAdaptationFieldLength(Container.Node tsUnit)
+        {
+            if (tsUnit == null) throw new ArgumentNullException("tsUnit");
+
+            if (!HasAdaptationField(tsUnit)) return 0;
+
+            return tsUnit.Data[0];
+        }
 
         public static byte[] GetAdaptationFieldData(Container.Node tsUnit)
         {
             if (tsUnit == null) throw new ArgumentNullException("tsUnit");
 
-            //Size is known but includes length byte
-            int size = tsUnit.LengthSize - 1;
+            int size = GetAdaptationFieldLength(tsUnit);
 
-            if (size < 1 || !HasAdaptationField(tsUnit)) return Utility.Empty;
-
-            long position = tsUnit.Master.BaseStream.Position, neededPosition = tsUnit.Offset + IdentifierSize + 1;
-
-            tsUnit.Master.BaseStream.Seek(neededPosition, System.IO.SeekOrigin.Begin);
-
-            byte[] data = new byte[size];
-
-            tsUnit.Master.BaseStream.Read(data, 0, size);
-            
-            tsUnit.Master.BaseStream.Seek(position, System.IO.SeekOrigin.Begin);
-
-            return data;
+            return size <= 0 ? Utility.Empty : tsUnit.Data.Skip(1).Take(size).ToArray();
         }
 
         public static TimeSpan? ProgramClockReference(byte[] adaptationField)
@@ -439,40 +435,13 @@ namespace Media.Containers.Mpeg
 
             if (identifier[0] != SyncByte) throw new InvalidOperationException("Cannot Find Marker");
 
-            //Should be part of Node Data to be more efficient
-            //Length would always be 188.
-            //Methods would change to read from the Data
-            //No checking would be performed
-            //int length = UnitLength - IdentifierSize;
-            //return new Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
-
-            //The last byte determine if there is a variable length (adaptation) field
-            byte last = identifier[3];
+            //Make UnitLength an instance property or have a Overhead property?
 
             //Determine the length of the packet and amount of bytes required to read the length
-            int length = UnitLength - IdentifierSize, lengthSize = LengthSize;
-
-            //Check for varible length field
-            if ((last & AdaptationFieldMask) != 0)
-            {
-                //Determine its size by reading a byte
-                lengthSize = (byte)((ReadByte()) & byte.MaxValue);
-                
-                //If it has any more data skip past it (obtained with read at DataOffset - LengthSize)
-                if (lengthSize > 0) Skip(lengthSize);
-
-                //Do include the size byte in the length size
-                lengthSize++;
-
-                //Don't include the variable length data in the size
-                length -= lengthSize;
-            }
-
-            //Check for absence of PayloadMask which indicates 0 length ????
-            if ((last & PayloadMask) == 0) length = 0;
+            int length = UnitLength - IdentifierSize;
 
             //Return the Node
-            return new Container.Node(this, identifier, lengthSize, Position, length, length <= Remaining);
+            return new Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Container.Node> GetEnumerator()
@@ -501,10 +470,9 @@ namespace Media.Containers.Mpeg
 
         //void ParseProgramStreamMaps
 
-        public override Container.Node Root
-        {
-            get { return ReadUnit(PacketIdentifier.ProgramAssociationTable); }
-        }
+        //Should inherit from PacketizedElementaryStream...?
+
+        public override Container.Node Root { get { return ReadUnit(PacketIdentifier.ProgramAssociationTable); } }
 
         //ProgramAssociationTable to get stream ProgramStreams Id's
         //Then first with ProgramStreamMap?
@@ -524,6 +492,8 @@ namespace Media.Containers.Mpeg
             throw new NotImplementedException();
         }
 
-        ////GetPacketizedElementaryStreams?
+        //ConcurrentThesaraus<int, Node> Programs
+
+        //Get Programs / ToProgramStream / Tune(int programId)?
     }
 }

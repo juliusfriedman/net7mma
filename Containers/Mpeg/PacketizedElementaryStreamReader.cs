@@ -61,24 +61,45 @@ namespace Media.Containers.Mpeg
 
         public PacketizedElementaryStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
-        /// <summary>
-        /// Reads a PES Header
-        /// </summary>
-        /// <returns>The Node which represents the PESPacket</returns>
-        public Container.Node ReadNext()
+        public static byte[] ReadIdentifier(System.IO.Stream stream)
         {
             //Read the PES Header (Prefix and StreamId)
             byte[] identifier = new byte[IdentifierSize];
 
-            Read(identifier, 0, IdentifierSize);
+            stream.Read(identifier, 0, IdentifierSize);
 
+            return identifier;
+        }
+
+        public static byte[] ReadLength(System.IO.Stream stream)
+        {
             //Read Length
             byte[] lengthBytes = new byte[2];
 
-            Read(lengthBytes, 0, LengthSize);
+            stream.Read(lengthBytes, 0, LengthSize);
+
+            return lengthBytes;
+        }
+
+        public static int DecodeLength(byte[] lengthBytes)
+        {
+            return Common.Binary.ReadU16(lengthBytes, 0, BitConverter.IsLittleEndian);
+        }
+
+        /// <summary>
+        /// Reads a PES Header
+        /// </summary>
+        /// <returns>The Node which represents the PESPacket</returns>
+        public virtual Container.Node ReadNext()
+        {
+            //Read the PES Header (Prefix and StreamId)
+            byte[] identifier = ReadIdentifier(this);
+
+            //Read Length
+            byte[] lengthBytes = ReadLength(this);
 
             //Determine length
-            int length = Common.Binary.ReadU16(lengthBytes, 0, BitConverter.IsLittleEndian);
+            int length = DecodeLength(lengthBytes);
 
             //Optional PES Header and Stuffing Bytes if length > 0
 
