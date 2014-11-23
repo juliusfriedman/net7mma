@@ -157,6 +157,84 @@ namespace Media.Containers.Nut
             return reader.EllisionHeaders[node.Identifier[5]];
         }
 
+        public static byte[] GetFrameData(NutReader reader, Node node, out byte[] sideData, out byte[] metaData)
+        {
+            FrameFlags flags = GetFrameFlags(reader, node);
+
+            sideData = metaData = null;
+
+            //Always include the frame header
+            IEnumerable<byte> frameData = GetFrameHeader(reader, node);
+
+            //Check if data needs to be removed
+            if (flags.HasFlag(FrameFlags.SideMetaData))
+            {
+                //Compatibility
+                //If SizeData in the header was set this is a draft version and the data is at the end of the frame.
+                long sidedata_size = reader.HeaderOptions[node.Identifier[IdentifierBytesSize]].Rest.Item2;
+
+                //Check for that condition
+                if (sidedata_size > 0)
+                {
+                    //Use the value which was already decoded when reading the frame.
+                    sidedata_size = node.Identifier[4];
+
+                    metaData = null; //Not included in spec.
+
+                    int dataSize = (int)(node.DataSize - sidedata_size);
+
+                    frameData = Enumerable.Concat(frameData,  node.Data.Take(dataSize));
+
+                    sideData = node.Data.Skip(dataSize).ToArray();
+                }
+                else //Current Spec
+                {
+                    int bytesReadNow = 0, bytesReadTotal = 0;
+                    //Get a stream of the data
+                    using (var stream = node.DataStream)
+                    {
+                        int size = (int)reader.DecodeVariableLength(stream, out bytesReadNow);
+                        
+                        //Side Data Count (From Info) and read
+                        if (size > 0)
+                        {
+                            bytesReadTotal += bytesReadNow;
+
+                            sideData = new byte[size];
+
+                            reader.Read(sideData, 0, size);
+
+                            bytesReadTotal += size;
+                        }
+
+                        //Meta Data Count (From Info) and read
+                        size = (int)reader.DecodeVariableLength(stream, out bytesReadNow);
+
+                        if (size > 0)
+                        {
+                            bytesReadTotal += bytesReadNow;
+
+                            metaData = new byte[size];
+
+                            reader.Read(sideData, 0, size);
+
+                            bytesReadTotal += size;
+                        }
+
+                        //The position of this stream is now @ the end of the data which does not belong to the frame itself.
+                        frameData = Enumerable.Concat(frameData,  node.Data.Skip(bytesReadTotal));
+                    }
+                }
+            }
+            else //The data of the frame is as it is
+            {
+                frameData = Enumerable.Concat(frameData, node.Data);
+            }
+
+            //Return the allocated array
+            return frameData.ToArray();
+        }
+
         #endregion
 
         public NutReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
@@ -327,7 +405,7 @@ namespace Media.Containers.Nut
         }
 
         //(Main)Frame(Headers/Options) is possibly a better name.
-        //Shouldn't need the 8th item or the 6th item
+        //Shouldn't need the 8th, 9th item or the 6th item
         public List<Tuple<long, long, long, long, long, long, long, Tuple<long, long>>> HeaderOptions
         {
             get
@@ -420,10 +498,10 @@ namespace Media.Containers.Nut
                         //Signed
                         tmp_match = DecodeVariableLength(stream, out bytesRead);
                         
-                        //Sanity (short.MinValue, short.MaxValue)
-                        if (tmp_match <= -32768 || tmp_match >= 32768 
+                        //Sanity
+                        if (tmp_match <= short.MinValue || tmp_match > short.MaxValue 
                             &&
-                            tmp_match != 1 - (1 << 62)) throw new InvalidOperationException("absolute delta match time must be less than 32768");
+                            tmp_match != 1 - (1 << 62)) throw new InvalidOperationException("absolute delta match time must be less than or equal to short.MaxValue");
                     }
 
                     if (tmp_fields > 7) tmp_head_idx = DecodeVariableLength(stream, out bytesRead);
@@ -496,6 +574,7 @@ namespace Media.Containers.Nut
                     position += headerLength;
                 }
 
+                //Sanity
                 if (m_EllisionHeaderCount > 0 && m_EllisionHeaders.Sum(h=> h.Length) > MaximumEllisionTotal)  throw new InvalidOperationException("Invalid Ellision Header Summation");
 
                 // flags had been effectively introduced in version 4.
@@ -639,28 +718,32 @@ namespace Media.Containers.Nut
                     bytesReadTotal += bytesReadNow;
                 }
 
-                /*
-                 +    if(frame_flags&FLAG_SIDEDATA)
-                 +        sidedata_size                   v
-                 +    for(i=0; i<frame_res - !(frame_flags&FLAG_SIDEDATA); i++)
-                 */
+                //Could slightly optomize this with a version but due to draft status its easier to do a single check to find out if there are any bytes 'extra'.
 
-                if (frameFlags.HasFlag(FrameFlags.SideMetaData))
+                //Get an indication of how many bytes remain after the reserved bytes would be read.
+                long reservedToRead = reserved_count - sidedata_size;
+
+                //Check for additional fields only for Draft Compatibility (20130327)
+                if (reservedToRead > 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
                 {
+                    //Optionally side data size can be specified here, this was not required because the structure contains the sidedata_size implicitly
+                    //1 - Because it is structured as a Info packet
+                    //2 - Because in the latest version there is also meta data right after
+                    /*
+                    +    if(frame_flags&FLAG_SIDEDATA)
+                    +        sidedata_size                   v
+                    +    for(i=0; i<frame_res - !(frame_flags&FLAG_SIDEDATA); i++)
+                    */
                     sidedata_size = DecodeVariableLength(this, out bytesReadNow);
                     bytesReadTotal += bytesReadNow;
                 }
 
-                long reservedToRead = reserved_count - sidedata_size;
-
-                if (reservedToRead > 0)
+                //Read any reserved data
+                while (reservedToRead > 0)
                 {
-                    while (reservedToRead > 0)
-                    {
-                        DecodeVariableLength(this, out bytesReadNow);
-                        bytesReadTotal += bytesReadNow;
-                        reservedToRead -= bytesReadNow;
-                    }
+                    DecodeVariableLength(this, out bytesReadNow);
+                    bytesReadTotal += bytesReadNow;
+                    reservedToRead -= bytesReadNow;
                 }
 
                 //from MainHeader
@@ -704,7 +787,7 @@ namespace Media.Containers.Nut
                     && 
                     length > (2 * MaximumDistance)) throw new InvalidOperationException("frame size > 2 max_distance and no checksum");               
 
-                //Can store 5 more bytes in identifier
+                //Can store 3 more bytes in identifier
                 //LengthSize is negitive which indicates its variable length from Position
                 return new Node(this, new byte[] { 0, 0, 0, 0, (byte)sidedata_size, (byte)header_idx, (byte)streamId, nextByte }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
             }
@@ -718,31 +801,9 @@ namespace Media.Containers.Nut
 
                 if (result == null) yield break;
 
-                yield return result;
+                yield return result;                
 
-                //Determine if store offset of last syncpoint...
-
-                //Determine if discard frame.
-
-                Skip(result.DataSize);
-
-                //2.4 Check for SizeMetaData because apparently the Info header was not enough nor was the ellision header.
-                ////if (HasMainHeaderFlags && IsFrame(result))
-                ////{
-                ////    //Check for Side / Meta Data Flag in the Node.
-                ////    if (GetFrameFlags(this, result).HasFlag(FrameFlags.SideMetaData))
-                ////    {
-                ////        int bytesReadNow;
-                        
-                ////        //Read the length of the data
-                ////        long sideCount = DecodeVariableLength(this, out bytesReadNow);
-                        
-                ////        //Return a virtual node by creating a start code which is absent because it is not included in the frame.
-
-                ////        //This parses just like a Info packet. (Double check offset is calulcated correctly)
-                ////        yield return new Node(this, BitConverter.GetBytes((ulong)StartCode.Info), bytesReadNow - IdentifierSize, Position, sideCount, sideCount <= Remaining);
-                ////    }
-                ////}
+                Skip(result.DataSize);               
             }
         }
 
@@ -949,6 +1010,12 @@ namespace Media.Containers.Nut
 
         public override byte[] GetSample(Track track, out TimeSpan duration)
         {
+            //Get all frames.
+
+            //Determine if store offset of last syncpoint...
+
+            //Determine if discard frame.
+
             throw new NotImplementedException();
         }
 
