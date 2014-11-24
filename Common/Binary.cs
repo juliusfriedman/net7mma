@@ -104,11 +104,25 @@ namespace Media.Common
         static Binary()
         {
             BitsSetTable = new byte[256];
-            BitsSetTable[0] = 0;
-            for (int i = byte.MinValue; i <= byte.MaxValue; ++i) BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
-            
             BitsReverseTable = new byte[256];
-            for (int i = byte.MinValue; i <= byte.MaxValue; ++i) BitsReverseTable[i] = MultiplyReverseU8((byte)i);
+
+            //Could also start at 2, since BitSet[0] = BitReverse[0] = 0 
+            //And BitSet[1] = BitReverse[128] = 1; BitReverse[1] = 128;
+
+            //Could then only goto sbyte.MaxValue (128)
+            for (int i = 1; i <= byte.MaxValue; ++i)
+            {
+                //Could perform two opertions here
+                //1 Get the BitsSet
+                //2 Add sbyte.MaxValue
+                // BitsSetTable[i] = BitsSetTable[i + sbyte.MaxValue] = (byte)((i & 1) + BitsSetTable[i / 2]);
+
+                //Since the reverse is also here it might just make sense to also unroll and do the bits set for the reverse index as well
+                //This would limit the loop to around 64 operations...
+
+                BitsReverseTable[i] = MultiplyReverseU8((byte)i);
+                BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+            }
         }
 
         #endregion

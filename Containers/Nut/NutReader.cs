@@ -171,21 +171,16 @@ namespace Media.Containers.Nut
             {
                 //Compatibility
                 //If SizeData in the header was set this is a draft version and the data is at the end of the frame.
-                long header_sidedata_size = reader.HeaderOptions[node.Identifier[IdentifierBytesSize]].Rest.Item2,
-                    frame_sidedata_size = node.Identifier[4];
+                //In such a case the sidedata size was already read from the frame header and is stored in the Identifier.
+                long sidedata_size = node.Identifier[4];
 
-                //Just incase it was indicated that this frame uses a normal side data size of 0 and includes specific side data
-                //Check the frame headers value which was stored when reading the frame.
-
-                //Check for that condition
-                if (header_sidedata_size > 0 || frame_sidedata_size > 0)
+                //Just incase it was indicated that this frame uses a normal side data size of 0 and includes specific side data for the frame
+                //Check the header and frame headers value which was stored when reading the frame.
+                if (sidedata_size > 0)
                 {
-                    //Use the value which was already decoded when reading the frame.
-                    header_sidedata_size = frame_sidedata_size;
-
                     metaData = null; //Not included in spec.
 
-                    int dataSize = (int)(node.DataSize - header_sidedata_size);
+                    int dataSize = (int)(node.DataSize - sidedata_size);
 
                     frameData = Enumerable.Concat(frameData,  node.Data.Take(dataSize));
 
@@ -582,7 +577,7 @@ namespace Media.Containers.Nut
                 if (m_EllisionHeaderCount > 0 && m_EllisionHeaders.Sum(h=> h.Length) > MaximumEllisionTotal)  throw new InvalidOperationException("Invalid Ellision Header Summation");
 
                 // flags had been effectively introduced in version 4.
-                // I have also allowed that if there is 4 more bytes then this is read from what is possibly reserved
+                //If there are at least 4 bytes?
                 if (HasMainHeaderFlags && end - position > 4)
                 {
                     //Usually has a BROADCAST flag?
@@ -727,7 +722,7 @@ namespace Media.Containers.Nut
                 if (sidedata_size > 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
                 {
                     //Optionally side data size can be specified here, this was not required because the structure contains the sidedata_size implicitly
-                    //1 - Because it is structured as a Info packet
+                    //1 - Because it is confusing because the header could indicate 0 and there could be a non 0 value here thus it is redundant to store it twice.
                     //2 - Because in the latest version there is also meta data right after
                     /*
                     +    if(frame_flags&FLAG_SIDEDATA)
