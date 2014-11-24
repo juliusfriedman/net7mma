@@ -95,11 +95,8 @@ namespace Media.Containers.Mpeg
             //Read the PES Header (Prefix and StreamId)
             byte[] identifier = ReadIdentifier(this);
 
-            //Read Length
-            byte[] lengthBytes = ReadLength(this);
-
-            //Determine length
-            int length = DecodeLength(lengthBytes);
+            //Read and decode length
+            int length = DecodeLength(ReadLength(this));
 
             //Optional PES Header and Stuffing Bytes if length > 0
 

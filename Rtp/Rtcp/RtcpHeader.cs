@@ -212,9 +212,9 @@ namespace Media.Rtcp
         #region Constructor
 
         /// <summary>
-        /// Reads an instance of the RtpHeader class and copies 12 octets which make up the RtpHeader.
+        /// Reads an instance of the RtcpHeader class and copies octets which make up the RtcpHeader.
         /// </summary>
-        /// <param name="octets">A reference to a byte array which contains at least 12 octets to copy.</param>
+        /// <param name="octets">A reference to a byte array which contains at least 4 octets to copy.</param>
         public RtcpHeader(byte[] octets, int offset = 0)
         {
             //If the octets reference is null throw an exception

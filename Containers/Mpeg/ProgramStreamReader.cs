@@ -83,7 +83,7 @@ namespace Media.Containers.Mpeg
                     } //Could not also be handled as a PES?
                 case Mpeg.StartCodes.SyncByte: //Pack Header - Mpeg.StreamTypes.PackHeader
                     {
-                        //No bytes are related to the length
+                        //No bytes are related to the length yet
                         lengthSize = 0;
 
                         //Always 14 +
@@ -99,8 +99,7 @@ namespace Media.Containers.Mpeg
                 default: //PESPacket
                     {
                         //lengthSize already set
-                        byte[] lengthBytes = PacketizedElementaryStreamReader.ReadLength(this);
-                        length = PacketizedElementaryStreamReader.DecodeLength(lengthBytes);
+                        length = PacketizedElementaryStreamReader.DecodeLength(PacketizedElementaryStreamReader.ReadLength(this));
                         break;
                     }
             }
