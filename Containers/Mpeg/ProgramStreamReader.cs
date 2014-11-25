@@ -67,11 +67,11 @@ namespace Media.Containers.Mpeg
         /// <returns></returns>
         public override Container.Node ReadNext()
         {
-            //Read 14 bytes (Reads too many, only should read 4)
+            //Read a code
             byte[] identifier = PacketizedElementaryStreamReader.ReadIdentifier(this);
 
             //Check for sync
-            if(identifier[2] != 0x01) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
+            if (Common.Binary.ReadU24(identifier, 0, !BitConverter.IsLittleEndian) != Common.Binary.ReadU24(Mpeg.StartCodes.Prefix, 0, !BitConverter.IsLittleEndian)) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
 
             int length = 0, lengthSize = PacketizedElementaryStreamReader.LengthSize;
 
@@ -80,19 +80,42 @@ namespace Media.Containers.Mpeg
                 case Mpeg.StartCodes.EndCode:
                     {
                         break;
-                    } //Could not also be handled as a PES?
-                case Mpeg.StartCodes.SyncByte: //Pack Header - Mpeg.StreamTypes.PackHeader
+                    }
+                case Mpeg.StartCodes.PackHeader: //Also Mpeg.StreamTypes.PackHeader
                     {
                         //No bytes are related to the length yet
                         lengthSize = 0;
 
-                        //Always 14 +
-                        //Read 10 more bytes when getting the data
-                        Array.Resize(ref identifier, 14);
-                        Read(identifier, IdentifierSize, 10);
+                        byte next = (byte)ReadByte();
 
-                        //Include Stuffing length with mask (00000111) reversed bits
-                        length = (byte)(identifier[13] & 0x07);
+                        switch (next >> 6)
+                        {
+                            case 0: //MPEG 1
+                                {
+                                    //Read 10 more bytes when getting the data
+                                    Array.Resize(ref identifier, 12);
+                                    Read(identifier, IdentifierSize + 1, 7);
+                                    break;
+                                }
+                            //case 1://MPEG 2
+                            //case 2://MPEG 4?
+                            default:
+                                {
+                                    //Read 10 more bytes when getting the data
+                                    Array.Resize(ref identifier, 14);
+                                    Read(identifier, IdentifierSize + 1, 9);
+                                    //SCR and SCR_ext together are the System Clock Reference, a counter driven at 27MHz, used as a reference to synchronize streams. The clock is divided by 300 (to match the 90KHz clocks such as PTS/DTS), the quotient is SCR (33 bits), the remainder is SCR_ext (9 bits)
+
+                                    //Program Mux Rate - This is a 22 bit integer specifying the rate at which the program stream target decoder receives the Program Stream during the pack in which it is included. The value of program_mux_rate is measured in units of 50 bytes/second. The value 0 is forbidden.
+
+                                    //Include Stuffing length with mask (00000111) reversed bits
+                                    length = (byte)(identifier[13] & 0x07);
+                                    break;
+                                }
+                        }
+
+                        //Put the 4th byte back
+                        identifier[IdentifierSize] = next;
 
                         break;
                     }
@@ -143,7 +166,7 @@ namespace Media.Containers.Mpeg
         {
             //Find each ProgramStream Marker (Pack Header Format) http://en.wikipedia.org/wiki/MPEG_program_stream#Coding_details
             //Parse to create a track.
-            throw new NotImplementedException();
+            return Enumerable.Empty<Container.Track>();
         }
 
         public override byte[] GetSample(Container.Track track, out TimeSpan duration)

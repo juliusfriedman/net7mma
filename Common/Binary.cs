@@ -106,22 +106,16 @@ namespace Media.Common
             BitsSetTable = new byte[256];
             BitsReverseTable = new byte[256];
 
-            //Could also start at 2, since BitSet[0] = BitReverse[0] = 0 
-            //And BitSet[1] = BitReverse[128] = 1; BitReverse[1] = 128;
-
-            //Could then only goto sbyte.MaxValue (128)
-            for (int i = 1; i <= byte.MaxValue; ++i)
+            //Start at 2, since BitsSetTable[0] = BitsReverseTable[0] = 0 
+            BitsSetTable[1] = BitsReverseTable[128] = 1; 
+            BitsSetTable[128] = BitsReverseTable[1] = 128;
+            BitsSetTable[255] = 8; BitsReverseTable[255] = 255;
+            //253 Operations [2 -> 254]
+            for (int i = 2; i < byte.MaxValue; ++i)
             {
-                //Could perform two opertions here
-                //1 Get the BitsSet
-                //2 Add sbyte.MaxValue
-                // BitsSetTable[i] = BitsSetTable[i + sbyte.MaxValue] = (byte)((i & 1) + BitsSetTable[i / 2]);
-
-                //Since the reverse is also here it might just make sense to also unroll and do the bits set for the reverse index as well
-                //This would limit the loop to around 64 operations...
-
-                BitsReverseTable[i] = MultiplyReverseU8((byte)i);
-                BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+                byte reverse = MultiplyReverseU8((byte)i);
+                BitsReverseTable[i] = reverse;
+                BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
             }
         }
 

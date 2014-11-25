@@ -74,7 +74,7 @@ namespace Media.Containers.Mpeg
         public static byte[] ReadLength(System.IO.Stream stream)
         {
             //Read Length
-            byte[] lengthBytes = new byte[2];
+            byte[] lengthBytes = new byte[LengthSize];
 
             stream.Read(lengthBytes, 0, LengthSize);
 
@@ -94,6 +94,12 @@ namespace Media.Containers.Mpeg
         {
             //Read the PES Header (Prefix and StreamId)
             byte[] identifier = ReadIdentifier(this);
+
+            //https://github.com/peterdk/SupRip/blob/master/Bluray%20Sup.txt
+
+            //Should check for PG Header (P OR p OR g, OR G)?
+            //IF found Pts and Dts are present.
+            //Not sure why this couldn't have just been in the Payload like everything else e.g the Optional PES Header..
 
             //Read and decode length
             int length = DecodeLength(ReadLength(this));

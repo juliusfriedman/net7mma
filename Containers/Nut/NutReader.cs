@@ -459,7 +459,7 @@ namespace Media.Containers.Nut
                 long tmp_fields = 0;
                 long tmp_size = 0;
                 long tmp_res = 0;
-                long tmp_side = 0;
+                long tmp_side = -1;
 
                 long count = 0;
 
@@ -519,7 +519,7 @@ namespace Media.Containers.Nut
 
                         if (i == NutByte)
                         {
-                            m_HeaderOptions.Add(new Tuple<long, long, long, long, long, long, long, Tuple<long, long>>((long)FrameFlags.Invalid, 0, 0, 0, 0, 0, 0, new Tuple<long, long>(0, 0)));
+                            m_HeaderOptions.Add(new Tuple<long, long, long, long, long, long, long, Tuple<long, long>>((long)FrameFlags.Invalid, 0, 0, 0, 0, 0, 0, new Tuple<long, long>(0, -1)));
                             j--;
                             continue;
                         }
@@ -719,7 +719,7 @@ namespace Media.Containers.Nut
 
                 //If the header set a sidedata_size > 0 then it was set in the header, if was set to 0 then this means to ignore it for this frame.
                 //Read the side data ONLY for Draft Compatibility (20130327)
-                if (sidedata_size > 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
+                if (sidedata_size >= 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
                 {
                     //Optionally side data size can be specified here, this was not required because the structure contains the sidedata_size implicitly
                     //1 - Because it is confusing because the header could indicate 0 and there could be a non 0 value here thus it is redundant to store it twice.
