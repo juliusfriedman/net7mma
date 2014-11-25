@@ -43,4 +43,6 @@ namespace Media.Codecs.Video.Jpeg
 
         public const byte StartOfScan = 0xda;
     }
+
+    //Todo Should be moved to JpegReader in Container or JpegReader should use this?
 }

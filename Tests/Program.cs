@@ -2773,21 +2773,22 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Unit DataSize: " + tsUnit.DataSize);
                             Console.WriteLine("Unit TotalSize: " + tsUnit.TotalSize);
                             Console.WriteLine("Unit.IsComplete: " + tsUnit.IsComplete);
-                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(tsUnit.Identifier));
-                            Console.WriteLine("Has Payload: " + Media.Containers.Mpeg.TransportStreamReader.HasPayload(tsUnit));
-                            Console.WriteLine("HasTransportPriority: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportPriority(tsUnit));
-                            Console.WriteLine("HasTransportErrorIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportErrorIndicator(tsUnit));
-                            Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(tsUnit));
-                            Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(tsUnit));
-                            Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(tsUnit));
-                            
-                            bool hasAdaptation = Media.Containers.Mpeg.TransportStreamReader.HasAdaptationField(tsUnit);
+                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(reader, tsUnit.Identifier));
+                            Console.WriteLine("Has Payload: " + Media.Containers.Mpeg.TransportStreamReader.HasPayload(reader, tsUnit));
+                            Console.WriteLine("HasTransportPriority: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportPriority(reader, tsUnit));
+                            Console.WriteLine("HasTransportErrorIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportErrorIndicator(reader, tsUnit));
+                            Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(reader, tsUnit));
+                            Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(reader, tsUnit));
+                            Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(reader, tsUnit));
+
+                            bool hasAdaptation = Media.Containers.Mpeg.TransportStreamReader.HasAdaptationField(reader, tsUnit);
                             Console.WriteLine("HasAdaptationField: " + hasAdaptation);
                             if (hasAdaptation)
                             {
-                                Console.WriteLine("AdaptationField Flags: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldFlags(tsUnit));
-                                Console.WriteLine("AdaptationField Length: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldLength(tsUnit));
-                                Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(tsUnit)));
+                                Console.WriteLine("AdaptationField Flags: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldFlags(reader, tsUnit));
+                                int adaptationFieldLength = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldLength(reader, tsUnit);
+                                Console.WriteLine("AdaptationField Length: " + adaptationFieldLength);
+                                if (adaptationFieldLength > 0) Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(reader, tsUnit)));
                             }
                             
                         }

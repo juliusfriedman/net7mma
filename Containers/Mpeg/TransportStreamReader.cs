@@ -47,6 +47,8 @@ namespace Media.Containers.Mpeg
     /// </summary>
     public class TransportStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
     {
+        #region Nested Types
+
         public enum ScramblingControl : byte
         {
             NotScambled = 0,
@@ -68,20 +70,30 @@ namespace Media.Containers.Mpeg
             //Transport Stream Description Table contains descriptors relating to the overall transport stream
             DescriptionTable = 0x0002, // TID 0x03
             ControlInformationTable = 0x0003, //IPMP
-            // 0x04 to 0x0F RESERVED
+            // 0x04 to 0x0F Unused (MPEG reseved)
             NetworkInformationTable = 0x0010, // TID 0x40 (current) & 0x41 (other)
             ServiceDescriptionTable = 0x0011, // TID 0x42,0x46 (ServiceDescription) & 0x4A (BouquetAssociation)
             EventInformationTable = 0x0012,
             RunningStatusTable = 0x0013,
-            TimeTables = 0x0014, // TID 0x70 (TimeAndDate) & 0x73 (TimeOffset)
-            NetworkSynchronization = 0x0015,
+            TimeAndDateTables = 0x0014, // TID 0x70 (TimeAndDate) & 0x73 (TimeOffset)
+            NetworkSynchronizationTable = 0x0015,
+            //Reserved for future DVB use
             ResolutionNotificationTable = 0x0016,
-            // 0x0017 to 0x001B RESERVED
+            //-> 0x 1B
             InbandSignalling = 0x001C,
             Measurement = 0x001D,
-            DiscontinuityInformation = 0x001E,
-            SectionIformation = 0x001F,
-            // USER DEFINED
+            DiscontinuityInformationTable = 0x001E,
+            SelectionInformationTable = 0x001F,
+            //USER DEFINED - As assigned in PMT, PMT-E, MGT or MGT-E
+            //0x30 - 0x1FF6
+            ATSCProgramAssociationTable = 0x1FF7,
+            ATSCProgramInformationTable = 0x1FF8,
+            ATSCProgramIdentificationTable = 0x1FF9,
+            ASTCOperationalOrManagement= 0x1FFA,
+            ASTCBaseProgramIdentificationTable = 0x1FFB,
+            //FC?
+            ASTCReserved = 0x1FFE, //Formerly A-55
+            DOCSIS = 0x1FFF,
             ATSCMetaData = 0x1FB,
             NullPacket = 0x1FFF
         }
@@ -156,6 +168,46 @@ namespace Media.Containers.Mpeg
             // 0xFF RESERVED
         }
 
+        [Flags]
+        public enum AdaptationFieldFlags : byte
+        {
+            None = 0,
+            Extension = 1,
+            PrivateData = 2,
+            SpliceCountdown = 4,
+            OriginalProgramClockReference = 8,
+            ProgramClockReference = PayloadMask, //16
+            ElementaryStreamPriority = PriorityMask,//32
+            RandomAccess = PayloadStartUnitMask, //64
+            TransportError = ErrorMask//128
+        }
+
+        #endregion
+
+        #region Constants
+
+        public const byte SyncByte = 0x47; // (G) Sometimes [g, p or P] for BluRay Sup?
+
+        internal const byte ScramblingControlMask = 0xC0, ContinuityCounterMask = Common.Binary.FourBitMaxValue,
+            PayloadMask = 16, PriorityMask = 32, AdaptationFieldMask = PriorityMask, PayloadStartUnitMask = 64, ErrorMask = 128;
+
+        internal const short PacketIdentifierMask = 0x1FFF;
+
+        public const int IdentiferSize = 4, MaximumUnitOverhead = IdentiferSize * 5, LengthSize = 0, UnitLength = 188;        
+
+        #endregion
+
+        #region Statics
+
+        public static string ToTextualConvention(TransportStreamReader reader, byte[] identifier)
+        {
+            PacketIdentifier result = GetPacketIdentifier(reader, identifier);
+            if (IsReserved(result)) return "Reserved";
+            if (IsDVBMetaData(result)) return "DVBMetaData";
+            if (result != PacketIdentifier.ATSCMetaData && IsUserDefined(result)) return "UserDefined";
+            return result.ToString();
+        }
+
         public static bool IsReserved(TableIdentifier identifier)
         {
             byte tid = (byte)identifier;
@@ -163,8 +215,8 @@ namespace Media.Containers.Mpeg
                 || tid >= 0x38 && tid <= 0x39 //ISO/IEC 13818-6 reserved
                 || tid >= 0x43 && tid <= 0x45
                 || tid >= 0x47 && tid <= 0x49
-                || tid >= 0x4B && tid <= 0x4D 
-                || tid >= 0x7B && tid <= 0x7D 
+                || tid >= 0x4B && tid <= 0x4D
+                || tid >= 0x7B && tid <= 0x7D
                 || tid == byte.MaxValue;
         }
 
@@ -192,78 +244,52 @@ namespace Media.Containers.Mpeg
             return sid >= 0x20 && sid <= 0x1FFA || sid >= 0x1FFC && sid <= 0x1FFE;
         }
 
-        public const byte SyncByte = 0x47;
+        #endregion
 
-        internal const byte ScramblingControlMask = 0xC0, ContinuityCounterMask = Common.Binary.FourBitMaxValue,
-            PayloadMask = 16, PriorityMask = 32, AdaptationFieldMask = PriorityMask, PayloadStartUnitMask = 64, ErrorMask = 128;
-
-        [Flags]
-        public enum AdaptationFieldFlags : byte
-        {
-            None = 0,
-            Extension = 1,
-            PrivateData = 2,
-            SpliceCountdown = 4,
-            OriginalProgramClockReference = 8,
-            ProgramClockReference = PayloadMask, //16
-            ElementaryStreamPriority = PriorityMask,//32
-            RandomAccess = PayloadStartUnitMask, //64
-            TransportError = ErrorMask//128
-        }
-
-        internal const int PacketIdentifierMask = 0x1FFF;
-
-        public const int IdentifierSize = 4, LengthSize = 0, UnitLength = 188;
-
-        public static string ToTextualConvention(byte[] identifier)
-        {
-            PacketIdentifier result = GetPacketIdentifier(identifier);
-            if (IsReserved(result)) return "Reserved";
-            if (IsDVBMetaData(result)) return "DVBMetaData";
-            if (result != PacketIdentifier.ATSCMetaData && IsUserDefined(result)) return "UserDefined";
-            return result.ToString();
-        }
+        #region Node Methods
 
         #region TsUnit
 
-        public static bool HasTransportErrorIndicator(Container.Node tsUnit) { return (tsUnit.Identifier[1] & ErrorMask) > 0; }
+        public static bool HasTransportErrorIndicator(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 1] & ErrorMask) > 0; }
 
-        public static bool HasPayloadUnitStartIndicator(Container.Node tsUnit) { return (tsUnit.Identifier[1] & PayloadStartUnitMask) > 0; }
+        public static bool HasPayloadUnitStartIndicator(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 1] & PayloadStartUnitMask) > 0; }
 
-        public static bool HasTransportPriority(Container.Node tsUnit) { return (tsUnit.Identifier[1] & PriorityMask) > 0; }
+        public static bool HasTransportPriority(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 1] & PriorityMask) > 0; }
 
-        public static PacketIdentifier GetPacketIdentifier(byte[] identifier) { return (PacketIdentifier)(Common.Binary.ReadU16(identifier, 1, BitConverter.IsLittleEndian) & PacketIdentifierMask); }
+        public static PacketIdentifier GetPacketIdentifier(TransportStreamReader reader, byte[] identifier) { return (PacketIdentifier)(Common.Binary.ReadU16(identifier, reader.UnitOverhead + 1, BitConverter.IsLittleEndian) & PacketIdentifierMask); }
 
-        public static bool HasPayload(Container.Node tsUnit) { return (tsUnit.Identifier[3] & PayloadMask) > 0; }
+        public static bool HasPayload(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 3] & PayloadMask) > 0; }
 
-        public static bool HasAdaptationField(Container.Node tsUnit) { return (tsUnit.Identifier[3] & AdaptationFieldMask) != 0; }
+        public static bool HasAdaptationField(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 3] & AdaptationFieldMask) != 0; }
 
-        public static ScramblingControl GetScramblingControl(Container.Node tsUnit) { return (ScramblingControl)((tsUnit.Identifier[3] & ScramblingControlMask) >> 6); }        
+        public static ScramblingControl GetScramblingControl(TransportStreamReader reader, Container.Node tsUnit) { return (ScramblingControl)((tsUnit.Identifier[reader.UnitOverhead + 3] & ScramblingControlMask) >> 6); }
 
-        public static int GetContinuityCounter(Container.Node tsUnit) { return tsUnit.Identifier[3] & ContinuityCounterMask; }
+        public static int GetContinuityCounter(TransportStreamReader reader, Container.Node tsUnit) { return tsUnit.Identifier[reader.UnitOverhead + 3] & ContinuityCounterMask; }
 
         #endregion
 
         #region AdaptationField
 
-        public static AdaptationFieldFlags GetAdaptationFieldFlags(Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(tsUnit)[0]; }
+        public static AdaptationFieldFlags GetAdaptationFieldFlags(TransportStreamReader reader, Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(reader, tsUnit)[0]; }
 
-        public static int GetAdaptationFieldLength(Container.Node tsUnit)
+        public static int GetAdaptationFieldLength(TransportStreamReader reader, Container.Node tsUnit)
         {
             if (tsUnit == null) throw new ArgumentNullException("tsUnit");
 
-            if (!HasAdaptationField(tsUnit)) return 0;
+            if (!HasAdaptationField(reader, tsUnit)) return -1;
 
             return tsUnit.Data[0];
         }
 
-        public static byte[] GetAdaptationFieldData(Container.Node tsUnit)
+        public static byte[] GetAdaptationFieldData(TransportStreamReader reader, Container.Node tsUnit)
         {
             if (tsUnit == null) throw new ArgumentNullException("tsUnit");
 
-            int size = GetAdaptationFieldLength(tsUnit);
+            int size = GetAdaptationFieldLength(reader, tsUnit);
 
-            return size <= 0 ? Utility.Empty : tsUnit.Data.Skip(1).Take(size).ToArray();
+            /* an adaptation field with length 0 is valid and
+            * can be used to insert a single stuffing byte */
+            return size < 0 ? Utility.Empty : tsUnit.Data.Skip(1).Take(Math.Max(1, size)).ToArray();
         }
 
         public static TimeSpan? ProgramClockReference(byte[] adaptationField)
@@ -366,11 +392,21 @@ namespace Media.Containers.Mpeg
 
         #endregion
 
+        #endregion
+
         public TransportStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
 
         public TransportStreamReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
         public TransportStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
+        /// <summary>
+        /// Used in variations of the Mpeg Transport Stream format which require additional data such as ATSC or M2TS.
+        /// The additional bytes are then stored in the <see cref="Node.Identifier"/>.
+        /// </summary>
+        public virtual int UnitOverhead { get; protected set; }
+
+        public bool IsStandardTransportStream { get { return UnitOverhead == 0; } }
 
         ///// <summary>
         ///// Always seeks in different of the offset given and the modulo ofr the TransportStream PacketLength (188)
@@ -395,7 +431,7 @@ namespace Media.Containers.Mpeg
 
             foreach (var tsUnit in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(GetPacketIdentifier(tsUnit.Identifier)))
+                if (names == null || names.Count() == 0 || names.Contains(GetPacketIdentifier(this, tsUnit.Identifier)))
                 {
                     yield return tsUnit;
 
@@ -424,53 +460,126 @@ namespace Media.Containers.Mpeg
         }
 
         /// <summary>
-        /// Reads a single 188 byte TransportUnit.
+        /// Reads a single 188 byte TransportUnit + UnitOverhead.
+        /// If Position is at 0 AND UnitOverhead is also 0 and Syncronization cannot be found then it will attempted to be found within the MaximumIdentiferSize.
         /// </summary>
         /// <returns>The <see cref="Node"/> which represents the TransportUnit.</returns>
         public Container.Node ReadNext()
         {
-            byte[] identifier = new byte[IdentifierSize];
+            //Read the identifier which will consist of any known UnitOverhead and the DefaultIdentiferSize.
+            byte[] identifier = new byte[IdentiferSize + UnitOverhead];
+            Read(identifier, 0, IdentiferSize + UnitOverhead);
 
-            Read(identifier, 0, IdentifierSize);
+            //Check for sync and then if the first unit was read and if not determine the UnitOverhead
+            if (identifier[UnitOverhead] != SyncByte && (UnitOverhead > 0 || Position >= IdentiferSize))
+            {
+                //Find the size with sanity (Only on the first packet)
+                if (Position < MaximumUnitOverhead)
+                {
+                    //size will change
+                    int size = IdentiferSize;
+                    
+                    //Might need a few checks for Subtitle Format Streams because of P, p, g byte.
+                    while (Position < MaximumUnitOverhead && UnitOverhead < MaximumUnitOverhead)
+                    {
+                        //Increase UnitOverhead by 4 bytes (DefaultIdentifierSize)
+                        UnitOverhead += IdentiferSize;
+                        //Thew newSize is size + IdentiferSize
+                        int newSize = (size + IdentiferSize);
+                        Array.Resize(ref identifier, newSize);
+                        //Read the next bytes starting at the newly allocated space
+                        Read(identifier, size, IdentiferSize);
+                        //Check for sync
+                        if (identifier[UnitOverhead] == SyncByte) goto FoundSync;
+                        //declare the new size and iterate again
+                        size = newSize;
+                    };
+                }
+                
+                //Ensure Sync was found.
+                if (identifier[UnitOverhead] != SyncByte) throw new InvalidOperationException("Cannot Find Marker");
+            }
 
-            if (identifier[0] != SyncByte) throw new InvalidOperationException("Cannot Find Marker");
+            //We have sync
+            FoundSync:
 
-            //Make UnitLength an instance property or have a Overhead property?
-
-            //Determine the length of the packet and amount of bytes required to read the length
-            int length = UnitLength - IdentifierSize;
+            //Determine theamount of bytes required to read the data.
+            int length = UnitLength - IdentiferSize;
 
             //Return the Node
             return new Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
+        /// <summary>
+        /// Enumerates each unit found in the TransportStream.
+        /// When a unit is found it is either added to the Streams or it is parsed to obtain information.
+        /// </summary>
+        /// <returns></returns>
         public override IEnumerator<Container.Node> GetEnumerator()
         {
-            while (Remaining >= UnitLength)
+            //Ensure a Unit remains
+            while (Remaining >= UnitLength + UnitOverhead)
             {
+                //Read a unit
                 Container.Node next = ReadNext();
 
+                //No more units stops the enumeration
                 if (next == null) yield break;
 
+                //Return the unit for external handling
                 yield return next;
 
+                //Need to parse the packet to ensure that GetTracks can always be updated.
+                switch (GetPacketIdentifier(this, next.Identifier))
+                {
+                    case PacketIdentifier.ProgramAssociationTable:
+                        {
+                            /*
+                             
+                            The Program Association Table (PAT) is the entry point for the Program Specific Information (PSI) tables.  
+                            
+                            It is always carried in packets with PID (packet ID) = 0.  For each assigned program number, the PAT lists the PID for packets containing that program's PMT.  
+
+                            The PMT lists all the PIDs for packets containing elements of a particular program (audio, video, aux data, and Program Clock Reference (PCR)).
+
+                            The PAT also contains the PIDs for the NIT(s).  
+                            
+                            The NIT is an optional table that maps channel frequencies, transponder numbers, and other guide information for programs.
+                             
+                             */
+
+                            ParseProgramAssociationTable(next);
+
+                            break;
+                        }
+                    case PacketIdentifier.ConditionalAccessTable:
+                    case PacketIdentifier.SelectionInformationTable:
+                    case PacketIdentifier.NetworkInformationTable:
+                        {
+                            //Todo
+                            break;
+                        }
+                }
+
+                //Done with the unit
                 Skip(next.DataSize);
             }
         }
 
         public override string ToTextualConvention(Container.Node node)
         {
-            if (node.Master.Equals(this)) return TransportStreamReader.ToTextualConvention(node.Identifier);
+            if (node.Master.Equals(this)) return TransportStreamReader.ToTextualConvention(this, node.Identifier);
             return base.ToTextualConvention(node);
         }
 
+        //Static and take reader?
         //Maps from Program to PacketIdentifer?
-
-        //void ProgramAssociationTable
+        internal protected virtual void ParseProgramAssociationTable(Container.Node node)
+        {
+            return;
+        }
 
         //void ParseProgramStreamMaps
-
-        //Should inherit from PacketizedElementaryStream...?
 
         public override Container.Node Root { get { return ReadUnit(PacketIdentifier.ProgramAssociationTable); } }
 
@@ -484,7 +593,7 @@ namespace Media.Containers.Mpeg
         //Read all with Start of Payload then determine from PacketIdentifers
         public override IEnumerable<Container.Track> GetTracks()
         {
-            throw new NotImplementedException();
+            return Enumerable.Empty<Container.Track>();
         }
 
         public override byte[] GetSample(Container.Track track, out TimeSpan duration)
@@ -495,5 +604,33 @@ namespace Media.Containers.Mpeg
         //ConcurrentThesaraus<int, Node> Programs
 
         //Get Programs / ToProgramStream / Tune(int programId)?
+    }
+
+    public static class TransportReaderExtensions
+    {
+        public static bool IsReserved(this Media.Containers.Mpeg.TransportStreamReader.TableIdentifier identifier)
+        {
+            return Media.Containers.Mpeg.TransportStreamReader.IsReserved(identifier);
+        }
+
+        public static bool IsUserDefined(this Media.Containers.Mpeg.TransportStreamReader.TableIdentifier identifier)
+        {
+            return Media.Containers.Mpeg.TransportStreamReader.IsUserDefined(identifier);
+        }
+
+        public static bool IsReserved(this Media.Containers.Mpeg.TransportStreamReader.PacketIdentifier identifier)
+        {
+            return Media.Containers.Mpeg.TransportStreamReader.IsReserved(identifier);
+        }
+
+        public static bool IsDVBMetaData(this Media.Containers.Mpeg.TransportStreamReader.PacketIdentifier identifier)
+        {
+            return Media.Containers.Mpeg.TransportStreamReader.IsDVBMetaData(identifier);
+        }
+
+        public static bool IsUserDefined(this Media.Containers.Mpeg.TransportStreamReader.PacketIdentifier identifier)
+        {
+            return Media.Containers.Mpeg.TransportStreamReader.IsUserDefined(identifier);
+        }
     }
 }

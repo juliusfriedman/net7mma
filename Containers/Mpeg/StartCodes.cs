@@ -65,7 +65,7 @@ namespace Media.Containers.Mpeg
 
         public const byte GroupOfPictures = 0xB8;
 
-        public const byte SyncByte = 0xBA;
+        public const byte PackHeader = 0xBA;
 
         public const byte SystemHeader = 0xBB;
 
