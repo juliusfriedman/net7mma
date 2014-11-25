@@ -577,12 +577,8 @@ namespace Media.Containers.Nut
                 if (m_EllisionHeaderCount > 0 && m_EllisionHeaders.Sum(h=> h.Length) > MaximumEllisionTotal)  throw new InvalidOperationException("Invalid Ellision Header Summation");
 
                 // flags had been effectively introduced in version 4.
-                //If there are at least 4 bytes?
-                if (HasMainHeaderFlags && end - position > 4)
-                {
-                    //Usually has a BROADCAST flag?
-                    m_MainHeaderFlags = DecodeVariableLength(stream, out bytesRead);
-                }
+                // If there are at least 4 bytes? 
+                if (HasMainHeaderFlags && end - position > 4) m_MainHeaderFlags = DecodeVariableLength(stream, out bytesRead);
                 else m_MainHeaderFlags = (long)HeaderFlags.Unknown;
 
                 //reserved_bytes can be ignored.
@@ -685,6 +681,7 @@ namespace Media.Containers.Nut
                 {
                     //Todo
                     //Decode PTS
+                    //Store somewhere easy to get to (Identifier)
                 }
 
                 //Check to see if the size is coded in the data
@@ -721,7 +718,7 @@ namespace Media.Containers.Nut
                 //Read the side data ONLY for Draft Compatibility (20130327)
                 if (sidedata_size >= 0 && frameFlags.HasFlag(FrameFlags.SideMetaData))
                 {
-                    //Optionally side data size can be specified here, this was not required because the structure contains the sidedata_size implicitly
+                    //Optionally side data size can be specified here, this was not required because the structure contains the sidedata_size implicitly due to the main header having it set there.
                     //1 - Because it is confusing because the header could indicate 0 and there could be a non 0 value here thus it is redundant to store it twice.
                     //2 - Because in the latest version there is also meta data right after
                     /*
@@ -746,21 +743,22 @@ namespace Media.Containers.Nut
                 //from MainHeader
                 length = size_msb * size_mul + size_lsb;
 
-                //Frames with a final size of les than ForwardPointerWithChecksum (4096) will have the header data preprended.
+                //Frames with a final size of less than ForwardPointerWithChecksum (4096) will have the header data preprended.
                 //thus TotalLength cannot include EllisionHeaders[header_idx] length
                 if (length > ForwardPointerWithChecksum) header_idx = 0;
                 else length -= EllisionHeaders[header_idx].Length;
 
                 /*
                EOR frames MUST be zero-length and must be set keyframe.
-               All streams SHOULD end with EOR, where the pts of the EOR indicates the (NOT AN EXCEPTION CASE)
-               end presentation time of the final frame.
+               All streams SHOULD end with EOR, where the pts of the EOR indicates the end presentation time of the final frame. (NOT AN EXCEPTION CASE)
+               
                An EOR set stream is unset by the first content frame.
                EOR can only be unset in streams with zero decode_delay .
-               FLAG_CHECKSUM MUST be set if the frame's data_size is strictly greater than
+               
+               Checksum MUST be set if the frame's data_size is strictly greater than
                2*max_distance or the difference abs(pts-last_pts) is strictly greater than
                max_pts_distance (where pts represents this frame's pts and last_pts is defined as below).
-                */                
+                */
 
                 //Ensure Key Frame for Eor and that Length is positive
                 if (frameFlags.HasFlag(FrameFlags.EOR))
@@ -784,7 +782,7 @@ namespace Media.Containers.Nut
                     && 
                     length > (2 * MaximumDistance)) throw new InvalidOperationException("frame size > 2 max_distance and no checksum");               
 
-                //Can store 3 more bytes in identifier
+                //Can store 3 more bytes in identifier (PTS) @ 1
                 //LengthSize is negitive which indicates its variable length from Position
                 return new Node(this, new byte[] { 0, 0, 0, 0, (byte)sidedata_size, (byte)header_idx, (byte)streamId, nextByte }, bytesReadTotal - IdentifierSize, Position, length, length <= Remaining);
             }
@@ -914,7 +912,7 @@ namespace Media.Containers.Nut
                                 mediaType = Sdp.MediaType.text;
                                 goto default;
                             }
-                        case 3: //Subtitle
+                        case 3: //Data
                             {
                                 mediaType = Sdp.MediaType.data;
                                 goto default;
@@ -942,8 +940,10 @@ namespace Media.Containers.Nut
 
                     duration += (int)m_HeaderOptions[streamId].Item6 << (int)msb_pts_shift;
 
-                    //extraData for codec
-                    stream.Position += DecodeVariableLength(stream, out bytesRead) + bytesRead;
+                    //Skip extraData for codec
+                    long extraDataSize = DecodeVariableLength(stream, out bytesRead);
+
+                    if (extraDataSize > 0) stream.Position += extraDataSize;
 
                     int width = 0, height = 0;
 
