@@ -2583,7 +2583,7 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
-                        Console.WriteLine("Root Page:" + Media.Containers.Ogg.OggReader.ToTextualConvention(reader.Root.Identifier));
+                        Console.WriteLine("Root Page:" + reader.Root.ToString());
 
                         Console.WriteLine("Pages:");
 
@@ -2592,7 +2592,7 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Position:" + reader.Position);
                             Console.WriteLine("Offset: " + page.DataOffset);
                             Console.WriteLine("Complete: " + page.IsComplete);
-                            Console.WriteLine("Name: " + Media.Containers.Ogg.OggReader.ToTextualConvention(page.Identifier));
+                            Console.WriteLine("Name: " + page.ToString());
                             Console.WriteLine("HeaderFlags: " + Media.Containers.Ogg.OggReader.GetHeaderFlags(page));
                             Console.WriteLine("Size: " + page.DataSize);
                         }
@@ -2688,7 +2688,7 @@ a=mpeg4-esid:101");
 
             #region PacketizedElementaryStreamReader
 
-            if (System.IO.Directory.Exists(localPath + "/Video/es/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/es/"))
+            if (System.IO.Directory.Exists(localPath + "/Video/pes/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/pes/"))
                 {
                     using (Media.Containers.Mpeg.PacketizedElementaryStreamReader reader = new Media.Containers.Mpeg.PacketizedElementaryStreamReader(fileName))
                     {
@@ -2699,16 +2699,14 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("Packets:");
 
-                        foreach (var packet in reader)
+                        foreach (var pesPacket in reader)
                         {
-                            int streamId = Media.Containers.Mpeg.PacketizedElementaryStreamReader.GetStreamId(packet.Identifier);
-                            Console.WriteLine("StreamId:" + streamId);
-                            Console.WriteLine("StreamType:" + Media.Containers.Mpeg.StreamTypes.ToTextualConvention((byte)streamId));
-                            Console.WriteLine("Packet Offset: " + packet.Offset);
-                            Console.WriteLine("Packet Data Offset: " + packet.DataOffset);
-                            Console.WriteLine("Packet DataSize: " + packet.DataSize);
-                            Console.WriteLine("Packet TotalSize: " + packet.TotalSize);
-                            Console.WriteLine("Packet.IsComplete: " + packet.IsComplete);
+                            Console.WriteLine(pesPacket.ToString());
+                            Console.WriteLine("Packets Offset: " + pesPacket.Offset);
+                            Console.WriteLine("Packets Data Offset: " + pesPacket.DataOffset);
+                            Console.WriteLine("Packets DataSize: " + pesPacket.DataSize);
+                            Console.WriteLine("Packets TotalSize: " + pesPacket.TotalSize);
+                            Console.WriteLine("Packet.IsComplete: " + pesPacket.IsComplete);
                         }
 
                         Console.WriteLine("Track Information:");
@@ -2732,14 +2730,14 @@ a=mpeg4-esid:101");
 
                         Console.WriteLine("Packets:");
 
-                        foreach (var pesPacket in reader)
+                        foreach (var packet in reader)
                         {
-                            Console.WriteLine("Element.Name: " + pesPacket.ToString());
-                            Console.WriteLine("Element Offset: " + pesPacket.Offset);
-                            Console.WriteLine("Element Data Offset: " + pesPacket.DataOffset);
-                            Console.WriteLine("Element DataSize: " + pesPacket.DataSize);
-                            Console.WriteLine("Element TotalSize: " + pesPacket.TotalSize);
-                            Console.WriteLine("Element.IsComplete: " + pesPacket.IsComplete);
+                            Console.WriteLine(packet.ToString());
+                            Console.WriteLine("Element Offset: " + packet.Offset);
+                            Console.WriteLine("Element Data Offset: " + packet.DataOffset);
+                            Console.WriteLine("Element DataSize: " + packet.DataSize);
+                            Console.WriteLine("Element TotalSize: " + packet.TotalSize);
+                            Console.WriteLine("Element.IsComplete: " + packet.IsComplete);
                         }
 
                         Console.WriteLine("Track Information:");
@@ -2780,15 +2778,13 @@ a=mpeg4-esid:101");
                             Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(reader, tsUnit));
                             Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(reader, tsUnit));
                             Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(reader, tsUnit));
-
-                            bool hasAdaptation = Media.Containers.Mpeg.TransportStreamReader.HasAdaptationField(reader, tsUnit);
-                            Console.WriteLine("HasAdaptationField: " + hasAdaptation);
-                            if (hasAdaptation)
+                            // See section 2.4.3.3 of 13818-1
+                            Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl adaptationFieldControl = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldControl(reader, tsUnit);
+                            Console.WriteLine("AdaptationFieldControl: " + adaptationFieldControl);
+                            if (adaptationFieldControl >= Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl.AdaptationFieldOnly)
                             {
                                 Console.WriteLine("AdaptationField Flags: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldFlags(reader, tsUnit));
-                                int adaptationFieldLength = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldLength(reader, tsUnit);
-                                Console.WriteLine("AdaptationField Length: " + adaptationFieldLength);
-                                if (adaptationFieldLength > 0) Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(reader, tsUnit)));
+                                Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(reader, tsUnit)));
                             }
                             
                         }

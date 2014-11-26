@@ -52,7 +52,8 @@ namespace Media.Containers.Mpeg
 
         public static string ToTextualConvention(byte[] identifer, int offset = 0)
         {
-            return "StreamId-" + GetStreamId(identifer);
+            int streamId = GetStreamId(identifer);
+            return string.Join("-", "StreamId",  streamId, '(', Media.Containers.Mpeg.StreamTypes.ToTextualConvention((byte)streamId), ')');
         }
 
         public PacketizedElementaryStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }

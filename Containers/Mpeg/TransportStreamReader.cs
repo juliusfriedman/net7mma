@@ -57,6 +57,14 @@ namespace Media.Containers.Mpeg
             ScambledWithOddKey = 3,
         }
 
+        public enum AdaptationFieldControl : byte
+        {
+            Reserved = 0,
+            None = 1,
+            AdaptationFieldOnly = 2,
+            AdaptationFieldAndPayload = 3
+        }
+
         public enum PacketIdentifier : short
         {
             ///Program Association Table (PAT) contains a directory listing of all Program Map Tables
@@ -90,11 +98,11 @@ namespace Media.Containers.Mpeg
             ATSCProgramInformationTable = 0x1FF8,
             ATSCProgramIdentificationTable = 0x1FF9,
             ASTCOperationalOrManagement= 0x1FFA,
-            ASTCBaseProgramIdentificationTable = 0x1FFB,
+            ASTCBaseProgramIdentificationTable = 0x1FFB, //EAM_CLEAR_PID, PSIP_PID
             //FC?
             ASTCReserved = 0x1FFE, //Formerly A-55
             DOCSIS = 0x1FFF,
-            ATSCMetaData = 0x1FB,
+            //ATSCMetaData = 0x1FFB,
             NullPacket = 0x1FFF
         }
 
@@ -188,12 +196,17 @@ namespace Media.Containers.Mpeg
 
         public const byte SyncByte = 0x47; // (G) Sometimes [g, p or P] for BluRay Sup?
 
-        internal const byte ScramblingControlMask = 0xC0, ContinuityCounterMask = Common.Binary.FourBitMaxValue,
-            PayloadMask = 16, PriorityMask = 32, AdaptationFieldMask = PriorityMask, PayloadStartUnitMask = 64, ErrorMask = 128;
+        internal const byte ScramblingControlMask = 0xC0, //192
+            ContinuityCounterMask = Common.Binary.FourBitMaxValue,//15
+            PayloadMask = 16, //ContinuityCounterMask + 1
+            PriorityMask = 32, // PayloadMask * 2
+            PayloadStartUnitMask = 64, // PriorityMask * 2
+            ErrorMask = 128, // PayloadStartUnitMask * 2
+            AdaptationFieldMask = PriorityMask; //Same as Priority, only provided for ease of reading.
 
         internal const short PacketIdentifierMask = 0x1FFF;
 
-        public const int IdentiferSize = 4, MaximumUnitOverhead = IdentiferSize * 5, LengthSize = 0, UnitLength = 188;        
+        public const int IdentiferSize = 4, LengthSize = 0, StandardUnitLength = 188, PayloadLength = StandardUnitLength - IdentiferSize, MaximumUnitOverhead = IdentiferSize * 5;
 
         #endregion
 
@@ -204,7 +217,7 @@ namespace Media.Containers.Mpeg
             PacketIdentifier result = GetPacketIdentifier(reader, identifier);
             if (IsReserved(result)) return "Reserved";
             if (IsDVBMetaData(result)) return "DVBMetaData";
-            if (result != PacketIdentifier.ATSCMetaData && IsUserDefined(result)) return "UserDefined";
+            if (IsUserDefined(result)) return "UserDefined";
             return result.ToString();
         }
 
@@ -232,16 +245,16 @@ namespace Media.Containers.Mpeg
             return sid >= 0x04 && sid <= 0x0F || sid >= 0x0017 && sid <= 0x001B;
         }
 
-        public static bool IsDVBMetaData(PacketIdentifier identifier)
-        {
-            ushort sid = (ushort)identifier;
-            return sid >= 16 || sid <= Common.Binary.FiveBitMaxValue;
-        }
-
         public static bool IsUserDefined(PacketIdentifier identifier)
         {
             ushort sid = (ushort)identifier; //Encompass ASTCMetaData?
             return sid >= 0x20 && sid <= 0x1FFA || sid >= 0x1FFC && sid <= 0x1FFE;
+        }
+
+        public static bool IsDVBMetaData(PacketIdentifier identifier)
+        {
+            ushort sid = (ushort)identifier;
+            return sid >= 16 || sid <= Common.Binary.FiveBitMaxValue;
         }
 
         #endregion
@@ -258,9 +271,15 @@ namespace Media.Containers.Mpeg
 
         public static PacketIdentifier GetPacketIdentifier(TransportStreamReader reader, byte[] identifier) { return (PacketIdentifier)(Common.Binary.ReadU16(identifier, reader.UnitOverhead + 1, BitConverter.IsLittleEndian) & PacketIdentifierMask); }
 
-        public static bool HasPayload(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 3] & PayloadMask) > 0; }
+        public static AdaptationFieldControl GetAdaptationFieldControl(TransportStreamReader reader, Container.Node tsUnit) { return (AdaptationFieldControl)(tsUnit.Identifier[reader.UnitOverhead + 3] >> 4 & Common.Binary.FourBitMaxValue); }
 
-        public static bool HasAdaptationField(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 3] & AdaptationFieldMask) != 0; }
+        //public static bool HasPayload(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 3] & PayloadMask) > 0; }
+
+        //public static bool HasAdaptationField(TransportStreamReader reader, Container.Node tsUnit) { return (tsUnit.Identifier[reader.UnitOverhead + 3] & AdaptationFieldMask) > 0; }
+
+        public static bool HasAdaptationField(TransportStreamReader reader, Container.Node tsUnit) { return GetAdaptationFieldControl(reader, tsUnit) > AdaptationFieldControl.None; }
+
+        public static bool HasPayload(TransportStreamReader reader, Container.Node tsUnit) { return GetAdaptationFieldControl(reader, tsUnit).HasFlag(AdaptationFieldControl.AdaptationFieldAndPayload); }
 
         public static ScramblingControl GetScramblingControl(TransportStreamReader reader, Container.Node tsUnit) { return (ScramblingControl)((tsUnit.Identifier[reader.UnitOverhead + 3] & ScramblingControlMask) >> 6); }
 
@@ -270,7 +289,7 @@ namespace Media.Containers.Mpeg
 
         #region AdaptationField
 
-        public static AdaptationFieldFlags GetAdaptationFieldFlags(TransportStreamReader reader, Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(reader, tsUnit)[0]; }
+        public static AdaptationFieldFlags GetAdaptationFieldFlags(TransportStreamReader reader, Media.Container.Node tsUnit) { return (AdaptationFieldFlags)GetAdaptationFieldData(reader, tsUnit).FirstOrDefault(); }
 
         public static int GetAdaptationFieldLength(TransportStreamReader reader, Container.Node tsUnit)
         {
@@ -289,7 +308,13 @@ namespace Media.Containers.Mpeg
 
             /* an adaptation field with length 0 is valid and
             * can be used to insert a single stuffing byte */
-            return size < 0 ? Utility.Empty : tsUnit.Data.Skip(1).Take(Math.Max(1, size)).ToArray();
+
+            //It is also stated that if there are any extra bytes they are related to the adaptation field no matter if size is set or not.
+            //0 for PES Means unbounded however it is not stated what this means...
+            //E.g when GetAdaptationFieldLength == 0 and there is more then 1 byte in data is there at least 1 byte for the flags? e.f Math.Max(1, size);
+
+            //For anything including 0 return nothing, otherwise skip the length and return the amount of bytes indicated by length.
+            return size <= 0 ? Utility.Empty : tsUnit.Data.Skip(1).Take(size).ToArray();
         }
 
         public static TimeSpan? ProgramClockReference(byte[] adaptationField)
@@ -406,6 +431,9 @@ namespace Media.Containers.Mpeg
         /// </summary>
         public virtual int UnitOverhead { get; protected set; }
 
+        /// <summary>
+        /// Indicates if the units are standard 188 byte length
+        /// </summary>
         public bool IsStandardTransportStream { get { return UnitOverhead == 0; } }
 
         ///// <summary>
@@ -471,43 +499,44 @@ namespace Media.Containers.Mpeg
             Read(identifier, 0, IdentiferSize + UnitOverhead);
 
             //Check for sync and then if the first unit was read and if not determine the UnitOverhead
-            if (identifier[UnitOverhead] != SyncByte && (UnitOverhead > 0 || Position >= IdentiferSize))
+            if (identifier[UnitOverhead] != SyncByte)
             {
                 //Find the size with sanity (Only on the first packet)
                 if (Position < MaximumUnitOverhead)
                 {
-                    //size will change
+                    //size is already IdentiferSize
                     int size = IdentiferSize;
                     
                     //Might need a few checks for Subtitle Format Streams because of P, p, g byte.
-                    while (Position < MaximumUnitOverhead && UnitOverhead < MaximumUnitOverhead)
+                    while (UnitOverhead < MaximumUnitOverhead)
                     {
                         //Increase UnitOverhead by 4 bytes (DefaultIdentifierSize)
                         UnitOverhead += IdentiferSize;
+                        
                         //Thew newSize is size + IdentiferSize
                         int newSize = (size + IdentiferSize);
                         Array.Resize(ref identifier, newSize);
+                        
                         //Read the next bytes starting at the newly allocated space
                         Read(identifier, size, IdentiferSize);
+                        
                         //Check for sync
                         if (identifier[UnitOverhead] == SyncByte) goto FoundSync;
+
                         //declare the new size and iterate again
                         size = newSize;
                     };
                 }
                 
-                //Ensure Sync was found.
-                if (identifier[UnitOverhead] != SyncByte) throw new InvalidOperationException("Cannot Find Marker");
+                //Canot find sync
+                throw new InvalidOperationException("Cannot Find Marker");
             }
 
             //We have sync
             FoundSync:
 
-            //Determine theamount of bytes required to read the data.
-            int length = UnitLength - IdentiferSize;
-
             //Return the Node
-            return new Container.Node(this, identifier, LengthSize, Position, length, length <= Remaining);
+            return new Container.Node(this, identifier, LengthSize, Position, PayloadLength, PayloadLength <= Remaining);
         }
 
         /// <summary>
@@ -518,7 +547,7 @@ namespace Media.Containers.Mpeg
         public override IEnumerator<Container.Node> GetEnumerator()
         {
             //Ensure a Unit remains
-            while (Remaining >= UnitLength + UnitOverhead)
+            while (Remaining >= StandardUnitLength + UnitOverhead)
             {
                 //Read a unit
                 Container.Node next = ReadNext();

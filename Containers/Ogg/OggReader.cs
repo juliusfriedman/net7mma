@@ -49,14 +49,16 @@ namespace Media.Containers.Ogg
 
         #region Constants
 
-        const int MaximumPageSize = 65307, IdentifierSize = 8, MinimumSize = 20 + IdentifierSize, MinimumReadSize = MinimumSize - 1;
+        const int MaximumPageSize = 65307, IdentifierSize = 8, MinimumSize = 20 + IdentifierSize, MinimumReadSize = MinimumSize - 1, PageVersionOffset = 4, PageSegmentCountOffset = 26;
 
         //OggDS
-        const int PackTypeHeader = 0x01, PacketTypeComment = 0x03, 
-            PacketTypeBits = 0x07, 
-            PacketLengthBits = 0x0c0, 
-            PacketLengthBits2 = 0x02, 
-            PacketIsSyncPoint = 0x08;
+        const int PackTypeHeader = 0x01,
+            PacketTypeComment = 0x03,
+            PacketTypeCodeBook = 0x05,
+            PacketTypeBits = 0x07,
+            PacketIsSyncPoint = 0x08,
+            PacketLengthBits = 0x0c0,
+            PacketLengthBits2 = 0x02; 
 
         #endregion
 
@@ -87,16 +89,6 @@ namespace Media.Containers.Ogg
         }
 
         #region Statics
-        public static string ToTextualConvention(byte[] identifier, int offset = 0)
-        {
-            CapturePattern result = (CapturePattern)Common.Binary.ReadU64(identifier, 0, !BitConverter.IsLittleEndian);
-
-            if (!Enum.IsDefined(typeof(CapturePattern), result)) result = (CapturePattern)((ulong)result & uint.MaxValue);
-
-            return result.ToString();
-        }
-
-        //Should check for Oggs?
 
         public static HeaderFlags GetHeaderFlags(Node node)
         {
@@ -140,6 +132,32 @@ namespace Media.Containers.Ogg
 
         public OggReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public override string ToTextualConvention(Node page)
+        {
+            if (page.Master.Equals(this))
+            {
+                //Get the capture pattern from the identifier which should equal OggSxxxx
+                CapturePattern result = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
+                
+                //If there is no data then just unmask the capture pattern by limiting it to 4 bytes
+                if (page.DataSize <= 0) return ((CapturePattern)((ulong)result & uint.MaxValue)).ToString();
+                
+                //Read the capture pattern from the data
+                result = (CapturePattern)Common.Binary.ReadU64(page.Data, 0, !BitConverter.IsLittleEndian);
+                
+                //Determine if this is a known capture pattern.
+                switch (result)
+                {
+                    case CapturePattern.fishead:
+                    case CapturePattern.fisbone:
+                    case CapturePattern.index: return result.ToString();                        
+                    default: return CapturePattern.Oggs.ToString();
+                } 
+            }
+
+            return base.ToTextualConvention(page);
+        }
+
         public IEnumerable<Node> ReadPages(long offset, long count, params CapturePattern[] names) { return ReadPages(offset, count, null, names); }
 
         public IEnumerable<Node> ReadPages(long offset, long count, HeaderFlags? headerFlags, params CapturePattern[] names)
@@ -150,22 +168,22 @@ namespace Media.Containers.Ogg
 
             foreach (var page in this)
             {
+                CapturePattern found = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
+
+                if (headerFlags.HasValue && GetHeaderFlags(page) != headerFlags.Value) continue;
+
+                if (names == null || names.Count() == 0 || names.Contains(found)) yield return page;
+                else if( page.DataSize > 0)
+                {
+                    found = (CapturePattern)Common.Binary.ReadU64(page.Data, 0, !BitConverter.IsLittleEndian);
+                    if(names.Contains(found)) yield return page;
+                }
+
+                //Could check raw for identifier
+
                 count -= page.TotalSize;
 
                 if (count <= 0) break;
-
-                CapturePattern found = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
-
-                if (headerFlags.HasValue)
-                {
-                    HeaderFlags type = (HeaderFlags)page.Identifier[5];
-
-                    if (headerFlags.Value != type) continue;
-                }
-
-                if (names == null || names.Count() == 0 || names.Contains(found) || names.Contains((CapturePattern)((ulong)found & uint.MaxValue))) yield return page;
-
-                //Could check raw for identifier
 
                 continue;
             }
@@ -184,11 +202,6 @@ namespace Media.Containers.Ogg
             return result;
         }
 
-        //ReadPages with a PageType?
-
-        //Really only need to store id key and Tuple<long, long, long>
-        //Common.ConcurrentThesaurus<int, Node> m_PageToNode = new Common.ConcurrentThesaurus<int, Node>();
-
         public Node ReadNext()
         {
             long offset = Position, length = 0;
@@ -202,11 +215,13 @@ namespace Media.Containers.Ogg
             //CapturePattern found = (CapturePattern)(Common.Binary.ReadU64(identifier, 0, !BitConverter.IsLittleEndian));
 
             //Check version
-            if (identifier[4] > 0) throw new InvalidOperationException("Only Version 0 is Defined.");
+            if (identifier[PageVersionOffset] > 0) throw new InvalidOperationException("Only Version 0 is Defined.");
 
-            byte pageSegmentCount = identifier[26];
+            byte pageSegmentCount = identifier[PageSegmentCountOffset];
 
             if (pageSegmentCount < 1 || Remaining < pageSegmentCount) throw new InvalidOperationException("Invalid Header Page");
+
+            int lengthSize = 0;
 
             // (segment_table) @ 27 - number_page_segments Bytes containing the lacing
             //values of all segments in this page.  Each Byte contains one
@@ -214,9 +229,13 @@ namespace Media.Containers.Ogg
 
             //Read a byte at a time to determine the length
             //Could also verify CRC as reading
-            while (pageSegmentCount-- > 0) length += ReadByte();
+            while (pageSegmentCount-- > 0)
+            {
+                length += ReadByte();
+                ++lengthSize;
+            }
 
-            Node result = new Node(this, identifier, 1 + pageSegmentCount, Position, length, length <= Remaining);
+            Node result = new Node(this, identifier, lengthSize, Position, length, length <= Remaining);
 
             return result;
         }
@@ -254,7 +273,7 @@ namespace Media.Containers.Ogg
 
             long position = Position;
 
-            using (var root = Root) Position = (root.DataOffset - MinimumSize);
+            using (var root = Root) Position = root.Offset;
 
             //Iterate all pages
             foreach (Node page in this)
@@ -264,39 +283,38 @@ namespace Media.Containers.Ogg
                 {
                     //Ensure not a skeleton or index
 
-                    //Decode the CapturePattern
+                    //Decode the CapturePattern from the data
                     CapturePattern pattern = (CapturePattern)(Common.Binary.ReadU64(page.Data, 0, !BitConverter.IsLittleEndian));
 
-                    //fishead has LastPacket flag, not sure about fisbone
-                    if (pattern == CapturePattern.fisbone || pattern == CapturePattern.fishead) continue;
+                    //Determine what to do
+                    switch (pattern)
+                    {
+                        case CapturePattern.fisbone:
+                        case CapturePattern.fishead:
+                        case CapturePattern.index:
+                            continue;
+                        default: break;
+                    }
 
-                    //Get the escaped pattern
-                    pattern = (CapturePattern)((ulong)pattern & uint.MaxValue);
+                    //Get the pageHeaderType
+                    HeaderFlags pageHeaderType = GetHeaderFlags(page);
 
-                    //Dont parse index (todo check if correct with mask)
-                    if (pattern == CapturePattern.index) continue;
+                    //Read Serial
+                    int serial = GetSerialNumber(page);
 
-                    //Pattern should equal OggS
-                }
+                    if (pageHeaderType.HasFlag(HeaderFlags.FirstPage))
+                    {
+                        //Add the page
+                        m_PageBegins.Add(serial, page);
+                    }
 
-                //Get the pageHeaderType
-                HeaderFlags pageHeaderType = GetHeaderFlags(page);
+                    if (pageHeaderType.HasFlag(HeaderFlags.LastPage))
+                    {
+                        //Found last page for stream
 
-                //Read Serial
-                int serial = GetSerialNumber(page);
-
-                if (pageHeaderType.HasFlag(HeaderFlags.FirstPage))
-                {
-                    //Add the page
-                    m_PageBegins.Add(serial, page);
-                }
-
-                if (pageHeaderType.HasFlag(HeaderFlags.LastPage))
-                {
-                    //Found last page for stream
-
-                    //Add the page
-                    m_PageEnds.Add(serial, page);
+                        //Add the page
+                        m_PageEnds.Add(serial, page);
+                    }
                 }
             }
 
@@ -868,31 +886,26 @@ namespace Media.Containers.Ogg
 
         public override Node Root
         {
-            get { return ReadPage(CapturePattern.Oggs); }
+            get
+            {
+                long position = Position;
+                var result = ReadPages(0, Length, CapturePattern.fishead, CapturePattern.Oggs).FirstOrDefault();
+                Position = position;
+                return result;
+            }
         }
 
         public override Node TableOfContents
         {
             get
             {
-                return ReadPages(0, Length, HeaderFlags.FirstPage, CapturePattern.Oggs).FirstOrDefault(n =>
+                using (var root = Root)
                 {
-                    if (n.DataSize > 0)
-                    {
-
-                        CapturePattern found = (CapturePattern)Common.Binary.Read64(n.Data, 0, BitConverter.IsLittleEndian);
-
-                        switch (found)
-                        {
-                            case CapturePattern.fishead:
-                            case CapturePattern.fisbone:
-                            case CapturePattern.index:
-                                return true;
-                        }
-                    }
-
-                    return false;
-                });
+                    long position = Position;
+                    var result = ReadPages(root.DataOffset + root.DataSize, Length - root.TotalSize, CapturePattern.fishead, CapturePattern.fisbone, CapturePattern.index).FirstOrDefault();
+                    Position = position;
+                    return result;
+                }
             }
         }
 

@@ -113,12 +113,13 @@ namespace Media.Rtp
         {
             get
             {
-                int count = m_Packets.Count; return (count == 1 && !HasMarker) || count >= 2 && !m_Packets.All((a) =>
+                int  count = m_Packets.Count,
+                    highestSequenceNumber = count > 0 ? HighestSequenceNumber : -1; return (count == 1 && !HasMarker) || count >= 2 && !m_Packets.All((a) =>
                 {
                     RtpPacket p = a.Value;
-                    if (p.SequenceNumber == HighestSequenceNumber) return true;
+                    if (p.SequenceNumber == highestSequenceNumber) return true;
                     int nextKey = p.SequenceNumber + 1;
-                    if (nextKey == HighestSequenceNumber) return true;
+                    if (nextKey == highestSequenceNumber) return true;
                     return m_Packets.ContainsKey(nextKey);
                 });
             }
@@ -142,7 +143,7 @@ namespace Media.Rtp
         /// <summary>
         /// The HighestSequenceNumber in the contained Packets or 0 if no Packets are contained
         /// </summary>
-        public int HighestSequenceNumber { get { try { return (Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); } catch { return 0; } } }
+        public int HighestSequenceNumber { get {return (Count > 0 ? m_Packets.Values.Last().SequenceNumber : 0); }}
 
         #endregion
 

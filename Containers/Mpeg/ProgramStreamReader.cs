@@ -40,11 +40,10 @@ using System.Linq;
 namespace Media.Containers.Mpeg
 {
     /// <summary>
-    /// Represents the logic necessary to read Mpeg Program Streams. (.VOB, .EVO, .ps)
+    /// Represents the logic necessary to read Mpeg Program Streams. (.VOB, .EVO, .ps, .psm .m2ts etc.)
     /// Program stream (PS or MPEG-PS) is a container format for multiplexing digital audio, video and more. The PS format is specified in MPEG-1 Part 1 (ISO/IEC 11172-1) and MPEG-2 Part 1, Systems (ISO/IEC standard 13818-1[6]/ITU-T H.222.0[4][5]). The MPEG-2 Program Stream is analogous and similar to ISO/IEC 11172 Systems layer and it is forward compatible.[7][8]
     /// ProgramStreams are created by combining one or more Packetized Elementary Streams (PES), which have a common time base, into a single stream.
     /// </summary>
-    //http://www.incospec.com/resources/webinars/files/MPEG%20101%20Demyst%20Analysis%20&%20Picture%20Symptoms%2020110808_opt.pdf
     public class ProgramStreamReader : PacketizedElementaryStreamReader
     {
         public ProgramStreamReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
@@ -56,8 +55,6 @@ namespace Media.Containers.Mpeg
         //Might need the data not the identifier
         public static string ToTextualConvention(byte[] identifier)
         {
-            //Should determine based on header code, 00, 00, 01, XX
-            //Mpeg.StartCodes.ToTextualConvention(identifier[3])
             return PacketizedElementaryStreamReader.ToTextualConvention(identifier);
         }
 
@@ -75,19 +72,19 @@ namespace Media.Containers.Mpeg
 
             int length = 0, lengthSize = PacketizedElementaryStreamReader.LengthSize;
 
+            //Determine which type of node we are dealing with
             switch (identifier[3])
             {
-                case Mpeg.StartCodes.EndCode:
-                    {
-                        break;
-                    }
-                case Mpeg.StartCodes.PackHeader: //Also Mpeg.StreamTypes.PackHeader
+                case Mpeg.StreamTypes.PackHeader: //Also Mpeg.StreamTypes.PackHeader
                     {
                         //No bytes are related to the length yet
                         lengthSize = 0;
 
+                        //MPEG 1 Used only 2 bits 0 1
+                        //MPEG 2 Used 4 bits 0 0 0 1
                         byte next = (byte)ReadByte();
 
+                        //Determine which version
                         switch (next >> 6)
                         {
                             case 0: //MPEG 1
@@ -97,8 +94,6 @@ namespace Media.Containers.Mpeg
                                     Read(identifier, IdentifierSize + 1, 7);
                                     break;
                                 }
-                            //case 1://MPEG 2
-                            //case 2://MPEG 4?
                             default:
                                 {
                                     //Read 10 more bytes when getting the data
@@ -119,6 +114,15 @@ namespace Media.Containers.Mpeg
 
                         break;
                     }
+                //case Mpeg.StreamTypes.SystemHeader:
+                //    {
+                //        //Might need to parse the data of this Node.
+                //        goto default; //(It is just a PES but contains data for the stream)
+                //    }
+                //case Mpeg.StreamTypes.ProgramStreamMap: //PSM
+                //    {
+                //        break;
+                //    }
                 default: //PESPacket
                     {
                         //lengthSize already set
