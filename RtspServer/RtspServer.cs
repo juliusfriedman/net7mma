@@ -620,7 +620,7 @@ namespace Media.Rtsp
         /// <param name="source"></param>
         /// <param name="credential"></param>
         /// <param name="authType"></param>
-        public void AddCredential(SourceMedia source, NetworkCredential credential, string authType)
+        public void AddCredential(IMedia source, NetworkCredential credential, string authType)
         {
             RequiredCredentials.Add(source.ServerLocation, authType, credential);
         }

@@ -16,7 +16,17 @@ namespace Media.Containers.Mpeg
         /// </summary>
         public static byte[] Prefix = new byte[] { 0x00, 0x00, 0x01 };
 
-        public static bool IsReserved(byte b) { return b == 0xB0 || b == 0xB1 || b == 0xB6; }
+        public static bool IsReserved(byte b)
+        {
+            switch (b)
+            {
+                case 0xB0:
+                case 0xB1:
+                case 0xB6:
+                    return true;
+                default: return false;
+            }
+        }
 
         public static bool IsSystemStartCode(byte b) { return b >= 0xB9 && b <= byte.MaxValue; }
 
@@ -31,10 +41,12 @@ namespace Media.Containers.Mpeg
 
         public static bool IsSliceStartCode(byte code) { return code >= 0x01 && code <= 0xAF; }
 
+        //MPEG 4 Specific Name (Reversed in MPEG 1 and 2)
         //Probably key frame
-        public const byte VisalObjectSequence = 0xB0;
+        //public const byte VisalObjectSequence = 0xB0;
 
-        public const byte End = 0xB1;
+        //MPEG 4 Specific Name (Reserved in MPEG 1 and 2)
+        //public const byte End = 0xB1;
 
         public const byte UserData = 0xB2;
 
@@ -44,30 +56,19 @@ namespace Media.Containers.Mpeg
 
         public const byte Extension = 0xB5;
 
-        public const byte SequenceEnd = 0xB7;
-
-        public const byte Group = 0xB8;
-
-        //Group Video Object Plane
-
-        public const byte UserMetaData = 0xB2;
-
-        //Group Of Video Object Plane
-
-        public const byte VideoSequenceHeader = 0xB3;
-
-        public const byte VisualObject = Extension;
+        //VideoObjectLayer is a Mpeg 4 Extension to Mpeg 2 = 0xB5
 
         //Key frame if next 2 bits are 0
         public const byte VideoObjectPlane = 0xB6;
 
-        public const byte VisualObjectSequenceEnd = 0xB7;
+        public const byte SequenceEnd = 0xB7;
 
-        public const byte GroupOfPictures = 0xB8;
+        //VideoObjectLayerEnd is a Mpeg 4 Extension to Mpeg 2 = 0xB7
 
-        public const byte PackHeader = 0xBA;
+        public const byte UserMetaData = 0xB2;
 
-        public const byte SystemHeader = 0xBB;
+        //Of Picture, Video Object Plane, etc.
+        public const byte Group = 0xB8;
 
         public const byte EndCode = 0xB9;
     }
