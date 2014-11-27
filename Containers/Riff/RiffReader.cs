@@ -666,6 +666,8 @@ namespace Media.Containers.Riff
                     case FourCharacterCode.iavs:
                         {
                             //Interleaved Audio and Video
+                            //Should be audio and video samples together....?
+                            //Things like this need a Special TrackType, MediaType doens't really cut it.
                             break;
                         }
                     case FourCharacterCode.vids:
