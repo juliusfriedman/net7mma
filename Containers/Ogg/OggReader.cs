@@ -42,12 +42,14 @@ namespace Media.Containers.Ogg
 {
     /// <summary>
     /// Provides an implementation of the Ogg Container defined by Xiph.org and <see cref="http://www.ietf.org/rfc/rfc3533.txt">RFC3533</see>.
-    /// The implementation is compatible with ogg, oga, ogv, ogx and ogm files.
+    /// The implementation is compatible with ogg, oga, ogv, ogx and ogm files and others including spx and opus.
     /// </summary>
     public class OggReader : MediaFileStream
     {
 
         #region Constants
+
+        static byte[] VorbisBytes = System.Text.Encoding.UTF8.GetBytes("vorbis");
 
         const int MaximumPageSize = 65307, IdentifierSize = 8, MinimumSize = 20 + IdentifierSize, MinimumReadSize = MinimumSize - 1, PageVersionOffset = 4, PageSegmentCountOffset = 26;
 
@@ -62,19 +64,20 @@ namespace Media.Containers.Ogg
 
         #endregion
 
-        public enum CapturePattern : ulong
+        /// <summary>
+        /// Used to identify the first 4 - 8 bytes of a page.
+        /// </summary>
+        public enum CapturePattern : long
         {
             Unknown = 0,
             Oggs = 1399285583,
-            //Possibly add Oggs01
-            //Might not need the others or even this enum...
             fishead = 28254585843050854,
             fisbone = 28550397319932262,
             index = 517097156201
         }
 
         [Flags]
-        public enum HeaderFlags : byte
+        public enum HeaderType : byte
         {
             None = 0,
             //set: page contains data of a packet continued from the previous page
@@ -90,10 +93,10 @@ namespace Media.Containers.Ogg
 
         #region Statics
 
-        public static HeaderFlags GetHeaderFlags(Node node)
+        public static HeaderType GetHeaderType(Node node)
         {
             if (node == null) throw new ArgumentNullException("node");
-            return (HeaderFlags)node.Identifier[5];
+            return (HeaderType)node.Identifier[5];
         }
 
         public static long GetGranulePosition(Node node)
@@ -150,7 +153,8 @@ namespace Media.Containers.Ogg
                 {
                     case CapturePattern.fishead:
                     case CapturePattern.fisbone:
-                    case CapturePattern.index: return result.ToString();                        
+                    case CapturePattern.index: return result.ToString();
+                    //Was already Oggs, just return that
                     default: return CapturePattern.Oggs.ToString();
                 } 
             }
@@ -160,7 +164,7 @@ namespace Media.Containers.Ogg
 
         public IEnumerable<Node> ReadPages(long offset, long count, params CapturePattern[] names) { return ReadPages(offset, count, null, names); }
 
-        public IEnumerable<Node> ReadPages(long offset, long count, HeaderFlags? headerFlags, params CapturePattern[] names)
+        public IEnumerable<Node> ReadPages(long offset, long count, HeaderType? headerFlags, params CapturePattern[] names)
         {
             long position = Position;
 
@@ -170,12 +174,15 @@ namespace Media.Containers.Ogg
             {
                 CapturePattern found = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
 
-                if (headerFlags.HasValue && GetHeaderFlags(page) != headerFlags.Value) continue;
+                if (headerFlags.HasValue && GetHeaderType(page) != headerFlags.Value) continue;
 
                 if (names == null || names.Count() == 0 || names.Contains(found)) yield return page;
                 else if( page.DataSize > 0)
                 {
+                    //Get the capture pattern
                     found = (CapturePattern)Common.Binary.ReadU64(page.Data, 0, !BitConverter.IsLittleEndian);
+                    
+                    //See if the given list contained it
                     if(names.Contains(found)) yield return page;
                 }
 
@@ -191,11 +198,11 @@ namespace Media.Containers.Ogg
             Position = position;
         }
 
-        public Node ReadPage(CapturePattern identifier, long position = 0)
+        public Node ReadPage(CapturePattern identifier, HeaderType? headerFlags = null, long position = 0)
         {
             long positionStart = Position;
 
-            Node result = ReadPages(position, Length - position,  identifier).FirstOrDefault();
+            Node result = ReadPages(position, Length - position, headerFlags, identifier).FirstOrDefault();
 
             Position = positionStart;
 
@@ -235,9 +242,7 @@ namespace Media.Containers.Ogg
                 ++lengthSize;
             }
 
-            Node result = new Node(this, identifier, lengthSize, Position, length, length <= Remaining);
-
-            return result;
+            return new Node(this, identifier, lengthSize, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -297,18 +302,18 @@ namespace Media.Containers.Ogg
                     }
 
                     //Get the pageHeaderType
-                    HeaderFlags pageHeaderType = GetHeaderFlags(page);
+                    HeaderType pageHeaderType = GetHeaderType(page);
 
                     //Read Serial
                     int serial = GetSerialNumber(page);
 
-                    if (pageHeaderType.HasFlag(HeaderFlags.FirstPage))
+                    if ((pageHeaderType == HeaderType.None || pageHeaderType.HasFlag(HeaderType.FirstPage)) && !m_PageBegins.ContainsKey(serial))
                     {
                         //Add the page
                         m_PageBegins.Add(serial, page);
                     }
 
-                    if (pageHeaderType.HasFlag(HeaderFlags.LastPage))
+                    if (pageHeaderType.HasFlag(HeaderType.LastPage) && !m_PageEnds.ContainsKey(serial))
                     {
                         //Found last page for stream
 
@@ -348,10 +353,13 @@ namespace Media.Containers.Ogg
 
                 byte channels = default(byte), bitDepth = default(byte);
 
+                //The startPage
+                Node startPage = streamBegin.Value;
+
                 Node endPage;
 
                 //If no Page End then treat stream as disabled
-                if (!m_PageEnds.TryGetValue(serialNumber, out endPage)) continue;
+                if (!m_PageEnds.TryGetValue(serialNumber, out endPage)) endPage = startPage;
 
                 //How about a Generic 'XCODECMAP' mapping?
                 //It would make all mappings easier to decode
@@ -382,33 +390,87 @@ namespace Media.Containers.Ogg
                         char[8]: '\1audio\0\0'       | audio
                      */
 
-                //The startPage
-                Node startPage = streamBegin.Value;
+                //OggDS uses Data[0] to determine the PacketType.
+                //This is because Ogg didn't have an Info or Meta Packet Type at the time.
+
+                //Subsequently Ogg also used Data[0] -> 7 to indicate a specific codec.
+
+                //Meta is a Vorbis Comment.
+
+                //There is also the 'Direct Show Samples embedded in Ogg' variation for OGM....
 
                 //Determine what to do based on data in the page
-                switch (startPage.Data[0])
+                byte firstByte = startPage.Data[0];
+                switch (firstByte)
                 {
                     //https://wiki.xiph.org/OggText
                     //Note where is Text iden handling?
-
-                    case 1: //vorbis (or OGM)
+                    case 1: //vorbis (or OGM) Header
                         {
                             byte identifyingByte = startPage.Data[4];
 
-                            //Ensure not OGM 
-                            //TODO check if this is correct.
-                            //If OGM this will be 56 bytes, a 4cc and either BitmapInfo Header or WaveFormatEx Header
+                            //if identifyingByte has PacketTypeBits then this is OGM.
+
+                            //Could also check + 96
+                            //0x05589f80 - VideoInfo
+                            //0x05589f81 - WaveFormatEx
+
                             switch (identifyingByte)
                             {
-                                case (byte)'e': //VIDeO
-                                case (byte)'i': //AUDiO
-                                case (byte)'t': //TEXt
-                                case (byte)'d': //SOUnD
+                                case (byte)'e': //VIDeO or `DirEct Show Samples embedded in Ogg` (35)
                                     {
-                                        //Parse Either BitmapInfo or WaveFormatEx
+                                        //Parse Either AVI BitmapInfoHeader or AVI VideoInfoHeader
+                                        mediaType = Sdp.MediaType.video;
+
+                                        //BitmapInfoHeader
+                                        //Read 32 Width
+                                        width = (int)Common.Binary.ReadU32(startPage.Data, 176, !BitConverter.IsLittleEndian);
+
+                                        //Read 32 Height
+                                        height = (int)Common.Binary.ReadU32(startPage.Data, 180, !BitConverter.IsLittleEndian);
+
+                                        //Maybe...
+                                        //Read 16 panes 
+
+                                        //Read 16 BitDepth
+                                        bitDepth = (byte)(int)Common.Binary.ReadU16(startPage.Data, 182, !BitConverter.IsLittleEndian);
+
+                                        //Read codec
+                                        codecIndication = startPage.Data.Skip(68).Take(4).ToArray();
+
                                         break;
                                     }
-                                default:
+                                case (byte)'n': //SOUnD
+                                case (byte)'i': //AUDiO
+                                    {
+                                        //Parse Either AVI WaveFormat or AVI WaveFormatEx
+                                        mediaType = Sdp.MediaType.audio;
+
+                                        //CodecIndication
+                                        //*(ogg_int16_t*)(p+124),  // formattag
+                                        codecIndication = startPage.Data.Skip(124).Take(2).ToArray();
+                                        
+                                        //WaveFormat (EX) 
+                                        //*(ogg_int16_t*)(p+126),  // channels
+                                        channels = (byte)Common.Binary.ReadU16(startPage.Data, 126, !BitConverter.IsLittleEndian);
+                                        //*(ogg_int16_t*)(p+136),  // blockalign
+                                        //*(ogg_int32_t*)(p+132),  // avgbytespersec
+                                        //*(ogg_int32_t*)(p+128),  // samplespersec
+                                        //*(ogg_int16_t*)(p+138),  // bitspersample
+                                        bitDepth = (byte)Common.Binary.ReadU16(startPage.Data, 138, !BitConverter.IsLittleEndian);
+                                        //p+142,				   // extradata
+                                        //*(ogg_int16_t*)(p+140),  // extrasize
+                                        //*(ogg_int32_t*)(p+40));  // buffersize
+
+                                        break;
+                                    }
+                                case (byte)'t': //TEXt
+                                    {
+                                        //Handle Subtitle
+                                        mediaType = Sdp.MediaType.text;
+                                        break;
+                                    }
+                                default: //Vorbis
                                     {
                                         mediaType = Sdp.MediaType.audio;
                                         codecIndication = startPage.Data.Take(7).ToArray();
@@ -420,11 +482,11 @@ namespace Media.Containers.Ogg
                                         rate = Common.Binary.Read32(startPage.Data, 12, !BitConverter.IsLittleEndian);
 
                                         /* http://www.xiph.org/vorbis/doc/Vorbis_I_spec.html
-                                         All three fields set to the same value implies a fixed rate, or tightly bounded, nearly fixed-rate bitstream
+                                            All three fields set to the same value implies a fixed rate, or tightly bounded, nearly fixed-rate bitstream
                                             Only nominal set implies a VBR or ABR stream that averages the nominal bitrate
                                             Maximum and or minimum set implies a VBR bitstream that obeys the bitrate limits
                                             None set indicates the encoder does not care to speculate.
-                                         */
+                                            */
 
                                         //bitrate upper 4
 
@@ -443,6 +505,41 @@ namespace Media.Containers.Ogg
 
                             break;
                         }
+                    case 3:// Vorbis Comment
+                        {
+                            //Check for vorbis
+                            string detect = System.Text.Encoding.UTF8.GetString(startPage.Data, 11, 15);
+
+                            switch (detect)
+                            {
+                                //Shitty ElphelOgm Has no BeginOfPage also has no Info Header.
+                                case "ElphelOgm v 0.1":
+                                    {
+                                        mediaType = Sdp.MediaType.video;
+                                        codecIndication = System.Text.Encoding.UTF8.GetBytes("MJPG");
+                                        rate = 30;
+                                        //Other details come from the JPEG Stream itself.
+                                        break;
+                                    }
+                                //Another Hall of Shamer with no BeginOfPage and no Info Header
+                                case "Xiphophorus lib":
+                                    {
+                                        mediaType = Sdp.MediaType.video;
+                                        codecIndication = Utility.Empty;
+                                        rate = 30;
+                                        break;
+                                    }
+                                default: //Unknown Type
+                                    {
+                                        mediaType = Sdp.MediaType.unknown;
+                                        rate = 0;
+                                        codecIndication = Utility.Empty;
+                                        break;
+                                    }
+                            }
+                            break;
+                        }
+                    //case 5: continue;// Vorbis Codebook
                     case 0x80:
                         {
                             if (startPage.Data[1] == 'k') //kate
@@ -812,12 +909,12 @@ namespace Media.Containers.Ogg
                         {
                             mediaType = Sdp.MediaType.video;
                             codecIndication = startPage.Data.Take(8).ToArray();
-                            continue;
+                            break;
                         }
                     default: //Not sure, probably a new or undocumented mapping?
                         {
                             codecIndication = startPage.Data.Take(8).ToArray();
-                            continue;
+                            break;
                         }
                 }
 
@@ -828,7 +925,7 @@ namespace Media.Containers.Ogg
                 //Sequence Number
                 sampleCount = Common.Binary.Read32(endPage.Identifier, 18, !BitConverter.IsLittleEndian);
 
-                //Calulcate duration
+                //Calulcate duration (Might be different for OGM, to handle that when OGM is encounted set a flag)
                 switch (mediaType)
                 {
                     case Sdp.MediaType.audio:
@@ -881,6 +978,29 @@ namespace Media.Containers.Ogg
 
         public override byte[] GetSample(Track track, out TimeSpan duration)
         {
+            /*
+             OGM Data packets
+
+            0x0000	Bit0	0 = Data packet 1
+		            Bit1	Bit 2 of len bytes
+		            Bit3	1 = This sample is a syncpoint
+					            ("keyframe")
+		            Bit4	Currently not used
+		            Bit5	Currently not used
+		            Bit6&7	Bit 0 and 1 of len bytes
+
+		            len bytes is the number of following bytes
+		            with sample length in media time
+		
+		            0 =	default len (from header packet)
+
+             0x0001	Len bytes specified with bits  1 7 6,
+		            LowByte ... HighByte
+             ..
+             0x000x Data
+
+             */
+
             throw new NotImplementedException();
         }
 

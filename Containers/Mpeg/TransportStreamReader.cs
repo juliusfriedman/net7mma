@@ -559,36 +559,36 @@ namespace Media.Containers.Mpeg
                 yield return next;
 
                 //Need to parse the packet to ensure that GetTracks can always be updated.
-                switch (GetPacketIdentifier(this, next.Identifier))
-                {
-                    case PacketIdentifier.ProgramAssociationTable:
-                        {
-                            /*
+                //switch (GetPacketIdentifier(this, next.Identifier))
+                //{
+                //    case PacketIdentifier.ProgramAssociationTable:
+                //        {
+                //            /*
                              
-                            The Program Association Table (PAT) is the entry point for the Program Specific Information (PSI) tables.  
+                //            The Program Association Table (PAT) is the entry point for the Program Specific Information (PSI) tables.  
                             
-                            It is always carried in packets with PID (packet ID) = 0.  For each assigned program number, the PAT lists the PID for packets containing that program's PMT.  
+                //            It is always carried in packets with PID (packet ID) = 0.  For each assigned program number, the PAT lists the PID for packets containing that program's PMT.  
 
-                            The PMT lists all the PIDs for packets containing elements of a particular program (audio, video, aux data, and Program Clock Reference (PCR)).
+                //            The PMT lists all the PIDs for packets containing elements of a particular program (audio, video, aux data, and Program Clock Reference (PCR)).
 
-                            The PAT also contains the PIDs for the NIT(s).  
+                //            The PAT also contains the PIDs for the NIT(s).  
                             
-                            The NIT is an optional table that maps channel frequencies, transponder numbers, and other guide information for programs.
+                //            The NIT is an optional table that maps channel frequencies, transponder numbers, and other guide information for programs.
                              
-                             */
+                //             */
 
-                            ParseProgramAssociationTable(next);
+                //            ParseProgramAssociationTable(next);
 
-                            break;
-                        }
-                    case PacketIdentifier.ConditionalAccessTable:
-                    case PacketIdentifier.SelectionInformationTable:
-                    case PacketIdentifier.NetworkInformationTable:
-                        {
-                            //Todo
-                            break;
-                        }
-                }
+                //            break;
+                //        }
+                //    case PacketIdentifier.ConditionalAccessTable:
+                //    case PacketIdentifier.SelectionInformationTable:
+                //    case PacketIdentifier.NetworkInformationTable:
+                //        {
+                //            //Todo
+                //            break;
+                //        }
+                //}
 
                 //Done with the unit
                 Skip(next.DataSize);
