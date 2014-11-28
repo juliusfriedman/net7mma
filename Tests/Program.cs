@@ -2590,11 +2590,12 @@ a=mpeg4-esid:101");
                         foreach (var page in reader)
                         {
                             Console.WriteLine("Position:" + reader.Position);
-                            Console.WriteLine("Offset: " + page.DataOffset);
+                            Console.WriteLine("Offset: " + page.Offset);
+                            Console.WriteLine("DataOffset: " + page.DataOffset);
                             Console.WriteLine("Complete: " + page.IsComplete);
                             Console.WriteLine("Name: " + page.ToString());
                             Console.WriteLine("HeaderFlags: " + Media.Containers.Ogg.OggReader.GetHeaderType(page));
-                            Console.WriteLine("Size: " + page.DataSize);
+                            Console.WriteLine("Size: " + page.TotalSize);
                         }
 
 

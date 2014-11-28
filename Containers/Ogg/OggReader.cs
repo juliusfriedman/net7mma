@@ -172,14 +172,17 @@ namespace Media.Containers.Ogg
 
             foreach (var page in this)
             {
-                CapturePattern found = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
-
+                //Determine if we can filter by the HeaderType
                 if (headerFlags.HasValue && GetHeaderType(page) != headerFlags.Value) continue;
 
+                //Get the pattern
+                CapturePattern found = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
+
+                //If contained the found or the unmasked found then return the page
                 if (names == null || names.Count() == 0 || names.Contains(found) || names.Contains((CapturePattern)((ulong)found & uint.MaxValue))) yield return page;
                 else if( page.DataSize > 0)
                 {
-                    //Get the capture pattern
+                    //Get the capture pattern from the data
                     found = (CapturePattern)Common.Binary.ReadU64(page.Data, 0, !BitConverter.IsLittleEndian);
                     
                     //See if the given list contained it
@@ -218,7 +221,6 @@ namespace Media.Containers.Ogg
 
             //Find Oggs
             CapturePattern found;
-            
             do
             {
                 //Read 4 bytes from the stream
@@ -227,29 +229,68 @@ namespace Media.Containers.Ogg
                 //Decode the capture pattern at the beginning
                 found = (CapturePattern)(Common.Binary.ReadU64(identifier, 0, !BitConverter.IsLittleEndian) & uint.MaxValue);
             }
-            while (found != CapturePattern.Oggs); //While it was not found
-
-            //Read the rest of the identifier.
-            Read(identifier, 4, MinimumReadSize - 4);
+            while (found != CapturePattern.Oggs && Position - offset < MinimumReadSize); //While it was not found within the IdentiferSize
 
             //Check version
             if (identifier[PageVersionOffset] > 0) throw new InvalidOperationException("Only Version 0 is Defined.");
 
-            byte pageSegmentCount = identifier[PageSegmentCountOffset];
-
-            if (pageSegmentCount < 1 || Remaining < pageSegmentCount) throw new InvalidOperationException("Invalid Header Page");
-
-            int lengthSize = 0;
+            //Read the rest of the identifier.
+            Read(identifier, 4, MinimumReadSize - 4); //23 more
 
             // (segment_table) @ 27 - number_page_segments Bytes containing the lacing
             //values of all segments in this page.  Each Byte contains one
             //lacing value.
 
+            int pageSegmentCount = identifier[PageSegmentCountOffset];
+
+            /*
+             Note that a lacing value of 255 implies that a second lacing value follows in the packet, and a value of < 255 marks the end of the packet after that many additional bytes. A packet of 255 bytes (or a multiple of 255 bytes) is terminated by a lacing value of 0:
+
+
+            raw packet:
+              _______________________________
+             |________packet data____________|          255 bytes
+
+            lacing values: 255, 0
+            Note also that a 'nil' (zero length) packet is not an error; it consists of nothing more than a lacing value of zero in the header.
+             */            
+
+            int lengthSize = 0;
+
+            //Determine if the length is varible
+            if (pageSegmentCount == byte.MaxValue)
+            {
+                //Get ready to read a byte
+                int read = -1;
+
+                //While there is a non terminating value
+                while (Remaining > 0 && (read = ReadByte()) > 0)
+                {
+                    //Increase the pageSegmentCount
+                    pageSegmentCount += read;
+                    
+                    //Indicate another byte was read
+                    ++lengthSize;
+                }
+            }
+
+            //Ensure reading is possible.
+            if (Remaining < pageSegmentCount) throw new InvalidOperationException("Invalid Header Page");
+
             //Read a byte at a time to determine the length
             //Could also verify CRC as reading
-            while (pageSegmentCount-- > 0)
+            while (pageSegmentCount >= 1)
             {
-                length += ReadByte();
+                //Read a byte
+                int read = ReadByte();
+
+                //Increse length
+                length += read;
+                
+                //Decrease pageSegmentCount
+                --pageSegmentCount;
+
+                //Increase lengthSize
                 ++lengthSize;
             }
 
@@ -315,19 +356,25 @@ namespace Media.Containers.Ogg
                     //Get the pageHeaderType
                     HeaderType pageHeaderType = GetHeaderType(page);
 
+                    //Determine if this is a OGM style header
+                    if (pageHeaderType > HeaderType.LastPage) continue;
+
                     //Read Serial
                     int serial = GetSerialNumber(page);
 
                     //Determine begin page was found
+                    if (pageHeaderType.HasFlag(HeaderType.FirstPage)) m_PageBegins.Add(serial, page);
 
-                    bool knownPage = m_PageBegins.ContainsKey(serial);
-
-                    if (pageHeaderType.HasFlag(HeaderType.FirstPage) && knownPage) m_PageBegins[serial] = page;
-                    else if(!knownPage) m_PageBegins.Add(serial, page); // Add the page
-
-                    //Was checking the flag, could just essentially check the serial and if it does contain it update it.
-                    if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
-                    else m_PageEnds.Add(serial, page);
+                    //Determine if a packet ends on this page
+                    long grainulePosition = Common.Binary.Read64(page.Identifier, 6, !BitConverter.IsLittleEndian);
+                    
+                    //If so
+                    if (grainulePosition >= 0)
+                    {
+                        //If we already had an end page just update it
+                        if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
+                        else m_PageEnds.Add(serial, page); //otherwise its added
+                    }
                 }
             }
 
@@ -429,7 +476,7 @@ namespace Media.Containers.Ogg
                 {
                     //https://wiki.xiph.org/OggText
                     //Note where is Text iden handling?
-                    case 1: //vorbis (or OGM) Header
+                    case PackTypeHeader: //vorbis (or OGM) Header
                         {
                             byte identifyingByte = startPage.Data[4];
 
@@ -471,18 +518,24 @@ namespace Media.Containers.Ogg
                                         //Read rate
                                         rate = Common.Binary.Read64(startPage.Data, offset, !BitConverter.IsLittleEndian) / 10000;
 
+                                        //33 was used to 'smooth' playback with audio in OGM?
+                                        if (rate == 33) rate = 30;
+
+                                        //Move past rate
                                         offset += 8;
 
-                                        //Move to width
+                                        //Move to next field
                                         offset += (offset == 25 ? 20 : 4);
                                         
-                                        //Read 32 Width
-                                        width = (int)Common.Binary.ReadU32(startPage.Data, offset, !BitConverter.IsLittleEndian);
-
-                                        offset += 4;
+                                        //Note that these are reversed from the BitmapInfoHeader
 
                                         //Read 32 Height
                                         height = (int)Common.Binary.ReadU32(startPage.Data, offset, !BitConverter.IsLittleEndian);
+
+                                        offset += 4;
+
+                                        //Read 32 Width
+                                        width = (int)Common.Binary.ReadU32(startPage.Data, offset, !BitConverter.IsLittleEndian);
 
                                         offset += 4;
 
@@ -555,6 +608,7 @@ namespace Media.Containers.Ogg
 
                                         channels = startPage.Data[11];
 
+                                        //Sampling rate
                                         rate = Common.Binary.Read32(startPage.Data, 12, !BitConverter.IsLittleEndian);
 
                                         /* http://www.xiph.org/vorbis/doc/Vorbis_I_spec.html
@@ -568,10 +622,10 @@ namespace Media.Containers.Ogg
 
                                         //should check if > 0
 
-                                        //bitrate nominal 4 (Note that 8000 comes from 8 * 1000 and is probably an incorrect calulcation)
-                                        bitDepth = (byte)(Common.Binary.ReadU32(startPage.Data, 20, !BitConverter.IsLittleEndian) / 8000);
+                                        //bitrate nominal 4 8 bits in a byte
 
-                                        //should check if > 0
+                                        //bitRate
+                                        bitDepth = (byte)((Common.Binary.ReadU32(startPage.Data, 20, !BitConverter.IsLittleEndian) + 7) / Utility.MicrosecondsPerMillisecond);
 
                                         //bitrate lower 4
 
@@ -581,7 +635,7 @@ namespace Media.Containers.Ogg
 
                             break;
                         }
-                    case 3:// Vorbis Comment
+                    case PacketTypeComment:// Vorbis Comment
                         {
                             //Check for vorbis
                             //string vorbis = System.Text.Encoding.UTF8.GetString(startPage.Data, 1, 6);
@@ -651,7 +705,7 @@ namespace Media.Containers.Ogg
                             
                             break;
                         }
-                    case 5:// Vorbis Codebook
+                    case PacketTypeCodeBook:// Vorbis Codebook
                         {
                             //Assume Media Type
                             mediaType = Sdp.MediaType.audio;
@@ -1034,14 +1088,11 @@ namespace Media.Containers.Ogg
                         }
                     default: //Not sure, probably a new or undocumented mapping?
                         {
-                            mediaType = tracks.Count > 0 ? Sdp.MediaType.audio : Sdp.MediaType.video;
-                            codecIndication = BitConverter.GetBytes(0);
-                            rate = mediaType == Sdp.MediaType.video ? 30 : 8000;
                             break;
                         }
                 }               
 
-                //Calulcate duration (Might be different for OGM, to handle that when OGM is encounted set a flag)
+                //Determine how to calulcate the duration
                 switch (mediaType)
                 {
                     case Sdp.MediaType.audio:
@@ -1054,7 +1105,11 @@ namespace Media.Containers.Ogg
                             //usually less
                             //duration = sampleCount / rate;
 
-                            if (codecIndication.SequenceEqual(System.Text.Encoding.UTF8.GetBytes("MJPG"))) goto case Sdp.MediaType.audio;
+                            //OGM, could also check for 4 byte codecIdentication
+                            if (codecIndication.Length == 4) goto case Sdp.MediaType.audio;
+
+                            //Todo, Double check these calulcations.
+                            //Might need to adjust per codec..
 
                             duration = Math.Max(sampleCount / rate, (duration / Utility.MicrosecondsPerMillisecond) - sampleCount / rate);
 
