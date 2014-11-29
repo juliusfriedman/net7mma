@@ -362,18 +362,22 @@ namespace Media.Containers.Ogg
                     //Read Serial
                     int serial = GetSerialNumber(page);
 
-                    //Determine begin page was found
+                    //Determine if this is a FirstPage and add it (Should only be one, may have to check contains for malformed streams, Could then use the result of contains rather then Count to determine end)
                     if (pageHeaderType.HasFlag(HeaderType.FirstPage)) m_PageBegins.Add(serial, page);
 
-                    //Determine if a packet ends on this page
-                    long grainulePosition = Common.Binary.Read64(page.Identifier, 6, !BitConverter.IsLittleEndian);
-                    
-                    //If so
-                    if (grainulePosition >= 0)
+                    //Only need to do this if we are missing and end page.
+                    if (m_PageBegins.Count > m_PageEnds.Count)
                     {
-                        //If we already had an end page just update it
-                        if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
-                        else m_PageEnds.Add(serial, page); //otherwise its added
+                        //Determine if a packet ends on this page
+                        long grainulePosition = Common.Binary.Read64(page.Identifier, 6, !BitConverter.IsLittleEndian);
+
+                        //If so (technically should be != -1)
+                        if (grainulePosition >= 0)
+                        {
+                            //If we already had an end page just update it (should check that m_PageBegins has the serial also)
+                            if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
+                            else m_PageEnds.Add(serial, page); //otherwise its added
+                        }
                     }
                 }
             }

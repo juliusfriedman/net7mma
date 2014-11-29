@@ -126,7 +126,7 @@ namespace Media.Common
         /// <summary>
         /// The amount of bits it a single octet
         /// </summary>
-        internal const byte BitSize = 8;
+        public const byte BitSize = 8;
 
         /// <summary>
         /// (0000)1111 in Binary
