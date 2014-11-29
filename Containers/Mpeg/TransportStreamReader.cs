@@ -463,7 +463,7 @@ namespace Media.Containers.Mpeg
                 {
                     yield return tsUnit;
 
-                    count -= tsUnit.TotalSize; //Could use Constant
+                    count -= tsUnit.TotalSize;
 
                     if (count <= 0) break;
 
@@ -558,42 +558,53 @@ namespace Media.Containers.Mpeg
                 //Return the unit for external handling
                 yield return next;
 
+                //Get the type of packet this is
+                PacketIdentifier pid = GetPacketIdentifier(this, next.Identifier);
+
                 //Need to parse the packet to ensure that GetTracks can always be updated.
-                //switch (GetPacketIdentifier(this, next.Identifier))
-                //{
-                //    case PacketIdentifier.ProgramAssociationTable:
-                //        {
-                //            /*
+                switch (pid)
+                {
+                    case PacketIdentifier.ProgramAssociationTable:
+                        {
+                            /*
                              
-                //            The Program Association Table (PAT) is the entry point for the Program Specific Information (PSI) tables.  
+                            The Program Association Table (PAT) is the entry point for the Program Specific Information (PSI) tables.  
                             
-                //            It is always carried in packets with PID (packet ID) = 0.  For each assigned program number, the PAT lists the PID for packets containing that program's PMT.  
+                            It is always carried in packets with PID (packet ID) = 0.  For each assigned program number, the PAT lists the PID for packets containing that program's PMT.  
 
-                //            The PMT lists all the PIDs for packets containing elements of a particular program (audio, video, aux data, and Program Clock Reference (PCR)).
+                            The PMT lists all the PIDs for packets containing elements of a particular program (audio, video, aux data, and Program Clock Reference (PCR)).
 
-                //            The PAT also contains the PIDs for the NIT(s).  
+                            The PAT also contains the PIDs for the NIT(s).  
                             
-                //            The NIT is an optional table that maps channel frequencies, transponder numbers, and other guide information for programs.
+                            The NIT is an optional table that maps channel frequencies, transponder numbers, and other guide information for programs.
                              
-                //             */
+                             */
 
-                //            ParseProgramAssociationTable(next);
+                            ParseProgramAssociationTable(next);
 
-                //            break;
-                //        }
-                //    case PacketIdentifier.ConditionalAccessTable:
-                //    case PacketIdentifier.SelectionInformationTable:
-                //    case PacketIdentifier.NetworkInformationTable:
-                //        {
-                //            //Todo
-                //            break;
-                //        }
-                //}
+                            break;
+                        }
+                    case PacketIdentifier.ConditionalAccessTable:
+                    case PacketIdentifier.SelectionInformationTable:
+                    case PacketIdentifier.NetworkInformationTable:
+                        {
+                            //Todo
+                            break;
+                        }
+                    default:
+                        {
+                            //Include the PId with the StreamId
+                            m_ProgramIds.Add(pid);
+                            break;
+                        }
+                }
 
                 //Done with the unit
                 Skip(next.DataSize);
             }
         }
+
+        HashSet<PacketIdentifier> m_ProgramIds = new HashSet<PacketIdentifier>();
 
         public override string ToTextualConvention(Container.Node node)
         {
@@ -601,10 +612,52 @@ namespace Media.Containers.Mpeg
             return base.ToTextualConvention(node);
         }
 
+        System.Collections.Concurrent.ConcurrentDictionary<ushort, PacketIdentifier> m_ProgramAssociations = new System.Collections.Concurrent.ConcurrentDictionary<ushort, PacketIdentifier>();
+
         //Static and take reader?
         //Maps from Program to PacketIdentifer?
         internal protected virtual void ParseProgramAssociationTable(Container.Node node)
         {
+
+            int offset = 0;
+
+            int pointer = node.Data[offset++];
+
+            if(pointer > 0) offset += pointer * 8;
+
+            int tableId = node.Data[offset++];
+
+            //A flag that indicates if the syntax section follows the section length. The PAT, PMT, and CAT all set this to 1.
+            //bool sectionSyntexIndicator;
+
+            //The PAT, PMT, and CAT all set this to 0. Other tables set this to 1.
+            //Private bit
+
+            //Reserved Set to 0x03 (all bits on)
+
+            //Section length unused bits Set to 0 (all bits off)
+
+            //Section Length The number of bytes that follow for the syntax section (with CRC value) and/or table data. These bytes must not exceed a value of 1021.
+            int end = node.Data[2] >> 6 | node.Data[3];
+
+            //4 bytes per ProgramInfo in node.Data
+            while (offset < end)
+            {
+                //2 Bytes ProgramNumber
+                ushort programNumber = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian);
+
+                //2 Bytes ProgramID
+                PacketIdentifier pid = (PacketIdentifier)Common.Binary.ReadU16(node.Data, offset + 2, BitConverter.IsLittleEndian);
+
+                //Add or update the entry
+                m_ProgramAssociations.AddOrUpdate(programNumber, pid, (id, old) => pid);
+
+                //Move the offset
+                offset += 4;
+            }
+
+            //CRC
+
             return;
         }
 
@@ -619,10 +672,18 @@ namespace Media.Containers.Mpeg
             get { throw new NotImplementedException(); }
         }
 
-        //Read all with Start of Payload then determine from PacketIdentifers
         public override IEnumerable<Container.Track> GetTracks()
         {
-            return Enumerable.Empty<Container.Track>();
+            //For each packet a PID and StreamId was extracted.
+            foreach (var association in m_ProgramAssociations)
+            {
+                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
+
+                if (Mpeg.StreamTypes.IsMpeg1or2AudioStream((byte)association.Key)) mediaType = Sdp.MediaType.audio;
+                else if (Mpeg.StreamTypes.IsMpeg1or2VideoStream((byte)association.Key)) mediaType = Sdp.MediaType.video;
+
+                yield return new Container.Track(null, string.Empty, association.Key, DateTime.MinValue, DateTime.MinValue, 0, 0, 0, TimeSpan.Zero, TimeSpan.Zero, 0, mediaType, BitConverter.GetBytes(0));
+            }
         }
 
         public override byte[] GetSample(Container.Track track, out TimeSpan duration)

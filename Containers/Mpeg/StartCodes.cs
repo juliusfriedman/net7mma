@@ -28,7 +28,7 @@ namespace Media.Containers.Mpeg
             }
         }
 
-        public static bool IsSystemStartCode(byte b) { return b >= 0xB9 && b <= byte.MaxValue; }
+        public static bool IsSystemStartCode(byte b) { return b >= 0xBA && b <= byte.MaxValue; }
 
         //0 - 31
         public const byte Picture = 0x00;
