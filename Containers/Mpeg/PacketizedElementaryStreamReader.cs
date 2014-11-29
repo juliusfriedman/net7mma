@@ -62,6 +62,11 @@ namespace Media.Containers.Mpeg
 
         public PacketizedElementaryStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        /// <summary>
+        /// Reads 4 bytes from the given stream
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <returns></returns>
         public static byte[] ReadIdentifier(System.IO.Stream stream)
         {
             //Read the PES Header (Prefix and StreamId)
@@ -72,6 +77,11 @@ namespace Media.Containers.Mpeg
             return identifier;
         }
 
+        /// <summary>
+        /// Reads two bytes from the given stream
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <returns></returns>
         public static byte[] ReadLength(System.IO.Stream stream)
         {
             //Read Length
@@ -82,9 +92,16 @@ namespace Media.Containers.Mpeg
             return lengthBytes;
         }
 
-        public static int DecodeLength(byte[] lengthBytes)
+        /// <summary>
+        /// Decodes the PES Length from the given bytes at the given offset.
+        /// Requires at least 2 bytes.
+        /// </summary>
+        /// <param name="lengthBytes"></param>
+        /// <param name="offset"></param>
+        /// <returns></returns>
+        public static int DecodeLength(byte[] lengthBytes, int offset = 0)
         {
-            return Common.Binary.ReadU16(lengthBytes, 0, BitConverter.IsLittleEndian);
+            return Common.Binary.ReadU16(lengthBytes, offset, BitConverter.IsLittleEndian);
         }
 
         /// <summary>
@@ -120,8 +137,61 @@ namespace Media.Containers.Mpeg
 
                 yield return next;
 
+                //Determine if the node holds data required.
+                switch (next.Identifier[3])
+                {
+                    case Mpeg.StreamTypes.ProgramStreamMap:
+                        {
+                            ParseProgramStreamMap(next);
+                            break;
+                        }
+                }
+
                 Skip(next.DataSize);
             }
+        }
+
+        protected System.Collections.Concurrent.ConcurrentDictionary<byte, Tuple<byte, byte[]>> m_ProgramStreams = new System.Collections.Concurrent.ConcurrentDictionary<byte, Tuple<byte, byte[]>>();
+
+        protected virtual void ParseProgramStreamMap(Container.Node node)
+        {
+            if (node.Identifier[3] != Mpeg.StreamTypes.ProgramStreamMap) return;
+
+            byte mapId = node.Data[0];
+
+            byte reserved = node.Data[1];
+
+            ushort infoLength = Common.Binary.ReadU16(node.Data, 2, BitConverter.IsLittleEndian);
+
+            ushort mapLength = Common.Binary.ReadU16(node.Data, 4 + infoLength, BitConverter.IsLittleEndian);
+
+            int offset = 4 + infoLength + 2;
+
+            while (mapLength > 4)
+            {
+                //Find out the type of item it is
+                byte esType = node.Data[offset++];
+
+                //Find out the elementary stream id
+                byte esId = node.Data[offset++];
+
+                //find out how long the info is
+                ushort esInfoLength = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian);
+
+                //Get a array containing the info
+                byte[] esData = esInfoLength == 0 ? Utility.Empty : node.Data.Skip(offset).Take(esInfoLength).ToArray();
+
+                //Create the entry
+                var entry = new Tuple<byte, byte[]>(esType, esData);
+
+                //Add it to the ProgramStreams
+                m_ProgramStreams.AddOrUpdate(esId, entry, (id, old) => entry);
+
+                //Move the offset
+                offset += 2 + esInfoLength;
+            }
+
+            //Map crc
         }
 
         public override string ToTextualConvention(Container.Node node)

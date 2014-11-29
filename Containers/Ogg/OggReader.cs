@@ -177,9 +177,9 @@ namespace Media.Containers.Ogg
 
                 //Get the pattern
                 CapturePattern found = (CapturePattern)Common.Binary.ReadU64(page.Identifier, 0, !BitConverter.IsLittleEndian);
-
+                
                 //If contained the found or the unmasked found then return the page
-                if (names == null || names.Count() == 0 || names.Contains(found) || names.Contains((CapturePattern)((ulong)found & uint.MaxValue))) yield return page;
+                if (names == null || names.Count() == 0 || names.Any(n => n == found || n == (CapturePattern)((ulong)found & uint.MaxValue))) yield return page;
                 else if( page.DataSize > 0)
                 {
                     //Get the capture pattern from the data
@@ -263,7 +263,7 @@ namespace Media.Containers.Ogg
                 //Get ready to read a byte
                 int read = -1;
 
-                //While there is a non terminating value
+                //While there is a byte to read and there is a non terminating value read
                 while (Remaining > 0 && (read = ReadByte()) > 0)
                 {
                     //Increase the pageSegmentCount
@@ -335,7 +335,7 @@ namespace Media.Containers.Ogg
             //Iterate all pages
             foreach (Node page in this)
             {
-                //Last Page or Index 
+                //Every page needed must have data
                 if (page.DataSize > 0)
                 {
                     //Ensure not a skeleton or index
@@ -378,6 +378,7 @@ namespace Media.Containers.Ogg
                 }
             }
 
+            //restore the position
             Position = position;
         }
 

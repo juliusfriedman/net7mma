@@ -2729,6 +2729,10 @@ a=mpeg4-esid:101");
                         Console.WriteLine("Path:" + reader.Source);
                         Console.WriteLine("Total Size:" + reader.Length);
 
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
+
+                        Console.WriteLine("System Clock Rate:" + reader.SystemClockRate);
+
                         Console.WriteLine("Packets:");
 
                         foreach (var packet in reader)
