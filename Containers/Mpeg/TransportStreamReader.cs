@@ -49,6 +49,9 @@ namespace Media.Containers.Mpeg
     {
         #region Nested Types
 
+        /// <summary>
+        /// Describes the ScramblingControl
+        /// </summary>
         public enum ScramblingControl : byte
         {
             NotScambled = 0,
@@ -57,6 +60,9 @@ namespace Media.Containers.Mpeg
             ScambledWithOddKey = 3,
         }
 
+        /// <summary>
+        /// Describes the AdaptationFieldControl
+        /// </summary>
         public enum AdaptationFieldControl : byte
         {
             Reserved = 0,
@@ -65,6 +71,9 @@ namespace Media.Containers.Mpeg
             AdaptationFieldAndPayload = 3
         }
 
+        /// <summary>
+        /// Defines the known packet PacketIdentifier's
+        /// </summary>
         public enum PacketIdentifier : short
         {
             ///Program Association Table (PAT) contains a directory listing of all Program Map Tables
@@ -92,20 +101,25 @@ namespace Media.Containers.Mpeg
             Measurement = 0x001D,
             DiscontinuityInformationTable = 0x001E,
             SelectionInformationTable = 0x001F,
+            //ARIB	Assigned or reserved //IsArib?
+            //32 - 47 (0x2f)
             //USER DEFINED - As assigned in PMT, PMT-E, MGT or MGT-E
             //0x30 - 0x1FF6
-            ATSCProgramAssociationTable = 0x1FF7,
-            ATSCProgramInformationTable = 0x1FF8,
-            ATSCProgramIdentificationTable = 0x1FF9,
-            ASTCOperationalOrManagement= 0x1FFA,
-            ASTCBaseProgramIdentificationTable = 0x1FFB, //EAM_CLEAR_PID, PSIP_PID
+            ATSCProgramAssociationTable = 0x1FF7, //ATSC A/65D PAT-E
+            ATSCProgramInformationTable = 0x1FF8, //ATSC A/65D STT-PID-E
+            ATSCProgramIdentificationTable = 0x1FF9, //ATSC A/65D base_pid_e
+            ASTCOperationalOrManagement = 0x1FFA, //ATSC Operational and management packets T3/S9-131
+            ASTCBaseProgramIdentificationTable = 0x1FFB, //EAM_CLEAR_PID, PSIP_PID ATSC A/65 base_pid
             //FC?
-            ASTCReserved = 0x1FFE, //Formerly A-55
-            DOCSIS = 0x1FFF,
+            ASTCReserved = 0x1FFD, //Formerly A-55
             //ATSCMetaData = 0x1FFB,
+            DOCSIS = 0x1FFE, //SCTE
             NullPacket = 0x1FFF
         }
 
+        /// <summary>
+        /// Defines the known TableIdentifier's
+        /// </summary>
         public enum TableIdentifier : byte
         {
             ProgramAssociation = 0x00,
@@ -582,14 +596,22 @@ namespace Media.Containers.Mpeg
 
                             ParseProgramAssociationTable(next);
 
-                            break;
+                            goto default;
                         }
+                    case PacketIdentifier.DescriptionTable: // TableIdentifier.ProgramMap
+                        {
+                            //Parse the table
+                            ParseDescriptionTable(next);
+
+                            goto default;
+                        }
+                    //case PacketIdentifier.Program
                     case PacketIdentifier.ConditionalAccessTable:
                     case PacketIdentifier.SelectionInformationTable:
                     case PacketIdentifier.NetworkInformationTable:
                         {
                             //Todo
-                            break;
+                            goto default;
                         }
                     default:
                         {
@@ -614,31 +636,80 @@ namespace Media.Containers.Mpeg
 
         System.Collections.Concurrent.ConcurrentDictionary<ushort, PacketIdentifier> m_ProgramAssociations = new System.Collections.Concurrent.ConcurrentDictionary<ushort, PacketIdentifier>();
 
+        static internal int ReadPointerField(Container.Node node, int offset = 0)
+        {
+            int pointer = node.Data[offset++];
+
+            return pointer > 0 ? offset += pointer * Common.Binary.BitSize : offset;
+        }
+
         //Static and take reader?
         //Maps from Program to PacketIdentifer?
         internal protected virtual void ParseProgramAssociationTable(Container.Node node)
         {
 
-            int offset = 0;
+            int offset = ReadPointerField(node);
 
-            int pointer = node.Data[offset++];
+            //Get the table id
+            TableIdentifier tableId = (TableIdentifier)node.Data[offset++];
 
-            if(pointer > 0) offset += pointer * 8;
+            if (tableId != TableIdentifier.ProgramAssociation) return;
 
-            int tableId = node.Data[offset++];
+            /*
+                Program Association Table (PAT) section syntax
+                syntax	bit index	# of bits	mnemonic
+                table_id	0	8	uimsbf
+                section_syntax_indicator	8	1	bslbf
+                '0'	9	1	bslbf
+                reserved	10	2	bslbf
+                section_length	12	12	uimsbf
+                transport_stream_id	24	16	uimsbf
+                reserved	40	2	bslbf
+                version_number	42	5	uimsbf
+                current_next_indicator	47	1	bslbf
+                section_number	48	8	bslbf
+                last_section_number	56	8	bslbf
+                for i = 0 to N
+                  program_number	56 + (i * 4)	16	uimsbf
+                  reserved	72 + (i * 4)	3	bslbf
+                  if program_number = 0
+                    network_PID	75 + (i * 4)	13	uimsbf
+                  else
+                    program_map_pid	75 + (i * 4)	13	uimsbf
+                  end if
+                next
+                CRC_32	88 + (i * 4)	32	rpchof
+                Table section legend
+            */
 
-            //A flag that indicates if the syntax section follows the section length. The PAT, PMT, and CAT all set this to 1.
-            //bool sectionSyntexIndicator;
 
-            //The PAT, PMT, and CAT all set this to 0. Other tables set this to 1.
-            //Private bit
-
-            //Reserved Set to 0x03 (all bits on)
-
-            //Section length unused bits Set to 0 (all bits off)
+            //section syntax indicator, 0 bit, and 2 reserved bits.
 
             //Section Length The number of bytes that follow for the syntax section (with CRC value) and/or table data. These bytes must not exceed a value of 1021.
-            int end = node.Data[2] >> 6 | node.Data[3];
+            // section_length field is a 12-bit field that gives the length of the table section beyond this field
+            //Since it is carried starting at bit index 12 in the section (the second and third bytes), the actual size of the table section is section_length + 3.
+            ushort sectionLength = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF);
+
+            //Move the offset
+            offset += 2;
+
+            //transport_stream_id	24	16	uimsbf
+            ushort transportStreamId = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF);
+
+            //Move the offset;
+            offset += 2;
+
+            //Skip reserved, version number and current/next indicator.
+            ++offset;
+
+            //Skip section number
+            ++offset;
+
+            //Skip last section number
+            ++offset;
+
+            //Determine where to end (don't count the crc)
+            int end = (sectionLength + 3) - 4;
 
             //4 bytes per ProgramInfo in node.Data
             while (offset < end)
@@ -646,8 +717,10 @@ namespace Media.Containers.Mpeg
                 //2 Bytes ProgramNumber
                 ushort programNumber = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian);
 
+                //3 bits reserved
+
                 //2 Bytes ProgramID
-                PacketIdentifier pid = (PacketIdentifier)Common.Binary.ReadU16(node.Data, offset + 2, BitConverter.IsLittleEndian);
+                PacketIdentifier pid = (PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset + 2, BitConverter.IsLittleEndian) & PacketIdentifierMask);
 
                 //Add or update the entry
                 m_ProgramAssociations.AddOrUpdate(programNumber, pid, (id, old) => pid);
@@ -657,11 +730,49 @@ namespace Media.Containers.Mpeg
             }
 
             //CRC
-
-            return;
         }
 
-        //void ParseProgramStreamMaps
+        System.Collections.Concurrent.ConcurrentDictionary<byte, Tuple<PacketIdentifier, ushort>> m_ProgramDescriptions = new System.Collections.Concurrent.ConcurrentDictionary<byte, Tuple<PacketIdentifier, ushort>>();
+
+        internal protected virtual void ParseDescriptionTable(Container.Node node)
+        {
+            int offset = ReadPointerField(node);
+
+            //Get the table id
+            TableIdentifier tableId = (TableIdentifier)node.Data[offset++];
+
+            if (tableId != TableIdentifier.ProgramAssociation) return;
+
+            PacketIdentifier pcrPid = (PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & PacketIdentifierMask);
+
+            int infoLength = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF;
+
+            offset += 2;
+
+            //Determine where to end (don't count the crc)
+            int end = (infoLength + 3) - 4;
+
+            while (offset < end)
+            {
+
+                byte esType = node.Data[offset++];
+                
+                //Could store two bytes and have methods to extract with masks.
+
+                PacketIdentifier esPid = (PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & PacketIdentifierMask);
+
+                ushort descLength = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF);
+
+                var entry = new Tuple<PacketIdentifier, ushort>(esPid, descLength);
+
+                m_ProgramDescriptions.AddOrUpdate(esType, entry, (a, old) => entry);
+
+                offset += 2;
+
+            }
+
+            //CRC
+        }
 
         public override Container.Node Root { get { return ReadUnit(PacketIdentifier.ProgramAssociationTable); } }
 
@@ -675,14 +786,18 @@ namespace Media.Containers.Mpeg
         public override IEnumerable<Container.Track> GetTracks()
         {
             //For each packet a PID and StreamId was extracted.
-            foreach (var association in m_ProgramAssociations)
+            foreach (var pid in m_ProgramIds)
             {
+
                 Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
-                if (Mpeg.StreamTypes.IsMpeg1or2AudioStream((byte)association.Key)) mediaType = Sdp.MediaType.audio;
-                else if (Mpeg.StreamTypes.IsMpeg1or2VideoStream((byte)association.Key)) mediaType = Sdp.MediaType.video;
+                byte streamId = (byte)pid;
 
-                yield return new Container.Track(null, string.Empty, association.Key, DateTime.MinValue, DateTime.MinValue, 0, 0, 0, TimeSpan.Zero, TimeSpan.Zero, 0, mediaType, BitConverter.GetBytes(0));
+                if (Mpeg.StreamTypes.IsMpeg1or2AudioStream(streamId)) mediaType = Sdp.MediaType.audio;
+                else if (Mpeg.StreamTypes.IsMpeg1or2VideoStream(streamId)) mediaType = Sdp.MediaType.video;
+                else continue; //Don't show unknown streams for now. (Could filter by Null only but then tables would be included, could also skip tables with a IsTable function...)
+
+                yield return new Container.Track(null, string.Empty, streamId, DateTime.MinValue, DateTime.MinValue, 0, 0, 0, TimeSpan.Zero, TimeSpan.Zero, 0, mediaType, BitConverter.GetBytes(0));
             }
         }
 

@@ -401,19 +401,21 @@ namespace Media.Containers.Mpeg
                  */
                 byte streamId = node.Data[offset++];
 
+                //Use constants from StreamType and see if a switch could be better.
                 if (streamId < 0xBC && streamId != 0xB8 && streamId != 0xB9) throw new InvalidOperationException("All Entries in the System Header must apply to a stream with an id >= 0xBC");
 
                 /*
                  1-bit boolean. False (0) indicates the multiplier is 128, TRUE (1) indicates the multiplier is 1024. 
                  Must be 0 for audio streams, 1 for video streams. May be 0 or 1 for other types.
                  */
-
-                bool bufferBoundScale = node.Data[offset] >> 6 == 3;
+                //2 reserved bits (32 = 00100000)
+                bool bufferBoundScale = (node.Data[offset] & 32) > 0;
 
                 /*
                  13-bit unsigned integer. When multiplied by either 128 or 1024, as indicated by P-STD_buffer_bound_scale, 
                  defines a value that is greater than or equal to the maximum P-STD buffer size for all packets of the designated stream in the entire program stream.
                  */
+                //3 bits masked out (0x1FFF = 8191 = 0001111111111111)
                 ushort stdBufferSizeBound = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x1FFF);
 
                 //Move the offset
