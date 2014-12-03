@@ -306,7 +306,7 @@ namespace Media.Rtsp
                                     //DataChannel
                                     dataChannel = byte.Parse(channels[0], System.Globalization.CultureInfo.InvariantCulture);
                                     //Control Channel
-                                    if(channelsLength > 2) controlChannel = byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture);
+                                    if(channelsLength > 1) controlChannel = byte.Parse(channels[1], System.Globalization.CultureInfo.InvariantCulture);
                                 }
 
                                 continue;

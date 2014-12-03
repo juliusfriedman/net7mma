@@ -163,12 +163,6 @@ namespace Media.RtpTools
         public readonly FileFormat Format;
 
         /// <summary>
-        /// Controls the offset in which values are returned from the Blob structure.
-        /// </summary>
-        public int TimevalSize = 8;
-
-
-        /// <summary>
         /// Allows the buffer to be used in a circular fashion or be large then visibly seen with the data property.
         /// </summary>
         public int MaxSize = RtpToolEntry.DefaultEntrySize;
@@ -196,7 +190,10 @@ namespace Media.RtpTools
             get { return Blob.Skip(DefaultEntrySize).Take(MaxSize); }
         }
 
-        public int Pointer = 16;
+        /// <summary>
+        /// Controls the offset in which values are returned from the Blob structure.
+        /// </summary>
+        public int Pointer = sizeOf_RD_hdr_t;
 
         /// <summary>
         /// Can be used in various ways to display information relating to the Time the entry was received.
@@ -253,7 +250,7 @@ namespace Media.RtpTools
             }
             set
             {
-                if (Disposed) return;                
+                if (Disposed) return;
 
                 Common.Binary.WriteNetwork32(Blob, 0, ReverseValues, (uint)value);
             }
@@ -267,31 +264,13 @@ namespace Media.RtpTools
             get
             {
                 if (Disposed) return 0;
-                return (int)Common.Binary.ReadU32(Blob, 4, ReverseValues);
+                return (int)Common.Binary.ReadU32(Blob, Pointer - 12, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
 
-                Common.Binary.WriteNetwork32(Blob, 4, ReverseValues, (uint)value);
-            }
-        }
-
-        /// <summary>
-        /// <see cref="Timeoffset"/>
-        /// </summary>
-        public long LongMicroseconds
-        {
-            get
-            {
-                if (Disposed) return 0;
-                return (long)Common.Binary.ReadU64(Blob, TimevalSize, ReverseValues);
-            }
-            set
-            {
-                if (Disposed) return;
-
-                Common.Binary.WriteNetwork32(Blob, TimevalSize, ReverseValues, (uint)value);
+                Common.Binary.WriteNetwork32(Blob, Pointer - 12, ReverseValues, (uint)value);
             }
         }
 
@@ -301,13 +280,13 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return (int)Common.Binary.ReadU32(Blob, TimevalSize, ReverseValues);
+                return (int)Common.Binary.ReadU32(Blob, Pointer - 8, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
 
-                Common.Binary.WriteNetwork16(Blob, TimevalSize, ReverseValues, (ushort)value);
+                Common.Binary.WriteNetwork16(Blob, Pointer - 8, ReverseValues, (ushort)value);
             }
         }
 
@@ -317,13 +296,13 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return Common.Binary.ReadU16(Blob, TimevalSize + 2, false);
+                return Common.Binary.ReadU16(Blob, Pointer - 4, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
 
-                Common.Binary.WriteNetwork16(Blob, TimevalSize + 2, ReverseValues, (ushort)value);
+                Common.Binary.WriteNetwork16(Blob, Pointer - 4, ReverseValues, (ushort)value);
             }
         }
 
@@ -335,22 +314,14 @@ namespace Media.RtpTools
             get
             {
                 if (Disposed) return 0;
-                //if (Is64BitEntry) return Info->len_64;
-                //return Info->len_32;
-
-                //TextEntry or others might have Length = 0 for some reason...
 
                 return (short)Common.Binary.ReadU16(Blob, Pointer, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
-                Common.Binary.WriteNetwork16(Blob, Pointer, ReverseValues, (ushort)value);
 
-                //if (Is64BitEntry)
-                //    Info->len_64 = (ushort)value;
-                //else
-                //    Info->len_32 = (ushort)value;
+                Common.Binary.WriteNetwork16(Blob, Pointer, ReverseValues, (ushort)value);
             }
         }
 
@@ -457,8 +428,8 @@ namespace Media.RtpTools
 
                 //sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
-                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, DefaultEntrySize, MaxSize - DefaultEntrySize), ts, ep));
-                else using (var rtp = new Rtp.RtpPacket(Blob, DefaultEntrySize)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
+                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, RtpToolEntry.DefaultEntrySize, MaxSize - RtpToolEntry.DefaultEntrySize), ts, ep));
+                else using (var rtp = new Rtp.RtpPacket(Blob, RtpToolEntry.DefaultEntrySize)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
 
                 return sb.ToString();    
             }

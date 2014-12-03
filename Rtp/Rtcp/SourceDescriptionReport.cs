@@ -433,11 +433,11 @@ namespace Media.Rtcp
             /// Constructs a new SourceDescriptionItemList from a <see cref="SourceDescriptionChunk" />
             /// </summary>
             /// <param name="parent">The SourceDescriptionChunk</param>
-            public SourceDescriptionItemList(SourceDescriptionChunk parent)
+            internal SourceDescriptionItemList(SourceDescriptionChunk parent)
             {
                 if (parent == null) throw new ArgumentNullException("parent");
 
-                ChunkData = parent.ChunkData;
+                ChunkData = parent.ChunkData.Skip(SourceDescriptionChunk.IdentifierSize);
             }
 
             /// <summary>
@@ -455,7 +455,7 @@ namespace Media.Rtcp
             /// If there is not an EndOfList item present one will be added if required.
             /// </summary>
             /// <param name="items">The items to add to the source list.</param>
-            public SourceDescriptionItemList(IEnumerable<SourceDescriptionItem> items)
+            internal SourceDescriptionItemList(IEnumerable<SourceDescriptionItem> items)
             {
                 if (items == null) throw new ArgumentNullException("items");
 
@@ -905,11 +905,8 @@ namespace Media.Rtcp
         /// Creates a new SourceDescription with the given parameters
         /// </summary>
         /// <param name="version">The 2 - bit version of the SourceDescription</param>
-        /// <param name="padding">The value indicating if the padding bit should be set in the header</param>
-        /// <param name="reportBlocks">The value to store in the the high nybble of the first octet of the header</param>
-        /// <param name="ssrc">The optional id of the participant who is sending this SourceDescriptionReport</param>
-        public SourceDescriptionReport(int version, bool padding, int reportBlocks, int ssrc)
-            : base(new RtcpHeader(version, PayloadType, padding, reportBlocks, ssrc), reportBlocks > 0 ? Enumerable.Repeat(SourceDescriptionItem.Null, 4) : Utility.Empty)
+        public SourceDescriptionReport(int version)
+            : base(new RtcpHeader(version, PayloadType, false, 0), Utility.Empty) //4 null octets occupy Ssrc field
         {
             //[Page 45] Paragraph 2.
             //A chunk with zero items (four null octets) is valid but useless.
@@ -997,21 +994,18 @@ namespace Media.Rtcp
             //The octets which will be added to the payload consist of the ChunkData without the octets of the ChunkIdentifier in cases where BlockCount == 0
             IEnumerable<byte> chunkData = chunk.ChunkData;
 
-            //Increase the BlockCount in any case
-            ++BlockCount;
-
             //In the first SourceDescriptionChunk added to a SourceDescription the header contains the BlockIdentifier. 
-            if (BlockCount == 1)
+            if (BlockCount == 0)
             {
                 //Set the value in the header
                 Header.SendersSynchronizationSourceIdentifier = chunk.ChunkIdentifer;
 
                 //Build a seqeuence from the data in the ReportBlock without the chunk identifer
                 chunkData = chunkData.Skip(SourceDescriptionChunk.IdentifierSize);
-
-                //Remove any other data in the payload
-                m_OwnedOctets = Utility.Empty;
             }
+
+            //Increase the BlockCount in any case
+            ++BlockCount;
             
             //Add the bytes to the payload
             AddBytesToPayload(chunkData, 0, chunkData.Count());
@@ -1125,8 +1119,8 @@ namespace Media.Rtcp
             while (++logicalChunkIndex < Header.BlockCount && offset < Payload.Count)
             {
                 //Instantiate the chunk and return the current item skipping previous data
-                yield return current = new SourceDescriptionChunk(ChunkData.Skip(offset));
-                offset += current.Size;
+                yield return current = logicalChunkIndex == 0 ? new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(ChunkData.Skip(offset))) : new SourceDescriptionChunk(ChunkData.Skip(offset));
+                offset += logicalChunkIndex == 0 ? current.Size - SourceDescriptionChunk.IdentifierSize : current.Size;
             }
 
             //Break the iterations all chunks have been iterated.

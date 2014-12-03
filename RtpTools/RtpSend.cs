@@ -449,7 +449,7 @@ namespace Media.RtpTools
                         //1
                         Encoding.ASCII.GetString(item.Data.ToArray()));
 
-                blockString += Common.ASCII.LineFeed + string.Format(SourceDescriptionChunkFormat,
+                blockString += (char)Common.ASCII.LineFeed + string.Format(SourceDescriptionChunkFormat,
                     chunk.ChunkIdentifer,
                     itemString);
             }
@@ -470,9 +470,9 @@ namespace Media.RtpTools
             //Write each entry in bye.GetSourceList
             using (var sourceList = bye.GetSourceList())
             {
-                if (sourceList == null) blockString += "#Incomplete Source List Not Included" + Common.ASCII.LineFeed;
+                if (sourceList == null) blockString += "#Incomplete Source List Not Included" + (char)Common.ASCII.LineFeed;
                 else foreach (uint partyId in sourceList)//ssrc=
-                    blockString += string.Format(HexFormat, "ssrc", partyId.ToString("X")) + Common.ASCII.LineFeed;
+                        blockString += string.Format(HexFormat, "ssrc", partyId.ToString("X")) + (char)Common.ASCII.LineFeed;
             }
 
             return blockString;
@@ -529,8 +529,8 @@ namespace Media.RtpTools
 
                 //hex dump
                 if (format == FileFormat.Hex)
-                    if (totalLength > 0) builder.Append(string.Format(HexFormat, "data", HexSpecifier + BitConverter.ToString(hexPayload.ToArray()).Replace("-", HexSpecifier)) + Common.ASCII.LineFeed);
-                    else builder.Append(string.Format(HexFormat, "data", NullSpecifier) + Common.ASCII.LineFeed);
+                    if (totalLength > 0) builder.Append(string.Format(HexFormat, "data", HexSpecifier + BitConverter.ToString(hexPayload.ToArray()).Replace("-", HexSpecifier)) + (char)Common.ASCII.LineFeed);
+                    else builder.Append(string.Format(HexFormat, "data", NullSpecifier) + (char)Common.ASCII.LineFeed);
 
                 //Return the allocated result
                 return builder.ToString();
@@ -613,7 +613,7 @@ namespace Media.RtpTools
                 //cc=
                 builder.Append(string.Format(RtpSend.NonQuotedFormat, "cc", packet.ContributingSourceCount));
 
-                builder.Append(Common.ASCII.LineFeed);
+                builder.Append((char)Common.ASCII.LineFeed);
 
                 using (Media.RFC3550.SourceList sl = new Media.RFC3550.SourceList(packet))
                 {
@@ -621,7 +621,7 @@ namespace Media.RtpTools
                     if (sl == null)
                     {
                         builder.Append("#Incomplete Source List Not Included");
-                        builder.Append(Common.ASCII.LineFeed);
+                        builder.Append((char)Common.ASCII.LineFeed);
                     }
                     else
                     {
@@ -629,7 +629,7 @@ namespace Media.RtpTools
                         while (sl.MoveNext())
                         {
                             builder.Append(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X")));
-                            builder.Append(Common.ASCII.LineFeed);
+                            builder.Append((char)Common.ASCII.LineFeed);
                         }
                     }
                 }
@@ -644,21 +644,19 @@ namespace Media.RtpTools
                     if (rtpExtension == null)
                     {
                         builder.Append("#Incomplete Extension Not Included");
-                        builder.Append(Common.ASCII.LineFeed);
+                        builder.Append((char)Common.ASCII.LineFeed);
                     }
                     else
                     {
                         builder.Append(string.Format(RtpSend.HexFormat, "ext_type", rtpExtension.Flags.ToString("X")));
-                        builder.Append(Common.ASCII.LineFeed);
+                        builder.Append((char)Common.ASCII.LineFeed);
 
                         builder.Append(string.Format(RtpSend.NonQuotedFormat, "ext_len", rtpExtension.LengthInWords));
-                        builder.Append(Common.ASCII.LineFeed);
+                        builder.Append((char)Common.ASCII.LineFeed);
 
                         builder.Append(string.Format(RtpSend.HexFormat, "ext_data", BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", HexSpecifier)));
-                        builder.Append(Common.ASCII.LineFeed);
+                        builder.Append((char)Common.ASCII.LineFeed);
                     }
-
-                    
                 }
             }
 
@@ -668,7 +666,7 @@ namespace Media.RtpTools
                 if(packet.Payload.Count > 0) builder.Append(string.Format(RtpSend.HexFormat, "data", BitConverter.ToString(packet.Payload.ToArray()).Replace("-", HexSpecifier)));
                 else builder.Append(string.Format(HexFormat, "data", NullSpecifier));
 
-                builder.Append(Common.ASCII.LineFeed);
+                builder.Append((char)Common.ASCII.LineFeed);
             }
 
             //Return the result

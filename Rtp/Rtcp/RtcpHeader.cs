@@ -78,9 +78,9 @@ namespace Media.Rtcp
         #region Constants and Statics
 
         /// <summary>
-        /// The length of every RtcpHeader.
+        /// The length of every RtcpHeader. (In bytes)
         /// </summary>
-        public const int Length = 8;
+        public const int Length = 4;
 
         #endregion
 
@@ -164,7 +164,7 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// The length in 32 bit words (Minus One).
+        /// The length in 32 bit words (Minus One). When equal to ushort.MaxValue or 0 there is no payload.
         /// </summary>
         public int LengthInWordsMinusOne
         {
@@ -183,8 +183,6 @@ namespace Media.Rtcp
             {
                 /*CheckDisposed();*/
 
-                if (PointerToLast6Bytes.Count < 5) return 1;
-
                 //Read the value
                 return Binary.ReadU16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian);
             }
@@ -193,18 +191,28 @@ namespace Media.Rtcp
             {
                 /*CheckDisposed();*/
 
+                //Write the value
                 if (value > ushort.MaxValue) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
                 Binary.WriteNetwork16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
             }
         }
 
         /// <summary>
-        /// The ID of the participant who sent this SendersInformation
+        /// The ID of the participant who sent this SendersInformation if <see cref="LengthInWordsMinusOne"/> is not <see cref="ushort.MaxValue"/> and at least 6 bytes are contained in the header.
         /// </summary>
         public int SendersSynchronizationSourceIdentifier
         {
-            get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian); }
-            set { /*CheckDisposed();*/ Binary.WriteNetwork32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
+            get { /*CheckDisposed();*/  int lengthInWords = LengthInWordsMinusOne; return lengthInWords == 0 || lengthInWords == ushort.MaxValue || PointerToLast6Bytes.Count < 6 ? 0 : (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian); }
+            set
+            { /*CheckDisposed();*/
+                if (PointerToLast6Bytes.Count >= 6)
+                {
+                    Binary.WriteNetwork32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value);
+                    int lengthInWords = LengthInWordsMinusOne;
+                    //If there was no words other than the header than indicate another word is present.
+                    if (lengthInWords == 0 || lengthInWords == ushort.MaxValue) LengthInWordsMinusOne = 1;
+                }
+            }
         }
 
         #endregion
@@ -289,7 +297,7 @@ namespace Media.Rtcp
             Last6Bytes = new byte[6];
             PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
             //The default value must be set into the LengthInWords field otherwise it will reflect 65535.
-            LengthInWordsMinusOne = ushort.MaxValue;
+            if(blockCount == 0) LengthInWordsMinusOne = ushort.MaxValue;
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc)
@@ -314,7 +322,8 @@ namespace Media.Rtcp
         /// <returns>The sequence created</returns>
         internal IEnumerable<byte> GetSendersSynchronizationSourceIdentifierSequence()
         {
-            return PointerToLast6Bytes.Skip(2);
+            int lengthInWords = LengthInWordsMinusOne;
+            return PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes.Skip(2) : Utility.Empty;
         }
 
         /// <summary>
@@ -327,7 +336,8 @@ namespace Media.Rtcp
 
         internal IEnumerable<byte> GetEnumerableImplementation()
         {
-             return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes);
+            int lengthInWords = LengthInWordsMinusOne;
+            return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes : PointerToLast6Bytes.Take(2));
         }
 
         #endregion

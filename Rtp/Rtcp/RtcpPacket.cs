@@ -112,13 +112,16 @@ namespace Media.Rtcp
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
                 using (var header = new RtcpHeader(new Common.MemorySegment(array, index + offset, count - offset)))  ///new RtcpHeader(array, offset))
                 {
-                    //Check this...
-                    if (header.LengthInWordsMinusOne > count) header.LengthInWordsMinusOne = header.BlockCount * ReportBlock.ReportBlockSize + (header.PayloadType == 200 ? 20 : 0);//Include Sender information?
 
-                    //header.LengthInWordsMinusOne might be equal to 65535?
+                    int lengthInWords = header.LengthInWordsMinusOne;
 
-                    //using (RtcpPacket newPacket = new RtcpPacket(header, array.Skip(offset + RtcpHeader.Length).Take(Math.Min(count,header.BlockCount - RtcpHeader.Length)))) //.Take(Math.Min(count, (ushort)(header.LengthInWordsMinusOne * 4)))))
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new Common.MemorySegment(array, index + offset + RtcpHeader.Length, Math.Min(count - offset - RtcpHeader.Length, Math.Abs((ushort)((header.LengthInWordsMinusOne + 1) * 4) - RtcpHeader.Length)))))
+                    int payloadOffset = RtcpHeader.Length;
+
+                    if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) payloadOffset += RtcpHeader.Length;
+
+                    int lengthInBytes = ((lengthInWords + 1) * 4) - payloadOffset;
+
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, lengthInBytes)))
                     {
                         //Get the payloadType from the header
                         byte headerPayloadType = (byte)header.PayloadType;
@@ -181,14 +184,24 @@ namespace Media.Rtcp
             //Assign the header
             Header = header;
 
-            //Convert words to octets
-            //If there are any octets in the Payload they do not NOT consist of the octets in the header in which the LengthInWords does calculate.
-            int packetLength = Math.Abs(RtcpHeader.Length - ((ushort)((header.LengthInWordsMinusOne + 1) * 4)));
-            
-            packetLength = Math.Min(octets.Count(), packetLength);
+            //Determine the amount of bytes in the header and packet
+            int headerLength = RtcpHeader.Length, packetLength = header.LengthInWordsMinusOne;
+
+            //If there is no words or only 1 word then there is nothing else in this packet.
+            if (packetLength == ushort.MaxValue || packetLength == 0)
+            {
+                Payload = new Common.MemorySegment(0);
+                return;
+            }
+
+            //Header has another word
+            headerLength += RtcpHeader.Length;
+
+            //Packet length if given by
+            packetLength = ((ushort)((header.LengthInWordsMinusOne + 1) * 4)) - headerLength;
 
             //Project the octets in the sequence taking the minimum of the octets present and the octets required as indicated by the header.
-            m_OwnedOctets = octets.Take(packetLength).ToArray();
+            m_OwnedOctets = octets.Skip(headerLength).Take(packetLength).ToArray();
 
             //The Payload property must be assigned otherwise the properties will not function in the instance.
             Payload = new Common.MemorySegment(m_OwnedOctets, 0, packetLength);
@@ -218,7 +231,7 @@ namespace Media.Rtcp
         /// <param name="buffer">The buffer which contains the binary RtcpPacket to decode</param>
         /// <param name="offset">The offset to start decoding</param>
         public RtcpPacket(byte[] buffer, int offset) :
-            this(new RtcpHeader(buffer, offset), buffer.Skip(offset + RtcpHeader.Length))
+            this(new RtcpHeader(buffer, offset), buffer.Skip(offset))
         {
         }
 
@@ -304,12 +317,20 @@ namespace Media.Rtcp
         /// <summary>
         /// The length in bytes of this RtcpPacket including the header and any padding. <see cref="IsCompound"/>
         /// </summary>
-        public int Length { get { return RtcpHeader.Length + Payload.Count; } }
+        public int Length
+        {
+            get
+            {
+                int lengthInWords = Header.LengthInWordsMinusOne, headerLength = RtcpHeader.Length;
+                if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) headerLength += RtcpHeader.Length;
+                return headerLength + Payload.Count;
+            }
+        }
 
         /// <summary>
         /// Indicates if the RtcpPacket needs any more data to be considered complete. <see cref="IsCompound"/>
         /// </summary>
-        public bool IsComplete { get { return Disposed || Header.Disposed ? true : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)); } }
+        public bool IsComplete { get { return Disposed || Header.Disposed ? true : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)) - RtcpHeader.Length; } }
 
         /// <summary>
         /// <see cref="RtpHeader.Version"/>
@@ -392,7 +413,7 @@ namespace Media.Rtcp
             int lengthInOctets = Length;
 
             //If there are no bytes in the payload then ensure LengthInWords is 0
-            if (lengthInOctets <= 8)
+            if (lengthInOctets <= 4)
             {
                 Header.LengthInWordsMinusOne = 1;
                 return;

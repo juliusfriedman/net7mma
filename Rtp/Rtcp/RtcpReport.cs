@@ -175,7 +175,7 @@ namespace Media.Rtcp
         {
             if (!Disposed && HasReports)
             {
-                for (int count = Payload.Count - offset; offset < count; )
+                for (int count = Payload.Count - offset; offset <= count; )
                 {
                     ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, Payload.Offset + offset, count));
                     offset += current.Size;
