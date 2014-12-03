@@ -719,7 +719,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="sequenceNo">The sequence number of the image being encoded</param>
             /// <param name="timeStamp">The Timestamp of the image being encoded</param>
             /// <param name="bytesPerPacket">The maximum amount of octets of each RtpPacket</param>
-            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024)
+            public static RFC2435Frame Packetize(System.Drawing.Image existing, int imageQuality = 100, bool interlaced = false, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1456)
             {
                 if (imageQuality <= 0) throw new NotSupportedException("Only qualities 1 - 100 are supported");
                 
@@ -777,7 +777,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="timeStamp">The optional Timestamp to use for each packet in the frame.</param>
             /// <param name="bytesPerPacket">The amount of bytes each RtpPacket will contain</param>
             /// <param name="sourceList">The <see cref="SourceList"/> to be included in each packet of the frame</param>
-            public RFC2435Frame(System.IO.Stream jpegStream, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1024, RFC3550.SourceList sourceList = null)
+            public RFC2435Frame(System.IO.Stream jpegStream, int? qualityFactor = null, int? ssrc = null, int? sequenceNo = 0, long? timeStamp = 0, int bytesPerPacket = 1456, RFC3550.SourceList sourceList = null)
                 : this()
             {
                 //Ensure qualityFactor can be stored in a byte
@@ -1323,7 +1323,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Decode RtpJpeg Header
 
                     TypeSpecific = (packet.Payload.Array[packet.Payload.Offset + offset++]);
-                    FragmentOffset = (uint)(packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
+                    FragmentOffset = Common.Binary.ReadU24(packet.Payload, offset, BitConverter.IsLittleEndian); //(uint)(packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
+                    offset += 3;
 
                     #region RFC2435 -  The Type Field
 
@@ -1460,8 +1461,11 @@ namespace Media.Rtsp.Server.MediaTypes
                            |       Restart Interval        |F|L|       Restart Count       |
                            +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
                          */
-                        RestartInterval = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
-                        RestartCount = (ushort)((packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]) & 0x3fff);
+                        RestartInterval = Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian);//(ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
+                        offset += 2;
+
+                        RestartCount = (ushort)(Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian) & 0x3FFF); //((packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]) & 0x3fff);
+                        offset += 2;
                     }
 
                     // A Q value of 255 denotes that the  quantization table mapping is dynamic and can change on every frame.
@@ -1534,7 +1538,8 @@ namespace Media.Rtsp.Server.MediaTypes
                             #endregion
 
                             //Length of all tables
-                            ushort Length = (ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
+                            ushort Length = Common.Binary.ReadU16(packet.Payload.Array, offset, BitConverter.IsLittleEndian); //(ushort)(packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
+                            offset += 2;
 
                             //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
                             if (Length == 0 && Quality == byte.MaxValue) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");

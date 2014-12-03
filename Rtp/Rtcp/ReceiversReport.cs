@@ -63,7 +63,7 @@ namespace Media.Rtcp
             #region Constructor
 
             public ReceiversReport(int version, bool padding, int reportBlocks, int ssrc)
-                : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize) { }
+                : base(version, PayloadType, padding, ssrc, reportBlocks, reportBlocks * ReportBlock.ReportBlockSize) { }
 
             public ReceiversReport(RtcpPacket reference, bool shouldDispose)
                 : base(reference.Header, reference.Payload, shouldDispose)

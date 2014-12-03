@@ -107,78 +107,6 @@ namespace Media.Container
         //-1 instead of 0 when disposed?
         public virtual long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
 
-        /// <summary>
-        /// Reads the given amount of bytes into the buffer. If reading past the end of the stream an exception is thrown.
-        /// </summary>
-        /// <param name="count"></param>
-        /// <returns></returns>
-        public virtual byte[] ReadBytes(int count) { if(count <= 0) return Utility.Empty;  byte[] result = new byte[count]; int i = 0; while((count -= (i += Read(result, i, count))) > 0);  return result; }
-
-        //if(m_Position + count > m_Length) count = (m_Position + count - m_Length) to ensure correct amount of byes read
-
-        /// <summary>
-        /// Updates <see cref="Position"/> if the given value is positive.
-        /// </summary>
-        /// <param name="count">The amount of bytes to skip.</param>
-        /// <returns><see cref="Position"/></returns>
-        public virtual long Skip(long count) { return count <= 0 ? Position : Position += count; }
-
-        /// <summary>
-        /// using a new FileStream with ReadOnly access a seek to the given position is performed and a subsequent read at the given position is performed.
-        /// </summary>
-        /// <param name="position"></param>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        /// <returns>The amount of bytes read</returns>
-        public virtual int ReadAt(long position, byte[] buffer, int offset, int count)
-        {
-            if (count == 0) return 0;
-            using (var stream = FileInfo.OpenRead())
-            {
-                if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
-
-                int i = 0; while ((count -= (i += stream.Read(buffer, i, count))) > 0) ;
-
-                FileInfo.Refresh();
-
-                return count;
-            }            
-        }
-
-        /// <summary>
-        /// using a new FileStream with WriteOnly access a seek to the given position is performed and a subsequent write at the given position is performed.
-        /// </summary>
-        /// <param name="position"></param>
-        /// <param name="buffer"></param>
-        /// <param name="offset"></param>
-        /// <param name="count"></param>
-        public virtual void WriteAt(long position, byte[] buffer, int offset, int count)
-        {
-            if (count == 0) return;
-            using (var stream = FileInfo.OpenWrite())
-            {
-                if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
-
-                stream.Write(buffer, offset, count);
-
-                FileInfo.Refresh();
-            }           
-        }
-
-        /// <summary>
-        /// using a new FileStream with WriteOnly access a seek to the end is performed and a subsequent write of the given data.
-        /// <see cref="Length"/> is updated to reflect the operation when successful and <see cref="FileInfo"/> is Refreshed.
-        /// </summary>
-        /// <param name="buffer">The data to write</param>
-        /// <param name="offset">The offset in data to begin writing</param>
-        /// <param name="count">The amount of bytes from <paramref name="offset"/> within <paramref name="data"/></param>
-        public virtual void Append(byte[] buffer, int offset, int count) { WriteAt(Length, buffer, offset, count); }
-
-        internal protected long GetPosition() { return base.Position; }
-
-        internal protected long GetLength() { return base.Length; }
-
         #endregion
 
         #region Constructor / Destructor
@@ -228,7 +156,7 @@ namespace Media.Container
 
         #endregion
 
-        #region Overrides Methods
+        #region Override Methods
 
         public override void Close()
         {
@@ -240,12 +168,16 @@ namespace Media.Container
             base.Close();
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public override long Seek(long offset, System.IO.SeekOrigin origin) { try { return m_Position = base.Seek(offset, origin); } finally { FileInfo.Refresh(); } }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public override int Read(byte[] buffer, int offset, int count) { try { int result = base.Read(buffer, offset, count); m_Position += result; return result; } finally { FileInfo.Refresh(); } }
 
-        public override int ReadByte() { try { int result = base.ReadByte(); if (result != -1) ++m_Position; return result; } finally { FileInfo.Refresh(); } }        
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public override int ReadByte() { try { int result = base.ReadByte(); if (result != -1) ++m_Position; return result; } finally { FileInfo.Refresh(); } }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public override void Write(byte[] array, int offset, int count)
         {
             try
@@ -258,6 +190,7 @@ namespace Media.Container
             finally { FileInfo.Refresh(); }
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public override void WriteByte(byte value)
         {
             try
@@ -269,76 +202,89 @@ namespace Media.Container
             finally { FileInfo.Refresh(); }
         }
 
-        public override IAsyncResult BeginWrite(byte[] array, int offset, int numBytes, AsyncCallback userCallback, object stateObject)
+        #endregion
+
+        #region Methods
+
+        /// <summary>
+        /// Reads the given amount of bytes into the buffer. If reading past the end of the stream an exception is thrown.
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public virtual byte[] ReadBytes(int count) { if (count <= 0) return Utility.Empty; byte[] result = new byte[count]; int i = 0; while ((count -= (i += Read(result, i, count))) > 0);  return result; }
+
+        //if(m_Position + count > m_Length) count = (m_Position + count - m_Length) to ensure correct amount of byes read
+
+        /// <summary>
+        /// Updates <see cref="Position"/> if the given value is positive.
+        /// </summary>
+        /// <param name="count">The amount of bytes to skip.</param>
+        /// <returns><see cref="Position"/></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public virtual long Skip(long count) { return count <= 0 ? Position : Position += count; }
+
+        /// <summary>
+        /// using a new FileStream with ReadOnly access a seek to the given position is performed and a subsequent read at the given position is performed.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns>The amount of bytes read</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public virtual int ReadAt(long position, byte[] buffer, int offset, int count)
         {
-            //If at the end of the stream when done writing then update positions
-            long total = m_Position + numBytes;
-            if (total > m_Length) userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
+            if (count == 0) return 0;
+            using (var stream = FileInfo.OpenRead())
             {
-                //Update Length and Positions
-                m_Length += total - m_Length;
-                m_Position += numBytes;
+                if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
+
+                int i = 0; while ((count -= (i += stream.Read(buffer, i, count))) > 0) ;
+
                 FileInfo.Refresh();
-            }), userCallback);
-            else userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
+
+                return count;
+            }
+        }
+
+        /// <summary>
+        /// using a new FileStream with WriteOnly access a seek to the given position is performed and a subsequent write at the given position is performed.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public virtual void WriteAt(long position, byte[] buffer, int offset, int count)
+        {
+            if (count == 0) return;
+            using (var stream = FileInfo.OpenWrite())
             {
-                //Update Positions
-                m_Position += numBytes;
+                if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
+
+                stream.Write(buffer, offset, count);
+
                 FileInfo.Refresh();
-            }), userCallback);
-
-            return base.BeginWrite(array, offset, numBytes, userCallback, stateObject);
+            }
         }
 
-        public override System.Threading.Tasks.Task WriteAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken)
-        {
-            System.Threading.Tasks.Task t = base.WriteAsync(buffer, offset, count, cancellationToken);
+        /// <summary>
+        /// using a new FileStream with WriteOnly access a seek to the end is performed and a subsequent write of the given data.
+        /// <see cref="Length"/> is updated to reflect the operation when successful and <see cref="FileInfo"/> is Refreshed.
+        /// </summary>
+        /// <param name="buffer">The data to write</param>
+        /// <param name="offset">The offset in data to begin writing</param>
+        /// <param name="count">The amount of bytes from <paramref name="offset"/> within <paramref name="data"/></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public virtual void Append(byte[] buffer, int offset, int count) { WriteAt(Length, buffer, offset, count); }
 
-            long total = m_Position + count;
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        internal protected long GetPosition() { return base.Position; }
 
-            if (total > m_Length) t.ContinueWith(task =>
-            {
-                if (!task.IsCanceled && !task.IsFaulted && task.IsCompleted)
-                {
-                    //Update Positions
-                    m_Length += total - m_Length;
-                    m_Position += count;
-                    FileInfo.Refresh();
-                }
-            });
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        internal protected long GetLength() { return base.Length; }
 
-            return t;
-        }
-
-        public override IAsyncResult BeginRead(byte[] array, int offset, int numBytes, AsyncCallback userCallback, object stateObject)
-        {
-            userCallback = (AsyncCallback)AsyncCallback.Combine(new Action(() =>
-            {
-                //Update Positions
-                m_Position += numBytes;
-                FileInfo.Refresh();
-            }), userCallback);
-
-            return base.BeginRead(array, offset, numBytes, userCallback, stateObject);
-        }
-
-        public override System.Threading.Tasks.Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken)
-        {
-            System.Threading.Tasks.Task<int> t = base.ReadAsync(buffer, offset, count, cancellationToken);
-
-            t.ContinueWith(task =>
-            {
-                if (!task.IsCanceled && !task.IsFaulted && task.IsCompleted)
-                {
-                    //Update Positions
-                    m_Position += count;
-                    FileInfo.Refresh();
-                }
-            });
-
-            return t;
-        }
-        
         #endregion
 
         #region Abstraction

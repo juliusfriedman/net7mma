@@ -593,7 +593,7 @@ namespace Tests
             IEnumerable<byte> preparedPacket = rtcpPacket.Prepare();
 
             //Check for an invlaid length
-            if (rtcpPacket.Payload.Count > 0 || rtcpPacket.Header.LengthInWordsMinusOne != 0 && rtcpPacket.Length != 8 || preparedPacket.Count() != 8) throw invalidLength;
+            if (rtcpPacket.Payload.Count > 0 || rtcpPacket.Header.LengthInWordsMinusOne != 0 && rtcpPacket.Length != Media.Rtcp.RtcpHeader.Length || preparedPacket.Count() != Media.Rtcp.RtcpHeader.Length) throw invalidLength;
 
             //Check for any data in the packet binary
             if (preparedPacket.Any(o => o != default(byte))) throw invalidData;
@@ -866,12 +866,13 @@ namespace Tests
             for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
             //Test making a packet with a known length in bytes
-            Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2, false, 0, 0x0007);
+            Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2);
             byte[] sdOut = sd.Prepare().ToArray();
 
-            if (!sd.IsComplete || sd.Length != 8 || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
+            //1 word when the ssrc is present but would be an invalid sdes because blockCount = 0
+            if (!sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
 
-            sd = new Media.Rtcp.SourceDescriptionReport(2, false, 1, 0x0007);
+            sd = new Media.Rtcp.SourceDescriptionReport(2);
             byte[] itemData = Encoding.UTF8.GetBytes("FLABIA-PC");
             sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
             rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
@@ -881,7 +882,7 @@ namespace Tests
             //asPacket would have a LengthInWordsMinusOne of 3 because 19 / 4 = 4 - 1 = 3
             //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
             //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
-            if (!rtcpPacket.IsComplete || rtcpPacket.Length != 28 || rtcpPacket.Header.LengthInWordsMinusOne != 6) throw new Exception("Invalid Length");
+            if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
         }
 
         static void PrintRtcpInformation(Media.Rtcp.RtcpPacket p)
@@ -1030,7 +1031,7 @@ namespace Tests
                         using (Media.Rtp.RtpHeader header = new Media.Rtp.RtpHeader(data, offset))
                         {
                             if (offset < max) //Use the created packet so it can be disposed
-                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new Media.Common.MemorySegment(data, offset, max - offset), false))
+                                using (Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(header, new Media.Common.MemorySegment(data, offset + Media.Rtp.RtpHeader.Length, max - Media.Rtp.RtpHeader.Length), false))
                                 {
                                     //Write information about the packet to the console
                                     Console.BackgroundColor = ConsoleColor.Green;
@@ -1119,7 +1120,7 @@ namespace Tests
             //Should find Media.RtpTools.FileFormat.Binary
             TestRtpDumpReader(currentPath + @"\bark.rtp", Media.RtpTools.FileFormat.Binary);
 
-            //TestRtpDumpReader(currentPath + @"\video.rtpdump", Media.RtpTools.FileFormat.Binary);
+            TestRtpDumpReader(currentPath + @"\video.rtpdump", Media.RtpTools.FileFormat.Binary);
 
             #endregion
 
@@ -1590,7 +1591,7 @@ namespace Tests
             //Set a values
             p.SynchronizationSourceIdentifier = 7;
 
-            if (p.SynchronizationSourceIdentifier != 7) throw sequenceNumberException;
+            if (p.SynchronizationSourceIdentifier != 7) throw sequenceNumberException; //Should be ssrc
 
             //Cache a bitValue
             bool bitValue = false;

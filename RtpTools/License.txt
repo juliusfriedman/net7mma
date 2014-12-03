@@ -24,4 +24,47 @@ https://net7mma.codeplex.com/license
 
 for the full license text.
 
+IMPORTANT!
+
+This library attempts to make files which are compatible with the format outlined here:
+http://www.cs.columbia.edu/irt/software/rtptools/
+
+//The structure is as follows:
+
+typedef struct {
+  struct timeval32 {
+      u_int32 tv_sec;    /* start of recording (GMT) (seconds) */
+      u_int32 tv_usec;   /* start of recording (GMT) (microseconds)*/
+  } start;
+  u_int32 source;        /* network source (multicast address) */
+  u_int16 port;          /* UDP port */
+  u_int16 padding;       /* padding */
+} RD_hdr_t;
+
+typedef struct {
+  u_int16 length;    /* length of packet, including this header (may 
+                        be smaller than plen if not whole packet recorded) */
+  u_int16 plen;      /* actual header+payload length for RTP, 0 for RTCP */
+  u_int32 offset;    /* milliseconds since the start of recording */
+} RD_packet_t;
+
+
+Unfortunately the original 'rtptools' -> 'rtpdump' is broken and only puts out a RD_hdr_t for the very first packet in the file.
+
+This was also accompanied by a padding bug until version 1.2.0 when it was finally realized that timeval may or may not have been 8 bytes. http://www.cs.columbia.edu/irt/software/rtptools/ChangeLog.html
+
+This library will produce files with the 24 byte overhead per packet, 16 bytes well belong to the RD_hdr_t and 8 to the RD_packet_t as indicated by the format spec.
+
+Currently `bark.rtp` found with this library is from http://www.cs.columbia.edu/irt/software/rtptools/download/ @ 1.20
+
+This file shows different entires than that in http://www.cs.columbia.edu/irt/software/rtptools/download/ @ 1.15
+
+However the format is still broken when compared to the spec.
+
+In short, if your using this library to read `rtpdump` files produced by rtpdump / rtpsend they will probably not work unless they have been modified to include the data required by the format specification.
+
+It's not my fault the authors application cannot output data according to the format that HE HIMSELF DEFINED.
+
+
+
 

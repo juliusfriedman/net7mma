@@ -11,7 +11,6 @@ namespace Media.Common
     /// </summary>
     public class MemorySegment : BaseDisposable, IEnumerable<byte>
     {
-
         byte[] m_Array;
 
         int m_Offset, m_Length;
@@ -77,4 +76,6 @@ namespace Media.Common
 
         //To MemoryStream
     }
+
+    //Todo Profile using a concrete IEnumerator implementation which can be constructed given another with a start and offset.
 }

@@ -226,17 +226,19 @@ namespace Media.RtpTools.RtpDump
                 //It also allows reading of Rtp in Rtcp only mode
                 FileFormat foundFormat = m_Format;
 
-                //If the format is not text then
+                //If the format is not text then 
+                //This is followed by one binary header (RD_hdr_t) and one RD_packet_t structure for each received packet. All fields are in network byte order. The RTP and RTCP packets are recorded as-is.
                 if (m_Format < FileFormat.Text)
                 {
-
                     //Could keep each entry stored in a buffer and then use MemorySegment to read the entry into the buffer provided by the reader
 
-                    entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize], m_Reader.BaseStream.Position); //32 bytes allocated per entry.
+                    //Subsequent packets don't seem to have the RD_hdr_t, only the RD_packet_t although the latest 1.2.0 does fix the header to be padded to 16 bytes.
+
+                    //It seems that the RD_hdr_t was ommited from bark.rtp for subsequent entries for whatever reason.
+
+                    entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize], m_Reader.BaseStream.Position); //24 bytes allocated per entry.
 
                     m_Reader.Read(entry.Blob, 0, RtpToolEntry.DefaultEntrySize);
-
-                    //26 bytes read by default here
 
                     //The format of the item does not match the reader(which would only happen if given an unknown format)
                     if (foundFormat != m_Format)
@@ -257,13 +259,11 @@ namespace Media.RtpTools.RtpDump
                         else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
                     }                    
 
+                    //Determine how many more bytes follow.
                     int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
 
                     //If there are any more bytes related to the item itemLength will be > 0
-                    if (itemLength > 0)
-                    {
-                        entry.Concat(m_Reader.ReadBytes(itemLength));
-                    }
+                    if (itemLength > 0) entry.Concat(m_Reader.ReadBytes(itemLength));
 
                 }
                 else

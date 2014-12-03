@@ -130,9 +130,8 @@ namespace Media
         public static IEnumerable<byte> ToCompoundBytes(IEnumerable<RtcpPacket> packets)
         {
             if (packets == null) throw new ArgumentNullException("packets");
-
-            if (packets.Count() < 2) goto End;
-
+            else if (packets.Count() < 2) goto PreparePackets; //Only a single packet can just be prepared.
+            
             RtcpPacket first = packets.First();
 
             if (first.Padding) throw new InvalidOperationException("Only the last packet in a compound RtcpPacket may have padding");
@@ -217,7 +216,7 @@ namespace Media
                 }
             }
 
-            End:
+            PreparePackets:
             //Return the projection of the sequence containing the compound data
              return packets.SelectMany(p => p.Prepare());
         }
