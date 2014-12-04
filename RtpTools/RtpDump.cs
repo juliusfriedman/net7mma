@@ -183,6 +183,12 @@ namespace Media.RtpTools.RtpDump
             //Binary type header, maybe header only
             if(m_Format == FileFormat.Unknown) m_Format = FileFormat.Binary;
 
+            //Read the 16 byte binary header here which contains data redundant of the firstLine.
+            //This will be the last RD_hdr_t in the file.
+
+            //Read the 8 byte timeval, 4 byte ip and 2 byte port, if there is padding the next bytes will be 0 otherwise the RD_packet_t starts there.
+            //m_StartTime = Utility.UtcEpoch1970.AddSeconds(Read From Stream);
+
             //No problems
             return;
 
@@ -620,12 +626,7 @@ namespace Media.RtpTools.RtpDump
             m_Start = startTime ?? DateTimeOffset.UtcNow;
 
             if (!modify) // New file
-            {
-                //Create the file header now
-                m_FileHeader = RtpDumpExtensions.CreateFileHeader(m_Source);
-
-                m_WroteHeader = false;
-
+            {               
                 //Create the writer
                 m_Writer = new System.IO.BinaryWriter(stream, Encoding.ASCII, leaveOpen);
             }
@@ -694,11 +695,31 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public void WriteFileHeader(bool force = false)
         {
+            //If not forcing and the header was already written then do nothing
             if (!force && m_WroteHeader) return;
 
             //Header is only written in Binary files
-            if(m_Format < FileFormat.Text) m_Writer.Write(m_FileHeader, 0, m_FileHeader.Length);
-            
+            if (m_Format < FileFormat.Text)
+            {
+                //Create the file header now if null
+                if (m_FileHeader == null) m_FileHeader = RtpDumpExtensions.CreateFileHeader(m_Source);
+
+                //Write the file header
+                m_Writer.Write(m_FileHeader, 0, m_FileHeader.Length);
+
+                //Write the first and only RD_hdr_t here
+                //16 bytes Timeval (8) SourceIP (4), Port (2) Padding (2)
+                //byte[] rd_hdr_t = new byte[RtpToolEntry.sizeOf_RD_hdr_t];
+
+                //Write Timeval
+
+                //Write SourceIP
+
+                //Write Port
+
+                //m_Writer.Write(rd_hdr_t, 0, RtpToolEntry.sizeOf_RD_hdr_t);
+            }
+
             //We wrote the header...
             m_WroteHeader = true;
         }
@@ -750,7 +771,6 @@ namespace Media.RtpTools.RtpDump
             {
                 //If given a specific timeoffset use it
 
-
                 /* start of recording (GMT) */
                 if (timeOffset.HasValue) entry.Timeoffset = timeOffset.Value.TotalMilliseconds;
                 else entry.Timeoffset = (DateTime.UtcNow - m_Start).TotalMilliseconds; //otherwise calulcate it
@@ -765,33 +785,6 @@ namespace Media.RtpTools.RtpDump
         //WritePackets(RtcpPacket[])
 
         //WritePackets(RtpFrame frame)
-
-        /// <summary>
-        /// Allows writing of a binary item to the dump. May be used for to write Compound RTCP Packets in a single item.
-        /// (Maybe should have RtcpPacket[] rather then itemBytes binary)
-        /// </summary>
-        /// <param name="itemBytes">The bytes of the item</param>
-        /// <param name="timeOffset">The optional timeoffset since the file was created to store in the item</param>
-        /// <param name="source">The optional source EndPoint from which the itemBytes arrived</param>
-        //public void WriteBinary(byte[] itemBytes, TimeSpan? timeOffset = null, System.Net.IPEndPoint source = null)
-        //{
-        //    if (timeOffset < TimeSpan.Zero) throw new ArgumentOutOfRangeException("timeOffset cannot be less than the start of the file which is defined in the header. ");
-        //    DumpHeader header;
-        //    if (source != null) header = new DumpHeader()
-        //    {
-        //        SourceEndPoint = source,
-        //        UtcStart = m_Header.UtcStart
-        //    };
-        //    else header = m_Header;
-        //    WriteDumpItem(new DumpItem()
-        //    {
-        //        Header = header,                
-        //        Packet = itemBytes,
-        //        Length = (ushort)itemBytes.Length,
-        //        PacketLength = 0, //Should be allowed to be set E.g. make this take a array of RtcpPacket...
-        //        TimeOffset = timeOffset ?? (m_Header.UtcStart - DateTime.UtcNow)
-        //    });            
-        //}
 
         /// <summary>
         /// Writes a DumpItem to the underlying stream
@@ -810,10 +803,10 @@ namespace Media.RtpTools.RtpDump
 
                     if (entry.IsRtcp)
                     {
-                        using(Rtcp.RtcpPacket rtcp = new Rtcp.RtcpPacket(entry.Blob, entry.Pointer))
+                        using(Rtcp.RtcpPacket rtcp = new Rtcp.RtcpPacket(entry.Blob, entry.Pointer + RtpToolEntry.sizeOf_RD_packet_T))
                             m_Writer.Write(rtcp.Header.ToArray());
                     }
-                    else if(m_Format != FileFormat.Rtcp) using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer))
+                    else if (m_Format != FileFormat.Rtcp) using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer + RtpToolEntry.sizeOf_RD_packet_T))
                         {
                             m_Writer.Write(rtp.Header.ToArray());
                             if (rtp.ContributingSourceCount > 0) m_Writer.Write(rtp.GetSourceList().AsBinaryEnumerable().ToArray());
@@ -826,8 +819,8 @@ namespace Media.RtpTools.RtpDump
                 }
                 else if (m_Format == FileFormat.Payload)
                 {
-                    if (entry.IsRtcp)using (Rtcp.RtcpPacket rtcp = new Rtcp.RtcpPacket(entry.Blob, entry.Pointer)) m_Writer.Write(rtcp.Payload.ToArray());
-                    else using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer)) m_Writer.Write(rtp.Coefficients.ToArray());
+                    if (entry.IsRtcp) using (Rtcp.RtcpPacket rtcp = new Rtcp.RtcpPacket(entry.Blob, entry.Pointer + RtpToolEntry.sizeOf_RD_packet_T)) m_Writer.Write(rtcp.Payload.ToArray());
+                    else using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer + RtpToolEntry.sizeOf_RD_packet_T)) m_Writer.Write(rtp.Coefficients.ToArray());
                 }
             }
             else
