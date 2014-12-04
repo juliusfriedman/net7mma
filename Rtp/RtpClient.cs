@@ -122,9 +122,9 @@ namespace Media.Rtp
         //RTP/AVP/TCP Specifies only the Length bytes in network byte order. e.g. 2 bytes
 
         /// <summary>
-        /// The default time assocaited with Rtcp report intervals for RtpClients.
+        /// The default time assocaited with Rtcp report intervals for RtpClients. (Almost 5 seconds)
         /// </summary>
-        public static readonly TimeSpan DefaultReportInterval = TimeSpan.FromMilliseconds(96);
+        public static readonly TimeSpan DefaultReportInterval = TimeSpan.FromSeconds(4.96);
 
         /// <summary>
         /// Read the RFC2326 amd RFC4751 Frame header.
@@ -384,9 +384,8 @@ namespace Media.Rtp
                 //If Rtcp is not disabled then this will set the read and write timeouts.
                 if (!rtcpDisabled)
                 {
-                    //contextReportInterval = TimeSpan.FromMilliseconds((reportReceivingEvery + reportSendingEvery) / 2);
-                    tc.m_ReceiveInterval = TimeSpan.FromMilliseconds(reportReceivingEvery);
-                    tc.m_SendInterval = TimeSpan.FromMilliseconds(reportSendingEvery);
+                    tc.m_ReceiveInterval = TimeSpan.FromSeconds(reportReceivingEvery / Utility.MicrosecondsPerMillisecond);
+                    tc.m_SendInterval = TimeSpan.FromSeconds(reportSendingEvery / Utility.MicrosecondsPerMillisecond);
                 }
 
                 //check for range in mediaDescription
@@ -423,10 +422,11 @@ namespace Media.Rtp
 
                 DateTime now = DateTime.UtcNow;
 
+                //result.NtpTimestamp = 0; //Disable Ntp
+
                 //Use the values from the TransportChannel
-                //result.NtpTimestamp = 0;
                 result.NtpTime = now;
-                result.RtpTimestamp = context.RtpTimestamp;// +context.RtpTimestamp * 1000;
+                result.RtpTimestamp = context.RtpTimestamp;
 
                 //Counters
                 result.SendersOctetCount = (int)context.RtpBytesSent;
@@ -1726,9 +1726,6 @@ namespace Media.Rtp
             //Sample the clock
             DateTime now = DateTime.UtcNow;
 
-            //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
-            OnRtpPacketReceieved(packet);
-
             //Get the transportChannel for the packet by the payload type of the RtpPacket, not the SSRC because it may have not yet been defined.
             //This is not per RFC3550
             TransportContext transportContext = GetContextForPacket(packet);
@@ -1770,7 +1767,10 @@ namespace Media.Rtp
             {
                 //localPacket = packet.Clone(true, true, true, true, false);
                 localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
-            }            
+            }
+
+            //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
+            OnRtpPacketReceieved(localPacket);
 
             //If the packet is not valid then nothing can be done.
             if (!transportContext.ValidatePacketAndUpdateSequenceNumber(localPacket)) return;
@@ -1886,7 +1886,7 @@ namespace Media.Rtp
                 transportContext.UpdateJitterAndTimestamp(packet);
             }
 
-            //increment the counters (Only use the Payload.Count per the RFC)
+            //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
             Interlocked.Add(ref transportContext.RtpBytesSent, packet.Payload.Count);
 
             Interlocked.Increment(ref transportContext.RtpPacketsSent);
@@ -3290,7 +3290,8 @@ namespace Media.Rtp
 
                         //int? lastTimestamp;
 
-                        foreach (RtpPacket packet in m_OutgoingRtpPackets)
+                        //Take the array to reduce exceptions
+                        foreach (RtpPacket packet in m_OutgoingRtpPackets.ToArray())
                         {
                             TransportContext sendContext = GetContextForPacket(packet);
 
