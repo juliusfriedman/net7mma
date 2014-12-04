@@ -51,9 +51,10 @@ namespace Media.RtpTools
     /* http://www.cs.columbia.edu/irt/software/rtptools/#rtpsend
         
              typedef struct {
-              struct timeval start;  //start of recording (GMT) (Could be 8 bytes or 16 depending on machine architecture)
+              struct timeval start;  //start of recording (GMT) (Could be 8 bytes or otherwise depending on machine architecture)
               u_int32 source;        //network source (multicast address)
               u_int16 port;          //UDP port
+            * u_int16 padding;       //Padding
             } RD_hdr_t;
          
             typedef struct {
@@ -64,14 +65,12 @@ namespace Media.RtpTools
         */
 
     ///<summary>
-    /// All entries take (At least) 128 bytes of memory.        
+    /// All entries take (At least) 24 bytes of memory.        
     ///
-    /// If the data is aligned properly then then <see cref="First64Bytes"/> should contain the information which describes the RD_hdr_T in Binary Format.
-    /// 
     /// In Text Format it will describe the same information if aligned as follows:
     ///
     /// The total size should be 32 bytes for an entry which consisted of only that information e.g. 
-    /// 0.000000 RTCP len=0 from=0.0.0.0:0(which is 34 bytes, 34 for RTP)
+    /// 0.000000 RTCP len=0 from=0.0.0.0:0(which is 34 bytes)
     /// 
     /// All entries [in Text format] would then also have a `()` expression indicting the version, padding etc for example:
     /// (RR ssrc=0x0 p=0 count=0 len=0()) [The () may not present and would not be required in this example of 0]
@@ -124,12 +123,9 @@ namespace Media.RtpTools
             ).Concat(BitConverter.GetBytes(offset).Reverse());
         }
 
-        //Because 32 bytes reads exactly this:
-        //A RD_hdr_t,RD_packet_t and the first 6 bytes of the entry which
-        //can identify the Version, PayloadType etc.
-        public const int DefaultEntrySize = 24,
-            //26 bytes hdr_t and packet_t;
-            sizeOf_RD_hdr_t = 16, 
+        //Every entry should have at least this many bytes
+        public const int DefaultEntrySize = 24, //16 bytes hdr_t and 8 bytes packet_t;
+            sizeOf_RD_hdr_t = 16, //Columbia RtpTools don't include this for every packet, only the first.
             sizeOf_RD_packet_T = 8;
 
         internal static RtpToolEntry CreateShortEntry(byte[] memory, long fileOffset = 0)
@@ -187,7 +183,7 @@ namespace Media.RtpTools
         /// </summary>
         public IEnumerable<byte> Data
         {
-            get { return Blob.Skip(DefaultEntrySize).Take(MaxSize); }
+            get { return Blob.Skip(Pointer + sizeOf_RD_packet_T).Take(MaxSize); }
         }
 
         /// <summary>
@@ -264,13 +260,13 @@ namespace Media.RtpTools
             get
             {
                 if (Disposed) return 0;
-                return (int)Common.Binary.ReadU32(Blob, Pointer - 12, ReverseValues);
+                return (int)Common.Binary.ReadU32(Blob, 4, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
 
-                Common.Binary.WriteNetwork32(Blob, Pointer - 12, ReverseValues, (uint)value);
+                Common.Binary.WriteNetwork32(Blob, 4, ReverseValues, (uint)value);
             }
         }
 
@@ -280,13 +276,13 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return (int)Common.Binary.ReadU32(Blob, Pointer - 8, ReverseValues);
+                return (int)Common.Binary.ReadU32(Blob, 8, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
 
-                Common.Binary.WriteNetwork16(Blob, Pointer - 8, ReverseValues, (ushort)value);
+                Common.Binary.WriteNetwork16(Blob, 8, ReverseValues, (ushort)value);
             }
         }
 
@@ -296,13 +292,13 @@ namespace Media.RtpTools
             {
                 if (Disposed) return 0;
 
-                return Common.Binary.ReadU16(Blob, Pointer - 4, ReverseValues);
+                return Common.Binary.ReadU16(Blob, 12, ReverseValues);
             }
             set
             {
                 if (Disposed) return;
 
-                Common.Binary.WriteNetwork16(Blob, Pointer - 4, ReverseValues, (ushort)value);
+                Common.Binary.WriteNetwork16(Blob, 12, ReverseValues, (ushort)value);
             }
         }
 
@@ -369,6 +365,7 @@ namespace Media.RtpTools
             Format = format;
             Blob = memory;
             FileOffset = fileOffset;
+            MaxSize = memory.Length;
         }
 
         public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet, int offset = 0, long fileOffset = 0)
@@ -428,8 +425,8 @@ namespace Media.RtpTools
 
                 //sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
-                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, RtpToolEntry.DefaultEntrySize, MaxSize - RtpToolEntry.DefaultEntrySize), ts, ep));
-                else using (var rtp = new Rtp.RtpPacket(Blob, RtpToolEntry.DefaultEntrySize)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
+                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, Pointer + sizeOf_RD_packet_T, MaxSize), ts, ep));
+                else using (var rtp = new Rtp.RtpPacket(Blob, Pointer + sizeOf_RD_packet_T)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
 
                 return sb.ToString();    
             }
