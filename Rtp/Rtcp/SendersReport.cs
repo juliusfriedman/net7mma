@@ -187,7 +187,7 @@ namespace Media.Rtcp
         /// </summary>
         public IEnumerable<byte> SendersInformation
         {
-            get { return Payload.Array.Skip(Payload.Offset + 4).Take(SendersInformationSize); }
+            get { return Payload.Take(SendersInformationSize); }
         }
 
       
@@ -195,7 +195,7 @@ namespace Media.Rtcp
 
         internal override IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
         {
-            return base.GetEnumeratorInternal(4 + SendersInformationSize);
+            return base.GetEnumeratorInternal(SendersInformationSize);
         }
 
     }

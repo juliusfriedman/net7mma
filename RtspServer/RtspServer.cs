@@ -645,6 +645,7 @@ namespace Media.Rtsp
         {
             try
             {
+
                 DateTime maintenanceStarted = DateTime.UtcNow;
 
                 List<Guid> inactive = new List<Guid>();
@@ -658,22 +659,22 @@ namespace Media.Rtsp
                     }
 
                     //Check if a GET_PARAMETER has NOT been received in the allowed time
-                    if (RtspClientInactivityTimeout != Utility.InfiniteTimeSpan && session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout)
+                    if (session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout
+                        ||
+                        session.LastRequest.Method == RtspMethod.TEARDOWN && session.Attached.Count() == 0)
                     {
                         inactive.Add(session.Id);
                         continue;
                     }
-
-                    if (session.LastRequest != null && session.LastRequest.Method == RtspMethod.TEARDOWN && session.Attached.Count() == 0) inactive.Add(session.Id);
-
                 }
 
-                if (inactive.Count > 0) foreach (var id in inactive)
-                    {
-                        ClientSession cs;
-                        if (m_Clients.TryGetValue(id, out cs)) RemoveSession(cs);
-                        cs = null;
-                    }
+                //Remove any inactive clients
+                foreach (var id in inactive)
+                {
+                    ClientSession cs;
+                    if (m_Clients.TryGetValue(id, out cs)) RemoveSession(cs);
+                    cs = null;
+                }
 
             }
             catch { return; }
@@ -1026,8 +1027,8 @@ namespace Media.Rtsp
                 }
                 else//Start to recive again
                 {
-                    EndPoint inbound = session.RemoteEndPoint;
-                    session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref inbound, new AsyncCallback(ProcessReceive), session);
+                    //Should send an invalid response..
+                    ProcessSendRtspResponse(null, session);
                 }
             }
             catch (Exception ex)

@@ -692,8 +692,6 @@ namespace Media.Rtsp
 
             //Synchronize the context sequence numbers
             setupContext.SequenceNumber = sourceContext.SequenceNumber;
-            setupContext.m_SendInterval = TimeSpan.FromMilliseconds(192);
-            setupContext.m_ReceiveInterval = TimeSpan.FromMilliseconds(192);
 
             //Start and end times are always equal.
             setupContext.MediaStartTime = sourceContext.MediaStartTime;
@@ -963,13 +961,13 @@ namespace Media.Rtsp
                     md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
                     md.Add(new Sdp.SessionDescriptionLine("b=AS:0"));
                 }
-                else//Should not be hardcoded
-                {
-                    md.Add(new Sdp.SessionDescriptionLine("b=RS:192"));
-                    md.Add(new Sdp.SessionDescriptionLine("b=RR:192"));
+                //else//Should not be hardcoded
+                //{
+                //    md.Add(new Sdp.SessionDescriptionLine("b=RS:140"));
+                //    md.Add(new Sdp.SessionDescriptionLine("b=RR:140"));
 
-                    md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS needs to be forwarded
-                }
+                //    md.Add(new Sdp.SessionDescriptionLine("b=AS:0")); //Determine if AS needs to be forwarded
+                //}
 
                 //Should actually reflect outgoing port for this session
                 md.MediaPort = 0;
