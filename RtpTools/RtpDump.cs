@@ -211,11 +211,16 @@ namespace Media.RtpTools.RtpDump
                 //If no format can be determined then raise a DumpReader type exception with the following message.
                 if (m_Format == FileFormat.Unknown) Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to determine format!");
 
+                int offsetsCount = m_Offsets.Count;
+
                 //Add the offset if we didn't already know about it
-                if (m_Offsets.Count == 0 || m_Reader.BaseStream.Position > m_Offsets.Last())
+                if (offsetsCount == 0 || m_Reader.BaseStream.Position > m_Offsets[offsetsCount - 1])
                 {
                     //Which is the position in the stream
                     m_Offsets.Add(m_Reader.BaseStream.Position);
+                    
+                    //Indicate something was added.
+                    ++offsetsCount;
                 }
 
                 //Only contains data if something goes wrong during parsing,
@@ -236,9 +241,30 @@ namespace Media.RtpTools.RtpDump
 
                     //It seems that the RD_hdr_t was ommited from bark.rtp for subsequent entries for whatever reason.
 
-                    entry = new RtpToolEntry(foundFormat, new byte[RtpToolEntry.DefaultEntrySize], m_Reader.BaseStream.Position); //24 bytes allocated per entry.
+                    int size = offsetsCount == 1 ? RtpToolEntry.DefaultEntrySize : RtpToolEntry.sizeOf_RD_packet_T;
 
-                    m_Reader.Read(entry.Blob, 0, RtpToolEntry.DefaultEntrySize);
+                    //Could do a variety of things here to detect if this is the Columbia format without a RD_hdr_t per packet here or if padding is missing.
+
+                    //Shoud only be done for the first packet as all others should follow the same format besides the first.
+
+                    //May need to read 16 more bytes if this is a Proper Format e.g. RtpDumpWrier / Google / Wireshark version dump.
+
+                    //Create an entry using the size indicated
+                    entry = new RtpToolEntry(foundFormat, new byte[size], m_Reader.BaseStream.Position); //24 bytes or less allocated per entry.
+
+                    //Read the data into the 
+                    m_Reader.Read(entry.Blob, 0, size);
+
+                    //TODO Determine if this is the old format without padding, new format with padding or otherwise.
+                    //Padding type is easy to check for but only if the Timeval was written as expected and the IP and Port were not 0...
+
+                    //Columbia had two versions, 1 with incorrect padding and 1 with correct padding
+                    //In both Columbia versions there is a missing RD_hdr_t per packet after the first packet so there is only the RD_packet_t
+                    
+                    //Otherwise the header is RtpToolEntry.DefaultEntrySize long for all packets in the dump as indicated in the spec.
+
+                    //Set the pointer if required for compatibility.
+                    if (size == RtpToolEntry.sizeOf_RD_packet_T) entry.Pointer = 0;
 
                     //The format of the item does not match the reader(which would only happen if given an unknown format)
                     if (foundFormat != m_Format)
@@ -263,8 +289,14 @@ namespace Media.RtpTools.RtpDump
                     int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
 
                     //If there are any more bytes related to the item itemLength will be > 0
-                    if (itemLength > 0) entry.Concat(m_Reader.ReadBytes(itemLength));
-
+                    if (itemLength > 0)
+                    {
+                        //Read the data and increase MaxSize
+                        entry.Concat(m_Reader.ReadBytes(itemLength));
+                        
+                        //set MaxSize to equal the amount of data bytes not the amount of data in the entry.
+                        entry.MaxSize = itemLength;
+                    }
                 }
                 else
                 {
@@ -274,8 +306,7 @@ namespace Media.RtpTools.RtpDump
                 }
 
                 //Todo fix Offset writing
-                /*if (m_Offsets.Count == 1 && entry.Offset != 0) Common.ExceptionExtensions.CreateAndRaiseException(entry, "First Entry Must have Offset 0");
-                else*/ if(m_Offsets.Count == 1) m_StartTime = Utility.UtcEpoch1970.AddSeconds(entry.StartSeconds);
+                if (offsetsCount == 1) m_StartTime = Utility.UtcEpoch1970.AddSeconds(entry.StartSeconds);
 
                 //Call determine format so item has the correct format (Header [or Payload])
                 if (foundFormat == FileFormat.Unknown)

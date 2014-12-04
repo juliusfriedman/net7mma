@@ -1116,7 +1116,7 @@ namespace Media.Rtcp
             IEnumerable<byte> ChunkData = Payload.Array;
 
             //While there is a chunk to iterate
-            while (++logicalChunkIndex < Header.BlockCount && offset < Payload.Count)
+            while (++logicalChunkIndex < Header.BlockCount && offset <= Payload.Count)
             {
                 //Instantiate the chunk and return the current item skipping previous data
                 yield return current = logicalChunkIndex == 0 ? new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(ChunkData.Skip(offset))) : new SourceDescriptionChunk(ChunkData.Skip(offset));

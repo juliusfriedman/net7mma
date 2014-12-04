@@ -79,30 +79,27 @@ namespace Media.Rtcp
         /// <summary>
         /// Parses all RtcpPackets contained in the array using the given paramters.
         /// </summary>
-        /// <param name="array">The array to copy packets from.</param>
-        /// <param name="index">The index to start copying</param>
+        /// <param name="array">The array to parse packets from.</param>
+        /// <param name="offset">The index to start parsing</param>
         /// <param name="count">The amount of bytes to use in parsing</param>
         /// <param name="version">The optional <see cref="RtcpPacket.Version"/>version of the packets</param>
         /// <param name="payloadType">The optional <see cref="RtcpPacket.PayloadType"/> of all packets</param>
         /// <param name="ssrc">The optional <see cref="RtcpPacket.SynchronizationSourceIdentifier"/> of all packets</param>
         /// <returns>A pointer to each packet found</returns>
-        public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int index, int count, int version = 2, int? payloadType = null, int? ssrc = null)
+        public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int offset, int count, int version = 2, int? payloadType = null, int? ssrc = null)
         {
 
             //array.GetLowerBound(0) for VB, UpperBound(0) is then the index of the last element
             int lowerBound = 0, upperBound = array.Length; 
 
-            if (index < lowerBound || index > upperBound) throw new ArgumentOutOfRangeException("index", "Must refer to an accessible position in the given array");
+            if (offset < lowerBound || offset > upperBound) throw new ArgumentOutOfRangeException("index", "Must refer to an accessible position in the given array");
 
             if (count <= lowerBound) yield break;            
 
             if (count > upperBound) throw new ArgumentOutOfRangeException("count", "Must refer to an accessible position in the given array");
 
             //Would overflow the array
-            if (count + index > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
-
-            //Start parsing at the given offset
-            int offset = 0;
+            if (count + offset > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
 
             //While  a 32 bit value remains to be read in the vector
             while (offset + 4 < count && count - offset >= RtcpHeader.Length)
@@ -110,27 +107,28 @@ namespace Media.Rtcp
                 //OctetSegment parsing = new OctetSegment(array, index + offset, count - offset);
 
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, index + offset, count - offset)))  ///new RtcpHeader(array, offset))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count - offset)))  ///new RtcpHeader(array, offset))
                 {
-
+                    //Get the lenth in words
                     int lengthInWords = header.LengthInWordsMinusOne;
 
+                    //Determine how long the header was
                     int payloadOffset = RtcpHeader.Length;
 
+                    //Account for the Senders SSRC if present.
                     if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) payloadOffset += RtcpHeader.Length;
 
+                    //Determine the amount of bytes in the packet NOT INCLUDING the RtcpHeader (Which may be 0)
                     int lengthInBytes = ((lengthInWords + 1) * 4) - payloadOffset;
 
+                    //Create a packet using the existing header and the bytes left in the packet
                     using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, lengthInBytes)))
                     {
-                        //Get the payloadType from the header
-                        byte headerPayloadType = (byte)header.PayloadType;
-
                         //Move the offset the length in bytes of the size of the last packet (including the header).
                         offset += newPacket.Length;
 
                         //Check for the optional parameters
-                        if (payloadType.HasValue && payloadType.Value != headerPayloadType ||  // Check for the given payloadType if provided
+                        if (payloadType.HasValue && payloadType.Value != header.PayloadType ||  // Check for the given payloadType if provided
                             ssrc.HasValue && ssrc.Value != header.SendersSynchronizationSourceIdentifier) //Check for the given ssrc if provided
                         {
                             //Skip the packet
