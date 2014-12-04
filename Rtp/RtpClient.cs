@@ -667,15 +667,15 @@ namespace Media.Rtp
                     //If disposed no limit is imposed do not check
                     if (MaximumRtcpBandwidthPercentage == 0) return false;
 
-                    long totalSent = TotalRtcpBytesSent;
-
-                    if (totalSent == 0) return false;
-
                     long totalReceived = TotalBytesReceieved;
 
                     if (totalReceived == 0) return false;
 
-                    return totalSent >= totalReceived / MaximumRtcpBandwidthPercentage;
+                    long totalRtcp = TotalRtcpBytesSent + TotalRtcpBytesReceieved;
+
+                    if (totalRtcp == 0) return false;
+
+                    return totalRtcp >= totalReceived / MaximumRtcpBandwidthPercentage;
                 }
             }
 
@@ -1807,7 +1807,7 @@ namespace Media.Rtp
                 else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
                 {
                     //Add the packet clone to the current frame
-                    transportContext.LastFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
+                    if(!transportContext.LastFrame.Complete) transportContext.LastFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
 
                     //If the frame is complete then fire an event and make a new frame
                     if (transportContext.LastFrame.Complete)
@@ -2089,11 +2089,11 @@ namespace Media.Rtp
 
                 if (totalReceived == 0) return false;
 
-                long totalSent = TotalRtcpBytesSent;
+                long totalRtcp = TotalRtcpBytesSent + TotalRtcpBytesReceieved;
 
-                if (totalSent == 0) return false;   
+                if (totalRtcp == 0) return false;   
 
-                return totalSent >= totalReceived / AverageMaximumRtcpBandwidthPercentage;
+                return totalRtcp >= totalReceived / AverageMaximumRtcpBandwidthPercentage;
                 
             }
         }

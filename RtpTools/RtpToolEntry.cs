@@ -99,28 +99,27 @@ namespace Media.RtpTools
 
         public static IEnumerable<byte> CreatePacketHeader(DateTime time, System.Net.IPEndPoint source, Common.IPacket packet, int offset)
         {
+            //Only the packet and offset are really needed. 
+
+            //len (2)
+            //plen (2)
+            //offset (4)
+
             if (!BitConverter.IsLittleEndian)
-                return BitConverter.GetBytes(time.TimeOfDay.Milliseconds).Concat(BitConverter.GetBytes((uint)0)).
-                    Concat(BitConverter.GetBytes((int)source.Address.Address)).
-                    Concat(BitConverter.GetBytes((ushort)source.Port)).
-                   Concat(BitConverter.GetBytes((ushort)packet.Length + sizeOf_RD_packet_T)).
+                return BitConverter.GetBytes((ushort)packet.Length + sizeOf_RD_packet_T).
                     Concat
                     (packet is Rtcp.RtcpPacket ?
-                    Utility.Empty.Concat(BitConverter.GetBytes((ushort)0))
+                    BitConverter.GetBytes((ushort)0)
                 :
-                    Utility.Empty.Concat(BitConverter.GetBytes((ushort)(packet.Length))
-                ).Concat(BitConverter.GetBytes(offset)));
+                    BitConverter.GetBytes((ushort)(packet.Length)).Concat(BitConverter.GetBytes(offset).Reverse()));
 
-            return BitConverter.GetBytes(time.TimeOfDay.Milliseconds).Reverse().Concat(BitConverter.GetBytes((uint)0)).
-                Concat(BitConverter.GetBytes((int)source.Address.Address).Reverse()).
-                Concat(BitConverter.GetBytes((ushort)source.Port).Reverse()).
+            return BitConverter.GetBytes((ushort)source.Port).Reverse().
                 Concat(BitConverter.GetBytes((ushort)packet.Length + sizeOf_RD_packet_T).Reverse()).
                 Concat
                 (packet is Rtcp.RtcpPacket ?
-                Utility.Empty.Concat(BitConverter.GetBytes((ushort)0))
+                BitConverter.GetBytes((ushort)0)
             :
-                Utility.Empty.Concat(BitConverter.GetBytes((ushort)(packet.Length)).Reverse())
-            ).Concat(BitConverter.GetBytes(offset).Reverse());
+                BitConverter.GetBytes((ushort)(packet.Length)).Reverse()).Concat(BitConverter.GetBytes(offset).Reverse());
         }
 
         //Every entry should have at least this many bytes
