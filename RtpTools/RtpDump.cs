@@ -223,7 +223,7 @@ namespace Media.RtpTools.RtpDump
             m_FileHeader = new byte[RtpToolEntry.sizeOf_RD_hdr_t];
 
             //Read the 8 byte timeval, 4 byte ip and 2 byte port, if there is padding the next bytes will be 0 otherwise the RD_packet_t starts there.
-            m_Reader.Read(m_FileHeader, 0, RtpToolEntry.sizeOf_RD_hdr_t - 2);
+            m_Reader.Read(m_FileHeader, 0, 14);
 
             m_StartTime = Utility.UtcEpoch1970.AddSeconds(BitConverter.Int64BitsToDouble(Common.Binary.Read64(m_FileHeader, 0, BitConverter.IsLittleEndian)));
 
@@ -283,49 +283,11 @@ namespace Media.RtpTools.RtpDump
                 //This is followed by one binary header (RD_hdr_t) and one RD_packet_t structure for each received packet. All fields are in network byte order. The RTP and RTCP packets are recorded as-is.
                 if (m_Format < FileFormat.Text)
                 {
-                    //Could keep each entry stored in a buffer and then use MemorySegment to read the entry into the buffer provided by the reader
+                    //Create an entry using the size of the RD_packet_T (8 bytes)
+                    entry = new RtpToolEntry(m_StartTime, m_Source, foundFormat, new byte[RtpToolEntry.sizeOf_RD_packet_T], null, position);
 
-                    //Subsequent packets don't seem to have the RD_hdr_t, only the RD_packet_t although the latest 1.2.0 does fix the header to be padded to 16 bytes.
-
-                    //It seems that the RD_hdr_t was ommited from bark.rtp for subsequent entries for whatever reason.
-
-                    //Could do a variety of things here to detect if this is the Columbia format without a RD_hdr_t per packet here or if padding is missing.
-
-                    //Shoud only be done for the first packet as all others should follow the same format besides the first.
-
-                    //May need to read 16 more bytes if this is a Proper Format e.g. RtpDumpWrier / Google / Wireshark version dump.
-
-                    //Create an entry using the size indicated and read it that many bytes from the stream into the enty.
-                    entry = new RtpToolEntry(m_StartTime, m_Source, foundFormat, new byte[RtpToolEntry.sizeOf_RD_packet_T], null, position); //24 bytes or less allocated per entry.
-
-                    m_Reader.Read(entry.Blob, 0, RtpToolEntry.sizeOf_RD_packet_T);
-
-                    //TODO Determine if this is the old format without padding, new format with padding or otherwise.
-                    //Padding type is easy to check for but only if the Timeval was written as expected and the IP and Port were not 0...
-
-                    //Columbia had two versions, 1 with incorrect padding and 1 with correct padding
-                    //In both Columbia versions there is a missing RD_hdr_t per packet after the first packet so there is only the RD_packet_t
-                    
-                    //Otherwise the header is RtpToolEntry.DefaultEntrySize long for all packets in the dump as indicated in the spec.
-                    
-                    //The format of the item does not match the reader(which would only happen if given an unknown format)
-                    if (foundFormat != m_Format)
-                    {
-                        //If the the format of the entry found was binary
-                        if (entry.Format < FileFormat.Text)
-                        {
-                            //The unexpected data consists of the supposed fileheader.
-                            if (m_FileIdentifier == null)
-                            {
-                                m_FileIdentifier = unexpectedData;
-                                unexpectedData = null;
-                                //Change to binary format, might want to signal this with an exception?
-                                //m_Format = entry.Format;
-                            }
-                            else Common.ExceptionExtensions.CreateAndRaiseException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
-                        }
-                        else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
-                    }                    
+                    //Read that many bytes from the stream into the enty.
+                    m_Reader.Read(entry.Blob, 0, RtpToolEntry.sizeOf_RD_packet_T);                   
 
                     //Determine how many more bytes follow.
                     int itemLength = entry.Length - RtpToolEntry.sizeOf_RD_packet_T;
@@ -344,6 +306,35 @@ namespace Media.RtpTools.RtpDump
                     entry = RtpSend.ParseText(m_Reader, ref foundFormat, out unexpectedData);
                 }
 
+                //The format of the item does not match the reader(which would only happen if given an unknown format)
+                if (foundFormat != m_Format)
+                {
+                    //If the the format of the entry found was binary
+                    if (entry.Format < FileFormat.Text)
+                    {
+                        //The unexpected data consists of the supposed fileheader.
+                        if (m_FileIdentifier == null)
+                        {
+                            //Assign it
+                            m_FileIdentifier = unexpectedData;
+
+                            //Read the following Binary File Header
+                            ReadBinaryFileHeader();
+
+                            //no more data is unexpected.
+                            unexpectedData = null;
+
+                            //Remove the offset which was not related to an entry.
+                            m_Offsets.RemoveAt(offsetsCount - 1);
+
+                            //Read the entry.
+                            return ReadToolEntry();
+                        }
+                        else Common.ExceptionExtensions.CreateAndRaiseException(unexpectedData, "Encountered a Binary file header when already parsed the header. The Tag property contains the data unexpected.");
+                    }
+                    else if (unexpectedData != null) Common.ExceptionExtensions.CreateAndRaiseException(entry, "Unexpected data found while parsing a Text format. See the Tag property of the InnerException", new Common.Exception<byte[]>(unexpectedData));
+                }                    
+
                 //Call determine format so item has the correct format (Header [or Payload])
                 if (foundFormat == FileFormat.Unknown)
                 {
@@ -352,7 +343,7 @@ namespace Media.RtpTools.RtpDump
 
                 return entry;
             }
-            catch { throw; }
+            catch { throw; } //Should handle the exception where unexpectedData is assigned.
         }
 
         /// <summary>

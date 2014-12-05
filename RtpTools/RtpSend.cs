@@ -144,7 +144,6 @@ namespace Media.RtpTools
                  "lsr",//=<last SR received>
                  "dlsr",//=<delay since last SR>
            /*35*/")",// Ends a previous expression (may not be a token)
-                 //"\n"// Not really a token
                  "from", //Not really part of the format
         };
 
@@ -174,7 +173,7 @@ namespace Media.RtpTools
 
         ExpressionFormat = "({0})", // Tokens[18] + Format_0 + Tokens[35], //
 
-        RtcpExpressionFormat = "({0} ssrc=0x{1:X} p={2} count={3} len={4}\n)",
+        RtcpExpressionFormat = "({0} ssrc=0x{1:X} p={2} count={3} len={4}\n{5})",
 
         RtcpSendersInformationFormat = "ts={0}\n ntp={1}\n psent={2}\n osent={3}\n",
 
@@ -217,6 +216,8 @@ namespace Media.RtpTools
             internal static bool IsDynamic(byte payloadType) { return payloadType >= 96 && payloadType <= 127; }
 
             internal static bool IsUnknown(byte payloadType) { return payloadType < 96 || payloadType > 127 || !PayloadDescriptions.ContainsKey(payloadType); }
+
+            //IsReserved?
 
             internal const string PayloadDescriptionFormat = "({0},{1},{2})";
 
@@ -289,14 +290,14 @@ namespace Media.RtpTools
             {4, new PayloadDescription() {EncodingName = "G723", Clockrate = 8000, Channel = 1, PayloadType = 4 } },
             {5, new PayloadDescription() {EncodingName = "DVI4", Clockrate = 8000, Channel = 1, PayloadType = 5 } },
             {6, new PayloadDescription() {EncodingName = "DVI4 ", Clockrate = 16000, Channel = 1, PayloadType = 6 } },
-            {7, new PayloadDescription() {EncodingName = "LPC ", Clockrate = 8000, Channel = 1, PayloadType = 7 } },
-            {8, new PayloadDescription() {EncodingName = "PCMA ", Clockrate = 8000, Channel = 1, PayloadType = 8 } },
+            {7, new PayloadDescription() {EncodingName = "LPC", Clockrate = 8000, Channel = 1, PayloadType = 7 } }, 
+            {8, new PayloadDescription() {EncodingName = "PCMA", Clockrate = 8000, Channel = 1, PayloadType = 8 } },
             {9, new PayloadDescription() {EncodingName = "G722", Clockrate = 8000, Channel = 1, PayloadType = 9 } },
-            {10, new PayloadDescription() {EncodingName = "L16 ", Clockrate = 44100, Channel = 2, PayloadType = 10 } },
-            {11, new PayloadDescription() {EncodingName = "L16 ", Clockrate = 44100, Channel = 1, PayloadType = 11 } },
+            {10, new PayloadDescription() {EncodingName = "L16", Clockrate = 44100, Channel = 2, PayloadType = 10 } },
+            {11, new PayloadDescription() {EncodingName = "L16", Clockrate = 44100, Channel = 1, PayloadType = 11 } },
             {12, new PayloadDescription() {EncodingName = "QCELP", Clockrate = 8000, Channel = 1, PayloadType = 12 } },
             {13, new PayloadDescription() {EncodingName = "ComfortNoise", Clockrate = 8000, Channel = 0, PayloadType = 13 } },
-            {14, new PayloadDescription() {EncodingName = "MPA ", Clockrate = 90000, Channel = 0, PayloadType = 14 } },
+            {14, new PayloadDescription() {EncodingName = "MPA", Clockrate = 90000, Channel = 0, PayloadType = 14 } },
             {15, new PayloadDescription() {EncodingName = "G728", Clockrate = 8000, Channel = 1, PayloadType = 15 } },
             {16, new PayloadDescription() {EncodingName = "DVI4 ", Clockrate = 11025, Channel = 1, PayloadType = 16 } },
             {17, new PayloadDescription() {EncodingName = "DVI4", Clockrate = 22050, Channel = 1, PayloadType = 17 } },
@@ -305,14 +306,14 @@ namespace Media.RtpTools
             {20, RtpSend.PayloadDescription.Reverved},
             {21, RtpSend.PayloadDescription.Reverved},
             {22, RtpSend.PayloadDescription.Reverved},            
-            {23, new PayloadDescription() {EncodingName = "SCR ", Clockrate = 90000, Channel = 0, PayloadType = 23 } },
+            {23, new PayloadDescription() {EncodingName = "SCR", Clockrate = 90000, Channel = 0, PayloadType = 23 } },
             {24, new PayloadDescription() {EncodingName = "MPEG", Clockrate = 90000, Channel = 0, PayloadType = 24 } },
             {25, new PayloadDescription() {EncodingName = "CelB", Clockrate = 90000, Channel = 0, PayloadType = 25 } },
             {26, new PayloadDescription() {EncodingName = "JPEG", Clockrate = 90000, Channel = 0, PayloadType = 26 } },
             {27, new PayloadDescription() {EncodingName = "CUSM", Clockrate = 90000, Channel = 0, PayloadType = 27 } },
-            {28, new PayloadDescription() {EncodingName = "NV  ", Clockrate = 90000, Channel = 0, PayloadType = 28 } },
+            {28, new PayloadDescription() {EncodingName = "NV", Clockrate = 90000, Channel = 0, PayloadType = 28 } },
             {29, new PayloadDescription() {EncodingName = "PicW", Clockrate = 90000, Channel = 0, PayloadType = 29 } },
-            {30, new PayloadDescription() {EncodingName = "CPV ", Clockrate = 90000, Channel = 0, PayloadType = 30 } },
+            {30, new PayloadDescription() {EncodingName = "CPV", Clockrate = 90000, Channel = 0, PayloadType = 30 } },
             {31, new PayloadDescription() {EncodingName = "H261", Clockrate = 90000, Channel = 0, PayloadType = 31 } },
             {32, new PayloadDescription() {EncodingName = "MPV", Clockrate = 90000, Channel = 0, PayloadType = 32 } },
             {33, new PayloadDescription() {EncodingName = "MP2T", Clockrate = 90000, Channel = 0, PayloadType = 33 } },
@@ -345,42 +346,37 @@ namespace Media.RtpTools
                             packet.SynchronizationSourceIdentifier,
                             packet.Padding ? 1.ToString() : 0.ToString(),
                             packet.BlockCount,
-                            packet.Header.LengthInWordsMinusOne) + ToTextualConvention(sdes);
+                            packet.Header.LengthInWordsMinusOne, ToTextualConvention(sdes));
                     }
                 case Rtcp.SendersReport.PayloadType:
                     using (var sr = new Rtcp.SendersReport(packet, false))
                     {
-                        return string.Format(RtcpExpressionFormat, 
-                            "SR", 
-                            packet.SynchronizationSourceIdentifier, 
-                            packet.Padding ? 1.ToString() : 0.ToString(), 
+                        return string.Format(RtcpExpressionFormat,
+                            "SR",
+                            packet.SynchronizationSourceIdentifier,
+                            packet.Padding ? 1.ToString() : 0.ToString(),
                             packet.BlockCount,
-                            packet.Header.LengthInWordsMinusOne)
-                            +
-                            //The senders information -
-                            string.Format(RtcpSendersInformationFormat,
-                                //0
+                            packet.Header.LengthInWordsMinusOne,
+                            (ToTextualConvention(sr) + string.Format(RtcpSendersInformationFormat,
+                            //0
                                 (DateTime.UtcNow - sr.NtpTime).TotalSeconds.ToString("0.000000"), //ts=
-                                //1
+                            //1
                                 sr.NtpTimestamp, //ntp=
-                                //2
+                            //2
                                 sr.SendersOctetCount, //osent=
-                                //3
-                                sr.SendersPacketCount)//psent=
-                            //The blocks
-                            + ToTextualConvention(sr);
+                            //3
+                                sr.SendersPacketCount))); //psent=
                     }
                 case Rtcp.ReceiversReport.PayloadType:                    
                     using (var rr = new Rtcp.ReceiversReport(packet, false))
                     {
-                        return string.Format(RtcpExpressionFormat, 
-                            "RR", 
-                            packet.SynchronizationSourceIdentifier, 
+                        return string.Format(RtcpExpressionFormat,
+                            "RR",
+                            packet.SynchronizationSourceIdentifier,
                             packet.Padding ? 1.ToString() : 0.ToString(),
-                            packet.BlockCount, 
-                            packet.Header.LengthInWordsMinusOne) 
-                            //The blocks
-                            + ToTextualConvention(rr);
+                            packet.BlockCount,
+                            packet.Header.LengthInWordsMinusOne, 
+                            ToTextualConvention(rr));
                     }
                 case Rtcp.GoodbyeReport.PayloadType:                    
                     using (var bye = new Rtcp.GoodbyeReport(packet, false)) 
@@ -389,13 +385,13 @@ namespace Media.RtpTools
                             "BYE",
                             packet.SynchronizationSourceIdentifier, packet.Padding ? 1.ToString() : 0.ToString(),
                             packet.BlockCount,
-                            packet.Header.LengthInWordsMinusOne) + ToTextualConvention(bye);
+                            packet.Header.LengthInWordsMinusOne, ToTextualConvention(bye));
                     }
                 case Rtcp.ApplicationSpecificReport.PayloadType:
-                    return string.Format(RtcpExpressionFormat, "APP", packet.SynchronizationSourceIdentifier, packet.Padding ? 1.ToString() : 0.ToString(), packet.BlockCount, packet.Header.LengthInWordsMinusOne);
+                    return string.Format(RtcpExpressionFormat, "APP", packet.SynchronizationSourceIdentifier, packet.Padding ? 1.ToString() : 0.ToString(), packet.BlockCount, packet.Header.LengthInWordsMinusOne, string.Empty);
                 default:
                     //Unknown PayloadType use a Hex Representation of the PayloadType
-                    return string.Format(RtcpExpressionFormat, packet.PayloadType.ToString("X"), packet.SynchronizationSourceIdentifier, packet.Padding ? 1.ToString() : 0.ToString(), packet.BlockCount, packet.Header.LengthInWordsMinusOne);
+                    return string.Format(RtcpExpressionFormat, packet.PayloadType.ToString("X"), packet.SynchronizationSourceIdentifier, packet.Padding ? 1.ToString() : 0.ToString(), packet.BlockCount, packet.Header.LengthInWordsMinusOne, string.Empty);
             }
         }
 
@@ -406,7 +402,7 @@ namespace Media.RtpTools
         /// <returns>The string which describes the given blocks.</returns>
         internal static string ToTextualConvention(IEnumerable<Rtcp.IReportBlock> reportBlocks) 
         {
-            string blockString = string.Empty;
+            string blockString = new String((char)Common.ASCII.Space, 1);
 
             if (reportBlocks == null) return blockString;
 
@@ -472,7 +468,7 @@ namespace Media.RtpTools
             {
                 if (sourceList == null) blockString += "#Incomplete Source List Not Included" + (char)Common.ASCII.LineFeed;
                 else foreach (uint partyId in sourceList)//ssrc=
-                        blockString += string.Format(HexFormat, "ssrc", HexSpecifier, partyId.ToString("X")) + (char)Common.ASCII.LineFeed;
+                        blockString += string.Format(HexFormat, "ssrc", HexSpecifier, partyId.ToString("X"), (char)Common.ASCII.LineFeed);
             }
 
             return blockString;
@@ -529,8 +525,8 @@ namespace Media.RtpTools
 
                 //hex dump
                 if (format == FileFormat.Hex)
-                    if (totalLength > 0) builder.Append(string.Format(HexFormat, "data", HexSpecifier, BitConverter.ToString(hexPayload.ToArray()).Replace("-", string.Empty)) + (char)Common.ASCII.LineFeed);
-                    else builder.Append(string.Format(HexFormat, "data", HexSpecifier, NullSpecifier) + (char)Common.ASCII.LineFeed);
+                    if (totalLength > 0) builder.Append(string.Format(HexFormat, "data", HexSpecifier, BitConverter.ToString(hexPayload.ToArray()).Replace("-", string.Empty), (char)Common.ASCII.LineFeed));
+                    else builder.Append(string.Format(HexFormat, "data", NullSpecifier, (char)Common.ASCII.LineFeed));
 
                 //Return the allocated result
                 return builder.ToString();
@@ -608,13 +604,6 @@ namespace Media.RtpTools
                 //csrc=<CSRC>
                 //This is basically the same thing and a parsing semantic.
 
-                //Could allow an option for the latter/former
-
-                //cc=
-                builder.Append(string.Format(RtpSend.NonQuotedFormat, "cc", packet.ContributingSourceCount));
-
-                builder.Append((char)Common.ASCII.LineFeed);
-
                 using (Media.RFC3550.SourceList sl = new Media.RFC3550.SourceList(packet))
                 {
 
@@ -628,8 +617,7 @@ namespace Media.RtpTools
                         //csrc=
                         while (sl.MoveNext())
                         {
-                            builder.Append(string.Format(RtpSend.HexFormat, "csrc", HexSpecifier, sl.CurrentSource.ToString("X")));
-                            builder.Append((char)Common.ASCII.LineFeed);
+                            builder.Append(string.Format(RtpSend.HexFormat, "csrc", HexSpecifier, sl.CurrentSource.ToString("X"), (char)Common.ASCII.LineFeed));
                         }
                     }
                 }
@@ -648,14 +636,12 @@ namespace Media.RtpTools
                     }
                     else
                     {
-                        builder.Append(string.Format(RtpSend.HexFormat, "ext_type", HexSpecifier, rtpExtension.Flags.ToString("X")));
-                        builder.Append((char)Common.ASCII.LineFeed);
+                        builder.Append(string.Format(RtpSend.HexFormat, "ext_type", HexSpecifier, rtpExtension.Flags.ToString("X"), (char)Common.ASCII.LineFeed));
 
                         builder.Append(string.Format(RtpSend.NonQuotedFormat, "ext_len", rtpExtension.LengthInWords));
                         builder.Append((char)Common.ASCII.LineFeed);
 
-                        builder.Append(string.Format(RtpSend.HexFormat, "ext_data", HexSpecifier, BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", string.Empty)));
-                        builder.Append((char)Common.ASCII.LineFeed);
+                        builder.Append(string.Format(RtpSend.HexFormat, "ext_data", HexSpecifier, BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", string.Empty), (char)Common.ASCII.LineFeed));
                     }
                 }
             }
@@ -663,10 +649,8 @@ namespace Media.RtpTools
             //If the format is hex then add the payload dump
             if (format == FileFormat.Hex)
             {
-                if (packet.Payload.Count > 0) builder.Append(string.Format(RtpSend.HexFormat, "data", HexSpecifier, BitConverter.ToString(packet.Payload.ToArray()).Replace("-", string.Empty)));
-                else builder.Append(string.Format(HexFormat, "data", HexSpecifier, NullSpecifier));
-
-                builder.Append((char)Common.ASCII.LineFeed);
+                if (packet.Payload.Count > 0) builder.Append(string.Format(RtpSend.HexFormat, "data", BitConverter.ToString(packet.Payload.ToArray()).Replace("-", string.Empty), (char)Common.ASCII.LineFeed));
+                else builder.Append(string.Format(HexFormat, "data", NullSpecifier, (char)Common.ASCII.LineFeed));
             }
 
             //Return the result
@@ -728,6 +712,8 @@ namespace Media.RtpTools
                     //A string instance which was used to compare to known `Tokens`
                     string token;
 
+                    double timeOffset;
+
                     //No bytes have actually been consumed from the stream yet, while not done parsing and not at the end of the stream
                     while (!doneParsing && reader.BaseStream.Position < reader.BaseStream.Length)
                     {
@@ -779,7 +765,7 @@ namespace Media.RtpTools
                                 token = null;
 
                                 //Return the result of reading the binary entry.
-                                return null; //RtpDump.RtpDumpExtensions.ReadBinaryToolEntry(ref format, reader);
+                                return null;
                             }
 
                             //Check for the short form before parsing a token
@@ -834,15 +820,49 @@ namespace Media.RtpTools
 
                                 //1) Find /n It should be at bytesRead.
 
+                                //int lineEnd = Array.IndexOf<byte>(lineBytes, Common.ASCII.LineFeed, offset);
+
                                 //2) Find ' '
+
+                                int space = Array.IndexOf<byte>(lineBytes, Common.ASCII.Space, offset);
 
                                 //3) Find '='
 
+                                //int equals = Array.IndexOf<byte>(lineBytes, Common.ASCII.EqualsSign, offset);
+
                                 //4) Find ' ' from index of 2) to bytesRead - index of 2)
+
+                                int tokenStart = Array.IndexOf<byte>(lineBytes, Common.ASCII.Space, space);
+
+                                //This always occurs, find a new way of parsing..
+
+                                //This is the first entry X.X Y len=Z from=A
+                                if (tokenStart == space)
+                                {
+                                    //The timeoffset
+                                    string timePart = Encoding.ASCII.GetString(lineBytes, offset, space);
+
+                                    //Parse the Timeoffset
+                                    timeOffset = double.Parse(timePart);
+
+                                    //Move to the next token
+                                    space = Array.IndexOf<byte>(lineBytes, Common.ASCII.Space, ++space);
+
+                                    //RTP or RTCP
+                                }
 
                                 //5 Extract token index of 4) to index of 3)
 
-                                token = "";
+                                int tokenLength = space - ++tokenStart;
+
+                                token = Encoding.ASCII.GetString(lineBytes, tokenStart, tokenLength);
+
+                                //Token now has the whole value
+
+                                //Move the offset
+                                offset = tokenStart + tokenLength;
+
+                                //Extract just the token from the token..
 
                                 //if the index of 3) + 1 is '"' then the value is quoted.
 
@@ -859,19 +879,11 @@ namespace Media.RtpTools
                                 {
                                     //RTP
                                     case 1:
-                                        {
-                                            //Rtp Format, should not have consumed this token
-                                            if (tokensParsed > 0) throw new Exception();
-                                            //Data follows to build packet
-                                            goto default;
-                                        }
                                     //RTCP
                                     case 17:
                                         {
-                                            if (tokensParsed > 0) throw new Exception();
-                                            //Rtcp Format
-                                            //Data follows to build packet
-                                            goto default;
+                                            //Do another iteration
+                                            continue;
                                         }
                                     //data
                                     case 21:
@@ -891,8 +903,23 @@ namespace Media.RtpTools
 
                                             goto default;
                                         }
-                                    //)\n (Corresponds to the end of a textual convention
-                                    case 36:
+                                    case 25: //len
+                                        {
+                                            int bytesNeeded = int.Parse(token.Substring(4));
+
+                                            System.Diagnostics.Debug.WriteLine(bytesNeeded);
+
+                                            continue;
+                                        }
+                                    case 36: //from
+                                        {
+
+                                            System.Net.IPAddress ip = System.Net.IPAddress.Parse(token.Substring(5));
+
+                                            System.Diagnostics.Debug.WriteLine(ip);
+
+                                            continue;
+                                        }
                                     default:
                                         {
                                             //If the format was unknown
