@@ -350,7 +350,7 @@ namespace Media.Rtsp
                 + (serverRtpPort.HasValue ? "server_port=" + serverRtpPort.Value + (serverRtcpPort.HasValue ? HyphenSign.ToString() + serverRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
                 + (interleaved.HasValue && interleaved.Value == true && dataChannel.HasValue ? "interleaved=" + dataChannel.Value + (controlChannel.HasValue ? HyphenSign.ToString() + controlChannel.Value : string.Empty) + SemiColon : string.Empty)
                 + (ttl.HasValue ? "ttl=" + ttl.Value : string.Empty)
-                + (ssrc.HasValue ? "ssrc=" + ssrc.Value : string.Empty));
+                + (ssrc.HasValue ? "ssrc=" + ssrc.Value.ToString("X") : string.Empty));
         }
 
         /// <summary>
@@ -400,7 +400,10 @@ namespace Media.Rtsp
                             }
                         case "ssrc":
                             {
-                                ssrc = int.Parse(subParts[1]);
+                                string ssrcPart = subParts[1];
+
+                                if (!int.TryParse(ssrcPart, out ssrc)) //plain int                        
+                                    ssrc = int.Parse(subParts[1], System.Globalization.NumberStyles.HexNumber); //hex
                                 continue;
                             }
                         default: continue;
@@ -428,7 +431,7 @@ namespace Media.Rtsp
                 (url != null ? "url=" + url.ToString() + SemiColon.ToString() : string.Empty)
                 + (seq.HasValue ? "seq=" + seq.Value + SemiColon.ToString() : string.Empty)
                 + (rtpTime.HasValue ? "rtptime=" + rtpTime.Value + SemiColon.ToString() : string.Empty)
-                + (ssrc.HasValue ? "ssrc=" + ssrc.Value : string.Empty)
+                + (ssrc.HasValue ? "ssrc=" + ssrc.Value.ToString("X") : string.Empty)
                 );
         }
     }

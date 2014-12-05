@@ -1013,14 +1013,27 @@ namespace Media.Rtp
             public void UpdateJitterAndTimestamp(RtpPacket packet)
             {
                 // RFC 3550 A.8.
-                ulong newNtp = Utility.DateTimeToNptTimestamp(DateTime.UtcNow), 
-                    transit = newNtp - Utility.DateTimeToNptTimestamp(packet.Transferred ?? packet.Created);
-                NtpTimestamp = (long)newNtp;
+
+                //Determine the time the last packet was sent or received
+                DateTime timeReference = (packet.Transferred.HasValue ? m_LastRtpOut : m_LastRtpIn);
+                
+                //Calulcate the difference between that time and the time the packet was created or transfered.
+                double arrivalDifference = timeReference.Subtract(packet.Transferred ?? packet.Created).TotalMilliseconds;
+
+                //double transit = (packet.Timestamp - (RtpTimestamp == 0 ? packet.Timestamp : RtpTimestamp)) + arrivalDifference;
+
+                //Update the RtpTimestamp on the Context
                 RtpTimestamp = packet.Timestamp;
-                int d = (int)(transit - RtpTransit);
-                RtpTransit = (uint)transit;
+
+                int d = (int)(arrivalDifference - RtpTransit);
+                
                 if (d < 0) d = -d;
+
+                RtpTransit = (uint)d;
+
                 RtpJitter = (uint)((1d / 16d) * ((double)d - RtpJitter));
+
+                //NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow);
             }
 
             /// <summary>
@@ -1775,9 +1788,6 @@ namespace Media.Rtp
             //If the packet is not valid then nothing can be done.
             if (!transportContext.ValidatePacketAndUpdateSequenceNumber(localPacket)) return;
 
-            //Set the last rtp in
-            transportContext.m_LastRtpIn = now;
-
             //Increment RtpPacketsReceived for the context relating to the packet.
             Interlocked.Increment(ref transportContext.RtpPacketsReceived);
 
@@ -1785,12 +1795,15 @@ namespace Media.Rtp
             Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count);
 
             //Set the time when the first RtpPacket was received
-            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = now;
+            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_LastRtpIn = transportContext.m_FirstPacketReceived = now;
 
             //Context is not inactive.
             transportContext.m_InactiveTime = TimeSpan.Zero;
 
             transportContext.UpdateJitterAndTimestamp(localPacket);
+
+            //Set the last rtp in
+            transportContext.m_LastRtpIn = now;
 
             if (!FrameChangedEventsEnabled) return;
 
@@ -1880,12 +1893,6 @@ namespace Media.Rtp
 
             if (transportContext == null) return;
 
-            if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
-            {
-                //update the jitter
-                transportContext.UpdateJitterAndTimestamp(packet);
-            }
-
             //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
             Interlocked.Add(ref transportContext.RtpBytesSent, packet.Payload.Count);
 
@@ -1894,12 +1901,18 @@ namespace Media.Rtp
             //Sample the clock for when the last rtp packet was sent
             DateTime sent = packet.Transferred.Value;
 
-            transportContext.m_LastRtpOut = sent;
-
             transportContext.m_InactiveTime = TimeSpan.Zero;
 
             //Set the time the first packet was sent.
-            if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = sent;
+            if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_LastRtpOut = transportContext.m_FirstPacketSent = sent;
+
+            if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
+            {
+                //update the jitter
+                transportContext.UpdateJitterAndTimestamp(packet);
+            }
+
+            transportContext.m_LastRtpOut = sent;
         }
 
         protected internal virtual void HandleRtcpPacketSent(object sender, RtcpPacket packet)
