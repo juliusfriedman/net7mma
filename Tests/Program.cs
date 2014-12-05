@@ -984,10 +984,9 @@ namespace Tests
 
 
                         //Show the IP Address and Source in the entry, Note the entry has a TimevalSize property as well as a ReverseValues property which can change how the values are represented if needed.                        
-                        Console.WriteLine(string.Format(TestingFormat, "Port", entry.Port));
-
                         Console.WriteLine(string.Format(TestingFormat, "Source", entry.Source));
 
+                        Console.WriteLine(string.Format(TestingFormat, "Offset", entry.Offset));
 
                         //Additionally the Blob contains the RD_hdr_t and RD_packet_t but the Data property only will expose the octets required for the packets
                         byte[] data = entry.Data.ToArray();

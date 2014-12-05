@@ -189,7 +189,7 @@ namespace Media.RtpTools
         NonQuotedFormat = "{0}={1}",
 
         //Allow other specifiers?
-        HexFormat = "{0}=0x{1}",
+        HexFormat = "{0}={1}{2}",
 
         UnknownSpecifier = "#unknown",
 
@@ -472,7 +472,7 @@ namespace Media.RtpTools
             {
                 if (sourceList == null) blockString += "#Incomplete Source List Not Included" + (char)Common.ASCII.LineFeed;
                 else foreach (uint partyId in sourceList)//ssrc=
-                        blockString += string.Format(HexFormat, "ssrc", partyId.ToString("X")) + (char)Common.ASCII.LineFeed;
+                        blockString += string.Format(HexFormat, "ssrc", HexSpecifier, partyId.ToString("X")) + (char)Common.ASCII.LineFeed;
             }
 
             return blockString;
@@ -529,8 +529,8 @@ namespace Media.RtpTools
 
                 //hex dump
                 if (format == FileFormat.Hex)
-                    if (totalLength > 0) builder.Append(string.Format(HexFormat, "data", HexSpecifier + BitConverter.ToString(hexPayload.ToArray()).Replace("-", HexSpecifier)) + (char)Common.ASCII.LineFeed);
-                    else builder.Append(string.Format(HexFormat, "data", NullSpecifier) + (char)Common.ASCII.LineFeed);
+                    if (totalLength > 0) builder.Append(string.Format(HexFormat, "data", HexSpecifier, BitConverter.ToString(hexPayload.ToArray()).Replace("-", string.Empty)) + (char)Common.ASCII.LineFeed);
+                    else builder.Append(string.Format(HexFormat, "data", HexSpecifier, NullSpecifier) + (char)Common.ASCII.LineFeed);
 
                 //Return the allocated result
                 return builder.ToString();
@@ -628,7 +628,7 @@ namespace Media.RtpTools
                         //csrc=
                         while (sl.MoveNext())
                         {
-                            builder.Append(string.Format(RtpSend.HexFormat, "csrc", sl.CurrentSource.ToString("X")));
+                            builder.Append(string.Format(RtpSend.HexFormat, "csrc", HexSpecifier, sl.CurrentSource.ToString("X")));
                             builder.Append((char)Common.ASCII.LineFeed);
                         }
                     }
@@ -648,13 +648,13 @@ namespace Media.RtpTools
                     }
                     else
                     {
-                        builder.Append(string.Format(RtpSend.HexFormat, "ext_type", rtpExtension.Flags.ToString("X")));
+                        builder.Append(string.Format(RtpSend.HexFormat, "ext_type", HexSpecifier, rtpExtension.Flags.ToString("X")));
                         builder.Append((char)Common.ASCII.LineFeed);
 
                         builder.Append(string.Format(RtpSend.NonQuotedFormat, "ext_len", rtpExtension.LengthInWords));
                         builder.Append((char)Common.ASCII.LineFeed);
 
-                        builder.Append(string.Format(RtpSend.HexFormat, "ext_data", BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", HexSpecifier)));
+                        builder.Append(string.Format(RtpSend.HexFormat, "ext_data", HexSpecifier, BitConverter.ToString(rtpExtension.Data.ToArray()).Replace("-", string.Empty)));
                         builder.Append((char)Common.ASCII.LineFeed);
                     }
                 }
@@ -663,8 +663,8 @@ namespace Media.RtpTools
             //If the format is hex then add the payload dump
             if (format == FileFormat.Hex)
             {
-                if(packet.Payload.Count > 0) builder.Append(string.Format(RtpSend.HexFormat, "data", BitConverter.ToString(packet.Payload.ToArray()).Replace("-", HexSpecifier)));
-                else builder.Append(string.Format(HexFormat, "data", NullSpecifier));
+                if (packet.Payload.Count > 0) builder.Append(string.Format(RtpSend.HexFormat, "data", HexSpecifier, BitConverter.ToString(packet.Payload.ToArray()).Replace("-", string.Empty)));
+                else builder.Append(string.Format(HexFormat, "data", HexSpecifier, NullSpecifier));
 
                 builder.Append((char)Common.ASCII.LineFeed);
             }
@@ -710,6 +710,9 @@ namespace Media.RtpTools
                     //The amount of tokens consumed from the reader, where a token is defined as above
                     int tokensParsed = -1,
 
+                    //The amount of bytes read so far
+                    bytesRead = 0,
+
                     //Used for token parsing, the index of the recognized token in 'Tokens'
                     tokenIndex = -1;
 
@@ -754,13 +757,17 @@ namespace Media.RtpTools
                         //Read until '\n' occurs
                         RtpSendExtensions.ReadLineFeed(reader.BaseStream, out lineBytes);
 
-                        //Use new type, also flawed thinking may be occuring if entries are malformed.
+                        //Keep track of the amount of bytes read
+                        bytesRead = lineBytes.Length;
+
+                        //If nothing was read return
+                        if (bytesRead == 0) return null;
 
                         //If the format is unknown then 
                         if (formatUnknown)
                         {
                             //check for the Binary format at the known ordinal, if found
-                            if (lineBytes[0] == RtpDump.RtpDumpExtensions.Hash && lineBytes[1] == RtpDump.RtpDumpExtensions.Bang)
+                            if (bytesRead > 2 && lineBytes[0] == RtpDump.RtpDumpExtensions.Hash && lineBytes[1] == RtpDump.RtpDumpExtensions.Bang)
                             {
                                 //Indicate a binary format so far
                                 format = FileFormat.Binary;
@@ -801,7 +808,7 @@ namespace Media.RtpTools
                         }
 
                         //If not found then this must be a Short entry.
-                        if (format == FileFormat.Short) return RtpToolEntry.CreateShortEntry(lineBytes, reader.BaseStream.Position - lineBytes.Length);
+                        if (format == FileFormat.Short) return RtpToolEntry.CreateShortEntry(DateTime.UtcNow, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0), lineBytes, 0, reader.BaseStream.Position - lineBytes.Length);
                         else if (parsingCommentOrWhitespace)//If parsing a whitespace or a comment
                         {
                             //Parse the comment directly to memory and continue 
@@ -815,80 +822,109 @@ namespace Media.RtpTools
                         }
                         else if (needAnyToken) //If a token is needed
                         {
-                            //Parse the token to obtain the value, if tokenIndex >= 0 it contains the token. (The logic is case insensitive)                        
-                            RtpSendExtensions.ParseTokenValue(lineBytes, out token, out tokenIndex, ref format);
-                            
-                            //Increment for a token parsed within the entry so far
-                            ++tokensParsed;
+                            //Parsing a token
+                            int offset = 0;
 
-                            //Check for ShortFormat....
+                            //While there is data left to parse on the line (in case somehow two tokens on a line)
+                            while (offset < bytesRead)
+                            {
+                                //Given offset and bytesRead of lineBytes
 
-                            //Switch out logic based on token
-                            switch (tokenIndex)
-                            {                                
-                                //RTP
-                                case 1:
-                                    {
-                                        //Rtp Format, should not have consumed this token
-                                        if (tokensParsed > 0) throw new Exception();
-                                        //Data follows to build packet
-                                        goto default;
-                                    }
-                                //RTCP
-                                case 17:
-                                    {
-                                        if (tokensParsed > 0) throw new Exception();
-                                        //Rtcp Format
-                                        //Data follows to build packet
-                                        goto default;
-                                    }
-                                //data
-                                case 21:
-                                    {
-                                        //Token based reading may not be required anymore
-                                        needAnyToken = false;
+                                //Find a token
 
-                                        //Not unknown anymore because,
-                                        formatUnknown = false;
+                                //1) Find /n It should be at bytesRead.
 
-                                        //Definitely hex format
-                                        format = FileFormat.Hex;
+                                //2) Find ' '
 
-                                        //token contains the payload in hex
+                                //3) Find '='
 
-                                        //Must preserve and build packet?
+                                //4) Find ' ' from index of 2) to bytesRead - index of 2)
 
-                                        goto default;
-                                    }
-                                    //)\n (Corresponds to the end of a textual convention
-                                case 36:                                  
-                                default:
-                                    {
-                                        //If the format was unknown
-                                        if (formatUnknown) 
+                                //5 Extract token index of 4) to index of 3)
+
+                                token = "";
+
+                                //if the index of 3) + 1 is '"' then the value is quoted.
+
+                                //6) Extract value if required *which may or may not be quoted. (occurs at index of 3))
+
+                                //Determine what to do based on if there was a matching token in the Tokens array.
+                                tokenIndex = Array.IndexOf<string>(Tokens, token);
+
+                                //Increment for a token parsed within the entry so far
+                                ++tokensParsed;
+
+                                //Switch out logic based on token
+                                switch (tokenIndex)
+                                {
+                                    //RTP
+                                    case 1:
                                         {
-                                            //It is no longer so because,
+                                            //Rtp Format, should not have consumed this token
+                                            if (tokensParsed > 0) throw new Exception();
+                                            //Data follows to build packet
+                                            goto default;
+                                        }
+                                    //RTCP
+                                    case 17:
+                                        {
+                                            if (tokensParsed > 0) throw new Exception();
+                                            //Rtcp Format
+                                            //Data follows to build packet
+                                            goto default;
+                                        }
+                                    //data
+                                    case 21:
+                                        {
+                                            //Token based reading may not be required anymore
+                                            needAnyToken = false;
+
+                                            //Not unknown anymore because,
                                             formatUnknown = false;
 
-                                            //it is no longer unknown, it is definitely a Text format
-                                            format = FileFormat.Text;
+                                            //Definitely hex format
+                                            format = FileFormat.Hex;
+
+                                            //token contains the payload in hex
+
+                                            //Must preserve and build packet?
+
+                                            goto default;
                                         }
+                                    //)\n (Corresponds to the end of a textual convention
+                                    case 36:
+                                    default:
+                                        {
+                                            //If the format was unknown
+                                            if (formatUnknown)
+                                            {
+                                                //It is no longer so because,
+                                                formatUnknown = false;
 
-                                        //Token is no longer required
-                                        token = null;
+                                                //it is no longer unknown, it is definitely a Text format
+                                                format = FileFormat.Text;
+                                            }
 
-                                        break;
-                                    }
-                            }//Done with token (switch)
-                        }//Don't need parse any tokens
+                                            //Token is no longer required
+                                            token = null;
+
+                                            break;
+                                        }
+                                }//Done with token (switch)
+                            }//Don't need parse any tokens
+                        }//Done Parsing
 
                         //Write the value read from the stream which consists of all data until and including `\n`
-                        writer.Write(lineBytes);                                                
+                        writer.Write(lineBytes);
                     }
                 }//Done with the writer
 
+                //Need to evalulate token parsing.
+
+                //Must get Timebase and IP from Text entry.
+
                 //Create the resulting entry with the data contained in memory read from the reader by the writer
-                RtpToolEntry result = new RtpToolEntry(format, memory.ToArray(), reader.BaseStream.Position - memory.Length);
+                RtpToolEntry result = new RtpToolEntry(DateTime.UtcNow, new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0), format, memory.ToArray(), 0, reader.BaseStream.Position - memory.Length);
 
                 //The result is parsed
                 return result;
@@ -951,84 +987,8 @@ namespace Media.RtpTools
         /// <param name="result"></param>
         internal static void ReadLineFeed(System.IO.Stream stream, out byte[] result)
         {
-            result = RtpDump.RtpDumpExtensions.ReadDelimitedValue(stream, Common.ASCII.LineFeed, true); return;
+            //The length of the array allocated is known and should also be returned...
+            result = RtpDump.RtpDumpExtensions.ReadDelimitedValue(stream, Common.ASCII.LineFeed, true);
         }
-
-
-        //Solution is to change ParseTokenValue, but actually where ReadLine is called while parsing.
-        /// <summary>
-        /// Doesn't care if the value was broken.
-        /// e.g. 
-        ///                               '"' missing.
-        ///     `myValue="myValue Ends Here anotherValue="SomethingThatIsNotRelated"`
-        /// Would be parsed to produce: 
-        ///              '"'> dropped in the process because of implicit use as a delemitier.
-        ///     prequote = `myValue=`,               ^
-        ///     =>`myValue Ends Here anotherValue=`.'"',
-        ///     The 
-        /// </summary>
-        /// <param name="stream"></param>
-        /// <param name="prequote"></param>
-        /// <returns></returns>
-        //public static byte[] ReadQuotedValue(System.IO.Stream stream, byte[] illegalTokens, out byte[] prequote) 
-        //{
-        //    prequote = RtpDump.RtpDumpExtensions.ReadDelimitedValue(stream, Encoding.ASCII.GetBytes(RtpSend.Tokens[21]));
-
-        //    return RtpDump.RtpDumpExtensions.ReadDelimitedValue(stream, Encoding.ASCII.GetBytes(RtpSend.Tokens[21]));
-        //}
-
-        //Maybe move to RtpSend
-
-        internal static void ParseTokenValue(byte[] tokenBytes, out string value, out int tokenIndex, ref FileFormat format)
-        {
-            tokenIndex = -1;
-            value = null;
-            if (tokenBytes == null) return;
-
-            ///<summary>
-            /// each entry starts with a time value, in seconds, relative to the beginning of the trace. 
-            /// The time value must appear at the beginning of a line, without white space. Within an RTP or RTCP packet description, 
-            /// parameters may appear in any order, without white space around the equal sign. 
-            /// Lines are continued with initial white space on the next line. 
-            /// Comment lines start with #. Strings are enclosed in quotation marks.
-            /// <see cref="Tokens"/>
-            ///</summary>
-
-            //Todo ensure not reading whitespace or keep sperate flag
-
-            //Maybe seperate logic and provide a TokenParser
-
-            //Parse the bytes to create a string
-            string token = Encoding.ASCII.GetString(tokenBytes);
-
-            int tokenLength = tokenBytes.Length;
-
-            //Cache the length so far
-            tokenIndex = tokenLength;
-
-            //Sample for the end of the value after '=' occured which is indicated by another space
-            tokenLength = token.IndexOf((char)Common.ASCII.LineFeed, tokenIndex);
-
-            //Calulcate the length of the token based on the whole token (correctly)
-            tokenLength = token.Length - (tokenIndex + tokenLength);
-
-            ////if (tokenLength == 4) // possibly "data", Token 12
-            ////{
-            ////    //Chek for data equality Token to "data"
-            ////    //Should compare ordinal
-            ////    if ((token = token.Substring(tokenIndex, 4)).Equals(RtpSend.Tokens[12])) format = FileFormat.Hex;
-            ////}
-            //else if (tokenLength == 8) // possibly "ext_data", Token 12
-            //{
-            //    //Chek for data equality Token to "data"
-            //    if (token.Substring(tokenIndex, 8).Equals(Tokens[15]))
-            //    {
-            //        //No longer have to check per entry any more and hence can read faster, just need to check for Rtp token when DumpReader is reading to determine that.
-            //    }
-            //}
-
-            
-        }
-
     }
 }
