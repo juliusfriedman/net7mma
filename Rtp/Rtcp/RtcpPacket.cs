@@ -122,7 +122,7 @@ namespace Media.Rtcp
                     int lengthInBytes = ((lengthInWords + 1) * 4) - payloadOffset;
 
                     //Create a packet using the existing header and the bytes left in the packet
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, lengthInBytes)))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, Math.Min(lengthInBytes, count - (offset + payloadOffset)))))
                     {
                         //Move the offset the length in bytes of the size of the last packet (including the header).
                         offset += newPacket.Length;
@@ -202,7 +202,7 @@ namespace Media.Rtcp
             m_OwnedOctets = octets.Skip(headerLength).Take(packetLength).ToArray();
 
             //The Payload property must be assigned otherwise the properties will not function in the instance.
-            Payload = new Common.MemorySegment(m_OwnedOctets, 0, packetLength);
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, Math.Min(packetLength, m_OwnedOctets.Length));
         }
 
         /// <summary>

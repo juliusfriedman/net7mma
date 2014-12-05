@@ -57,11 +57,12 @@ namespace Media.RtpTools
             * u_int16 padding;       //Padding
             } RD_hdr_t;
          
-            typedef struct {
-               struct timeval start;  // start of recording (GMT)
-               u_int32 source;        // network source (multicast address)
-               u_int16 port;          // UDP port
-            } RD_hdr_t;
+           typedef struct {
+              u_int16 length;    // length of packet, including this header (may 
+                                    be smaller than plen if not whole packet recorded) 
+              u_int16 plen;      // actual header+payload length for RTP, 0 for RTCP 
+              u_int32 offset;    // milliseconds since the start of recording 
+            } RD_packet_t;
         */
 
     ///<summary>
@@ -97,7 +98,7 @@ namespace Media.RtpTools
 
         #region Statics
 
-        public static IEnumerable<byte> CreatePacketHeader(DateTime time, System.Net.IPEndPoint source, Common.IPacket packet, int offset)
+        public static IEnumerable<byte> CreatePacketHeader(Common.IPacket packet, int offset)
         {
             //Only the packet and offset are really needed. 
 
@@ -106,15 +107,14 @@ namespace Media.RtpTools
             //offset (4)
 
             if (!BitConverter.IsLittleEndian)
-                return BitConverter.GetBytes((ushort)packet.Length + sizeOf_RD_packet_T).
+                return BitConverter.GetBytes((ushort)(packet.Length + sizeOf_RD_packet_T)).
                     Concat
                     (packet is Rtcp.RtcpPacket ?
                     BitConverter.GetBytes((ushort)0)
                 :
-                    BitConverter.GetBytes((ushort)(packet.Length)).Concat(BitConverter.GetBytes(offset).Reverse()));
+                    BitConverter.GetBytes((ushort)(packet.Length)).Concat(BitConverter.GetBytes(offset)));
 
-            return BitConverter.GetBytes((ushort)source.Port).Reverse().
-                Concat(BitConverter.GetBytes((ushort)packet.Length + sizeOf_RD_packet_T).Reverse()).
+            return BitConverter.GetBytes((ushort)(packet.Length + sizeOf_RD_packet_T)).Reverse().
                 Concat
                 (packet is Rtcp.RtcpPacket ?
                 BitConverter.GetBytes((ushort)0)
@@ -122,12 +122,10 @@ namespace Media.RtpTools
                 BitConverter.GetBytes((ushort)(packet.Length)).Reverse()).Concat(BitConverter.GetBytes(offset).Reverse());
         }
 
-        //Every entry should have at least this many bytes
-        public const int DefaultEntrySize = 24, //16 bytes hdr_t and 8 bytes packet_t;
-            sizeOf_RD_hdr_t = 16, //Columbia RtpTools don't include this for every packet, only the first.
+        public const int sizeOf_RD_hdr_t = 16, //Columbia RtpTools don't include this for every packet, only the first.
             sizeOf_RD_packet_T = 8;
 
-        internal static RtpToolEntry CreateShortEntry(byte[] memory, long fileOffset = 0)
+        internal static RtpToolEntry CreateShortEntry(DateTime timeBase, System.Net.IPEndPoint source, byte[] memory, int offset = 0, long? fileOffset = null)
         {
             /* Only the header can be restored / represented and indicates a VAT or RTP Packet
                RTP or vat data in tabular form: [-]time ts [seq], where a - indicates a set marker bit. The sequence number seq is only used for RTP packets.
@@ -137,7 +135,7 @@ namespace Media.RtpTools
                844525727.922518 954850177 30670
            */
 
-            return new RtpToolEntry(FileFormat.Short, memory, fileOffset);
+            return new RtpToolEntry(timeBase, source, FileFormat.Short, memory, offset, fileOffset ?? 0);
 
             //Will be performed if ManagedPacket is accessed
             //BuildPacket(created);
@@ -157,10 +155,14 @@ namespace Media.RtpTools
         /// </summary>
         public readonly FileFormat Format;
 
+        public readonly System.Net.IPEndPoint Source;
+
+        public readonly DateTime Timebase;
+
         /// <summary>
-        /// Allows the buffer to be used in a circular fashion or be large then visibly seen with the data property.
+        /// Indicates the length of <see cref="Blob"/>.
         /// </summary>
-        public int MaxSize = RtpToolEntry.DefaultEntrySize;
+        public int BlobLength = RtpToolEntry.sizeOf_RD_packet_T;
 
         /// <summary>
         /// Indicates if the values being read are on a system which needs to reverse them before processing
@@ -177,129 +179,17 @@ namespace Media.RtpTools
         public byte[] Blob { get; private set; }
 
         /// <summary>
-        /// Skips the binary data in <see cref="Blob"/> which is not related to the underlying stored data and describes the Length and Time of the entry when
-        /// used in conjunction with <see cref="TimevalSize"/> and allows multiple `addressings` of the underlying information
+        /// Gets the data in <see cref="Blob"/> which consists of the packet octets.
         /// </summary>
         public IEnumerable<byte> Data
         {
-            get { return Blob.Skip(Pointer + sizeOf_RD_packet_T).Take(MaxSize); }
+            get { return Blob.Skip(Pointer + sizeOf_RD_packet_T); }
         }
 
         /// <summary>
         /// Controls the offset in which values are returned from the Blob structure.
         /// </summary>
-        public int Pointer = sizeOf_RD_hdr_t;
-
-        /// <summary>
-        /// Can be used in various ways to display information relating to the Time the entry was received.
-        /// By convention the Time <see cref="Utility.UnixEpoc1970"/> is integrated as a base time into this value.
-        /// </summary>
-        public double Timeoffset
-        {
-            get
-            {
-                if (Disposed) return 0;
-                //Binary
-                return BitConverter.ToDouble(Blob, 0);
-                //Text must be parsed
-            }
-            set
-            {
-                if (Disposed) return;
-
-                IEnumerable<byte> endian = BitConverter.GetBytes(value);
-
-                if (ReverseValues) endian = endian.Reverse();
-
-                endian.ToArray().CopyTo(Blob, 0);
-            }
-        }
-
-        /// <summary>
-        /// <see cref="Timeoffset"/>
-        /// </summary>
-        public int StartSeconds
-        {
-            get
-            {
-                if (Disposed) return 0;
-                return (int)Common.Binary.ReadU32(Blob, 0, ReverseValues);
-            }
-            set
-            {
-                if (Disposed) return;
-
-                Common.Binary.WriteNetwork32(Blob, 0, ReverseValues, (uint)value);
-            }
-        }
-
-        /// <summary>
-        /// <see cref="Timeoffset"/>
-        /// </summary>
-        public long LongSeconds
-        {
-            get
-            {
-                if (Disposed) return 0;
-                return (long)Common.Binary.ReadU64(Blob, 0, ReverseValues);
-            }
-            set
-            {
-                if (Disposed) return;
-
-                Common.Binary.WriteNetwork32(Blob, 0, ReverseValues, (uint)value);
-            }
-        }
-
-        /// <summary>
-        /// <see cref="Timeoffset"/>
-        /// </summary>
-        public int Microseconds
-        {
-            get
-            {
-                if (Disposed) return 0;
-                return (int)Common.Binary.ReadU32(Blob, 4, ReverseValues);
-            }
-            set
-            {
-                if (Disposed) return;
-
-                Common.Binary.WriteNetwork32(Blob, 4, ReverseValues, (uint)value);
-            }
-        }
-
-        public int Source
-        {
-            get
-            {
-                if (Disposed) return 0;
-
-                return (int)Common.Binary.ReadU32(Blob, 8, ReverseValues);
-            }
-            set
-            {
-                if (Disposed) return;
-
-                Common.Binary.WriteNetwork16(Blob, 8, ReverseValues, (ushort)value);
-            }
-        }
-
-        public int Port
-        {
-            get
-            {
-                if (Disposed) return 0;
-
-                return Common.Binary.ReadU16(Blob, 12, ReverseValues);
-            }
-            set
-            {
-                if (Disposed) return;
-
-                Common.Binary.WriteNetwork16(Blob, 12, ReverseValues, (ushort)value);
-            }
-        }
+        public int Pointer = 0;
 
         /// <summary>
         /// The value of the property `length` as indicated from the RD_packet_t
@@ -339,6 +229,9 @@ namespace Media.RtpTools
             }
         }
 
+        /// <summary>
+        /// Offset in milliseconds since the Timebase.
+        /// </summary>
         public int Offset
         {
             get
@@ -359,23 +252,22 @@ namespace Media.RtpTools
 
         #region Constructor
 
-        internal RtpToolEntry(FileFormat format, byte[] memory = null, long fileOffset = 0)
+        internal RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, FileFormat format, byte[] memory = null, int? offset = null, long? fileOffset = null)
         {
+            Timebase = timeBase;
+            Source = source;
             Format = format;
             Blob = memory;
-            FileOffset = fileOffset;
-            MaxSize = memory.Length;
+            FileOffset = fileOffset ?? 0;
+            if(offset.HasValue) Offset = offset.Value;
+            BlobLength = memory.Length;
         }
 
-        public RtpToolEntry(System.Net.IPEndPoint source, Common.IPacket packet, int offset = 0, long fileOffset = 0)
-            :this(FileFormat.Binary, packet.Prepare().ToArray(), fileOffset)
+        public RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, Common.IPacket packet, int? offset = null, long? fileOffset = null)
+            : this(timeBase, source, FileFormat.Binary, packet.Prepare().ToArray(), offset, fileOffset)
         {
-            Blob = CreatePacketHeader(DateTime.UtcNow, source, packet, offset).Concat(Blob).ToArray();
-            MaxSize = (int)packet.Length;
-            //Create header from source, and packet.Created, if Is64Bit
-            //Also needs rd hdrs
-            //Blob = packet.Prepare().ToArray();
-            //Format = FileFormat.Binary;
+            Blob = CreatePacketHeader(packet, offset ?? 0).Concat(Blob).ToArray();
+            BlobLength = (int)(sizeOf_RD_packet_T + packet.Length);
         }
 
         #endregion
@@ -386,7 +278,7 @@ namespace Media.RtpTools
         /// Add all the data given by data to the Blob and increments max size.
         /// </summary>
         /// <param name="data"></param>
-        public void Concat(IEnumerable<byte> data) { Blob = Enumerable.Concat(Blob, data).ToArray(); MaxSize += data.Count(); }
+        public void Concat(IEnumerable<byte> data) { Blob = Enumerable.Concat(Blob, data).ToArray(); BlobLength += data.Count(); }
 
         /// <summary>
         /// Performas a write by using <see cref="System.Array.Copy"/> into the underlying Blob with the given parameters
@@ -418,14 +310,12 @@ namespace Media.RtpTools
             {
                 StringBuilder sb = new StringBuilder();
 
-                var ip = new System.Net.IPAddress((uint)Source);
-                var ep = new System.Net.IPEndPoint(ip, Port);
-                var ts = TimeSpan.FromSeconds(StartSeconds).Add(TimeSpan.FromSeconds(Microseconds / 10000));
+                var ts = Timebase.TimeOfDay.Add(TimeSpan.FromMilliseconds(Offset));
 
                 //sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
-                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, Pointer + sizeOf_RD_packet_T, MaxSize), ts, ep));
-                else using (var rtp = new Rtp.RtpPacket(Blob, Pointer + sizeOf_RD_packet_T)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, ep));
+                if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, Pointer + sizeOf_RD_packet_T, BlobLength - sizeOf_RD_packet_T), ts, Source));
+                else using (var rtp = new Rtp.RtpPacket(Blob, Pointer + sizeOf_RD_packet_T)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, Source));
 
                 return sb.ToString();    
             }
