@@ -274,7 +274,7 @@ namespace Media.Rtsp
                                 string ssrcPart = subParts[1];
 
                                 if (!int.TryParse(ssrcPart, out ssrc)) //plain int                        
-                                    ssrc = int.Parse(subParts[1], System.Globalization.NumberStyles.HexNumber); //hex
+                                    ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
                                 
                                 continue;
                             }
@@ -403,7 +403,8 @@ namespace Media.Rtsp
                                 string ssrcPart = subParts[1];
 
                                 if (!int.TryParse(ssrcPart, out ssrc)) //plain int                        
-                                    ssrc = int.Parse(subParts[1], System.Globalization.NumberStyles.HexNumber); //hex
+                                    ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
+
                                 continue;
                             }
                         default: continue;

@@ -83,15 +83,99 @@ namespace Media.Rtsp.Server.MediaTypes
                 // size += GetBits(sizeLength)
                 // index += GetBits(indexLength)
                 // Skip Length + 2.
+
+
+                /*
+                 AU Headers Length: is a two bytes field that specifies:
+                    The length in bits of the concatenated AU-headers. If the
+                    concatenated AU-headers consume a non-integer number
+                    of bytes, up to 7 zero-padding bits must be inserted at the
+                    end (PAD field) in order to achieve byte-alignment of the
+                    AU Header Section.
+                     * 
+                    ES_ID: is a two bytes field that specifies the ES_ID
+                    associated to the AUs carried in the reduced SL packet.
+                    This field is common to all the AUs encapsulated into the
+                    SL packet. This minimizes the overhead. The ES_ID field
+                    is the only one that must be present in the SL packet
+                    header.
+                    For each Access Unit in the SL packet, there is exactly
+                    one AU-header. Hence, the nth AU-header refers to the
+                    nth AU.
+                     * 
+                    AU Size 
+                     * Index/IndexDelta 
+                     * CTS-Flag CTS-Delta
+                     * DTS-Flag DTS-Delta
+                    Optional fields
+                     * 
+                    AU Size: indicates the size in bytes of the associated
+                    Access Unit in the reduced SL payload.
+                    Index / IndexDelta: indicates the serial number of the
+                    associated Access Unit (fragment). For each (in time)
+                    consecutive AU or AU fragment, the serial number is
+                    incremented with 1. The AU-Index-delta field is an
+                    unsigned integer that specifies the serial number of the
+                    associated AU as the difference with respect to the serial
+                    number of the previous Access Unit. The Index field
+                    appears only on the first AU Header of the reduced SL
+                    packet.
+                     * 
+                    CTS-Flag: Indicates whether the CTS-delta field is
+                    present. A value of 1 indicates that the field is present, a
+                    value of 0 that it is not present.
+                     * 
+                    CTS-Delta: Encodes the CTS by specifying the value of
+                    CTS as a 2's complement offset (delta) from the
+                    timestamp in the RTP header of this RTP packet. The CTS
+                    must use the same clock rate as the time stamp in the RTP
+                    header.
+                     * 
+                    DTS-Flag: Indicates whether the DTS-delta field is
+                    present. A value of 1 indicates that the field is present, a
+                    value of 0 that it is not present.
+                     * 
+                    DTS-Delta: specifies the value of the DTS as a 2's
+                    complement offset (delta) from the CTS timestamp. The
+                    DTS must use the same clock rate as the time stamp in the
+                    RTP header
+                 */
+
+                //Nafaa_PV2003_RTP4mux_camera_ready.pdf
+
+                //For each packet select the result of
                 this.Buffer = new MemoryStream(this.Distinct().SelectMany(rtp =>
                 {
+                    //Get the data
                     var coef = rtp.Coefficients;
 
-                    var size = Common.Binary.ReadU16(coef, 0, BitConverter.IsLittleEndian);
+                    //From the beginning of the data
+                    int offset = 0;
 
-                    if (size > 0) return coef.Skip(2 + sizeLength + indexLength).Take(size);
+                    //Read the AU Headers Length (in bits)
+                    var auHeaderLength = Common.Binary.ReadU16(coef, offset, BitConverter.IsLittleEndian);
 
-                    return coef.Skip(sizeLength + indexLength);
+                    //Convert bits to bytes
+                    auHeaderLength /= 8;
+
+                    //Move the offset
+                    offset += 2;
+
+                    //16 Bits more contains the aacSize and the aacIndex
+                    var composite = Common.Binary.ReadU16(coef, offset, BitConverter.IsLittleEndian);
+
+                    //Move the offset
+                    offset += 2;
+
+                    //The aac size is 13 bits
+                    var aacSize = composite & 0xFFF8;
+
+                    //The index is 3 bits
+                    var aacIndex = composite & 7;
+                    
+                    //Return the data which belongs to the access unit
+                    return coef.Skip(offset).Take(aacSize);
+
                 }).ToArray());
                 
             }
