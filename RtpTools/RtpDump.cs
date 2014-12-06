@@ -303,7 +303,7 @@ namespace Media.RtpTools.RtpDump
                 {
                     //Parse data and build packet from the textual data,
                     //If a Binary format is found m_FileHeader will contain any data which was unexpected by the ParseTextEntry process which should consists of the `#!rtpplay1.0 ...\n`                       
-                    entry = RtpSend.ParseText(m_Reader, ref foundFormat, out unexpectedData);
+                    entry = RtpSend.ParseText(m_Reader, m_Source, ref foundFormat, out unexpectedData);
                 }
 
                 //The format of the item does not match the reader(which would only happen if given an unknown format)

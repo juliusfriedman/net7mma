@@ -135,13 +135,35 @@ namespace Media.RtpTools
                844525727.922518 954850177 30670
            */
 
-            return new RtpToolEntry(timeBase, source, FileFormat.Short, memory, offset, fileOffset ?? 0);
 
-            //Will be performed if ManagedPacket is accessed
-            //BuildPacket(created);
+            if (source == null) source = new System.Net.IPEndPoint(0, 0);
 
-            //Only the read data can be restored. which consists barely of a header, this should be done when retrieved by the ManagedPacketProperty
-            //m_Boxed = new Rtp.RtpPacket(new Rtp.RtpHeader(2, false, false, false, 127, 1, 1, 9, 11), Enumerable.Empty<byte>(), true)
+            //Tokenize the entry
+            string [] entryParts = Encoding.ASCII.GetString(memory, 0, memory.Length - 1).Split((char)Common.ASCII.Space);
+
+            int partCount = entryParts.Length;
+
+            //Get timeBase.
+
+            //Parse the TS / Length In Words
+
+            double time = double.Parse(entryParts[0]);
+
+            if (partCount > 2)
+            {
+                //This is a Vat / Rtp entry
+
+                //Parse the SEQ
+
+                int ts = int.Parse(entryParts[1]);
+
+                return new RtpToolEntry(timeBase.AddMilliseconds(time), source, new Rtp.RtpPacket(2, false, false, ts < 0, 0, 0, 0, int.Parse(entryParts[2]), ts, Utility.Empty), offset, fileOffset ?? 0);
+
+            }
+            else
+            {
+                 return new RtpToolEntry(timeBase.AddMilliseconds(time), source, new Rtcp.RtcpPacket(2, 0, 0, 0, int.Parse(entryParts[1]), partCount > 2 ? int.Parse(entryParts[2]) : 0),offset, fileOffset ?? 0);
+            }
         }
 
         #endregion
@@ -258,15 +280,14 @@ namespace Media.RtpTools
             Source = source;
             Format = format;
             Blob = memory;
-            FileOffset = fileOffset ?? 0;
-            if(offset.HasValue) Offset = offset.Value;
+            FileOffset = fileOffset ?? 0;            
             BlobLength = memory.Length;
+            if (offset.HasValue) Offset = offset.Value;
         }
 
         public RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, Common.IPacket packet, int? offset = null, long? fileOffset = null)
-            : this(timeBase, source, FileFormat.Binary, packet.Prepare().ToArray(), offset, fileOffset)
+            : this(timeBase, source, FileFormat.Binary, CreatePacketHeader(packet, offset ?? 0).Concat(packet.Prepare()).ToArray(), offset, fileOffset)
         {
-            Blob = CreatePacketHeader(packet, offset ?? 0).Concat(Blob).ToArray();
             BlobLength = (int)(sizeOf_RD_packet_T + packet.Length);
         }
 
@@ -299,7 +320,7 @@ namespace Media.RtpTools
             //Get the format given or use the format of the Item existing
             format = format ?? Format;
 
-            //If the item was read in as Text it should have m_Format == Text and a boxed packet, just return the bytes as they were as to not waste memory
+            //If the item was read in as Text it should have m_Format == Text just return the bytes as they were as to not waste memory
             if (format == FileFormat.Text && Format >= FileFormat.Text) return Encoding.ASCII.GetString(Blob);
             else return ToTextualConvention(format);
         }
@@ -311,8 +332,6 @@ namespace Media.RtpTools
                 StringBuilder sb = new StringBuilder();
 
                 var ts = Timebase.TimeOfDay.Add(TimeSpan.FromMilliseconds(Offset));
-
-                //sb.AppendFormat("{0} len={1} from={2}", Timeoffset, Length, ep);
 
                 if (IsRtcp) sb.Append(RtpSend.ToTextualConvention(format ?? Format, Media.Rtcp.RtcpPacket.GetPackets(Blob, Pointer + sizeOf_RD_packet_T, BlobLength - sizeOf_RD_packet_T), ts, Source));
                 else using (var rtp = new Rtp.RtpPacket(Blob, Pointer + sizeOf_RD_packet_T)) sb.Append(RtpSend.ToTextualConvention(format ?? Format, rtp, ts, Source));
