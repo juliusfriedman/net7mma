@@ -80,7 +80,7 @@ namespace Tests
             //For all 20 bytes look for them in the ensure haystack starting at the beginning
             for (int offset = 0, test = 0, haystackLength = haystack.Length, count = haystackLength , needleBegin = 0, needleLength = needle.Length; 
                 //Perform tests up to the highest value in haystack by design
-                test < 20; ++test, offset = 0, count = haystackLength, needle[1] = (byte)test, needle[0] = (byte)(test - 1)) //increment the test and reset the offset each and count each time
+                test < haystackLength - 1; ++test, offset = 0, count = haystackLength, needle[1] = (byte)test, needle[0] = (byte)(test - 1)) //increment the test and reset the offset each and count each time
             {
                 //Look for the whole needle in the haystack
                 int offsetAfterParsing = Utility.ContainsBytes(haystack, ref offset, ref count, needle, needleBegin, needleLength);

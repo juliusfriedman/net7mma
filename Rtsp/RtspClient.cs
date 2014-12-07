@@ -444,41 +444,37 @@ namespace Media.Rtsp
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int received = 0;
 
-            //Check for letter
-            if (char.IsLetter((char)data[offset]))//Utility.ContainsBytes(memory.Array, ref offset, ref sliceCount, (Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray(), 0, 2) >= 0)  //Utility.FoundValidUniversalTextFormat(memory.Array, ref offset, ref sliceCount))
+            //Validate the data
+            RtspMessage interleaved = new RtspMessage(data, offset, length);
+
+            //Determine what to do with the interleaved message
+            switch (interleaved.MessageType)
             {
-                //Validate the data
-                RtspMessage interleaved = new RtspMessage(data, offset, length);
+                case RtspMessageType.Request: //Event for pushed messages?
+                case RtspMessageType.Response:
+                    {
+                        //Store the last message
+                        m_LastTransmitted = interleaved;
 
-                //Determine what to do with the interleaved message
-                switch (interleaved.MessageType)
-                {
-                    case RtspMessageType.Request: //Event for pushed messages?
-                    case RtspMessageType.Response:
-                        {
-                            //Store the last message
-                            m_LastTransmitted = interleaved;
+                        //Complete the message if not complete
+                        while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
 
-                            //Complete the message if not complete
-                            if (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
+                        //Update counters
+                        System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
 
-                            //Update counters
-                            System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
-
-                            goto default;
-                        }
-                    case RtspMessageType.Invalid:
-                        {
-                            interleaved.Dispose();
-                            interleaved = null;
-                            goto default;
-                        }
-                    default:
-                        {
-                            m_InterleaveEvent.Set();
-                            return;
-                        }
-                }
+                        goto default;
+                    }
+                case RtspMessageType.Invalid:
+                    {
+                        interleaved.Dispose();
+                        interleaved = null;
+                        goto default;
+                    }
+                default:
+                    {
+                        m_InterleaveEvent.Set();
+                        return;
+                    }
             }
         }
 

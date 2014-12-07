@@ -313,7 +313,7 @@ namespace Media
                 //Loop the buffer from start to count
                 while (start < count && checkedBytes < octetCount)
                 {
-
+                    //Ensure we account for the bytes checked.
                     int position = start + checkedBytes;
 
                     //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
