@@ -48,9 +48,9 @@ namespace Media.Rtsp.Server.MediaTypes
 {
 
     /// <summary>
-    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc6416">RFC6416</see> which is used for MPEG-4 Encoded video.
+    /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc6416">RFC6416</see> which is used for MPEG-4 Encoded video. (Formerly RFC3016)
     /// </summary>
-    public class RFC6416Media : RFC2435Media //RtpSink
+    public class RFC6416Media : RFC3640Media
     {
         public class RFC6416Frame : Rtp.RtpFrame
         {
@@ -134,13 +134,9 @@ namespace Media.Rtsp.Server.MediaTypes
         #region Constructor
 
         public RFC6416Media(int width, int height, string name, string directory = null, bool watch = true)
-            : base(name, directory, watch, width, height, false, 99)
+            : base(width, height, name, directory, watch)
         {
-            Width = width;
-            Height = height;
-            Width += Width % 8;
-            Height += Height % 8;
-            clockRate = 90;
+
         }
 
         #endregion
@@ -153,21 +149,29 @@ namespace Media.Rtsp.Server.MediaTypes
 
             base.Start();
 
-            //Remove JPEG Track
+            //Remove generic MPEG Track
             SessionDescription.RemoveMediaDescription(0);
             m_RtpClient.TransportContexts.Clear();
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the given payload type         
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
+            SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.audio, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 97));
 
-            //Add the control line
+            //Add the control line for video
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4V-ES/90000"));
-            
+
+            //Add the control line for audio
+            SessionDescription.MediaDescriptions[1].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions[1].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4A-LATM/90000"));
+
             //Should be a field set in constructor.
             SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("fmtp:96 profile-level-id=1"));
+            SessionDescription.MediaDescriptions[1].Add(new Sdp.SessionDescriptionLine("fmtp:97 profile-level-id=15; profile=1;"));
 
             m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
+
+            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(2, 3, sourceId, SessionDescription.MediaDescriptions[1], false, 0));
         }
 
         /// <summary>

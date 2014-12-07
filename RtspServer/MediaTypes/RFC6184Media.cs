@@ -160,6 +160,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public System.IO.MemoryStream Buffer { get; set; }
 
+            //Keep a list of encountered nal types so it can be augmented when Packetized or vice versa.
+
+            //Make methods for HasSps, HasPps etc which check that list.
+
             /// <summary>
             /// Creates any <see cref="Rtp.RtpPacket"/>'s required for the given nal
             /// </summary>
