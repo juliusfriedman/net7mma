@@ -65,25 +65,42 @@ namespace Media.Rtsp.Server.MediaTypes
             public void Packetize(byte[] accessUnit, int mtu = 1500)
             {
                 throw new NotImplementedException();
+
+                //If > 1500 an access unit for each 1500 bytes needs to be created.
+
             }
 
-            public void Depacketize(int sizeLength = 0, int indexLength = 0)
+            public void Depacketize(bool readHeaderLength = true, int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0)
             {
-                //Au Headers
-                //2 bytes length of headers
-                //If length > 0
-                //Length = (length + 7) / 8 (In bits)
-                // ReadBytes Length
-                // Calulcate header size
-                //Need indexLength from Media Description (fmtp line)
-                // headerSize = sizeLength + indexLength
-                //Determine if CTS, DTS, etc is needed
-                //Number of headers = Length / headerSize
-                //for(int i =0; i < number of headers; ++i)
-                // size += GetBits(sizeLength)
-                // index += GetBits(indexLength)
-                // Skip Length + 2.
+                #region Expired Draft Notes
 
+                /* https://tools.ietf.org/html/draft-ietf-avt-rtp-mpeg4
+                 4.2.1. ES_ID Signaling through the RTP Header
+                In a similar manner with the FlexMux tools [14]
+                (codeMux mode), we transmit in the RTP packet header a
+                code value that indicates the RTP payload organization. In
+                such a way to make a correspondence between each
+                ES_ID and its associated reduced SL packet, which is
+                carried in the RTP payload. This code field may be
+                mapped into the SSRC RTP header field (see Figure 4).
+                Nevertheless, this approach induces additional out of band
+                signaling of the correspondence tables between the
+                codeMux field and the associated ES_IDs.
+                In addition, the dynamic behavior of MPEG-4 scene
+                (e.g. apparition of a new ESs during the MPEG-4 session)
+                induces a continuous signaling of the correspondence
+                tables, which are exposed to loss. This will result in a
+                multiplexing blocking, then a decoding blocking. 
+                 */
+
+                //In short to comply with this draft a compatibility flag would be given and 2 more bytes would be skipped per AU.
+                //These 2 bytes contain the SL Header
+                //Then there is the ES_ID (2 bytes) right after the the AU Headers Length 
+
+                //Thus a total of 4 bytes need to be skipped only if trying to work with this old draft format.
+                #endregion
+
+                #region Audio Notes
 
                 /*
                  AU Headers Length: is a two bytes field that specifies:
@@ -93,7 +110,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     end (PAD field) in order to achieve byte-alignment of the
                     AU Header Section.
                      * 
-                    ES_ID: is a two bytes field that specifies the ES_ID
+                    [SL Packets Only (Draft)] ES_ID: is a two bytes field that specifies the ES_ID
                     associated to the AUs carried in the reduced SL packet.
                     This field is common to all the AUs encapsulated into the
                     SL packet. This minimizes the overhead. The ES_ID field
@@ -141,40 +158,160 @@ namespace Media.Rtsp.Server.MediaTypes
                     RTP header
                  */
 
-                //Nafaa_PV2003_RTP4mux_camera_ready.pdf
+                #endregion
 
                 //For each packet select the result of
                 this.Buffer = new MemoryStream(this.Distinct().SelectMany(rtp =>
                 {
-                    //Get the data
-                    var coef = rtp.Coefficients;
-
-                    //From the beginning of the data
-                    int offset = 0;
-
-                    //Read the AU Headers Length (in bits)
-                    var auHeaderLength = Common.Binary.ReadU16(coef, offset, BitConverter.IsLittleEndian);
-
-                    //Convert bits to bytes
-                    auHeaderLength /= 8;
-
-                    //Move the offset
-                    offset += 2;
-
-                    //16 Bits more contains the aacSize and the aacIndex
-                    var composite = Common.Binary.ReadU16(coef, offset, BitConverter.IsLittleEndian);
-
-                    //Move the offset
-                    offset += 2;
-
-                    //The aac size is 13 bits
-                    var aacSize = composite & 0xFFF8;
-
-                    //The index is 3 bits
-                    var aacIndex = composite & 7;
                     
-                    //Return the data which belongs to the access unit
-                    return coef.Skip(offset).Take(aacSize);
+                    //Create a sorted list to allow the de-interleaving of access units if required.
+                    //Todo only create if needed?
+                    SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
+
+                    //From the beginning of the data in the actual payload
+                    int offset = rtp.NonPayloadOctets, 
+                        max = rtp.Payload.Count - rtp.PaddingOctets, //until the end of the actual payload
+                        auIndex = 0, //Indicates the serial number of the associated Access Unit
+                        auIndexDelta = 0; //The AU-Index-delta field is an unsigned integer that specifies the serial number of the associated AU as the difference with respect to the serial number of the previous Access Unit.
+
+                    /*
+                       The AU-headers are configured using MIME format parameters and MAY be empty.  
+                       If the AU-header is configured empty, the AU-headers-length
+                       field SHALL NOT be present and consequently the AU Header Section is
+                       empty.  If the AU-header is not configured empty, then the AU-
+                       headers-length is a two octet field that specifies the length in bits
+                       of the immediately following AU-headers, excluding the padding bits.
+                       */
+
+                    //Determine the AU Headers Length (in bits)
+                    int auHeaderLength = 0,
+                        auSize = 0, //AU-Size And the length of the underlying Elementary Stream Data for that access unit
+                        parsedUnits = 0;
+
+                    //If we are reading the Access Unit Header Length
+                    if (readHeaderLength)
+                    {
+                        //Then read it
+                        auHeaderLength = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+
+                        //If the value was positive
+                        if (auHeaderLength > 0)
+                        {
+                            //Convert bits to bytes
+                            auHeaderLength /= 8;
+
+                            //Move the offset
+                            offset += 2;
+                        }
+                    }
+                    #region No AU Headers Length
+
+                    // The AU Headers Length is either not present or known..
+                    //{
+                    //    //Read the 'ES_ID'
+                    //    //ushort esId = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+
+                    //    //if (esId == 16) //This is AAC Audio 00 10?
+                    //}
+
+                    #endregion
+
+                    //Look for Access Units in the packet
+                    while (offset < max)
+                    {
+                        //AU Headers
+
+                        //sizeLength is the amount of bits set in composite which are used for the size of the access unit
+
+                        //indexLength is the amount of bits set in composite which are used for the index of the access unit
+
+                        //If there was an AU HeadersLegth The size and index and related are given from a configuration
+                        if (auHeaderLength > 0)
+                        {
+                            //Read a variable size integer given by the auHeaderLength  usually (0 - 2  bytes)
+                            long composite = Common.Binary.ReadInteger(rtp.Payload, offset, auHeaderLength, BitConverter.IsLittleEndian);
+
+                            //Move the offset past the bytes read
+                            offset += auHeaderLength;
+
+                            //The size of the esData is given by removing the bits used for the index
+                            auSize = (int)composite >> indexLength;
+
+                            //The index of the access unit is given by removing the bits used for the size
+                            auIndex = (int)composite << sizeLength;
+
+                            /*
+                             AU-Index-delta: The AU-Index-delta field is an unsigned integer that
+                              specifies the serial number of the associated AU as the difference
+                              with respect to the serial number of the previous Access Unit.
+                              Hence, for the n-th (n>1) AU, the serial number is found from:
+
+                              AU-Index(n) = AU-Index(n-1) + AU-Index-delta(n) + 1
+
+                              If the AU-Index field is present in the first AU-header in the AU
+                              Header Section, then the AU-Index-delta field MUST be present in
+                              any subsequent (non-first) AU-header.  When the AU-Index-delta is
+                              coded with the value 0, it indicates that the Access Units are
+                              consecutive in decoding order.  An AU-Index-delta value larger
+                              than 0 signals that interleaving is applied.
+                             */
+
+                            //For the first access unit determine the auIndexDelta
+                            if (parsedUnits == 0 && indexDeltaLength > 0)
+                            {
+                                //The delta index is given by removing the bits in the auIndex which are used for the index itself.
+                                auIndexDelta = auIndex << indexDeltaLength;
+
+                                //Interleaving is applied
+                                //if (auIndexDelta > 0) 
+                            }
+                        }
+                        else //auHeaderLength is 0
+                        {
+                            //Assume that there is no information related to size or index and all data in this packet belongs to a single access unit.
+                            return rtp.Payload.Skip(offset);
+                        }
+
+                        #region Zero sizeLength or Zero indexLength
+                        //The size and index need to be determined before proceeding (this is an example for AAC lbr and AAC hbr)
+                        //{
+
+                        //    //////16 Bits (or more) contains the size and the index
+                        //    ////ushort composite = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+
+                        //    //////Move the offset
+                        //    ////offset += 2;
+
+                        //    //////This specifically applies for Audio media type AAC-hbr
+
+                        //    //////The aac size is 13 bits
+                        //    ////esDataLength = composite >> 3;
+
+                        //    //////The index is 3 bits, when interleaving the access units should be sorted by this before being written to the resulting stream.
+                        //    ////accessUnitIndex = composite & 7;
+
+                        //    //////This specifically applies for Audio media type AAC-lbr
+
+                        //    //////The aac size is 6 bits
+                        //    ////esDataLength = composite >> 2;
+
+                        //    //////The index is 2 bits
+                        //    ////accessUnitIndex = composite & 3;
+                        //}
+                        #endregion
+
+                        //Return the data which belongs to the access unit
+                        IEnumerable<byte> accessUnit = rtp.Payload.Skip(offset).Take(auSize);
+
+                        //Add the Access Unit to the list and move to the next in the packet payload
+                        accessUnits.Add(auIndex, accessUnit);
+
+                        //Keep track of the amount of access units parsed
+                        ++parsedUnits;
+                    }
+
+                    //Return the access units in decoding order
+                    return accessUnits.SelectMany(au=> au.Value);
 
                 }).ToArray());
                 

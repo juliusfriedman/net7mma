@@ -420,20 +420,6 @@ namespace Media.Rtp
 
                 SendersReport result = new SendersReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
 
-                DateTime now = DateTime.UtcNow;
-
-                //result.NtpTimestamp = 0; //Disable Ntp
-
-                //Use the values from the TransportChannel
-                result.NtpTime = now;
-                result.RtpTimestamp = context.RtpTimestamp;
-
-                //Counters
-                result.SendersOctetCount = (int)context.RtpBytesSent;
-                result.SendersPacketCount = (int)context.RtpPacketsSent;
-
-                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null && context.TotalRtpPacketsSent > 0);
-
                 //If source blocks are included include them and calculate their statistics
                 if (!empty)
                 {
@@ -477,9 +463,18 @@ namespace Media.Rtp
                         //The middle 32 bits out of 64 in the NTP timestamp (as explained in Section 4) received as part of the most recent RTCP sender report (SR) packet from source SSRC_n. If no SR has been received yet, the field is set to zero.
                         (int)((context.NtpTimestamp >> 16) << 32),
                         //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
-                        (int)(now - context.LastRtcpReportSent).TimeOfDay.TotalSeconds / 65535));
-                    //(int)DateTime.UtcNow.Subtract(context.LastRtcpReportSent).TotalSeconds / 65535));
+                        (int)context.LastRtcpReportSent.TotalSeconds / ushort.MaxValue));
                 }
+
+                //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)
+                result.NtpTime = DateTime.UtcNow;
+                result.RtpTimestamp = context.RtpTimestamp;
+
+                //Counters
+                result.SendersOctetCount = (int)context.RtpBytesSent;
+                result.SendersPacketCount = (int)context.RtpPacketsSent;
+
+                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null && context.TotalRtpPacketsSent > 0);
 
                 return result;
             }
@@ -531,7 +526,7 @@ namespace Media.Rtp
                         (int)context.SequenceNumber,
                         (int)context.RtpJitter,
                         (int)(context.SendersReport != null ? Utility.DateTimeToNptTimestamp32(context.SendersReport.NtpTime) : 0),
-                        (context.SendersReport != null ? ((DateTime.UtcNow - context.SendersReport.Created).Seconds / 65535) * 1000 : 0)
+                        (context.SendersReport != null ? ((DateTime.UtcNow - context.SendersReport.Created).Seconds / ushort.MaxValue) * 1000 : 0)
                     ));
 
                 }
@@ -1013,27 +1008,17 @@ namespace Media.Rtp
             public void UpdateJitterAndTimestamp(RtpPacket packet)
             {
                 // RFC 3550 A.8.
-
                 //Determine the time the last packet was sent or received
-                DateTime timeReference = (packet.Transferred.HasValue ? m_LastRtpOut : m_LastRtpIn);
+                TimeSpan arrivalDifference = (packet.Transferred.HasValue ? LastRtpPacketSent : LastRtpPacketReceived);
+
+                //Calulcate the RtpJitter using the interarrival difference and set the RtpTransit
+                RtpJitter += (uint)((1d / 16d) * ((double)(RtpTransit = (uint)arrivalDifference.TotalMilliseconds) - RtpTransit));
                 
-                //Calulcate the difference between that time and the time the packet was created or transfered.
-                double arrivalDifference = timeReference.Subtract(packet.Transferred ?? packet.Created).TotalMilliseconds;
-
-                //double transit = (packet.Timestamp - (RtpTimestamp == 0 ? packet.Timestamp : RtpTimestamp)) + arrivalDifference;
-
                 //Update the RtpTimestamp on the Context
                 RtpTimestamp = packet.Timestamp;
 
-                int d = (int)(arrivalDifference - RtpTransit);
-                
-                if (d < 0) d = -d;
-
-                RtpTransit = (uint)d;
-
-                RtpJitter = (uint)((1d / 16d) * ((double)d - RtpJitter));
-
-                //NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow);
+                //Context is not inactive.
+                m_InactiveTime = TimeSpan.Zero;
             }
 
             /// <summary>
@@ -1626,9 +1611,6 @@ namespace Media.Rtp
             //* Note that the events should only expose Headers and the Payload should be Taboo unless within the implementation.*
             //A Mechanism would be required to subsequently retrieve the payload from the header if the packet is still `alive` e.g. not disposed.
 
-            //Sample the clock
-            DateTime now = DateTime.UtcNow;
-
             //Get a context for the packet by the identity of the receiver
             TransportContext transportContext = GetContextForPacket(packet);
 
@@ -1666,18 +1648,17 @@ namespace Media.Rtp
             //Make a copy of the packet now and only refer to this copy
             RtcpPacket localPacket = packet;
 
-            //////A valid RtcpPacket is received if not complete then complete it now
-            if (!localPacket.IsComplete)
+            //Complete the RtcpPacket if required.
+            while (!localPacket.IsComplete)
             {
-                //localPacket = packet.Clone(true, true, false);
-                //The packet will use the existing buffer to complete itself if possible otherwise it WILL allocte memory
-                localPacket.CompleteFrom(transportContext.RtcpSocket, localPacket.Payload);
+                //Complete the packet.
+                int received = localPacket.CompleteFrom(transportContext.RtcpSocket, localPacket.Payload);
             }
 
-            //Last Rtcp happened now.
-            transportContext.m_LastRtcpIn = now;
+            //Last Rtcp packet was received right now now.
+            transportContext.m_LastRtcpIn = packet.Created;
 
-            //Not inactive.
+            //The context is active.
             transportContext.m_InactiveTime = TimeSpan.Zero;
 
             //Increment packets received for the valid context.
@@ -1687,9 +1668,9 @@ namespace Media.Rtp
             Interlocked.Add(ref transportContext.RtcpBytesRecieved, localPacket.Length);
 
             //Set the time when the first rtcp packet was recieved
-            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = now;
+            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = packet.Created;
 
-            //Fire event
+            //Fire event for the packet
             OnRtcpPacketReceieved(packet);
 
             //bool goodBye = packet.PayloadType == Rtcp.GoodbyeReport.PayloadType;
@@ -1736,9 +1717,6 @@ namespace Media.Rtp
                 return;
             }
 
-            //Sample the clock
-            DateTime now = DateTime.UtcNow;
-
             //Get the transportChannel for the packet by the payload type of the RtpPacket, not the SSRC because it may have not yet been defined.
             //This is not per RFC3550
             TransportContext transportContext = GetContextForPacket(packet);
@@ -1776,16 +1754,16 @@ namespace Media.Rtp
             RtpPacket localPacket = packet;
 
             //if the packet is not complete then complete it now
-            if (!localPacket.IsComplete)
+            while (!localPacket.IsComplete)
             {
-                //localPacket = packet.Clone(true, true, true, true, false);
-                localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
+                //Complete the packet
+                int received = localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
             }
 
             //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
             OnRtpPacketReceieved(localPacket);
 
-            //If the packet is not valid then nothing can be done.
+            //If the packet is not valid then nothing further needs to be done as invalid count is maintained by the ValidatePacketAndUpdateSequenceNumber function.
             if (!transportContext.ValidatePacketAndUpdateSequenceNumber(localPacket)) return;
 
             //Increment RtpPacketsReceived for the context relating to the packet.
@@ -1794,19 +1772,19 @@ namespace Media.Rtp
             //The counters for the bytes will now be be updated
             Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count);
 
-            //Set the time when the first RtpPacket was received
-            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_LastRtpIn = transportContext.m_FirstPacketReceived = now;
+            //Set the time when the first RtpPacket was received if required
+            if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = packet.Created;
 
-            //Context is not inactive.
-            transportContext.m_InactiveTime = TimeSpan.Zero;
-
+            //Update the SequenceNumber and Timestamp and calulcate Inter-Arrival (Mark the context as active)
             transportContext.UpdateJitterAndTimestamp(localPacket);
 
-            //Set the last rtp in
-            transportContext.m_LastRtpIn = now;
+            //Set the last rtp in after inter-arrival has been calculated.
+            transportContext.m_LastRtpIn = packet.Created;
 
+            //If the instance does not handle frame changed events then return
             if (!FrameChangedEventsEnabled) return;
 
+            //Check for the packet payload type to be the same as the context media format.
             //if (packet.PayloadType != transportContext.MediaDescription.MediaFormat) return;
 
             try
@@ -1901,17 +1879,17 @@ namespace Media.Rtp
             //Sample the clock for when the last rtp packet was sent
             DateTime sent = packet.Transferred.Value;
 
-            transportContext.m_InactiveTime = TimeSpan.Zero;
-
             //Set the time the first packet was sent.
-            if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_LastRtpOut = transportContext.m_FirstPacketSent = sent;
+            if (transportContext.m_FirstPacketSent == DateTime.MinValue) transportContext.m_FirstPacketSent = sent;
 
+            //If the packet was in sequence
             if (transportContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
-                //update the jitter
+                //Calculate inter-arrival and mark the context as active
                 transportContext.UpdateJitterAndTimestamp(packet);
             }
 
+            //Store the time the last RtpPacket was sent.
             transportContext.m_LastRtpOut = sent;
         }
 
@@ -1922,16 +1900,22 @@ namespace Media.Rtp
 
             TransportContext transportContext = GetContextForPacket(packet);
 
+            //if there is no context there is nothing to do.
             if (transportContext == null) return;
 
+            //Update the counters for the amount of bytes in the RtcpPacket including the header and any padding.
             Interlocked.Add(ref transportContext.RtcpBytesSent, packet.Length);
 
+            //Update the amount of packets sent
             Interlocked.Increment(ref transportContext.RtcpPacketsSent);
 
+            //Mark the context as active immediately.
             transportContext.m_InactiveTime = TimeSpan.Zero;
 
+            //Get the time the packet was sent
             DateTime sent = packet.Transferred.Value;
 
+            //Store the last time a RtcpPacket was sent
             transportContext.m_LastRtcpOut = sent;
 
             //Set the time the first packet was sent.
