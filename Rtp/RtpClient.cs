@@ -420,6 +420,21 @@ namespace Media.Rtp
 
                 SendersReport result = new SendersReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
 
+
+                //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)[Should allow for this to be disabled]
+                result.NtpTime = DateTime.UtcNow;
+
+                //Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet.  Rather, it MUST be  calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
+                                                            //(int)(context.RtpTimestamp - context.LastRtpPacketSent.TotalMilliseconds);
+                result.RtpTimestamp = context.RtpTimestamp; 
+
+                //Counters
+                result.SendersOctetCount = (int)context.RtpBytesSent;
+                result.SendersPacketCount = (int)context.RtpPacketsSent;
+
+                //Ensure there is a remote party
+                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null);
+
                 //If source blocks are included include them and calculate their statistics
                 if (!empty)
                 {
@@ -465,17 +480,7 @@ namespace Media.Rtp
                         //The delay, expressed in units of 1/65536 seconds, between receiving the last SR packet from source SSRC_n and sending this reception report block. If no SR packet has been received yet from SSRC_n, the DLSR field is set to zero.
                         (int)context.LastRtcpReportSent.TotalSeconds / ushort.MaxValue));
                 }
-
-                //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)
-                result.NtpTime = DateTime.UtcNow;
-                result.RtpTimestamp = context.RtpTimestamp;
-
-                //Counters
-                result.SendersOctetCount = (int)context.RtpBytesSent;
-                result.SendersPacketCount = (int)context.RtpPacketsSent;
-
-                empty = !(!empty && context.RemoteSynchronizationSourceIdentifier != null && context.TotalRtpPacketsSent > 0);
-
+                
                 return result;
             }
 
@@ -524,12 +529,13 @@ namespace Media.Rtp
                            (byte)fraction,
                         lost,
                         (int)context.SequenceNumber,
-                        (int)context.RtpJitter,
+                        (int)context.RtpJitter >> 4,
                         (int)(context.SendersReport != null ? Utility.DateTimeToNptTimestamp32(context.SendersReport.NtpTime) : 0),
                         (context.SendersReport != null ? ((DateTime.UtcNow - context.SendersReport.Created).Seconds / ushort.MaxValue) * 1000 : 0)
                     ));
 
                 }
+
                 return result;
             }
 
@@ -1012,8 +1018,8 @@ namespace Media.Rtp
                 TimeSpan arrivalDifference = (packet.Transferred.HasValue ? LastRtpPacketSent : LastRtpPacketReceived);
 
                 //Calulcate the RtpJitter using the interarrival difference and set the RtpTransit
-                RtpJitter += (uint)((1d / 16d) * ((double)(RtpTransit = (uint)arrivalDifference.TotalMilliseconds) - RtpTransit));
-                
+                RtpJitter += ((RtpTransit = (uint)arrivalDifference.TotalMilliseconds) - ((RtpJitter + 8) >> 4));
+
                 //Update the RtpTimestamp on the Context
                 RtpTimestamp = packet.Timestamp;
 
