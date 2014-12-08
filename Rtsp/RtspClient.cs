@@ -115,14 +115,14 @@ namespace Media.Rtsp
         /// </summary>
         SessionDescription m_SessionDescription;
 
-        TimeSpan m_RtspTimeout;
+        TimeSpan m_RtspTimeout = TimeSpan.FromSeconds(60);
 
         /// <summary>
         /// Need to seperate counters and other stuff
         /// </summary>
         int m_SentBytes, m_ReceivedBytes,
              m_RtspPort, m_CSeq,
-            m_RetryCount = 5;
+            m_RetryCount = 1;
 
         HashSet<RtspMethod> m_SupportedMethods = new HashSet<RtspMethod>();
 
@@ -453,15 +453,16 @@ namespace Media.Rtsp
                 case RtspMessageType.Request: //Event for pushed messages?
                 case RtspMessageType.Response:
                     {
-
-                        //Disposes the last message.
-                        m_LastTransmitted.Dispose();
-
                         //Complete the message if not complete
                         while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
 
                         //Update counters
                         System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
+
+                        //Disposes the last message.
+                        m_LastTransmitted.Dispose();
+
+                        m_LastTransmitted = null;
 
                         //Store the last message
                         m_LastTransmitted = interleaved;
@@ -781,12 +782,12 @@ namespace Media.Rtsp
 
             Wait:
                 //We have not yet received a response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                while (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response && ++attempt < m_RetryCount)                     
-                    if (m_InterleaveEvent.Wait(SocketReadTimeout)) break;
+                while (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response && ++attempt <= m_RetryCount)                     
+                    if (m_InterleaveEvent.Wait(m_RtspTimeout)) break;
                     else if (!Playing || m_RtpProtocol == ProtocolType.Udp) goto Receive; //jne
 
                 //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
-                if (m_LastTransmitted != null && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
+                if (m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
                 {
                     //http://tools.ietf.org/html/rfc2617
                     //3.2.1 The WWW-Authenticate Response Header
@@ -881,7 +882,8 @@ namespace Media.Rtsp
                     }
                 }
 
-                if (m_LastTransmitted != null)
+                //Check for the response.
+                if (m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response)
                 {
                     //TODO
                     //REDIRECT (Handle loops)
@@ -935,11 +937,13 @@ namespace Media.Rtsp
                             {
                                 //The timeout was not present
                                 m_SessionId = sessionHeader.Trim();
+
+                                m_RtspTimeout = TimeSpan.FromSeconds(60);//Default
                             }
                         }
                     }
 
-                    if (m_LastTransmitted != null) Received(request, m_LastTransmitted);
+                    Received(request, m_LastTransmitted);
                 }
 
                 //Return the result
