@@ -403,7 +403,7 @@ namespace Media
                 if (amount > max) amount = max;
 
                 //While there is something to receive
-                while (amount > 0 /* && offset <= max*/)
+                while (amount > 0)
                 {
                     lock (socket)
                     {
@@ -412,10 +412,13 @@ namespace Media
 
                         //decrease the amount by what was received
                         amount -= justReceived;
+                        
                         //Increase the offset by what was received
                         offset += justReceived;
+                        
                         //Increase total received
                         totalReceived += justReceived;
+
                         //If nothing was received
                         if (justReceived == 0)
                         {
@@ -426,13 +429,8 @@ namespace Media
                             if (attempt > amount) error = SocketError.TimedOut;
                         }
 
-                        //Break on any error besides WouldBlock, Could use Poll here
-                        if (error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset)
-                        {
-                            //Set the total to the amount given because something bad happened
-                            return totalReceived;
-                        }
-                        else if (offset > max) break;
+                        //Break on offset reaching the max or any error which requires
+                        if (offset >= max ||error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset) break;
                     }
                 }
 

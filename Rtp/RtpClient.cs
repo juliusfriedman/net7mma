@@ -3163,7 +3163,7 @@ namespace Media.Rtp
             if (count <= 0) return;
 
             //If rtcp should be parsed
-            if (mRemaining > RtcpHeader.Length && parseRtcp)
+            if (mRemaining >= RtcpHeader.Length && parseRtcp)
             {
                 //Copy valid RtcpPackets out of the buffer now, if any packet is not complete it will be completed only if required.
                 foreach (RtcpPacket rtcp in RtcpPacket.GetPackets(memory.Array, offset + index, mRemaining))
@@ -3174,13 +3174,14 @@ namespace Media.Rtp
 
                     //Move the offset the length of the packet parsed
                     index += rtcp.Length;
+
                     mRemaining -= rtcp.Length;
                 }
 
             }
 
             //If rtp is parsed
-            if (mRemaining > RtpHeader.Length && parseRtp)
+            if (mRemaining >= RtpHeader.Length && parseRtp)
             {
                 //Create a packet from the data received, if the packet is not complete it will be completed only if required.
                 using (RtpPacket rtp = new RtpPacket(memory.Array.Skip(offset + index).Take(count).ToArray(), 0))
