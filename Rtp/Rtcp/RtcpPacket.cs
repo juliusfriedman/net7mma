@@ -102,12 +102,10 @@ namespace Media.Rtcp
             if (count + offset > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
 
             //While  a 32 bit value remains to be read in the vector
-            while (offset + 4 < upperBound && count >= RtcpHeader.Length)
+            while (offset + RtcpHeader.Length < upperBound && count >= RtcpHeader.Length)
             {
-                //OctetSegment parsing = new OctetSegment(array, index + offset, count - offset);
-
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, RtcpHeader.Length)))  ///new RtcpHeader(array, offset))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count - RtcpHeader.Length)))
                 {
                     //Get the lenth in words
                     int lengthInWords = header.LengthInWordsMinusOne;
