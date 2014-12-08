@@ -102,12 +102,12 @@ namespace Media.Rtcp
             if (count + offset > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
 
             //While  a 32 bit value remains to be read in the vector
-            while (offset + 4 < count && count - offset >= RtcpHeader.Length)
+            while (offset + 4 < upperBound && count >= RtcpHeader.Length)
             {
                 //OctetSegment parsing = new OctetSegment(array, index + offset, count - offset);
 
                 //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count - offset)))  ///new RtcpHeader(array, offset))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, RtcpHeader.Length)))  ///new RtcpHeader(array, offset))
                 {
                     //Get the lenth in words
                     int lengthInWords = header.LengthInWordsMinusOne;
@@ -122,10 +122,13 @@ namespace Media.Rtcp
                     int lengthInBytes = ((lengthInWords + 1) * 4) - payloadOffset;
 
                     //Create a packet using the existing header and the bytes left in the packet
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, Math.Min(lengthInBytes, count - (offset + payloadOffset)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, Math.Min(lengthInBytes, upperBound - (offset + payloadOffset)))))
                     {
                         //Move the offset the length in bytes of the size of the last packet (including the header).
                         offset += newPacket.Length;
+
+                        //Reduce the count
+                        count -= newPacket.Length;
 
                         //Check for the optional parameters
                         if (payloadType.HasValue && payloadType.Value != header.PayloadType ||  // Check for the given payloadType if provided

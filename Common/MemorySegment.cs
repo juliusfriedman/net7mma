@@ -60,12 +60,12 @@ namespace Media.Common
 
         IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
-            return m_Array.Skip(m_Offset).Take(m_Length).GetEnumerator();
+            return m_Array.Skip(m_Offset).Take(m_Length).GetEnumerator(); //Skip is slow (N)
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return m_Array.Skip(m_Offset).Take(m_Length).GetEnumerator();
+            return m_Array.Skip(m_Offset).Take(m_Length).GetEnumerator(); //Skip is slow (N)
         }
 
         public byte this[int index]
@@ -75,7 +75,13 @@ namespace Media.Common
         }
 
         //To MemoryStream
+
+        //ToArray
+
+        //ICollection.CopyTo
     }
 
     //Todo Profile using a concrete IEnumerator implementation which can be constructed given another with a start and offset.
+
+    //VirtualEnumerable
 }
