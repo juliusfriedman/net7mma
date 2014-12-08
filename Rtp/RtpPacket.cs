@@ -239,7 +239,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="buffer">The buffer which contains the binary RtpPacket to decode</param>
         /// <param name="offset">The offset to start copying</param>
-        public RtpPacket(byte[] buffer, int offset)
+        public RtpPacket(byte[] buffer, int offset) //needs count
         {
             if (buffer == null || buffer.Length == 0) throw new ArgumentException("Must have data in a RtpPacket");
 
@@ -269,6 +269,8 @@ namespace Media.Rtp
                 Payload = new MemorySegment(0);
             }
         }
+
+        //Should have constructor with Length and then call with offset - length
 
         /// <summary>
         /// Creates a RtpPacket instance from the given segment of memory.
