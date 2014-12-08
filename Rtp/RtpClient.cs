@@ -3165,7 +3165,7 @@ namespace Media.Rtp
             //If rtcp should be parsed
             if (mRemaining >= RtcpHeader.Length && parseRtcp)
             {
-                //Create RtcpPackets out of the buffer now, if any packet is not complete it will be completed only if required.
+                //Copy valid RtcpPackets out of the buffer now, if any packet is not complete it will be completed only if required.
                 foreach (RtcpPacket rtcp in RtcpPacket.GetPackets(memory.Array, offset + index, mRemaining))
                 {
                     //Raise an event for each packet.
@@ -3175,16 +3175,16 @@ namespace Media.Rtp
                     //Move the offset the length of the packet parsed
                     index += rtcp.Length;
 
-                    //Calculate the amount of octets remaining in the segment.
                     mRemaining -= rtcp.Length;
                 }
+
             }
 
             //If rtp is parsed
             if (mRemaining >= RtpHeader.Length && parseRtp)
             {
                 //Create a packet from the data received, if the packet is not complete it will be completed only if required.
-                using (RtpPacket rtp = new RtpPacket(new Common.MemorySegment(memory.Array, offset + index, count)))
+                using (RtpPacket rtp = new RtpPacket(memory.Array.Skip(offset + index).Take(mRemaining).ToArray(), 0))
                 {
                     //Raise the event
                     HandleIncomingRtpPacket(this, rtp);
@@ -3196,6 +3196,8 @@ namespace Media.Rtp
                     mRemaining -= rtp.Length;
                 }
             }
+
+            return;
         }
 
         /// <summary>
@@ -3275,7 +3277,7 @@ namespace Media.Rtp
 
                     int remove = m_OutgoingRtcpPackets.Count;
 
-                    if (remove > 0)
+                    if (m_OutgoingRtcpPackets.Count > 0)
                     {
                         //Try and send the lot of them
                         if (SendRtcpPackets(m_OutgoingRtcpPackets) > 0) lastOperation = DateTime.UtcNow;
@@ -3288,13 +3290,12 @@ namespace Media.Rtp
 
                     #region Handle Outgoing RtpPackets
 
-                    remove = m_OutgoingRtpPackets.Count;
-
-                    if (remove > 0)
+                    if (m_OutgoingRtpPackets.Count > 0)
                     {
                         //Could check for timestamp more recent then packet at 0  on transporContext and discard...
                         //Send only A few at a time to share with rtcp
-                        
+                        remove = 0;
+
                         //int? lastTimestamp;
 
                         //Take the array to reduce exceptions
@@ -3302,7 +3303,7 @@ namespace Media.Rtp
                         {
                             TransportContext sendContext = GetContextForPacket(packet);
 
-                            //Don't send packets which are disposed or have no context but do remove them
+                            //Don't send packets which are disposed but do remove them
                             if (packet == null || packet.Disposed || sendContext == null)
                             {
                                 ++remove;
@@ -3313,7 +3314,7 @@ namespace Media.Rtp
                                 ++remove;
                                 lastOperation = DateTime.UtcNow;
                             }
-                            else break; //Stop on the first error.
+                            else break;
 
                             //If this was a marker packet then stop for now
                             if (packet.Marker) break;
@@ -3323,7 +3324,6 @@ namespace Media.Rtp
                             //lastTimestamp = packet.Timestamp;
                         }
 
-                        //Remove sent packets
                         if(remove > 0) m_OutgoingRtpPackets.RemoveRange(0, remove);
                     }
 
