@@ -1401,7 +1401,6 @@ namespace Media.Rtsp
 
         #endregion
 
-
         #region Operators
 
         public static bool operator ==(RtspMessage a, RtspMessage b)

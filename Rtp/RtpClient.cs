@@ -422,7 +422,7 @@ namespace Media.Rtp
 
 
                 //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)[Should allow for this to be disabled]
-                result.NtpTime = DateTime.UtcNow;
+                result.NtpTimestamp = context.NtpTimestamp;
 
                 //Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet.  Rather, it MUST be  calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
                                                             //(int)(context.RtpTimestamp - context.LastRtpPacketSent.TotalMilliseconds);
@@ -1022,6 +1022,9 @@ namespace Media.Rtp
 
                 //Update the RtpTimestamp on the Context
                 RtpTimestamp = packet.Timestamp;
+
+                //Update the NtpTimestamp on the Context.
+                NtpTimestamp = (long)Utility.DateTimeToNptTimestamp((packet.Transferred ?? packet.Created));
 
                 //Context is not inactive.
                 m_InactiveTime = TimeSpan.Zero;
