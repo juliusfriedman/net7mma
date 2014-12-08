@@ -453,8 +453,9 @@ namespace Media.Rtsp
                 case RtspMessageType.Request: //Event for pushed messages?
                 case RtspMessageType.Response:
                     {
-                        //Store the last message
-                        m_LastTransmitted = interleaved;
+
+                        //Disposes the last message.
+                        m_LastTransmitted.Dispose();
 
                         //Complete the message if not complete
                         while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
@@ -462,12 +463,17 @@ namespace Media.Rtsp
                         //Update counters
                         System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
 
+                        //Store the last message
+                        m_LastTransmitted = interleaved;
+
                         goto default;
                     }
                 case RtspMessageType.Invalid:
                     {
                         interleaved.Dispose();
+
                         interleaved = null;
+
                         goto default;
                     }
                 default:
@@ -1528,6 +1534,12 @@ namespace Media.Rtsp
             {
                 m_InterleaveEvent.Dispose();
                 m_InterleaveEvent = null;
+            }
+
+            if (m_LastTransmitted != null)
+            {
+                m_LastTransmitted.Dispose();
+                m_LastTransmitted = null;
             }
 
             OnConnect = null;

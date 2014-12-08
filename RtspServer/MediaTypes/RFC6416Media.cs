@@ -92,6 +92,8 @@ namespace Media.Rtsp.Server.MediaTypes
                 else Add(new Rtp.RtpPacket(2, false, false, true, PayloadTypeByte, 0, SynchronizationSourceIdentifier, HighestSequenceNumber + 1, 0, nal));
             }
 
+            //Should the ObjectType be allowed to be given? 3 or 5 for Audio?
+
             /// <summary>
             /// Write the required prerequesite data to the Buffer along with the Video Frame.
             /// </summary>
@@ -105,6 +107,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 /*
                   Example usages for the "profile-level-id" parameter are:
                   1  : MPEG-4 Visual Simple Profile/Level 1
+                  15 : AAC?
                   34 : MPEG-4 Visual Core Profile/Level 2
                   145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
                  */

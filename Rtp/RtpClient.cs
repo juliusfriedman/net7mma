@@ -417,15 +417,13 @@ namespace Media.Rtp
             /// <returns>The report created</returns>
             public static SendersReport CreateSendersReport(TransportContext context, bool empty)
             {
-
+                //Create a SendersReport
                 SendersReport result = new SendersReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
-
 
                 //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)[Should allow for this to be disabled]
                 result.NtpTimestamp = context.NtpTimestamp;
 
                 //Note that in most cases this timestamp will not be equal to the RTP timestamp in any adjacent data packet.  Rather, it MUST be  calculated from the corresponding NTP timestamp using the relationship between the RTP timestamp counter and real time as maintained by periodically checking the wallclock time at a sampling instant.
-                                                            //(int)(context.RtpTimestamp - context.LastRtpPacketSent.TotalMilliseconds);
                 result.RtpTimestamp = context.RtpTimestamp; 
 
                 //Counters
@@ -1024,7 +1022,7 @@ namespace Media.Rtp
                 RtpTimestamp = packet.Timestamp;
 
                 //Update the NtpTimestamp on the Context.
-                NtpTimestamp = (long)Utility.DateTimeToNptTimestamp((packet.Transferred ?? packet.Created));
+                NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(packet.Transferred ?? packet.Created);
 
                 //Context is not inactive.
                 m_InactiveTime = TimeSpan.Zero;

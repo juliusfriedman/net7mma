@@ -947,16 +947,16 @@ namespace Media.Rtsp
 
                 //Messages without a contentLength are complete
                 if (string.IsNullOrWhiteSpace(contentLength)) return true;
-                else if (string.IsNullOrWhiteSpace(m_Body)) return false; //Messages with ContentLength but no Body are not.
-
-                //Calulcate the amount of bytes in the body
-                int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
 
                 //If the content-length header cannot be parsed or the length > the data in the body the message is invalid
+                int supposedCount;
                 if (!int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return false;
+                
+                //Messages with ContentLength but no Body are not.
+                if (supposedCount > 0 && string.IsNullOrWhiteSpace(m_Body)) return false; 
 
                 //Determine if the count of the octets in the body is equal to the supposed amount
-                return !(encodedBodyCount != supposedCount);
+                return supposedCount == 0 || !(Encoding.GetByteCount(m_Body) != supposedCount);
             }
         }
 
