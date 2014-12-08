@@ -299,7 +299,7 @@ namespace Media
             if (count < start) count = bufferLength - start;
 
             //Make sure there is no way to run out of bounds given correct input
-            if (bufferLength < octetCount || start + count > bufferLength) return -1;
+            if (bufferLength < octetCount || start + octetCount > bufferLength) return -1;
 
             //Nothing to search nothing to return, leave start where it was.
             if (octetCount == 0 && bufferLength == 0) return -1;
