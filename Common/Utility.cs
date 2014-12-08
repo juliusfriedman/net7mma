@@ -295,9 +295,6 @@ namespace Media
             //Cache the length
             int bufferLength = buffer.Length;
 
-            //Maybe in reverse, undefined...
-            if (count < start) count = bufferLength - start;
-
             //Make sure there is no way to run out of bounds given correct input
             if (bufferLength < octetCount || start + octetCount > bufferLength) return -1;
 
@@ -311,13 +308,13 @@ namespace Media
             try
             {
                 //Loop the buffer from start to count
-                while (start < count && checkedBytes < octetCount)
+                while (start < bufferLength && checkedBytes < octetCount)
                 {
                     //Ensure we account for the bytes checked.
                     int position = start + checkedBytes;
 
                     //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
-                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position, count - position)) >= start)
+                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position, bufferLength - position)) >= start)
                     {
                         //Check for completion
                         if (++checkedBytes == octetCount) break;

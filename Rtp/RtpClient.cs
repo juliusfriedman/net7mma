@@ -3052,15 +3052,15 @@ namespace Media.Rtp
 
                         //EAT THE ALF $ C X X
 
-                        int remainsInfBuffer = remainingInBuffer - InterleavedOverhead;
+                        int remainsInBuffer = remainingInBuffer - InterleavedOverhead;
 
-                        Array.Copy(buffer, offset + InterleavedOverhead, buffer, m_Buffer.Offset, remainsInfBuffer);
+                        Array.Copy(buffer, offset + InterleavedOverhead, buffer, m_Buffer.Offset, remainsInBuffer);
                         
                         //The frame DATA now starts here
                         frameStart = m_Buffer.Offset;
 
                         //Our offset for receiveing is modified with account of remainsInfBuffer
-                        offset = m_Buffer.Offset + remainsInfBuffer;
+                        offset = m_Buffer.Offset + remainsInBuffer;
                     }
 
                     //Store the error
@@ -3085,10 +3085,13 @@ namespace Media.Rtp
                         //Increment received
                         recievedTotal += recievedFromWire;
 
-                        //Check for the need to reset the buffer.
-                        if (offset - m_Buffer.Offset > m_Buffer.Count) offset = m_Buffer.Offset;
+                        //Incrment remaining in buffer for what was recieved.
+                        remainingInBuffer += recievedFromWire;
 
-                        //remainingInBuffer is not incrmemented because this will end the parent loop because frameLength will cause it to go negitive after this run
+                        //Check for the need to stop receiving.
+                        if (offset - m_Buffer.Offset > m_Buffer.Count) break;
+
+                        //remainingInBuffer was previously not incrmemented because this will end the parent loop because frameLength will cause it to go negitive after this run
                     }
 
                     //Set the offset to where it was before extra data was received - the data existing in the buffer and ALF size because it will be added again below.
