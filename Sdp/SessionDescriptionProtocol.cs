@@ -77,7 +77,7 @@ namespace Media.Sdp
         
         public const string MimeType = "application/sdp";
 
-        public const char AttributeType = 'a', BandwidthType = 'b', EQ = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon;
+        public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon;
 
         internal const string CR = "\r", LF = "\n", CRLF = CR + LF;
 
@@ -107,7 +107,7 @@ namespace Media.Sdp
             try
             {
                 //range: = 6 (may be present)
-                string[] parts = value.Split(Media.Sdp.SessionDescription.Colon, Media.Sdp.SessionDescription.HyphenSign, Media.Sdp.SessionDescription.EQ);
+                string[] parts = value.Split(Media.Sdp.SessionDescription.Colon, Media.Sdp.SessionDescription.HyphenSign, Media.Sdp.SessionDescription.EqualsSign);
 
                 int partsLength = parts.Length;
 
@@ -597,13 +597,13 @@ namespace Media.Sdp
 
                     if (portSpecifier.HasValue)
                     {
-                        buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EQ + string.Join(" ", MediaType, MediaPort.ToString() + '/' + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+                        buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(" ", MediaType, MediaPort.ToString() + '/' + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.CRLF);
                         goto LinesOnly;
                     }
                 }
             }
 
-            buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EQ + string.Join(" ", MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+            buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(" ", MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
 
         LinesOnly:
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.SessionDescription.BandwidthType && l.Type != Sdp.SessionDescription.AttributeType))
@@ -737,9 +737,9 @@ namespace Media.Sdp
 
         public string ToString(SessionDescription sdp = null)
         {
-            string result = TimeDescriptionType.ToString() + Sdp.SessionDescription.EQ.ToString() + SessionStartTime.ToString() + ( SessionStopTime > 0 ?  " " + SessionStopTime.ToString() : string.Empty) + SessionDescription.CRLF;
+            string result = TimeDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign.ToString() + SessionStartTime.ToString() + ( SessionStopTime > 0 ?  " " + SessionStopTime.ToString() : string.Empty) + SessionDescription.CRLF;
             foreach (long repeatTime in RepeatTimes)
-                result += RepeatTimeType.ToString() + Sdp.SessionDescription.EQ.ToString() + repeatTime + SessionDescription.CRLF;
+                result += RepeatTimeType.ToString() + Sdp.SessionDescription.EqualsSign.ToString() + repeatTime + SessionDescription.CRLF;
             return result;
         }
     }
@@ -809,7 +809,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line.Length < 2 || line[1] != SessionDescription.EQ) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line.Length < 2 || line[1] != SessionDescription.EqualsSign) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -826,7 +826,7 @@ namespace Media.Sdp
         /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
         public override string ToString()
         {
-            return Type.ToString() + SessionDescription.EQ + string.Join(";", m_Parts.ToArray()) + SessionDescription.CRLF;
+            return Type.ToString() + SessionDescription.EqualsSign + string.Join(";", m_Parts.ToArray()) + SessionDescription.CRLF;
         }
 
         internal static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
@@ -834,7 +834,7 @@ namespace Media.Sdp
             string sdpLine = sdpLines[index] = sdpLines[index].Trim();
 
             if (sdpLine.Length <= 2) return null;
-            else if (sdpLine[1] != SessionDescription.EQ) return null;
+            else if (sdpLine[1] != SessionDescription.EqualsSign) return null;
 
             char type = sdpLine[0];
 
@@ -974,7 +974,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return OriginatorType.ToString() + Media.Sdp.SessionDescription.EQ + string.Join(" ", Username, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
+                return OriginatorType.ToString() + Media.Sdp.SessionDescription.EqualsSign + string.Join(" ", Username, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
             }
 
         }
@@ -1025,7 +1025,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return NameType.ToString() + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.CRLF;
+                return NameType.ToString() + Media.Sdp.SessionDescription.EqualsSign + (string.IsNullOrEmpty(SessionName) ? string.Empty : SessionName) + SessionDescription.CRLF;
             }
         }
 
@@ -1075,7 +1075,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return PhoneType.ToString() + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(PhoneNumber) ? string.Empty : PhoneNumber) + SessionDescription.CRLF;
+                return PhoneType.ToString() + Media.Sdp.SessionDescription.EqualsSign + (string.IsNullOrEmpty(PhoneNumber) ? string.Empty : PhoneNumber) + SessionDescription.CRLF;
             }
         }
 
@@ -1124,7 +1124,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return EmailType.ToString() + Media.Sdp.SessionDescription.EQ + (string.IsNullOrEmpty(Email) ? string.Empty : Email) + SessionDescription.CRLF;
+                return EmailType.ToString() + Media.Sdp.SessionDescription.EqualsSign + (string.IsNullOrEmpty(Email) ? string.Empty : Email) + SessionDescription.CRLF;
             }
         }
 
@@ -1295,7 +1295,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return ConnectionType.ToString() + Media.Sdp.SessionDescription.EQ + string.Join(" ", NetworkType, AddressType, Address) + SessionDescription.CRLF;
+                return ConnectionType.ToString() + Media.Sdp.SessionDescription.EqualsSign + string.Join(" ", NetworkType, AddressType, Address) + SessionDescription.CRLF;
             }
         }
     }

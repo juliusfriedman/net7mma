@@ -3258,7 +3258,7 @@ namespace Media.Rtp
 
                             //Try to send reports for the latest packets or continue if inactive
                             if (SendReports(tc)) lastOperation = DateTime.UtcNow;
-                            else if (tc.InactiveTime > tc.ReceiveInterval && SendGoodbyeIfInactive(lastOperation, tc)) continue;//Don't throw for Goodbye
+                            else if (SendGoodbyeIfInactive(lastOperation, tc)) continue;//Don't throw for Goodbye
                         }
                     }
 

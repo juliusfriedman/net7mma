@@ -780,11 +780,14 @@ namespace Media.Rtsp
                     //The only thing in such a case is that if \r\n happen to be in the buffer then this is interpreted as a body.
                 }
 
-            Wait:
-                //We have not yet received a response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                while (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response && ++attempt <= m_RetryCount)                     
-                    if (m_InterleaveEvent.Wait(m_RtspTimeout)) break;
-                    else if (!Playing || m_RtpProtocol == ProtocolType.Udp) goto Receive; //jne
+            Wait: //Wait for the response unless tearing down.
+                if (request.Method != RtspMethod.TEARDOWN)
+                {
+                    //We have not yet received a response, wait on the interleave event for the amount of time specified, if signaled a response was created
+                    while (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response && ++attempt <= m_RetryCount)
+                        if (m_InterleaveEvent.Wait(m_RtspTimeout)) break;
+                        else if (!Playing || m_RtpProtocol == ProtocolType.Udp) goto Receive; //jne
+                }
 
                 //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
                 if (m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
@@ -897,7 +900,7 @@ namespace Media.Rtsp
                     }
 
                     //Check for a SessionId and Timeout if we don't already have one unless this is a GET_PARAMETER or TEARDOWN
-                    if (string.IsNullOrWhiteSpace(m_SessionId) && (request.Method != RtspMethod.TEARDOWN && m_LastTransmitted.ContainsHeader(RtspHeaders.Session)))
+                    if (request.Method != RtspMethod.TEARDOWN && string.IsNullOrWhiteSpace(m_SessionId) && m_LastTransmitted.ContainsHeader(RtspHeaders.Session))
                     {
                         string sessionHeader = m_LastTransmitted[RtspHeaders.Session];
 
@@ -918,8 +921,8 @@ namespace Media.Rtsp
                                 //Check for a timeout
                                 if (temp.Length > 1)
                                 {
-                                    int timeoutStart = 1 + temp[1].IndexOf(Media.Sdp.SessionDescription.EQ);
-                                    if (timeoutStart > 0 && int.TryParse(temp[1].Substring(timeoutStart), out timeoutStart))
+                                    int timeoutStart = 1 + temp[1].IndexOf(Media.Sdp.SessionDescription.EqualsSign);
+                                    if (timeoutStart >= 0 && int.TryParse(temp[1].Substring(timeoutStart), out timeoutStart))
                                     {
                                         //Should already be set...
                                         if (timeoutStart <= 0)
