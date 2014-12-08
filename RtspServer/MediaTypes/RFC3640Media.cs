@@ -181,7 +181,32 @@ namespace Media.Rtsp.Server.MediaTypes
                        empty.  If the AU-header is not configured empty, then the AU-
                        headers-length is a two octet field that specifies the length in bits
                        of the immediately following AU-headers, excluding the padding bits.
-                       */
+                    */
+
+                    /*  https://gstrtpmp4adepay.c#L189
+                    * Parse StreamMuxConfig according to ISO/IEC 14496-3:
+                    *
+                    * audioMuxVersion           == 0 (1 bit)
+                    * allStreamsSameTimeFraming == 1 (1 bit)
+                    * numSubFrames              == rtpmp4adepay->numSubFrames (6 bits)
+                    * numProgram                == 0 (4 bits)
+                    * numLayer                  == 0 (3 bits)
+                    *
+                    * We only require audioMuxVersion == 0;
+                    *
+                    * The remaining bit of the second byte and the rest of the bits are used
+                    * for audioSpecificConfig which we need to set in codec_info.
+                    */
+
+                    //Object Type 5 Bits.
+
+                    //SampleRate Index 4 Bits.
+
+                    //Channels 4 Bits
+
+                    //If SampleRate Index == 15, 24 Bits of SampleRate
+
+                    //For object types 1-7 Then Parse the Frame Flags. (Which indicate a frameLength of 960?)
 
                     //Determine the AU Headers Length (in bits)
                     int auHeaderLength = 0,
