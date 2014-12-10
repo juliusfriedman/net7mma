@@ -2766,7 +2766,8 @@ namespace Media.Rtp
         /// <param name="context"></param>
         /// <returns></returns>
         //http://tools.ietf.org/search/rfc4571
-        int ReadRFC2326FrameHeader(int received, out byte frameChannel, out RtpClient.TransportContext context, int? offset = null, byte[] buffer = null)
+        //Should be ReadFrameHeader (bool rtsp, ...
+        int ReadRFC2326FrameHeader(int received, out byte frameChannel, out RtpClient.TransportContext context, ref int offset, byte[] buffer = null)
         {
 
             //There is no relevant TransportContext assoicated yet.
@@ -2780,7 +2781,7 @@ namespace Media.Rtp
             buffer = buffer ?? m_Buffer.Array;
 
             //Look for the frame control octet
-            int mOffset = offset ?? m_Buffer.Offset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
+            int mOffset = offset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
 
             int frameLength = 0;
 
@@ -2818,6 +2819,9 @@ namespace Media.Rtp
 
             //The amount of data needed for the frame
             frameLength = TryReadFrameHeader(buffer, mOffset, out frameChannel);
+
+            //Set the offset
+            offset = mOffset;
 
             //Do not obtain a context for a erronoues length
             if (frameLength < 0) return frameLength;
@@ -3026,8 +3030,10 @@ namespace Media.Rtp
             {
                 //Todo Determine from Context to use control channel and length. (Check MediaDescription)
 
-                //Parse the frameLength
-                frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, offset, buffer);
+                //Pass flag indicating RFC4751 which means that the $ Channel will not be present.
+
+                //Parse the frameLength from the given buffer, take changes to the offset through the function.
+                frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
                 //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
                 if (frameLength < 0 || Disposed) break; //No more data in buffer
