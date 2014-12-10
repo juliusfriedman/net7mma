@@ -1481,11 +1481,17 @@ namespace Media.Rtsp
                 //Darwin DSS and other servers might not support GET_PARAMETER
                 else if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
                 {
-                    SendGetParameter(null);
+                    using (SendGetParameter(null))
+                    {
+
+                    }
                 }
                 else if (m_SupportedMethods.Contains(RtspMethod.OPTIONS)) //If at least options is supported
                 {
-                    SendOptions();
+                    using (SendOptions())
+                    {
+                        //
+                    }
                 }
 
                 m_KeepAliveTimer.Change(m_RtspTimeout, Utility.InfiniteTimeSpan);

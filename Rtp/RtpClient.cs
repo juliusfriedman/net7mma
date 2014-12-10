@@ -1791,77 +1791,66 @@ namespace Media.Rtp
             //If the instance does not handle frame changed events then return
             if (!FrameChangedEventsEnabled) return;
 
-            //Check for the packet payload type to be the same as the context media format.
-            //if (packet.PayloadType != transportContext.MediaDescription.MediaFormat) return;
-
-            try
+            //If we have not allocated a currentFrame
+            if (transportContext.CurrentFrame == null)
             {
-                //If we have not allocated a currentFrame
-                if (transportContext.CurrentFrame == null)
-                {
-                    //make a frame
-                    transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
-                }//Check to see if the frame belongs to the last frame
-                else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
-                {
-                    //Add the packet clone to the current frame
-                    if(!transportContext.LastFrame.Complete) transportContext.LastFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
-
-                    //If the frame is complete then fire an event and make a new frame
-                    if (transportContext.LastFrame.Complete)
-                    {
-                        //The LastFrame changed
-                        OnRtpFrameChanged(transportContext.LastFrame);
-
-                        transportContext.LastFrame = null;
-                    }
-                    else if (transportContext.LastFrame.Count > transportContext.LastFrame.MaxPackets)
-                    {
-                        //Backup of frames
-                        transportContext.LastFrame.Dispose();
-                        transportContext.LastFrame = null;
-                    }
-
-                    return;
-                }//Check to see if the frame belongs to a new frame
-                else if (transportContext.CurrentFrame != null && packet.Timestamp != transportContext.CurrentFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
-                {
-                    //Move the current frame to the LastFrame
-                    transportContext.LastFrame = transportContext.CurrentFrame;
-
-                    //Make a new frame in the transportChannel's CurrentFrame
-                    transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
-
-                    //The LastFrame changed
-                    OnRtpFrameChanged(transportContext.LastFrame);
-                }
-
-                //Add the packet clone to the current frame
-                if (localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
-                    transportContext.CurrentFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
+                //make a frame
+                transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
+            }//Check to see if the frame belongs to the last frame
+            else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
+            {
+                //Create a new packet from the localPacket so it will not be disposed when the packet is disposed.
+                if (!transportContext.LastFrame.Complete) transportContext.LastFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
 
                 //If the frame is complete then fire an event and make a new frame
-                if (transportContext.CurrentFrame.Complete)
+                if (transportContext.LastFrame.Complete)
                 {
-                    //Move the current frame to the LastFrame
-                    transportContext.LastFrame = transportContext.CurrentFrame;
-
-                    //Allow for a new frame to be allocated
-                    transportContext.CurrentFrame = null;
-
                     //The LastFrame changed
                     OnRtpFrameChanged(transportContext.LastFrame);
+
+                    transportContext.LastFrame = null;
                 }
-                else if (transportContext.CurrentFrame.Count > transportContext.CurrentFrame.MaxPackets)
+                else if (transportContext.LastFrame.Count > transportContext.LastFrame.MaxPackets)
                 {
                     //Backup of frames
-                    transportContext.CurrentFrame.Dispose();
-                    transportContext.CurrentFrame = null;
+                    transportContext.LastFrame.Dispose();
+                    transportContext.LastFrame = null;
                 }
-            }
-            catch
-            {
+
                 return;
+            }//Check to see if the frame belongs to a new frame
+            else if (transportContext.CurrentFrame != null && packet.Timestamp != transportContext.CurrentFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
+            {
+                //Move the current frame to the LastFrame
+                transportContext.LastFrame = transportContext.CurrentFrame;
+
+                //Make a new frame in the transportChannel's CurrentFrame
+                transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
+
+                //The LastFrame changed
+                OnRtpFrameChanged(transportContext.LastFrame);
+            }
+
+            //If the payload of the localPacket matched the media description then create a new packet from the localPacket so it will not be disposed when the packet is disposed.
+            if (localPacket.PayloadType == transportContext.MediaDescription.MediaFormat) transportContext.CurrentFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
+
+            //If the frame is complete then fire an event and make a new frame
+            if (transportContext.CurrentFrame.Complete)
+            {
+                //Move the current frame to the LastFrame
+                transportContext.LastFrame = transportContext.CurrentFrame;
+
+                //Allow for a new frame to be allocated
+                transportContext.CurrentFrame = null;
+
+                //The LastFrame changed
+                OnRtpFrameChanged(transportContext.LastFrame);
+            }
+            else if (transportContext.CurrentFrame.Count > transportContext.CurrentFrame.MaxPackets)
+            {
+                //Backup of frames
+                transportContext.CurrentFrame.Dispose();
+                transportContext.CurrentFrame = null;
             }
         }
 
@@ -3010,19 +2999,25 @@ namespace Media.Rtp
         /// <returns></returns>
         internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int length, Socket socket)
         {
+            //If there is no buffer use our own buffer.
+            if (buffer == null) buffer = m_Buffer.Array;
 
-            if (buffer == null) return -1;
+            //Get the length of the given buffer
+            int bufferLength = buffer.Length;
 
             //Determine which TransportContext will receive the data incoming
             TransportContext relevent = null;
 
+            //The channel of the data
             byte frameChannel;
 
-            //Read the framing using the framing indicated.
+            //The indicates length of the data
             int frameLength;
 
+            //The amount of data remaining in the buffer
             int remainingInBuffer = length, recievedTotal = remainingInBuffer;
 
+            //Determine if Rtp or Rtcp is coming in.
             bool expectRtp, expectRtcp;
 
             //Todo
@@ -3040,37 +3035,40 @@ namespace Media.Rtp
                 //See how many more bytes are required from the wire
                 int remainingInWire = frameLength - (remainingInBuffer - InterleavedOverhead);
 
+                //If there is anymore data remaining
                 if (remainingInWire > 0)
                 {
                     //Frame starts here
-                    int frameStart = offset;
+                    int pduStart = offset + InterleavedOverhead;
 
-                    if (relevent == null) frameStart = offset = m_Buffer.Offset;
-                    else if (offset + remainingInBuffer + remainingInWire + InterleavedOverhead > m_Buffer.Count) //Check to see if the frame CANNOT totally fit in the buffer
+                    //Check to see if the frame CANNOT totally fit in the buffer
+                    if (pduStart + remainingInBuffer + remainingInWire > bufferLength) 
                     {
                         //System.Diagnostics.Debug.WriteLine("Buffer Copy");
 
                         //EAT THE ALF $ C X X
 
+                        //Calulate remaining without the interleaved alf
                         int remainsInBuffer = remainingInBuffer - InterleavedOverhead;
 
-                        Array.Copy(buffer, offset + InterleavedOverhead, buffer, m_Buffer.Offset, remainsInBuffer);
+                        //Copy the existing pdu data to the beginning of the buffer because the frame header was parsed
+                        Array.Copy(buffer, pduStart, buffer, m_Buffer.Offset, remainsInBuffer);
                         
-                        //The frame DATA now starts here
-                        frameStart = m_Buffer.Offset;
+                        //The pdu now starts here
+                        pduStart = m_Buffer.Offset;
 
                         //Our offset for receiveing is modified with account of remainsInfBuffer
                         offset = m_Buffer.Offset + remainsInBuffer;
                     }
 
-                    //Store the error
+                    //Store the error if any
                     SocketError error = SocketError.SocketError;
 
                     //Get all the remaining data
                     while (!Disposed && remainingInWire > 0)
                     {
-                        //Recieve from the wire the amount of bytes required
-                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(m_Buffer.Count, remainingInWire), socket, out error);
+                        //Recieve from the wire the amount of bytes required (up to the length of the buffer)
+                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(bufferLength, remainingInWire), socket, out error);
                         
                         //Check for an error and then the allowed continue condition
                         if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
@@ -3088,14 +3086,15 @@ namespace Media.Rtp
                         //Incrment remaining in buffer for what was recieved.
                         remainingInBuffer += recievedFromWire;
 
-                        //Check for the need to stop receiving.
-                        if (offset - m_Buffer.Offset > m_Buffer.Count) break;
+                        // Don't Check for the need to stop receiving, the length was already checked.
+                        //if (offset - m_Buffer.Offset > bufferLength) break;
 
                         //remainingInBuffer was previously not incrmemented because this will end the parent loop because frameLength will cause it to go negitive after this run
+                        //This was not a bug and does not change anything.
                     }
 
                     //Set the offset to where it was before extra data was received - the data existing in the buffer and ALF size because it will be added again below.
-                    offset = frameStart - InterleavedOverhead;
+                    offset = pduStart - InterleavedOverhead;
 
                     //If a socket error occured remove the context so no parsing occurs
                     if (error != SocketError.Success) relevent = null;

@@ -2154,19 +2154,19 @@ namespace Tests
 
                             //Print out some information about our program
                             Console.BackgroundColor = ConsoleColor.Blue;
-                            consoleWriter.WriteLine("RTCP".PadRight(Console.BufferWidth - 7, '▓'));
+                            consoleWriter.WriteLine("RTCP Info ".PadRight(Console.WindowWidth / 4, '▓'));
                             consoleWriter.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
                             consoleWriter.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
                             consoleWriter.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
                             consoleWriter.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
                             Console.BackgroundColor = ConsoleColor.Magenta;
-                            consoleWriter.WriteLine("RTP".PadRight(Console.BufferWidth - 7, '▓'));
+                            consoleWriter.WriteLine("RTP Info".PadRight(Console.WindowWidth / 4, '▓'));
                             consoleWriter.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
                             consoleWriter.WriteLine("Encountered Frames with missing packets: " + incompleteFrames);
                             consoleWriter.WriteLine("Encountered Empty Frames: " + emptyFrames);
                             consoleWriter.WriteLine("Total Frames: " + totalFrames);
                             Console.BackgroundColor = ConsoleColor.Cyan;
-                            consoleWriter.WriteLine("RTSP".PadRight(Console.BufferWidth - 7, '▓'));
+                            consoleWriter.WriteLine("RTSP Info".PadRight(Console.WindowWidth / 4, '▓'));
                             consoleWriter.WriteLine("Rtsp Requets Sent: " + rtspIn);
                             consoleWriter.WriteLine("Rtsp Responses Receieved: " + rtspOut);
                             consoleWriter.WriteLine("Rtsp Missing : " + (client.ClientSequenceNumber - rtspIn));
@@ -2948,8 +2948,6 @@ a=mpeg4-esid:101");
             Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
             if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
-            bool loadTesting = false;
-
             while (true)
             {
                 ConsoleKeyInfo keyInfo = Console.ReadKey();
@@ -2974,21 +2972,12 @@ a=mpeg4-esid:101");
                 }
                 else if (keyInfo.Key == ConsoleKey.T)
                 {
-                    if (!loadTesting)
+                    Console.WriteLine("Performing Load Test");
+                    System.Threading.ThreadPool.QueueUserWorkItem(o =>
                     {
-                        Console.WriteLine("Performing Load Test");
-                        System.Threading.ThreadPool.QueueUserWorkItem(o =>
-                        {
-                            loadTesting = true;
-                            SubTestLoad(server);
-                            loadTesting = false;
-                            Console.WriteLine("Load Test Completed!!!!!!!!!!");
-                        });
-                    }
-                    else
-                    {
-                        Console.WriteLine("Load Test In Progress!");
-                    }
+                        SubTestLoad(server);
+                        Console.WriteLine("Load Test Completed!!!!!!!!!!");
+                    });
                 }else if (System.Diagnostics.Debugger.IsAttached)
                 {
                     System.Diagnostics.Debugger.Break();
@@ -3067,6 +3056,8 @@ a=mpeg4-esid:101");
                         {
                             Console.WriteLine("Performing Udp / Media.Rtsp Test");
 
+                            udpClient.ProtocolSwitchTime = TimeSpan.FromSeconds(2);
+
                             udpClient.StartPlaying();
 
                             while (udpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(0); }
@@ -3094,8 +3085,6 @@ a=mpeg4-esid:101");
                             Console.WriteLine("Performing Media.Rtsp Test");
 
                             tcpClient.StartPlaying();
-
-                            tcpClient.ProtocolSwitchTime = TimeSpan.FromSeconds(1);
 
                             while (tcpClient.Client.TotalRtpBytesReceieved <= 4096 && tcpClient.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(0); }
 
