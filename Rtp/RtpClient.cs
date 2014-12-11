@@ -984,7 +984,7 @@ namespace Media.Rtp
                 MinimumSequentialValidRtpPackets = minimumSequentialRtpPackets;
 
                 //Default bandwidth restriction
-                MaximumRtcpBandwidthPercentage = 5;
+                MaximumRtcpBandwidthPercentage = DefaultReportInterval.TotalSeconds;
             }
 
             public TransportContext(byte dataChannel, byte controlChannel, int ssrc, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int senderSsrc = 0, int minimumSequentialRtpPackets = 2)
@@ -2166,7 +2166,7 @@ namespace Media.Rtp
 
         RtpClient()
         {
-            AverageMaximumRtcpBandwidthPercentage = 25;
+            AverageMaximumRtcpBandwidthPercentage = DefaultReportInterval.TotalSeconds;
         }
 
         /// <summary>
@@ -2189,8 +2189,6 @@ namespace Media.Rtp
 
                 if (m_Buffer.Count < RtpHeader.Length) throw new ArgumentOutOfRangeException("memory", "memory.Count must contain enough space for a RtpHeader");
             }
-
-            AverageMaximumRtcpBandwidthPercentage = 5;
 
             //RtpPacketReceieved += new RtpPacketHandler(HandleIncomingRtpPacket);
             //RtcpPacketReceieved += new RtcpPacketHandler(HandleIncomingRtcpPacket);
@@ -2998,15 +2996,15 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
-        /// <param name="length"></param>
+        /// <param name="count"></param>
         /// <param name="socket"></param>
         /// <returns></returns>
-        internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int length, Socket socket)
+        internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int count, Socket socket)
         {
             //If there is no buffer use our own buffer.
             if (buffer == null) buffer = m_Buffer.Array;
 
-            //Get the length of the given buffer
+            //Get the length of the given buffer (Should actually use m_Buffer.Count when using our own buffer)
             int bufferLength = buffer.Length;
 
             //Determine which TransportContext will receive the data incoming
@@ -3019,7 +3017,9 @@ namespace Media.Rtp
             int frameLength;
 
             //The amount of data remaining in the buffer
-            int remainingInBuffer = length, recievedTotal = remainingInBuffer;
+            int remainingInBuffer = count, 
+                //The amount of data received (which is already equal to what is remaining in the buffer)
+                recievedTotal = remainingInBuffer;
 
             //Determine if Rtp or Rtcp is coming in.
             bool expectRtp, expectRtcp;
@@ -3035,13 +3035,16 @@ namespace Media.Rtp
                 //Parse the frameLength from the given buffer, take changes to the offset through the function.
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
-                //Ignore large frames we can't store, set frameLength = to the bytes remaining in the buffer
-                if (frameLength < 0 || Disposed) break; //No more data in buffer
-                
+                //If no frame was found then do not parse
+                if (frameLength < 0) break;
+
                 //See how many more bytes are required from the wire
                 int remainingInWire = frameLength - (remainingInBuffer - InterleavedOverhead);
 
-                //If there is anymore data remaining
+                //If the frame length exceeds the buffer capacity then just attempt to complete it.
+                if (frameLength > bufferLength) goto ParseAndCompleteData;
+
+                //If there is anymore data remaining on the wire
                 if (remainingInWire > 0)
                 {
                     //Frame starts here
@@ -3050,9 +3053,7 @@ namespace Media.Rtp
                     //Check to see if the frame CANNOT totally fit in the buffer
                     if (pduStart + remainingInBuffer + remainingInWire > bufferLength) 
                     {
-                        //System.Diagnostics.Debug.WriteLine("Buffer Copy");
-
-                        //EAT THE ALF $ C X X
+                        //EAT THE ALF $ C X X to make as much room as possible.
 
                         //Calulate remaining without the interleaved alf
                         int remainsInBuffer = remainingInBuffer - InterleavedOverhead;
@@ -3063,7 +3064,7 @@ namespace Media.Rtp
                         //The pdu now starts here
                         pduStart = m_Buffer.Offset;
 
-                        //Our offset for receiveing is modified with account of remainsInfBuffer
+                        //Our offset for receiveing is modified with account of remainsInBuffer
                         offset = m_Buffer.Offset + remainsInBuffer;
                     }
 
@@ -3078,7 +3079,9 @@ namespace Media.Rtp
                         
                         //Check for an error and then the allowed continue condition
                         if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
-                        else if (recievedFromWire <= 0) continue;
+                        
+                        //If nothing was recieved try again.
+                        if (recievedFromWire <= 0) continue;
                         
                         //Decrease what is remaining from the wire by what was received
                         remainingInWire -= recievedFromWire;
@@ -3091,12 +3094,6 @@ namespace Media.Rtp
 
                         //Incrment remaining in buffer for what was recieved.
                         remainingInBuffer += recievedFromWire;
-
-                        // Don't Check for the need to stop receiving, the length was already checked.
-                        //if (offset - m_Buffer.Offset > bufferLength) break;
-
-                        //remainingInBuffer was previously not incrmemented because this will end the parent loop because frameLength will cause it to go negitive after this run
-                        //This was not a bug and does not change anything.
                     }
 
                     //Set the offset to where it was before extra data was received - the data existing in the buffer and ALF size because it will be added again below.
@@ -3106,6 +3103,8 @@ namespace Media.Rtp
                     if (error != SocketError.Success) relevent = null;
                 }
 
+            //if there is any data remaining in the wire at this point it is because the buffer capacity has been exceeded.
+            ParseAndCompleteData:
                 //If there any data in the frame and there is a relevent context
                 if (!Disposed && frameLength > 0 && relevent != null)
                 {
