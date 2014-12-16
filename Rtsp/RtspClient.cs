@@ -453,6 +453,9 @@ namespace Media.Rtsp
                 case RtspMessageType.Request: //Event for pushed messages?
                 case RtspMessageType.Response:
                     {
+
+                        //Should not attempt to inline complete a message when interleaving, should let completion be handled by state of m_LastTransmitted.
+
                         //Complete the message if not complete
                         while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
 

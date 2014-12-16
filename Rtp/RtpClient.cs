@@ -1808,6 +1808,8 @@ namespace Media.Rtp
                     //The LastFrame changed
                     OnRtpFrameChanged(transportContext.LastFrame);
 
+                    //Remove
+                    transportContext.LastFrame.Dispose();
                     transportContext.LastFrame = null;
                 }
                 else if (transportContext.LastFrame.Count > transportContext.LastFrame.MaxPackets)
@@ -1837,6 +1839,10 @@ namespace Media.Rtp
             //If the frame is complete then fire an event and make a new frame
             if (transportContext.CurrentFrame.Complete)
             {
+                //Dispose the last frame
+                transportContext.LastFrame.Dispose();
+                transportContext.LastFrame = null;
+
                 //Move the current frame to the LastFrame
                 transportContext.LastFrame = transportContext.CurrentFrame;
 
@@ -2805,9 +2811,9 @@ namespace Media.Rtp
 
                 received -= upperLayerData;
 
-                //Indicate length from offset until next frame. (should always be positive, if somehow -1 is returned this will signal a end of buffer)
+                //Indicate length from offset until next possible frame. (should always be positive, if somehow -1 is returned this will signal a end of buffer to callers)
 
-                //SHOULD CHECK FOR A VALID ALF HERE AND THEN RETURN, OTHERWISE SCAN AGAIN (RTSP in the buffer?)!!!
+                //If there is more data related to upperLayerData it will be evented in the next run. (See RtspClient ProcessInterleaveData notes)
 
                 return upperLayerData - InterleavedOverhead;
             }
