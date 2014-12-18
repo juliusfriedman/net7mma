@@ -50,7 +50,7 @@ namespace Tests
 
         internal static string TestingFormat = "{0}:=>{1}";
 
-        static Action[] Tests = new Action[] { TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestContainerImplementations, TestSdp, TestRtspMessage };
+        static Action[] Tests = new Action[] { TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestContainerImplementations, TestSdp, TestRtspMessage, TestRtspInterleavedFraming };
 
         [MTAThread]
         public static void Main(string[] args)
@@ -279,6 +279,83 @@ namespace Tests
         static void TestRtpClient()
         {
             TestRtpClient(DateTime.UtcNow.Second % 2 == 0);
+        }
+
+        static void TestRtspInterleavedFraming()
+        {
+            //Create a rtp client to mock the test
+            using (Media.Rtp.RtpClient test = new Media.Rtp.RtpClient())
+            {
+                //Loop 65535 times
+                foreach (var testIndex in Enumerable.Range(ushort.MinValue, ushort.MaxValue))
+                {
+                    //Declare a channel randomly
+                    int channel = Utility.Random.Next(byte.MinValue, byte.MaxValue);
+
+                    //Declare a random length
+                    int length = Utility.Random.Next(ushort.MinValue, ushort.MaxValue);
+
+                    //Determine an actual length
+                    int actualLength = Utility.Random.Next(0, length);
+
+                    //Make a header
+                    var header = new byte[] { 0x24, (byte)channel, 0, 0 };
+
+                    //Write the length in the header
+                    Media.Common.Binary.WriteNetwork16(header, 2, BitConverter.IsLittleEndian, (short)length);
+
+                    //Get the data indicated
+                    var data = header.Concat(Enumerable.Repeat(default(byte), actualLength));
+
+                    //Pad with Rtsp if not totally consumed
+                    if (actualLength < length)
+                    {
+                        var rtspBytes = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response, 1.0, Encoding.UTF8)
+                        {
+                            StatusCode = Media.Rtsp.RtspStatusCode.OK
+                        }.Prepare();
+
+                        //Put the RtspData before the interleaved data
+                        data = rtspBytes.Concat(data);
+
+                        //determine if there is more space
+                        actualLength += rtspBytes.Count();
+                    }
+
+                    //If there is more space put another binary frame
+                    if (actualLength < length)
+                    {
+                        int needed = length - actualLength;
+
+                        var headerLast = new byte[] { 0x24, (byte)channel, 0, 0 };
+
+                        Media.Common.Binary.WriteNetwork16(headerLast, 2, BitConverter.IsLittleEndian, (short)needed);
+
+                        data = data.Concat(headerLast.Concat(Enumerable.Repeat(default(byte), needed)));
+                    }
+
+                    //Start at 0
+                    int offset = 0;
+
+                    //Enumerate the buffer looking for data to parse
+                    while (offset < length)
+                    {
+                        //Parse the data "received" which should always be 4 bytes longer then what was actually present.
+                        int foundLen = test.ProcessFrameData(data.ToArray(), offset, 4 + length, null);
+
+                        //Ensure it was totally consumed
+                        if (length != foundLen - 4) throw new Exception();
+
+                        Console.WriteLine("Indicated: " + length + " Actual: " + actualLength + " Found: " + foundLen);
+
+                        //Could probably improve the test to add an InterleavedEvent which would verify RTSP gets processed.
+
+                        //Move the offset
+                        offset += foundLen;
+                    }
+
+                }
+            }
         }
 
         /// <summary>
@@ -1964,12 +2041,12 @@ namespace Tests
                             {
                                 Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize((Media.Common.ISocketReference)sender, i * bufferSize);
                                 ++incompleteFrames;
-                                Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
                             else
                             {
                                 ++totalFrames;
-                                Console.BackgroundColor = ConsoleColor.Blue; consoleWriter.WriteLine("\tGot a RTPFrame("+ rtpFrame.PayloadTypeByte +") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.Complete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                                Console.BackgroundColor = ConsoleColor.Blue; consoleWriter.WriteLine("\tGot a RTPFrame("+ rtpFrame.PayloadTypeByte +") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
                         };
 
@@ -3126,14 +3203,14 @@ a=mpeg4-esid:101");
 
             if (frame.IsMissingPackets) throw new Exception("Frame is missing packets");
 
-            if (!frame.Complete) throw new Exception("Frame is not complete");
+            if (!frame.IsComplete) throw new Exception("Frame is not complete");
 
             if (!frame.HasMarker) throw new Exception("Frame does not have marker");
 
             //Remove the marker packet
             frame.Remove(14);
 
-            if (frame.Complete) throw new Exception("Frame is complete");
+            if (frame.IsComplete) throw new Exception("Frame is complete");
 
             if (frame.HasMarker) throw new Exception("Frame has marker");
 

@@ -1800,10 +1800,10 @@ namespace Media.Rtp
             else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
             {
                 //Create a new packet from the localPacket so it will not be disposed when the packet is disposed.
-                if (!transportContext.LastFrame.Complete) transportContext.LastFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
+                if (!transportContext.LastFrame.IsComplete) transportContext.LastFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
 
                 //If the frame is complete then fire an event and make a new frame
-                if (transportContext.LastFrame.Complete)
+                if (transportContext.LastFrame.IsComplete)
                 {
                     //The LastFrame changed
                     OnRtpFrameChanged(transportContext.LastFrame);
@@ -1837,7 +1837,7 @@ namespace Media.Rtp
             if (localPacket.PayloadType == transportContext.MediaDescription.MediaFormat) transportContext.CurrentFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
 
             //If the frame is complete then fire an event and make a new frame
-            if (transportContext.CurrentFrame.Complete)
+            if (transportContext.CurrentFrame.IsComplete)
             {
                 //Dispose the last frame
                 transportContext.LastFrame.Dispose();
@@ -3048,7 +3048,14 @@ namespace Media.Rtp
                 int remainingInWire = frameLength - (remainingInBuffer - InterleavedOverhead);
 
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
-                if (frameLength > bufferLength) goto ParseAndCompleteData;
+                if (frameLength > bufferLength)
+                {
+                    //Indciate the frame is only what is remaining in the buffer to ensure data completion is possible
+                    frameLength = remainingInBuffer;
+
+                    //There is data possibly remanining in the wire
+                    goto ParseAndCompleteData;
+                }
 
                 //If there is anymore data remaining on the wire
                 if (remainingInWire > 0)
@@ -3081,7 +3088,7 @@ namespace Media.Rtp
                     while (!Disposed && remainingInWire > 0)
                     {
                         //Recieve from the wire the amount of bytes required (up to the length of the buffer)
-                        int recievedFromWire = Utility.AlignedReceive(buffer, offset, Math.Min(bufferLength, remainingInWire), socket, out error);
+                        int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, Math.Min(bufferLength, remainingInWire), socket, out error);
                         
                         //Check for an error and then the allowed continue condition
                         if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;

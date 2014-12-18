@@ -103,7 +103,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates if the RtpFrame is NotEmpty, or contained a RtpPacket which has the Marker Bit Set
         /// </summary>
-        public virtual bool Complete { get { return !IsEmpty && !IsMissingPackets && HasMarker; } }
+        public virtual bool IsComplete { get { return !IsEmpty && !IsMissingPackets && HasMarker; } }
 
         /// <summary>
         /// Indicates if all contained packets are sequential up the Highest Sequence Number contained in the RtpFrame.

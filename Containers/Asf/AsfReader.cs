@@ -221,7 +221,9 @@ namespace Media.Containers.Asf
 
             //For all objects besides the ASFHeaderObject the offset should equal the position.
             //The ASFHeaderObject is a special case because it is a "parent" Object
-            if(!identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray())) offset = Position;
+            //The only thing which forces this to occur is the fact ReadNext looks for the header identifier and skips 6 bytes.
+            //This can be changed to make it as all of Nodes, would just have to have an additional 4 bytes in either the identifier or length.
+            if(!identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray())) offset = Position; 
 
             return new Node(this, identifier, LengthSize, offset, length, length <= Remaining);
         }
