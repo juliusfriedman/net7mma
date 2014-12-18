@@ -1266,11 +1266,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
             #region Properties
 
-            public override bool Complete
+            public override bool IsComplete
             {
                 get
                 {
-                    if (!base.Complete) return false;
+                    if (!base.IsComplete) return false;
 
                     var packet = m_Packets.First().Value;
 
@@ -1294,7 +1294,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
-                else if (!allowIncomplete && !Complete) throw new ArgumentException("This Frame not Complete");
+                else if (!allowIncomplete && !IsComplete) throw new ArgumentException("This Frame not Complete");
 
                 byte TypeSpecific, Type, Quality,
                 //A byte which is bit mapped, each bit indicates 16 bit coeffecients for the table .

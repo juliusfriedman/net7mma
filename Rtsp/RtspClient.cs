@@ -444,6 +444,22 @@ namespace Media.Rtsp
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int received = 0;
 
+            //Check for a partial message received prior in interleaved mode.
+            if (Playing && m_RtpProtocol == ProtocolType.Tcp && m_LastTransmitted != null && !m_LastTransmitted.IsComplete)
+            {
+                //Create a memory segment and complete the message as required from the buffer.
+                using (var memory = new Media.Common.MemorySegment(data, offset, length)) received = m_LastTransmitted.CompleteFrom(null, memory);
+
+                //Update the counters
+                System.Threading.Interlocked.Add(ref m_ReceivedBytes, received);
+                
+                //Clear event
+                m_InterleaveEvent.Set();
+                
+                //Done
+                return;
+            }
+
             //Validate the data
             RtspMessage interleaved = new RtspMessage(data, offset, length);
 
@@ -453,9 +469,6 @@ namespace Media.Rtsp
                 case RtspMessageType.Request: //Event for pushed messages?
                 case RtspMessageType.Response:
                     {
-
-                        //Should not attempt to inline complete a message when interleaving, should let completion be handled by state of m_LastTransmitted.
-
                         //Complete the message if not complete
                         while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
 

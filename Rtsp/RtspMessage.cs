@@ -1026,10 +1026,10 @@ namespace Media.Rtsp
 
             //Syntax, what syntax? there is no syntax ;)
 
-            int start = offset, count = length, endFirstLine = -1, packetCount = length;
+            int start = offset, count = length, firstLineLength = -1;
 
             //RTSP in the encoding of the request
-            byte[] encodedIdentifier = Encoding.GetBytes(MessageIdentifier); int encodedIdentifierLength = encodedIdentifier.Length;
+            //byte[] encodedIdentifier = Encoding.GetBytes(MessageIdentifier); int encodedIdentifierLength = encodedIdentifier.Length;
 
             // \r\n in the encoding of the request (Network Order)
             byte[] encodedEnd = (BitConverter.IsLittleEndian ? Common.ASCII.NewLine.Yield().Concat(Common.ASCII.LineFeed.Yield()) : Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray();
@@ -1038,14 +1038,14 @@ namespace Media.Rtsp
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
-            endFirstLine = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);
+            firstLineLength = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);
 
             //Assume everything is the first line...
-            if (endFirstLine == -1) endFirstLine = packetCount;
+            if (firstLineLength == -1) firstLineLength = count;
 
             //Get what we believe to be the first line
             //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-            string StatusLine = Encoding.GetString(data, start, endFirstLine - start);
+            string StatusLine = Encoding.GetString(data, start, firstLineLength - start);
 
             MessageType = StatusLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
@@ -1085,13 +1085,13 @@ namespace Media.Rtsp
             
             #region Headers and Body
 
-            if (endFirstLine < packetCount)
+            if (count > firstLineLength)
             {
 
                 //The count of how many bytes are used to take up the header is given by
                 //The amount of bytes (after the first line PLUS the length of CRLF in the encoding of the message) minus the count of the bytes in the packet
-                int headerStart = endFirstLine + encodedEndLength,
-                headerBytes = packetCount - headerStart;
+                int headerStart = firstLineLength + encodedEndLength,
+                headerBytes = count - headerStart;
                 //totalBytes = endFirstLine;
 
                 //If the scalar is valid
@@ -1443,9 +1443,10 @@ namespace Media.Rtsp
 
                 while (remaining > 0 && error != System.Net.Sockets.SocketError.TimedOut)
                 {
-                    //Receive max more
-                    justReceived = Utility.AlignedReceive(buffer.Array, offset, remaining, socket, out error);
+                    //Receive max more if there is a socket
+                    justReceived = socket == null ? remaining : Utility.AlignedReceive(buffer.Array, offset, remaining, socket, out error);
 
+                    //If anything was present then add it to the body.
                     if (received > 0)
                     {
                         //Concatenate the result into the body
@@ -1455,7 +1456,7 @@ namespace Media.Rtsp
 
                         received += justReceived;
                     }
-                }                
+                }
             }
             
             //The RtspMessage is now complete
