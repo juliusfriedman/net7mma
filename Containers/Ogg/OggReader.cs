@@ -319,14 +319,18 @@ namespace Media.Containers.Ogg
 
         Dictionary<int, Node> m_PageBegins, m_PageEnds;
 
+        Common.ConcurrentThesaurus<int, Node> m_InfoPages;
+
         void ParsePages()
         {
 
-            if (m_PageBegins != null || m_PageEnds != null) return;
+            if (m_PageBegins != null || m_PageEnds != null || m_InfoPages != null) return;
 
             m_PageBegins = new Dictionary<int,Node>();
 
             m_PageEnds = new Dictionary<int, Node>();
+
+            m_InfoPages = new Common.ConcurrentThesaurus<int, Node>();
 
             long position = Position;
 
@@ -365,6 +369,9 @@ namespace Media.Containers.Ogg
                     //Determine if this is a FirstPage and add it (Should only be one, may have to check contains for malformed streams, Could then use the result of contains rather then Count to determine end)
                     if (pageHeaderType.HasFlag(HeaderType.FirstPage)) m_PageBegins.Add(serial, page);
 
+                    //Check for info page which may have comment
+                    if (page.Data[0] == PacketTypeComment) m_InfoPages.Add(serial, page);
+
                     //Only need to do this if we are missing and end page.
                     if (m_PageBegins.Count > m_PageEnds.Count)
                     {
@@ -374,6 +381,9 @@ namespace Media.Containers.Ogg
                         //If so (technically should be != -1)
                         if (grainulePosition >= 0)
                         {
+                            //Should compare existing grainule position to ensure it is greater?
+                            //m_PageEnds.TryGetValue(serial)
+
                             //If we already had an end page just update it (should check that m_PageBegins has the serial also)
                             if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
                             else m_PageEnds.Add(serial, page); //otherwise its added
@@ -639,77 +649,7 @@ namespace Media.Containers.Ogg
                             }
 
                             break;
-                        }
-                    case PacketTypeComment:// Vorbis Comment
-                        {
-                            //Check for vorbis
-                            //string vorbis = System.Text.Encoding.UTF8.GetString(startPage.Data, 1, 6);
-
-                            int offset = 7;
-
-                            //Read Vendor Length
-                            int vendorLength = Common.Binary.Read32(startPage.Data, offset, !BitConverter.IsLittleEndian);
-
-                            offset += 4;
-
-                            offset += vendorLength;
-
-                            //Determine if there is a comment list
-                            if (offset + 4 < startPage.DataSize)
-                            {
-                                //Read User Comment List
-                                int userCommentListLength = Common.Binary.Read32(startPage.Data, offset, !BitConverter.IsLittleEndian);
-
-                                //Move the offset
-                                offset += 4;
-
-                                //Read User Comment List if available
-                                if (userCommentListLength > 0)
-                                {
-                                    //While there is data to consume
-                                    while (offset + 4 < startPage.DataSize)
-                                    {
-
-                                        //Read the item length
-                                        int itemLength = Common.Binary.Read32(startPage.Data, offset, !BitConverter.IsLittleEndian);
-
-                                        //Move the offset
-                                        offset += 4;
-
-                                        //Get the string
-                                        string item = System.Text.Encoding.UTF8.GetString(startPage.Data, offset, itemLength);
-
-                                        //Split it
-                                        string[] parts = item.Split((char)Common.ASCII.EqualsSign);
-
-                                        //If there are 2 parts decide what to do.
-                                        if (parts.Length > 1)
-                                        {
-                                            switch (parts[0].ToLowerInvariant())
-                                            {
-                                                case "lwing_gain":
-                                                    {
-                                                        mediaType = Sdp.MediaType.audio;
-                                                        rate = double.Parse(parts[1]);
-                                                        break;
-                                                    }
-                                                case "title":
-                                                    {
-                                                        title = parts[1];
-                                                        break;
-                                                    }
-                                                default: break;
-                                            }
-                                        }
-
-                                        //Move the offset
-                                        offset += itemLength;
-                                    }
-                                }
-                            }
-                            
-                            break;
-                        }
+                        }                    
                     case PacketTypeCodeBook:// Vorbis Codebook
                         {
                             //Assume Media Type
@@ -1124,6 +1064,81 @@ namespace Media.Containers.Ogg
 
                             break;
                         }
+                }
+
+                // Vorbis Comments
+                foreach (var infoPage in m_InfoPages[serialNumber])
+                {
+                    //Check for vorbis style comments
+                    string vorbis = System.Text.Encoding.UTF8.GetString(infoPage.Data, 1, 6);
+
+                    if (string.Compare(vorbis, "vorbis", false) != 0) continue;
+
+                    int offset = 7;
+
+                    //Read Vendor Length
+                    int vendorLength = Common.Binary.Read32(infoPage.Data, offset, !BitConverter.IsLittleEndian);
+
+                    offset += 4;
+
+                    offset += vendorLength;
+
+                    //Determine if there is a comment list
+                    if (vendorLength > 0 && offset + 4 < infoPage.DataSize)
+                    {
+                        //Read User Comment List
+                        int userCommentListLength = Common.Binary.Read32(infoPage.Data, offset, !BitConverter.IsLittleEndian);
+
+                        //Move the offset
+                        offset += 4;
+
+                        //Read User Comment List if available
+                        if (userCommentListLength > 0)
+                        {
+                            //While there is data to consume
+                            while (offset + 4 < infoPage.DataSize)
+                            {
+
+                                //Read the item length
+                                int itemLength = Common.Binary.Read32(infoPage.Data, offset, !BitConverter.IsLittleEndian);
+
+                                //Move the offset
+                                offset += 4;
+
+                                //Invalid entry.
+                                if (itemLength < 0 || itemLength + offset > infoPage.DataSize) continue;
+
+                                //Get the string
+                                string item = System.Text.Encoding.UTF8.GetString(infoPage.Data, offset, itemLength);
+
+                                //Split it
+                                string[] parts = item.Split((char)Common.ASCII.EqualsSign);
+
+                                //If there are 2 parts decide what to do.
+                                if (parts.Length > 1)
+                                {
+                                    switch (parts[0].ToLowerInvariant())
+                                    {
+                                        case "lwing_gain":
+                                            {
+                                                mediaType = Sdp.MediaType.audio;
+                                                rate = double.Parse(parts[1]);
+                                                break;
+                                            }
+                                        case "title":
+                                            {
+                                                title = parts[1];
+                                                break;
+                                            }
+                                        default: break;
+                                    }
+                                }
+
+                                //Move the offset
+                                offset += itemLength;
+                            }
+                        }
+                    }
                 }
 
                 Track created = new Track(startPage, title,

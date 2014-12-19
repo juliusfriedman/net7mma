@@ -345,31 +345,32 @@ namespace Media.Common
                 //Faster
 
                 //Calulcate the placeHolder value which is equal to the largest size storable in the signed representation plus 1
-                ulong placeHolder = (byte.MaxValue + 1); // base 2 = 2 * (ulong)(-sbyte.MaxValue) = 256;
+                ulong placeHolder = 256;// (byte.MaxValue + 1); // base 2 = 2 * (ulong)(-sbyte.MaxValue) = 256;
 
                 //Iterate each byte in the sequence skipping the first octet.
                 foreach (byte b in integerOctets.Skip(1))
                 {
                     //If the byte is greater than 0
-                    if (b > 0)
+                    if (b > byte.MinValue)
                     {
                         //Combine the result of the calculation of the base two value with the binary representation.
                         result |= b * placeHolder;
                     }
 
                     //Move the placeholder 8 bits left (This equates to a multiply by 4, [where << 4 would be a multiply of 3 etc])
+
+                    //Should probably not check endian here because reverse was already given...
+
                     if (BitConverter.IsLittleEndian)
-                        placeHolder <<= 8;
+                        placeHolder <<= BitSize;
                     else
-                        placeHolder >>= 8;
+                        placeHolder >>= BitSize;
                 }
 
                 //Return the result
                 return (long)result;
             }
-        }
-
-      
+        }        
 
         /// <summary>
         /// Reads a unsigned 8 bit value from the buffer at the given index.
@@ -474,6 +475,8 @@ namespace Media.Common
 
         #region Writing (Provided to reduce unsafe transition when using BitConverter)
 
+        //WriteInteger
+
         public static void WriteNetworkU8(byte[] buffer, int index, bool reverse, byte value)
         {
             buffer[index] = reverse ? ReverseU8(value) : value;
@@ -489,7 +492,7 @@ namespace Media.Common
         /// <param name="value"></param>
         public static void WriteNetwork16(byte[] buffer, int index, bool reverse, short value)
         {
-            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
+            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).CopyTo(buffer, index);
         }
 
         [CLSCompliant(false)]
@@ -532,7 +535,7 @@ namespace Media.Common
         //Todo
         public static void WriteNetwork32(byte[] buffer, int index, bool reverse, int value)
         {
-            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
+            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).CopyTo(buffer, index);
         }
 
         /// <summary>
@@ -551,7 +554,7 @@ namespace Media.Common
         //Todo
         public static void WriteNetwork64(byte[] buffer, int index, bool reverse, long value)
         {
-            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).ToArray().CopyTo(buffer, index);
+            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).CopyTo(buffer, index);
         }
 
 

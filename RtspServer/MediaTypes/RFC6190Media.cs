@@ -60,9 +60,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public RFC6190Frame(RFC6184Frame f) : this((Rtp.RtpFrame)f) { Buffer = f.Buffer; }
 
-            protected internal override void ProcessPacket(Rtp.RtpPacket packet, out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
+            protected internal override void ProcessPacket(Rtp.RtpPacket packet)
             {
-                containsSps = containsPps = containsSei = containsSlice = isIdr = false;
                 
                 //Determine if the forbidden bit is set and the type of nal from the first byte
                 byte firstByte = packet.Payload[packet.NonPayloadOctets];
@@ -107,7 +106,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     default:
                         {
                             //Handle as per RFC6184
-                            base.ProcessPacket(packet, out containsSps, out containsPps, out containsSei, out containsSlice, out isIdr);
+                            base.ProcessPacket(packet);
                             return;
                         }
                 }

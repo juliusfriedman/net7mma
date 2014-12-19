@@ -286,14 +286,33 @@ namespace Tests
             //Create a rtp client to mock the test
             using (Media.Rtp.RtpClient test = new Media.Rtp.RtpClient())
             {
+
+                int rtspOut = 0, rtspIn = 0;
+
+                //Setup an even to see what data was transmited.
+                test.InterleavedData += (sender, data, offset, count) =>
+                {
+                    Console.BackgroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
+                    Console.BackgroundColor = ConsoleColor.Black;
+                    ++rtspIn;
+                };
+
                 //Loop 65535 times
                 foreach (var testIndex in Enumerable.Range(ushort.MinValue, ushort.MaxValue))
                 {
+
+                    //reset rtsp count
+                    rtspOut = rtspIn = 0;
+
                     //Declare a channel randomly
                     int channel = Utility.Random.Next(byte.MinValue, byte.MaxValue);
 
                     //Declare a random length
                     int length = Utility.Random.Next(ushort.MinValue, ushort.MaxValue);
+
+                    //Account for the frame header
+                    length += Media.Rtp.RtpClient.InterleavedOverhead;
 
                     //Determine an actual length
                     int actualLength = Utility.Random.Next(0, length);
@@ -307,44 +326,54 @@ namespace Tests
                     //Get the data indicated
                     var data = header.Concat(Enumerable.Repeat(default(byte), actualLength));
 
-                    //Pad with Rtsp if not totally consumed
-                    if (actualLength < length)
+                    //Add more data until actualLength is less then length
+                    while (actualLength < length)
                     {
+                        //Make a message 
                         var rtspBytes = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response, 1.0, Encoding.UTF8)
-                        {
-                            StatusCode = Media.Rtsp.RtspStatusCode.OK
-                        }.Prepare();
+                            {
+                                StatusCode = Media.Rtsp.RtspStatusCode.OK,
+                                CSeq = Utility.Random.Next(byte.MinValue, int.MaxValue),
+                            }.Prepare();
+
+                        //Increment the outgoing message count
+                        ++rtspOut;
 
                         //Put the RtspData before the interleaved data
                         data = rtspBytes.Concat(data);
 
                         //determine if there is more space
                         actualLength += rtspBytes.Count();
-                    }
 
-                    //If there is more space put another binary frame
-                    if (actualLength < length)
-                    {
-                        int needed = length - actualLength;
+                        //If there is more space put another binary frame
+                        if (actualLength < length)
+                        {
+                            int needed = length - actualLength;
 
-                        var headerLast = new byte[] { 0x24, (byte)channel, 0, 0 };
+                            //Randomize needed
+                            needed = Utility.Random.Next(0, needed);
 
-                        Media.Common.Binary.WriteNetwork16(headerLast, 2, BitConverter.IsLittleEndian, (short)needed);
+                            var headerLast = new byte[] { 0x24, (byte)channel, 0, 0 };
 
-                        data = data.Concat(headerLast.Concat(Enumerable.Repeat(default(byte), needed)));
-                    }
+                            Media.Common.Binary.WriteNetwork16(headerLast, 2, BitConverter.IsLittleEndian, (short)needed);
+
+                            data = headerLast.Concat(Enumerable.Repeat(default(byte), needed)).Concat(data);
+
+                            actualLength += needed;
+                        }
+                    }                    
 
                     //Start at 0
                     int offset = 0;
 
                     //Enumerate the buffer looking for data to parse
-                    while (offset < length)
+                    while (length - offset >= Media.Rtp.RtpClient.InterleavedOverhead)
                     {
                         //Parse the data "received" which should always be 4 bytes longer then what was actually present.
-                        int foundLen = test.ProcessFrameData(data.ToArray(), offset, 4 + length, null);
+                        int foundLen = test.ProcessFrameData(data.ToArray(), offset, length, null);
 
                         //Ensure it was totally consumed
-                        if (length != foundLen - 4) throw new Exception();
+                        if (length != foundLen) throw new Exception("Found invalid length");
 
                         Console.WriteLine("Indicated: " + length + " Actual: " + actualLength + " Found: " + foundLen);
 
@@ -352,6 +381,14 @@ namespace Tests
 
                         //Move the offset
                         offset += foundLen;
+                    }
+
+                    //Some Rtsp messages may have been hidden by invalid tcp frames which indicated a longer length then they actually had.
+                    if (rtspOut != rtspIn)
+                    {
+                        Console.BackgroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine("Missed:" + (rtspOut - rtspIn) + " Messages");
+                        Console.BackgroundColor = ConsoleColor.Black;
                     }
 
                 }
@@ -2059,7 +2096,7 @@ namespace Tests
                             ++rtspInterleaved;
                             Console.BackgroundColor = ConsoleColor.Cyan;
                             consoleWriter.WriteLine("\tInterleaved=>" + count + " Bytes");
-                            //consoleWriter.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data.Array.Skip(data.Offset).Take(data.Count).ToArray()).Replace('\a', 'A'));
+                            consoleWriter.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
                             Console.BackgroundColor = ConsoleColor.Black;
                         };
 
