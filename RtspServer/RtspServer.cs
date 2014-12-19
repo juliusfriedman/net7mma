@@ -1003,7 +1003,7 @@ namespace Media.Rtsp
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
                 //If we received anything
-                if (received >= RtpClient.InterleavedOverhead)
+                if (received > 0)
                 {
                     //Count for the server
                     Interlocked.Add(ref m_Recieved, received);
@@ -1021,6 +1021,17 @@ namespace Media.Rtsp
                             {
                                 //Process the request
                                 ProcessRtspRequest(request, session);
+                            }
+                            else if (session.LastRequest != null && !session.LastRequest.IsComplete) //Otherwise if there is an incomplete last request
+                            {
+                                //Attempt to complete it
+                                received = session.LastRequest.CompleteFrom(null, data);
+
+                                //Account for the received data
+                                Interlocked.Add(ref session.m_Receieved, received);
+
+                                //If the message is now complete then process it
+                                if (session.LastRequest.IsComplete) ProcessRtspRequest(request, session);
                             }
                         }
                     }

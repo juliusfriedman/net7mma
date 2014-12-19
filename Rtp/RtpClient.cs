@@ -1823,6 +1823,14 @@ namespace Media.Rtp
             }//Check to see if the frame belongs to a new frame
             else if (transportContext.CurrentFrame != null && packet.Timestamp != transportContext.CurrentFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
             {
+                //Dispose the last frame if available
+                if (transportContext.LastFrame != null)
+                {
+                    transportContext.LastFrame.Dispose();
+                    transportContext.LastFrame = null;
+                }
+
+
                 //Move the current frame to the LastFrame
                 transportContext.LastFrame = transportContext.CurrentFrame;
 
@@ -1839,9 +1847,12 @@ namespace Media.Rtp
             //If the frame is complete then fire an event and make a new frame
             if (transportContext.CurrentFrame.IsComplete)
             {
-                //Dispose the last frame
-                transportContext.LastFrame.Dispose();
-                transportContext.LastFrame = null;
+                //Dispose the last frame if available
+                if (transportContext.LastFrame != null)
+                {
+                    transportContext.LastFrame.Dispose();
+                    transportContext.LastFrame = null;
+                }
 
                 //Move the current frame to the LastFrame
                 transportContext.LastFrame = transportContext.CurrentFrame;

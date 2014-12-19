@@ -162,7 +162,58 @@ namespace Media.Rtsp.Server.MediaTypes
 
             //Keep a list of encountered nal types so it can be augmented when Packetized or vice versa.
 
-            //Make methods for HasSps, HasPps etc which check that list.
+            List<byte> m_ContainedNals = new List<byte>();
+
+            public bool ContainsSEI
+            {
+                get
+                {
+                    return m_ContainedNals.Any(t => t == 6);
+                }
+            }
+
+            public bool ContainsSPS
+            {
+                get
+                {
+                    return m_ContainedNals.Any(t => t == 7);
+                }
+            }
+
+            public bool ContainsPPS
+            {
+                get
+                {
+                    return m_ContainedNals.Any(t => t == 8);
+                }
+            }
+
+            public bool ContainsIDR
+            {
+                get
+                {
+                    return m_ContainedNals.Any(t => t == 1);
+                }
+            }
+
+            public bool ContainsSlice
+            {
+                get
+                {
+                    return m_ContainedNals.Any(t => t == 5);
+                }
+            }
+
+            /// <summary>
+            /// After Packetization or Depacketization, will indicate the types of Nal units contained in the data of the frame.
+            /// </summary>
+            public System.Collections.ObjectModel.ReadOnlyCollection<byte> ContainedUnitTypes
+            {
+                get
+                {
+                    return m_ContainedNals.AsReadOnly();
+                }
+            }
 
             /// <summary>
             /// Creates any <see cref="Rtp.RtpPacket"/>'s required for the given nal
@@ -185,6 +236,9 @@ namespace Media.Rtsp.Server.MediaTypes
                         nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue), //Extract the Type
                         fragmentType = (byte)(DON.HasValue ? Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB : Media.Codecs.Video.H264.NalUnitType.FragmentationUnitA),
                         fragmentIndicator = (byte)(nalFNRI | fragmentType);//Create the Fragment Indicator Octet
+
+                    //Store the nalType contained
+                    m_ContainedNals.Add(nalType);
 
                     //No Marker yet
                     bool marker = false;
@@ -245,27 +299,15 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <summary>
             /// Creates <see cref="Buffer"/> with a H.264 RBSP from the contained packets
             /// </summary>
-            public virtual void Depacketize() { bool sps, pps, sei, slice, idr; Depacketize(out sps, out pps, out sei, out slice, out idr); }
-
-            /// <summary>
-            /// Parses all contained packets and writes any contained Nal Units in the RBSP to <see cref="Buffer"/>.
-            /// </summary>
-            /// <param name="containsSps">Indicates if a Sequence Parameter Set was found</param>
-            /// <param name="containsPps">Indicates if a Picture Parameter Set was found</param>
-            /// <param name="containsSei">Indicates if Supplementatal Encoder Information was found</param>
-            /// <param name="containsSlice">Indicates if a Slice was found</param>
-            /// <param name="isIdr">Indicates if a IDR Slice was found</param>
-            public virtual void Depacketize(out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
+            public virtual void Depacketize()
             {
-                containsSps = containsPps = containsSei = containsSlice = isIdr = false;
-
                 DisposeBuffer();
 
                 this.Buffer = new MemoryStream();
 
                 //Get all packets in the frame
-                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct()) 
-                    ProcessPacket(packet, out containsSps, out containsPps, out containsSei, out containsSlice, out isIdr);
+                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
+                    ProcessPacket(packet);
 
                 //Order by DON?
                 this.Buffer.Position = 0;
@@ -280,9 +322,8 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="containsSei"></param>
             /// <param name="containsSlice"></param>
             /// <param name="isIdr"></param>
-            internal protected virtual void ProcessPacket(Rtp.RtpPacket packet, out bool containsSps, out bool containsPps, out bool containsSei, out bool containsSlice, out bool isIdr)
+            internal protected virtual void ProcessPacket(Rtp.RtpPacket packet)
             {
-                containsSps = containsPps = containsSei = containsSlice = isIdr = false;
 
                 //Starting at offset 0
                 int offset = 0;
@@ -301,7 +342,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //bool forbiddenZeroBit = ((firstByte & 0x80) >> 7) != 0;
 
-                byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
+                byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);                
 
                 //TODO
 
@@ -343,6 +384,10 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //If the nal had data then write it
                                 if (tmp_nal_size > 0)
                                 {
+
+                                    //Store the nalType contained
+                                    m_ContainedNals.Add(nalUnitType);
+
                                     //For DOND and TSOFFSET
                                     switch (nalUnitType)
                                     {
@@ -363,28 +408,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //Read the nal header but don't move the offset
                                                 byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
 
-                                                if (nalHeader > 5)
-                                                {
-                                                    if (nalHeader == 6)
-                                                    {
-                                                        Buffer.WriteByte(0);
-                                                        containsSei = true;
-                                                    }
-                                                    else if (nalHeader == 7)
-                                                    {
-                                                        Buffer.WriteByte(0);
-                                                        containsPps = true;
-                                                    }
-                                                    else if (nalHeader == 8)
-                                                    {
-                                                        Buffer.WriteByte(0);
-                                                        containsSps = true;
-                                                    }
-                                                }
-
-                                                if (nalHeader == 1) containsSlice = true;
-
-                                                if (nalHeader == 5) isIdr = true;
+                                                //Store the nalType contained
+                                                m_ContainedNals.Add(nalHeader);
 
                                                 //Done reading
                                                 break;
@@ -448,29 +473,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                         //Use the first 3 bits of the first byte and last 5 bites of the FU Header
                                         byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
-                                        //Could have been SPS / PPS / SEI
-                                        if (nalHeader > 5)
-                                        {
-                                            if (nalHeader == 6)
-                                            {
-                                                Buffer.WriteByte(0);
-                                                containsSei = true;
-                                            }
-                                            else if (nalHeader == 7)
-                                            {
-                                                Buffer.WriteByte(0);
-                                                containsPps = true;
-                                            }
-                                            else if (nalHeader == 8)
-                                            {
-                                                Buffer.WriteByte(0);
-                                                containsSps = true;
-                                            }
-                                        }
-
-                                        if (nalHeader == 1) containsSlice = true;
-
-                                        if (nalHeader == 5) isIdr = true;
+                                        //Store the nalType contained
+                                        m_ContainedNals.Add(nalHeader);
 
                                         //Write the start code
                                         Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
@@ -489,29 +493,8 @@ namespace Media.Rtsp.Server.MediaTypes
                         }
                     default:
                         {
-                            // 6 SEI, 7 and 8 are SPS and PPS
-                            if (nalUnitType > 5)
-                            {
-                                if (nalUnitType == 6)
-                                {
-                                    Buffer.WriteByte(0);
-                                    containsSei = true;
-                                }
-                                else if (nalUnitType == 7)
-                                {
-                                    Buffer.WriteByte(0);
-                                    containsPps = true;
-                                }
-                                else if (nalUnitType == 8)
-                                {
-                                    Buffer.WriteByte(0);
-                                    containsSps = true;
-                                }
-                            }
-
-                            if (nalUnitType == 1) containsSlice = true;
-
-                            if (nalUnitType == 5) isIdr = true;
+                            //Store the nalType contained
+                            m_ContainedNals.Add(nalUnitType);
 
                             //Write the start code
                             Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
@@ -531,12 +514,14 @@ namespace Media.Rtsp.Server.MediaTypes
                     Buffer.Dispose();
                     Buffer = null;
                 }
+
+                m_ContainedNals.Clear();
             }
 
             public override void Dispose()
             {
                 if (Disposed) return;
-                base.Dispose();
+                base.Dispose();                
                 DisposeBuffer();
             }
 

@@ -49,7 +49,7 @@ namespace Media.Containers.Asf
     {
         static DateTime BaseDate = new DateTime(1601, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
 
-        const int IdentifierSize = 16, LengthSize = 8, MinimumSize = IdentifierSize + LengthSize;
+        const int IdentifierSize = 16, LengthSize = 8, HeaderObjectReservedDataSize = 6, MinimumSize = IdentifierSize + LengthSize;
 
         public static class Identifier
         {
@@ -175,7 +175,7 @@ namespace Media.Containers.Asf
 
             foreach (var asfObject in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(new Guid(asfObject.Identifier)))
+                if (names == null || names.Count() == 0 || names.Contains(new Guid(asfObject.Identifier.Take(IdentifierSize).ToArray())))
                 {
                     yield return asfObject;
                     continue;
@@ -221,11 +221,16 @@ namespace Media.Containers.Asf
 
             //For all objects besides the ASFHeaderObject the offset should equal the position.
             //The ASFHeaderObject is a special case because it is a "parent" Object
-            //The only thing which forces this to occur is the fact ReadNext looks for the header identifier and skips 6 bytes.
-            //This can be changed to make it as all of Nodes, would just have to have an additional 4 bytes in either the identifier or length.
-            if(!identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray())) offset = Position; 
+            if (identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray()))
+            {
+                //Resize the identifer to encompass the reserved data
+                Array.Resize(ref identifier, IdentifierSize + HeaderObjectReservedDataSize);
+                
+                //Take the reserved data out of the count of bytes in the node
+                length -= Read(identifier, IdentifierSize, HeaderObjectReservedDataSize);
+            }
 
-            return new Node(this, identifier, LengthSize, offset, length, length <= Remaining);
+            return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -235,22 +240,16 @@ namespace Media.Containers.Asf
                 Node next = ReadNext();
 
                 if (next == null) yield break;
+                
                 yield return next;
-
-                //Because the ASFHeaderObject is a parent object it must be parsed for children
-                if (next.Identifier.SequenceEqual(Identifier.HeaderObject.ToByteArray()))
-                {
-                    //Int 32 and two reserved bytes
-                    Skip(6);
-                    continue; //Parsing
-                }
-                //Skip past object data
+                
                 Skip(next.DataSize);
             }
         }      
 
         /// <summary>
         /// Returns the <see cref="Node"/> identified by <see cref="Identifier.HeaderObject"/>.
+        /// The last 6 bytes of the Identifier of the returned Node contain the reserved data which preceeds the actual nodes in the data of the header.
         /// </summary>
         public override Node Root
         {
