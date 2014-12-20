@@ -1066,8 +1066,11 @@ namespace Media.Containers.Ogg
                         }
                 }
 
-                // Vorbis Comments
-                foreach (var infoPage in m_InfoPages[serialNumber])
+                // Process Vorbis Comments for the page if found.
+                IEnumerable<Node> infoPages;
+
+                //If the stream had any info pages parse them
+                if (m_InfoPages.TryGetValue(serialNumber, out infoPages)) foreach (var infoPage in infoPages)
                 {
                     //Check for vorbis style comments
                     string vorbis = System.Text.Encoding.UTF8.GetString(infoPage.Data, 1, 6);
@@ -1119,12 +1122,12 @@ namespace Media.Containers.Ogg
                                 {
                                     switch (parts[0].ToLowerInvariant())
                                     {
-                                        case "lwing_gain":
-                                            {
-                                                mediaType = Sdp.MediaType.audio;
-                                                rate = double.Parse(parts[1]);
-                                                break;
-                                            }
+                                        //case "lwing_gain":
+                                        //    {
+                                        //        mediaType = Sdp.MediaType.audio;
+                                        //        rate = double.Parse(parts[1]);
+                                        //        break;
+                                        //    }
                                         case "title":
                                             {
                                                 title = parts[1];
@@ -1141,6 +1144,7 @@ namespace Media.Containers.Ogg
                     }
                 }
 
+                //Create the track
                 Track created = new Track(startPage, title,
                     //Serial Number
                       serialNumber,

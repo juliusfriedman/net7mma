@@ -139,6 +139,20 @@ namespace Media.Common//.Collections
         /// 
         /// </summary>
         /// <param name="key"></param>
+        /// <param name="results"></param>
+        /// <returns></returns>
+        public bool TryGetValue(TKey key, out IEnumerable<TValue> results)
+        {
+            IList<TValue> values;
+            bool result = Dictionary.TryGetValue(key, out values);
+            results = values;
+            return result;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="key"></param>
         /// <param name="value"></param>
         /// <param name="predicates"></param>
         /// <param name="inDictionary"></param>
@@ -240,6 +254,8 @@ namespace Media.Common//.Collections
         }
 
         #endregion
+
+       
     }
 
     #endregion

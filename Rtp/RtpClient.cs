@@ -3308,7 +3308,7 @@ namespace Media.Rtp
                     if (m_OutgoingRtcpPackets.Count > 0)
                     {
                         //Try and send the lot of them
-                        if (SendRtcpPackets(m_OutgoingRtcpPackets) > 0) lastOperation = DateTime.UtcNow;
+                        if (SendRtcpPackets(m_OutgoingRtcpPackets.Take(remove)) > 0) lastOperation = DateTime.UtcNow;
 
                         //Remove what was attempted to be sent (don't try to send again)
                         m_OutgoingRtcpPackets.RemoveRange(0, remove);
@@ -3327,8 +3327,12 @@ namespace Media.Rtp
                         //int? lastTimestamp;
 
                         //Take the array to reduce exceptions
-                        foreach (RtpPacket packet in m_OutgoingRtpPackets.ToArray())
+                        for (int i = 0, e = m_OutgoingRtpPackets.Count; i < e; ++i)
                         {
+                            //Get a packet
+                            RtpPacket packet = m_OutgoingRtpPackets[i];
+
+                            //Get the context for the packet
                             TransportContext sendContext = GetContextForPacket(packet);
 
                             //Don't send packets which are disposed but do remove them
