@@ -771,31 +771,33 @@ namespace Media.Rtsp
                 //Jump ahead to wait
                 if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
 
+                //Receive some data
             Receive:
                 received = m_RtspSocket.Receive(m_Buffer.Array, offset, max, SocketFlags.None, out error);
 
+                //Handle the connection reset error
                 if (error == SocketError.ConnectionReset) return null;
 
                 //If anything was received
                 if (received > 0)
                 {
-
                     //je
                     if (error == SocketError.TryAgain || error == SocketError.TimedOut) goto Receive;
 
                     //If the buffer had the start of frame check for the start of the upper layer message
+
+                    //Should just always call ProcessFrameData but m_RtpClient may be null, also UDP will not process a frame
+                    //This will be a change in the middle layer or the TransportContext will be used.
                     if (m_Buffer[offset] == RtpClient.BigEndianFrameControl) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
                     else ProcessInterleaveData(this, m_Buffer.Array, m_Buffer.Offset, received);
-                    //Count use SetLength on memory not to create a new segment, would also give the option of getting more data if needed.
-                    //The only thing in such a case is that if \r\n happen to be in the buffer then this is interpreted as a body.
                 }
 
             Wait: //Wait for the response unless tearing down.
                 if (request.Method != RtspMethod.TEARDOWN)
                 {
-                    //We have not yet received a response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                    while (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response && ++attempt <= m_RetryCount)
-                        if (m_InterleaveEvent.Wait(m_RtspTimeout)) break;
+                    //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
+                    while (!m_InterleaveEvent.IsSet && (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response) && !m_LastTransmitted.IsComplete && ++attempt <= m_RetryCount && !Playing)
+                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / Utility.MicrosecondsPerMillisecond))) break; //Wait a small amount of time for the response because the cancellation token was not used...
                         else if (!Playing || m_RtpProtocol == ProtocolType.Udp) goto Receive; //jne
                 }
 

@@ -464,7 +464,7 @@ namespace Media.Rtsp
 
             string lastSegment = playRequest.Location.Segments.Last();
 
-            Sdp.MediaType mediaType;
+            Sdp.MediaType mediaType;            
 
             //If the mediaType was specified
             if (Enum.TryParse(lastSegment, out mediaType))
@@ -511,7 +511,7 @@ namespace Media.Rtsp
             if(startRange.HasValue || endRange.HasValue) playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
             //Sent the rtpInfo
-            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));                        
+            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
             if (!m_RtpClient.Connected) m_RtpClient.Connect();
