@@ -307,7 +307,7 @@ namespace Media
             try
             {
                 //Loop the buffer from start to count
-                while (start < bufferLength && checkedBytes < octetCount)
+                while (count > 0 && start < bufferLength && checkedBytes < octetCount)
                 {
                     //Ensure we account for the bytes checked.
                     int position = start + checkedBytes;

@@ -122,7 +122,7 @@ namespace Media.Rtsp
         /// </summary>
         int m_SentBytes, m_ReceivedBytes,
              m_RtspPort, m_CSeq,
-            m_RetryCount = 100;
+            m_RetryCount = (int)Utility.MicrosecondsPerMillisecond;
 
         HashSet<RtspMethod> m_SupportedMethods = new HashSet<RtspMethod>();
 
@@ -772,7 +772,7 @@ namespace Media.Rtsp
                 if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
 
                 //Receive some data
-                //Receive:
+            Receive:
                 received = m_RtspSocket.Receive(m_Buffer.Array, offset, max, SocketFlags.None, out error);
 
                 //Handle the connection reset error
@@ -781,21 +781,27 @@ namespace Media.Rtsp
                 //If anything was received
                 if (received > 0)
                 {
-                    //If playing the underlying transport must handle the data
-                    if (Playing) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+                    //If transport is not null then the underlying transport must handle the data
+                    if (m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
+                else if (!Playing) goto Receive;
 
-            Wait: //Wait for the response unless tearing down.
-                if (request.Method != RtspMethod.TEARDOWN)
+            Wait: //Wait for the response unless playing or tearing down.
+                if (request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                    while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response) && ++attempt <= m_RetryCount && !m_LastTransmitted.IsComplete)
+                    while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_RetryCount)
                     {
                         //Wait a small amount of time for the response because the cancellation token was not used...
-                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_RetryCount))) continue;
+                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_RetryCount)))
+                        {
+                            //UDP must attempt another receive
+                            if (m_RtspSocket.ProtocolType == ProtocolType.Udp) goto Receive;
 
-                        //In Rtsp Udp (unreliable) an addition receive may have to occur because the RtspSocket is not being received on by the underlying transport / RtpClient
+                            //See if the message is complete.
+                            continue;
+                        }
                     }
                 }
 
@@ -1264,6 +1270,7 @@ namespace Media.Rtsp
                             //Create a Duplexed reciever using the RtspSocket
                             m_RtpClient = new RtpClient(memory);
 
+                            //Attach an event for interleaved data
                             m_RtpClient.InterleavedData += ProcessInterleaveData;
 
                             //SETUP shouldn't effect read and write timeouts.
@@ -1298,6 +1305,9 @@ namespace Media.Rtsp
 
                                 //Create a Udp Reciever
                                 m_RtpClient = new RtpClient(memory);
+
+                                //Attach an event for interleaved data
+                                m_RtpClient.InterleavedData += ProcessInterleaveData;
 
                             }
                             else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");

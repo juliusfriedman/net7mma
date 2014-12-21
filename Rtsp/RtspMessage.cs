@@ -1040,12 +1040,21 @@ namespace Media.Rtsp
             //If it cannot be found then the message does not contain the end line
             firstLineLength = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);
 
-            //Assume everything is the first line...
-            if (firstLineLength == -1) firstLineLength = count;
+            //Assume everything is given is the first line or belongs to the first line.
+            if (firstLineLength == -1)
+            {
+                start = offset;
+                firstLineLength = length;
+            }
+            else
+            {
+                //The length of the first line is given by the difference of start
+                firstLineLength -= start;
+            }
 
             //Get what we believe to be the first line
             //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-            string StatusLine = Encoding.GetString(data, start, firstLineLength - start);
+            string StatusLine = Encoding.GetString(data, start, firstLineLength);
 
             MessageType = StatusLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
