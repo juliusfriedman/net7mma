@@ -122,7 +122,7 @@ namespace Media.Rtsp
         /// </summary>
         int m_SentBytes, m_ReceivedBytes,
              m_RtspPort, m_CSeq,
-            m_RetryCount = 1;
+            m_RetryCount = 100;
 
         HashSet<RtspMethod> m_SupportedMethods = new HashSet<RtspMethod>();
 
@@ -204,7 +204,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The amount of times each RtspRequest will be sent if a response is not recieved in ReadTimeout
         /// </summary>
-        public int RetryCount { get { return m_RetryCount; } set { m_RetryCount = value; } }
+        public int RetryCount { get { return m_RetryCount; } set { m_RetryCount = value; if (m_RetryCount <= 0) m_RetryCount = 1; } }
 
         //The last RtspMessage transmittted by the RtspClient (Sent or Received)
         public RtspMessage LastTransmitted { get { return m_LastTransmitted; } }
@@ -731,7 +731,7 @@ namespace Media.Rtsp
               
                 int attempt = 0, //The attempt counter itself
                     sent = 0, received = 0, //counter for sending and receiving locally
-                    offset = 0, length = buffer.Length, max = RtspMessage.MaximumLength - length; //The offsets into the buffer and the maximum amounts
+                    offset = m_Buffer.Offset, length = buffer.Length, max = RtspMessage.MaximumLength - length; //The offsets into the buffer and the maximum amounts
 
                 //The error which will be ignored incase non-blocking sockets are being used.
                 SocketError error = SocketError.Success;
@@ -772,7 +772,7 @@ namespace Media.Rtsp
                 if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
 
                 //Receive some data
-            Receive:
+                //Receive:
                 received = m_RtspSocket.Receive(m_Buffer.Array, offset, max, SocketFlags.None, out error);
 
                 //Handle the connection reset error
@@ -781,27 +781,25 @@ namespace Media.Rtsp
                 //If anything was received
                 if (received > 0)
                 {
-                    //je
-                    if (error == SocketError.TryAgain || error == SocketError.TimedOut) goto Receive;
-
-                    //If the buffer had the start of frame check for the start of the upper layer message
-
-                    //Should just always call ProcessFrameData but m_RtpClient may be null, also UDP will not process a frame
-                    //This will be a change in the middle layer or the TransportContext will be used.
-                    if (m_Buffer[offset] == RtpClient.BigEndianFrameControl) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
-                    else ProcessInterleaveData(this, m_Buffer.Array, m_Buffer.Offset, received);
+                    //If playing the underlying transport must handle the data
+                    if (Playing) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+                    else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
 
             Wait: //Wait for the response unless tearing down.
                 if (request.Method != RtspMethod.TEARDOWN)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                    while (!m_InterleaveEvent.IsSet && (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response) && !m_LastTransmitted.IsComplete && ++attempt <= m_RetryCount && !Playing)
-                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / Utility.MicrosecondsPerMillisecond))) break; //Wait a small amount of time for the response because the cancellation token was not used...
-                        else if (!Playing || m_RtpProtocol == ProtocolType.Udp) goto Receive; //jne
+                    while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response) && ++attempt <= m_RetryCount && !m_LastTransmitted.IsComplete)
+                    {
+                        //Wait a small amount of time for the response because the cancellation token was not used...
+                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_RetryCount))) continue;
+
+                        //In Rtsp Udp (unreliable) an addition receive may have to occur because the RtspSocket is not being received on by the underlying transport / RtpClient
+                    }
                 }
 
-                //If we were not authroized and we did not give a nonce and there was an Authentiate header given then we will attempt to authenticate using the information in the header
+                //If we were not authroized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
                 if (m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
                 {
                     //http://tools.ietf.org/html/rfc2617
