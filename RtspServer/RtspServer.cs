@@ -1069,7 +1069,7 @@ namespace Media.Rtsp
 
                 int neededLength = session.m_SendBuffer.Length;
 
-                //This logic IS NOT be correct when only a partial send occurs
+                //This logic MAY NOT be correct when only a partial send occurs
                 if (sent >= neededLength)
                 {
                     Interlocked.Add(ref session.m_Sent, sent);

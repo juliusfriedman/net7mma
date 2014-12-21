@@ -3146,7 +3146,7 @@ a=mpeg4-esid:101");
 
                             httpClient.StartPlaying();
 
-                            while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(0); }
+                            while (httpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(10); }
 
                             Console.WriteLine("Test passed");
 
@@ -3174,7 +3174,7 @@ a=mpeg4-esid:101");
 
                             udpClient.StartPlaying();
 
-                            while (udpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(0); }
+                            while (udpClient.Client.TotalRtpBytesReceieved <= 1024) { System.Threading.Thread.Sleep(10); }
 
                             Console.WriteLine("Test passed");
 
@@ -3200,13 +3200,11 @@ a=mpeg4-esid:101");
 
                             tcpClient.StartPlaying();
 
-                            while (tcpClient.Client.TotalRtpBytesReceieved <= 4096 && tcpClient.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(0); }
+                            while (tcpClient.Client.TotalRtpBytesReceieved <= 4096 && tcpClient.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(10); }
 
                             Console.BackgroundColor = ConsoleColor.Green;
                             Console.WriteLine("Test passed " + tcpClient.Client.TotalRtpBytesReceieved + " " + tcpClient.RtpProtocol);
                             Console.BackgroundColor = ConsoleColor.Black;
-
-                            tcpClient.StopPlaying();
 
                             return;
                         }
