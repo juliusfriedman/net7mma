@@ -2807,7 +2807,7 @@ namespace Media.Rtp
                 OnInterleavedData(buffer, mOffset, received);
 
                 //Indicate no more data in buffer
-                return -1;
+                return received - InterleavedOverhead;
             }
             else if (startOfFrame > offset) // If the start of the frame is not at the beginning of the buffer
             {

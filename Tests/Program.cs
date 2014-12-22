@@ -374,17 +374,14 @@ namespace Tests
 
         internal static string TestingFormat = "{0}:=>{1}";
 
-        static Action[] Tests = new Action[] { TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestContainerImplementations, TestSdp, TestRtspMessage, TestRtspInterleavedFraming };
+        static Action[] Tests = new Action[] { 
+            TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestContainerImplementations, TestSdp, TestRtspMessage, TestRtspInterleavedFraming,
+            TestProcessFrameData.BackToBackRtspMessages, TestProcessFrameData.Issue17245_Case1_Iteration, TestProcessFrameData.Issue17245_Case2_Iteration
+        };
 
         [MTAThread]
         public static void Main(string[] args)
         {
-
-            //TestProcessFrameData.BackToBackRtspMessages();
-
-            //TestProcessFrameData.Issue17245_Case1_Iteration();
-
-            //TestProcessFrameData.Issue17245_Case2_Iteration();
 
             //Enable Shift / Control + Shift moving through tests, e.g. some type menu 
             foreach (Action test in Tests) RunTest(test);            

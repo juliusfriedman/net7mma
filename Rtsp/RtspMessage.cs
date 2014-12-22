@@ -1122,8 +1122,8 @@ namespace Media.Rtsp
 
                     //Just keep track of the end and refer only to this pointer for the representation of the body, subsequently headers will be parsed based on this max offset.
 
-                    //Create the vector
-                    string[] ordinals = Encoding.GetString(data, headerStart, headerBytes).Split(HeaderLineSplit, StringSplitOptions.None);
+                    //Create the vector from the start of the header data including all data received.
+                    string[] ordinals = Encoding.GetString(data, start + headerStart, headerBytes).Split(HeaderLineSplit, StringSplitOptions.None);
 
                     //The body will be the last scalar ordinal in the resulting vector
                     int lastOrdinal = ordinals.Length, maxOrdinal = lastOrdinal;
