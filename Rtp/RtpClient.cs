@@ -3044,7 +3044,7 @@ namespace Media.Rtp
             //Determine if Rtp or Rtcp is coming in.
             bool expectRtp, expectRtcp;
 
-            //Todo
+            //Todo Jump here instead of recursing
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
             while (!Disposed && remainingInBuffer > 0)
             {
@@ -3058,12 +3058,13 @@ namespace Media.Rtp
                 //If no frame was found then do not parse
                 if (frameLength < 0) break;
 
-                //See how many more bytes are required from the wire
-                int remainingOnSocket = frameLength - (remainingInBuffer - InterleavedOverhead);
-
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
                 if (frameLength > bufferLength) goto ParseAndCompleteData;
 
+                //See how many more bytes are required from the wire
+                int remainingOnSocket = frameLength - (remainingInBuffer - InterleavedOverhead);
+
+            GetRemainingData:
                 //If there is anymore data remaining on the wire
                 if (remainingOnSocket > 0)
                 {
@@ -3071,7 +3072,7 @@ namespace Media.Rtp
                     int pduStart = offset + InterleavedOverhead;
 
                     //Check to see if the frame CANNOT totally fit in the buffer
-                    if (pduStart + remainingInBuffer + remainingOnSocket > bufferLength) 
+                    if (remainingInBuffer > 0  && pduStart + remainingInBuffer + remainingOnSocket > bufferLength) 
                     {
                         //EAT THE ALF $ C X X to make as much room as possible.
 
@@ -3127,7 +3128,7 @@ namespace Media.Rtp
             ParseAndCompleteData:
 
                 //Calulcate the size of the frameData
-                int size = frameLength > bufferLength ? remainingInBuffer : frameLength;
+                int size = frameLength > bufferLength ? remainingInBuffer - InterleavedOverhead : frameLength;
 
                 //If there any data in the frame and there is a relevent context
                 if (!Disposed && frameLength > 0 && relevent != null)
@@ -3149,18 +3150,24 @@ namespace Media.Rtp
                 remainingInBuffer -= size;
 
                 //Ensure large frames are completely received by receiving the rest of the frame now.
-                if (frameLength > bufferLength) remainingInBuffer = frameLength - size;
+                if (frameLength > bufferLength && remainingInBuffer > 0)
+                {
+                    remainingOnSocket = frameLength - size;
+                    frameLength -= size;
+                    offset -= InterleavedOverhead;
+                    goto GetRemainingData;
+                }
             }
 
             //VERY Rarely there is data left in the buffer.
             //If a frame was parsed and there is any data left in the buffer
-            if (frameLength >= 0 && remainingInBuffer > 0 && socket != null)
+            if (remainingInBuffer > 0 && remainingInBuffer != count && socket != null)
             {
                 //Copy the existing data to the beginning of the buffer
                 Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
 
                 //The offset is now the original offset + what remained in the buffer
-                offset = m_Buffer.Offset + remainingInBuffer;
+                offset = m_Buffer.Offset;
 
                 //Ensure there is a frame header in the buffer
                 if (remainingInBuffer < InterleavedOverhead)
@@ -3168,11 +3175,14 @@ namespace Media.Rtp
                     SocketError error;
 
                     //Receive the rest of the data required
-                     recievedTotal += Utility.AlignedReceive(buffer, offset, InterleavedOverhead - remainingInBuffer, socket, out error);
+                     recievedTotal += Utility.AlignedReceive(buffer, offset + remainingInBuffer, InterleavedOverhead - remainingInBuffer, socket, out error);
+
+                    //Ensure remaining in buffer is set
+                     remainingInBuffer = InterleavedOverhead;
                 }
 
-                //Make another process on the frameData returning the result.
-                return recievedTotal + ProcessFrameData(buffer, m_Buffer.Offset, InterleavedOverhead, socket);
+                //Make a final process on the frameData returning the result.
+                return recievedTotal + ProcessFrameData(buffer, offset, remainingInBuffer, socket);
             }
 
             return recievedTotal;
