@@ -2804,7 +2804,7 @@ namespace Media.Rtp
             if (startOfFrame == -1)
             {
                 //System.Diagnostics.Debug.WriteLine("Interleaving: " + received);
-                if(received  > InterleavedOverhead) OnInterleavedData(buffer, mOffset, received);
+                OnInterleavedData(buffer, mOffset, received);
 
                 //Indicate no more data in buffer
                 return -1;
@@ -2816,7 +2816,7 @@ namespace Media.Rtp
 
                 //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));
 
-                if (upperLayerData > InterleavedOverhead) OnInterleavedData(buffer, mOffset, upperLayerData);
+                OnInterleavedData(buffer, mOffset, upperLayerData);
 
                 mOffset = startOfFrame;
 
@@ -2828,6 +2828,9 @@ namespace Media.Rtp
 
                 return upperLayerData - InterleavedOverhead;
             }
+
+            //If there is not enough data for a frame header return
+            if (mOffset + InterleavedOverhead > buffer.Length) return 0;
 
             //Todo Determine from Context to use control channel and length. (Check MediaDescription)
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
