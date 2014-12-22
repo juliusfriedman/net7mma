@@ -942,6 +942,8 @@ namespace Media.Rtsp
         {
             get
             {
+                //Should check for CSeq header also.
+
                 //See if there is a Content-Length header
                 string contentLength = GetHeader(RtspHeaders.ContentLength);
 

@@ -2028,17 +2028,10 @@ namespace Tests
             Media.Rtsp.RtspClient client = null;
             if (!string.IsNullOrWhiteSpace(location) && Console.ReadKey().Key != ConsoleKey.Q)
             {
-                ////Define the buffer size appropriately                
-                int bufferSize = Media.Rtsp.RtspMessage.MaximumLength + 1500;
-
-                ////Using a buffer size greater than Media.Rtsp.RtspMessage.MaximumLength will allow the RtpClient to share the memory in use.
-                //bufferSize *= 2; //8 MB
-                //// *= 8; = 34 MB
-
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
                     //Using a new Media.RtspClient with a specified buffer size
-                    using (client = new Media.Rtsp.RtspClient(location, protocol, bufferSize))
+                    using (client = new Media.Rtsp.RtspClient(location, protocol))
                     {                        
 
                         //Use the credential specified
@@ -2078,7 +2071,6 @@ namespace Tests
                             }
                             else if (rtpFrame.IsMissingPackets)
                             {
-                                Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize((Media.Common.ISocketReference)sender, i * bufferSize);
                                 ++incompleteFrames;
                                 Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                             }
