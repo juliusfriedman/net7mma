@@ -45,6 +45,330 @@ using System.Windows.Forms;
 
 namespace Tests
 {
+
+    #region Issue 17245
+
+    public static class TestProcessFrameData
+    {
+        private const int _senderSSRC = 0x53535243; //  "SSRC"
+        private const int _timeStamp = 0x54494d45;  //  "TIME"
+
+        private class TestFramework
+        {
+            private static System.Net.EndPoint _rtspServer;
+
+            private static System.Net.Sockets.Socket _listenSocket;
+
+            private System.Net.Sockets.Socket _sender,
+                           _receiving;
+
+            private Media.Rtp.RtpClient _client;
+
+            static TestFramework()
+            {
+                _rtspServer = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 10554);
+
+                //  Create a (single) listening socket.
+                _listenSocket = new System.Net.Sockets.Socket(_rtspServer.AddressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+                _listenSocket.Bind(_rtspServer);
+                _listenSocket.Listen(1);
+            }
+
+            public TestFramework()
+            {
+                //  Create a receiving socket.
+                _receiving = new System.Net.Sockets.Socket(_rtspServer.AddressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+
+                //  Connect to the server.
+                IAsyncResult connectResult = null;
+                connectResult = _receiving.BeginConnect(_rtspServer, new AsyncCallback((iar) =>
+                {
+                    try { _receiving.EndConnect(iar); }
+                    catch { }
+                }), null);
+
+                //  Get the sender socket to be used by the "server".
+                _sender = _listenSocket.Accept();
+
+                //  RtspClient default size
+                byte[] buffer = new byte[8192];
+
+                _client = new Media.Rtp.RtpClient(new Media.Common.MemorySegment(buffer, Media.Rtsp.RtspMessage.MaximumLength, buffer.Length - Media.Rtsp.RtspMessage.MaximumLength));
+                _client.InterleavedData += ProcessInterleaveData;
+                _client.RtpPacketReceieved += ProcessRtpPacket;
+
+                Media.Sdp.MediaDescription md = new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 999, "H.264", 94);
+
+                Media.Rtp.RtpClient.TransportContext tc = new Media.Rtp.RtpClient.TransportContext(0, 1,
+                    RFC3550.Random32(9876), md, false, _senderSSRC);
+                //  Create a Duplexed reciever using the RtspClient socket.
+                tc.Initialize(_receiving);
+
+                _client.Add(tc);
+            }
+
+            void ProcessInterleaveData(object sender, byte[] data, int offset, int length)
+            {
+                ConsoleColor previousForegroundColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("ProcessInterleaveData(): offset = " + offset + ", length = :" + length);
+
+                byte[] buffer = new byte[length];
+                Array.Copy(data, offset, buffer, 0, length);
+                //  Using ASCII instead of UTF8 to get all bytes printed.
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("'" + Encoding.ASCII.GetString(buffer) + "'");
+                Console.ForegroundColor = previousForegroundColor;
+
+                try
+                {
+                    Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, length);
+                    Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + interleaved.MessageType.ToString());
+                    Console.WriteLine("ProcessInterleaveData() RtspMessage.CSeq = " + interleaved.CSeq);
+                    Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + interleaved.ToString() + "'");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("ProcessInterleaveData() exception:" + ex.ToString());
+                    Console.WriteLine("");
+                    //throw;
+                }
+            }
+
+            void ProcessRtpPacket(object sender, Media.Rtp.RtpPacket packet)
+            {
+                ConsoleColor previousForegroundColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.WriteLine("ProcessRtpPacket(): SequenceNumber = " + packet.SequenceNumber +
+                    ", Payload.Offset = " + packet.Payload.Offset + ", Payload.Count = " + packet.Payload.Count);
+                Console.ForegroundColor = previousForegroundColor;
+            }
+
+            public int Send(byte[] data)
+            {
+                return _sender.Send(data);
+            }
+
+            public void HaveRtpClientWorkerThreadProcessSocketData()
+            {
+                _client.Connect();
+
+                System.Threading.Thread.Sleep(200);   //  To make the prompt appear after the output
+
+                //if (System.Diagnostics.Debugger.IsAttached)
+                {
+                    Console.WriteLine("Press any key to 'dicsonnect' RtpClient work thread and continue with next test.");
+                    Console.ReadKey(true);
+                }
+
+                _client.Disconnect();
+            }
+        }
+
+        private static byte[] GeneratePayload(int size)
+        {
+            int partNumber = 0;
+
+            StringBuilder sb = new StringBuilder();
+            while (sb.Length < size)
+            {
+                sb.Append("EncapsulatedPacketPayloadContentPartNumber" + ++partNumber + "$");
+            }
+
+            //  Using ASCII as it is not intended to be interpreted as RTSP request/response text.
+            byte[] encoded = Encoding.ASCII.GetBytes(sb.ToString());
+
+            byte[] buffer = new byte[size];
+            Array.Copy(encoded, buffer, size);
+
+            return buffer;
+        }
+
+        private static byte[] GenerateEncapsulatingHeader(int length)
+        {
+            byte[] header = new byte[4];
+            header[0] = 0x24;   //  '$'
+            header[1] = 0;      //  Channel 0
+            Media.Common.Binary.WriteNetwork16(header, 2, BitConverter.IsLittleEndian, (short)length);
+            return header;
+        }
+
+        private static void Issue17245_Case1(int breakingPaketLength)
+        {
+            int sequenceNumber = 0x3030;   //  "00"
+            string line = "Case1(): SequenceNumber = ";
+
+            System.Console.Clear();
+            Console.WriteLine("TestProcessFrameData Issue17245_Case1(): Discarding of Encapsulating Frame Header");
+            Console.WriteLine("breakingPaketLength = " + breakingPaketLength);
+            Console.WriteLine("Correct output is 5 rows saying 'Case1()...' and 5 rows 'ProcessRtpPacket()...'");
+            Console.WriteLine("No yellow rows!!!");
+            Console.WriteLine("");
+
+            TestFramework tf = new TestFramework();
+
+            Console.WriteLine(line + sequenceNumber);
+            byte[] buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p1 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p1.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p2 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p2.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(breakingPaketLength); //  Length 1245 to 1247 looses packets and it does not recover
+            Media.Rtp.RtpPacket p3 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p3.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p4 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p4.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p5 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p5.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
+            tf.HaveRtpClientWorkerThreadProcessSocketData();
+        }
+
+        /// <summary>
+        /// This test demonstrates the first point in issue report #17245.
+        /// </summary>
+        public static void Issue17245_Case1_Iteration()
+        {
+            //  Length 1245 to 1247 looses packets and erronyously triggers ProcessInterleaveData().
+            for (int size = 1244; size <= 1248; size++)
+            {
+                Issue17245_Case1(size);
+            }
+        }
+
+        private static void Issue17245_Case2(int breakingPaketLength)
+        {
+            int sequenceNumber = 0x3030;   //  "00"
+            string line = "Case2(): SequenceNumber = ";
+
+            System.Console.Clear();
+            Console.WriteLine("TestProcessFrameData Issue17245_Case2(): Interleaved RTSPResponse");
+            Console.WriteLine("breakingPaketLength = " + breakingPaketLength);
+            Console.WriteLine("Correct output is 3 rows saying 'ProcessRtpPacket()...', 1 yellow row, and finaly a single row 'ProcessRtpPacket()...':");
+            Console.WriteLine("");
+
+            TestFramework tf = new TestFramework();
+            //Console.WriteLine(line + sequenceNumber);
+            byte[] buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p1 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p1.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            //Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p2 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p2.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            //Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(breakingPaketLength);
+            Media.Rtp.RtpPacket p3 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p3.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
+            keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+            keepAlive.CSeq = 34;
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+            buffer = keepAlive.Prepare().ToArray();
+            tf.Send(buffer);
+
+            //Console.WriteLine(line + sequenceNumber);
+            buffer = GeneratePayload(1400);
+            Media.Rtp.RtpPacket p4 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+            buffer = p4.Prepare().ToArray();
+            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+            tf.Send(buffer);
+
+            //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
+            tf.HaveRtpClientWorkerThreadProcessSocketData();
+        }
+
+        /// <summary>
+        /// This test demonstrates the first point in issue report #17245.
+        /// 
+        /// This test will not produce valid RtspMessage objects until the issue
+        /// report #17276 also is fixed.
+        /// 
+        /// If the RtspMessage defect is attended to first this test can also be used to
+        /// extensivelly validate the correctnes of the fixing of the constructor
+        /// RtspMessage(byte[] data, int offset, int length).
+        /// </summary>
+        public static void Issue17245_Case2_Iteration()
+        {
+            //  First and last iteration is a complete response.
+            //  All iterations inbetween are broken in two calls to ProcessInterleaveData().
+            for (int size = 1250; size >= 1130; size -= 10)
+            {
+                Issue17245_Case2(size);
+            }
+        }
+
+        /// <summary>
+        /// This test case is added to demonstrate the risk of handing a byte array to a constructor.
+        /// A ctor can only return a single object even if the byte array it is given may contain more
+        /// than one object.
+        /// This violates OO as the caller is burdened with having to now about what should be a feature
+        /// of using the class it is calling.
+        /// </summary>
+        public static void BackToBackRtspMessages()
+        {
+            System.Console.Clear();
+            Console.WriteLine("TestProcessFrameData Case3(): Two back to back RTSP Responses");
+            Console.WriteLine("Correct output would be 2 'ProcessInterleaveData():...' detailing RTSP responses CSeq 34 and 35:");
+            Console.WriteLine("");
+
+            TestFramework tf = new TestFramework();
+
+            Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
+            keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+            keepAlive.CSeq = 34;
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+            byte[] buffer = keepAlive.Prepare().ToArray();
+            tf.Send(buffer);
+
+            keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
+            keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+            keepAlive.CSeq = 35;
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+            buffer = keepAlive.Prepare().ToArray();
+            tf.Send(buffer);
+
+            //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
+            tf.HaveRtpClientWorkerThreadProcessSocketData();
+        }
+    }
+
+    #endregion
+
     public class Program
     {
 
@@ -55,6 +379,12 @@ namespace Tests
         [MTAThread]
         public static void Main(string[] args)
         {
+
+            //TestProcessFrameData.BackToBackRtspMessages();
+
+            //TestProcessFrameData.Issue17245_Case1_Iteration();
+
+            //TestProcessFrameData.Issue17245_Case2_Iteration();
 
             //Enable Shift / Control + Shift moving through tests, e.g. some type menu 
             foreach (Action test in Tests) RunTest(test);            
