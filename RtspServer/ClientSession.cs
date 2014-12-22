@@ -224,28 +224,27 @@ namespace Media.Rtsp
 
             //Get the sourceContext incase the same payload type was used more then once otherwise fallback to the context for the Payloadtype
             if (sourceContext != null)
-            {
+            {                
                 context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
             }
             else
             {
                 sourceContext = context = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
             }
-
-            if (context == null) return;
-
-            var localPacket = packet;
+            
+            //If there is no context then don't send.
+            //OR
+            //If the context already sent the packet don't send                       //(make sure the sequence number didn't wrap)
+            if (context == null || context.SequenceNumber >= packet.SequenceNumber && sourceContext.SequenceNumber != packet.SequenceNumber) return;
 
             if (PacketBuffer.ContainsKey(sourceContext.SynchronizationSourceIdentifier))
             {
-                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, localPacket);
+                PacketBuffer.Add(sourceContext.SynchronizationSourceIdentifier, packet);
             }
             else if (m_RtpClient != null)
             {
-                //int sent = m_RtpClient.SendRtpPacket(localPacket, context.SynchronizationSourceIdentifier);
-
                 //Send packet on Client Thread
-                m_RtpClient.EnquePacket(localPacket);
+                m_RtpClient.EnquePacket(packet);
             }
         }
 

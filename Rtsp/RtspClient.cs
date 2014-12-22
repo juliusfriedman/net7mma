@@ -349,7 +349,7 @@ namespace Media.Rtsp
         /// <param name="location">The string which will be parsed to obtain the Location</param>
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
         /// <param name="bufferSize">The amount of bytes the client will use during message reception, Must be at least 4096 and if larger it will also be shared with the underlying RtpClient</param>
-        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
+        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 4096)
             : this(new Uri(location), rtpProtocolType, bufferSize)
         {
         }
@@ -360,7 +360,7 @@ namespace Media.Rtsp
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
-        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192)
+        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 4096)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
             if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme == System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
@@ -383,6 +383,7 @@ namespace Media.Rtsp
                 else throw new ArgumentException("Must be Tcp or Udp.", "protocolType");
             }
 
+            //Todo, Allow any size buffer.
             if (bufferSize < RtspMessage.MaximumLength) throw new ArgumentOutOfRangeException("Buffer size must be at least RtspMessage.MaximumLength (4096)");
             m_Buffer = new Common.MemorySegment(bufferSize);
 
@@ -1261,22 +1262,11 @@ namespace Media.Rtsp
                         //If there is not a client
                         if (m_RtpClient == null)
                         {
-                            int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
-
-                            Common.MemorySegment memory = null;
-
-                            if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
-
                             //Create a Duplexed reciever using the RtspSocket
-                            m_RtpClient = new RtpClient(memory);
+                            m_RtpClient = new RtpClient(m_Buffer);
 
                             //Attach an event for interleaved data
                             m_RtpClient.InterleavedData += ProcessInterleaveData;
-
-                            //SETUP shouldn't effect read and write timeouts.
-                            //If Rtcp is not disabled then this will set the read and write timeouts. 
-                            //SocketWriteTimeout = (int)created.ReceiveInterval.TotalMilliseconds;
-                            //SocketReadTimeout = (int)created.SendInterval.TotalMilliseconds;
                         }
                         else if (m_RtpProtocol != ProtocolType.Tcp) goto SetupTcp;
 
@@ -1297,18 +1287,11 @@ namespace Media.Rtsp
                         {
                             if (m_RtpProtocol == ProtocolType.Udp)
                             {
-                                int bufferSize = m_Buffer.Count - RtspMessage.MaximumLength;
-
-                                Common.MemorySegment memory = null;
-
-                                if (bufferSize > 0) memory = new Common.MemorySegment(m_Buffer.Array, RtspMessage.MaximumLength, bufferSize);
-
                                 //Create a Udp Reciever
-                                m_RtpClient = new RtpClient(memory);
+                                m_RtpClient = new RtpClient(m_Buffer);
 
                                 //Attach an event for interleaved data
                                 m_RtpClient.InterleavedData += ProcessInterleaveData;
-
                             }
                             else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
                         }
