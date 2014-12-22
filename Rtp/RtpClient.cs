@@ -2830,7 +2830,7 @@ namespace Media.Rtp
             }
 
             //If there is not enough data for a frame header return
-            if (mOffset + InterleavedOverhead > buffer.Length) return 0;
+            if (mOffset + InterleavedOverhead > buffer.Length) return -1;
 
             //Todo Determine from Context to use control channel and length. (Check MediaDescription)
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
@@ -3059,19 +3059,19 @@ namespace Media.Rtp
                 if (frameLength < 0) break;
 
                 //See how many more bytes are required from the wire
-                int remainingInWire = frameLength - (remainingInBuffer - InterleavedOverhead);
+                int remainingOnSocket = frameLength - (remainingInBuffer - InterleavedOverhead);
 
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
                 if (frameLength > bufferLength) goto ParseAndCompleteData;
 
                 //If there is anymore data remaining on the wire
-                if (remainingInWire > 0)
+                if (remainingOnSocket > 0)
                 {
                     //Frame starts here
                     int pduStart = offset + InterleavedOverhead;
 
                     //Check to see if the frame CANNOT totally fit in the buffer
-                    if (pduStart + remainingInBuffer + remainingInWire > bufferLength) 
+                    if (pduStart + remainingInBuffer + remainingOnSocket > bufferLength) 
                     {
                         //EAT THE ALF $ C X X to make as much room as possible.
 
@@ -3092,10 +3092,10 @@ namespace Media.Rtp
                     SocketError error = SocketError.SocketError;
 
                     //Get all the remaining data
-                    while (!Disposed && remainingInWire > 0)
+                    while (!Disposed && remainingOnSocket > 0)
                     {
                         //Recieve from the wire the amount of bytes required (up to the length of the buffer)
-                        int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, remainingInWire, socket, out error);
+                        int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, remainingOnSocket, socket, out error);
                         
                         //Check for an error and then the allowed continue condition
                         if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
@@ -3104,7 +3104,7 @@ namespace Media.Rtp
                         if (recievedFromWire <= 0) continue;
                         
                         //Decrease what is remaining from the wire by what was received
-                        remainingInWire -= recievedFromWire;
+                        remainingOnSocket -= recievedFromWire;
                         
                         //Move the offset
                         offset += recievedFromWire;
@@ -3169,27 +3169,6 @@ namespace Media.Rtp
 
                     //Receive the rest of the data required
                      recievedTotal += Utility.AlignedReceive(buffer, offset, InterleavedOverhead - remainingInBuffer, socket, out error);
-                }
-
-                //Make another process on the frameData returning the result.
-                return recievedTotal + ProcessFrameData(buffer, m_Buffer.Offset, InterleavedOverhead, socket);
-            }
-
-            //If a frame was parsed and there is any data left in the buffer
-            if (frameLength >= 0 && remainingInBuffer > 0 && socket != null)
-            {
-                //Copy the existing data to the beginning of the buffer
-                Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
-
-                //The offset is now the original offset + what remained in the buffer
-                offset = m_Buffer.Offset + remainingInBuffer;
-
-                //Ensure there is a frame header in the buffer
-                if (remainingInBuffer < InterleavedOverhead)
-                {
-                    SocketError error;
-
-                    int recievedFromWire = Utility.AlignedReceive(buffer, offset, InterleavedOverhead - remainingInBuffer, socket, out error);
                 }
 
                 //Make another process on the frameData returning the result.
