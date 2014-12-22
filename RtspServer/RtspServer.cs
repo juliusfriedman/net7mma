@@ -731,7 +731,7 @@ namespace Media.Rtsp
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = "RtspServer@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            //m_ServerThread.Priority = ThreadPriority.BelowNormal;
+            m_ServerThread.Priority = ThreadPriority.AboveNormal;
             m_ServerThread.Start();
 
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);

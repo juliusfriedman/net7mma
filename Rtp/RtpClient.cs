@@ -3059,14 +3059,7 @@ namespace Media.Rtp
                 int remainingInWire = frameLength - (remainingInBuffer - InterleavedOverhead);
 
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
-                if (frameLength > bufferLength)
-                {
-                    //Indciate the frame is only what is remaining in the buffer to ensure data completion is possible
-                    frameLength = remainingInBuffer;
-
-                    //There is data possibly remanining in the wire
-                    goto ParseAndCompleteData;
-                }
+                if (frameLength > bufferLength) goto ParseAndCompleteData;
 
                 //If there is anymore data remaining on the wire
                 if (remainingInWire > 0)
@@ -3099,7 +3092,7 @@ namespace Media.Rtp
                     while (!Disposed && remainingInWire > 0)
                     {
                         //Recieve from the wire the amount of bytes required (up to the length of the buffer)
-                        int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, Math.Min(bufferLength, remainingInWire), socket, out error);
+                        int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, remainingInWire, socket, out error);
                         
                         //Check for an error and then the allowed continue condition
                         if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
@@ -3129,6 +3122,10 @@ namespace Media.Rtp
 
             //if there is any data remaining in the wire at this point it is because the buffer capacity has been exceeded.
             ParseAndCompleteData:
+
+                //Calulcate the size of the frameData
+                int size = frameLength > bufferLength ? remainingInBuffer : frameLength;
+
                 //If there any data in the frame and there is a relevent context
                 if (!Disposed && frameLength > 0 && relevent != null)
                 {
@@ -3136,17 +3133,43 @@ namespace Media.Rtp
                     expectRtp = !(expectRtcp = relevent.IsRtcpEnabled && frameChannel == relevent.ControlChannel);
 
                     //Parse the data in the buffer
-                    using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength)) ParseAndCompleteData(memory, expectRtcp, expectRtp, frameLength);
+                    using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, size)) ParseAndCompleteData(memory, expectRtcp, expectRtp, size);
                 }
 
                 //Calulcate the amount of bytes to move the offset by including overhead
-                int size = frameLength + InterleavedOverhead;
+                size += InterleavedOverhead;
 
                 //Move the offset
                 offset += size;
 
                 //Decrease remaining in buffer
                 remainingInBuffer -= size;
+
+                //Ensure large frames are completely received by receiving the rest of the frame now.
+                if (frameLength > bufferLength) remainingInBuffer = frameLength - size;
+            }
+
+            //VERY Rarely there is data left in the buffer.
+            //If a frame was parsed and there is any data left in the buffer
+            if (frameLength >= 0 && remainingInBuffer > 0 && socket != null)
+            {
+                //Copy the existing data to the beginning of the buffer
+                Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
+
+                //The offset is now the original offset + what remained in the buffer
+                offset = m_Buffer.Offset + remainingInBuffer;
+
+                //Ensure there is a frame header in the buffer
+                if (remainingInBuffer < InterleavedOverhead)
+                {
+                    SocketError error;
+
+                    //Receive the rest of the data required
+                     recievedTotal += Utility.AlignedReceive(buffer, offset, InterleavedOverhead - remainingInBuffer, socket, out error);
+                }
+
+                //Make another process on the frameData returning the result.
+                return recievedTotal + ProcessFrameData(buffer, m_Buffer.Offset, InterleavedOverhead, socket);
             }
 
             //If a frame was parsed and there is any data left in the buffer

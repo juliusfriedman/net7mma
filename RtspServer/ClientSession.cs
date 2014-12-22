@@ -513,7 +513,12 @@ namespace Media.Rtsp
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
-            if (!m_RtpClient.Connected) m_RtpClient.Connect();
+            if (!m_RtpClient.Connected)
+            {
+                m_RtpClient.Connect();
+                
+                //m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
+            }
 
             //Return the response
             return playResponse;

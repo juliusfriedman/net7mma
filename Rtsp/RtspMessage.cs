@@ -1038,6 +1038,16 @@ namespace Media.Rtsp
 
             int encodedEndLength = 2, requiredEndLength = 1; //2.0 specifies that CR and LF must be present
 
+            //Get the first 'char'
+            char first = (char)data[start];
+
+            //Skip any non character data.
+            while (!char.IsLetter(first))
+            {
+                first = (char)data[++start];
+                --count;
+            }
+
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
             firstLineLength = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);

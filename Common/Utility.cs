@@ -237,14 +237,18 @@ namespace Media
             }
         }
 
-        public static int IndexOfAny<T>(this T[] array, params T[] delemits)
+        public static int IndexOfAny<T>(this T[] array, int offset, int count, params T[] delemits)
         {
             int o = -1, //Offset
                 i = -1, //Index
                 e = delemits.Length;//End
-            //Set i = the index of the entry of the delemit
-            do i = Array.IndexOf(array, delemits[++o]);
-            while (i <= 0 && o < e);//While the delemit was not found and the offset is less then the end
+
+            if (offset < e)
+            {
+                //Set i = the index of the entry of the delemit
+                do i = Array.IndexOf(array, delemits[++o], offset, count);
+                while (i <= 0 && o < e);//While the delemit was not found and the offset is less then the end
+            }
 
             //Return the index of the last delemit
             return i;
