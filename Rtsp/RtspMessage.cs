@@ -1305,7 +1305,11 @@ namespace Media.Rtsp
                     else
                     {
                         //Get the body of the message (use substring firstLineLength is included) TODO should not be included.
-                        m_Body = reader.ReadToEnd().Substring(headerOffset + 1);
+                        m_Body = reader.ReadToEnd();
+
+                        if (m_Body.Length > headerOffset) m_Body.Substring(headerOffset + 1);
+
+                        
 
                         //Ensure it is not larger than indicated.
                         if (m_Body.Length > supposedCount) m_Body = m_Body.Substring(0, supposedCount);

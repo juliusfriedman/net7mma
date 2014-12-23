@@ -789,7 +789,7 @@ namespace Media.Rtsp
                 else if (!Playing) goto Receive;
 
             Wait: //Wait for the response unless playing or tearing down.
-                if (request.Method != RtspMethod.TEARDOWN )//&& request.Method != RtspMethod.PLAY)
+                if (request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
                     while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_RetryCount)
