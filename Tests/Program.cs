@@ -107,6 +107,8 @@ namespace Tests
                 _client.Add(tc);
             }
 
+            Media.Rtsp.RtspMessage lastInterleaved;
+
             void ProcessInterleaveData(object sender, byte[] data, int offset, int length)
             {
                 ConsoleColor previousForegroundColor = Console.ForegroundColor;
@@ -118,14 +120,33 @@ namespace Tests
                 //  Using ASCII instead of UTF8 to get all bytes printed.
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("'" + Encoding.ASCII.GetString(buffer) + "'");
-                Console.ForegroundColor = previousForegroundColor;
+                
 
                 try
                 {
                     Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, length);
-                    Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + interleaved.MessageType.ToString());
-                    Console.WriteLine("ProcessInterleaveData() RtspMessage.CSeq = " + interleaved.CSeq);
-                    Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + interleaved.ToString() + "'");
+
+                    if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
+                    {
+
+                        interleaved.Dispose();
+
+                        interleaved = null;
+
+                        using (var memory = new Media.Common.MemorySegment(data, offset, length)) lastInterleaved.CompleteFrom(null, memory);
+
+                    }
+                    else lastInterleaved = interleaved;
+
+                    //If the last message was complete then show it in green
+                    if (lastInterleaved.IsComplete) Console.ForegroundColor = ConsoleColor.Green;
+
+                    Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + lastInterleaved.MessageType.ToString());
+                    Console.WriteLine("ProcessInterleaveData() RtspMessage.CSeq = " + lastInterleaved.CSeq);
+                    Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + lastInterleaved.ToString() + "'");
+
+                    Console.ForegroundColor = previousForegroundColor;
+
                 }
                 catch (Exception ex)
                 {
