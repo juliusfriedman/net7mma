@@ -2841,11 +2841,8 @@ namespace Media.Rtp
             //Set the offset
             offset = mOffset;
 
-            //Do not obtain a context for a erronoues length
-            if (frameLength < 0) return frameLength;
-
-            //Assign context if possible
-            context = GetContextByChannel(frameChannel);
+            //Assign a context if there is a frame of any size
+            if (frameLength >= 0) context = GetContextByChannel(frameChannel);
 
             //Determine how may how more bytes need to be read to complete the frame
             return frameLength;
@@ -3072,7 +3069,7 @@ namespace Media.Rtp
                     int pduStart = offset + InterleavedOverhead;
 
                     //Check to see if the frame CANNOT totally fit in the buffer
-                    if (remainingInBuffer > 0  && pduStart + remainingInBuffer + remainingOnSocket > bufferLength) 
+                    if (remainingInBuffer > 0 && pduStart + remainingInBuffer + remainingOnSocket > bufferLength)
                     {
                         //EAT THE ALF $ C X X to make as much room as possible.
 
@@ -3081,13 +3078,14 @@ namespace Media.Rtp
 
                         //Copy the existing pdu data to the beginning of the buffer because the frame header was parsed
                         Array.Copy(buffer, pduStart, buffer, m_Buffer.Offset, remainsInBuffer);
-                        
+
                         //The pdu now starts here
                         pduStart = m_Buffer.Offset;
 
                         //Our offset for receiveing is modified with account of remainsInBuffer
                         offset = m_Buffer.Offset + remainsInBuffer;
                     }
+                    else offset = pduStart;
 
                     //Store the error if any
                     SocketError error = SocketError.SocketError;

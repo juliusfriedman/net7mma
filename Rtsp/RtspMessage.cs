@@ -680,30 +680,6 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspMessage : Common.BaseDisposable, Common.IPacket
     {
-        #region RtspMessageException
-
-        /// <summary>
-        /// Thrown when parsing a RtpMessage fails. The Tag property will usually have the data remnant from the operation.
-        /// </summary>
-        public class RtspMessageException
-            : Exception
-        {
-            public readonly RtspMessage RtspMessage;
-
-            public readonly object Tag;
-
-            public RtspMessageException(string message)
-                : base(message) { }
-
-            public RtspMessageException(string message, Exception innerException)
-                : base(message, innerException) { }
-
-            public RtspMessageException(string message, Exception innerException, RtspMessage rtspMessage, object tag)
-                : base(message, innerException) { RtspMessage = rtspMessage; Tag = tag; }
-        }
-
-        #endregion
-
         #region Statics
 
         //Used to format the version string
@@ -1048,11 +1024,14 @@ namespace Media.Rtsp
                 --count;
             }
 
+            //No more data
+            if (count <= 0) return;
+
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
             firstLineLength = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);
 
-            //Assume everything is given is the first line or belongs to the first line.
+            //Assume everything belongs to the first line.
             if (firstLineLength == -1)
             {
                 start = offset;
@@ -1161,7 +1140,7 @@ namespace Media.Rtsp
                         System.Text.EncodingInfo requested = System.Text.Encoding.GetEncodings().FirstOrDefault(e => string.Compare(e.Name, contentEncoding, false, System.Globalization.CultureInfo.InvariantCulture) == 0);
 
                         //If the encoding could not be found then throw an exception giving the required information.
-                        if (requested == null) throw new RtspMessageException("The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding", null, this, contentEncoding);
+                        if (requested == null) Common.ExceptionExtensions.CreateAndRaiseException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
                         else Encoding = requested.GetEncoding();
                     }
 
@@ -1203,7 +1182,8 @@ namespace Media.Rtsp
                         }
                     }//There was no Content-Length header
                 }//There was no headerBytes
-            }
+            } //All messages must have at least a CSeq header.
+            else MessageType = RtspMessageType.Invalid;
 
             #endregion
         }
