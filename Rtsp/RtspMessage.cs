@@ -709,6 +709,11 @@ namespace Media.Rtsp
         //String which is used to split Header values of the RtspMessage
         internal static char[] HeaderValueSplit = new char[] { ':' };
 
+        // \r\n in the encoding of the request (Network Order)
+        internal static byte[] LineEnds = (BitConverter.IsLittleEndian ? Common.ASCII.NewLine.Yield().Concat(Common.ASCII.LineFeed.Yield()) : Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray();
+
+        internal static int MinimumStatusLineSize = 9; //'RTSP/X.X ' 
+
         public static byte[] ToHttpBytes(RtspMessage message, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
         {
 
@@ -817,6 +822,10 @@ namespace Media.Rtsp
 
         Encoding m_Encoding = Encoding.UTF8;
 
+        System.IO.MemoryStream m_Buffer;
+
+        int headerOffset = -1;
+
         #endregion
 
         #region Properties            
@@ -918,7 +927,10 @@ namespace Media.Rtsp
         {
             get
             {
-                //Should check for CSeq header also.
+                //All requests must have a StatusLine
+
+                //All requests contain a CSeq header.
+                if (m_Headers.Count == 0 || !ContainsHeader(RtspHeaders.CSeq)) return false;
 
                 //See if there is a Content-Length header
                 string contentLength = GetHeader(RtspHeaders.ContentLength);
@@ -1009,9 +1021,6 @@ namespace Media.Rtsp
             //RTSP in the encoding of the request
             //byte[] encodedIdentifier = Encoding.GetBytes(MessageIdentifier); int encodedIdentifierLength = encodedIdentifier.Length;
 
-            // \r\n in the encoding of the request (Network Order)
-            byte[] encodedEnd = (BitConverter.IsLittleEndian ? Common.ASCII.NewLine.Yield().Concat(Common.ASCII.LineFeed.Yield()) : Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray();
-
             int encodedEndLength = 2, requiredEndLength = 1; //2.0 specifies that CR and LF must be present
 
             //Get the first 'char'
@@ -1025,23 +1034,34 @@ namespace Media.Rtsp
             }
 
             //No more data
-            if (count <= 0) return;
+            if (count <= 0) return;            
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
-            firstLineLength = Utility.ContainsBytes(data, ref start, ref count, encodedEnd, 0, requiredEndLength);
+            firstLineLength = Utility.ContainsBytes(data, ref start, ref count, LineEnds, 0, requiredEndLength);
 
             //Assume everything belongs to the first line.
-            if (firstLineLength == -1)
+            if (firstLineLength == -1 || firstLineLength < 9)
             {
                 start = offset;
                 firstLineLength = length;
+
+                
+                //Create the buffer
+                m_Buffer = new System.IO.MemoryStream(firstLineLength);
+                
+                //Write the data to the buffer
+                m_Buffer.Write(data, start, firstLineLength);
+
+                return;
             }
             else
             {
                 //The length of the first line is given by the difference of start
                 firstLineLength -= start;
             }
+
+            
 
             //Get what we believe to be the first line
             //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
@@ -1087,101 +1107,24 @@ namespace Media.Rtsp
 
             if (count > firstLineLength)
             {
-
                 //The count of how many bytes are used to take up the header is given by
                 //The amount of bytes (after the first line PLUS the length of CRLF in the encoding of the message) minus the count of the bytes in the packet
                 int headerStart = firstLineLength + encodedEndLength,
                 headerBytes = count - headerStart;
-                //totalBytes = endFirstLine;
 
                 //If the scalar is valid
                 if (headerBytes > 0 && headerStart + headerBytes <= count)
                 {
-                    //One empty line (CRLF) to indicate the end of the header section;
+                    m_Buffer = new System.IO.MemoryStream(count);
 
-                    //Just keep track of the end and refer only to this pointer for the representation of the body, subsequently headers will be parsed based on this max offset.
+                    m_Buffer.Write(data, start, count);
 
-                    //Create the vector from the start of the header data including all data received.
-                    string[] ordinals = Encoding.GetString(data, start + headerStart, headerBytes).Split(HeaderLineSplit, StringSplitOptions.None);
+                    headerOffset = headerStart;
 
-                    //The body will be the last scalar ordinal in the resulting vector
-                    int lastOrdinal = ordinals.Length, maxOrdinal = lastOrdinal;
+                    m_Buffer.Position = headerOffset;
 
-                    //iterate the ordinals of the vector to make the headers
-                    for (int i = 0; i < lastOrdinal; ++i)
-                    {
-                        //Get the value
-                        string raw = ordinals[i];
-
-                        //We only want the first 2 sub strings to allow for headers which have a ':' in the data
-                        //E.g. Rtp-Info: rtsp://....
-                        string[] parts = raw.Split(HeaderValueSplit, 2);
-
-                        //If this be a valid header set it
-                        if (parts.Length > 1) SetHeader(parts[0], parts[1]);
-                        else
-                        {
-                            //The last ordinal 
-                            lastOrdinal = i;
-                            break;
-                        }
-
-                        //totalBytes += m_Encoding.GetByteCount(raw) + 2;
-                    }
-
-                    //Get the correct encoding if it was present thus far
-                    string contentEncoding = GetHeader(RtspHeaders.ContentEncoding);
-
-                    //If there was a content-Encoding header then set it now;
-                    if (!string.IsNullOrWhiteSpace(contentEncoding))
-                    {
-                        //Check for the requested encoding
-                        contentEncoding = contentEncoding.Trim();
-                        System.Text.EncodingInfo requested = System.Text.Encoding.GetEncodings().FirstOrDefault(e => string.Compare(e.Name, contentEncoding, false, System.Globalization.CultureInfo.InvariantCulture) == 0);
-
-                        //If the encoding could not be found then throw an exception giving the required information.
-                        if (requested == null) Common.ExceptionExtensions.CreateAndRaiseException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
-                        else Encoding = requested.GetEncoding();
-                    }
-
-                    //See if there is a Content-Length header
-                    string contentLength = GetHeader(RtspHeaders.ContentLength);
-
-                    //If there is a header check its value, it will the only way to validate the body
-                    if (!string.IsNullOrWhiteSpace(contentLength))
-                    {
-                        //Where there are not empty lines leading up to the header
-                        while (lastOrdinal < maxOrdinal)
-                        {
-                            //Get the body of the message from the last ordinal
-                            m_Body = ordinals[lastOrdinal++];
-
-                            //If this was the header we are done iterating the remaining ordinals...
-                            //RTSP packet is terminated with an empty line immediately following the last message header.
-                            if (!string.IsNullOrWhiteSpace(m_Body))
-                            {
-
-                                //Here each line is being "represented" with a \r\n when it may only have an \r
-                                //This logic needs to use exactly what is present in the original message and nothing more even though it works for now
-                                //This is acheived by keeping track of the offset above and making new string the index of the end of the first line to the end of the message
-
-                                //Get the string representation of the encodedBytes
-                                string crlfString = Encoding.GetString(encodedEnd);
-
-                                //Put the real new line back in the body
-                                m_Body += crlfString;
-
-                                //If there was more of the body put it back together
-                                if (lastOrdinal < maxOrdinal) m_Body += string.Join(crlfString, ordinals, lastOrdinal, maxOrdinal - lastOrdinal);
-
-                                //totalBytes += m_Encoding.GetByteCount(m_Body);
-
-                                //Body is parsed
-                                break;
-                            }
-                        }
-                    }//There was no Content-Length header
-                }//There was no headerBytes
+                    if (ParseHeaders()) ParseBody();
+                }                
             } //All messages must have at least a CSeq header.
             else MessageType = RtspMessageType.Invalid;
 
@@ -1205,6 +1148,180 @@ namespace Media.Rtsp
         #endregion
 
         #region Methods
+
+        bool ParseStatusLine()
+        {
+
+            //Determine how much data is present.
+            int count = (int)m_Buffer.Length;
+
+            //Ensure enough data is availble to parse.
+            if (count <= MinimumStatusLineSize) return false;
+
+            //Always from the beginning of the buffer.
+            m_Buffer.Seek(0, System.IO.SeekOrigin.Begin);
+
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
+            {
+
+                //Get what we believe to be the first line
+                //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
+                string StatusLine = reader.ReadLine();
+
+                MessageType = StatusLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
+
+                #region FirstLine Version, (Method / Location or StatusCode)
+
+                //Must either inspect the btyes or make a string to have enum parse do the work...
+
+                //Could assign version, then assign Method and Location
+                if (MessageType == RtspMessageType.Request)
+                {
+                    //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
+                    string[] parts = StatusLine.Split(' ');
+
+                    if (parts.Length < 2 || !Enum.TryParse<RtspMethod>(parts[0], true, out Method) || !Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) || !double.TryParse(parts[2].Substring(parts[2].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
+                    {
+                        return false;
+                    }
+                }
+                else if (MessageType == RtspMessageType.Response)
+                {
+                    //S->C[0]RTSP/1.0[1]200[2]OK
+                    string[] parts = StatusLine.Split(' ');
+
+                    if (parts.Length < 2 || !double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || !int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
+                    {
+                        return false;
+                    }
+                }
+                else return false; //This is an invalid message
+
+                #endregion
+
+                //Seek past the status line.
+                headerOffset = (int)m_Buffer.Seek(StatusLine.Length, System.IO.SeekOrigin.Begin);
+            }
+
+            //The status line was parsed.
+            return true;
+        }
+
+        bool ParseHeaders()
+        {
+
+            //Need 2 empty lines to end the header section
+            int emptyLine = 0;
+
+            //Keep track of the position
+            long position = m_Buffer.Position;
+
+            //create a reader
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
+            {
+                //While we didn't find the end of the header section
+                while (emptyLine < 2 && !reader.EndOfStream)
+                {
+                    //Read a line from the reader wherever it is.
+
+                    //StreamReader forces use of reflection to propertly maintain offset....
+                    //StreamReader Peek also causes buffering issues.
+                    //StreamReader is terrible...
+                    //http://stackoverflow.com/questions/10189270/tracking-the-position-of-the-line-of-a-streamreader?lq=1
+
+                    //To work around this we calulate the position each iteration
+
+                    //Read a line.
+                    string rawLine = reader.ReadLine();
+
+                    //Check for the empty line
+                    if (string.IsNullOrEmpty(rawLine))
+                    {
+                        ++emptyLine;
+                        continue;
+                    }
+
+                    //We only want the first 2 sub strings to allow for headers which have a ':' in the data
+                    //E.g. Rtp-Info: rtsp://....
+                    string[] parts = rawLine.Split(HeaderValueSplit, 2);
+
+                    //If this be a valid header set it
+                    if (parts.Length > 1)
+                    {
+                        SetHeader(parts[0], parts[1]);
+                        emptyLine = 0;
+                        
+                        //Move the position
+                        position += rawLine.Length;
+                    }
+                    else
+                    {
+                        //The header is not complete or this is the body
+                        m_Buffer.Position = position + rawLine.Length - 1;
+                        break;
+                    }
+                }
+            }
+
+            //Could optomize by moving headerOffset now to ensure already parsed headers are not parsed again
+
+            //Headers were parsed if there were 2 empty lines.
+            return ContainsHeader(RtspHeaders.ContentLength) ? emptyLine > 0 : ContainsHeader(RtspHeaders.CSeq) && emptyLine > 0;
+        }
+
+
+        bool ParseBody()
+        {
+            //Get the content encoding required by the headers for the body
+            string contentEncoding = GetHeader(RtspHeaders.ContentEncoding);
+
+            //If there was a content-Encoding header then set it now;
+            if (!string.IsNullOrWhiteSpace(contentEncoding))
+            {
+                //Check for the requested encoding
+                contentEncoding = contentEncoding.Trim();
+                System.Text.EncodingInfo requested = System.Text.Encoding.GetEncodings().FirstOrDefault(e => string.Compare(e.Name, contentEncoding, false, System.Globalization.CultureInfo.InvariantCulture) == 0);
+
+                //If the encoding could not be found then throw an exception giving the required information.
+                if (requested == null) Common.ExceptionExtensions.CreateAndRaiseException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
+                else Encoding = requested.GetEncoding();
+            }
+
+            using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
+            {
+                //See if there is a Content-Length header
+                string contentLength = GetHeader(RtspHeaders.ContentLength);
+
+                //No content length means the body is parsed.
+                if (string.IsNullOrWhiteSpace(contentLength)) return true;
+
+                int supposedCount;
+
+                //If there is a header check its value, it will the only way to validate the body
+                if (int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount))
+                {
+                    //Empty body
+                    if (supposedCount == 0) m_Body = string.Empty;
+                    else
+                    {
+                        //Get the body of the message (use substring firstLineLength is included) TODO should not be included.
+                        m_Body = reader.ReadToEnd().Substring(headerOffset + 1);
+
+                        //Ensure it is not larger than indicated.
+                        if (m_Body.Length > supposedCount) m_Body = m_Body.Substring(0, supposedCount);
+                    }
+
+                }//There was no Content-Length header or it was invalid
+                else
+                {
+                    MessageType = RtspMessageType.Invalid;
+                    return false;
+                }
+            }
+
+            //Body was parsed or started to be parsed.
+            return true;
+        }
 
         /// <summary>
         /// Creates a 'string' representation of the RtspMessage including all binary data contained therein.
@@ -1281,7 +1398,7 @@ namespace Media.Rtsp
         {
             headerName = null;
             if (string.IsNullOrWhiteSpace(name)) return false;
-            return !string.IsNullOrWhiteSpace(GetHeader(name, out headerName));
+            return GetHeader(name, out headerName) != null;
         }
 
         public bool ContainsHeader(string name)
@@ -1419,11 +1536,51 @@ namespace Media.Rtsp
 
         public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
+
+            bool wroteData = false;
+
+            //Try to parse the status line first
+            if (m_Buffer != null && m_Buffer.Length <= MinimumStatusLineSize && buffer.Count > 0)
+            {
+                //Write the new data
+                m_Buffer.Write(buffer.Array, buffer.Offset, buffer.Count);
+
+                wroteData = true;
+
+                //If the status line or header section was not parsed return the number of bytes written
+                if(!ParseStatusLine()) return buffer.Count;
+            }
+
+            //Should first check for cSeq header...
+
             //See if there is a Content-Length header
             string contentLength = GetHeader(RtspHeaders.ContentLength);
 
-            //Messages without a contentLength are complete
-            if (string.IsNullOrWhiteSpace(contentLength)) return 0;
+            //Messages without a contentLength are not complete
+            if (string.IsNullOrWhiteSpace(contentLength))
+            {
+                //Write the new data if not already written
+                if (!wroteData)
+                {
+                    if (m_Buffer == null) m_Buffer = new System.IO.MemoryStream((int)buffer.Count);
+                    else
+                    {
+                        m_Buffer.Seek(0, System.IO.SeekOrigin.End);
+
+                        m_Buffer.SetLength(m_Buffer.Length + buffer.Count);
+
+                    }
+                    m_Buffer.Write(buffer.Array, buffer.Offset, buffer.Count);
+
+                    m_Buffer.Seek(headerOffset, System.IO.SeekOrigin.Begin);
+                }
+
+                //If the header section was not parsed indicate how much was written
+                if (!ParseHeaders()) return buffer.Count;
+            }
+
+            //If the body is now parsed then we are done.
+            if (ParseBody()) return buffer.Count;
 
             //Calulcate the amount of bytes in the body
             int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
