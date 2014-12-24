@@ -824,7 +824,7 @@ namespace Media.Rtsp
 
         System.IO.MemoryStream m_Buffer;
 
-        int headerOffset = -1;
+        int headerOffset = 0;
 
         #endregion
 
@@ -1115,13 +1115,11 @@ namespace Media.Rtsp
                 //If the scalar is valid
                 if (headerBytes > 0 && headerStart + headerBytes <= count)
                 {
-                    m_Buffer = new System.IO.MemoryStream(count);
+                    m_Buffer = new System.IO.MemoryStream(headerBytes);
 
-                    m_Buffer.Write(data, start, count);
+                    m_Buffer.Write(data, start + headerStart, headerBytes);
 
-                    headerOffset = headerStart;
-
-                    m_Buffer.Position = headerOffset;
+                    m_Buffer.Position = headerOffset = 0;
 
                     if (ParseHeaders()) ParseBody();
                 }                
@@ -1237,6 +1235,7 @@ namespace Media.Rtsp
                     //Check for the empty line
                     if (string.IsNullOrEmpty(rawLine))
                     {
+                        ++position;
                         ++emptyLine;
                         continue;
                     }
@@ -1249,10 +1248,11 @@ namespace Media.Rtsp
                     if (parts.Length > 1)
                     {
                         SetHeader(parts[0], parts[1]);
+
                         emptyLine = 0;
                         
                         //Move the position
-                        position += rawLine.Length;
+                        position += rawLine.Length;                        
                     }
                     else
                     {
@@ -1263,10 +1263,8 @@ namespace Media.Rtsp
                 }
             }
 
-            //Could optomize by moving headerOffset now to ensure already parsed headers are not parsed again
-
-            //Headers were parsed if there were 2 empty lines.
-            return ContainsHeader(RtspHeaders.ContentLength) ? emptyLine > 0 : ContainsHeader(RtspHeaders.CSeq) && emptyLine > 0;
+            //Headers were parsed if there were 1 empty lines.
+            return ContainsHeader(RtspHeaders.CSeq) && emptyLine > 0;
         }
 
 
@@ -1304,12 +1302,16 @@ namespace Media.Rtsp
                     if (supposedCount == 0) m_Body = string.Empty;
                     else
                     {
+
+                        string temp;
+
+                        do
+                        {
+                            temp = reader.ReadLine();
+                        } while (!string.IsNullOrEmpty(temp));
+
                         //Get the body of the message (use substring firstLineLength is included) TODO should not be included.
-                        m_Body = reader.ReadToEnd();
-
-                        if (m_Body.Length > headerOffset) m_Body.Substring(headerOffset + 1);
-
-                        
+                        m_Body = reader.ReadToEnd().TrimStart();
 
                         //Ensure it is not larger than indicated.
                         if (m_Body.Length > supposedCount) m_Body = m_Body.Substring(0, supposedCount);
@@ -1544,8 +1546,10 @@ namespace Media.Rtsp
             bool wroteData = false;
 
             //Try to parse the status line first
-            if (m_Buffer != null && m_Buffer.Length <= MinimumStatusLineSize && buffer.Count > 0)
+            if (MessageType == RtspMessageType.Invalid)
             {
+                if (m_Buffer == null) m_Buffer = new System.IO.MemoryStream((int)buffer.Count);
+
                 //Write the new data
                 m_Buffer.Write(buffer.Array, buffer.Offset, buffer.Count);
 
@@ -1556,12 +1560,13 @@ namespace Media.Rtsp
             }
 
             //Should first check for cSeq header...
+            string sCseq = GetHeader(RtspHeaders.CSeq);
 
             //See if there is a Content-Length header
             string contentLength = GetHeader(RtspHeaders.ContentLength);
 
             //Messages without a contentLength are not complete
-            if (string.IsNullOrWhiteSpace(contentLength))
+            if (string.IsNullOrWhiteSpace(sCseq) || string.IsNullOrWhiteSpace(contentLength))
             {
                 //Write the new data if not already written
                 if (!wroteData)

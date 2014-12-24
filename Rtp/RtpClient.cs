@@ -3052,9 +3052,6 @@ namespace Media.Rtp
                 //Parse the frameLength from the given buffer, take changes to the offset through the function.
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
-                //If no frame was found then do not parse
-                if (frameLength < 0) break;
-
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
                 if (frameLength > bufferLength) goto ParseAndCompleteData;
 
@@ -3066,15 +3063,17 @@ namespace Media.Rtp
                 if (remainingOnSocket > 0)
                 {
                     //Frame starts here
-                    int pduStart = offset + InterleavedOverhead;
+                    int pduStart = offset;
+
+                    //If there is an entire frame header then account for it
+                    if (pduStart + InterleavedOverhead < bufferLength) pduStart += InterleavedOverhead;
 
                     //Check to see if the frame CANNOT totally fit in the buffer
                     if (remainingInBuffer > 0 && pduStart + remainingInBuffer + remainingOnSocket > bufferLength)
                     {
                         //EAT THE ALF $ C X X to make as much room as possible.
 
-                        //Calulate remaining without the interleaved alf
-                        int remainsInBuffer = Math.Abs(remainingInBuffer - InterleavedOverhead);
+                        int remainsInBuffer = Math.Abs(remainingInBuffer - (frameLength >= 0 ? InterleavedOverhead : 0));
 
                         //Copy the existing pdu data to the beginning of the buffer because the frame header was parsed
                         Array.Copy(buffer, pduStart, buffer, m_Buffer.Offset, remainsInBuffer);
