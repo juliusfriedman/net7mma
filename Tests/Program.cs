@@ -345,7 +345,7 @@ namespace Tests
         {
             //  First and last iteration is a complete response.
             //  All iterations inbetween are broken in two calls to ProcessInterleaveData().
-            for (int size = 1250; size >= 1130; size -= 10)
+            for (int size = 1500; size >= 0; --size)
             {
                 Issue17245_Case2(size);
             }
