@@ -1247,19 +1247,42 @@ namespace Media.Rtsp
                     //If this be a valid header set it
                     if (parts.Length > 1)
                     {
-                        SetHeader(parts[0], parts[1]);
+                        //Get the 'name' of the header 
+                        string headerName = parts[0];
 
-                        emptyLine = 0;
-                        
-                        //Move the position
-                        position += rawLine.Length;                        
+                        //If the name is not null or empty and begins with a Letter
+                        if (!string.IsNullOrEmpty(headerName) && char.IsLetter(headerName[0]))
+                        {
+                            //This is valid header
+                            SetHeader(headerName, parts[1]);
+
+                            //Empty line count must be reset
+                            emptyLine = 0;
+
+                            //Move the position
+                            position += rawLine.Length;
+
+                            //Do another loop
+                            continue;
+                        }
                     }
-                    else
-                    {
-                        //The header is not complete or this is the body
-                        m_Buffer.Position = position + rawLine.Length - 1;
-                        break;
-                    }
+
+                    //If there are existing headers this data may belong to them.
+                    //if (m_Headers.Count > 0)
+                    //{
+                    //    var lastHeader = m_Headers.Last();
+
+                    //    SetHeader(lastHeader.Key, string.Join(string.Empty,  lastHeader.Value, rawLine));
+
+                    //    //Move the position
+                    //    headerOffset = (int)(position += rawLine.Length);
+
+                    //    continue;
+                    //}
+
+                    //The header is not complete or this is the body
+                    m_Buffer.Position = (int)(position + rawLine.Length - 1);
+                    break;
                 }
             }
 

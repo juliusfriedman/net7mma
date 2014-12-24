@@ -783,6 +783,9 @@ namespace Media.Rtsp
                 if (received > 0)
                 {
                     //If transport is not null then the underlying transport must handle the data
+                    //This breaks normal requests which are not frames because "$" may appear in the body.
+                    //Used to check for "$" here but it caused an array access and really is not valid logic because it ties the RtspClient to the RtpClient
+                    //If your having problems, just check for the m_Buffer.Array[offset] == BigEndianFrameControl
                     if (m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
