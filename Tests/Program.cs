@@ -2240,6 +2240,7 @@ namespace Tests
             request.Method = Media.Rtsp.RtspMethod.REDIRECT;
             request.Version = 7;
             request.Body = "Testing";
+            request.CSeq = 7;
 
             bytes = request.ToBytes();
 
