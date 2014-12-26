@@ -316,6 +316,7 @@ namespace Tests
             keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
             keepAlive.CSeq = 34;
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
             buffer = keepAlive.Prepare().ToArray();
             tf.Send(buffer);
@@ -2553,7 +2554,12 @@ namespace Tests
 
                                 TimeSpan playingfor = (DateTime.UtcNow - client.StartedPlaying.Value);
 
-                                if (client.Playing) Console.WriteLine("Client Playing. for :" + playingfor.ToString());
+                                if (client.Playing)
+                                {
+                                    Console.WriteLine("Client Playing. for :" + playingfor.ToString());
+
+                                    client.SendKeepAlive(null);
+                                }
 
                                 if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
 

@@ -717,6 +717,22 @@ namespace Media.Rtsp
                 //Add the content encoding header
                 if (!request.ContainsHeader(RtspHeaders.ContentEncoding)) request.SetHeader(RtspHeaders.ContentEncoding, request.Encoding.EncodingName);
 
+                //12.7 Blocksize
+                /*
+                 This request header field is sent from the client to the media server
+                    asking the server for a particular media packet size. This packet
+                    size does not include lower-layer headers such as IP, UDP, or RTP.
+                    The server is free to use a blocksize which is lower than the one
+                    requested. The server MAY truncate this packet size to the closest
+                    multiple of the minimum, media-specific block size, or override it
+                    with the media-specific size if necessary. The block size MUST be a
+                    positive decimal number, measured in octets. The server only returns
+                    an error (416) if the value is syntactically invalid.
+                 */
+
+                //This is important if the server can support it, it will ensure that packets can fit in the buffer.
+                if (!request.ContainsHeader(RtspHeaders.Blocksize)) request.SetHeader(RtspHeaders.Blocksize, m_Buffer.Count.ToString());
+
                 ///Use the sessionId if present
                 if (m_SessionId != null) request.SetHeader(RtspHeaders.Session, m_SessionId);
 
@@ -786,7 +802,7 @@ namespace Media.Rtsp
                     //This breaks normal requests which are not frames because "$" may appear in the body.
                     //Used to check for "$" here but it caused an array access and really is not valid logic because it ties the RtspClient to the RtpClient
                     //If your having problems, just check for the m_Buffer.Array[offset] == BigEndianFrameControl
-                    if (m_RtpClient != null) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+                    if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
                 else if (!Playing) goto Receive;

@@ -535,7 +535,7 @@ namespace Media.Rtp
                 octetsRemaining = payloadCount, //Cache how many octets remain in the payload
                 offset = Payload.Offset,//Cache the offset in parsing 
                 sourceListOctets = ContributingSourceListOctets,//Cache the amount of octets required in the ContributingSourceList.
-                extensionSize = Header.Extension ? 4 : 0, //Cache the amount of octets required to read the ExtensionHeader
+                extensionSize = Header.Extension ? RtpExtension.MinimumSize : 0, //Cache the amount of octets required to read the ExtensionHeader
                 recieved = 0;
 
             //If the ContributingSourceList is not complete

@@ -822,8 +822,10 @@ namespace Media.Rtsp
 
         Encoding m_Encoding = Encoding.UTF8;
 
+        //Buffer to place data which is not complete
         System.IO.MemoryStream m_Buffer;
 
+        //Set when parsing the first line if not already parsed, indicates the position of the beginning of the header data in m_Buffer.
         int headerOffset = 0;
 
         #endregion
@@ -1029,8 +1031,9 @@ namespace Media.Rtsp
             //Skip any non character data.
             while (!char.IsLetter(first))
             {
-                first = (char)data[++start];
                 --count;
+                if (count <= 0) break;
+                first = (char)data[++start];
             }
 
             //No more data
@@ -1150,6 +1153,10 @@ namespace Media.Rtsp
         bool ParseStatusLine()
         {
 
+            if (Disposed) return false;
+
+            if (MessageType != RtspMessageType.Invalid) return true;
+
             //Determine how much data is present.
             int count = (int)m_Buffer.Length;
 
@@ -1207,6 +1214,7 @@ namespace Media.Rtsp
 
         bool ParseHeaders()
         {
+            if (Disposed) return false;
 
             //Need 2 empty lines to end the header section
             int emptyLine = 0;
@@ -1214,9 +1222,12 @@ namespace Media.Rtsp
             //Keep track of the position
             long position = m_Buffer.Position;
 
+            m_Buffer.Seek(headerOffset, System.IO.SeekOrigin.Begin);
+
             //create a reader
             using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
             {
+
                 //While we didn't find the end of the header section
                 while (emptyLine < 2 && !reader.EndOfStream)
                 {
@@ -1235,9 +1246,9 @@ namespace Media.Rtsp
                     //Check for the empty line
                     if (string.IsNullOrEmpty(rawLine))
                     {
-                        ++position;
                         ++emptyLine;
-                        continue;
+                        //continue;
+                        break;
                     }
 
                     //We only want the first 2 sub strings to allow for headers which have a ':' in the data
@@ -1266,26 +1277,12 @@ namespace Media.Rtsp
                             continue;
                         }
                     }
-
-                    //If there are existing headers this data may belong to them.
-                    //if (m_Headers.Count > 0)
-                    //{
-                    //    var lastHeader = m_Headers.Last();
-
-                    //    SetHeader(lastHeader.Key, string.Join(string.Empty,  lastHeader.Value, rawLine));
-
-                    //    //Move the position
-                    //    headerOffset = (int)(position += rawLine.Length);
-
-                    //    continue;
-                    //}
-
-                    //The header is not complete or this is the body
-                    m_Buffer.Position = (int)(position + rawLine.Length - 1);
-                    break;
                 }
             }
 
+            //Seek back to the position after all header data if further.
+            m_Buffer.Position = position;
+            
             //Headers were parsed if there were 1 empty lines.
             return ContainsHeader(RtspHeaders.CSeq) && emptyLine > 0;
         }
@@ -1293,6 +1290,10 @@ namespace Media.Rtsp
 
         bool ParseBody()
         {
+            if (Disposed) return false;
+
+            if (IsComplete) return true;
+
             //Get the content encoding required by the headers for the body
             string contentEncoding = GetHeader(RtspHeaders.ContentEncoding);
 
@@ -1308,6 +1309,7 @@ namespace Media.Rtsp
                 else Encoding = requested.GetEncoding();
             }
 
+            //Should keep the reader or read directly from the buffer.
             using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
             {
                 //See if there is a Content-Length header
@@ -1326,12 +1328,9 @@ namespace Media.Rtsp
                     else
                     {
 
-                        string temp;
-
-                        do
-                        {
-                            temp = reader.ReadLine();
-                        } while (!string.IsNullOrEmpty(temp));
+                        //Read any data which is in the header section before the body including any empty lines.
+                        do m_Body = reader.ReadLine();
+                        while (!string.IsNullOrEmpty(m_Body) && reader.EndOfStream);
 
                         //Get the body of the message (use substring firstLineLength is included) TODO should not be included.
                         m_Body = reader.ReadToEnd().TrimStart();
@@ -1495,14 +1494,20 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (Disposed) return;            
+
+            //Call the base implementation
+            base.Dispose();
 
             //Clear local references
             m_Body = null;
             m_Headers.Clear();
 
-            //Call the base implementation
-            base.Dispose();
+            if (m_Buffer != null)
+            {
+                m_Buffer.Dispose();
+                m_Buffer = null;
+            }
         }
 
         public override int GetHashCode()
@@ -1568,6 +1573,8 @@ namespace Media.Rtsp
 
             bool wroteData = false;
 
+            int totalUsed = 0;
+
             //Try to parse the status line first
             if (MessageType == RtspMessageType.Invalid)
             {
@@ -1612,7 +1619,7 @@ namespace Media.Rtsp
             }
 
             //If the body is now parsed then we are done.
-            if (ParseBody()) return buffer.Count;
+            if (ParseBody() && IsComplete) return buffer.Count;
 
             //Calulcate the amount of bytes in the body
             int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
