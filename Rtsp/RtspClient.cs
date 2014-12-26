@@ -519,7 +519,10 @@ namespace Media.Rtsp
                 }
         
                 //Send the options
-                using (SendOptions()) { }
+                using (var options = SendOptions())
+                {
+                    if (options == null) throw new InvalidOperationException("No Response to Options.");
+                }
             }
             catch (Exception ex)
             {
@@ -530,7 +533,10 @@ namespace Media.Rtsp
             try
             {
                 //Send describe
-                using (SendDescribe()) {  }
+                using (var describe = SendDescribe())
+                {
+                    if (describe == null) throw new InvalidOperationException("No Response to Describe.");
+                }
             }
             catch (Exception ex)
             {
@@ -568,7 +574,8 @@ namespace Media.Rtsp
 
             if (setupTracks) using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
             {
-                if(play != null && play.StatusCode == RtspStatusCode.OK) OnPlaying();
+                //Should have what is playing in event?
+                if(play == null || play.MessageType == RtspMessageType.Request || play.StatusCode == RtspStatusCode.OK) OnPlaying();
             }
         }
 
@@ -607,6 +614,9 @@ namespace Media.Rtsp
                             try
                             {
                                 m_RtspSocket.EndConnect(iar);
+
+                                SocketReadTimeout = SocketWriteTimeout = (int)m_RtspTimeout.TotalSeconds;
+
                                 OnConnected();
                             }
                             catch { }
@@ -807,7 +817,7 @@ namespace Media.Rtsp
                 }
                 else if (!Playing) goto Receive;
 
-            Wait: //Wait for the response unless playing or tearing down.
+            Wait: //Wait for the response unless playing or tearing down. (Some implementations do not send a play response especially in interleaved mode)
                 if (request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
@@ -1420,7 +1430,7 @@ namespace Media.Rtsp
                     RtspMessage response = SendRtspRequest(play);
 
                     //Handle allowed problems with reception
-                    if (response == null) goto PlayingMedia;
+                    if (response == null || response.MessageType == RtspMessageType.Request) goto PlayingMedia;
                     else if (response.StatusCode == RtspStatusCode.Unknown) goto PlayingMedia;
                     else if (response.StatusCode == RtspStatusCode.InvalidRange)
                     {
@@ -1430,6 +1440,9 @@ namespace Media.Rtsp
                     }
 
                 PlayingMedia:
+
+                    //Connect and wait for Packets
+                    if (!m_RtpClient.Connected) m_RtpClient.Connect();
 
                     //If we have a timeout to switch the protocols and the protocol has not been forced
                     if (m_RtpClient.TotalBytesReceieved == 0 && m_RtpProtocol != ProtocolType.Tcp)
@@ -1442,9 +1455,6 @@ namespace Media.Rtsp
                     {
                         m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
                     }
-
-                    //Connect and wait for Packets
-                    if (!m_RtpClient.Connected) m_RtpClient.Connect();
 
                     return response;
                 }

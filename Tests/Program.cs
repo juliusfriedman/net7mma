@@ -2563,15 +2563,17 @@ namespace Tests
 
                                 if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
 
-                                if (client.Connected == false && shouldStop == false) Console.WriteLine("Client Not connected Waiting for (Q)");
-
                                 shouldStop = !client.LivePlay && playingfor > client.EndTime;
                             }
 
                             if (!shouldStop) shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
 
-                            if (!shouldStop) shouldStop = !client.Playing;
-                            
+                            if (client.Connected == false && shouldStop == false)
+                            {
+                                Console.WriteLine("Client Not connected Waiting for (Q)");
+                                continue;
+                            }
+
                         }
 
                         //if the client is connected still
