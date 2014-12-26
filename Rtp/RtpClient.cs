@@ -2798,6 +2798,8 @@ namespace Media.Rtp
 
             buffer = buffer ?? m_Buffer.Array;
 
+            int bufferLength = buffer.Length;
+
             //Look for the frame control octet
             int mOffset = offset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
 
@@ -3059,95 +3061,21 @@ namespace Media.Rtp
 
                 //e.g a RtpPacket with an Extension that has a Size > the frameLength recieved here.
 
+                // For example the header indicates channel 0 with a length of 65535
+                // The packet indicates 15 CSRC (60 bytes) , 65535 Words in the Extension Length (262140 bytes) Padding bit set.
+                // The packet must be 12 + 60 + 262140 bytes long + Padding.
+                // The frame indicates only 65535 bytes are available.....
+
                 if (frameLength > bufferLength)
                 {
-                    //There is no context. The frame must be skipped.
+                    //Indicate an octet was recieved
+                    OnInterleavedData(buffer, offset++, 1);
 
-                    //Unforunately there may be an upper layer protocol data such as SIP or RTSP in the buffer at this time.
-                    
-                    //We could scan for the required RTP or RTCP Header but that would be deterministic and rely on packet data not changing and still be exploitable
+                    //Decrement was is remaining in the buffer by 1
+                    --remainingInBuffer;
 
-                    //We could scan for another $ but there may be 36 contexts, we could look for \r or \n but they may but in a packet payload which should be ignored
-
-                    //Additionally no interleaved event was fired, we must get the data to the upper layer if it is not ours.
-
-                    //We must employ a check that encompassess $ and \r or \n.
-
-                    //Using the header would be an optomization
-
-                    int startOffset = offset, max = remainingInBuffer;
-
-                    //Check for any human readable text.
-                    if (Utility.FoundValidUniversalTextFormat(buffer, ref offset, ref max))
-                    {
-                        //Find an EndLine
-                        int endLineOffset = Utility.ContainsBytes(buffer, ref offset, ref max, EndLines, 0, 1);
-
-                        //If it was present this data most likely belongs to the upper layer
-                        if (endLineOffset >= 0)
-                        {
-                            //Determine if another "$" character is present after \r or \n
-                            int offsetNext = -1;
-
-                            //Find the last \r or \n going forward.
-                            do
-                            {
-                                offsetNext = Utility.ContainsBytes(buffer, ref endLineOffset, ref max, EndLines, 0, 1);
-
-                                if (offsetNext == -1) break;
-
-                                endLineOffset = offsetNext + 1;
-
-                            } while (offsetNext - startOffset < count);
-                        }
-
-
-                        //if still within the buffer
-                        if (startOffset < bufferLength)
-                        {
-
-                            //The data which is not part of the Rtp data is given by
-                            int upperLayerData = Math.Min(remainingInBuffer, Math.Abs(count - (endLineOffset - startOffset)));
-
-                            //If there is any data then interleave it now
-                            if (upperLayerData > 0)
-                            {
-
-                                OnInterleavedData(buffer, startOffset, upperLayerData);
-                                //Move only another word
-                                offset += InterleavedOverhead;
-                            }
-
-                            //Decrement only another word.
-                            remainingInBuffer -= InterleavedOverhead;
-
-                            //do another pass
-                            continue;
-
-                        }
-
-                    }
-                    
-                    //Not upper layer data...
-                    offset = startOffset;
-
-                    //There is `frameLength` which is greater than bufferLength at this point.
-
-                    //If there is context then parse and complete the data as required.
-                    if (relevent == null) goto ParseAndCompleteData; //Skip the packet
-                    {
-                        System.Diagnostics.Debug.WriteLine("Packet too big {" + frameLength + "} need '" + (frameLength - bufferLength) + "' more bytes");
-
-                        try
-                        {
-                            //update the length and buffer resize
-                            Array.Resize(ref buffer, bufferLength = frameLength);
-                        }
-                        catch(Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine(ex.Message);
-                        }
-                    }
+                    //Do another pass
+                    continue;
                 }
 
                 //See how many more bytes are required from the wire
@@ -3205,9 +3133,6 @@ namespace Media.Rtp
                     //If a socket error occured remove the context so no parsing occurs
                     if (error != SocketError.Success) relevent = null;
                 }
-
-            //if there is any data remaining in the wire at this point it is because the buffer capacity has been exceeded.
-            ParseAndCompleteData:
 
                 //The size of the frame (including header)
                 int size = frameLength >= 0 ? frameLength : 0;                

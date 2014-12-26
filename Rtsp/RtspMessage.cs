@@ -1244,9 +1244,13 @@ namespace Media.Rtsp
                     string rawLine = reader.ReadLine();
 
                     //Check for the empty line
-                    if (string.IsNullOrEmpty(rawLine))
+                    if (string.IsNullOrWhiteSpace(rawLine))
                     {
                         ++emptyLine;
+
+                        //Move the position
+                        //position += (rawLine ?? string.Empty).Length;
+
                         //continue;
                         break;
                     }
@@ -1619,7 +1623,7 @@ namespace Media.Rtsp
             }
 
             //If the body is now parsed then we are done.
-            if (ParseBody() && IsComplete) return buffer.Count;
+            if (null == m_Body && ParseBody() && IsComplete) return buffer.Count;
 
             //Calulcate the amount of bytes in the body
             int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
@@ -1644,7 +1648,7 @@ namespace Media.Rtsp
                     justReceived = socket == null ? remaining : Utility.AlignedReceive(buffer.Array, offset, remaining, socket, out error);
 
                     //If anything was present then add it to the body.
-                    if (received > 0)
+                    if (justReceived > 0)
                     {
                         //Concatenate the result into the body
                         m_Body += Encoding.GetString(buffer.Array, offset, justReceived);
