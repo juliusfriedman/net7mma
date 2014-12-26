@@ -607,8 +607,72 @@ namespace Media.Rtsp
 
             //Should determine if aggregate operation is allowed
 
-            //Check for TCP being forced and then for given udp ports
-            if (interleaved) 
+            //Maybe setting up both udp and tcp at the same time? clientRtpPort needs to be nullable.
+            //Maybe better to just give tokens from the function ..
+            //Without explicitly checking for !interleaved VLC will recieve what it thinks are RTSP responses unless RTSP Interleaved is Forced.
+            //Was trying to Quicktime to pickup RTSP Interleaved by default on the first response but it doesn't seem that easy (quick time tries to switch but fails?)
+            if (!interleaved && (unicast || multicast)) 
+            {
+                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
+
+                if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
+
+                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
+
+                if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
+
+                //Check requested transport is allowed by server
+                if (sourceStream.ForceTCP)//The client wanted Udp and Tcp was forced
+                {
+                    //Return the result
+                    var result = CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
+
+                    //Indicate interleaved is forced.
+                    result.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel));
+
+                    return result;
+                }
+                else if (m_Server.MaximumUdpPort.HasValue && (clientRtpPort > m_Server.MaximumUdpPort || clientRtcpPort > m_Server.MaximumUdpPort))
+                {
+                    //Handle port out of range
+                    return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Requested Udp Ports were out of range. Maximum Port = " + m_Server.MaximumUdpPort);
+                }
+
+                //Check if the client was already created.
+                if (m_RtpClient == null)
+                {
+                    //Create a sender
+                    m_RtpClient = new RtpClient(m_Buffer);
+
+                    m_RtpClient.FrameChangedEventsEnabled = false;
+
+                    m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
+
+                    //Use default data and control channel
+                    setupContext = new RtpClient.TransportContext(0, 1, ssrc, mediaDescription, !rtcpDisabled);
+                }
+                else //The client was already created.
+                {
+                    //Have to calculate next data and control channel
+                    RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
+
+                    if (lastContext != null) setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);
+                    else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, ssrc, mediaDescription);
+                }
+
+                //Initialize the Udp sockets
+                setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
+
+                //Add the transportChannel
+                m_RtpClient.Add(setupContext);
+
+                //Create the returnTransportHeader
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
+
+            }
+
+            //Check for 'interleavd' token or TCP being forced
+            if (sourceStream.ForceTCP || interleaved) 
             {
                 //Check if the client was already created.
                 if (m_RtpClient == null)
@@ -632,9 +696,10 @@ namespace Media.Rtsp
                 else //The client was already created
                 {
                     //Have to calculate next data and control channel
-                    RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                    
-                    setupContext = new RtpClient.TransportContext(dataChannel = (byte)(lastContext.DataChannel + 2), controlChannel = (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
+                    RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
+
+                    if (lastContext != null) setupContext = new RtpClient.TransportContext(dataChannel = (byte)(lastContext.DataChannel + 2), controlChannel = (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
+                    else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, ssrc, mediaDescription);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -644,55 +709,12 @@ namespace Media.Rtsp
                 }
 
                 //Create the returnTransportHeader
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, true, false, null, true, dataChannel, controlChannel);
-            }            
-            else //Not Interleaved
-            {
-                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
-                
-                if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
+                //returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, LocalEndPoint.Port, LocalEndPoint.Port, ((IPEndPoint)RemoteEndPoint).Port, ((IPEndPoint)RemoteEndPoint).Port, true, false, null, true, dataChannel, controlChannel);
 
-                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
-
-                if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
-
-                //Check requested transport is allowed by server
-                if (sourceStream.ForceTCP)//The client wanted Udp and Tcp was forced
-                {
-                    return CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
-                }
-                else if (m_Server.MaximumUdpPort.HasValue && (clientRtpPort > m_Server.MaximumUdpPort || clientRtcpPort > m_Server.MaximumUdpPort))
-                {
-                    //Handle port out of range
-                    return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Requested Udp Ports were out of range. Maximum Port = " + m_Server.MaximumUdpPort);
-                }
-
-                //Check if the client was already created.
-                if (m_RtpClient == null)
-                {
-                    //Create a sender
-                    m_RtpClient = new RtpClient(m_Buffer);
-                    
-                    //Use default data and control channel
-                    setupContext = new RtpClient.TransportContext(0, 1, ssrc, mediaDescription, !rtcpDisabled);
-                }                
-                else //The client was already created.
-                {
-                    //Have to calculate next data and control channel
-                    RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                    setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);                    
-                }
-
-                //Initialize the Udp sockets
-                setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
-
-                //Add the transportChannel
-                m_RtpClient.Add(setupContext);
-
-                //Create the returnTransportHeader
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
-                
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel);
             }
+            
+           
 
             //Synchronize the context sequence numbers
             setupContext.SequenceNumber = sourceContext.SequenceNumber;
@@ -865,7 +887,7 @@ namespace Media.Rtsp
 
             string originatorString = "ASTI-Media-Server " + sessionId + " " + sessionVersion + " IN " + (m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6 " : "IP4 " ) + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 
-            string sessionName = "ASTI Streaming Session"; // + stream.Name 
+            string sessionName = "ASTI Streaming Session"; // +  m_Server.ServerName + " " + stream.Name
 
             Sdp.SessionDescription sdp;
 

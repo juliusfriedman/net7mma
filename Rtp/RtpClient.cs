@@ -114,9 +114,6 @@ namespace Media.Rtp
 
         const int DefaultMaxDropout = 500, DefaultMaxMisorder = 100, DefaultMinimumSequentalRtpPackets = 2;
 
-        //Octets used by upper layer protocols to end lines.
-        static byte[] EndLines = new byte[] { Common.ASCII.NewLine, Common.ASCII.LineFeed };
-
         /// <summary>
         /// Describes the size (in bytes) of the 
         /// [MAGIC , CHANNEL, {LENGTH}] octets which preceed any TCP RTP / RTCP data When multiplexing data on a single TCP port over RTSP.
@@ -1659,11 +1656,11 @@ namespace Media.Rtp
             RtcpPacket localPacket = packet;
 
             //Complete the RtcpPacket if required.
-            while (!localPacket.IsComplete)
-            {
-                //Complete the packet.
-                int received = localPacket.CompleteFrom(transportContext.RtcpSocket, localPacket.Payload);
-            }
+            //while (!localPacket.IsComplete)
+            //{
+            //    //Complete the packet.
+            //    int received = localPacket.CompleteFrom(transportContext.RtcpSocket, localPacket.Payload);
+            //}
 
             //Last Rtcp packet was received right now now.
             transportContext.m_LastRtcpIn = packet.Created;
@@ -1763,12 +1760,12 @@ namespace Media.Rtp
             //Make a copy of the packet now and only reference this packet
             RtpPacket localPacket = packet;
 
-            //if the packet is not complete then complete it now
-            while (!localPacket.IsComplete)
-            {
-                //Complete the packet
-                int received = localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
-            }
+            ////if the packet is not complete then complete it now
+            //while (!localPacket.IsComplete)
+            //{
+            //    //Complete the packet
+            //    int received = localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
+            //}
 
             //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
             OnRtpPacketReceieved(localPacket);
@@ -2538,8 +2535,8 @@ namespace Media.Rtp
             //Check for the stop signal (or disposal)
             if (m_StopRequested || Disposed ||  //Otherwise
                 !context.IsRtcpEnabled
-                || //Or Rtcp Bandwidth for this RtpClient has been exceeded
-                AverageRtcpBandwidthExceeded || context.RtcpBandwidthExceeded) return false; //No reports can be sent.
+                || //Or Rtcp Bandwidth for this context or RtpClient has been exceeded
+                context.RtcpBandwidthExceeded || AverageRtcpBandwidthExceeded) return false; //No reports can be sent.
 
 
             //keep track of the bytes sent in this call
@@ -2830,7 +2827,7 @@ namespace Media.Rtp
             }
 
             //If there is not enough data for a frame header return
-            if (mOffset + InterleavedOverhead > buffer.Length) return -1;
+            if (mOffset + InterleavedOverhead > bufferLength) return -1;
 
             //Todo Determine from Context to use control channel and length. (Check MediaDescription)
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
@@ -3047,7 +3044,7 @@ namespace Media.Rtp
 
                 //In some cases it appears that some implementations use a context which is not assigned to create "space" in the stream.
                 //This may happen if Bandwith or Blocksize directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
-                //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.                
+                //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.
 
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
 
@@ -3068,10 +3065,27 @@ namespace Media.Rtp
 
                 //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
 
-                if (frameLength > bufferLength)
+                //NO MATTER WHAT if a context is found we shall ensure that the Version and Payload type matches.
+
+                if (remainingInBuffer > InterleavedOverhead && relevent != null && frameLength > 0 && offset + frameLength < bufferLength && frameLength <= remainingInBuffer && buffer[offset + frameLength] != BigEndianFrameControl)
+                    using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + InterleavedOverhead], buffer[offset + InterleavedOverhead + 1]))
+                    {
+                        //Check the version...
+                        bool bad = common.Version != relevent.Version;
+
+                        //Check the RtpPayloadType (AND SSRC) or SSRC, but they could change mid stream...
+                        if (!bad) bad = frameChannel == relevent.DataChannel && (GetContextByPayloadType(common.RtpPayloadType) != relevent && GetContextBySourceId(Common.Binary.Read32(buffer, offset + InterleavedOverhead + 10, BitConverter.IsLittleEndian)) != relevent)
+                            || //If we have receieved the requried amount of RtpPackets or more there must be a Remote SSRC
+                            relevent.TotalRtpPacketsReceieved >= relevent.MinimumSequentialValidRtpPackets ? frameChannel == relevent.ControlChannel && GetContextBySourceId(Common.Binary.Read32(buffer, offset + 8, BitConverter.IsLittleEndian)) != relevent : false;
+
+                        if (bad) frameLength = bufferLength + 1;
+                    }
+
+                //Check for a length more then we can store. (atleast 1456 or 1500) e.g. frameLength >1456 && 
+                if (frameLength > bufferLength) //  && relevent != null || frameLength > 0 && frameLength < remainingInBuffer && buffer[offset + frameLength] != BigEndianFrameControl && char.IsLetter((char)buffer[offset + frameLength]))
                 {
                     //Indicate an octet was recieved
-                    OnInterleavedData(buffer, offset++, 1);
+                    OnInterleavedData(buffer, offset++, 1); //--remainingInBuffer;
 
                     //Decrement was is remaining in the buffer by 1
                     --remainingInBuffer;
@@ -3079,27 +3093,23 @@ namespace Media.Rtp
                     //Do another pass
                     continue;
                 }
+                //A long time ago this data was also interleaved, and just basically meant that data was seen, the clients who observed the event determined if they wanted to handle it.
+                //else OnInterleavedData(buffer, offset, frameLength); //This data must be given to the upper layer but also processed.
 
                 //See how many more bytes are required from the wire
-                int remainingOnSocket = frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
-
-                //Must ensure that at this point there is at least a frameHeader
-                //If there is not enough bytes for a header and there is a header at the offset then receive them now
-                if (frameLength < 0 && remainingInBuffer < InterleavedOverhead && buffer[offset] == BigEndianFrameControl) remainingOnSocket = InterleavedOverhead - remainingInBuffer;
+                int remainingOnSocket = frameLength < 0 && remainingInBuffer < InterleavedOverhead && buffer[offset] == BigEndianFrameControl ? InterleavedOverhead + frameLength 
+                    : frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
 
             GetRemainingData:
                 //If there is anymore data remaining on the wire
                 if (remainingOnSocket > 0)
                 {
-                    //Check to see if the frame CANNOT totally fit in the buffer
-                    if (remainingInBuffer > 0 && (remainingInBuffer <= InterleavedOverhead || offset + remainingInBuffer + remainingOnSocket > bufferLength))
-                    {
-                        //Copy the existing pdu data to the beginning of the buffer because the frame header was parsed
+                    //Align the buffer if anything remains
+                    if (remainingInBuffer > 0)// && offset + remainingInBuffer + remainingOnSocket > bufferLength)
                         Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
 
-                        //Our offset for receiveing is modified with account of remainsInBuffer
-                        offset = m_Buffer.Offset + remainingInBuffer;
-                    }
+                    //Set the correct offset either way.
+                    offset = m_Buffer.Offset + remainingInBuffer;
 
                     //Store the error if any
                     SocketError error = SocketError.SocketError;                    
@@ -3111,7 +3121,7 @@ namespace Media.Rtp
                         int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, remainingOnSocket, socket, out error);
                         
                         //Check for an error and then the allowed continue condition
-                        if (error != SocketError.Success && error != SocketError.TryAgain && error != System.Net.Sockets.SocketError.TimedOut) break;
+                        if (error != SocketError.Success && error != SocketError.TryAgain) break;
                         
                         //If nothing was recieved try again.
                         if (recievedFromWire <= 0) continue;
@@ -3128,32 +3138,35 @@ namespace Media.Rtp
                         //Incrment remaining in buffer for what was recieved.
                         remainingInBuffer += recievedFromWire;                        
                     }
-
-                    //Move back to where the frame started
-                    offset -= remainingInBuffer;
-
+                    
                     //If a socket error occured remove the context so no parsing occurs
-                    if (error != SocketError.Success) relevent = null;
+                    if (error != SocketError.Success) return recievedTotal;
+                    
+                    //Move back to where the frame started
+                    offset -= frameLength;
+
+                    //Do another pass.
+                    continue;
                 }
 
-                //The size of the frame (including header)
-                int size = frameLength >= 0 ? frameLength : 0;                
-                
                 //If there any data in the frame and there is a relevent context
-                if (!Disposed && frameLength > 0 && relevent != null)
+                if (!Disposed && frameLength > 0)
                 {
-                    //Determine if Rtp or Rtcp should be parsed
-                    expectRtp = !(expectRtcp = relevent.IsRtcpEnabled && frameChannel == relevent.ControlChannel);
+                    if (relevent != null)
+                    {
+                        //Determine if Rtp or Rtcp should be parsed
+                        expectRtp = !(expectRtcp = relevent.IsRtcpEnabled && frameChannel == relevent.ControlChannel);
 
-                    //Parse the data in the buffer
-                    using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, size - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, size - InterleavedOverhead);
+                        //Parse the data in the buffer
+                        using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, frameLength - InterleavedOverhead);
+                    }
+
+                    //Decrease remaining in buffer
+                    remainingInBuffer -= frameLength;
+
+                    //Move the offset
+                    offset += frameLength;
                 }
-
-                //Decrease remaining in buffer
-                remainingInBuffer -= size;
-
-                //Move the offset
-                offset += size;
 
                 //Ensure large frames are completely received by receiving the rest of the frame now. (this only occurs for packets being skipped)
                 if (frameLength > bufferLength)
