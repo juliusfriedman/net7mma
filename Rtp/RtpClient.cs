@@ -114,6 +114,9 @@ namespace Media.Rtp
 
         const int DefaultMaxDropout = 500, DefaultMaxMisorder = 100, DefaultMinimumSequentalRtpPackets = 2;
 
+        //Octets used by upper layer protocols to end lines.
+        static byte[] EndLines = new byte[] { Common.ASCII.NewLine, Common.ASCII.LineFeed };
+
         /// <summary>
         /// Describes the size (in bytes) of the 
         /// [MAGIC , CHANNEL, {LENGTH}] octets which preceed any TCP RTP / RTCP data When multiplexing data on a single TCP port over RTSP.
@@ -3035,31 +3038,131 @@ namespace Media.Rtp
             bool expectRtp, expectRtcp;
 
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
-            while (!Disposed && remainingInBuffer > 0)
+            while (!Disposed && offset < bufferLength && remainingInBuffer > 0)
             {
                 //Parse the frameLength from the given buffer, take changes to the offset through the function.
                 frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
                 //In some cases it appears that some implementations use a context which is not assigned to create "space" in the stream.
-                //This may happen if Bandwith or Rate directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
+                //This may happen if Bandwith or Blocksize directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
                 //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.                
 
                 //If the frame length exceeds the buffer capacity then just attempt to complete it.
-                if (frameLength > bufferLength) goto ParseAndCompleteData;
+
+                //If the frameLength is greater than Available on the socket (FIONREAD)
+                //Then the data MAY HAVE been incorrectly determined to be an interleaved frame
+                //remainingInBuffer + socket.Available
+
+                //In the end this doesn't matter because the Extension on the header could be set 
+                //Padding could be set etc
+                //This WILL cause InComplete to be false reguardless if the frame was totally receieved or not.
+
+                //e.g a RtpPacket with an Extension that has a Size > the frameLength recieved here.
+
+                if (frameLength > bufferLength)
+                {
+                    //There is no context. The frame must be skipped.
+
+                    //Unforunately there may be an upper layer protocol data such as SIP or RTSP in the buffer at this time.
+                    
+                    //We could scan for the required RTP or RTCP Header but that would be deterministic and rely on packet data not changing and still be exploitable
+
+                    //We could scan for another $ but there may be 36 contexts, we could look for \r or \n but they may but in a packet payload which should be ignored
+
+                    //Additionally no interleaved event was fired, we must get the data to the upper layer if it is not ours.
+
+                    //We must employ a check that encompassess $ and \r or \n.
+
+                    //Using the header would be an optomization
+
+                    int startOffset = offset, max = remainingInBuffer;
+
+                    //Check for any human readable text.
+                    if (Utility.FoundValidUniversalTextFormat(buffer, ref offset, ref max))
+                    {
+                        //Find an EndLine
+                        int endLineOffset = Utility.ContainsBytes(buffer, ref offset, ref max, EndLines, 0, 1);
+
+                        //If it was present this data most likely belongs to the upper layer
+                        if (endLineOffset >= 0)
+                        {
+                            //Determine if another "$" character is present after \r or \n
+                            int offsetNext = -1;
+
+                            //Find the last \r or \n going forward.
+                            do
+                            {
+                                offsetNext = Utility.ContainsBytes(buffer, ref endLineOffset, ref max, EndLines, 0, 1);
+
+                                if (offsetNext == -1) break;
+
+                                endLineOffset = offsetNext + 1;
+
+                            } while (offsetNext - startOffset < count);
+                        }
+
+
+                        //if still within the buffer
+                        if (startOffset < bufferLength)
+                        {
+
+                            //The data which is not part of the Rtp data is given by
+                            int upperLayerData = Math.Min(remainingInBuffer, Math.Abs(count - (endLineOffset - startOffset)));
+
+                            //If there is any data then interleave it now
+                            if (upperLayerData > 0)
+                            {
+
+                                OnInterleavedData(buffer, startOffset, upperLayerData);
+                                //Move only another word
+                                offset += InterleavedOverhead;
+                            }
+
+                            //Decrement only another word.
+                            remainingInBuffer -= InterleavedOverhead;
+
+                            //do another pass
+                            continue;
+
+                        }
+
+                    }
+                    
+                    //Not upper layer data...
+                    offset = startOffset;
+
+                    //There is `frameLength` which is greater than bufferLength at this point.
+
+                    //If there is context then parse and complete the data as required.
+                    if (relevent == null) goto ParseAndCompleteData; //Skip the packet
+                    {
+                        System.Diagnostics.Debug.WriteLine("Packet too big {" + frameLength + "} need '" + (frameLength - bufferLength) + "' more bytes");
+
+                        try
+                        {
+                            //update the length and buffer resize
+                            Array.Resize(ref buffer, bufferLength = frameLength);
+                        }
+                        catch(Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine(ex.Message);
+                        }
+                    }
+                }
 
                 //See how many more bytes are required from the wire
-                int remainingOnSocket = frameLength >= remainingInBuffer ? frameLength - remainingInBuffer : 0;
+                int remainingOnSocket = frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
 
                 //Must ensure that at this point there is at least a frameHeader
                 //If there is not enough bytes for a header and there is a header at the offset then receive them now
-                if (remainingInBuffer < InterleavedOverhead && buffer[offset] == BigEndianFrameControl) remainingOnSocket = InterleavedOverhead - remainingInBuffer;
+                if (frameLength < 0 && remainingInBuffer < InterleavedOverhead && buffer[offset] == BigEndianFrameControl) remainingOnSocket = InterleavedOverhead - remainingInBuffer;
 
             GetRemainingData:
                 //If there is anymore data remaining on the wire
                 if (remainingOnSocket > 0)
                 {
                     //Check to see if the frame CANNOT totally fit in the buffer
-                    if (remainingInBuffer > 0 && remainingInBuffer <= InterleavedOverhead || offset + remainingInBuffer + remainingOnSocket > bufferLength)
+                    if (remainingInBuffer > 0 && (remainingInBuffer <= InterleavedOverhead || offset + remainingInBuffer + remainingOnSocket > bufferLength))
                     {
                         //Copy the existing pdu data to the beginning of the buffer because the frame header was parsed
                         Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
@@ -3125,12 +3228,13 @@ namespace Media.Rtp
                 //Move the offset
                 offset += size;
 
-                //Ensure large frames are completely received by receiving the rest of the frame now.
+                //Ensure large frames are completely received by receiving the rest of the frame now. (this only occurs for packets being skipped)
                 if (frameLength > bufferLength)
                 {
-                    remainingOnSocket = frameLength - size;
-                    frameLength -= size;
-                    goto GetRemainingData;
+                    remainingOnSocket = frameLength - bufferLength;
+                    frameLength -= bufferLength;
+                    remainingInBuffer = 0;
+                    if (frameLength > 0) goto GetRemainingData;
                 }
             }
             

@@ -527,10 +527,10 @@ namespace Media.Rtcp
             if (Disposed || IsComplete) return 0;
 
             //Calulcate the amount of octets remaining in the RtcpPacket including the header
-            int octetsRemaining = (ushort)(Header.LengthInWordsMinusOne + 1) * 4/*Length - (RtcpHeader.Length - Payload.Count)*/, offset = Payload != null ? Payload.Count : 0;
+            int octetsRemaining = (ushort)(Header.LengthInWordsMinusOne + 1) * 4 - (RtcpHeader.Length - Payload.Count), offset = Payload != null ? Payload.Count : 0;
 
             //There is not enough room in the array to finish the packet
-            if (Payload.Array.Length - Payload.Offset < octetsRemaining)
+            if (Payload.Count < octetsRemaining)
             {
                 //Allocte the memory for the required data
                 if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
