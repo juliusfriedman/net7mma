@@ -317,6 +317,8 @@ namespace Tests
             keepAlive.CSeq = 34;
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
+            keepAlive.SetHeader("Ignore", "$UserAgent $009\r\n$\0:\0");
+            keepAlive.SetHeader("$", string.Empty);
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
             buffer = keepAlive.Prepare().ToArray();
             tf.Send(buffer);
@@ -638,6 +640,8 @@ namespace Tests
             using (Media.Rtp.RtpClient test = new Media.Rtp.RtpClient())
             {
 
+                Media.Rtsp.RtspMessage lastInterleaved = null;
+
                 int rtspOut = 0, rtspIn = 0;
 
                 //Setup an even to see what data was transmited.
@@ -646,7 +650,29 @@ namespace Tests
                     Console.BackgroundColor = ConsoleColor.Cyan;
                     Console.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
                     Console.BackgroundColor = ConsoleColor.Black;
-                    ++rtspIn;
+
+                    var result = new Media.Rtsp.RtspMessage(data, offset, count);
+                    
+                    if (result.MessageType == Media.Rtsp.RtspMessageType.Invalid)
+                    {
+                        result.Dispose();
+                        if (lastInterleaved == null) lastInterleaved = result;
+                        if (lastInterleaved.CompleteFrom(null, new Media.Common.MemorySegment(data, offset, count)) == 0)
+                        {
+                            lastInterleaved = result;
+                        }
+                    }
+                    else lastInterleaved = result;
+
+
+                    if (lastInterleaved.IsComplete && !string.IsNullOrWhiteSpace(lastInterleaved.Body))
+                    {
+                        Console.BackgroundColor = ConsoleColor.Green;
+                        ++rtspIn;
+                        Console.WriteLine(lastInterleaved.ToString());
+                        Console.BackgroundColor = ConsoleColor.Black;
+                    }
+                    
                 };
 
                 //Loop 65535 times
@@ -685,6 +711,8 @@ namespace Tests
                             {
                                 StatusCode = Media.Rtsp.RtspStatusCode.OK,
                                 CSeq = Utility.Random.Next(byte.MinValue, int.MaxValue),
+                                UserAgent = "Ignore : $UserAgent $009\r\n$\0:\0",
+                                Body = "$009\r\n$\0:\0"
                             }.Prepare();
 
                         //Increment the outgoing message count
@@ -2304,7 +2332,7 @@ namespace Tests
                 if (matched == null)
                 {
                     Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty :  "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
-                    if(client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    if(client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                         Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -2342,7 +2370,7 @@ namespace Tests
                 else
                 {
                     Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
-                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.TransportContexts)
+                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
                     {
                         Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
                         Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
@@ -2512,7 +2540,7 @@ namespace Tests
                                 }
                             }
 
-                            foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.TransportContexts)
+                            foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.GetTransportContexts())
                             {
                                 consoleWriter.WriteLine("\t*****************Local Id " + tc.SynchronizationSourceIdentifier);
                                 consoleWriter.WriteLine("\t*****************Remote Id " + tc.RemoteSynchronizationSourceIdentifier);
@@ -3411,6 +3439,7 @@ a=mpeg4-esid:101");
             Console.WriteLine("Press 'U' to Enable Udp on Media.RtspServer");
             Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
             Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
+            Console.WriteLine("Press 'C' to See how many clients are connected.");
             if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
             while (true)
@@ -3443,7 +3472,12 @@ a=mpeg4-esid:101");
                         SubTestLoad(server);
                         Console.WriteLine("Load Test Completed!!!!!!!!!!");
                     });
-                }else if (System.Diagnostics.Debugger.IsAttached)
+                }
+                else if (keyInfo.Key == ConsoleKey.C)
+                {
+                    Console.WriteLine(server.ConnectedClients + " Clients Connected");
+                }
+                else if (System.Diagnostics.Debugger.IsAttached)
                 {
                     System.Diagnostics.Debugger.Break();
                 }

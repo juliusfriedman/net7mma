@@ -327,7 +327,7 @@ namespace Media.Rtsp
         {
             //Handle this according to RFC
             RtspClientInactivityTimeout = TimeSpan.FromSeconds(60);
-            ServerName = "ASTI Media Server RTSP " + Version;
+            ServerName = "ASTI Media Server RTSP/" + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture);
             m_ServerEndPoint = listenEndPoint;
             m_ServerIP = listenEndPoint.Address;
             m_ServerPort = listenEndPoint.Port;
@@ -1393,6 +1393,9 @@ namespace Media.Rtsp
 
                         //Log response
                         if (Logger != null) Logger.LogResponse(response, session);
+
+                        //Oops
+                        //if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.Attached.Count > 0) response.SetHeader("Ignore", "$0\09\r\n$\0:\0");
 
                         session.SendRtspData((session.LastResponse = response).ToBytes());
                     }

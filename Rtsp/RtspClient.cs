@@ -445,6 +445,9 @@ namespace Media.Rtsp
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int received = 0;
 
+            //Must contain textual data to be an interleaved rtsp request.
+            if (!Utility.FoundValidUniversalTextFormat(data, ref offset, ref length)) return;
+
             //Validate the data
             RtspMessage interleaved = new RtspMessage(data, offset, length);
 
@@ -559,7 +562,7 @@ namespace Media.Rtsp
                     using (RtspMessage setup = SendSetup(md))
                     {
                         //If the setup was okay
-                        if (setup.StatusCode == RtspStatusCode.OK)
+                        if (setup != null && setup.MessageType == RtspMessageType.Response && setup.StatusCode == RtspStatusCode.OK)
                         {
                             //Only setup tracks if response was OK
                             setupTracks = true;
@@ -573,10 +576,11 @@ namespace Media.Rtsp
             }
 
             if (setupTracks) using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
-            {
-                //Should have what is playing in event?
-                if(play == null || play.MessageType == RtspMessageType.Request || play.StatusCode == RtspStatusCode.OK) OnPlaying();
-            }
+                {
+                    //Should have what is playing in event?
+                    if (play == null || play.MessageType == RtspMessageType.Request || play.StatusCode == RtspStatusCode.OK) OnPlaying();
+                }
+            else throw new InvalidOperationException("Cannot Start Playing, No Tracks Setup.");
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
@@ -802,16 +806,18 @@ namespace Media.Rtsp
             Receive:
                 received = m_RtspSocket.Receive(m_Buffer.Array, offset, max, SocketFlags.None, out error);
 
-                //Handle the connection reset error
-                if (error == SocketError.ConnectionReset) return null;
+                //Try again if allowed
+                if (error == SocketError.TryAgain) goto Receive;
+
+                //Handle the connection reset or connection aborted.
+                if (error != SocketError.Success) return null;
 
                 //If anything was received
                 if (received > 0)
                 {
-                    //If transport is not null then the underlying transport must handle the data
-                    //This breaks normal requests which are not frames because "$" may appear in the body.
-                    //Used to check for "$" here but it caused an array access and really is not valid logic because it ties the RtspClient to the RtpClient
-                    //If your having problems, just check for the m_Buffer.Array[offset] == BigEndianFrameControl
+                    //TODO
+                    //RtspClient.TransportContext must handle the reception because it must strip away the RTSP and process only the interleaved data in a frame.
+                    //Right now just pass it to the RtpClient.
                     if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
@@ -1208,7 +1214,7 @@ namespace Media.Rtsp
                         //If there is already a RtpClient with at-least 1 TransportContext
                         if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
                         {
-                            RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
+                            RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
                             setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2)));
                         }
                         else
@@ -1238,7 +1244,7 @@ namespace Media.Rtsp
                     //Get the response for the setup
                     RtspMessage response = SendRtspRequest(setup);
 
-                    if (response == null) Common.ExceptionExtensions.CreateAndRaiseException(this, "No response to SETUP");
+                    if (response == null || response.MessageType != RtspMessageType.Response) Common.ExceptionExtensions.CreateAndRaiseException(this, "No response to SETUP");
                     //Response not OK
                     else if (response.StatusCode != RtspStatusCode.OK)
                     {
@@ -1327,14 +1333,16 @@ namespace Media.Rtsp
 
                         RtpClient.TransportContext created;
 
-                        if (m_RtpClient.TransportContexts.Count == 0)
+                        if (m_RtpClient.GetTransportContexts().Any())
                         {
                             created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
                         }
                         else
                         {
-                            RtpClient.TransportContext lastContext = m_RtpClient.TransportContexts.Last();
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                            RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
+
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
                         }
 
                         created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
@@ -1354,10 +1362,10 @@ namespace Media.Rtsp
         //Setup for Interleaved
         SetupTcp:
             {
-                if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
+                if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Count() > 0)
                 {
                     //Disconnect existing sockets
-                    foreach (var tc in m_RtpClient.TransportContexts) tc.DisconnectSockets();
+                    foreach (var tc in m_RtpClient.GetTransportContexts()) tc.DisconnectSockets();
 
                     //Clear existing transportChannels
                     m_RtpClient.TransportContexts.Clear();
@@ -1373,7 +1381,7 @@ namespace Media.Rtsp
         protected virtual void SwitchProtocols(object state = null)
         {
             //If there is no socket or the protocol was forced return`
-            if (!Disposed && Playing && Client.TransportContexts.All(tc => tc.IsRtpEnabled && tc.RtpPacketsReceived == 0))
+            if (!Disposed && Playing && Client.GetTransportContexts().All(tc => tc.IsRtpEnabled && tc.RtpPacketsReceived == 0))
             {
                 try
                 {

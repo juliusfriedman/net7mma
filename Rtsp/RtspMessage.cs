@@ -1124,7 +1124,7 @@ namespace Media.Rtsp
 
                     m_Buffer.Position = headerOffset = 0;
 
-                    if (ParseHeaders()) ParseBody();
+                    ParseBody();
                 }                
             } //All messages must have at least a CSeq header.
             else MessageType = RtspMessageType.Invalid;
@@ -1287,6 +1287,9 @@ namespace Media.Rtsp
             //Seek back to the position after all header data if further.
             m_Buffer.Position = position;
             
+            //If there is more data in the headers and the header section was 'incorrectly terminated' by an invalid header or otherwise
+            //Then there will be more data in m_Buffer, specifically Content-Length if there is a body and it has not yet been parsed.
+
             //Headers were parsed if there were 1 empty lines.
             return ContainsHeader(RtspHeaders.CSeq) && emptyLine > 0;
         }
@@ -1297,6 +1300,8 @@ namespace Media.Rtsp
             if (Disposed) return false;
 
             if (IsComplete) return true;
+
+            if (!ParseHeaders()) return false;
 
             //Get the content encoding required by the headers for the body
             string contentEncoding = GetHeader(RtspHeaders.ContentEncoding);
@@ -1577,8 +1582,6 @@ namespace Media.Rtsp
 
             bool wroteData = false;
 
-            int totalUsed = 0;
-
             //Try to parse the status line first
             if (MessageType == RtspMessageType.Invalid)
             {
@@ -1623,7 +1626,7 @@ namespace Media.Rtsp
             }
 
             //If the body is now parsed then we are done.
-            if (null == m_Body && ParseBody() && IsComplete) return buffer.Count;
+            if (null == m_Body && ParseBody() || IsComplete) return buffer.Count;
 
             //Calulcate the amount of bytes in the body
             int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
