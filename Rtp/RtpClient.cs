@@ -3066,6 +3066,8 @@ namespace Media.Rtp
                 // The packet must be 12 + 60 + 262140 bytes long + Padding.
                 // The frame indicates only 65535 bytes are available.....
 
+                //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
+
                 if (frameLength > bufferLength)
                 {
                     //Indicate an octet was recieved
