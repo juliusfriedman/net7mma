@@ -104,8 +104,8 @@ namespace Media.Rtcp
             //While  a 32 bit value remains to be read in the vector
             while (offset + RtcpHeader.Length < upperBound && count >= RtcpHeader.Length)
             {
-                //Get the header of the packet to verify if it is wanted or not, this should be using the OctetSegment overloads
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count - RtcpHeader.Length)))
+                //Get the header of the packet to verify if it is wanted or not
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count <= RtcpHeader.Length ? count :  count - RtcpHeader.Length)))
                 {
                     //Get the lenth in words
                     int lengthInWords = header.LengthInWordsMinusOne;

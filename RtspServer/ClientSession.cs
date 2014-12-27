@@ -403,10 +403,12 @@ namespace Media.Rtsp
             ///
             ///If the client was paused then simply calling ProcessPacketBuffer will resume correctly without any further processing required
             ///So long as the Source's RtpClient.TransportContext RtpTimestamp is updated to reflect the value given in the playRequest...
-            ///
+
+            //13.4.16 464 Data Transport Not Ready Yet
+            //The data transmission channel to the media destination is not yet ready for carrying data.
             if (!Attached.ContainsValue(source))
             {
-                return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Source Not Setup");
+                return CreateRtspResponse(playRequest, RtspStatusCode.DataTransportNotReadyYet, "Source Not Setup");
             }
 
             //Else is already attached but may not be playing...
@@ -468,7 +470,7 @@ namespace Media.Rtsp
             //If the mediaType was specified
             if (Enum.TryParse(lastSegment, out mediaType))
             {
-                var sourceContext = source.RtpClient.GetTransportContexts().Where(tc => tc.MediaDescription.MediaType == mediaType).FirstOrDefault();
+                var sourceContext = source.RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.MediaType == mediaType);
 
                 //AggreateOperationNotAllowed?
                 if (sourceContext == null) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Source Not Setup");
@@ -487,15 +489,15 @@ namespace Media.Rtsp
             }
             else
             {
-                foreach (RtpClient.TransportContext tc in source.RtpClient.GetTransportContexts())
+                foreach (RtpClient.TransportContext sourceContext in source.RtpClient.GetTransportContexts())
                 {
-                    var context = m_RtpClient.GetContextForMediaDescription(tc.MediaDescription);
+                    var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                     if (context == null) continue;
 
                     //Create the RtpInfo header for this context.
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                        tc.SequenceNumber, tc.RtpTimestamp, context.SynchronizationSourceIdentifier));
+                        sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
 
                     //Done with context.
                     context = null;

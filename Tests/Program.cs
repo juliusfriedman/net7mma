@@ -2496,7 +2496,8 @@ namespace Tests
                                 ++rtspIn;
                                 if (response.StatusCode == Media.Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
                             }
-                            else if(request != null)
+                            
+                            if(request != null)
                             {
                                 consoleWriter.WriteLine("\t*****************\nClient got response :" + response.StatusCode.ToString() + ", for request: " + request.Location + " " + request.Method);
                             }

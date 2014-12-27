@@ -447,6 +447,15 @@ namespace Media
 
         #region Port and IPAddress Functions
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public static Socket ReservePort(SocketType socketType, ProtocolType protocol, IPAddress localIp, int port)
+        {
+            Socket result = new Socket(localIp.AddressFamily, socketType, protocol);
+            result.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            result.Bind(new IPEndPoint(localIp, port));
+            return result;
+        }
+
         public static int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
         {
             //Only Tcp or Udp :)

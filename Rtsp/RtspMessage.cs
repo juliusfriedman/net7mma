@@ -683,7 +683,7 @@ namespace Media.Rtsp
         #region Statics
 
         //Used to format the version string
-        internal static string VersionFormat = "0.0";
+        public static string VersionFormat = "0.0";
 
         //System encoded 'Carriage Return' => \r and 'New Line' => \n
         internal const string CRLF = "\r\n";
@@ -1171,7 +1171,7 @@ namespace Media.Rtsp
 
                 //Get what we believe to be the first line
                 //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-                string StatusLine = reader.ReadLine();
+                string StatusLine = reader.ReadLine().TrimStart();
 
                 MessageType = StatusLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
@@ -1251,8 +1251,8 @@ namespace Media.Rtsp
                         //Move the position
                         //position += (rawLine ?? string.Empty).Length;
 
-                        //continue;
-                        break;
+                        if(emptyLine < 2)continue;
+                        else break;
                     }
 
                     //We only want the first 2 sub strings to allow for headers which have a ':' in the data
@@ -1281,6 +1281,7 @@ namespace Media.Rtsp
                             continue;
                         }
                     }
+                    else if (emptyLine > 0) break;
                 }
             }
 

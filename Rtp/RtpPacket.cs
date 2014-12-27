@@ -239,28 +239,27 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="buffer">The buffer which contains the binary RtpPacket to decode</param>
         /// <param name="offset">The offset to start copying</param>
-        public RtpPacket(byte[] buffer, int offset) //needs count
+        public RtpPacket(byte[] buffer, int offset, int count)
         {
             if (buffer == null || buffer.Length == 0) throw new ArgumentException("Must have data in a RtpPacket");
-
-            int bufferLength = buffer.Length;
 
             //Read the header
             Header = new RtpHeader(buffer, offset);
 
             ShouldDispose = m_OwnsHeader = true;
 
-            if (bufferLength > RtpHeader.Length && !Header.IsCompressed)
+            if (count > RtpHeader.Length && !Header.IsCompressed)
             {
                 //Advance the pointer
                 offset += RtpHeader.Length;
 
-                int ownedOctets = Math.Abs(buffer.Length - offset);
-                m_OwnedOctets = new byte[ownedOctets];
-                Array.Copy(buffer, offset, m_OwnedOctets, 0, ownedOctets);
+                count -= RtpHeader.Length;
+
+                m_OwnedOctets = new byte[count];
+                Array.Copy(buffer, offset, m_OwnedOctets, 0, count);
 
                 //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
-                Payload = new MemorySegment(m_OwnedOctets, 0, ownedOctets);
+                Payload = new MemorySegment(m_OwnedOctets, 0, count);
             }
             else
             {                
@@ -269,15 +268,16 @@ namespace Media.Rtp
                 Payload = new MemorySegment(0);
             }
         }
-
-        //Should have constructor with Length and then call with offset - length
+        
+        public RtpPacket(byte[] buffer, int offset) : this(buffer, offset, buffer.Length - offset) { }
+            
 
         /// <summary>
         /// Creates a RtpPacket instance from the given segment of memory.
         /// The instance will depend on the memory in the given buffer.
         /// </summary>
         /// <param name="buffer">The segment containing the binary data to decode.</param>
-        public RtpPacket(MemorySegment buffer) : this(buffer.Array, buffer.Offset) { }
+        public RtpPacket(MemorySegment buffer) : this(buffer.Array, buffer.Offset, buffer.Count) { }
 
         #endregion
 

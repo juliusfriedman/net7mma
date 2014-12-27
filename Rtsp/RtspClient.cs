@@ -510,41 +510,17 @@ namespace Media.Rtsp
         public void StartPlaying(TimeSpan? start = null, TimeSpan? end = null, Sdp.MediaType? mediaType = null)
         {
 
-            // If already listening and we have started to receive then there is nothing to do 
-            if (Playing) return;
+            //Try to connect if not already connected.
+            if (!Connected) Connect();
 
-            try
+            //Only use options and describe if not already playing
+            if (!Playing)
             {
-
-                if (!Connected)
-                {
-                    Connect();                    
-                }
-        
                 //Send the options
-                using (var options = SendOptions())
-                {
-                    if (options == null) throw new InvalidOperationException("No Response to Options.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not get Options response. See InnerException", ex);
-                return;
-            }
+                using (var options = SendOptions()) if (options == null) throw new InvalidOperationException("No Response to Options.");
 
-            try
-            {
                 //Send describe
-                using (var describe = SendDescribe())
-                {
-                    if (describe == null) throw new InvalidOperationException("No Response to Describe.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not get Describe response. See InnerException", ex);
-                return;
+                using (var describe = SendDescribe()) if (describe == null) throw new InvalidOperationException("No Response to Describe.");
             }
 
             bool setupTracks = false;
@@ -841,7 +817,9 @@ namespace Media.Rtsp
                     }
                 }
 
-                //If we were not authroized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
+                //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
+                //(Note for Vivontek you can still bypass the Auth anyway :)
+                //http://www.coresecurity.com/advisories/vivotek-ip-cameras-rtsp-authentication-bypass
                 if (m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
                 {
                     //http://tools.ietf.org/html/rfc2617
@@ -851,11 +829,22 @@ namespace Media.Rtsp
 
                     string authenticateHeader = m_LastTransmitted[RtspHeaders.WWWAuthenticate];
 
-                    string[] baseParts = authenticateHeader.Split(RtspHeaders.SpaceSplit, 1);
+                    string[] baseParts = authenticateHeader.Split(RtspHeaders.SpaceSplit, StringSplitOptions.RemoveEmptyEntries);
 
                     if (string.Compare(baseParts[0].Trim(), "basic", true) == 0)
                     {
                         AuthenticationScheme = AuthenticationSchemes.Basic;
+
+                        //Get the realm if we don't have one.
+                        if (Credential.Domain == null)
+                        {
+                            string realm = baseParts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                            if (!string.IsNullOrWhiteSpace(realm))
+                            {
+                                realm = realm.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
+                                Credential.Domain = realm;
+                            }
+                        }
 
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
 
@@ -867,58 +856,45 @@ namespace Media.Rtsp
                     {
                         AuthenticationScheme = AuthenticationSchemes.Digest;
 
-                        //string[] parts = authenticateHeader.Replace(baseParts[0], string.Empty).Split(TimeSplit, StringSplitOptions.RemoveEmptyEntries);
-
-                        string[] parts = authenticateHeader.Split(RtspHeaders.SpaceSplit, StringSplitOptions.RemoveEmptyEntries);
-
                         string algorithm = "MD5";
 
-                        //string username = parts.Where(p => string.Compare("username", p, true) == 0).FirstOrDefault();
-                        //if (username != null) username = username.Replace("username=", string.Empty);
+                        string username = baseParts.Where(p => p.StartsWith("username", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(username)) username = username.Substring(9);
+                        else username = Credential.UserName; //use the username of the credential.
 
-                        string username = parts.Where(p => p.StartsWith("username",StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-                        if (!string.IsNullOrWhiteSpace(username )) username = username.Substring (9);
- 
+                        string realm;
 
-                        //string realm = parts.Where(p => string.Compare("realm", p, true) == 0).FirstOrDefault();
-                        //if (realm != null) realm = realm.Replace("realm=", string.Empty);
+                        //Get the realm if we don't have one.
+                        if (Credential.Domain == null)
+                        {
+                            realm = baseParts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                            if (!string.IsNullOrWhiteSpace(realm))
+                            {
+                                realm = realm.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
+                                Credential.Domain = realm;
+                            }
+                        }
+                        else realm = Credential.Domain; //Use the realm of the Credential.
 
-                        string realm = parts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-						if (!string.IsNullOrWhiteSpace(realm))
-						{
-							realm = realm.Substring("realm=".Length).Replace("\"",string.Empty).Replace("\'",string.Empty);
-							if (Credential != null) Credential.Domain = realm;
-						}
+                        string nc = baseParts.Where(p => p.StartsWith("nc", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(nc)) nc = realm.Substring(3);
 
-                        //string nc = parts.Where(p => string.Compare("nc", p, true) == 0).FirstOrDefault();
-                        //if (nc != null) nc = realm.Replace("nc=", string.Empty);
+                        string nonce = baseParts.Where(p => p.StartsWith("nonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+						if (!string.IsNullOrWhiteSpace(nonce)) nonce = nonce.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
 
-                        string nc = parts.Where(p => p.StartsWith("nc", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-                        if (!string.IsNullOrWhiteSpace(nc)) nc = realm.Substring("nc=".Length);
-
-                        //string nonce = parts.Where(p => string.Compare("nonce", p, true) == 0).FirstOrDefault();
-                        //if (nonce != null) nonce = realm.Replace("nonce=", string.Empty);
-
-                        string nonce = parts.Where(p => p.StartsWith("nonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-						if (!string.IsNullOrWhiteSpace(nonce)) nonce = nonce.Substring("nonce=".Length).Replace("\"", string.Empty).Replace("\'", string.Empty);
-
-                        string cnonce = parts.Where(p => p.StartsWith("cnonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();//parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
+                        string cnonce = baseParts.Where(p => p.StartsWith("cnonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();//parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(cnonce)) cnonce = cnonce.Substring(7).Replace("\"", string.Empty).Replace("\'", string.Empty);//cnonce = cnonce.Replace("cnonce=", string.Empty);
 
-                        string uri = parts.Where(p => p.StartsWith("uri", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault(); //parts.Where(p => p.Contains("uri")).FirstOrDefault();
-
+                        string uri = baseParts.Where(p => p.StartsWith("uri", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault(); //parts.Where(p => p.Contains("uri")).FirstOrDefault();
                         bool rfc2069 = !string.IsNullOrWhiteSpace(uri) && !uri.Contains(RtspHeaders.HyphenSign);
 
                         if (!string.IsNullOrWhiteSpace(uri))
                         {
-                            //if (rfc2069) uri = uri.Replace("uri=", string.Empty);
-                            //else uri = uri.Replace("digest-uri=", string.Empty);
-
                             if (rfc2069) uri = uri.Substring(4);
                             else uri = uri.Substring(11);
                         }
 
-                        string qop = parts.Where(p => string.Compare("qop", p, true) == 0).FirstOrDefault();
+                        string qop = baseParts.Where(p => string.Compare("qop", p, true) == 0).FirstOrDefault();
 
                         if (!string.IsNullOrWhiteSpace(qop))
                         {
@@ -926,8 +902,7 @@ namespace Media.Rtsp
                             if (nc != null) nc = nc.Substring(3);
                         }
 
-                        //string opaque = parts.Where(p => string.Compare("opaque", p, true) == 0).FirstOrDefault();
-                        string opaque = parts.Where(p => p.StartsWith("opaque", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                        string opaque = baseParts.Where(p => p.StartsWith("opaque", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(opaque)) opaque = opaque.Substring(7);
                        
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, Credential, qop, nc, nonce, cnonce, opaque, rfc2069, algorithm, request.Body));
@@ -1196,9 +1171,18 @@ namespace Media.Rtsp
             if (!SupportedMethods.Contains(RtspMethod.SETUP)) throw new InvalidOperationException("Server does not support SETUP.");
 
             if (location == null) throw new ArgumentNullException("location");
+
             if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+
             try
             {
+                //TODO Shouldn't create a RtcpSocket when mediaDescription has Rtcp Disabled.
+
+                //Should either create context NOW or use these sockets in the created context.
+
+                //Create sockets to reserve the ports we think we will need.
+                Socket rtpTemp = null, rtcpTemp = null;
+
                 using(RtspMessage setup = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.SETUP,
@@ -1212,7 +1196,7 @@ namespace Media.Rtsp
                     if (m_RtpProtocol == ProtocolType.Tcp)
                     {
                         //If there is already a RtpClient with at-least 1 TransportContext
-                        if (m_RtpClient != null && m_RtpClient.TransportContexts.Count > 0)
+                        if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
                             setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2)));
@@ -1229,9 +1213,11 @@ namespace Media.Rtsp
 
                         //Might want to reserver this port now by making a socket...
 
-                        //Could send 0 to have server pick port?
+                        //Could send 0 to have server pick port?                        
+                        int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000, true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
 
-                        int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000 + (m_RtpClient != null ? 2 : 0), true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
+                        rtpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, openPort);
+                        rtcpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, openPort + 1);
 
                         if (openPort == -1) Common.ExceptionExtensions.CreateAndRaiseException(this, "Could not find open Udp Port");
                         //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
@@ -1326,7 +1312,7 @@ namespace Media.Rtsp
                                 m_RtpClient = new RtpClient(m_Buffer);
 
                                 //Attach an event for interleaved data
-                                m_RtpClient.InterleavedData += ProcessInterleaveData;
+                                //m_RtpClient.InterleavedData += ProcessInterleaveData;
                             }
                             else Media.Common.ExceptionExtensions.CreateAndRaiseException<RtspClient>(this, "RtpProtocol is not Udp and Server required Udp Transport.");
                         }
@@ -1346,6 +1332,14 @@ namespace Media.Rtsp
                         }
 
                         created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+
+                        //rtpTemp.Connect(sourceIp, serverRtpPort);
+                        //rtcpTemp.Connect(sourceIp, serverRtcpPort);
+                        //created.Initialize(rtpTemp, rtcpTemp);
+
+                        //No longer need the temporary sockets
+                        rtpTemp.Dispose();
+                        rtcpTemp.Dispose();
 
                         m_RtpClient.Add(created);
                     }
@@ -1495,17 +1489,17 @@ namespace Media.Rtsp
         /// <param name="location">The location to indicate in the request, otherwise null to use the <see cref="Location"/></param>
         /// <param name="sdp">The <see cref="SessionDescription"/> to ANNOUNCE</param>
         /// <returns>The response</returns>
-        public RtspMessage SendAccount(Uri location, SessionDescription sdp)
+        public RtspMessage SendAnnounce(Uri location, SessionDescription sdp)
         {
             if (!SupportedMethods.Contains(RtspMethod.ANNOUNCE)) throw new InvalidOperationException("Server does not support ANNOUNCE.");
             if (sdp == null) throw new ArgumentNullException("sdp");
             using (RtspMessage announce = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.ANNOUNCE,
-                Location = location ?? Location,
-                Body = sdp.ToString()
+                Location = location ?? Location                
             })
             {
+                announce.Body = sdp.ToString();
                 announce.SetHeader(RtspHeaders.ContentType, Sdp.SessionDescription.MimeType);
                 return SendRtspRequest(announce);
             }
@@ -1535,6 +1529,15 @@ namespace Media.Rtsp
                 }
 
                 m_KeepAliveTimer.Change(m_RtspTimeout, Utility.InfiniteTimeSpan);
+
+                if (Playing && Client.Uptime > m_RtspTimeout)
+                {
+                    foreach(var context in Client.GetTransportContexts().Where(tc => tc.TimeReceiving >= TimeSpan.Zero && tc.TotalRtpPacketsReceieved == 0))
+                    {
+                        SendTeardown(context.MediaDescription);
+                        StartPlaying(null, null, context.MediaDescription.MediaType);
+                    }
+                }
 
             }
             catch
