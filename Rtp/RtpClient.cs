@@ -1256,7 +1256,7 @@ namespace Media.Rtp
                 if (Disposed || Connected) return;
 
                 if (localRtp.Address.AddressFamily != remoteRtp.Address.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
-                else if (!punchHole) punchHole = !Utility.IsOnIntranet(remoteRtp.Address); //Only punch a hole if the remoteIp is not on the LAN by default.
+                else if (punchHole) punchHole = !Utility.IsOnIntranet(remoteRtp.Address); //Only punch a hole if the remoteIp is not on the LAN by default.
                 
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
@@ -1435,7 +1435,7 @@ namespace Media.Rtp
             /// <param name="rtcpSocket"></param>
             public void Initialize(Socket rtpSocket, Socket rtcpSocket)
             {
-
+                bool punchHole = !Utility.IsOnIntranet(((IPEndPoint)rtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
 
                 RtpSocket = rtpSocket;
@@ -1449,6 +1449,17 @@ namespace Media.Rtp
 
                 LocalRtp = RtpSocket.LocalEndPoint;
                 RemoteRtp = RtpSocket.RemoteEndPoint;
+
+                if (punchHole)
+                {
+                    //new RtcpPacket(Version, Rtcp.ReceiversReport.PayloadType, 0, 0, SynchronizationSourceIdentifier, 0);
+                    try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
+                    catch (SocketException) { }//We don't care about the response or any issues during the holePunch
+
+                    try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
+                    catch (SocketException) { }//We don't care about the response or any issues during the holePunch
+                }
+
             }            
 
             /// <summary>
@@ -1718,6 +1729,9 @@ namespace Media.Rtp
             //Determine if the incoming packet should be handled
             if (!IncomingPacketEventsEnabled || Disposed || packet == null || packet.Disposed) return;
 
+            //Fire an event now to let subscribers know a packet has arrived
+            OnRtpPacketReceieved(packet);
+
             //Not supported at the moment
             if (packet.Header.IsCompressed)
             {
@@ -1748,13 +1762,14 @@ namespace Media.Rtp
                 //System.Diagnostics.Debug.WriteLine("Discarding packet version=" + packet.Version+ " type=" + packet.PayloadType + " len=" + packet.Length);
                 return;
             }
-            else if (!transportContext.IsValid || (!transportContext.RemoteSynchronizationSourceIdentifier.HasValue && transportContext.RemoteSynchronizationSourceIdentifier.Value == 0))//&& transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier
+            else if (!transportContext.IsValid || (!transportContext.RemoteSynchronizationSourceIdentifier.HasValue || transportContext.RemoteSynchronizationSourceIdentifier.Value == 0))//&& transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier
             {
                 transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
             }
-            else if (transportContext.IsValid && packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier)
+            else if (transportContext.IsValid && (transportContext.RemoteSynchronizationSourceIdentifier.HasValue && transportContext.RemoteSynchronizationSourceIdentifier != 0 && packet.SynchronizationSourceIdentifier != transportContext.RemoteSynchronizationSourceIdentifier))
             {
-                return;
+                transportContext.ResetState();
+                transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
             }
 
             //Make a copy of the packet now and only reference this packet
@@ -2969,15 +2984,7 @@ namespace Media.Rtp
                 {
 
                     //Under TCP use Framing to obtain the length of the packet as well as the context.
-                    if (tcp)
-                    {
-                        //Todo Determine from Context to use control channel and length. (Check MediaDescription)
-
-                        //Check for a partial frame header
-                        while (InterleavedOverhead > received) received += socket.ReceiveFrom(m_Buffer.Array, offset + received, InterleavedOverhead - received, SocketFlags.None, ref recievedFrom);
-
-                        return ProcessFrameData(m_Buffer.Array, offset, received, socket);
-                    }
+                    if (tcp)  return ProcessFrameData(m_Buffer.Array, offset, received, socket);
 
                     //When port 0 is used the port could change
                     if (remoteIpEndPoint.Port == 0)
@@ -3039,80 +3046,93 @@ namespace Media.Rtp
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
             while (!Disposed && offset < bufferLength && remainingInBuffer > 0)
             {
-                //Parse the frameLength from the given buffer, take changes to the offset through the function.
-                frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
-
-                //In some cases it appears that some implementations use a context which is not assigned to create "space" in the stream.
-                //This may happen if Bandwith or Blocksize directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
-                //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.
-
-                //If the frame length exceeds the buffer capacity then just attempt to complete it.
-
-                //If the frameLength is greater than Available on the socket (FIONREAD)
-                //Then the data MAY HAVE been incorrectly determined to be an interleaved frame
-                //remainingInBuffer + socket.Available
-
-                //In the end this doesn't matter because the Extension on the header could be set 
-                //Padding could be set etc
-                //This WILL cause InComplete to be false reguardless if the frame was totally receieved or not.
-
-                //e.g a RtpPacket with an Extension that has a Size > the frameLength recieved here.
-
-                // For example the header indicates channel 0 with a length of 65535
-                // The packet indicates 15 CSRC (60 bytes) , 65535 Words in the Extension Length (262140 bytes) Padding bit set.
-                // The packet must be 12 + 60 + 262140 bytes long + Padding.
-                // The frame indicates only 65535 bytes are available.....
-
-                //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
-
-                //NO MATTER WHAT if a context is found we shall ensure that the Version and Payload type matches.
-
-                if (remainingInBuffer > InterleavedOverhead && relevent != null && frameLength > 0 && offset + frameLength < bufferLength && frameLength <= remainingInBuffer && buffer[offset + frameLength] != BigEndianFrameControl)
-                    using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + InterleavedOverhead], buffer[offset + InterleavedOverhead + 1]))
-                    {
-                        //Check the version...
-                        bool bad = common.Version != relevent.Version;
-
-                        //Check the RtpPayloadType (AND SSRC) or SSRC, but they could change mid stream...
-                        if (!bad) bad = frameChannel == relevent.DataChannel && (GetContextByPayloadType(common.RtpPayloadType) != relevent && GetContextBySourceId(Common.Binary.Read32(buffer, offset + InterleavedOverhead + 10, BitConverter.IsLittleEndian)) != relevent)
-                            || //If we have receieved the requried amount of RtpPackets or more there must be a Remote SSRC
-                            relevent.TotalRtpPacketsReceieved >= relevent.MinimumSequentialValidRtpPackets ? frameChannel == relevent.ControlChannel && GetContextBySourceId(Common.Binary.Read32(buffer, offset + 8, BitConverter.IsLittleEndian)) != relevent : false;
-
-                        if (bad) frameLength = bufferLength + 1;
-                    }
-
-                //Check for a length more then we can store. (atleast 1456 or 1500) e.g. frameLength >1456 && 
-                if (frameLength > bufferLength) //  && relevent != null || frameLength > 0 && frameLength < remainingInBuffer && buffer[offset + frameLength] != BigEndianFrameControl && char.IsLetter((char)buffer[offset + frameLength]))
+                //If a header can be read
+                if (remainingInBuffer >= InterleavedOverhead)
                 {
-                    //Indicate an octet was recieved
-                    OnInterleavedData(buffer, offset++, 1); //--remainingInBuffer;
+                    //Parse the frameLength from the given buffer, take changes to the offset through the function.
+                    frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
-                    //Decrement was is remaining in the buffer by 1
-                    --remainingInBuffer;
+                    //If the NULL Packet was not found.
+                    if (frameLength > 0)
+                    {
+                        //In some cases it appears that some implementations use a context which is not assigned to create "space" in the stream.
+                        //This may happen if Bandwith or Blocksize directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
+                        //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.
 
-                    //Do another pass
-                    continue;
+                        //If the frame length exceeds the buffer capacity then just attempt to complete it.
+
+                        //If the frameLength is greater than Available on the socket (FIONREAD)
+                        //Then the data MAY HAVE been incorrectly determined to be an interleaved frame
+                        //remainingInBuffer + socket.Available
+
+                        //In the end this doesn't matter because the Extension on the header could be set 
+                        //Padding could be set etc
+                        //This WILL cause InComplete to be false reguardless if the frame was totally receieved or not.
+
+                        //e.g a RtpPacket with an Extension that has a Size > the frameLength recieved here.
+
+                        // For example the header indicates channel 0 with a length of 65535
+                        // The packet indicates 15 CSRC (60 bytes) , 65535 Words in the Extension Length (262140 bytes) Padding bit set.
+                        // The packet must be 12 + 60 + 262140 bytes long + Padding.
+                        // The frame indicates only 65535 bytes are available.....
+
+                        //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
+
+                        //NO MATTER WHAT if a context is found we shall ensure that the Version and Payload type matches.
+                        //If the next frame header didn't match doesnt matter
+                        if (relevent != null && frameLength > 0 && offset + frameLength < bufferLength && frameLength <= remainingInBuffer) //&& buffer[offset + frameLength] != BigEndianFrameControl 
+                        {
+                            using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + InterleavedOverhead], buffer[offset + InterleavedOverhead + 1]))
+                            {
+                                //Check the version...
+                                bool bad = common.Version != relevent.Version;
+
+                                //Check the RtpPayloadType (AND SSRC) or SSRC, but they could change mid stream...
+                                if (!bad) bad = frameChannel == relevent.DataChannel && (GetContextByPayloadType(common.RtpPayloadType) != relevent && GetContextBySourceId(Common.Binary.Read32(buffer, offset + InterleavedOverhead + 10, BitConverter.IsLittleEndian)) != relevent)
+                                    || //If we have receieved the requried amount of RtpPackets or more there must be a Remote SSRC
+                                    relevent.TotalRtpPacketsReceieved >= relevent.MinimumSequentialValidRtpPackets ? frameChannel == relevent.ControlChannel && GetContextBySourceId(Common.Binary.Read32(buffer, offset + 8, BitConverter.IsLittleEndian)) != relevent : false;
+
+                                if (bad) frameLength = bufferLength + 1;
+                            }
+                        }
+
+                        //Check for a length more then we can store. (atleast 1456 or 1500) e.g. frameLength >1456 && 
+                        if (frameLength > bufferLength) //  && relevent != null || frameLength > 0 && frameLength < remainingInBuffer && buffer[offset + frameLength] != BigEndianFrameControl && char.IsLetter((char)buffer[offset + frameLength]))
+                        {
+                            //Indicate a header for a large frame was received.
+                            OnInterleavedData(buffer, offset, InterleavedOverhead);
+
+                            //Move the offset into the data section
+                            offset += InterleavedOverhead;
+                            remainingInBuffer -= InterleavedOverhead;
+
+                            //Do another pass
+                            continue;
+                        }
+                    }
                 }
-                //A long time ago this data was also interleaved, and just basically meant that data was seen, the clients who observed the event determined if they wanted to handle it.
-                //else OnInterleavedData(buffer, offset, frameLength); //This data must be given to the upper layer but also processed.
+                else
+                {
+                    frameLength = -1;
+                    relevent = null;
+                }
 
                 //See how many more bytes are required from the wire
-                int remainingOnSocket = frameLength < 0 && remainingInBuffer < InterleavedOverhead && buffer[offset] == BigEndianFrameControl ? InterleavedOverhead + frameLength 
+                int remainingOnSocket = frameLength < 0 && remainingInBuffer < InterleavedOverhead ? InterleavedOverhead - remainingInBuffer 
                     : frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
 
             GetRemainingData:
                 //If there is anymore data remaining on the wire
                 if (remainingOnSocket > 0)
                 {
-                    //Align the buffer if anything remains
-                    if (remainingInBuffer > 0)// && offset + remainingInBuffer + remainingOnSocket > bufferLength)
-                        Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
+                    //Align the buffer if anything remains on the socket.
+                    Array.Copy(buffer, offset, buffer, m_Buffer.Offset, remainingInBuffer);
 
                     //Set the correct offset either way.
                     offset = m_Buffer.Offset + remainingInBuffer;
 
                     //Store the error if any
-                    SocketError error = SocketError.SocketError;                    
+                    SocketError error = SocketError.SocketError;
 
                     //Get all the remaining data
                     while (!Disposed && remainingOnSocket > 0)
@@ -3143,10 +3163,10 @@ namespace Media.Rtp
                     if (error != SocketError.Success) return recievedTotal;
                     
                     //Move back to where the frame started
-                    offset -= frameLength;
+                    offset -= remainingInBuffer;
 
-                    //Do another pass.
-                    continue;
+                    //Do another pass if we haven't parsed a frame header.
+                    if(relevent == null) continue;
                 }
 
                 //If there any data in the frame and there is a relevent context
@@ -3158,7 +3178,7 @@ namespace Media.Rtp
                         expectRtp = !(expectRtcp = relevent.IsRtcpEnabled && frameChannel == relevent.ControlChannel);
 
                         //Parse the data in the buffer
-                        using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, frameLength - InterleavedOverhead);
+                        using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
                     }
 
                     //Decrease remaining in buffer
@@ -3240,17 +3260,19 @@ namespace Media.Rtp
             //If rtp is parsed
             if (mRemaining >= RtpHeader.Length && parseRtp)
             {
-                //Create a packet from the data received, if the packet is not complete it will be completed only if required.
-                using (RtpPacket rtp = new RtpPacket(memory.Array.Skip(offset + index).Take(mRemaining).ToArray(), 0))
+                using (var subMemory = new Common.MemorySegment(memory.Array, offset + index, mRemaining))
                 {
-                    //Raise the event
-                    HandleIncomingRtpPacket(this, rtp);
+                    using (RtpPacket rtp = new RtpPacket(subMemory))
+                    {
+                        //Raise the event
+                        HandleIncomingRtpPacket(this, rtp);
 
-                    //Move the index past the length of the packet
-                    index += rtp.Length;
+                        //Move the index past the length of the packet
+                        index += rtp.Length;
 
-                    //Calculate the amount of octets remaining in the segment.
-                    mRemaining -= rtp.Length;
+                        //Calculate the amount of octets remaining in the segment.
+                        mRemaining -= rtp.Length;
+                    }
                 }
             }
 

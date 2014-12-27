@@ -141,7 +141,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         #region Constructor
 
-        public RtspSource(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = 4096, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize, specificMedia, startTime, endTime) { }
 
         public RtspSource(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)

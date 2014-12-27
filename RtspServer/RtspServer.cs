@@ -729,9 +729,9 @@ namespace Media.Rtsp
 
             //Create a thread to handle client connections
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
-            m_ServerThread.Name = "RtspServer@" + m_ServerPort;
+            m_ServerThread.Name = ServerName + "@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            m_ServerThread.Priority = ThreadPriority.AboveNormal;
+            m_ServerThread.Priority = ThreadPriority.BelowNormal;
             m_ServerThread.Start();
 
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
@@ -748,7 +748,7 @@ namespace Media.Rtsp
         /// <param name="state">Reserved</param>
         internal virtual void MaintainServer(object state = null)
         {
-            if (Disposed || m_Maintainer == null) return;
+            if (Disposed || m_Maintainer == null || m_StopRequested) return;
 
             RestartFaultedStreams(state);
             DisconnectAndRemoveInactiveSessions(state);
@@ -858,12 +858,19 @@ namespace Media.Rtsp
                         var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
                         //Wait half using the event
-                        while (!iar.IsCompleted && !allDone.Wait(timeOut / 2) && !m_StopRequested)
+                        while (!iar.IsCompleted && (allDone.IsSet || !allDone.Wait(timeOut / 2)) && !m_StopRequested)
                         {
                             //Wait the other half looking for the stop
-                            if (allDone.Wait(timeOut / 2) || m_StopRequested | iar.IsCompleted) break;
-                            //Check not waiting all day...
+                            if (allDone.IsSet || allDone.Wait(timeOut / 2) || m_StopRequested | iar.IsCompleted) break;
+                            
+                            //Remove other invalid sessions during this time.
+                            //m_Maintainer.Change(TimeSpan.Zero, Utility.InfiniteTimeSpan);
+
+                            //RestartFaultedStreams();
+                            Thread.CurrentThread.Priority = ThreadPriority.Lowest;
                         }
+
+                        Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
                     }
                 }
             }
@@ -1279,13 +1286,7 @@ namespace Media.Rtsp
                 return;
             }
 
-            if (!found.Ready)
-            {
-                ProcessInvalidRtspRequest(session, RtspStatusCode.DataTransportNotReadyYet);
-                return;
-            }
-            
-            if (Archiver == null)
+            if (!found.Ready || Archiver == null)
             {
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
                 return;
@@ -1315,7 +1316,7 @@ namespace Media.Rtsp
 
             if (!found.Ready)
             {
-                ProcessInvalidRtspRequest(session, RtspStatusCode.DataTransportNotReadyYet);
+                ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
                 return;
             }
             
@@ -1613,7 +1614,7 @@ namespace Media.Rtsp
 
             if (!found.Ready)
             {
-                ProcessInvalidRtspRequest(session, RtspStatusCode.DataTransportNotReadyYet);
+                ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
                 return;
             }
 
