@@ -193,11 +193,9 @@ namespace Media.Rtsp
                     if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
                     m_KeepAliveTimer = null;
                 }
-                
-                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null ? (m_RtspTimeout - (DateTime.UtcNow - m_LastTransmitted.Created)) : m_RtspTimeout, m_RtspTimeout);
 
-                //Update the timer period
-                
+                //Update the timer period (taking into account the last time a request was sent) if there is a timer.
+                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null && m_LastTransmitted.Transferred.HasValue ? (m_RtspTimeout - (DateTime.UtcNow - m_LastTransmitted.Created)) : m_RtspTimeout, Utility.InfiniteTimeSpan);
             }
         }
 
@@ -338,22 +336,10 @@ namespace Media.Rtsp
             if (!UriParser.IsKnownScheme(RtspMessage.UnreliableTransport))
                 UriParser.Register(new HttpStyleUriParser(), RtspMessage.UnreliableTransport, 555);
 
-            if (!UriParser.IsKnownScheme(RtspMessage.UnreliableTransport))
+            if (!UriParser.IsKnownScheme(RtspMessage.SecureTransport))
                 UriParser.Register(new HttpStyleUriParser(), RtspMessage.SecureTransport, 322);
         }
-
-        /// <summary>
-        /// Creates a new RtspClient from the given uri in string form.
-        /// E.g. 'rtsp://somehost/sometrack/
-        /// </summary>
-        /// <param name="location">The string which will be parsed to obtain the Location</param>
-        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
-        /// <param name="bufferSize">The amount of bytes the client will use during message reception, Must be at least 4096 and if larger it will also be shared with the underlying RtpClient</param>
-        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 4096)
-            : this(new Uri(location), rtpProtocolType, bufferSize)
-        {
-        }
-
+      
         /// <summary>
         /// Creates a RtspClient on a non standard Rtsp Port
         /// </summary>
@@ -390,7 +376,24 @@ namespace Media.Rtsp
             ProtocolSwitchTime = TimeSpan.FromSeconds(10);
         }
 
-        
+        /// <summary>
+        /// Creates a new RtspClient from the given uri in string form.
+        /// E.g. 'rtsp://somehost/sometrack/
+        /// </summary>
+        /// <param name="location">The string which will be parsed to obtain the Location</param>
+        /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
+        /// <param name="bufferSize">The amount of bytes the client will use during message reception, Must be at least 4096 and if larger it will also be shared with the underlying RtpClient</param>
+        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 4096)
+            : this(new Uri(location), rtpProtocolType, bufferSize)
+        {
+        }
+
+        //TODO A RtspClient should be able to be created from an existing socket and when the RtspClient is Disposed it should be able to leave that socket open
+        //public RtspClient(string location, ClientProtocolType? rtpProtocolType, int bufferSize, Socket existing = null, bool leaveOpen = false)
+        //    : this(new Uri(location), rtpProtocolType, bufferSize)
+        //{
+        //}
+
 
         ~RtspClient()
         {
@@ -523,23 +526,23 @@ namespace Media.Rtsp
                 using (var describe = SendDescribe()) if (describe == null || describe.StatusCode != RtspStatusCode.OK) Common.ExceptionExtensions.CreateAndRaiseException(describe, "Describe Response was null or not OK. See Tag.");
             }
 
+            //Determine if any context was present or created.
             bool hasContext = false;
 
             //For each MediaDescription in the SessionDecscription
             foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
             {
-                
                 //Don't setup unwanted streams
                 if (mediaType.HasValue && md.MediaType != mediaType) continue;
 
                 //If transport was already setup then see if the trasnport has a context for the media
-                if (Client != null)
+                if (Client != null && Client.GetContextForMediaDescription(md) != null && !hasContext)
                 {
-                    //If there is not a context
-                    hasContext = Client.GetContextForMediaDescription(md) == null;
+                    //We have a context already, don't setup.
+                    hasContext = true;
 
-                    //If we already have a context don't setup it up.
-                    if ((hasContext = !hasContext)) continue;
+                    //Continue to the next MediaDescription
+                    continue;
                 }
 
                 try
@@ -773,7 +776,10 @@ namespace Media.Rtsp
 
                 //If we could not send the message indicate so
                 if (sent < length || error != SocketError.Success) return null;
-                
+
+                //Set the time when the message was transferred.
+                request.Transferred = DateTime.UtcNow;
+
                 //Fire the event
                 Requested(m_LastTransmitted = request);
 
@@ -1131,7 +1137,7 @@ namespace Media.Rtsp
                 using (var teardown = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.TEARDOWN,
-                    Location = mediaDescription.GetAbsoluteControlUri(Location)
+                    Location = mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(Location) : Location
                 })
                 {
                     return SendRtspRequest(teardown);
