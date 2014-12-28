@@ -361,6 +361,7 @@ namespace Media.Rtsp
         /// <param name="seq"></param>
         /// <param name="rtpTime"></param>
         /// <returns></returns>
+        ///NEEDS TO RETURN []s instead of single values out Uri[], etc.
         public static bool TryParseRtpInfo(string value, out Uri url, out int seq, out int rtpTime, out int ssrc)
         {
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("value");
