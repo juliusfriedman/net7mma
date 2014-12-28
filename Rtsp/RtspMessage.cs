@@ -1407,8 +1407,8 @@ namespace Media.Rtsp
         /// <param name="value">The value of the header</param>
         public void SetHeader(string name, string value)
         {
-            //If the name is not return valid
-            if (string.IsNullOrWhiteSpace(name)) return;
+            //If the name is not valid then return without adding it
+            if (string.IsNullOrWhiteSpace(name) || !char.IsLetter(name[0])) return;
             
             string actualName = null;
             

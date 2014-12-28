@@ -215,8 +215,6 @@ namespace Media.RtpTools
 
             internal static bool IsDynamic(byte payloadType) { return payloadType >= 96 && payloadType <= 127; }
 
-            internal static bool IsUnknown(byte payloadType) { return payloadType < 96 || payloadType > 127 || !PayloadDescriptions.ContainsKey(payloadType); }
-
             //IsReserved?
 
             internal const string PayloadDescriptionFormat = "({0},{1},{2})";
@@ -246,6 +244,22 @@ namespace Media.RtpTools
             public static PayloadDescription Reverved = new PayloadDescription()
             {
                 EncodingName = "Reserved",
+                Clockrate = -1,
+                PayloadType = 0,
+                Channel = 0 //1
+            };
+
+            public static PayloadDescription Unassigned = new PayloadDescription()
+            {
+                EncodingName = "Unassigned",
+                Clockrate = -1,
+                PayloadType = 0,
+                Channel = 0 //1
+            };
+
+            public static PayloadDescription ConflictAvoidance = new PayloadDescription()
+            {
+                EncodingName = "RTCP conflict avoidance (Reserved)",
                 Clockrate = -1,
                 PayloadType = 0,
                 Channel = 0 //1
@@ -318,6 +332,7 @@ namespace Media.RtpTools
             {32, new PayloadDescription() {EncodingName = "MPV", Clockrate = 90000, Channel = 0, PayloadType = 32 } },
             {33, new PayloadDescription() {EncodingName = "MP2T", Clockrate = 90000, Channel = 0, PayloadType = 33 } },
             {34, new PayloadDescription() {EncodingName = "H263", Clockrate = 90000, Channel = 0, PayloadType = 34 } },
+            //35 - 71 unassigned.
         };
 
         #endregion
@@ -1110,13 +1125,26 @@ namespace Media.RtpTools
 
         public static string PayloadDescription(this Rtp.RtpPacket packet)
         {
+            //Check for a packet
+            if (packet == null) throw new ArgumentNullException("packet");
+
+            //Get the PayloadType from the header.
+            byte payloadType =(byte)packet.PayloadType;
+
             //Check for dynamic first
-            if (RtpSend.PayloadDescription.IsDynamic((byte)packet.PayloadType)) return RtpSend.PayloadDescription.Dynamic.EncodingName;
+            if (RtpSend.PayloadDescription.IsDynamic(payloadType)) return RtpSend.PayloadDescription.Dynamic.EncodingName;
+
+            //Check for conflict avoidance
+            if (payloadType >= 72 && payloadType <= 76) return RtpSend.PayloadDescription.ConflictAvoidance.EncodingName;
+
+            //Check for conflict avoidance
+            if (payloadType >= 35 && payloadType <= 71 || payloadType >= 77 && payloadType < RtpSend.PayloadDescription.Dynamic.PayloadType) return RtpSend.PayloadDescription.Unassigned.EncodingName;
 
             //Default to unknown if not found
             RtpSend.PayloadDescription description;
-            if (!RtpSend.PayloadDescriptions.TryGetValue((byte)packet.PayloadType, out description)) 
-                return packet.PayloadType >= 35 && packet.PayloadType <= 95 ? RtpSend.PayloadDescription.Reverved.EncodingName : RtpSend.PayloadDescription.Unknown.EncodingName;
+            if (!RtpSend.PayloadDescriptions.TryGetValue((byte)packet.PayloadType, out description)) return RtpSend.PayloadDescription.Unknown.EncodingName;
+
+            //Return the name as found
             return description.EncodingName;
         }
 

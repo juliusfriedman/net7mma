@@ -1433,10 +1433,12 @@ namespace Media.Rtp
             /// </summary>
             /// <param name="rtpSocket"></param>
             /// <param name="rtcpSocket"></param>
+            //TODO Must allow leaveOpen for existing sockets
             public void Initialize(Socket rtpSocket, Socket rtcpSocket)
             {
                 if (rtpSocket == null) throw new ArgumentNullException("rtpSocket");
 
+                //Maybe should just be set to the rtpSocket?
                 if (rtcpSocket == null) throw new ArgumentNullException("rtcpSocket");
                 
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
@@ -1460,6 +1462,9 @@ namespace Media.Rtp
                     //new RtcpPacket(Version, Rtcp.ReceiversReport.PayloadType, 0, 0, SynchronizationSourceIdentifier, 0);
                     try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
                     catch (SocketException) { }//We don't care about the response or any issues during the holePunch
+
+                    //Check for the same socket.
+                    if (RtpSocket.Handle == RtcpSocket.Handle) return;
 
                     try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
                     catch (SocketException) { }//We don't care about the response or any issues during the holePunch
@@ -1777,33 +1782,20 @@ namespace Media.Rtp
                 transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
             }
 
-            //Make a copy of the packet now and only reference this packet
-            RtpPacket localPacket = packet;
-
-            ////if the packet is not complete then complete it now
-            //while (!localPacket.IsComplete)
-            //{
-            //    //Complete the packet
-            //    int received = localPacket.CompleteFrom(transportContext.RtpSocket, localPacket.Payload);
-            //}
-
-            //Fire an event now to let subscribers know a packet has arrived @ the client from the socket and is realated to a relevent context.
-            OnRtpPacketReceieved(localPacket);
-
             //If the packet is not valid then nothing further needs to be done as invalid count is maintained by the ValidatePacketAndUpdateSequenceNumber function.
-            if (!transportContext.ValidatePacketAndUpdateSequenceNumber(localPacket)) return;
+            if (!transportContext.ValidatePacketAndUpdateSequenceNumber(packet)) return;
 
             //Increment RtpPacketsReceived for the context relating to the packet.
             Interlocked.Increment(ref transportContext.RtpPacketsReceived);
 
             //The counters for the bytes will now be be updated
-            Interlocked.Add(ref transportContext.RtpBytesRecieved, localPacket.Payload.Count);
+            Interlocked.Add(ref transportContext.RtpBytesRecieved, packet.Payload.Count);
 
             //Set the time when the first RtpPacket was received if required
             if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = packet.Created;
 
             //Update the SequenceNumber and Timestamp and calulcate Inter-Arrival (Mark the context as active)
-            transportContext.UpdateJitterAndTimestamp(localPacket);
+            transportContext.UpdateJitterAndTimestamp(packet);
 
             //Set the last rtp in after inter-arrival has been calculated.
             transportContext.m_LastRtpIn = packet.Created;
@@ -1815,12 +1807,12 @@ namespace Media.Rtp
             if (transportContext.CurrentFrame == null)
             {
                 //make a frame
-                transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
+                transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.Timestamp, packet.SynchronizationSourceIdentifier);
             }//Check to see if the frame belongs to the last frame
-            else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
+            else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && packet.PayloadType == transportContext.MediaDescription.MediaFormat)
             {
                 //Create a new packet from the localPacket so it will not be disposed when the packet is disposed.
-                if (!transportContext.LastFrame.IsComplete) transportContext.LastFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
+                if (!transportContext.LastFrame.IsComplete) transportContext.LastFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
 
                 //If the frame is complete then fire an event and make a new frame
                 if (transportContext.LastFrame.IsComplete)
@@ -1841,7 +1833,7 @@ namespace Media.Rtp
 
                 return;
             }//Check to see if the frame belongs to a new frame
-            else if (transportContext.CurrentFrame != null && packet.Timestamp != transportContext.CurrentFrame.Timestamp && localPacket.PayloadType == transportContext.MediaDescription.MediaFormat)
+            else if (transportContext.CurrentFrame != null && packet.Timestamp != transportContext.CurrentFrame.Timestamp && packet.PayloadType == transportContext.MediaDescription.MediaFormat)
             {
                 //Dispose the last frame if available
                 if (transportContext.LastFrame != null)
@@ -1855,14 +1847,14 @@ namespace Media.Rtp
                 transportContext.LastFrame = transportContext.CurrentFrame;
 
                 //Make a new frame in the transportChannel's CurrentFrame
-                transportContext.CurrentFrame = new RtpFrame(localPacket.PayloadType, localPacket.Timestamp, localPacket.SynchronizationSourceIdentifier);
+                transportContext.CurrentFrame = new RtpFrame(packet.PayloadType, packet.Timestamp, packet.SynchronizationSourceIdentifier);
 
                 //The LastFrame changed
                 OnRtpFrameChanged(transportContext.LastFrame);
             }
 
             //If the payload of the localPacket matched the media description then create a new packet from the localPacket so it will not be disposed when the packet is disposed.
-            if (localPacket.PayloadType == transportContext.MediaDescription.MediaFormat) transportContext.CurrentFrame.Add(new RtpPacket(localPacket.Prepare().ToArray(), 0));
+            if (packet.PayloadType == transportContext.MediaDescription.MediaFormat) transportContext.CurrentFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
 
             //If the frame is complete then fire an event and make a new frame
             if (transportContext.CurrentFrame.IsComplete)

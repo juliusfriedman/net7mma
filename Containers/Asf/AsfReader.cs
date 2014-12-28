@@ -243,7 +243,8 @@ namespace Media.Containers.Asf
                 
                 yield return next;
                 
-                Skip(next.DataSize);
+                //Only skip nodes which don't have children.
+                if(next.IdentifierSize == IdentifierSize) Skip(next.DataSize);
             }
         }      
 

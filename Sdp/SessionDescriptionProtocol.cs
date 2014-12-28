@@ -666,9 +666,9 @@ namespace Media.Sdp
         /// <returns></returns>
         public static Uri GetAbsoluteControlUri(this MediaDescription mediaDescription, Uri source)
         {
-            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
-
             if (source == null) throw new ArgumentNullException("source");
+
+            if (mediaDescription == null) return source;
 
             if (!source.IsAbsoluteUri) throw new InvalidOperationException("source.IsAbsoluteUri must be true.");
 
