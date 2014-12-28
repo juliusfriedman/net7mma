@@ -161,7 +161,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 #endregion
 
                 //For each packet select the result of
-                this.Buffer = new MemoryStream(this.Distinct().SelectMany(rtp =>
+                this.Buffer = new MemoryStream(this.SelectMany(rtp =>
                 {
                     
                     //Create a sorted list to allow the de-interleaving of access units if required.

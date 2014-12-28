@@ -334,6 +334,7 @@ namespace Media.Containers.Ogg
 
             long position = Position;
 
+            //Seek to the beginning until changes are made to allow pages to be parsed as interating with ReadNext
             using (var root = Root) Position = root.Offset;
 
             //Iterate all pages
@@ -369,25 +370,24 @@ namespace Media.Containers.Ogg
                     //Determine if this is a FirstPage and add it (Should only be one, may have to check contains for malformed streams, Could then use the result of contains rather then Count to determine end)
                     if (pageHeaderType.HasFlag(HeaderType.FirstPage)) m_PageBegins.Add(serial, page);
 
-                    //Check for info page which may have comment
-                    if (page.Data[0] == PacketTypeComment) m_InfoPages.Add(serial, page);
+                    //If no begin page was found then we don't need anything
+                    if (m_PageBegins.Count == 0) continue;
 
-                    //Only need to do this if we are missing and end page.
-                    if (m_PageBegins.Count > m_PageEnds.Count)
+                    //Check for info page which may have comments
+                    if (m_InfoPages.Count < m_PageBegins.Count && page.Data[0] == PacketTypeComment) m_InfoPages.Add(serial, page);
+
+                    //Determine if a packet ends on this page
+                    long grainulePosition = Common.Binary.Read64(page.Identifier, 6, !BitConverter.IsLittleEndian);
+
+                    //If so (technically should be != -1)
+                    if (grainulePosition >= 0)
                     {
-                        //Determine if a packet ends on this page
-                        long grainulePosition = Common.Binary.Read64(page.Identifier, 6, !BitConverter.IsLittleEndian);
+                        //Should compare existing grainule position to ensure it is greater?
+                        //m_PageEnds.TryGetValue(serial)
 
-                        //If so (technically should be != -1)
-                        if (grainulePosition >= 0)
-                        {
-                            //Should compare existing grainule position to ensure it is greater?
-                            //m_PageEnds.TryGetValue(serial)
-
-                            //If we already had an end page just update it (should check that m_PageBegins has the serial also)
-                            if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
-                            else m_PageEnds.Add(serial, page); //otherwise its added
-                        }
+                        //If we already had an end page just update it (should check that m_PageBegins has the serial also)
+                        if (m_PageEnds.ContainsKey(serial)) m_PageEnds[serial] = page;
+                        else m_PageEnds.Add(serial, page); //otherwise its added
                     }
                 }
             }

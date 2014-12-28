@@ -55,6 +55,7 @@
     <Compile Include="BitWriter.cs" />
     <Compile Include="ConcurrentThesaurus.cs" />
     <Compile Include="Exception.cs" />
+    <Compile Include="Grouping.cs" />
     <Compile Include="IPacket.cs" />
     <Compile Include="ISocketReference.cs" />
     <Compile Include="IThreadReference.cs" />
