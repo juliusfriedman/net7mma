@@ -317,7 +317,7 @@ namespace Tests
             keepAlive.CSeq = 34;
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
-            keepAlive.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0:RTSP/1.0");
+            keepAlive.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aRTSP/1.0");
             keepAlive.SetHeader("$", string.Empty);
             keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
             buffer = keepAlive.Prepare().ToArray();
