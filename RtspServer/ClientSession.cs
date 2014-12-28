@@ -458,6 +458,8 @@ namespace Media.Rtsp
 
             //Todo Process Scale, Speed, Bandwidth, Blocksize
 
+            //Set Seek-Style to indicate if Seeking is supported.
+
             //Prepare the RtpInfo header
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
 

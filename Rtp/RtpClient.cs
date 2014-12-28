@@ -3078,8 +3078,18 @@ namespace Media.Rtp
                         //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
 
                         //NO MATTER WHAT if a context is found we shall ensure that the Version and Payload type matches.
-                        if (relevent != null && frameLength > 0)
+                        if (relevent != null)
                         {
+
+                            //If all that remains is the frame header then receive more data.
+                            if (remainingInBuffer <= RtpHeader.Length)
+                            {
+                                //Remove the context
+                                relevent = null;
+
+                                goto CheckRemainingData;
+                            }
+
                             //Use CommonHeaderBits on the data after the Interleaved Frame Header
                             using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + InterleavedOverhead], buffer[offset + InterleavedOverhead + 1]))
                             {
@@ -3087,7 +3097,7 @@ namespace Media.Rtp
                                 bool bad = common.Version != relevent.Version;
 
                                 //If this is a valid data backer there must be a RtpHeader in the buffer.
-                                if (frameChannel == relevent.DataChannel && remainingInBuffer < 16 || frameChannel == relevent.ControlChannel && remainingInBuffer <= 12)
+                                if (frameChannel == relevent.DataChannel && remainingInBuffer < 16 || frameChannel == relevent.ControlChannel && remainingInBuffer <= RtpHeader.Length)
                                 {
                                     //Remove the context
                                     relevent = null;
@@ -3136,7 +3146,6 @@ namespace Media.Rtp
                     : frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
             
             //If there is anymore data remaining on the wire
-            GetRemainingData:
                 if (remainingOnSocket > 0)
                 {
                     //Align the buffer if anything remains on the socket.
@@ -3204,18 +3213,32 @@ namespace Media.Rtp
                     //Ensure large frames are completely received by receiving the rest of the frame now. (this only occurs for packets being skipped)
 	                if (frameLength > bufferLength)
 	                {
+                        //Remove the context
+                        relevent = null;
+                        
+                        //Determine how much remains
 	                    remainingOnSocket = frameLength - bufferLength;
+
+                        //If there is anything left
                         if (remainingOnSocket > 0)
                         {
+                            //Set the new length of the frame based on the length of the buffer
                             frameLength -= bufferLength;
+
+                            //Set what is remaining
                             remainingInBuffer = 0;
+
+                            //Use all the buffer
                             offset = m_Buffer.Offset;
-                            goto GetRemainingData;
+
+                            //go to receive it
+                            goto CheckRemainingData;
                         }
 	                }
                 }
             }
             
+            //Return the number of bytes recieved
             return recievedTotal;
         }
 
