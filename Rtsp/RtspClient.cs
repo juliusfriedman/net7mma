@@ -735,6 +735,7 @@ namespace Media.Rtsp
                  */
 
                 //This is important if the server can support it, it will ensure that packets can fit in the buffer.
+                //It also tells the server what our buffer size is so if they wanted they could intentionally make packets which allowed only a certain amount of bytes remaining in the buffer....
                 if (!request.ContainsHeader(RtspHeaders.Blocksize)) request.SetHeader(RtspHeaders.Blocksize, m_Buffer.Count.ToString());
 
                 ///Use the sessionId if present

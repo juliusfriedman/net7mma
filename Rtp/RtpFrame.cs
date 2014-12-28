@@ -199,7 +199,7 @@ namespace Media.Rtp
         /// Gets an enumerator of All Contained Packets at the time of the call
         /// </summary>
         /// <returns>A Yield around Packets</returns>
-        public IEnumerator<RtpPacket> GetEnumerator() { return m_Packets.Values.Distinct().GetEnumerator(); }
+        public IEnumerator<RtpPacket> GetEnumerator() { return m_Packets.Values.GetEnumerator(); }
 
         /// <summary>
         /// Adds a RtpPacket to the RtpFrame. The first packet added sets the SynchronizationSourceIdentifier and Timestamp if not already set.
@@ -232,8 +232,8 @@ namespace Media.Rtp
             //If the last packet has the marker bit then no more packets can be added unless they are from a lower sequence number
             if (count > 0 && seq > HighestSequenceNumber && HasMarker) throw new InvalidOperationException("Complete frame cannot have additional packets added");
 
-            //Dont use a SortedDictionary just to ensure only a single key in the hash, (Use List and Distinct)
-            //Add the packet to the SortedList which will not throw any exception if the RtpPacket added already contains a value.                       
+            //Dont use a SortedDictionary just to ensure only a single key in the hash, (Use List or Lookup and Distinct)
+            //Add the packet to the SortedList which WILL throw any exception if the RtpPacket added already contains a value.                       
             m_Packets.Add(seq, packet);
         }
 

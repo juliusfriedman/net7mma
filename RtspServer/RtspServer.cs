@@ -731,7 +731,7 @@ namespace Media.Rtsp
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            m_ServerThread.Priority = ThreadPriority.BelowNormal;
+            m_ServerThread.Priority = ThreadPriority.Lowest;
             m_ServerThread.Start();
 
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
@@ -839,7 +839,7 @@ namespace Media.Rtsp
         {
             try
             {
-                int timeOut = 7;
+                int timeOut;
 
                 while (!m_StopRequested)
                 {
@@ -854,23 +854,20 @@ namespace Media.Rtsp
 
                         allDone.Reset();
 
-                        //Start acceping 
+                        //Start acceping with a 0 size buffer
                         var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
                         //Wait half using the event
-                        while (!iar.IsCompleted && (allDone.IsSet || !allDone.Wait(timeOut / 2)) && !m_StopRequested)
+                        while (!iar.IsCompleted && (allDone.IsSet || !allDone.Wait(timeOut)) && !m_StopRequested)
                         {
                             //Wait the other half looking for the stop
-                            if (allDone.IsSet || allDone.Wait(timeOut / 2) || m_StopRequested | iar.IsCompleted) break;
-                            
-                            //Remove other invalid sessions during this time.
-                            //m_Maintainer.Change(TimeSpan.Zero, Utility.InfiniteTimeSpan);
-
-                            //RestartFaultedStreams();
-                            Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+                            if (allDone.IsSet || allDone.Wait(timeOut) || m_StopRequested | iar.IsCompleted) break;
                         }
-
-                        Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+                    }
+                    else
+                    {
+                        //Too many clients are connected, relinquish time slice
+                        System.Threading.Thread.Sleep(-1);
                     }
                 }
             }
@@ -925,6 +922,7 @@ namespace Media.Rtsp
                 else if(server.ProtocolType == ProtocolType.Tcp) //Tcp
                 {
                     //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
+                    //They are not discarded just not receieved until the first receive.
                     clientSocket = server.EndAccept(ar);
                 }
                 else

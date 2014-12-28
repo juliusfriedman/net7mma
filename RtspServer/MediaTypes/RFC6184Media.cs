@@ -306,7 +306,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 this.Buffer = new MemoryStream();
 
                 //Get all packets in the frame
-                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
+                foreach (Rtp.RtpPacket packet in m_Packets.Values)
                     ProcessPacket(packet);
 
                 //Order by DON?

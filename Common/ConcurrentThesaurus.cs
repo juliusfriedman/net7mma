@@ -51,12 +51,13 @@ namespace Media.Common//.Collections
 
     /// <summary>
     /// Represents a One to many collection which is backed by a ConcurrentDictionary.
-    /// The values are retrieved as a IList of TKey
+    /// The values are retrieved as a IEnumerable of TKey
     /// </summary>
     /// <typeparam name="TKey">The type of the keys</typeparam>
     /// <typeparam name="TValue">The types of the definitions</typeparam>
     /// <remarks>
-    /// Fancy tryin to get a IDictionary to flatten into this
+    /// Fancy tryin to get a IDictionary to flatten into this.
+    /// GroupBy gives an IGrouping but we can't use that or GroupBy to implement `IEnumerable<IGrouping<TKey, TValue>>.GetEnumerator()`
     /// </remarks>
     public class ConcurrentThesaurus<TKey, TValue> : ILookup<TKey, TValue>, ICollection<TKey>
     {
@@ -64,7 +65,7 @@ namespace Media.Common//.Collections
 
         System.Collections.Concurrent.ConcurrentDictionary<TKey, IList<TValue>> Dictionary = new System.Collections.Concurrent.ConcurrentDictionary<TKey, IList<TValue>>();
 
-        ICollection<TKey> Collection { get { return (ICollection<TKey>)Dictionary; } }
+        System.Collections.ICollection Collection { get { return ((System.Collections.ICollection)Dictionary); } }
 
         public int Count { get { return Dictionary.Count; } }
 
@@ -135,6 +136,8 @@ namespace Media.Common//.Collections
             return Dictionary.TryRemove(key, out values);
         }
 
+        //Remove TKey, TValue (Remove a single value from possibly many)
+
         /// <summary>
         /// 
         /// </summary>
@@ -169,12 +172,12 @@ namespace Media.Common//.Collections
             return !inDictionary ? Dictionary.TryAdd(key, predicates) : true;
         }
 
-        //public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
-        //{
-        //    foreach (var list in Dictionary)
-        //        foreach (var value in list.Value)
-        //            yield return new KeyValuePair<TKey, TValue>(list.Key, value);
-        //}
+        public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
+        {
+            foreach (var list in Dictionary)
+                foreach (var value in list.Value)
+                    yield return new KeyValuePair<TKey, TValue>(list.Key, value);
+        }
 
         #endregion
 
@@ -190,7 +193,7 @@ namespace Media.Common//.Collections
 
         bool ILookup<TKey, TValue>.Contains(TKey key)
         {
-            return ContainsKey(key);
+            return Dictionary.ContainsKey(key);
         }
 
         int ILookup<TKey, TValue>.Count
@@ -205,7 +208,11 @@ namespace Media.Common//.Collections
 
         IEnumerator<IGrouping<TKey, TValue>> IEnumerable<IGrouping<TKey, TValue>>.GetEnumerator()
         {
-            return (IEnumerator<IGrouping<TKey, TValue>>)Dictionary.ToLookup(kvp => kvp.Key).GetEnumerator();
+            //return (IEnumerator<IGrouping<TKey, TValue>>)Dictionary.SelectMany(p => p.Value, Tuple.Create).ToLookup(p => p.Item1.Key, p => p.Item2);
+
+            //return (IEnumerator<IGrouping<TKey, TValue>>)Dictionary.GroupBy(k => k.Key);
+
+            foreach (var list in Dictionary) yield return new Grouping<TKey, TValue>(list.Key, list.Value);
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
@@ -215,22 +222,22 @@ namespace Media.Common//.Collections
 
         void ICollection<TKey>.Add(TKey item)
         {
-            Collection.Add(item);
+            Add(item);
         }
 
         void ICollection<TKey>.Clear()
         {
-            Collection.Clear();
+            Dictionary.Clear();
         }
 
         bool ICollection<TKey>.Contains(TKey item)
         {
-            return Collection.Contains(item);
+            return Dictionary.ContainsKey(item);
         }
 
         void ICollection<TKey>.CopyTo(TKey[] array, int arrayIndex)
         {
-            Collection.CopyTo(array, arrayIndex);
+            Dictionary.Keys.CopyTo(array, arrayIndex);
         }
 
         int ICollection<TKey>.Count
@@ -240,17 +247,17 @@ namespace Media.Common//.Collections
 
         bool ICollection<TKey>.IsReadOnly
         {
-            get { return Collection.IsReadOnly; }
+            get { return false; }
         }
 
         bool ICollection<TKey>.Remove(TKey item)
         {
-            return Collection.Remove(item);
+            return Remove(item);
         }
 
         IEnumerator<TKey> IEnumerable<TKey>.GetEnumerator()
         {
-            return Collection.GetEnumerator();
+            return Dictionary.Keys.GetEnumerator();
         }
 
         #endregion

@@ -1312,7 +1312,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 Buffer = new System.IO.MemoryStream();
 
                 //Loop each packet
-                foreach (Rtp.RtpPacket packet in m_Packets.Values.Distinct())
+                foreach (Rtp.RtpPacket packet in m_Packets.Values)
                 {
 
                     //Payload starts at the offset of the first PayloadOctet
