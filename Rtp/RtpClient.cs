@@ -1435,11 +1435,16 @@ namespace Media.Rtp
             /// <param name="rtcpSocket"></param>
             public void Initialize(Socket rtpSocket, Socket rtcpSocket)
             {
-                bool punchHole = !Utility.IsOnIntranet(((IPEndPoint)rtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
+                if (rtpSocket == null) throw new ArgumentNullException("rtpSocket");
+
+                if (rtcpSocket == null) throw new ArgumentNullException("rtcpSocket");
+                
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
 
                 RtpSocket = rtpSocket;
                 RtpSocket.DontFragment = true;
+
+                bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && !Utility.IsOnIntranet(((IPEndPoint)rtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
 
                 RtcpSocket = rtcpSocket;
                 RtcpSocket.DontFragment = true;

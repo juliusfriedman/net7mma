@@ -517,20 +517,30 @@ namespace Media.Rtsp
             if (!Playing)
             {
                 //Send the options
-                using (var options = SendOptions()) if (options == null) throw new InvalidOperationException("No Response to Options.");
+                using (var options = SendOptions()) if (options == null || options.StatusCode != RtspStatusCode.OK) Common.ExceptionExtensions.CreateAndRaiseException(options, "Options Response was null or not OK. See Tag.");
 
                 //Send describe
-                using (var describe = SendDescribe()) if (describe == null) throw new InvalidOperationException("No Response to Describe.");
+                using (var describe = SendDescribe()) if (describe == null || describe.StatusCode != RtspStatusCode.OK) Common.ExceptionExtensions.CreateAndRaiseException(describe, "Describe Response was null or not OK. See Tag.");
             }
 
-            bool setupTracks = false;
+            bool hasContext = false;
 
             //For each MediaDescription in the SessionDecscription
             foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)
             {
                 
                 //Don't setup unwanted streams
-                if (mediaType.HasValue && md.MediaType != mediaType) continue; 
+                if (mediaType.HasValue && md.MediaType != mediaType) continue;
+
+                //If transport was already setup then see if the trasnport has a context for the media
+                if (Client != null)
+                {
+                    //If there is not a context
+                    hasContext = Client.GetContextForMediaDescription(md) == null;
+
+                    //If we already have a context don't setup it up.
+                    if ((hasContext = !hasContext)) continue;
+                }
 
                 try
                 {
@@ -538,10 +548,10 @@ namespace Media.Rtsp
                     using (RtspMessage setup = SendSetup(md))
                     {
                         //If the setup was okay
-                        if (setup != null && setup.MessageType == RtspMessageType.Response && setup.StatusCode == RtspStatusCode.OK)
+                        if (setup != null && setup.StatusCode == RtspStatusCode.OK)
                         {
                             //Only setup tracks if response was OK
-                            setupTracks = true;
+                            hasContext = true;
                         }
                     }
                 }
@@ -550,11 +560,12 @@ namespace Media.Rtsp
                     continue;
                 }
             }
-
-            if (setupTracks) using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
+            
+            //If we have a play context then send the play request.
+            if (hasContext) using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
                 {
                     //Should have what is playing in event?
-                    if (play == null || play.MessageType == RtspMessageType.Request || play.StatusCode == RtspStatusCode.OK) OnPlaying();
+                    if (play == null || play != null && play.StatusCode == RtspStatusCode.OK) OnPlaying();
                 }
             else throw new InvalidOperationException("Cannot Start Playing, No Tracks Setup.");
         }
@@ -643,7 +654,7 @@ namespace Media.Rtsp
                 //Send the Teardown
                 try
                 {
-                    SendTeardown();
+                    using (SendTeardown()) ;
                 }
                 catch
                 {
@@ -794,13 +805,20 @@ namespace Media.Rtsp
                     //TODO
                     //RtspClient.TransportContext must handle the reception because it must strip away the RTSP and process only the interleaved data in a frame.
                     //Right now just pass it to the RtpClient.
-                    if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl) m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+                    if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl)
+                    {
+                        //Adjust for non rtsp data
+                        received -= m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+
+                        //connect the rtp client
+                        m_RtpClient.Connect();
+                    }
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
                 else if (!Playing) goto Receive;
 
             Wait: //Wait for the response unless playing or tearing down. (Some implementations do not send a play response especially in interleaved mode)
-                if (request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.PLAY)
+                if (request.Method != RtspMethod.UNKNOWN)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
                     while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_RetryCount)
@@ -816,6 +834,9 @@ namespace Media.Rtsp
                         }
                     }
                 }
+
+                //Update counters for any data received.
+                System.Threading.Interlocked.Add(ref m_ReceivedBytes, received);
 
                 //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
                 //(Note for Vivontek you can still bypass the Auth anyway :)
@@ -973,8 +994,9 @@ namespace Media.Rtsp
                         }
                     }
 
+                    //Raise an event
                     Received(request, m_LastTransmitted);
-                }
+                }               
 
                 //Return the result
                 return m_LastTransmitted;
@@ -1085,22 +1107,7 @@ namespace Media.Rtsp
             RtspMessage response = null;
             try
             {
-                Uri location;
-
-                if (mediaDescription != null)
-                {
-                    SessionDescriptionLine attributeLine = mediaDescription.ControlLine;
-                    location = new Uri(Location.OriginalString + '/' + attributeLine.Parts.FirstOrDefault(p => p.Contains("control")).Replace("control:", string.Empty));
-                }
-                else
-                {
-                    location = Location;
-                }
-
-                //Should only raise if Playing?
-                OnStopping(mediaDescription);
-
-                //If there is a client
+                //If there is a client then stop the flow of this media now with RTP
                 if (m_RtpClient != null)
                 {
                     //Send a goodbye for all contexts if the mediaDescription was not given
@@ -1117,12 +1124,18 @@ namespace Media.Rtsp
                     }
                 }
 
+                //The media is stopping now.
+                OnStopping(mediaDescription);
+
                 //Return the result of the Teardown
                 using (var teardown = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.TEARDOWN,
-                    Location = Location
-                }) return SendRtspRequest(teardown);
+                    Location = mediaDescription.GetAbsoluteControlUri(Location)
+                })
+                {
+                    return SendRtspRequest(teardown);
+                }
                 
             }
             catch (Common.Exception<RtspClient>)
@@ -1137,32 +1150,10 @@ namespace Media.Rtsp
 
         public RtspMessage SendSetup(MediaDescription mediaDescription)
         {
-            SessionDescriptionLine controlLine = mediaDescription.ControlLine;
-            Uri location = null;
-            //If there is a control line in the SDP it contains the URI used to setup and control the media
-            if (controlLine != null)
-            {
-                string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
+            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
 
-                //If there is a controlPart in the controlLine
-                if (!string.IsNullOrWhiteSpace(controlPart))
-                {
-                    //Prepare the part
-                    controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
-
-                    //Determine if its a Absolute Uri
-                    if (controlPart.StartsWith(RtspMessage.ReliableTransport, StringComparison.OrdinalIgnoreCase) || controlPart.StartsWith(RtspMessage.UnreliableTransport, StringComparison.OrdinalIgnoreCase))
-                    {
-                        location = new Uri(controlPart);
-                    }
-                    else //Or Relative
-                    {
-                        location = new Uri(Location.OriginalString + '/' + controlPart);
-                    }
-                }
-            }            
             //Send the setup
-            return SendSetup(location ?? Location, mediaDescription);
+            return SendSetup(mediaDescription.GetAbsoluteControlUri(Location), mediaDescription);
         }
 
         //Remove unicast...
@@ -1241,8 +1232,7 @@ namespace Media.Rtsp
                         }
                         else if (response.StatusCode == RtspStatusCode.SessionNotFound)
                         {
-                            SendTeardown();
-                            return SendSetup(location, mediaDescription);
+                            using (var teardown = SendTeardown()) return SendSetup(location, mediaDescription);
                         }
                         else
                         {
@@ -1263,6 +1253,9 @@ namespace Media.Rtsp
                     bool multicast = false, interleaved = false;
 
                     byte dataChannel = 0, controlChannel = 1;
+
+                    //Todo if ContainsHeader(RtpInfo)
+                    //use ParseRtpInfoHeader to obtain information
 
                     //We need a valid TransportHeader with RTP
                     if (string.IsNullOrEmpty(transportHeader) || !transportHeader.Contains("RTP")
@@ -1398,10 +1391,11 @@ namespace Media.Rtsp
                     }
 
                     //Send a Teardown
-                    SendTeardown();
-
-                    //Start again
-                    StartPlaying();
+                    using (SendTeardown())
+                    {
+                        //Start again
+                        StartPlaying();
+                    }
 
                 }
                 catch { return; }
@@ -1412,6 +1406,18 @@ namespace Media.Rtsp
                 m_ProtocolSwitchTimer = null;
             }
 
+        }
+
+        public RtspMessage SendPlay(MediaDescription mediaDescription, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
+        {
+            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+
+            var context = Client.GetContextForMediaDescription(mediaDescription);
+
+            if (context == null) throw new InvalidOperationException("The given mediaDescription has not been SETUP.");
+
+            //Send the play request
+            return SendPlay(mediaDescription.GetAbsoluteControlUri(Location), startTime ?? context.MediaStartTime, endTime ?? context.MediaEndTime, rangeType, rangeFormat);
         }
 
         public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
@@ -1469,9 +1475,24 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The location to indicate in the request</param>
         /// <returns>The response</returns>
-        public RtspMessage SendPause(Uri location = null)
+        public RtspMessage SendPause(MediaDescription mediaDescription)
         {
-            if (!SupportedMethods.Contains(RtspMethod.PAUSE)) throw new InvalidOperationException("Server does not support PAUSE.");
+            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+
+            var context = Client.GetContextForMediaDescription(mediaDescription);
+
+            if (context == null) throw new InvalidOperationException("The given mediaDescription has not been SETUP.");
+
+            //Send the pause
+            return SendPause(mediaDescription.GetAbsoluteControlUri(Location));
+        }
+
+
+        public RtspMessage SendPause(Uri location = null, bool force = false)
+        {
+            //If the server doesn't support it
+            if (!SupportedMethods.Contains(RtspMethod.PAUSE) && !force) throw new InvalidOperationException("Server does not support PAUSE.");
+
             //if (!Playing) throw new InvalidOperationException("RtspClient is not Playing.");
             using (RtspMessage pause = new RtspMessage(RtspMessageType.Request)
                 {
@@ -1489,9 +1510,9 @@ namespace Media.Rtsp
         /// <param name="location">The location to indicate in the request, otherwise null to use the <see cref="Location"/></param>
         /// <param name="sdp">The <see cref="SessionDescription"/> to ANNOUNCE</param>
         /// <returns>The response</returns>
-        public RtspMessage SendAnnounce(Uri location, SessionDescription sdp)
+        public RtspMessage SendAnnounce(Uri location, SessionDescription sdp, bool force = false)
         {
-            if (!SupportedMethods.Contains(RtspMethod.ANNOUNCE)) throw new InvalidOperationException("Server does not support ANNOUNCE.");
+            if (!SupportedMethods.Contains(RtspMethod.ANNOUNCE) && !force) throw new InvalidOperationException("Server does not support ANNOUNCE.");
             if (sdp == null) throw new ArgumentNullException("sdp");
             using (RtspMessage announce = new RtspMessage(RtspMessageType.Request)
             {
@@ -1530,15 +1551,7 @@ namespace Media.Rtsp
 
                 m_KeepAliveTimer.Change(m_RtspTimeout, Utility.InfiniteTimeSpan);
 
-                if (Playing && Client.Uptime > m_RtspTimeout)
-                {
-                    foreach(var context in Client.GetTransportContexts().Where(tc => tc.TimeReceiving >= TimeSpan.Zero && tc.TotalRtpPacketsReceieved == 0))
-                    {
-                        SendTeardown(context.MediaDescription);
-                        StartPlaying(null, null, context.MediaDescription.MediaType);
-                    }
-                }
-
+                EnsureMediaFlow();
             }
             catch
             {
@@ -1548,8 +1561,89 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspMessage SendGetParameter(string body = null)
+        public void EnsureMediaFlow()
         {
+            //If playing for greater than the timeout 
+            if (Playing && Client.Uptime > m_RtspTimeout)
+            {
+                //Determine if there any are contexts without data flow
+                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.TimeReceiving >= TimeSpan.Zero && tc.TotalRtpPacketsReceieved == 0);
+
+                //If there are such contexts
+                if (contextsWithoutDataFlow.Any())
+                {
+                    //If the server doens't support pause then we cant pause.
+                    bool supportPause = m_SupportedMethods.Contains(RtspMethod.PAUSE);
+
+                    //If any media was pausedOrStopped.
+                    bool pausedOrStoppedAnything = false;
+
+                    //If we cannot stop a single media item we will set this to true.
+                    bool stopAll = false;
+
+                    //Iterate all inactive contexts.
+                    foreach (var context in contextsWithoutDataFlow)
+                    {
+                        //Send a pause request if not already paused and the server supports PAUSE
+                        if (supportPause)
+                        {
+                            //Send the PAUSE request
+                            using (var pauseResponse = SendPause(context.MediaDescription))
+                            {
+                                //If the paused request was not a sucess then it's probably due to an aggregate operation
+                                pausedOrStoppedAnything = pauseResponse != null && pauseResponse.StatusCode == RtspStatusCode.OK;
+
+                                //Determine if we have to stop everything.
+                                if(!pausedOrStoppedAnything) stopAll = pauseResponse.StatusCode == RtspStatusCode.AggregateOpperationNotAllowed;
+                            }
+                        }
+                        else
+                        {
+                            //We can't pause so STOP JUST THIS MEDIA
+                            using (var teardownResponse = SendTeardown(context.MediaDescription))
+                            {
+                                //If the Teardown was not a success then it's probably due to an aggregate operation.
+                                pausedOrStoppedAnything = teardownResponse == null || teardownResponse != null && teardownResponse.StatusCode == RtspStatusCode.OK;
+                                
+                                //Determine if we have to stop everything.
+                                if (!pausedOrStoppedAnything) stopAll = teardownResponse.StatusCode == RtspStatusCode.AggregateOpperationNotAllowed;
+                            }
+                        }
+
+                        //If we have to stop everything and the server doesn't support pause then stop iterating.
+                        if (stopAll) break;
+
+                        //The media was paused ot stopped, so play it again.
+                        if (pausedOrStoppedAnything) using (var playRequest = SendPlay(context.MediaDescription)) ;
+                    }
+
+                    //If everything needs to stop.
+                    if (stopAll)
+                    {
+                        if (supportPause)
+                        {
+                            //Try to pause everything
+                            using (var pauseRequest = SendPause())
+                                pausedOrStoppedAnything = pauseRequest != null && pauseRequest.StatusCode == RtspStatusCode.OK;
+                        }
+                        else
+                        {
+                            //Stop playing everything
+                            StopPlaying();
+
+                            //Start playing everything
+                            StartPlaying();
+                        }
+                    } 
+                }
+            }
+        }
+
+        public RtspMessage SendGetParameter(string body = null, string contentType = null, bool force = false)
+        {
+            //If the server doesn't support it
+            if (!SupportedMethods.Contains(RtspMethod.GET_PARAMETER) && !force) throw new InvalidOperationException("Server does not support GET_PARAMETER.");
+
             using (RtspMessage get = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.GET_PARAMETER,
@@ -1557,7 +1651,25 @@ namespace Media.Rtsp
                 Body = body ?? string.Empty
             })
             {
+                if (!string.IsNullOrWhiteSpace(contentType)) get.SetHeader(RtspHeaders.ContentType, contentType);
                 return SendRtspRequest(get);
+            }
+        }
+
+        public RtspMessage SendSetParameter(string body = null, string contentType = null, bool force = false)
+        {
+            //If the server doesn't support it
+            if (!SupportedMethods.Contains(RtspMethod.SET_PARAMETER) && !force) throw new InvalidOperationException("Server does not support GET_PARAMETER.");
+
+            using (RtspMessage set = new RtspMessage(RtspMessageType.Request)
+            {
+                Method = RtspMethod.SET_PARAMETER,
+                Location = Location,
+                Body = body ?? string.Empty
+            })
+            {
+                if (!string.IsNullOrWhiteSpace(contentType)) set.SetHeader(RtspHeaders.ContentType, contentType);
+                return SendRtspRequest(set);
             }
         }
 

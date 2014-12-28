@@ -656,6 +656,54 @@ namespace Media.Sdp
         }        
     }
 
+    public static class MediaDescriptionExtensions
+    {
+        /// <summary>
+        /// Parses the <see cref="MediaDescription.ControlLine"/> and if present
+        /// </summary>
+        /// <param name="mediaDescription"></param>
+        /// <param name="source"></param>
+        /// <returns></returns>
+        public static Uri GetAbsoluteControlUri(this MediaDescription mediaDescription, Uri source)
+        {
+            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+
+            if (source == null) throw new ArgumentNullException("source");
+
+            if (!source.IsAbsoluteUri) throw new InvalidOperationException("source.IsAbsoluteUri must be true.");
+
+            SessionDescriptionLine controlLine = mediaDescription.ControlLine;
+
+            //If there is a control line in the SDP it contains the URI used to setup and control the media
+            if (controlLine != null)
+            {
+                string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
+
+                //If there is a controlPart in the controlLine
+                if (!string.IsNullOrWhiteSpace(controlPart))
+                {
+                    //Prepare the part
+                    controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
+
+                    //Create a uri
+                    Uri controlUri = new Uri(controlPart, UriKind.RelativeOrAbsolute);
+
+                    //Determine if its a Absolute Uri
+                    if (controlUri.IsAbsoluteUri) return controlUri;
+
+                    //hmm  - Determines the difference between two Uri instances.
+                    //return controlUri.MakeRelativeUri(source);
+
+                    //Return a new uri using the original string and the controlUri relative path.
+                    return new Uri(source.OriginalString + '/' + controlUri.OriginalString);
+                }
+            }
+
+            //There is no control line, just return the source.
+            return source;
+        }
+    }
+
     /// <summary>
     /// Represents a TimeDescription with optional Repeat times.
     /// Parses and Creates.
