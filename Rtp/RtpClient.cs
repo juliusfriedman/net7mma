@@ -964,7 +964,7 @@ namespace Media.Rtp
             {
                 if (dataChannel == controlChannel) throw new InvalidOperationException("dataChannel and controlChannel must be unique.");
 
-                if (ssrc == senderSsrc) throw new InvalidOperationException("ssrc and senderSsrc must be unique.");
+                if (ssrc == senderSsrc && ssrc != 0) throw new InvalidOperationException("ssrc and senderSsrc must be unique.");
 
                 if (minimumSequentialRtpPackets < 0) throw new InvalidOperationException("minimumSequentialRtpPackets must be >= 0");
 
@@ -1261,6 +1261,9 @@ namespace Media.Rtp
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
 
+                //Set now if not already set
+                if(SynchronizationSourceIdentifier == 0) SynchronizationSourceIdentifier = RFC3550.Random32(Utility.Random.Next());
+
                 try
                 {
                     //Setup the RtpSocket
@@ -1511,27 +1514,29 @@ namespace Media.Rtp
 
                 if (RemoteSynchronizationSourceIdentifier.HasValue) RemoteSynchronizationSourceIdentifier = null;// default(int);
 
-                Interlocked.Exchange(ref RtpPacketsSent, 0);
+                RtpPacketsSent = RtpBytesSent = RtcpPacketsSent = RtcpBytesSent = RtpPacketsReceived = RtpBytesRecieved = RtcpBytesRecieved = RtcpPacketsReceieved = m_FailedRtcpTransmissions = m_FailedRtpTransmissions = 0;
 
-                Interlocked.Exchange(ref RtpBytesSent, 0);
+                //Interlocked.Exchange(ref RtpPacketsSent, 0);
 
-                Interlocked.Exchange(ref RtcpPacketsSent, 0);
+                //Interlocked.Exchange(ref RtpBytesSent, 0);
 
-                Interlocked.Exchange(ref RtcpBytesSent, 0);
+                //Interlocked.Exchange(ref RtcpPacketsSent, 0);
 
-                ////////////////////
+                //Interlocked.Exchange(ref RtcpBytesSent, 0);
 
-                Interlocked.Exchange(ref RtpPacketsReceived, 0);
+                //////////////////////
 
-                Interlocked.Exchange(ref RtpBytesRecieved, 0);
+                //Interlocked.Exchange(ref RtpPacketsReceived, 0);
 
-                Interlocked.Exchange(ref RtcpBytesRecieved, 0);
+                //Interlocked.Exchange(ref RtpBytesRecieved, 0);
 
-                Interlocked.Exchange(ref RtcpPacketsReceieved, 0);
+                //Interlocked.Exchange(ref RtcpBytesRecieved, 0);
 
-                Interlocked.Exchange(ref m_FailedRtcpTransmissions, 0);
+                //Interlocked.Exchange(ref RtcpPacketsReceieved, 0);
 
-                Interlocked.Exchange(ref m_FailedRtpTransmissions, 0);
+                //Interlocked.Exchange(ref m_FailedRtcpTransmissions, 0);
+
+                //Interlocked.Exchange(ref m_FailedRtpTransmissions, 0);
             }
 
             /// <summary>
@@ -1666,7 +1671,8 @@ namespace Media.Rtp
             else if (transportContext.SynchronizationSourceIdentifier == packet.SynchronizationSourceIdentifier)
             {
                 SendGoodbye(transportContext, Encoding.UTF8.GetBytes("ssrc"));
-                transportContext.SynchronizationSourceIdentifier = RFC3550.Random32(transportContext.SynchronizationSourceIdentifier);
+                do transportContext.SynchronizationSourceIdentifier = RFC3550.Random32(transportContext.SynchronizationSourceIdentifier);
+                while (transportContext.SynchronizationSourceIdentifier == transportContext.RemoteSynchronizationSourceIdentifier);
                 transportContext.ResetState();
             }
 
@@ -1689,11 +1695,14 @@ namespace Media.Rtp
             //The context is active.
             transportContext.m_InactiveTime = TimeSpan.Zero;
 
-            //Increment packets received for the valid context.
-            Interlocked.Increment(ref transportContext.RtcpPacketsReceieved);
+            unchecked
+            {
+                //Increment packets received for the valid context.
+                ++transportContext.RtcpPacketsReceieved;
 
-            //Keep track of the the bytes sent in the context
-            Interlocked.Add(ref transportContext.RtcpBytesRecieved, localPacket.Length);
+                //Keep track of the the bytes sent in the context
+                transportContext.RtcpBytesRecieved += localPacket.Length;
+            }
 
             //Set the time when the first rtcp packet was recieved
             if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = packet.Created;
@@ -1762,7 +1771,8 @@ namespace Media.Rtp
             //Check for a collision
             if (packet.SynchronizationSourceIdentifier == transportContext.SynchronizationSourceIdentifier)
             {
-                transportContext.SynchronizationSourceIdentifier = RFC3550.Random32(transportContext.SynchronizationSourceIdentifier);
+                do transportContext.SynchronizationSourceIdentifier = RFC3550.Random32(transportContext.SynchronizationSourceIdentifier);
+                while (transportContext.SynchronizationSourceIdentifier == transportContext.RemoteSynchronizationSourceIdentifier);
                 SendGoodbye(transportContext, Encoding.UTF8.GetBytes("ssrc"));
                 return;
             }
@@ -1785,11 +1795,14 @@ namespace Media.Rtp
             //If the packet is not valid then nothing further needs to be done as invalid count is maintained by the ValidatePacketAndUpdateSequenceNumber function.
             if (!transportContext.ValidatePacketAndUpdateSequenceNumber(packet)) return;
 
-            //Increment RtpPacketsReceived for the context relating to the packet.
-            Interlocked.Increment(ref transportContext.RtpPacketsReceived);
+            unchecked
+            {
+                //Increment RtpPacketsReceived for the context relating to the packet.
+                ++transportContext.RtpPacketsReceived;
 
-            //The counters for the bytes will now be be updated
-            Interlocked.Add(ref transportContext.RtpBytesRecieved, packet.Payload.Count);
+                //The counters for the bytes will now be be updated
+                transportContext.RtpBytesRecieved += packet.Payload.Count;
+            }
 
             //Set the time when the first RtpPacket was received if required
             if (transportContext.m_FirstPacketReceived == DateTime.MinValue) transportContext.m_FirstPacketReceived = packet.Created;
@@ -1896,10 +1909,13 @@ namespace Media.Rtp
 
             if (transportContext == null) return;
 
-            //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
-            Interlocked.Add(ref transportContext.RtpBytesSent, packet.Payload.Count);
+            unchecked
+            {
+                //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
+                transportContext.RtpBytesSent += packet.Payload.Count;
 
-            Interlocked.Increment(ref transportContext.RtpPacketsSent);
+                ++transportContext.RtpPacketsSent;
+            }
 
             //Sample the clock for when the last rtp packet was sent
             DateTime sent = packet.Transferred.Value;
@@ -1928,11 +1944,14 @@ namespace Media.Rtp
             //if there is no context there is nothing to do.
             if (transportContext == null) return;
 
-            //Update the counters for the amount of bytes in the RtcpPacket including the header and any padding.
-            Interlocked.Add(ref transportContext.RtcpBytesSent, packet.Length);
+            unchecked
+            {
+                //Update the counters for the amount of bytes in the RtcpPacket including the header and any padding.
+                transportContext.RtcpBytesSent += packet.Length;
 
-            //Update the amount of packets sent
-            Interlocked.Increment(ref transportContext.RtcpPacketsSent);
+                //Update the amount of packets sent
+                ++transportContext.RtcpPacketsSent;
+            }
 
             //Mark the context as active immediately.
             transportContext.m_InactiveTime = TimeSpan.Zero;
@@ -2267,10 +2286,10 @@ namespace Media.Rtp
         /// <param name="context">The context to add</param>
         public virtual void Add(TransportContext context)
         {
-            foreach (TransportContext c in TransportContexts)
+            if(context.SynchronizationSourceIdentifier != 0) foreach (TransportContext c in TransportContexts)
             {
-                //if (c.DataChannel == context.DataChannel || c.ControlChannel == context.ControlChannel) throw new RtpClientException("Requested Channel is already in use");
-                if (c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier) Common.ExceptionExtensions.CreateAndRaiseException<RtpClient>(this, "Requested SSRC is already in use");
+                if (c.DataChannel == context.DataChannel || c.ControlChannel == context.ControlChannel) Common.ExceptionExtensions.CreateAndRaiseException(context, "Requested Channel is already in use");
+                if (c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier) Common.ExceptionExtensions.CreateAndRaiseException(context, "Requested SSRC is already in use");
             }
 
             TransportContexts.Add(context);
@@ -2389,7 +2408,8 @@ namespace Media.Rtp
             if (context.SynchronizationSourceIdentifier == 0)
             {
                 //Generate the id per RFC3550
-                context.SynchronizationSourceIdentifier = RFC3550.Random32(Rtcp.SendersReport.PayloadType);
+                do context.SynchronizationSourceIdentifier = RFC3550.Random32(Rtcp.SendersReport.PayloadType);
+                while (context.SynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier);
             }
 
             //First report include no blocks (No last senders report), store the report being sent
@@ -2419,7 +2439,8 @@ namespace Media.Rtp
             else if (context.SynchronizationSourceIdentifier == 0)
             {
                 // Must be guaranteed to be unique per session
-                context.SynchronizationSourceIdentifier = RFC3550.Random32((Rtcp.ReceiversReport.PayloadType));
+                do context.SynchronizationSourceIdentifier = RFC3550.Random32((Rtcp.ReceiversReport.PayloadType));
+                while (context.SynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier);
             }
 
             //create and store the receivers report sent
@@ -3049,8 +3070,8 @@ namespace Media.Rtp
                     //Parse the frameLength from the given buffer, take changes to the offset through the function.
                     frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
-                    //If a frame was found (but not the null packet)
-                    if (frameLength > 0)
+                    //If a frame was found (Including the null packet)
+                    if (frameLength >= 0)
                     {
                         #region Babble
 
@@ -3100,7 +3121,7 @@ namespace Media.Rtp
                                 bool bad = common.Version != relevent.Version;
 
                                 //If this is a valid data backer there must be at least a RtpHeader's worth of data in the buffer. If this was a RtcpPacket with only 4 bytes it wouldn't have a ssrc and wouldn't be valid to be sent.
-                                if (frameChannel == relevent.DataChannel && remainingInBuffer <= 16 || frameChannel == relevent.ControlChannel && remainingInBuffer <= 12)
+                                if (frameChannel == relevent.DataChannel && remainingInBuffer <= 16 || frameChannel == relevent.ControlChannel && remainingInBuffer <= Rtp.RtpHeader.Length)
                                 {
                                     //Remove the context
                                     relevent = null;

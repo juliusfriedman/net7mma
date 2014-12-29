@@ -1939,7 +1939,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
 
-                        System.Threading.Interlocked.Increment(ref m_FramesPerSecondCounter);
+                        unchecked { ++m_FramesPerSecondCounter; }
+
+                        
                     }
 
                     //If we are to loop images then add it back at the end

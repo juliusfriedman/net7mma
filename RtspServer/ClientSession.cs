@@ -435,6 +435,9 @@ namespace Media.Rtsp
                     //End playing after this time if given and not unspecified
                     endRange = end;
 
+                    http://stackoverflow.com/questions/4672359/why-does-timespan-fromsecondsdouble-round-to-milliseconds
+                    end += Utility.InfiniteTimeSpan;
+
                     if(end != Utility.InfiniteTimeSpan
                         &&
                         end > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid End Range");
@@ -577,7 +580,7 @@ namespace Media.Rtsp
             bool rtcpDisabled = sourceStream.m_DisableQOS;
 
             //Values in the header we need
-            int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, ssrc = 0;
+            int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, localSsrc, remoteSsrc = 0;
 
             //Cache this to prevent having to go to get it every time down the line
             IPAddress sourceIp = IPAddress.Any;
@@ -594,14 +597,15 @@ namespace Media.Rtsp
             //If that is not present we cannot determine what transport the client wants
             if (string.IsNullOrWhiteSpace(transportHeader) || !(transportHeader.Contains("RTP"))
                 || !RtspHeaders.TryParseTransportHeader(transportHeader,
-                    out ssrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
+                    out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
                     out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
             {
                 return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Invalid Transport Header");
             }
 
-            //Create a unique 32 bit id if required
-            if(ssrc == 0) ssrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);            
+            //This allows the requester to specify their id to prevent collisions now...
+            if (remoteSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
+            else localSsrc = remoteSsrc + 1;
 
             //Could also randomize the setupContext sequenceNumber here.
             //We need to make an TransportContext in response to a setup
@@ -632,7 +636,7 @@ namespace Media.Rtsp
                     var result = CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
 
                     //Indicate interleaved is forced.
-                    result.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel));
+                    result.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel));
 
                     return result;
                 }
@@ -653,15 +657,15 @@ namespace Media.Rtsp
                     m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
 
                     //Use default data and control channel
-                    setupContext = new RtpClient.TransportContext(0, 1, ssrc, mediaDescription, !rtcpDisabled);
+                    setupContext = new RtpClient.TransportContext(0, 1, localSsrc, mediaDescription, !rtcpDisabled, remoteSsrc, 0);
                 }
                 else //The client was already created.
                 {
                     //Have to calculate next data and control channel
                     RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
 
-                    if (lastContext != null) setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription, !rtcpDisabled);
-                    else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, ssrc, mediaDescription);
+                    if (lastContext != null) setupContext = new RtpClient.TransportContext((byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), localSsrc, mediaDescription, !rtcpDisabled, remoteSsrc, 0);
+                    else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, localSsrc, mediaDescription, !rtcpDisabled, remoteSsrc, 0);
                 }
 
                 //Initialize the Udp sockets
@@ -670,8 +674,8 @@ namespace Media.Rtsp
                 //Add the transportChannel
                 m_RtpClient.Add(setupContext);
 
-                //Create the returnTransportHeader
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
+                //Create the returnTransportHeader (Should be setupContext.SynchronizationSourceIdentifier)
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
 
             }
 
@@ -689,7 +693,7 @@ namespace Media.Rtsp
                     m_RtpClient.FrameChangedEventsEnabled = false;
 
                     //Create a new Interleave
-                    setupContext = new RtpClient.TransportContext((byte)(dataChannel = 0), (byte)(controlChannel = 1), ssrc, mediaDescription, m_RtspSocket, !rtcpDisabled);
+                    setupContext = new RtpClient.TransportContext((byte)(dataChannel = 0), (byte)(controlChannel = 1), localSsrc, mediaDescription, m_RtspSocket, !rtcpDisabled, remoteSsrc, 0);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -702,8 +706,8 @@ namespace Media.Rtsp
                     //Have to calculate next data and control channel
                     RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
 
-                    if (lastContext != null) setupContext = new RtpClient.TransportContext(dataChannel = (byte)(lastContext.DataChannel + 2), controlChannel = (byte)(lastContext.ControlChannel + 2), ssrc, mediaDescription);
-                    else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, ssrc, mediaDescription);
+                    if (lastContext != null) setupContext = new RtpClient.TransportContext(dataChannel = (byte)(lastContext.DataChannel + 2), controlChannel = (byte)(lastContext.ControlChannel + 2), localSsrc, mediaDescription, !rtcpDisabled, remoteSsrc, 0);
+                    else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, localSsrc, mediaDescription, !rtcpDisabled, remoteSsrc, 0);
 
                     //Add the transportChannel the client requested
                     m_RtpClient.Add(setupContext);
@@ -713,9 +717,10 @@ namespace Media.Rtsp
                 }
 
                 //Create the returnTransportHeader
-                //returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, LocalEndPoint.Port, LocalEndPoint.Port, ((IPEndPoint)RemoteEndPoint).Port, ((IPEndPoint)RemoteEndPoint).Port, true, false, null, true, dataChannel, controlChannel);
+                //returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", setupContext.SynchronizationSourceIdentifier, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, LocalEndPoint.Port, LocalEndPoint.Port, ((IPEndPoint)RemoteEndPoint).Port, ((IPEndPoint)RemoteEndPoint).Port, true, false, null, true, dataChannel, controlChannel);
+                
 
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", ssrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel);
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", remoteSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel);
             }
             
            
