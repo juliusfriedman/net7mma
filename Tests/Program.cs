@@ -97,7 +97,7 @@ namespace Tests
                 _client.InterleavedData += ProcessInterleaveData;
                 _client.RtpPacketReceieved += ProcessRtpPacket;
 
-                Media.Sdp.MediaDescription md = new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 999, "H.264", 94);
+                Media.Sdp.MediaDescription md = new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 999, "H.264", 0);
 
                 Media.Rtp.RtpClient.TransportContext tc = new Media.Rtp.RtpClient.TransportContext(0, 1,
                     RFC3550.Random32(9876), md, false, _senderSSRC);
@@ -711,7 +711,7 @@ namespace Tests
                             {
                                 StatusCode = Media.Rtsp.RtspStatusCode.OK,
                                 CSeq = Utility.Random.Next(byte.MinValue, int.MaxValue),
-                                UserAgent = "Ignore : $UserAgent $009\r\n$\0:\0",
+                                UserAgent = "$UserAgent $009\r\n$\0\0\aRTSP/1.0",
                                 Body = "$009\r\n$\0:\0"
                             }.Prepare();
 
