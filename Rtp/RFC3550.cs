@@ -386,6 +386,11 @@ namespace Media
             #region Statics and Constants
 
             /// <summary>
+            /// The amount of octets this class represents.
+            /// </summary>
+            public const int Size = 2;
+
+            /// <summary>
             /// 3 SHL 6 produces a 8 bit value of 11000000
             /// </summary>
             public const byte VersionMask = 192;
