@@ -1011,7 +1011,7 @@ namespace Tests
                     {
 
                         //Decrement remaining
-                        System.Threading.Interlocked.Decrement(ref remaining);
+                        --remaining;
 
                         TraceMessage("Beginning Test '" + testIndex + "'", test.Method.Name);
 
@@ -1021,12 +1021,12 @@ namespace Tests
                         TraceMessage("Completed Test'" + testIndex + "'", test.Method.Name);
 
                         //Increment the success counter
-                        System.Threading.Interlocked.Increment(ref successes);
+                        ++successes;
                     }
                     catch (Exception ex)
                     {
                         //Incrment the exception counter
-                        System.Threading.Interlocked.Increment(ref failures);
+                        ++failures;
 
                         //Only break if the debugger is attached
                         if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
@@ -2299,6 +2299,10 @@ namespace Tests
 
             //Test Parsing bytes containing valid and invalid messages
 
+            //GET_PARAMETER / RTSP/1.0\n\n
+
+            //DESCRIBE / RTSP/1.0\nSession:\n\n
+
         }
 
         static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
@@ -2408,7 +2412,7 @@ namespace Tests
             {
                 using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
                 {
-                    //Using a new Media.RtspClient with a specified buffer size
+                    //Using a new Media.RtspClient optionally with a specified buffer size (SHould be at least the Mtu) by adding it below
                     using (client = new Media.Rtsp.RtspClient(location, protocol))
                     {                        
 
@@ -2587,6 +2591,7 @@ namespace Tests
                                 {
                                     Console.WriteLine("Client Playing. for :" + playingfor.ToString());
 
+                                    //Testing ONLY
                                     client.SendKeepAlive(null);
                                 }
 

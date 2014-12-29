@@ -223,9 +223,12 @@ namespace Media.Rtsp
 
         //TryParseAuthorizationHeader
 
+        //Values should be nullable...?
         public static bool TryParseTransportHeader(string value, out int ssrc, out System.Net.IPAddress source, out int serverRtpPort, out int serverRtcpPort, out int clientRtpPort, out int clientRtcpPort, out bool interleaved, out byte dataChannel, out byte controlChannel, out string mode, out bool unicast, out bool multicast)
         {
             if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("value cannot be null or whitespace.");
+
+            //layers = / Hops Ttl
 
             ssrc = 0;
             source = System.Net.IPAddress.Any;

@@ -126,7 +126,7 @@ namespace Media.Rtsp
 
         HashSet<RtspMethod> m_SupportedMethods = new HashSet<RtspMethod>();
 
-        string m_UserAgent = "ASTI RTP Client", m_SessionId;//, m_TransportMode;
+        internal string m_UserAgent = "ASTI RTP Client", m_SessionId;//, m_TransportMode;
 
         internal RtpClient m_RtpClient;
 
@@ -139,6 +139,11 @@ namespace Media.Rtsp
         #endregion
 
         #region Properties
+
+        /// <summary>
+        /// Gets the value of the id in the Session header if it was seen in a response.
+        /// </summary>
+        public string SessionId { get { return m_SessionId; } }
 
         /// <summary>
         /// Any additional headers which may be required by the RtspClient.
@@ -346,7 +351,7 @@ namespace Media.Rtsp
         /// <param name="location">The absolute location of the media</param>
         /// <param name="rtspPort">The port to the RtspServer is listening on</param>
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
-        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 4096)
+        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspMessage.MaximumLength)
         {
             if (!location.IsAbsoluteUri) throw new ArgumentException("Must be absolute", "location");
             if (!(location.Scheme == RtspMessage.ReliableTransport || location.Scheme == RtspMessage.UnreliableTransport || location.Scheme == System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
@@ -369,10 +374,10 @@ namespace Media.Rtsp
                 else throw new ArgumentException("Must be Tcp or Udp.", "protocolType");
             }
 
-            //Todo, Allow any size buffer.
-            if (bufferSize < RtspMessage.MaximumLength) throw new ArgumentOutOfRangeException("Buffer size must be at least RtspMessage.MaximumLength (4096)");
+            //Create the segment given the amount of memory required (Should be Mtu based)
             m_Buffer = new Common.MemorySegment(bufferSize);
 
+            //Indicate how much time the client will switch from udp to tcp in if no data has been received once playing.
             ProtocolSwitchTime = TimeSpan.FromSeconds(10);
         }
 
@@ -383,7 +388,7 @@ namespace Media.Rtsp
         /// <param name="location">The string which will be parsed to obtain the Location</param>
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize, if null it will be determined from the location Scheme</param>
         /// <param name="bufferSize">The amount of bytes the client will use during message reception, Must be at least 4096 and if larger it will also be shared with the underlying RtpClient</param>
-        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = 4096)
+        public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspMessage.MaximumLength)
             : this(new Uri(location), rtpProtocolType, bufferSize)
         {
         }
@@ -464,8 +469,11 @@ namespace Media.Rtsp
                         //If not playing an interleaved stream, Complete the message if not complete
                         if (!(Playing && m_RtpProtocol == ProtocolType.Tcp)) while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
 
-                        //Update counters
-                        System.Threading.Interlocked.Add(ref m_ReceivedBytes, length + received);
+                        unchecked
+                        {
+                            //Update counters
+                            m_ReceivedBytes += length + received;
+                        }
 
                         //Disposes the last message.
                         m_LastTransmitted.Dispose();
@@ -694,7 +702,7 @@ namespace Media.Rtsp
                 if (!Connected)
                 {
                     Connect();
-                }               
+                }
 
                 //Add the user agent
                 if (!request.ContainsHeader(RtspHeaders.UserAgent))
@@ -741,8 +749,8 @@ namespace Media.Rtsp
                 ///Use the sessionId if present
                 if (m_SessionId != null) request.SetHeader(RtspHeaders.Session, m_SessionId);
 
-                //Get the next Sequence Number
-                request.CSeq = NextClientSequenceNumber();
+                //Get the next Sequence Number and set it in the request. (If not already present)
+                if (!request.ContainsHeader(RtspHeaders.CSeq)) request.CSeq = NextClientSequenceNumber();
 
                 //Use any additional headers if given
                 if (AdditionalHeaders.Count > 0) foreach (var additional in AdditionalHeaders) request.AppendOrSetHeader(additional.Key, additional.Value);
@@ -750,10 +758,10 @@ namespace Media.Rtsp
                 //Get the bytes of the request
                 byte[] buffer = m_RtspProtocol == ClientProtocolType.Http ? RtspMessage.ToHttpBytes(request) : request.ToBytes();
 
-              
+
                 int attempt = 0, //The attempt counter itself
                     sent = 0, received = 0, //counter for sending and receiving locally
-                    offset = m_Buffer.Offset, length = buffer.Length, max = RtspMessage.MaximumLength - length; //The offsets into the buffer and the maximum amounts
+                    offset = m_Buffer.Offset, length = buffer.Length;
 
                 //The error which will be ignored incase non-blocking sockets are being used.
                 SocketError error = SocketError.Success;
@@ -773,35 +781,39 @@ namespace Media.Rtsp
 
                 #endregion
 
-                sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
+                unchecked
+                {
+                    sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
 
-                //If we could not send the message indicate so
-                if (sent < length || error != SocketError.Success) return null;
+                    //If we could not send the message indicate so
+                    if (sent < length || error != SocketError.Success) return null;
 
-                //Set the time when the message was transferred.
-                request.Transferred = DateTime.UtcNow;
+                    //Set the time when the message was transferred.
+                    request.Transferred = DateTime.UtcNow;
 
-                //Fire the event
-                Requested(m_LastTransmitted = request);
+                    //Fire the event
+                    Requested(m_LastTransmitted = request);
 
-                //Increment our byte counters for Rtsp
-                m_SentBytes += sent;
+                    //Increment our byte counters for Rtsp
+                    m_SentBytes += sent;
 
-                //Attempt to receive
-                attempt = 0;
+                    //Attempt to receive
+                    attempt = 0;
 
-                //Set the block
-                m_InterleaveEvent.Reset();
+                    //Set the block
+                    m_InterleaveEvent.Reset();
 
-                //Jump ahead to wait
-                if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
+                    //Jump ahead to wait
+                    if (Playing && m_RtpProtocol == ProtocolType.Tcp) goto Wait;
+                }
 
                 //Receive some data
             Receive:
-                received = m_RtspSocket.Receive(m_Buffer.Array, offset, max, SocketFlags.None, out error);
+                received = m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
 
                 //Try again if allowed
                 if (error == SocketError.TryAgain) goto Receive;
+
 
                 //Handle the connection reset or connection aborted.
                 if (error != SocketError.Success) return null;
@@ -842,8 +854,12 @@ namespace Media.Rtsp
                     }
                 }
 
-                //Update counters for any data received.
-                System.Threading.Interlocked.Add(ref m_ReceivedBytes, received);
+                unchecked
+                {
+
+                    //Update counters for any data received.
+                    m_ReceivedBytes += received;
+                }
 
                 //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
                 //(Note for Vivontek you can still bypass the Auth anyway :)
@@ -908,7 +924,7 @@ namespace Media.Rtsp
                         if (!string.IsNullOrWhiteSpace(nc)) nc = realm.Substring(3);
 
                         string nonce = baseParts.Where(p => p.StartsWith("nonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-						if (!string.IsNullOrWhiteSpace(nonce)) nonce = nonce.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
+                        if (!string.IsNullOrWhiteSpace(nonce)) nonce = nonce.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
 
                         string cnonce = baseParts.Where(p => p.StartsWith("cnonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();//parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(cnonce)) cnonce = cnonce.Substring(7).Replace("\"", string.Empty).Replace("\'", string.Empty);//cnonce = cnonce.Replace("cnonce=", string.Empty);
@@ -932,7 +948,7 @@ namespace Media.Rtsp
 
                         string opaque = baseParts.Where(p => p.StartsWith("opaque", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(opaque)) opaque = opaque.Substring(7);
-                       
+
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, Credential, qop, nc, nonce, cnonce, opaque, rfc2069, algorithm, request.Body));
 
                         //Recurse the call with the info from then authenticate header
@@ -1003,7 +1019,7 @@ namespace Media.Rtsp
 
                     //Raise an event
                     Received(request, m_LastTransmitted);
-                }               
+                }
 
                 //Return the result
                 return m_LastTransmitted;
@@ -1190,6 +1206,8 @@ namespace Media.Rtsp
                     //Todo Determine if Unicast or Multicast from mediaDescription ....?
                     string connectionType = unicast ? "unicast;" : "multicast";
 
+                    //Todo, could send ssrc here to let server know the ssrc we have early...
+
                     // TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
                     if (m_RtpProtocol == ProtocolType.Tcp)
                     {
@@ -1275,6 +1293,7 @@ namespace Media.Rtsp
                     //Just incase the source was not given
                     if (sourceIp == IPAddress.Any) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
+                    //If interleaved was present in the response then use a RTP/AVP/TCP Transport
                     if (interleaved)
                     {
                         //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
@@ -1293,15 +1312,18 @@ namespace Media.Rtsp
 
                         //and initialize the client from the RtspSocket depdning on if the source is on the same server as the existing connection
                         if (IPAddress.Equals(sourceIp, ((IPEndPoint)m_RemoteRtsp).Address)) created.Initialize(m_RtspSocket);
-                        else created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort);
+                        else created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort); //Might have to come from source string?
+
+                        //Todo
+                        //Care should be taken that the SDP is not directing us to connect to some unknown resource....
 
                         //try to add the TransportContext
                         m_RtpClient.Add(created);
                     }
                     else
                     {
-                        //Check if the port is 554 which means they must want Interleaved?
-                        if (serverRtpPort == 554) goto SetupTcp;
+                        //The server may response with the port used for the request which indicates that TCP should be used?
+                        if (serverRtpPort == location.Port) goto SetupTcp;
 
                         //If we need to make a client then do so
                         if (m_RtpClient == null)
@@ -1319,7 +1341,7 @@ namespace Media.Rtsp
 
                         RtpClient.TransportContext created;
 
-                        if (m_RtpClient.GetTransportContexts().Any())
+                        if (!m_RtpClient.GetTransportContexts().Any())
                         {
                             created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
                         }

@@ -1011,10 +1011,10 @@ namespace Media.Rtsp
                 if (received > 0)
                 {
                     //Count for the server
-                    Interlocked.Add(ref m_Recieved, received);
+                    m_Recieved += received;
 
                     //Count for the client
-                    Interlocked.Add(ref session.m_Receieved, received);
+                    session.m_Receieved += received;
 
                     using (Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received))
                     {
@@ -1033,7 +1033,7 @@ namespace Media.Rtsp
                                 received = session.LastRequest.CompleteFrom(null, data);
 
                                 //Account for the received data
-                                Interlocked.Add(ref session.m_Receieved, received);
+                                session.m_Receieved += received;
 
                                 //If the message is now complete then process it
                                 if (session.LastRequest.IsComplete) ProcessRtspRequest(request, session);
@@ -1077,9 +1077,12 @@ namespace Media.Rtsp
                 //This logic MAY NOT be correct when only a partial send occurs
                 if (sent >= neededLength)
                 {
-                    Interlocked.Add(ref session.m_Sent, sent);
+                    unchecked
+                    {
+                        session.m_Sent += sent;
 
-                    Interlocked.Add(ref m_Sent, sent);
+                        m_Sent += sent;
+                    }
 
                     session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref remote, new AsyncCallback(ProcessReceive), session);
                 }
