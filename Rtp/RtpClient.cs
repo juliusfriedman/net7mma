@@ -3020,25 +3020,23 @@ namespace Media.Rtp
             //If there is no buffer use our own buffer.
             if (buffer == null) buffer = m_Buffer.Array;
 
-            //Get the length of the given buffer (Should actually use m_Buffer.Count when using our own buffer)
-            int bufferLength = buffer.Length;
-
             //Determine which TransportContext will receive the data incoming
             TransportContext relevent = null;
 
             //The channel of the data
             byte frameChannel = 0;
 
-            //The indicates length of the data
-            int frameLength = 0;
-
-            //The amount of data remaining in the buffer
-            int remainingInBuffer = count, 
+            //Get the length of the given buffer (Should actually use m_Buffer.Count when using our own buffer)
+            int bufferLength = buffer.Length,
+                //The indicates length of the data
+                frameLength = 0,
+                //The amount of data remaining in the buffer
+                remainingInBuffer = count, 
                 //The amount of data received (which is already equal to what is remaining in the buffer)
                 recievedTotal = remainingInBuffer;
 
             //Determine if Rtp or Rtcp is coming in.
-            bool expectRtp, expectRtcp;
+            bool expectRtp = false, expectRtcp = false;
 
             int remainingOnSocket = 0;
 
@@ -3051,9 +3049,11 @@ namespace Media.Rtp
                     //Parse the frameLength from the given buffer, take changes to the offset through the function.
                     frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, buffer);
 
-                    //If a frame was found.
-                    if (frameLength >= 0)
+                    //If a frame was found (but not the null packet)
+                    if (frameLength > 0)
                     {
+                        #region Babble
+
                         //In some cases it appears that some implementations use a context which is not assigned to create "space" in the stream.
                         //This may happen if Bandwith or Blocksize directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
                         //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.
@@ -3078,11 +3078,14 @@ namespace Media.Rtp
                         //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
 
                         //NO MATTER WHAT if a context is found we shall ensure that the Version and Payload type matches.
+
+                        #endregion
+
+                        //If there was a context
                         if (relevent != null)
                         {
-
-                            //If all that remains is the frame header then receive more data.
-                            if (remainingInBuffer <= RtpHeader.Length)
+                            //If all that remains is the frame header then receive more data. (InterleavedOverhead + CommonHeaderBits.Size)
+                            if (remainingInBuffer <= 6)
                             {
                                 //Remove the context
                                 relevent = null;
@@ -3096,8 +3099,8 @@ namespace Media.Rtp
                                 //Check the version...
                                 bool bad = common.Version != relevent.Version;
 
-                                //If this is a valid data backer there must be a RtpHeader in the buffer.
-                                if (frameChannel == relevent.DataChannel && remainingInBuffer < 16 || frameChannel == relevent.ControlChannel && remainingInBuffer <= RtpHeader.Length)
+                                //If this is a valid data backer there must be at least a RtpHeader's worth of data in the buffer. If this was a RtcpPacket with only 4 bytes it wouldn't have a ssrc and wouldn't be valid to be sent.
+                                if (frameChannel == relevent.DataChannel && remainingInBuffer <= 16 || frameChannel == relevent.ControlChannel && remainingInBuffer <= 12)
                                 {
                                     //Remove the context
                                     relevent = null;
@@ -3106,11 +3109,15 @@ namespace Media.Rtp
                                     goto CheckRemainingData;
                                 }
 
-                                //Check the RtpPayloadType (AND SSRC) or SSRC, but they could change mid stream...
-                                if (!bad) bad = frameChannel == relevent.DataChannel && (GetContextByPayloadType(common.RtpPayloadType) != relevent && GetContextBySourceId(Common.Binary.Read32(buffer, offset + InterleavedOverhead + 10, BitConverter.IsLittleEndian)) != relevent)
-                                    || //If we have receieved the requried amount of RtpPackets or more there must be a Remote SSRC
-                                    relevent.TotalRtpPacketsReceieved >= relevent.MinimumSequentialValidRtpPackets ? frameChannel == relevent.ControlChannel  && GetContextBySourceId(Common.Binary.Read32(buffer, offset + 8, BitConverter.IsLittleEndian)) != relevent : false;
+                                //Store any rtcp length so we can verify its not 0 and then additionally ensure its value is not larger then the frameLength
+                                ushort rtcpLen;
 
+                                //Perform a set of checks and set weather or not Rtp or Rtcp was expected.
+                                if (!bad) bad = (expectRtp = frameChannel == relevent.DataChannel) && (GetContextByPayloadType(common.RtpPayloadType) != relevent && GetContextBySourceId(Common.Binary.Read32(buffer, offset + 14, BitConverter.IsLittleEndian)) != relevent)
+                                    || //If we have receieved the requried amount of RtpPackets or more there must be a Remote SSRC                              //The first rtcp packet in a compound packet must be less than or equal to the frameLength                                     
+                                    (expectRtcp = frameChannel == relevent.ControlChannel) && (rtcpLen = Common.Binary.ReadU16(buffer, offset + 6, BitConverter.IsLittleEndian)) != 0 && ((rtcpLen + 1) * 4) <= frameLength && relevent.RemoteSynchronizationSourceIdentifier.HasValue && relevent.RemoteSynchronizationSourceIdentifier.Value != 0 ? GetContextBySourceId(Common.Binary.Read32(buffer, offset + 8, BitConverter.IsLittleEndian)) != relevent : false;
+                                
+                                //If the packet was bad then skip it.
                                 if (bad) frameLength = bufferLength + 1;
                             }
                         }
@@ -3126,6 +3133,8 @@ namespace Media.Rtp
 
                             //Move the offset into the data section
                             offset += InterleavedOverhead;
+
+                            //Decrease by a word.
                             remainingInBuffer -= InterleavedOverhead;
 
                             //Do another pass
@@ -3138,14 +3147,17 @@ namespace Media.Rtp
                     frameLength = -1;
                     relevent = null;
                 }
+
             //At this point there is either less InterleavedOverhead or not enough for a complete frame.
             CheckRemainingData:
 
                 //See how many more bytes are required from the wire
-                remainingOnSocket = frameLength < 0 && remainingInBuffer < InterleavedOverhead ? InterleavedOverhead - remainingInBuffer 
-                    : frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
+                remainingOnSocket = frameLength < 0 && remainingInBuffer < InterleavedOverhead ? 
+                    InterleavedOverhead - remainingInBuffer 
+                        : 
+                    frameLength > remainingInBuffer ? frameLength - remainingInBuffer : 0;
             
-            //If there is anymore data remaining on the wire
+                //If there is anymore data remaining on the wire
                 if (remainingOnSocket > 0)
                 {
                     //Align the buffer if anything remains on the socket.
@@ -3195,11 +3207,9 @@ namespace Media.Rtp
                 //If there any data in the frame and there is a relevent context
                 if (!Disposed && frameLength > 0)
                 {
+                    //If there was a context
                     if (relevent != null)
                     {
-                        //Determine if Rtp or Rtcp should be parsed
-                        expectRtp = !(expectRtcp = relevent.IsRtcpEnabled && frameChannel == relevent.ControlChannel);
-
                         //Parse the data in the buffer
                         using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
                     }
