@@ -931,6 +931,7 @@ namespace Media.Rtsp
             get
             {
                 //All requests must have a StatusLine
+                if (m_Buffer != null && m_Buffer.Length <= MinimumStatusLineSize) return false;
 
                 //All requests contain a CSeq header.
                 if (m_Headers.Count == 0 || !ContainsHeader(RtspHeaders.CSeq)) return false;
@@ -1172,7 +1173,11 @@ namespace Media.Rtsp
 
                 //Get what we believe to be the first line
                 //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-                string StatusLine = reader.ReadLine().TrimStart();
+                string StatusLine = reader.ReadLine();
+
+                headerOffset = StatusLine.Length;
+
+                StatusLine = StatusLine.TrimStart();
 
                 MessageType = StatusLine.StartsWith(MessageIdentifier) ? RtspMessageType.Response : RtspMessageType.Request;
 
@@ -1206,7 +1211,7 @@ namespace Media.Rtsp
                 #endregion
 
                 //Seek past the status line.
-                headerOffset = (int)m_Buffer.Seek(StatusLine.Length, System.IO.SeekOrigin.Begin);
+                m_Buffer.Seek(headerOffset, System.IO.SeekOrigin.Begin);
             }
 
             //The status line was parsed.
