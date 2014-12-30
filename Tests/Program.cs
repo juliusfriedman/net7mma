@@ -3498,9 +3498,7 @@ a=mpeg4-esid:101");
 
             server.DisableUnreliableTransport();
 
-            Console.WriteLine("Stream Recieved : " + server.TotalStreamBytesRecieved);
-
-            Console.WriteLine("Stream Sent : " + server.TotalStreamBytesSent);
+            Console.WriteLine("Server Streamed : " + server.TotalStreamedBytes);
 
             Console.WriteLine("Rtsp Sent : " + server.TotalRtspBytesSent);
 

@@ -80,9 +80,9 @@ namespace Media.Rtsp
         /// <summary>
         /// The port the RtspServer is listening on, defaults to 554
         /// </summary>
-        int m_ServerPort = 554,
+        int m_ServerPort = 554;
             //Counters for bytes sent and recieved
-            m_Recieved, m_Sent;
+        long m_Recieved, m_Sent;
 
         IPAddress m_ServerIP;
 
@@ -252,32 +252,25 @@ namespace Media.Rtsp
         /// <summary>
         /// The total amount of bytes the RtspServer recieved from remote RtspRequests
         /// </summary>
-        public int TotalRtspBytesRecieved { get { return m_Recieved; } }
+        public long TotalRtspBytesRecieved { get { return m_Recieved; } }
 
         /// <summary>
         /// The total amount of bytes the RtspServer sent in response to remote RtspRequests
         /// </summary>
-        public int TotalRtspBytesSent { get { return m_Sent; } }
+        public long TotalRtspBytesSent { get { return m_Sent; } }
 
         /// <summary>
-        /// The amount of bytes recieved from all contained streams in the RtspServer (Might want to log the counters seperately so the totals are not lost with the streams or just not provide the property)
+        /// The amount of bytes sent or recieved from all contained streams in the RtspServer (Might want to log the counters seperately so the totals are not lost with the streams or just not provide the property)
         /// </summary>
-        public long TotalStreamBytesRecieved
+        public long TotalStreamedBytes
         {
             get
             {
-                return MediaStreams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesReceieved : 0);
-            }
-        }
-
-        /// <summary>
-        /// The amount of bytes sent to all contained streams in the RtspServer (Might want to log the counters seperately so the totals are not lost with the streams or just not provide the property)
-        /// </summary>
-        public long TotalStreamBytesSent
-        {
-            get
-            {
-                return MediaStreams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalRtpBytesSent : 0);
+                //Right now this counter only indicate rtp/rtcp traffic, rtsp or other protocol level counters are excluded.
+                //This also excludes http sources right now :(
+                //This will eventually be different and subsequently easier to determine. (For instance if you wanted only rtsp or rtmp or something else).
+                //IMedia should expose this in some aspect.
+                return MediaStreams.OfType<RtpSource>().Sum(s => s.RtpClient != null ? s.RtpClient.TotalBytesSent + s.RtpClient.TotalBytesReceieved : 0);
             }
         }
 
@@ -866,11 +859,7 @@ namespace Media.Rtsp
                             if (allDone.IsSet || allDone.Wait(timeOut) || m_StopRequested | iar.IsCompleted) break;
                         }
                     }
-                    else
-                    {
-                        //Too many clients are connected, relinquish time slice
-                        System.Threading.Thread.Sleep(-1);
-                    }
+                    else if (!System.Threading.Thread.Yield()) System.Threading.Thread.Sleep(-1);
                 }
             }
             catch (ThreadAbortException)
