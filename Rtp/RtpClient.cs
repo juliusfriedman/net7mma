@@ -137,7 +137,7 @@ namespace Media.Rtp
         /// <param name="readFrameByte">Indicates if the frameByte should be read (RFC2326)</param>
         /// <param name="frameByte">Indicates the frameByte to read</param>
         /// <returns> -1 If the buffer does not contain a RFC2326 / RFC4751 frame at the offset given</returns>
-        internal static int TryReadFrameHeader(byte[] buffer, int offset, out byte channel, bool readFrameByte = true, byte frameByte = BigEndianFrameControl)
+        internal static int TryReadFrameHeader(byte[] buffer, int offset, out byte channel, bool readFrameByte = true, byte frameByte = BigEndianFrameControl, bool readChannel = true)
         {
             //Must be assigned
             channel = default(byte);
@@ -170,7 +170,7 @@ namespace Media.Rtp
              */
 
             //Assign the channel if reading framed.
-            if(readFrameByte)channel = buffer[offset + 1];
+            if (readChannel) channel = buffer[offset + 1];
 
             #region Babble
 
@@ -1776,12 +1776,6 @@ namespace Media.Rtp
                 SendGoodbye(transportContext, Encoding.UTF8.GetBytes("ssrc"));
                 return;
             }
-            //If the transportContext was null we cannot handle this packet, e.g. because there is no context with a session description to match.
-            else if (transportContext.Version != packet.Version)
-            {
-                //System.Diagnostics.Debug.WriteLine("Discarding packet version=" + packet.Version+ " type=" + packet.PayloadType + " len=" + packet.Length);
-                return;
-            }
             else if (!transportContext.IsValid || (!transportContext.RemoteSynchronizationSourceIdentifier.HasValue || transportContext.RemoteSynchronizationSourceIdentifier.Value == 0))//&& transportContext.RemoteSynchronizationSourceIdentifier != packet.SynchronizationSourceIdentifier
             {
                 transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
@@ -1866,33 +1860,37 @@ namespace Media.Rtp
                 OnRtpFrameChanged(transportContext.LastFrame);
             }
 
-            //If the payload of the localPacket matched the media description then create a new packet from the localPacket so it will not be disposed when the packet is disposed.
-            if (packet.PayloadType == transportContext.MediaDescription.MediaFormat) transportContext.CurrentFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
-
-            //If the frame is complete then fire an event and make a new frame
-            if (transportContext.CurrentFrame.IsComplete)
+            //If there is a current frame
+            if (transportContext.CurrentFrame != null)
             {
-                //Dispose the last frame if available
-                if (transportContext.LastFrame != null)
+                //If the payload of the localPacket matched the media description then create a new packet from the localPacket so it will not be disposed when the packet is disposed.
+                if (packet.PayloadType == transportContext.MediaDescription.MediaFormat) transportContext.CurrentFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
+
+                //If the frame is complete then fire an event and make a new frame
+                if (transportContext.CurrentFrame.IsComplete)
                 {
-                    transportContext.LastFrame.Dispose();
-                    transportContext.LastFrame = null;
+                    //Dispose the last frame if available
+                    if (transportContext.LastFrame != null)
+                    {
+                        transportContext.LastFrame.Dispose();
+                        transportContext.LastFrame = null;
+                    }
+
+                    //Move the current frame to the LastFrame
+                    transportContext.LastFrame = transportContext.CurrentFrame;
+
+                    //Allow for a new frame to be allocated
+                    transportContext.CurrentFrame = null;
+
+                    //The LastFrame changed
+                    OnRtpFrameChanged(transportContext.LastFrame);
                 }
-
-                //Move the current frame to the LastFrame
-                transportContext.LastFrame = transportContext.CurrentFrame;
-
-                //Allow for a new frame to be allocated
-                transportContext.CurrentFrame = null;
-
-                //The LastFrame changed
-                OnRtpFrameChanged(transportContext.LastFrame);
-            }
-            else if (transportContext.CurrentFrame.Count > transportContext.CurrentFrame.MaxPackets)
-            {
-                //Backup of frames
-                transportContext.CurrentFrame.Dispose();
-                transportContext.CurrentFrame = null;
+                else if (transportContext.CurrentFrame.Count > transportContext.CurrentFrame.MaxPackets)
+                {
+                    //Backup of frames
+                    transportContext.CurrentFrame.Dispose();
+                    transportContext.CurrentFrame = null;
+                }
             }
         }
 
@@ -2353,7 +2351,7 @@ namespace Media.Rtp
                 SendGoodbye(tc);
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal protected virtual int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null)
         {
 
@@ -2503,7 +2501,6 @@ namespace Media.Rtp
             m_OutgoingRtcpPackets.Add(packet);
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public virtual int SendRtcpPackets(IEnumerable<RtcpPacket> packets)
         {
 
@@ -2866,13 +2863,20 @@ namespace Media.Rtp
             //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
 
             //The amount of data needed for the frame
-            frameLength = TryReadFrameHeader(buffer, mOffset, out frameChannel);
+            frameLength = TryReadFrameHeader(buffer, mOffset, out frameChannel, true, BigEndianFrameControl, true);
 
             //Assign a context if there is a frame of any size
-            if (frameLength >= 0) context = GetContextByChannel(frameChannel);
+            if (frameLength >= 0)
+            {
+                //Assign the context
+                context = GetContextByChannel(frameChannel);
 
-            //Return the amount of bytes including the frame header
-            return frameLength + InterleavedOverhead;
+                //Increase the result by the size of the header
+                frameLength += InterleavedOverhead;
+            }
+
+            //Return the amount of bytes or -1 if any error occured.
+            return frameLength;
         }
 
         /// <summary>
@@ -2976,13 +2980,13 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="socket">The socket to receive data on</param>
         /// <returns>The number of bytes recieved</returns>             
-        internal protected virtual int ReceiveData(Socket socket, ref EndPoint remote, bool expectRtp = true, bool expectRtcp = true)
+        internal protected virtual int ReceiveData(Socket socket, ref EndPoint remote, out SocketError error, bool expectRtp = true, bool expectRtcp = true)
         {
+            //Nothing bad happened yet.
+            error = SocketError.Success;
+
             //Ensure the socket can poll
             if (Disposed || m_StopRequested || socket == null || socket.Handle.ToInt64() <= 0 || m_Buffer.Disposed) return 0;
-
-            //There is no error yet
-            SocketError error = SocketError.SocketError;
 
             bool tcp = socket.ProtocolType == ProtocolType.Tcp;
 
@@ -3059,6 +3063,7 @@ namespace Media.Rtp
             //Determine if Rtp or Rtcp is coming in.
             bool expectRtp = false, expectRtcp = false;
 
+            //If anything remains on the socket the value will be calulcated.
             int remainingOnSocket = 0;
 
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
@@ -3102,8 +3107,8 @@ namespace Media.Rtp
 
                         #endregion
 
-                        //If there was a context
-                        if (relevent != null)
+                        //If there was NOT a null packet and there WAS a context
+                        if (frameLength > 0 && relevent != null)
                         {
                             //If all that remains is the frame header then receive more data. (InterleavedOverhead + CommonHeaderBits.Size)
                             if (remainingInBuffer <= 6)
@@ -3162,8 +3167,22 @@ namespace Media.Rtp
 
                             //Do another pass
                             continue;
+                        } //Very small frames like this don't belong to rtp unless compression is being used.
+                        else if (frameLength <= 6)
+                        {
+                            //Indicate a header for a large frame was received. (The amount of data remaining needs to also be conveyed)
+                            OnInterleavedData(buffer, offset, InterleavedOverhead);
+
+                            //Move the offset into the data section
+                            offset += InterleavedOverhead;
+
+                            //Decrease by a word.
+                            remainingInBuffer -= InterleavedOverhead;
+
+                            //Do another pass
+                            continue;
                         }
-                    }//Else this is a 0 length frame.
+                    }//There was a frameLength of -1
                 }
                 else//There is not enough data in the buffer, we must receive again
                 {
@@ -3365,16 +3384,25 @@ namespace Media.Rtp
 
                 DateTime lastOperation = DateTime.UtcNow;
 
+                SocketError lastError = SocketError.SocketError;
+
                 //Until aborted
                 while (!m_StopRequested)
                 {
                     #region Recieve Incoming Data
 
-                    int ContextCount = TransportContexts.Count;
-
-                    for (int i = 0; i < ContextCount; ++i)
+                    for (int i = 1; i <= TransportContexts.Count; ++i)
                     {
-                        TransportContext tc = TransportContexts[i];
+                        lastError = SocketError.SocketError;
+
+                        if (i <= 0)
+                        {
+                            System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
+
+                            continue;
+                        }
+
+                        TransportContext tc = TransportContexts[i - 1];
 
                         //Check for a context which is able to receive data
                         if (tc == null || tc.Disposed || !tc.Connected
@@ -3393,7 +3421,7 @@ namespace Media.Rtp
                             && tc.RtpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
                         {
                             //Receive RtpData
-                            receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, rtpEnabled, duplexing);
+                            receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, out lastError, rtpEnabled, duplexing);
                             if (receivedRtp > 0) lastOperation = DateTime.UtcNow;
                         }
 
@@ -3406,7 +3434,7 @@ namespace Media.Rtp
                                 tc.RtcpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
                             {
                                 //ReceiveRtcp Data
-                                receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, duplexing, rtcpEnabled);
+                                receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, out lastError, duplexing, rtcpEnabled);
                                 if (receivedRtcp > 0) lastOperation = DateTime.UtcNow;
                             }
 
@@ -3420,7 +3448,8 @@ namespace Media.Rtp
                     if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
                         //Should also check for bit rate before sleeping
-                        System.Threading.Thread.Sleep(TransportContexts.Count);
+                        System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
+
                         goto Begin;
                     }
 
@@ -3490,8 +3519,13 @@ namespace Media.Rtp
             catch (Exception ex)
             {
                 m_StopRequested = ex is ThreadAbortException;
-                if (!m_StopRequested) goto Begin;
-                System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
+
+                if (!m_StopRequested)
+                {
+                    System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
+
+                    goto Begin;
+                }
             }
         }
 
