@@ -34,18 +34,20 @@ namespace Tests
             if (ClientThreadProc != null)
             {
 
-                Client.Dispose();
-                
-                Client = null;
+                if (Client != null)
+                {
+                    Client.Dispose();
+
+                    Client = null;
+                }
 
                 Media.Utility.Abort(ref ClientThreadProc);
+
+                ClientThreadProc = null;
 
                 GC.WaitForPendingFinalizers();
 
                 button1.Text = "Start";
-
-                
-                
             }
             else
             {

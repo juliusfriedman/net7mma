@@ -879,31 +879,28 @@ namespace Media.Rtsp
                     //Right now just pass it to the RtpClient.
                     if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl)
                     {
+                        //connect the rtp client
+                        m_RtpClient.Connect();
+
                         //Adjust for non rtsp data
                         received -= m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
 
-                        //connect the rtp client
-                        m_RtpClient.Connect();
+                        //Handle when we received a lot of data and no response was found.
+                        if (received < 0) received = 0;
                     }
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                 }
                 else if (!Playing) goto Receive;
 
-            Wait: //Wait for the response unless playing or tearing down. (Some implementations do not send a play response especially in interleaved mode)
-                if (request.Method != RtspMethod.UNKNOWN)
+            Wait: //Wait for the response unless playing or tearing down. (Some implementations do not send a play response especially in interleaved mode, others don't send a tear down response), the latter one can make quickly ending the client take a long time which is not desirable.
+                if (request.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
                     while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_RetryCount)
                     {
                         //Wait a small amount of time for the response because the cancellation token was not used...
-                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_RetryCount)))
-                        {
-                            //UDP must attempt another receive
-                            if (m_RtspSocket.ProtocolType == ProtocolType.Udp) goto Receive;
-
-                            //See if the message is complete.
-                            continue;
-                        }
+                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_RetryCount))) continue;
+                        else if (m_RtspSocket.ProtocolType == ProtocolType.Udp) goto Receive;
                     }
                 }
 
@@ -1472,13 +1469,11 @@ namespace Media.Rtsp
                         m_RtpProtocol = ProtocolType.IP;
                     }
 
-                    //Send a Teardown
-                    using (SendTeardown())
-                    {
-                        //Start again
-                        StartPlaying();
-                    }
+                    //Stop all playback
+                    StopPlaying();
 
+                    //Start again
+                    StartPlaying();
                 }
                 catch { return; }
             }
