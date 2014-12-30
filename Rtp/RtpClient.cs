@@ -3133,8 +3133,10 @@ namespace Media.Rtp
                                 //Store any rtcp length so we can verify its not 0 and then additionally ensure its value is not larger then the frameLength
                                 ushort rtcpLen;
 
+                                //Todo, clean this up and use the propper header object as to not duplicate logic.
+
                                 //Perform a set of checks and set weather or not Rtp or Rtcp was expected.
-                                if (!bad) bad = (expectRtp = frameChannel == relevent.DataChannel) && (GetContextByPayloadType(common.RtpPayloadType) != relevent && GetContextBySourceId(Common.Binary.Read32(buffer, offset + 14, BitConverter.IsLittleEndian)) != relevent)
+                                if (!bad) bad = (expectRtp = frameChannel == relevent.DataChannel) && (GetContextByPayloadType(common.RtpPayloadType) != relevent && relevent.RemoteSynchronizationSourceIdentifier.HasValue && relevent.RemoteSynchronizationSourceIdentifier.Value != 0 ? GetContextBySourceId(Common.Binary.Read32(buffer, offset + 14, BitConverter.IsLittleEndian)) != relevent : false)
                                     || //If we have receieved the requried amount of RtpPackets or more there must be a Remote SSRC                              //The first rtcp packet in a compound packet must be less than or equal to the frameLength                                     
                                     (expectRtcp = frameChannel == relevent.ControlChannel) && (rtcpLen = Common.Binary.ReadU16(buffer, offset + 6, BitConverter.IsLittleEndian)) != 0 && ((rtcpLen + 1) * 4) <= frameLength && relevent.RemoteSynchronizationSourceIdentifier.HasValue && relevent.RemoteSynchronizationSourceIdentifier.Value != 0 ? GetContextBySourceId(Common.Binary.Read32(buffer, offset + 8, BitConverter.IsLittleEndian)) != relevent : false;
                                 
@@ -3489,6 +3491,7 @@ namespace Media.Rtp
             {
                 m_StopRequested = ex is ThreadAbortException;
                 if (!m_StopRequested) goto Begin;
+                System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
             }
         }
 

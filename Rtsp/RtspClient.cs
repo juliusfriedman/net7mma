@@ -172,6 +172,7 @@ namespace Media.Rtsp
         /// <summary>
         /// True if the RtspClient has received the Playing event, False if the RtspClient has received the Stopping event or otherwise such as the media has finished playing.
         /// </summary>
+        //Should take into account if Paused? or Pausing everything should set m_Playing to false...
         public bool Playing { get { return Connected && (m_StartedPlaying.HasValue && LivePlay ? m_Playing : EndTime.HasValue ? (DateTime.UtcNow - m_StartedPlaying < EndTime.Value) : m_Playing); } }
 
         /// <summary>
@@ -417,15 +418,15 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnConnect;
 
-        internal void OnConnected() { if (OnConnect != null) OnConnect(this, EventArgs.Empty); }
+        internal protected void OnConnected() { if (OnConnect != null) OnConnect(this, EventArgs.Empty); }
 
         public event RequestHandler OnRequest;
 
-        internal void Requested(RtspMessage request) { if (OnRequest != null) OnRequest(this, request); }
+        internal protected void Requested(RtspMessage request) { if (OnRequest != null) OnRequest(this, request); }
 
         public event ResponseHandler OnResponse;
 
-        internal void Received(RtspMessage request, RtspMessage response) { if (OnResponse != null) OnResponse(this, request, response); }
+        internal protected void Received(RtspMessage request, RtspMessage response) { if (OnResponse != null) OnResponse(this, request, response); }
 
         public event RtspClientAction OnDisconnect;
 
@@ -433,11 +434,15 @@ namespace Media.Rtsp
 
         public event RtspClientAction OnPlay;
 
-        internal void OnPlaying() { m_StartedPlaying = DateTime.UtcNow; m_Playing = true; if (OnPlay != null) OnPlay(this, EventArgs.Empty); }
+        internal protected void OnPlaying(MediaDescription mediaDescription = null) { m_StartedPlaying = DateTime.UtcNow; m_Playing = true; if (OnPlay != null) OnPlay(this, mediaDescription); }
 
         public event RtspClientAction OnStop;
 
-        internal void OnStopping(MediaDescription mediaDescription = null) { m_Playing = (mediaDescription != null); if (OnStop != null) OnStop(this, mediaDescription); }
+        internal protected void OnStopping(MediaDescription mediaDescription = null) { m_Playing = (mediaDescription != null); if (OnStop != null) OnStop(this, mediaDescription); }
+
+        public event RtspClientAction OnPause;
+
+        internal protected void OnPausing(MediaDescription mediaDescription = null) { if (OnPause != null) OnPause(this, mediaDescription); }
 
         #endregion
 
@@ -575,7 +580,8 @@ namespace Media.Rtsp
             //If we have a play context then send the play request.
             if (hasContext) using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
                 {
-                    //Should have what is playing in event?
+                    //Should check if already playing because subscribers may attach events twice because of this.
+                    //Shouldn't be too much of an issue because a Pause on everything should probably set Playing to false?
                     if (play == null || play != null && play.StatusCode == RtspStatusCode.OK) OnPlaying();
                 }
             else throw new InvalidOperationException("Cannot Start Playing, No Tracks Setup.");
@@ -590,6 +596,53 @@ namespace Media.Rtsp
                 else Disconnect();
             }
             catch { }
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public void Pause(MediaDescription mediaDescription = null, bool force = false)
+        {
+            //Don't pause if playing.
+            if (!Playing) return;
+
+            //Dont pause media which is not setup unless forced.
+            if (!force && mediaDescription != null && Client.GetContextForMediaDescription(mediaDescription) == null) return;            
+
+            //Send the pause.
+            SendPause(mediaDescription, force);
+        }
+
+        /// <summary>
+        /// Sends a SETUP if not already setup and then a PLAY for the given.
+        /// If nothing is given this would be equivalent to calling <see cref="StartPlaying"/>
+        /// </summary>
+        /// <param name="mediaDescription"></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public void Play(MediaDescription mediaDescription = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
+        {
+            bool playing = Playing;
+            //If already playing and nothing was given then there is nothing to do
+            if (playing && mediaDescription == null) return;
+            else if (!playing) //We are not playing and nothing was given.
+            {
+                //Start playing everything
+                StartPlaying();
+                return;
+            }
+            
+            //Dont setup media which is already setup.
+            if (mediaDescription != null && Client.GetContextForMediaDescription(mediaDescription) == null) return;
+
+            //setup the media description
+            using (var setupResponse = SendSetup(mediaDescription))
+            {
+                //If the response was OKAY
+                if (setupResponse != null && setupResponse.StatusCode == RtspStatusCode.OK)
+                {
+                    //Send the PLAY.
+                    using (SendPlay(mediaDescription, startTime, endTime, rangeType, rangeFormat)) ;
+                }
+            }
+            
         }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
@@ -1445,14 +1498,16 @@ namespace Media.Rtsp
 
             if (context == null) throw new InvalidOperationException("The given mediaDescription has not been SETUP.");
 
+            //Raise an event now.
+            OnPlaying(mediaDescription);
+
             //Send the play request
             return SendPlay(mediaDescription.GetAbsoluteControlUri(Location), startTime ?? context.MediaStartTime, endTime ?? context.MediaEndTime, rangeType, rangeFormat);
         }
 
-        public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null)
+        public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null, bool force = false)
         {
-
-            if (!SupportedMethods.Contains(RtspMethod.PLAY)) throw new InvalidOperationException("Server does not support PLAY.");
+            if (!SupportedMethods.Contains(RtspMethod.PLAY) && !force) throw new InvalidOperationException("Server does not support PLAY.");
 
             try
             {
@@ -1462,36 +1517,41 @@ namespace Media.Rtsp
                     Location = location ?? Location
                 })
                 {
-                    play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime, rangeType, rangeFormat));
+                    /*
+                      A PLAY request without a Range header is legal. It starts playing a
+                        stream from the beginning unless the stream has been paused. If a
+                        stream has been paused via PAUSE, stream delivery resumes at the
+                        pause point. If a stream is playing, such a PLAY request causes no
+                        further action and can be used by the client to test server liveness.
+                     */
+
+                    //Maybe should not be set if no start or end time is given.
+                    if (startTime.HasValue || endTime.HasValue) play.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startTime, endTime, rangeType, rangeFormat));
 
                     RtspMessage response = SendRtspRequest(play);
 
                     //Handle allowed problems with reception
-                    if (response == null || response.MessageType == RtspMessageType.Request) goto PlayingMedia;
-                    else if (response.StatusCode == RtspStatusCode.Unknown) goto PlayingMedia;
-                    else if (response.StatusCode == RtspStatusCode.InvalidRange)
+                    if (response != null && response.MessageType == RtspMessageType.Response)
                     {
-                        play.RemoveHeader(Rtsp.RtspHeaders.Range);
-                        ++play.CSeq;
-                        return SendRtspRequest(play);
+                        if (response.StatusCode == RtspStatusCode.InvalidRange)
+                        {
+                            play.RemoveHeader(Rtsp.RtspHeaders.Range);
+                            ++play.CSeq;
+                            return SendRtspRequest(play);
+                        }
                     }
-
-                PlayingMedia:
 
                     //Connect and wait for Packets
                     if (!m_RtpClient.Connected) m_RtpClient.Connect();
 
                     //If we have a timeout to switch the protocols and the protocol has not been forced
-                    if (m_RtpClient.TotalBytesReceieved == 0 && m_RtpProtocol != ProtocolType.Tcp)
+                    if (m_RtpClient.TotalBytesReceieved == 0)
                     {
                         m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, ProtocolSwitchTime, Utility.InfiniteTimeSpan);
                     }
 
-                    //If there is a timeout ensure it gets utilized
-                    if (m_RtspTimeout > TimeSpan.Zero && m_KeepAliveTimer == null)
-                    {
-                        m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
-                    }
+                    //Setup a timer to send any requests to keep the connection alive and ensure media is flowing.
+                    if (m_KeepAliveTimer == null) m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
 
                     return response;
                 }
@@ -1504,20 +1564,27 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="location">The location to indicate in the request</param>
         /// <returns>The response</returns>
-        public RtspMessage SendPause(MediaDescription mediaDescription)
-        {
-            if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+        public RtspMessage SendPause(MediaDescription mediaDescription = null, bool force = false)
+        { 
+            //Ensure media has been setup unless forced.
+            if (mediaDescription != null && !force)
+            {
+                //Get a context for the media
+                var context = Client.GetContextForMediaDescription(mediaDescription);
 
-            var context = Client.GetContextForMediaDescription(mediaDescription);
+                //If there is no context then throw an exception.
+                if (context == null) throw new InvalidOperationException("The given mediaDescription has not been SETUP.");
+            }
 
-            if (context == null) throw new InvalidOperationException("The given mediaDescription has not been SETUP.");
+            //Fire the event now
+            OnPausing(mediaDescription);
 
-            //Send the pause
-            return SendPause(mediaDescription.GetAbsoluteControlUri(Location));
+            //Send the pause request, determining if the request is for all media or just one.
+            return SendPause(mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(Location) : Location, force);
         }
 
 
-        public RtspMessage SendPause(Uri location = null, bool force = false)
+        public RtspMessage SendPause(Uri location, bool force = false)
         {
             //If the server doesn't support it
             if (!SupportedMethods.Contains(RtspMethod.PAUSE) && !force) throw new InvalidOperationException("Server does not support PAUSE.");
@@ -1529,7 +1596,7 @@ namespace Media.Rtsp
                     Location = location ?? Location
                 })
             {
-                return SendRtspRequest(pause);
+                return SendRtspRequest(pause);                 
             }
         }        
 
@@ -1562,41 +1629,53 @@ namespace Media.Rtsp
             try
             {
                 if (!Connected) return;
-                //Darwin DSS and other servers might not support GET_PARAMETER
-                else if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
-                {
-                    using (SendGetParameter(null))
-                    {
 
+                if (m_RtspTimeout > TimeSpan.Zero)
+                {
+                    //Darwin DSS and other servers might not support GET_PARAMETER
+                    if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
+                    {
+                        using (SendGetParameter(null)) ;
+                    }
+                    else if (m_SupportedMethods.Contains(RtspMethod.OPTIONS)) //If at least options is supported
+                    {
+                        using (SendOptions()) ;
+                    }
+                    else if (m_SupportedMethods.Contains(RtspMethod.PLAY)) //If at least PLAY is supported
+                    {
+                        using (SendPlay()) ;
                     }
                 }
-                else if (m_SupportedMethods.Contains(RtspMethod.OPTIONS)) //If at least options is supported
-                {
-                    using (SendOptions())
-                    {
-                        //
-                    }
-                }
-
+              
+                //Determine next time
                 m_KeepAliveTimer.Change(m_RtspTimeout, Utility.InfiniteTimeSpan);
 
-                EnsureMediaFlow();
+                //Only perform these actions if playing anything.
+                if (Playing)
+                {
+                    //Ensure everything is flowing
+                    EnsureMediaFlow();
+
+                    //Raise events for ended media.
+                    foreach (var ended in Client.GetTransportContexts().Where(tc => !tc.IsContinious && tc.TimeReceiving >= tc.MediaEndTime)) OnStopping(ended.MediaDescription);
+                }
+                    
             }
             catch
             {
+                //Maybe should only happen if !Playing or !Connected?
                 if(m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
                 m_KeepAliveTimer = null;
-                //Disconnect();
             }
         }
 
         public void EnsureMediaFlow()
         {
-            //If playing for greater than the timeout 
+            //If playing for greater than the timeout (If the media is shorter than this it would have already ended).
             if (Playing && Client.Uptime > m_RtspTimeout)
             {
-                //Determine if there any are contexts without data flow
-                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.TimeReceiving >= TimeSpan.Zero && tc.TotalRtpPacketsReceieved == 0);
+                //Determine if there any are contexts without data flow by findings contexts where a packet has not been received  OR the last packet was received more then the interval ago.
+                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.LastRtpPacketReceived > tc.ReceiveInterval);
 
                 //If there are such contexts
                 if (contextsWithoutDataFlow.Any())
@@ -1623,7 +1702,16 @@ namespace Media.Rtsp
                                 pausedOrStoppedAnything = pauseResponse != null && pauseResponse.StatusCode == RtspStatusCode.OK;
 
                                 //Determine if we have to stop everything.
-                                if(!pausedOrStoppedAnything) stopAll = pauseResponse.StatusCode == RtspStatusCode.AggregateOpperationNotAllowed;
+                                if (!pausedOrStoppedAnything)
+                                {
+                                    //See if everything has to be stopped.
+                                    stopAll = pauseResponse.StatusCode == RtspStatusCode.AggregateOpperationNotAllowed;
+
+                                    //Could move this logic to the SendPause method which would check it before returning the response.
+
+                                    //Ensure external state is observed
+                                    OnPlaying(context.MediaDescription);
+                                }
                             }
                         }
                         else
@@ -1643,7 +1731,7 @@ namespace Media.Rtsp
                         if (stopAll) break;
 
                         //The media was paused ot stopped, so play it again.
-                        if (pausedOrStoppedAnything) using (var playRequest = SendPlay(context.MediaDescription)) ;
+                        if (pausedOrStoppedAnything) Play(context.MediaDescription);
                     }
 
                     //If everything needs to stop.
@@ -1651,9 +1739,11 @@ namespace Media.Rtsp
                     {
                         if (supportPause)
                         {
-                            //Try to pause everything
-                            using (var pauseRequest = SendPause())
-                                pausedOrStoppedAnything = pauseRequest != null && pauseRequest.StatusCode == RtspStatusCode.OK;
+                            //Pause all media
+                            Pause();
+
+                            //Start playing again
+                            StartPlaying();
                         }
                         else
                         {
@@ -1743,6 +1833,7 @@ namespace Media.Rtsp
             OnDisconnect = null;
             OnStop = null;
             OnPlay = null;
+            OnPause = null;
             OnRequest = null;
             OnResponse = null;
         }

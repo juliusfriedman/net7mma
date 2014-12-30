@@ -194,6 +194,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.OnConnect += RtspClient_OnConnect;
                 RtspClient.OnDisconnect += RtspClient_OnDisconnect;
                 RtspClient.OnPlay += RtspClient_OnPlay;
+                RtspClient.OnPause += RtspClient_OnPausing;
                 RtspClient.OnStop += RtspClient_OnStop;
                 RtspClient.Connect();
             }
@@ -215,6 +216,12 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             base.Ready = false;
         }
+
+        void RtspClient_OnPausing(RtspClient sender, object args)
+        {
+            base.Ready = false;
+        }
+
 
         void RtspClient_OnConnect(RtspClient sender, object args)
         {

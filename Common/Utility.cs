@@ -218,8 +218,8 @@ namespace Media
 
         public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
         {
-            //If the worker is running
-            if (thread != null && thread.ThreadState.HasFlag(state))
+            //If the worker IsAlive and has the requested state.
+            if (thread != null && thread.IsAlive && thread.ThreadState.HasFlag(state))
             {
                 //Attempt to join
                 if (!thread.Join(timeout))
@@ -235,23 +235,6 @@ namespace Media
                 //Reset the state of the thread to indicate success
                 thread = null;
             }
-        }
-
-        public static int IndexOfAny<T>(this T[] array, int offset, int count, params T[] delemits)
-        {
-            int o = -1, //Offset
-                i = -1, //Index
-                e = delemits.Length;//End
-
-            if (offset < e)
-            {
-                //Set i = the index of the entry of the delemit
-                do i = Array.IndexOf(array, delemits[++o], offset, count);
-                while (i <= 0 && o < e);//While the delemit was not found and the offset is less then the end
-            }
-
-            //Return the index of the last delemit
-            return i;
         }
 
         /// <summary>
@@ -302,48 +285,43 @@ namespace Media
             if (bufferLength < octetCount || start + octetCount > bufferLength) return -1;
 
             //Nothing to search nothing to return, leave start where it was.
-            if (octetCount == 0 && bufferLength == 0) return -1;
+            if (octetCount == 0 && bufferLength == 0 || count == 0) return -1;
 
             //Create the variables we will use in the searching process
             int checkedBytes = 0, lastPosition = -1;
 
-            //Attempt to match
-            try
+            //Loop the buffer from start to count
+            while (count > 0 && start < bufferLength && checkedBytes < octetCount)
             {
-                //Loop the buffer from start to count
-                while (count > 0 && start < bufferLength && checkedBytes < octetCount)
+                //Ensure we account for the bytes checked.
+                int position = start + checkedBytes;
+
+                //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
+                if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position, bufferLength - position)) >= start)
                 {
-                    //Ensure we account for the bytes checked.
-                    int position = start + checkedBytes;
+                    //Check for completion
+                    if (++checkedBytes == octetCount) break;
 
-                    //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
-                    if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position, bufferLength - position)) >= start)
-                    {
-                        //Check for completion
-                        if (++checkedBytes == octetCount) break;
-
-                        //Partial match only
-                        start = lastPosition;
-                    }
-                    else
-                    {
-                        //The match failed at the current offset
-                        checkedBytes = 0;
-
-                        //Move the position
-                        start++;
-
-                        //Decrease the amount which remains
-                        count--;
-                    }
+                    //Partial match only
+                    start = lastPosition;
                 }
+                else
+                {
+                    //The match failed at the current offset
+                    checkedBytes = 0;
 
-                //start now reflects the position after a parse occurs
+                    //Move the position
+                    start++;
 
-                //Return the last position of the partial match
-                return lastPosition;
+                    //Decrease the amount which remains
+                    count--;
+                }
             }
-            catch { throw; }
+
+            //start now reflects the position after a parse occurs
+
+            //Return the last position of the partial match
+            return lastPosition;
         }
 
         public static int Find(this byte[] array, byte[] needle, int startIndex, int sourceLength)
@@ -398,49 +376,46 @@ namespace Media
 
             //Return the amount if its negitive;
             if (amount <= 0) return amount;
-            try
+
+            //To hold what was received and the maximum amount to receive
+            int totalReceived = 0, max = buffer.Length - offset, attempt = 0;
+
+            //Ensure that only max is received
+            if (amount > max) amount = max;
+
+            //While there is something to receive
+            while (amount > 0)
             {
-                //To hold what was received and the maximum amount to receive
-                int totalReceived = 0, max = buffer.Length - offset, attempt = 0;
-
-                if (amount > max) amount = max;
-
-                //While there is something to receive
-                while (amount > 0)
+                lock (socket)
                 {
-                    lock (socket)
+                    //Receive it into the buffer at the given offset taking into account what was already received
+                    int justReceived = socket.Receive(buffer, offset, amount, SocketFlags.None, out error);
+
+                    //decrease the amount by what was received
+                    amount -= justReceived;
+
+                    //Increase the offset by what was received
+                    offset += justReceived;
+
+                    //Increase total received
+                    totalReceived += justReceived;
+
+                    //If nothing was received
+                    if (justReceived == 0)
                     {
-                        //Receive it into the buffer at the given offset taking into account what was already received
-                        int justReceived = socket.Receive(buffer, offset, amount, SocketFlags.None, out error);
-
-                        //decrease the amount by what was received
-                        amount -= justReceived;
-                        
-                        //Increase the offset by what was received
-                        offset += justReceived;
-                        
-                        //Increase total received
-                        totalReceived += justReceived;
-
-                        //If nothing was received
-                        if (justReceived == 0)
-                        {
-                            //error = SocketError.TimedOut;
-                            //Try again maybe
-                            ++attempt;
-                            //Only if the attempts in operations were greater then the amount of bytes requried
-                            if (attempt > amount) error = SocketError.TimedOut;
-                        }
-
-                        //Break on offset reaching the max or any error which requires
-                        if (offset >= max ||error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset) break;
+                        //error = SocketError.TimedOut;
+                        //Try again maybe
+                        ++attempt;
+                        //Only if the attempts in operations were greater then the amount of bytes requried
+                        if (attempt > amount) error = SocketError.TimedOut;
                     }
-                }
 
-                //Return the result
-                return totalReceived;
+                    //Break on offset reaching the max or any error which requires
+                    if (offset >= max || error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset) break;
+                }
             }
-            catch { throw; }
+
+            return totalReceived;
         }
 
         #endregion

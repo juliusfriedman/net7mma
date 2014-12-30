@@ -2512,15 +2512,18 @@ namespace Tests
                         {
                             //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
                             //client.Client.MaximumRtcpBandwidthPercentage = 25;
-
-                            ///SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
-
-                            //Add events now that we are playing
-                            client.Client.RtpPacketReceieved += rtpPacketReceived;
-                            client.Client.RtpFrameChanged += rtpFrameReceived;
-                            client.Client.RtcpPacketReceieved += rtcpPacketReceived;
-                            client.Client.RtcpPacketSent += rtcpPacketSent;
-                            client.Client.InterleavedData += rtpInterleave;
+                            ///It SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
+                            
+                            //If there were arguments then only a specific media item is playing, this occurs when pausing or playing from a specially sent request.
+                            if (args == null)
+                            {
+                                //Add events now that we are playing
+                                client.Client.RtpPacketReceieved += rtpPacketReceived;
+                                client.Client.RtpFrameChanged += rtpFrameReceived;
+                                client.Client.RtcpPacketReceieved += rtcpPacketReceived;
+                                client.Client.RtcpPacketSent += rtcpPacketSent;
+                                client.Client.InterleavedData += rtpInterleave;
+                            }
 
                             System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
 
@@ -2592,7 +2595,7 @@ namespace Tests
                                     Console.WriteLine("Client Playing. for :" + playingfor.ToString());
 
                                     //Testing ONLY
-                                    client.SendKeepAlive(null);
+                                    //client.SendKeepAlive(null);
                                 }
 
                                 if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
