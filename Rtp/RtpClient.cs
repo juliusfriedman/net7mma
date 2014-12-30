@@ -3391,18 +3391,14 @@ namespace Media.Rtp
                 {
                     #region Recieve Incoming Data
 
-                    for (int i = 1; i <= TransportContexts.Count; ++i)
-                    {
+                    //Loop each context, newly added contexts will be seen on each iteration
+                    for (int i = 0; i < TransportContexts.Count; ++i)
+                    {                        
+                        //Reset the error.
                         lastError = SocketError.SocketError;
 
-                        if (i <= 0)
-                        {
-                            System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
-
-                            continue;
-                        }
-
-                        TransportContext tc = TransportContexts[i - 1];
+                        //Obtain a context
+                        TransportContext tc = TransportContexts[i];
 
                         //Check for a context which is able to receive data
                         if (tc == null || tc.Disposed || !tc.Connected
@@ -3444,13 +3440,14 @@ namespace Media.Rtp
                         }
                     }
 
-                    //Check for packets going out
-                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
+                    //If there are no contexts
+                    if (TransportContexts.Count == 0 || m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
-                        //Should also check for bit rate before sleeping
+                        //Yield time slice
                         System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
 
-                        goto Begin;
+                        //do another iteration
+                        continue;
                     }
 
                     #endregion

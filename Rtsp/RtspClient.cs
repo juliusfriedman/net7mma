@@ -662,6 +662,7 @@ namespace Media.Rtsp
                         //e.g. DON'T Linger on close if unsent data is present. (Should be moved to ISocketReference)
                         m_RtspSocket.DontLinger();
                         
+                        //Use nagle's sliding window
                         m_RtspSocket.NoDelay = true;
 
                         connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, new AsyncCallback((iar) =>
