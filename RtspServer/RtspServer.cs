@@ -222,8 +222,10 @@ namespace Media.Rtsp
         /// Accesses a contained stream by id of the stream
         /// </summary>
         /// <param name="streamId">The unique identifer</param>
-        /// <returns>The RtspClient assocaited with the given id if found, otherwise null</returns>
+        /// <returns>The IMedia assocaited with the given id if found, otherwise null</returns>
         public IMedia this[Guid streamId] { get { return GetStream(streamId); } }
+
+        //Todo make sure name is correct.
 
         /// <summary>
         /// The streams contained in the server
@@ -231,7 +233,7 @@ namespace Media.Rtsp
         public IEnumerable<IMedia> MediaStreams { get { lock (m_MediaStreams) return m_MediaStreams.Values.AsEnumerable(); } }
 
         /// <summary>
-        /// The amount of streams the server is prepared to listen to
+        /// The amount of streams configured the server.
         /// </summary>
         public int TotalStreamCount { get { return m_MediaStreams.Count; } }
 
@@ -1182,25 +1184,38 @@ namespace Media.Rtsp
                 //Log the reqeust now
                 if (Logger != null) Logger.LogRequest(request, session);
 
-                //Determine if there is a custom handler for the mthod
-                RtspRequestHandler custom;
-
-                //If there is
-                if (m_RequestHandlers.TryGetValue(request.Method, out custom))
+                //If any custom handlers were registered.
+                if (m_RequestHandlers.Count > 0)
                 {
-                    //Then create the response
-                    RtspMessage response;
+                    //Determine if there is a custom handler for the mthod
+                    RtspRequestHandler custom;
 
-                    //By invoking the handler, if true is returned
-                    if (custom(request, out response))
+                    //If there is
+                    if (m_RequestHandlers.TryGetValue(request.Method, out custom))
                     {
-                        //Use the response created by the custom handler
-                        ProcessSendRtspResponse(response, session);
-                        
-                        //Return because the custom handler has handled the request.
-                        return;
+                        //Then create the response
+                        RtspMessage response;
+
+                        //By invoking the handler, if true is returned
+                        if (custom(request, out response))
+                        {
+                            //Use the response created by the custom handler
+                            ProcessSendRtspResponse(response, session);
+
+                            //Return because the custom handler has handled the request.
+                            return;
+                        }
                     }
                 }
+
+                //From this point if Authrorization is required and the stream exists
+                //The server will responsd with AuthorizationRequired when it should have probably respoded with that at this point.
+                //The problem is that RequiredCredentails uses a Uri format by ID.
+                //We could get a stream and then respond accordingly but that is how it currently works and it allows probing of streams which is what not desirable in some cases
+                //Thus we have to use the location of the request and see if RequiredCredentials has anything which matches root.
+                //This would force everything to have some type of authentication which would also be applicable to all lower level streams in the uri in the credential cache.
+                //I could also change up the semantic and make everything Uri based rather then locations
+                //Then it would also be easier to make /audio only passwords etc.
 
                 //Determine the handler for the request and process it
                 switch (request.Method)
@@ -1440,6 +1455,7 @@ namespace Media.Rtsp
         {
 
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
+
             response.CSeq = session.LastRequest.CSeq;
 
             string authHeader = session.LastRequest.GetHeader(RtspHeaders.Authorization);
@@ -1667,20 +1683,22 @@ namespace Media.Rtsp
             RtpSource found = FindStreamByLocation(request.Location) as RtpSource;
 
             if (found == null)
-            {                
+            {         
+                //This allows probing for streams even if not authenticated....
                 ProcessLocationNotFoundRtspRequest(session);
                 return;
             }            
-            else if (!found.Ready)
-            {
-                ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
-                return;
-            }
             else if (!AuthenticateRequest(request, found))
             {
                 ProcessAuthorizationRequired(found, session);
                 return;
             }
+            else if (!found.Ready)
+            {
+                ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed);
+                return;
+            }
+            
             
             //The source is ready
 

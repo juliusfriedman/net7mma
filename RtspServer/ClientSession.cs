@@ -605,7 +605,7 @@ namespace Media.Rtsp
 
             //This allows the requester to specify their id to prevent collisions now...
             if (remoteSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
-            else localSsrc = remoteSsrc + 1;
+            else localSsrc = remoteSsrc + 1; //Ensure no collision
 
             //Could also randomize the setupContext sequenceNumber here.
             //We need to make an TransportContext in response to a setup
