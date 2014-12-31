@@ -1514,7 +1514,7 @@ namespace Media.Rtsp
         public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", string rangeFormat = null, bool force = false)
         {
             //Usually at least setup must occur so we must have sent and received a setup to actually play
-            force = m_SentBytes > 0 && m_ReceivedBytes > 0 && SupportedMethods.Contains(RtspMethod.SETUP);
+            if(!force) force = m_SentBytes > 0 && m_ReceivedBytes > 0 && SupportedMethods.Contains(RtspMethod.SETUP);
 
             //If not forced and the soure does not support play then throw an exception
             if (!force && !SupportedMethods.Contains(RtspMethod.PLAY)) throw new InvalidOperationException("Server does not support PLAY.");
