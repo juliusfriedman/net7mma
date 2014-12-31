@@ -57,6 +57,10 @@ namespace Media.Rtsp
 
         #region Fields
 
+
+        //The time the session was created.
+        public readonly DateTime Created = DateTime.UtcNow;
+
         //Session storage
         //Counters for authenticate and attempts should use static key names, maybe use a dictionary..
         internal System.Collections.Hashtable Storage = System.Collections.Hashtable.Synchronized(new System.Collections.Hashtable());
@@ -315,7 +319,7 @@ namespace Media.Rtsp
                     RemoveSource(source);
                 }
 
-                //End the final send
+                //End any pending send.
                 if (LastSend != null && !LastSend.IsCompleted)
                 {
                     try
@@ -326,7 +330,7 @@ namespace Media.Rtsp
                     catch { }
                 }
 
-                //End the final receive
+                //End any pending recieve.
                 if (LastRecieve != null && !LastRecieve.IsCompleted)
                 {
                     try

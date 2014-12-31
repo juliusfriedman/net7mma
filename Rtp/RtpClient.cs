@@ -3392,8 +3392,24 @@ namespace Media.Rtp
                     #region Recieve Incoming Data
 
                     //Loop each context, newly added contexts will be seen on each iteration
-                    for (int i = 0; i < TransportContexts.Count; ++i)
-                    {                        
+                    for (int i = 0, e = TransportContexts.Count; i < e; ++i)
+                    {
+                        //If there are no contexts
+                        if (e == 0)
+                        {
+                            //Relinquish priority
+                            System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+
+                            //yeild the time slice
+                            System.Threading.Thread.Sleep(0);
+
+                            //Do another iteration
+                            continue;
+                        }
+
+                        //Ensure priority is above normal
+                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+
                         //Reset the error.
                         lastError = SocketError.SocketError;
 
@@ -3440,11 +3456,11 @@ namespace Media.Rtp
                         }
                     }
 
-                    //If there are no contexts
-                    if (TransportContexts.Count == 0 || m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
+                    //If there are no contexts or no outgoing packets
+                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
-                        //Yield time slice
-                        System.Threading.Thread.Sleep(Utility.Clamp(TransportContexts.Count, 1, TransportContexts.Count));
+                        //yield the time slice
+                        System.Threading.Thread.Sleep(0);
 
                         //do another iteration
                         continue;
