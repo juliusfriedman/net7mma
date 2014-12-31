@@ -3519,15 +3519,19 @@ a=mpeg4-esid:101");
             //Get the Degrees Of Parallelism
             int dop = 0;
 
-            if (server.HttpEnabled) dop += 2;
-            if (server.UdpEnabled) dop += 2;
-            dop += 3;//Tcp
+            if (server == null) dop = 7;
+            else
+            {
+                if (server.HttpEnabled) dop += 2;
+                if (server.UdpEnabled) dop += 2;
+                dop += 3;//Tcp
+            }
 
             //Test the server
             ParallelEnumerable.Range(1, 100).AsParallel().WithDegreeOfParallelism(dop).ForAll(i =>
             {
                 //Create a client
-                if (server.HttpEnabled && i % 2 == 0) 
+                if (server != null && server.HttpEnabled && i % 2 == 0) 
                 {
                     //Use Media.Rtsp / Http
                     using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://127.0.0.1/live/PicsTcp"))
@@ -3553,7 +3557,7 @@ a=mpeg4-esid:101");
                         }
                     }
                 }
-                else if (server.UdpEnabled && i % 3 == 0) 
+                else if (server != null && server.UdpEnabled && i % 3 == 0) 
                 {
                     //Use Media.Rtsp / Udp
                     using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://127.0.0.1/live/PicsTcp"))
@@ -3584,18 +3588,18 @@ a=mpeg4-esid:101");
                 else
                 {
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient tcpClient = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Omega", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient client = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Omega", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {
                             Console.WriteLine("Performing Media.Rtsp Test");
 
-                            tcpClient.StartPlaying();
+                            client.StartPlaying();
 
-                            while (tcpClient.Client.TotalRtpBytesReceieved <= 4096 && tcpClient.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(10); }
+                            while (client.Client.TotalRtpBytesReceieved <= 4096 && client.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(10); }
 
                             Console.BackgroundColor = ConsoleColor.Green;
-                            Console.WriteLine("Test passed " + tcpClient.Client.TotalRtpBytesReceieved + " " + tcpClient.RtpProtocol);
+                            Console.WriteLine("Test passed " + client.Client.TotalRtpBytesReceieved + " " + client.RtpProtocol);
                             Console.BackgroundColor = ConsoleColor.Black;
 
                             return;

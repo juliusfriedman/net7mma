@@ -131,11 +131,6 @@ namespace Media.Rtsp
         /// </summary>
         bool m_StopRequested;
 
-        /// <summary>
-        /// Used to signal the server to recieve new clients
-        /// </summary>
-        ManualResetEventSlim allDone = new ManualResetEventSlim(false);
-
         //Handles the Restarting of streams which needs to be and disconnects clients which are inactive.
         internal Timer m_Maintainer;
 
@@ -430,9 +425,6 @@ namespace Media.Rtsp
                 m_MediaStreams.Remove(stream.Key);
             }
 
-            allDone.Dispose();
-            allDone = null;
-
             m_RequestHandlers.Clear();
         }
 
@@ -640,8 +632,8 @@ namespace Media.Rtsp
         {
             try
             {
-
-                DateTime maintenanceStarted = DateTime.UtcNow;
+                //Allow some small varaince
+                DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
 
                 List<Guid> inactive = new List<Guid>();
 
@@ -653,10 +645,14 @@ namespace Media.Rtsp
                         continue;
                     }
 
-                    //Check if a GET_PARAMETER has NOT been received in the allowed time
-                    if (session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout
+                    //Check for inactivity
+                    if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && !session.m_RtspSocket.Connected
                         ||
-                        session.LastRequest.Method == RtspMethod.TEARDOWN && session.Attached.Count() == 0)
+                        session.Attached.Count() == 0 && session.LastResponse == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
+                        ||
+                        session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout
+                        ||
+                        session.Attached.Count() == 0 && session.LastRequest != null && session.LastRequest.Method == RtspMethod.TEARDOWN && session.LastResponse.StatusCode == RtspStatusCode.OK)
                     {
                         inactive.Add(session.Id);
                         continue;
@@ -759,24 +755,30 @@ namespace Media.Rtsp
             //If there is not a server thread return
             if (m_ServerThread == null) return;
 
-            //Stop listening for requests
-            m_StopRequested = true;
-
+            //Stop maintaining the server
             if (m_Maintainer != null)
             {
                 m_Maintainer.Dispose();
                 m_Maintainer = null;
             }
 
+            //Stop listening for requests
+            m_StopRequested = true;
+
             //Stop listening on client streams
             StopStreams();
 
             //Remove all clients
-            foreach (ClientSession cs in Clients.ToArray())
+            foreach (Guid sessionId in m_Clients.Keys.ToList())
             {
-                RemoveSession(cs);
+                //Get a session from the key
+                ClientSession cs;
+
+                //If contained remove it
+                if (m_Clients.TryGetValue(sessionId, out cs)) RemoveSession(cs);
             }
 
+            //Abort the worker
             Utility.Abort(ref m_ServerThread);
 
             //Dispose the socket
@@ -847,19 +849,27 @@ namespace Media.Rtsp
                         //If the timeout is infinite only wait for the default
                         if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
 
-                        allDone.Reset();
+                        timeOut /= 2;
 
                         //Start acceping with a 0 size buffer
                         var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
-                        //Wait half using the event
-                        while (!iar.IsCompleted && (allDone.IsSet || !allDone.Wait(timeOut)) && !m_StopRequested)
+                        //use the handle to wait for the result
+                        using (var handle = iar.AsyncWaitHandle)
                         {
-                            //Wait the other half looking for the stop
-                            if (allDone.IsSet || allDone.Wait(timeOut) || m_StopRequested | iar.IsCompleted) break;
+                            //Wait half using the event
+                            while (!iar.IsCompleted && !iar.AsyncWaitHandle.WaitOne(timeOut) && !m_StopRequested)
+                            {
+                                //Wait the other half looking for the stop
+                                if (m_StopRequested || !iar.AsyncWaitHandle.WaitOne(timeOut) || iar.IsCompleted) break;
+
+                                System.Threading.Thread.Sleep(0);
+
+                                //Should ensure that not waiting more then a certain amount of time here
+                            }
                         }
                     }
-                    else if (!System.Threading.Thread.Yield()) System.Threading.Thread.Sleep(-1);
+                    else System.Threading.Thread.Sleep(0);
                 }
             }
             catch (ThreadAbortException)
@@ -881,7 +891,7 @@ namespace Media.Rtsp
         /// <param name="ar">IAsyncResult with a Socket object in the AsyncState property</param>
         internal void ProcessAccept(IAsyncResult ar)
         {
-            if (ar == null) goto End;
+            if (ar == null) return;
             
             //The ClientSession created
             ClientSession created = null;
@@ -895,7 +905,7 @@ namespace Media.Rtsp
                 Socket server = (Socket)ar.AsyncState;
 
                 //If there is no socket then an accept has cannot be performed
-                if (server == null) goto End;
+                if (server == null) return;
 
                 //If this is the inital receive for a Udp or the server given is UDP
                 if (server.ProtocolType == ProtocolType.Udp)
@@ -934,14 +944,6 @@ namespace Media.Rtsp
                 //if (created != null)
                 //    created.Disconnect();
             }
-
-        End:
-            allDone.Set();
-
-            created = null;
-
-            //Thread exit 0
-            return;
         }
 
 
