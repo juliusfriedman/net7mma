@@ -903,7 +903,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + " - Connection Established,  Encoding Frame");
 
                         //Make a frame
-                        Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame testFrame = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
+                        Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame testFrame = new Media.Rtsp.Server.MediaTypes.RFC2435Media.RFC2435Frame(new System.IO.FileStream(".\\JpegTest\\video.jpg", System.IO.FileMode.Open, System.IO.FileAccess.Read), 25, (int)sendersContext.SynchronizationSourceIdentifier, 0, (long)Utility.DateTimeToNptTimestamp(DateTime.UtcNow));
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Sending Encoded Frame");
 
@@ -1200,7 +1200,7 @@ namespace Tests
                 for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
             }
 
-            if (rtcpPacket.Header.Disposed || rtcpPacket.Disposed) throw new Exception("Disposed the Media.RtcpPacket");
+            if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
            
             //Now the packet can be disposed
             rtcpPacket.Dispose();
@@ -1307,7 +1307,7 @@ namespace Tests
 
             }
 
-            if (rtcpPacket.Header.Disposed || rtcpPacket.Disposed) throw new Exception("Disposed the Media.RtcpPacket");
+            if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
 
             //Now the packet can be disposed
             rtcpPacket.Dispose();
@@ -2309,7 +2309,7 @@ namespace Tests
 
         static void TryPrintClientPacket (object sender,  bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false)
         {
-            if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).Disposed) return;            
+            if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).IsDisposed) return;            
 
             ConsoleColor previousForegroundColor = Console.ForegroundColor,
                     previousBackgroundColor = Console.BackgroundColor;
@@ -2322,7 +2322,7 @@ namespace Tests
             {
                 Media.Rtp.RtpPacket rtpPacket = packet as Media.Rtp.RtpPacket;
                 
-                if (packet == null || packet.Disposed) return;
+                if (packet == null || packet.IsDisposed) return;
 
                 if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
                 else Console.ForegroundColor = ConsoleColor.Red;
@@ -2355,7 +2355,7 @@ namespace Tests
             }
             else
             {
-                if (packet == null || packet.Disposed) return;
+                if (packet == null || packet.IsDisposed) return;
 
                 Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
 
@@ -2395,7 +2395,7 @@ namespace Tests
         {
 
             //For display
-            int emptyFrames = 0, incompleteFrames = 0, rtspIn = 0, rtspOut = 0, rtspInterleaved = 0, rtspUnknown = 0;
+            int emptyFrames = 0, incompleteFrames = 0, rtspInterleaved = 0, rtspUnknown = 0;
 
             //For allow the test to run in an automated manner
             bool shouldStop = false;
@@ -2422,7 +2422,7 @@ namespace Tests
                         //Connection event
                         client.OnConnect += (sender, args) =>
                         {
-                            if (client.Connected)
+                            if (client.IsConnected && !client.IsPlaying && !shouldStop)
                             {
                                 //Try to start listening
                                 try
@@ -2445,7 +2445,7 @@ namespace Tests
 
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
                         {
-                            if (rtpFrame.Disposed) return;
+                            if (rtpFrame.IsDisposed) return;
                             if (rtpFrame.IsEmpty)
                             {
                                 ++emptyFrames;
@@ -2481,7 +2481,7 @@ namespace Tests
                         {
                             if (request != null)
                             {
-                                ++rtspOut; Console.WriteLine("Client Requested :" + request.Location + " " + request.Method);
+                                Console.WriteLine("Client Requested :" + request.Location + " " + request.Method);
                             }
                         };
 
@@ -2497,7 +2497,6 @@ namespace Tests
                             //Track null and unknown responses
                             if (response != null)
                             {
-                                ++rtspIn;
                                 if (response.StatusCode == Media.Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
                             }
                             
@@ -2585,12 +2584,12 @@ namespace Tests
                         {
                             System.Threading.Thread.Sleep(client.KeepAliveTimeout.Seconds + 1 * 5000);
 
-                            if (client.Playing)
+                            if (client.IsPlaying)
                             {
 
                                 TimeSpan playingfor = (DateTime.UtcNow - client.StartedPlaying.Value);
 
-                                if (client.Playing)
+                                if (client.IsPlaying)
                                 {
                                     Console.WriteLine("Client Playing. for :" + playingfor.ToString());
 
@@ -2605,7 +2604,7 @@ namespace Tests
 
                             if (!shouldStop) shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
 
-                            if (client.Connected == false && shouldStop == false)
+                            if (client.IsConnected == false && shouldStop == false)
                             {
                                 Console.WriteLine("Client Not connected Waiting for (Q)");
                                 continue;
@@ -2614,8 +2613,11 @@ namespace Tests
                         }
 
                         //if the client is connected still
-                        if (client.Connected)
+                        if (client.IsConnected && protocol == Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
                         {
+                            //Indicate the amount of time taken to connect
+                            Console.WriteLine(client.ConnectionTime);
+
                             //Try to send some requests if quit early before the Teardown.
                             try
                             {
@@ -2638,6 +2640,7 @@ namespace Tests
                                 else Console.WriteLine("Sending Requests In Play Success");
 
                                 if (one != null) consoleWriter.WriteLine(one);
+
                                 if (two != null) consoleWriter.WriteLine(two);
 
 
@@ -2669,9 +2672,11 @@ namespace Tests
                             consoleWriter.WriteLine("Total Frames: " + totalFrames);
                             Console.BackgroundColor = ConsoleColor.Cyan;
                             consoleWriter.WriteLine("RTSP Info".PadRight(Console.WindowWidth / 4, '▓'));
-                            consoleWriter.WriteLine("Rtsp Requets Sent: " + rtspIn);
-                            consoleWriter.WriteLine("Rtsp Responses Receieved: " + rtspOut);
-                            consoleWriter.WriteLine("Rtsp Missing : " + (client.ClientSequenceNumber - rtspIn));
+                            consoleWriter.WriteLine("Rtsp Requets Sent: " + client.MessagesSent);
+                            consoleWriter.WriteLine("Rtsp Responses Receieved: " + client.MessagesReceived);
+                            consoleWriter.WriteLine("Rtsp Missing : " + (client.MessagesReceived - client.MessagesSent));
+                            consoleWriter.WriteLine("Rtsp Last Message Round Trip Time : " + client.LastMessageRoundTripTime);
+                            consoleWriter.WriteLine("Rtsp Last Server Delay : " + client.LastServerDelay);
                             consoleWriter.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
                             consoleWriter.WriteLine("Rtsp Unknown: " + rtspUnknown);
                             Console.BackgroundColor = ConsoleColor.Black;
@@ -3342,7 +3347,8 @@ a=mpeg4-esid:101");
             //Setup a Media.RtspServer on port 554
             Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
             {
-                Logger = new Media.Rtsp.Server.RtspServerDebuggingLogger()
+                //new Media.Rtsp.Server.RtspServerDebuggingLogger() 
+                Logger = new Media.Rtsp.Server.RtspServerConsoleLogger()
             };
             
             //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
@@ -3783,7 +3789,7 @@ a=mpeg4-esid:101");
                 using (var jpegStream = new System.IO.FileStream(fileName, System.IO.FileMode.Open))
                 {
 
-                    if (f != null) if (!f.Disposed) f.Dispose();
+                    if (f != null) if (!f.IsDisposed) f.Dispose();
                         
                     f = null;
 

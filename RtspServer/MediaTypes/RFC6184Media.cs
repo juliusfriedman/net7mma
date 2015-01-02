@@ -329,7 +329,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 int offset = 0;
 
                 //Obtain the data of the packet (without source list or padding)
-                byte[] packetData = packet.Coefficients.ToArray();
+                byte[] packetData = packet.PayloadData.ToArray();
 
                 //Cache the length
                 int count = packetData.Length;
@@ -411,6 +411,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //Store the nalType contained
                                                 m_ContainedNals.Add(nalHeader);
 
+                                                if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
+
                                                 //Done reading
                                                 break;
                                             }
@@ -476,6 +478,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                         //Store the nalType contained
                                         m_ContainedNals.Add(nalHeader);
 
+                                        if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
+
                                         //Write the start code
                                         Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
@@ -495,6 +499,8 @@ namespace Media.Rtsp.Server.MediaTypes
                         {
                             //Store the nalType contained
                             m_ContainedNals.Add(nalUnitType);
+
+                            if (nalUnitType == 6 || nalUnitType == 7 || nalUnitType == 8) Buffer.WriteByte(0);
 
                             //Write the start code
                             Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
@@ -520,7 +526,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public override void Dispose()
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
                 base.Dispose();                
                 DisposeBuffer();
             }

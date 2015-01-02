@@ -866,7 +866,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Offset into the stream
                 long streamOffset = 2,
                     //Where we are in the current packet payload
-                    currentPacketOffset = currentPacket.NonPayloadOctets;
+                    currentPacketOffset = currentPacket.HeaderOctets;
 
                 //Find a Jpeg Tag while we are not at the end of the stream
                 //Tags come in the format 0xFFXX
@@ -1223,7 +1223,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                         RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
 
                                         //Set offset in packet (the length of the RtpJpegHeader)
-                                        currentPacketOffset = profileHeaderSize + currentPacket.NonPayloadOctets;
+                                        currentPacketOffset = profileHeaderSize + currentPacket.HeaderOctets;
 
                                         //reset the remaning remainingPayloadOctets
                                         remainingPayloadOctets = bytesPerPacket - (currentPacketOffset + Rtp.RtpHeader.Length);
@@ -1276,7 +1276,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //Payload starts at the offset of the first PayloadOctet
                     //First packet must have FragmentOffset == 0
-                    int offset = packet.NonPayloadOctets + 1,// TypeSpecific occupies a byte
+                    int offset = packet.HeaderOctets + 1,// TypeSpecific occupies a byte
                         FragmentOffset = (packet.Payload.Array[packet.Payload.Offset + offset++] << 16 | packet.Payload.Array[packet.Payload.Offset + offset++] << 8 | packet.Payload.Array[packet.Payload.Offset + offset++]);
                     //q > 0 ?
                     return FragmentOffset == 0;
@@ -1316,7 +1316,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
 
                     //Payload starts at the offset of the first PayloadOctet
-                    int offset = packet.NonPayloadOctets;
+                    int offset = packet.HeaderOctets;
 
                     //if (packet.Extension) throw new NotSupportedException("RFC2035 nor RFC2435 defines extensions.");
 
@@ -1602,7 +1602,7 @@ namespace Media.Rtsp.Server.MediaTypes
             public override void Dispose()
             {
 
-                if (Disposed) return;
+                if (IsDisposed) return;
 
                 //Call dispose on the base class
                 base.Dispose();
@@ -1909,7 +1909,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Dequeue a frame or die
                     Rtp.RtpFrame frame = m_Frames.Dequeue();
 
-                    if (frame == null || frame.Disposed) continue;
+                    if (frame == null || frame.IsDisposed) continue;
 
                     //Get the transportChannel for the packet
                     Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);

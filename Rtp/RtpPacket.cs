@@ -94,27 +94,27 @@ namespace Media.Rtp
         /// Subsequently >15 * 4  = 60
         /// Clamped with Min(60, Max(0, N)) where N = ContributingSourceCount * 4;
         /// </remarks>
-        public int ContributingSourceListOctets { get { if (Disposed || Payload.Count == 0) return 0; return Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4)); } }
+        public int ContributingSourceListOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4)); } }
 
         /// <summary>
         /// Determines the amount of octets in the RtpExtension in this RtpPacket.
         /// The maximum value this property can return is 65535.
         /// <see cref="RtpExtension.LengthInWords"/> for more information.
         /// </summary>
-        public int ExtensionOctets { get { if (Disposed || !Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
+        public int ExtensionOctets { get { if (IsDisposed || !Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
 
         /// <summary>
         /// The amount of octets which belong either to the SourceList or the RtpExtension.
         /// This amount does not reflect any padding which may be present.
         /// </summary>
-        internal int NonPayloadOctets { get { if (Disposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
+        internal int HeaderOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return ContributingSourceListOctets + ExtensionOctets; } }
 
         /// <summary>
         /// Gets the amount of octets which are in the Payload property which are part of the padding if IsComplete is true.            
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (Disposed || !Header.Padding) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
+        public int PaddingOctets { get { if (IsDisposed || !Header.Padding) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
 
         /// <summary>
         /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
@@ -162,7 +162,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates the length in bytes of this RtpPacket instance. (Including the RtpHeader as well as SourceList and Extension if present.)
         /// </summary>
-        public int Length { get { if (Disposed) return 0; return RtpHeader.Length + Payload.Count; } }
+        public int Length { get { if (IsDisposed) return 0; return RtpHeader.Length + Payload.Count; } }
 
         /// <summary>
         /// Gets the data in the Payload which does not belong to the ContributingSourceList or RtpExtension or Padding.
@@ -170,15 +170,17 @@ namespace Media.Rtp
         /// the coding of which can be determined by a combination of the PayloadType and SDP information which was used to being the participation 
         /// which resulted in the transfer of this RtpPacket instance.
         /// </summary>
-        public IEnumerable<byte> Coefficients
+        public IEnumerable<byte> PayloadData
         {
             get
             {
-                if (Disposed || !IsComplete || Payload.Count == 0) return Utility.Empty;
-                int nonPayloadOctets = NonPayloadOctets;
+                if (IsDisposed || !IsComplete || Payload.Count == 0) return Utility.Empty;
+                int nonPayloadOctets = HeaderOctets;
                 return Payload.Skip(nonPayloadOctets).Take(Payload.Count - nonPayloadOctets - PaddingOctets);
             }
         }
+
+        //AddDataToPayload
 
         #endregion
 
@@ -410,7 +412,7 @@ namespace Media.Rtp
         /// Gets an Enumerator which can be used to read the contribuing sources contained in this RtpPacket.
         /// <see cref="SourceList"/> for more information.
         /// </summary>
-        public Media.RFC3550.SourceList GetSourceList() { if (Disposed) return null; return new Media.RFC3550.SourceList(this); }
+        public Media.RFC3550.SourceList GetSourceList() { if (IsDisposed) return null; return new Media.RFC3550.SourceList(this); }
 
         /// <summary>
         /// Gets the RtpExtension which would be created as a result of reading the data from the RtpPacket's payload which would be contained after any contained ContributingSourceList.
@@ -468,7 +470,7 @@ namespace Media.Rtp
             }
 
             //if the video data is required in the clone then include it
-            if (includeCoeffecients) binarySequence = binarySequence.Concat(Coefficients); //Add the binary data to the packet except any padding
+            if (includeCoeffecients) binarySequence = binarySequence.Concat(PayloadData); //Add the binary data to the packet except any padding
 
             //Determine if padding is present
             bool hasPadding = Header.Padding;
@@ -528,7 +530,7 @@ namespace Media.Rtp
             if (IsReadOnly) throw new InvalidOperationException("Cannot modify a RtpPacket when IsReadOnly is false.");
 
             //If the packet is complete then return
-            if (Disposed || IsComplete) return 0;
+            if (IsDisposed || IsComplete) return 0;
 
             // Cache the size of the original payload
             int payloadCount = Payload.Count,
@@ -710,13 +712,13 @@ namespace Media.Rtp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (Disposed || !ShouldDispose) return;
+            if (IsDisposed || !ShouldDispose) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.Disposed)
+            if (m_OwnsHeader && Header != null && !Header.IsDisposed)
             {
                 //Dispose it
                 Header.Dispose();

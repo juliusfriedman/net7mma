@@ -171,11 +171,22 @@ namespace Media.Rtsp
 
         public void SendRtspData(byte[] data)
         {
+            
+
             try
             {
-                if (m_RtspSocket.Connected && data != null)
+                if (data != null)
                 {
+                    if (LastSend != null)
+                    {
+                        if (!LastSend.IsCompleted)
+                        {
+                            using (var wait = LastSend.AsyncWaitHandle) wait.WaitOne();
+                        }
+                    }
+
                     m_SendBuffer = data;
+
                     LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
                 }
             }
@@ -221,7 +232,7 @@ namespace Media.Rtsp
         {
 
             //If the packet is null or not allowed then return
-            if (packet == null || packet.Disposed || m_RtpClient == null) return;
+            if (packet == null || packet.IsDisposed || m_RtpClient == null) return;
 
             //Get a source context
             RtpClient.TransportContext context = null, sourceContext = GetSourceContextForPacket(packet);
@@ -260,7 +271,7 @@ namespace Media.Rtsp
         internal void OnSourceRtcpPacketRecieved(object stream, RtcpPacket packet)
         {
 
-            if (packet == null || packet.Disposed || m_RtpClient == null) return;
+            if (packet == null || packet.IsDisposed || m_RtpClient == null) return;
 
             //Should check for Goodbye and Disconnect this source
 

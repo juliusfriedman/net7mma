@@ -461,6 +461,39 @@ namespace Media.Sdp
         #endregion
     }
 
+    public static class SessionDescriptionExtensions
+    {
+        public static bool SupportsAggregateControl(this SessionDescription sdp)
+        {
+            SessionDescriptionLine controlLine = sdp.ControlLine;
+
+            //If there is a control line in the SDP it contains the URI used to setup and control the media
+            if (controlLine == null) return false;
+            
+            //Get the control token
+            string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
+
+            //If there is a controlPart in the controlLine
+            if (!string.IsNullOrWhiteSpace(controlPart))
+            {
+                //Prepare the part
+                controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
+
+                //if unqualified then there is no aggregate control.
+                if (controlPart == "*") return false;
+
+                //Create a uri
+                Uri controlUri = new Uri(controlPart, UriKind.RelativeOrAbsolute);
+
+                //Determine if its a Absolute Uri
+                if (controlUri.IsAbsoluteUri) return true;
+            }
+
+            //Another type of control line is present.
+            return false;
+        }
+    }
+
     /// <summary>
     /// Represents the MediaDescription in a Session Description.
     /// Parses and Creates.

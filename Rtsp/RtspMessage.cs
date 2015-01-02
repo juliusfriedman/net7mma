@@ -1158,7 +1158,7 @@ namespace Media.Rtsp
         bool ParseStatusLine()
         {
 
-            if (Disposed) return false;
+            if (IsDisposed) return false;
 
             if (MessageType != RtspMessageType.Invalid) return true;
 
@@ -1223,7 +1223,7 @@ namespace Media.Rtsp
 
         bool ParseHeaders()
         {
-            if (Disposed) return false;
+            if (IsDisposed) return false;
 
             //Need 2 empty lines to end the header section
             int emptyLine = 0;
@@ -1307,7 +1307,7 @@ namespace Media.Rtsp
 
         bool ParseBody()
         {
-            if (Disposed) return false;
+            if (IsDisposed) return false;
 
             if (IsComplete) return true;
 
@@ -1513,7 +1513,7 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
-            if (Disposed) return;            
+            if (IsDisposed) return;            
 
             //Call the base implementation
             base.Dispose();
@@ -1589,6 +1589,7 @@ namespace Media.Rtsp
 
         public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
+            //Don't check IsComplete because of the notion of how a RtspMessage can be received.
 
             bool wroteData = false;
 

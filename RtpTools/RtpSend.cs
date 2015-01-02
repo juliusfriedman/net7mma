@@ -444,7 +444,7 @@ namespace Media.RtpTools
         {
             string blockString = string.Empty;
 
-            if (sdes == null || sdes.Disposed) return blockString;
+            if (sdes == null || sdes.IsDisposed) return blockString;
 
             //The blockString is formatted per chunk of the sdes
             foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk chunk in sdes)
@@ -472,7 +472,7 @@ namespace Media.RtpTools
         {
             string blockString = string.Empty;
 
-            if (bye == null || bye.Disposed) return blockString;
+            if (bye == null || bye.IsDisposed) return blockString;
 
             //if HasReasonForLeaving add
             if (bye.HasReasonForLeaving)//reason=
@@ -660,7 +660,7 @@ namespace Media.RtpTools
             //If the format is hex then add the payload dump
             if (format == FileFormat.Hex)
             {
-                var data = packet.Coefficients;
+                var data = packet.PayloadData;
                 if (data.Any()) builder.Append(string.Format(RtpSend.HexFormat, "data", BitConverter.ToString(data.ToArray()).Replace("-", string.Empty), (char)Common.ASCII.LineFeed));
                 else builder.Append(string.Format(HexFormat, "data", NullSpecifier, (char)Common.ASCII.LineFeed));
             }

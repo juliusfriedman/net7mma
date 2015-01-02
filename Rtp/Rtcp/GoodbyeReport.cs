@@ -152,12 +152,12 @@ namespace Media.Rtcp
         /// Calculates the amount of octets contained in the Payload which belong to the SourceList.
         /// The BlockCount is obtained from the Header.
         /// </summary>
-        public override int ReportBlockOctets { get { return !Disposed && HasReports ? 4 * Header.BlockCount : 0; } }
+        public override int ReportBlockOctets { get { return !IsDisposed && HasReports ? 4 * Header.BlockCount : 0; } }
 
         /// <summary>
         /// Indicates if the GoodbyeReport contains a ReasonForLeaving based on the length of SourceList contained in the GoodbyeReport.
         /// </summary>
-        public bool HasReasonForLeaving { get { return !Disposed && ExtensionData.Count() > 1; } }
+        public bool HasReasonForLeaving { get { return !IsDisposed && ExtensionData.Count() > 1; } }
 
         /// <summary>
         /// Gets the data assoicated with the ReasonForLeaving denoted by the length of field if present.
@@ -165,7 +165,7 @@ namespace Media.Rtcp
         /// </summary>
         public IEnumerable<byte> ReasonForLeaving
         {
-            get { if (Disposed || !HasReasonForLeaving) return Enumerable.Empty<byte>(); return ExtensionData.Skip(1).Take(ReasonLength); }
+            get { if (IsDisposed || !HasReasonForLeaving) return Enumerable.Empty<byte>(); return ExtensionData.Skip(1).Take(ReasonLength); }
         }
 
         /// <summary>
@@ -176,7 +176,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (!Disposed && HasReasonForLeaving) return ExtensionData.Take(1).First();
+                if (!IsDisposed && HasReasonForLeaving) return ExtensionData.Take(1).First();
                 return 0;
             }
         }
@@ -187,7 +187,7 @@ namespace Media.Rtcp
         /// Creates a <see cref="SourceList"/> from the information contained in the GoodbyeReport.
         /// </summary>
         /// <returns>The <see cref="SourceList"/> created.</returns>
-        public Media.RFC3550.SourceList GetSourceList() { if (Disposed) return null; return new Media.RFC3550.SourceList(this); }
+        public Media.RFC3550.SourceList GetSourceList() { if (IsDisposed) return null; return new Media.RFC3550.SourceList(this); }
 
         /// <summary>
         /// Clones this GoodbyeReport instance.

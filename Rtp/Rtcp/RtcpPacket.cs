@@ -311,7 +311,7 @@ namespace Media.Rtcp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (Disposed || !Header.Padding || Payload.Count == 0) return 0; return Media.RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
+        public int PaddingOctets { get { if (IsDisposed || !Header.Padding || Payload.Count == 0) return 0; return Media.RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
 
         /// <summary>
         /// The length in bytes of this RtcpPacket including the header and any padding. <see cref="IsCompound"/>
@@ -329,7 +329,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Indicates if the RtcpPacket needs any more data to be considered complete. <see cref="IsCompound"/>
         /// </summary>
-        public bool IsComplete { get { return Disposed || Header.Disposed ? true : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)) - RtcpHeader.Length; } }
+        public bool IsComplete { get { return IsDisposed || Header.IsDisposed ? true : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)) - RtcpHeader.Length; } }
 
         /// <summary>
         /// <see cref="RtpHeader.Version"/>
@@ -524,7 +524,7 @@ namespace Media.Rtcp
             if (IsReadOnly) throw new InvalidOperationException("Cannot modify a RtcpPacket when IsReadOnly is false.");
 
             //If the packet is complete then return
-            if (Disposed || IsComplete) return 0;
+            if (IsDisposed || IsComplete) return 0;
 
             //Calulcate the amount of octets remaining in the RtcpPacket including the header
             int octetsRemaining = ((ushort)(Header.LengthInWordsMinusOne + 1)) * 4 - Length, offset = Payload != null ? Payload.Count : 0;
@@ -676,13 +676,13 @@ namespace Media.Rtcp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (Disposed || !ShouldDispose) return;
+            if (IsDisposed || !ShouldDispose) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.Disposed)
+            if (m_OwnsHeader && Header != null && !Header.IsDisposed)
             {
                 //Dispose it
                 Header.Dispose();

@@ -87,6 +87,7 @@
     <Compile Include="MediaTypes\SourceMedia.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtspServer.cs" />
+    <Compile Include="RtspServerConsoleLogger.cs" />
     <Compile Include="RtspServerDebuggingLogger.cs" />
     <Compile Include="RtspServerLogger.cs" />
     <Compile Include="RtspStreamArchiver.cs" />

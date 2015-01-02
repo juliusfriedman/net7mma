@@ -84,7 +84,7 @@ namespace Media.RtpTools.RtpDump
         {
             get
             {
-                return Disposed ?FileFormat.Unknown : m_Format;
+                return IsDisposed ?FileFormat.Unknown : m_Format;
             }
         }
 
@@ -444,7 +444,7 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
             base.Dispose();
             m_FileIdentifier = null;
             Close();
@@ -842,7 +842,7 @@ namespace Media.RtpTools.RtpDump
                         }
                     else using (Rtp.RtpPacket rtp = new Rtp.RtpPacket(entry.Blob, entry.Pointer + RtpToolEntry.sizeOf_RD_packet_T))
                         {
-                            entry.Length = (short)(entry.BlobLength = rtp.Coefficients.Count() + RtpToolEntry.sizeOf_RD_packet_T);
+                            entry.Length = (short)(entry.BlobLength = rtp.PayloadData.Count() + RtpToolEntry.sizeOf_RD_packet_T);
                             m_Writer.Write(entry.Blob, 0, entry.BlobLength);
                         }
                 }
@@ -870,7 +870,7 @@ namespace Media.RtpTools.RtpDump
         /// </summary>
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
             base.Dispose();
             Close();
             m_FileHeader = null;

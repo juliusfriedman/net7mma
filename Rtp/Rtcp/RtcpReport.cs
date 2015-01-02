@@ -117,7 +117,7 @@ namespace Media.Rtcp
         /// </summary>
         public bool HasExtensionData
         {
-            get { return Disposed ? false : Header.BlockCount > 0 && Length > ReportBlock.ReportBlockSize * Header.BlockCount; }
+            get { return IsDisposed ? false : Header.BlockCount > 0 && Length > ReportBlock.ReportBlockSize * Header.BlockCount; }
         }
 
         /// <summary>
@@ -126,7 +126,7 @@ namespace Media.Rtcp
         /// </summary>
         public virtual bool HasReports
         {
-            get { return Disposed ? false : Header.BlockCount > 0; }
+            get { return IsDisposed ? false : Header.BlockCount > 0; }
         }
 
         /// <summary>
@@ -135,7 +135,7 @@ namespace Media.Rtcp
         /// </summary>
         public virtual int ReportBlockOctets
         {
-            get { return !Disposed && HasReports ? ReportBlock.ReportBlockSize * Header.BlockCount : 0; }
+            get { return !IsDisposed && HasReports ? ReportBlock.ReportBlockSize * Header.BlockCount : 0; }
         }
 
         /// <summary>
@@ -143,7 +143,7 @@ namespace Media.Rtcp
         /// </summary>
         public virtual IEnumerable<byte> ReportData
         {
-            get { if (!HasReports || Disposed) return Enumerable.Empty<byte>(); return Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets); }
+            get { if (!HasReports || IsDisposed) return Enumerable.Empty<byte>(); return Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets); }
         }
 
         //Could provide an index based accessor for Reports.
@@ -155,7 +155,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (Disposed || !HasExtensionData) return Enumerable.Empty<byte>();
+                if (IsDisposed || !HasExtensionData) return Enumerable.Empty<byte>();
 
                 return Payload.Array.Skip(Payload.Offset + ReportBlockOctets);
             }
@@ -165,7 +165,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Calulcates the amount of blocks remaining in the RtcpReport given the value in the <see cref="RtcpHeaer.BlockCount"/>
         /// </summary>
-        public int ReportBlocksRemaining { get { return Disposed ? 0 : Binary.FiveBitMaxValue - Header.BlockCount; } }        
+        public int ReportBlocksRemaining { get { return IsDisposed ? 0 : Binary.FiveBitMaxValue - Header.BlockCount; } }        
 
         #endregion
 
@@ -173,7 +173,7 @@ namespace Media.Rtcp
 
         internal virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
         {
-            if (!Disposed && HasReports)
+            if (!IsDisposed && HasReports)
             {
                 for (int count = Payload.Count - offset; offset <= count; )
                 {

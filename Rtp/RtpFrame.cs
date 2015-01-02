@@ -313,7 +313,7 @@ namespace Media.Rtp
 
                 //Should chyeck Coefficients is > profileHeaderSize ?
 
-                sequence = sequence.Concat(packet.Coefficients.Skip(profileHeaderSize));
+                sequence = sequence.Concat(packet.PayloadData.Skip(profileHeaderSize));
             }
 
             return sequence;
@@ -328,7 +328,7 @@ namespace Media.Rtp
 
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
             base.Dispose();
             RemoveAllPackets();
         }

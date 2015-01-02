@@ -49,7 +49,7 @@ namespace Media.Container
         /// <summary>
         /// Indicates if the <see cref="Master"/> or this instance was Disposed.
         /// </summary>
-        public override bool Disposed { get { return Master.Disposed || base.Disposed; } }
+        public override bool IsDisposed { get { return Master.IsDisposed || base.IsDisposed; } }
 
         byte[] m_Data;
 
@@ -61,7 +61,7 @@ namespace Media.Container
             get
             {
                 if (m_Data != null) return m_Data;
-                else if (Disposed || DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
+                else if (IsDisposed || DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
                 m_Data = new byte[DataSize];
@@ -123,7 +123,7 @@ namespace Media.Container
         /// </summary>
         public void UpdateData()
         {
-            if (!Disposed && DataSize > 0 && m_Data != null)
+            if (!IsDisposed && DataSize > 0 && m_Data != null)
             {
                 Master.WriteAt(DataOffset, m_Data, 0, (int)DataSize);
                 return;
@@ -135,7 +135,7 @@ namespace Media.Container
         /// </summary>
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
 
             base.Dispose();
 

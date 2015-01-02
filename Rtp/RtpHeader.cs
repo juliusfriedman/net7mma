@@ -416,7 +416,7 @@ namespace Media.Rtp
 
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
 
             base.Dispose();
 

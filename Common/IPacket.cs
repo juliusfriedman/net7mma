@@ -71,7 +71,7 @@ namespace Media.Common
         bool IsReadOnly { get; }
 
         //Indicates if the packet has been previously disposed.
-        bool Disposed { get; }
+        bool IsDisposed { get; }
 
         /// <summary>
         /// The length in bytes of the packet

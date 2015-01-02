@@ -150,7 +150,7 @@ namespace Media.Rtmp
 
         public override void Dispose()
         {
-            if (!ShouldDispose || Disposed) return;
+            if (!ShouldDispose || IsDisposed) return;
             m_Packet = null;
             base.Dispose();
         }

@@ -161,6 +161,11 @@ namespace Media.Rtsp
         public bool RequireRangeHeader { get; set; }
 
         /// <summary>
+        /// Allows a socket to control another session if true and the session id matches.
+        /// </summary>
+        public bool AllowSessionChangesFromAlternateEndPoints { get; set; }
+
+        /// <summary>
         /// The name of the server (used in responses)
         /// </summary>
         public string ServerName { get; set; }
@@ -413,7 +418,7 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
 
             base.Dispose();
          
@@ -437,8 +442,16 @@ namespace Media.Rtsp
 
         internal bool RemoveSession(ClientSession session)
         {
-            if (session == null) return false;            
-            session.Dispose();
+            if (session == null) return false;
+            
+            //If there is a logger log the accept
+            if (Logger != null && !session.IsDisposed)
+            {
+                Logger.Log("Removing Client: " + session.Id + " @ " + DateTime.UtcNow);
+
+                session.Dispose();
+            }
+
             return m_Clients.Remove(session.Id);
         }
 
@@ -630,21 +643,20 @@ namespace Media.Rtsp
 
         internal void DisconnectAndRemoveInactiveSessions()
         {
-            try
+            //Allow some small varaince
+            DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
+
+            List<Guid> inactive = new List<Guid>();
+
+            foreach (Guid sessionId in m_Clients.Keys.ToList())
             {
-                //Allow some small varaince
-                DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
 
-                List<Guid> inactive = new List<Guid>();
+                ClientSession session;
 
-                foreach (ClientSession session in Clients)
+                if (!m_Clients.TryGetValue(sessionId, out session)) continue;
+
+                try
                 {
-                    if (session.Disposed)
-                    {
-                        inactive.Add(session.Id);
-                        continue;
-                    }
-
                     //Check for inactivity
                     if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && !session.m_RtspSocket.Connected
                         ||
@@ -658,17 +670,18 @@ namespace Media.Rtsp
                         continue;
                     }
                 }
-
-                //Remove any inactive clients
-                foreach (var id in inactive)
-                {
-                    ClientSession cs;
-                    if (m_Clients.TryGetValue(id, out cs)) RemoveSession(cs);
-                    cs = null;
-                }
+                //If anything bad happened assume the session is inactive
+                catch { inactive.Add(session.Id); }
 
             }
-            catch { return; }
+
+            //Remove any inactive clients
+            foreach (var id in inactive)
+            {
+                ClientSession cs;
+                if (m_Clients.TryGetValue(id, out cs)) RemoveSession(cs);
+                cs = null;
+            }
         }
 
 
@@ -739,7 +752,7 @@ namespace Media.Rtsp
         /// <param name="state">Reserved</param>
         internal virtual void MaintainServer(object state = null)
         {
-            if (Disposed || m_Maintainer == null || m_StopRequested) return;
+            if (IsDisposed || m_Maintainer == null || m_StopRequested) return;
 
             RestartFaultedStreams(state);
             DisconnectAndRemoveInactiveSessions(state);
@@ -834,6 +847,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void RecieveLoop()
         {
+        Begin:
             try
             {
                 int timeOut;
@@ -843,18 +857,22 @@ namespace Media.Rtsp
                     //If we can accept
                     if (m_Clients.Count < m_MaximumClients)
                     {
+                        //Start acceping with a 0 size buffer
+                        var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
+
                         //Get the timeout from the socket
                         timeOut = m_TcpServerSocket.ReceiveTimeout;
 
                         //If the timeout is infinite only wait for the default
                         if (timeOut <= 0) timeOut = DefaultReceiveTimeout;
 
+                        //The timeout is always half of the total.
                         timeOut /= 2;
 
-                        //Start acceping with a 0 size buffer
-                        var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
+                        //Check for nothing to do.
+                        if (iar == null || iar.CompletedSynchronously) continue;
 
-                        //use the handle to wait for the result
+                        //use the handle to wait for the result which is obtained by calling EndAccept.
                         using (var handle = iar.AsyncWaitHandle)
                         {
                             //Wait half using the event
@@ -874,11 +892,20 @@ namespace Media.Rtsp
             }
             catch (ThreadAbortException)
             {
+                //Stop is now requested
                 m_StopRequested = true;
+
                 //All workers threads which exist now exit.
                 return;
             }
-            catch { throw; }
+            catch(Exception ex)
+            {
+                if (Logger != null) Logger.LogException(ex);
+
+                if (m_StopRequested) return;
+
+                goto Begin;
+            }
         }
 
         #endregion
@@ -894,8 +921,6 @@ namespace Media.Rtsp
             if (ar == null) return;
             
             //The ClientSession created
-            ClientSession created = null;
-            
             try
             {
                 //The Socket needed to create a ClientSession
@@ -931,18 +956,19 @@ namespace Media.Rtsp
                     throw new Exception("This server can only accept connections from Tcp or Udp sockets");
                 }
 
+                //there must be a client socket.
+                if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
+
                 //Make a temporary client (Could move semantics about begin recieve to ClientSession)
-                created = CreateOrObtainSession(clientSocket);
+                var session = CreateOrObtainSession(clientSocket);
+
+                //If there is a logger log the accept
+                if (Logger != null) Logger.Log("Accepted Client: " + session.Id + " @ " + session.Created);
             }
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {
                 //If there is a logger log the exception
-                if (Logger != null)
-                    Logger.LogException(ex);
-
-                ////If a session was created dispose of it
-                //if (created != null)
-                //    created.Disconnect();
+                if (Logger != null) Logger.LogException(ex);
             }
         }
 
@@ -1034,7 +1060,7 @@ namespace Media.Rtsp
                         }
                     }
                 }
-                else//Start to recive again
+                else//Start to recive again (0 byte response may mean connection is closed under tcp.)
                 {
                     //Should send an invalid response..
                     ProcessSendRtspResponse(null, session);
@@ -1053,7 +1079,7 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSend(IAsyncResult ar)
         {
-            if (ar == null || !ar.IsCompleted) return;
+            if (ar == null) return;
             try
             {
                 ClientSession session = (ClientSession)ar.AsyncState;
@@ -1077,10 +1103,15 @@ namespace Media.Rtsp
                         m_Sent += sent;
                     }
 
+                    //Ensure the last receive was completed before starting another one.
+                    if (session.LastRecieve != null && !session.LastRecieve.IsCompleted) return;
+
+                    //Start receiving again
                     session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref remote, new AsyncCallback(ProcessReceive), session);
                 }
-                else
+                else if(session.LastSend == null || session.LastSend.IsCompleted)
                 {                   
+                    //Start sending
                     session.LastSend = session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, remote, new AsyncCallback(ProcessSend), session);
                 }
             }
@@ -1106,6 +1137,7 @@ namespace Media.Rtsp
                 //Ensure we have a session and request
                 if (request == null || session == null)
                 {
+                    //SessionNotFound
                     //We can't identify the request or session
                     return;
                 }
@@ -1114,19 +1146,58 @@ namespace Media.Rtsp
                 if (!request.ContainsHeader(RtspHeaders.CSeq))
                 {
                     ProcessInvalidRtspRequest(session);
+
                     return;
-                }
+                }//only certain requests require a session header but when present it must match the sessionid of the session
+                else if (request.ContainsHeader(RtspHeaders.Session))
+                {
+                    //If the server allows new sockets to control old sessions...
+                    //The Response must be sent to the session given not the session being acted on?
+
+                    //If the given session matched the request
+                    if (session.SessionId != request.GetHeader(RtspHeaders.Session).Trim())
+                    {
+
+                        //If the server DOES NOT ALLOW sessions to be controled from alternate end points.
+                        if (!AllowSessionChangesFromAlternateEndPoints)
+                        {
+                            ProcessInvalidRtspRequest(session);
+
+                            return;
+                        }
+
+                        //Get the correct session
+                        ClientSession correctSession = GetSession(session.SessionId);
+
+                        //If no session could be found then indicate such
+                        if (correctSession == null)
+                        {
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.SessionNotFound);
+
+                            return;
+                        }
+                    }
+
+                    //Would need to handle the case of a new socket by either 
+                    //A) Updated the old sessions socket
+                    //B) Having a Via property on the ClientSession, which when not null would be used and then set to null.
+                    //C) Having a Join method on the the Session which would create a new session with the old id and remove the older sessions.
+                    //  - Would allow the sockets used to control session to be tracked.
+
+                }//Check for out of order or duplicate requests.
                 else if (session.LastRequest != null)
                 {
                     //Duplicate Request
                     if (request.CSeq == session.LastRequest.CSeq)
                     {
                         ProcessSendRtspResponse(null, session);
+
                         return;
-                    }
+                    }//Out of order
                     else if (request.CSeq < session.LastRequest.CSeq)
                     {
                         ProcessInvalidRtspRequest(session);
+
                         return;
                     }
                 }
@@ -1162,10 +1233,9 @@ namespace Media.Rtsp
                 //Thus, RTSP/2.4 is a lower version than RTSP/2.13, which in turn is lower than RTSP/12.3.
                 //Leading zeros SHALL NOT be sent and MUST be ignored by recipients.
 
-                //Version
+                //Version - Should check request.Version != Version and that earlier versions are supprted.
                 if (request.Version > Version)
                 {
-
                     //ConvertToMessage
 
                     ProcessInvalidRtspRequest(session, RtspStatusCode.RtspVersionNotSupported);
@@ -1200,7 +1270,7 @@ namespace Media.Rtsp
                 }
 
                 //From this point if Authrorization is required and the stream exists
-                //The server will responsd with AuthorizationRequired when it should have probably respoded with that at this point.
+                //The server will responsd with AuthorizationRequired when it should NOT have probably respoded with that at this point.
                 //The problem is that RequiredCredentails uses a Uri format by ID.
                 //We could get a stream and then respond accordingly but that is how it currently works and it allows probing of streams which is what not desirable in some cases
                 //Thus we have to use the location of the request and see if RequiredCredentials has anything which matches root.
@@ -1380,15 +1450,14 @@ namespace Media.Rtsp
                            delay      =  *(DIGIT) [ "." *(DIGIT) ]
                          */
 
-                        string timestampHeader = response.GetHeader(RtspHeaders.Timestamp);
-
-                        if(session.LastRequest != null
+                        if(!response.ContainsHeader(RtspHeaders.Timestamp)
                             &&
-                            !string.IsNullOrWhiteSpace(timestampHeader)
+                            session.LastRequest != null
                             &&
-                            !timestampHeader.Contains("delay"))
+                            session.LastRequest.ContainsHeader(RtspHeaders.Timestamp))
                         {
-                            response.AppendOrSetHeader(RtspHeaders.Timestamp, "delay=" + (DateTime.UtcNow - session.LastRequest.Created).TotalSeconds);
+                            //Apparently not joined with ;
+                            response.SetHeader(RtspHeaders.Timestamp, session.LastRequest[RtspHeaders.Timestamp] + "delay=" + (DateTime.UtcNow - session.LastRequest.Created).TotalSeconds);
                         }
 
                         #endregion
