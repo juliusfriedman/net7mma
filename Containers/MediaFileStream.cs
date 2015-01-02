@@ -96,16 +96,16 @@ namespace Media.Container
 
         #region Properties
 
-        public bool Disposed { get { return m_Disposed; } }
+        public bool IsDisposed { get { return m_Disposed; } }
 
-        public Uri Source { get { return Disposed ? null : m_Source; } }
+        public Uri Source { get { return IsDisposed ? null : m_Source; } }
 
-        public override long Position { get { return Disposed ? -1 : m_Position; } set { if (value == m_Position) return; Seek(value, System.IO.SeekOrigin.Begin); } }
+        public override long Position { get { return IsDisposed ? -1 : m_Position; } set { if (value == m_Position) return; Seek(value, System.IO.SeekOrigin.Begin); } }
 
-        public override long Length { get { return Disposed ? -1 : m_Length; } }
+        public override long Length { get { return IsDisposed ? -1 : m_Length; } }
 
         //-1 instead of 0 when disposed?
-        public virtual long Remaining { get { return Disposed ? 0 : m_Length - m_Position; } }
+        public virtual long Remaining { get { return IsDisposed ? 0 : m_Length - m_Position; } }
 
         #endregion
 
@@ -160,7 +160,7 @@ namespace Media.Container
 
         public override void Close()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
             m_Disposed = true;
             m_Position = m_Length = -1;
             m_Source = null;

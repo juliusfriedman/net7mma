@@ -220,13 +220,13 @@ namespace Media.RtpTools
         {
             get
             {
-                if (Disposed) return 0;
+                if (IsDisposed) return 0;
 
                 return (short)Common.Binary.ReadU16(Blob, Pointer, ReverseValues);
             }
             set
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
 
                 Common.Binary.WriteNetwork16(Blob, Pointer, ReverseValues, (ushort)value);
             }
@@ -238,13 +238,13 @@ namespace Media.RtpTools
         {
             get
             {
-                if (Disposed) return 0;
+                if (IsDisposed) return 0;
 
                 return (short)Common.Binary.ReadU16(Blob, Pointer + 2, ReverseValues);
             }
             set
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
                 
                 Common.Binary.WriteNetwork16(Blob, Pointer + 2, ReverseValues, (ushort)value);
 
@@ -258,13 +258,13 @@ namespace Media.RtpTools
         {
             get
             {
-                if (Disposed) return 0;
+                if (IsDisposed) return 0;
 
                 return (int)Common.Binary.ReadU32(Blob, Pointer + 4, ReverseValues);
             }
             set
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
 
                 Common.Binary.WriteNetwork32(Blob, Pointer + 4, ReverseValues, value);
             }

@@ -935,7 +935,7 @@ namespace Media
             /// <summary>
             /// Indicates if there is enough data in the given binary to read the complete source list.
             /// </summary>
-            public bool IsComplete { get { return !Disposed && m_SourceCount * 4 == m_Binary.Count; } }
+            public bool IsComplete { get { return !IsDisposed && m_SourceCount * 4 == m_Binary.Count; } }
 
             uint IEnumerator<uint>.Current
             {
@@ -1030,7 +1030,7 @@ namespace Media
             /// <returns>True if a value was read, otherwise false.</returns>
             public bool MoveNext()
             {
-                if (Disposed) return false;
+                if (IsDisposed) return false;
 
                 //If there is a value to read and the binary data encompasses the required offset.
                 if (m_Read < m_SourceCount && m_CurrentOffset + 4 < m_Binary.Count)
@@ -1118,7 +1118,7 @@ namespace Media
             public sealed override void Dispose()
             {
 
-                if (Disposed) return;
+                if (IsDisposed) return;
 
                 base.Dispose();
 

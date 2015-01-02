@@ -46,5 +46,6 @@ namespace Media.Rtsp.Server
         internal abstract void LogRequest(RtspMessage request, ClientSession session);
         internal abstract void LogResponse(RtspMessage response, ClientSession session);
         internal abstract void LogException(Exception ex);
+        internal abstract void Log(string data);
     }
 }

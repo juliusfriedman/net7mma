@@ -121,7 +121,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 if (RtspClient != null)
                 {
-                    bool wasConnected = RtspClient.Connected;
+                    bool wasConnected = RtspClient.IsConnected;
 
                     if (wasConnected) Stop();
 
@@ -135,7 +135,7 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <summary>
         /// Indicates if the source RtspClient is Connected and has began to receive data via Rtp
         /// </summary>
-        public override bool Ready { get { return base.Ready && RtspClient != null && RtspClient.Playing; } }
+        public override bool Ready { get { return base.Ready && RtspClient != null && RtspClient.IsPlaying; } }
 
         #endregion
 
@@ -187,9 +187,9 @@ namespace Media.Rtsp.Server.MediaTypes
         /// </summary>
         public override void Start()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
 
-            if (!RtspClient.Connected)
+            if (!RtspClient.IsConnected)
             {
                 RtspClient.OnConnect += RtspClient_OnConnect;
                 RtspClient.OnDisconnect += RtspClient_OnDisconnect;
@@ -198,34 +198,39 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.OnStop += RtspClient_OnStop;
                 RtspClient.Connect();
             }
-            else if(!RtspClient.Playing) RtspClient.StartPlaying(MediaStartTime, MediaStartTime, SpecificMediaType);
+            else if(!RtspClient.IsPlaying) RtspClient.StartPlaying(MediaStartTime, MediaStartTime, SpecificMediaType);
         }
 
         void RtspClient_OnStop(RtspClient sender, object args)
         {
-            base.Ready = false;            
+            if (RtspClient.IsPlaying) return;
+
+            Stop();
         }
 
         void RtspClient_OnPlay(RtspClient sender, object args)
         {
-            RtspClient.Client.FrameChangedEventsEnabled = true;
-            base.Ready = true;
+            if (RtspClient.IsPlaying)
+            {
+                RtspClient.Client.FrameChangedEventsEnabled = true;
+                base.Ready = true;
+            }
         }
 
         void RtspClient_OnDisconnect(RtspClient sender, object args)
         {
             base.Ready = false;
+            Stop();
         }
 
         void RtspClient_OnPausing(RtspClient sender, object args)
         {
-            base.Ready = false;
+            base.Ready = RtspClient.IsPlaying;
         }
-
 
         void RtspClient_OnConnect(RtspClient sender, object args)
         {
-            if (RtspClient != sender || RtspClient.Playing) return;
+            if (RtspClient != sender || !RtspClient.IsConnected || RtspClient.IsPlaying) return;
             RtspClient.OnConnect -= RtspClient_OnConnect;
             try
             {
@@ -260,7 +265,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             if (State != StreamState.Started) return;
 
-            if (RtspClient != null && RtspClient.Connected)
+            if (RtspClient != null && RtspClient.IsConnected)
             {                
                 RtspClient.Disconnect();
             }
@@ -277,7 +282,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
            
             base.Dispose();
 

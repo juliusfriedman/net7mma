@@ -123,7 +123,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public override void Dispose()
         {
-            if (Disposed) return;
+            if (IsDisposed) return;
             base.Dispose();
             if (RtpClient != null) RtpClient.Dispose();
         }

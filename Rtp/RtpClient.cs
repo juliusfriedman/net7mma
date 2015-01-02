@@ -661,7 +661,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    if (Disposed || !IsRtcpEnabled) return true;
+                    if (IsDisposed || !IsRtcpEnabled) return true;
 
                     //If disposed no limit is imposed do not check
                     if (MaximumRtcpBandwidthPercentage == 0) return false;
@@ -685,7 +685,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return Disposed || m_FirstPacketSent == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_FirstPacketSent;
+                    return IsDisposed || m_FirstPacketSent == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_FirstPacketSent;
                 }
             }
 
@@ -696,7 +696,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return Disposed || m_FirstPacketReceived == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_FirstPacketReceived;
+                    return IsDisposed || m_FirstPacketReceived == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_FirstPacketReceived;
                 }
             }
 
@@ -830,17 +830,17 @@ namespace Media.Rtp
             /// <summary>
             /// <c>false</c> if LocalRtp.Port NOT EQ LocalRtcp.Port
             /// </summary>
-            public bool LocalMultiplexing { get { return Disposed ? false : LocalRtp.Equals(LocalRtcp); } }
+            public bool LocalMultiplexing { get { return IsDisposed ? false : LocalRtp.Equals(LocalRtcp); } }
 
             /// <summary>
             /// <c>false</c> if RemoteRtp.Port NOT EQ RemoteRtcp.Port
             /// </summary>
-            public bool RemoteMultiplexing { get { return Disposed ? false : RemoteRtp.Equals(RemoteRtcp); } }
+            public bool RemoteMultiplexing { get { return IsDisposed ? false : RemoteRtp.Equals(RemoteRtcp); } }
             
             /// <summary>
             /// <c>false</c> if NOT [RtpEnabled AND RtcpEnabled] AND [LocalMultiplexing OR RemoteMultiplexing]
             /// </summary>
-            public bool Duplexing { get { try { return Disposed ?  false : (IsRtpEnabled && IsRtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
+            public bool Duplexing { get { try { return IsDisposed ?  false : (IsRtpEnabled && IsRtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
 
             /// <summary>
             /// The last <see cref="ReceiversReport"/> sent or received by this RtpClient.
@@ -871,62 +871,62 @@ namespace Media.Rtp
             /// <summary>
             /// The total amount of RtpPackets sent
             /// </summary>
-            public long TotalRtpPacketsSent { get { return Disposed ? 0 : RtpPacketsSent; } }
+            public long TotalRtpPacketsSent { get { return IsDisposed ? 0 : RtpPacketsSent; } }
 
             /// <summary>
             /// The amount of bytes in all rtp packets payloads which have been sent.
             /// </summary>
-            public long RtpPayloadBytesSent { get { return Disposed ? 0 : RtpBytesSent; } }
+            public long RtpPayloadBytesSent { get { return IsDisposed ? 0 : RtpBytesSent; } }
 
             /// <summary>
             /// The amount of bytes in all rtp packets payloads which have been received.
             /// </summary>
-            public long RtpPayloadBytesRecieved { get { return Disposed ? 0 : RtpBytesRecieved; } }
+            public long RtpPayloadBytesRecieved { get { return IsDisposed ? 0 : RtpBytesRecieved; } }
 
             /// <summary>
             /// The total amount of bytes related to Rtp sent (including headers)
             /// </summary>
-            public long TotalRtpBytesSent { get { return Disposed ? 0 : RtpBytesSent + RtpHeader.Length * RtpPacketsSent; } }
+            public long TotalRtpBytesSent { get { return IsDisposed ? 0 : RtpBytesSent + RtpHeader.Length * RtpPacketsSent; } }
 
             /// <summary>
             /// The total amount of bytes related to Rtp received
             /// </summary>
-            public long TotalRtpBytesReceieved { get { return Disposed ? 0 : RtpBytesRecieved + RtpHeader.Length * RtpPacketsSent; } }
+            public long TotalRtpBytesReceieved { get { return IsDisposed ? 0 : RtpBytesRecieved + RtpHeader.Length * RtpPacketsSent; } }
 
             /// <summary>
             /// The total amount of RtpPackets received
             /// </summary>
-            public long TotalRtpPacketsReceieved { get { return Disposed ? 0 : RtpPacketsReceived; } }
+            public long TotalRtpPacketsReceieved { get { return IsDisposed ? 0 : RtpPacketsReceived; } }
 
             /// <summary>
             /// The total amount of RtcpPackets recieved
             /// </summary>
-            public long TotalRtcpPacketsSent { get { return Disposed ? 0 : RtcpPacketsSent; } }
+            public long TotalRtcpPacketsSent { get { return IsDisposed ? 0 : RtcpPacketsSent; } }
 
             /// <summary>
             /// The total amount of sent bytes related to Rtcp 
             /// </summary>
-            public long TotalRtcpBytesSent { get { return Disposed ? 0 : RtcpBytesSent; } }
+            public long TotalRtcpBytesSent { get { return IsDisposed ? 0 : RtcpBytesSent; } }
 
             /// <summary>
             /// The total amount of received bytes (both Rtp and Rtcp) received
             /// </summary>
-            public long TotalBytesReceieved { get { return Disposed ? 0 : TotalRtcpBytesReceieved + TotalRtpBytesReceieved; } }
+            public long TotalBytesReceieved { get { return IsDisposed ? 0 : TotalRtcpBytesReceieved + TotalRtpBytesReceieved; } }
 
             /// <summary>
             /// The total amount of received bytes (both Rtp and Rtcp) sent
             /// </summary>
-            public long TotalBytesSent { get { return Disposed ? 0 : TotalRtcpBytesSent + TotalRtpBytesSent; } }
+            public long TotalBytesSent { get { return IsDisposed ? 0 : TotalRtcpBytesSent + TotalRtpBytesSent; } }
 
             /// <summary>
             /// The total amount of RtcpPackets received
             /// </summary>
-            public long TotalRtcpPacketsReceieved { get { return Disposed ? 0 : RtcpPacketsReceieved; } }
+            public long TotalRtcpPacketsReceieved { get { return IsDisposed ? 0 : RtcpPacketsReceieved; } }
 
             /// <summary>
             /// The total amount of bytes related to Rtcp received
             /// </summary>
-            public long TotalRtcpBytesReceieved { get { return Disposed ? 0 : RtcpBytesRecieved; } }
+            public long TotalRtcpBytesReceieved { get { return IsDisposed ? 0 : RtcpBytesRecieved; } }
 
             /// <summary>            
             /// The sequence number of the last RtpPacket sent or recieved on this channel, if set to 0 the value 1 will be used instead.
@@ -1253,7 +1253,7 @@ namespace Media.Rtp
 
             public void Initialize(IPEndPoint localRtp, IPEndPoint remoteRtp, IPEndPoint localRtcp, IPEndPoint remoteRtcp, bool punchHole = true)
             {
-                if (Disposed || Connected) return;
+                if (IsDisposed || Connected) return;
 
                 if (localRtp.Address.AddressFamily != remoteRtp.Address.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
                 else if (punchHole) punchHole = !Utility.IsOnIntranet(remoteRtp.Address); //Only punch a hole if the remoteIp is not on the LAN by default.
@@ -1277,17 +1277,9 @@ namespace Media.Rtp
                     //http://en.wikipedia.org/wiki/Type_of_service
                     //CS5,EF	40,46	5 :Critical - mainly used for voice RTP
                     //40 || 46 is used for RTP Audio per Wikipedia
-
-                    //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-                    //RtpSocket.Ttl = 255;
-                    //RtpSocket.UseOnlyOverlappedIO = true;
-                    //RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.IpTimeToLive, 255);
-
-                    //RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontRoute, true);
-                    ////RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.UseLoopback, true);
-
-                    //RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.NoChecksum, true);
-
+                    //48 is Internet
+                    RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
+                    
                     //Tell the network stack what we send and receive has an order
                     RtpSocket.DontFragment = true;
                     RtpSocket.MulticastLoopback = false;
@@ -1336,13 +1328,8 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = localRtcp);
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
-                        //RtcpSocket.SendBufferSize = RtcpSocket.ReceiveBufferSize = 0;
-                        //RtcpSocket.Blocking = false;
 
-                        //RtcpSocket.Ttl = 255;
-                        //RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
-
-                        //RtcpSocket.ReceiveTimeout = RtcpSocket.SendTimeout = DefaultReportInterval.Milliseconds;
+                        RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
                         //Tell the network stack what we send and receive has an order
                         RtcpSocket.DontFragment = true;
@@ -1404,7 +1391,7 @@ namespace Media.Rtp
             /// <param name="remote"></param>
             public void Initialize(IPEndPoint local, IPEndPoint remote)
             {
-                if (Disposed || Connected) return;
+                if (IsDisposed || Connected) return;
                 if (local.Address.AddressFamily != remote.Address.AddressFamily) Common.ExceptionExtensions.CreateAndRaiseException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
                 //Erase previously set values on the TransportContext.
                 RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
@@ -1412,9 +1399,14 @@ namespace Media.Rtp
                 {
                     //Setup the RtcpSocket / RtpSocket
                     RtcpSocket = RtpSocket = new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-                    //RtpSocket.Bind(LocalRtp = LocalRtcp = local);
+                    
                     RtpSocket.Connect(RemoteRtp = RemoteRtcp = remote);
+
                     LocalRtp = LocalRtcp = RtpSocket.LocalEndPoint;
+
+                    //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
+                    RtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+
                 }
                 catch
                 {
@@ -1490,7 +1482,7 @@ namespace Media.Rtp
             /// </summary>
             public void DisconnectSockets()
             {
-                if (!Connected || Disposed) return;
+                if (!Connected || IsDisposed) return;
 
                 //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
                 if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0)
@@ -1544,9 +1536,9 @@ namespace Media.Rtp
             /// </summary>
             public override void Dispose()
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
 
-                Disposed = true;
+                IsDisposed = true;
 
                 DisconnectSockets();
             }
@@ -1555,7 +1547,7 @@ namespace Media.Rtp
 
             IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
             {
-                if (Disposed) yield break;
+                if (IsDisposed) yield break;
 
                 yield return RtpSocket;
 
@@ -1578,11 +1570,14 @@ namespace Media.Rtp
         internal Thread m_WorkerThread;
         internal bool m_StopRequested;
 
-        //Outgoing Packets, Not a Queue because you cant re-order a Queue and you can't take a range from the Queue
+        //Outgoing Packets, Not a Queue because you cant re-order a Queue (in place) and you can't take a range from the Queue (in a single operation)
+        //Those things aside, ordering is not performed here and only single packets are iterated and would eliminate the need for removing after the operation.
+        //Benchmark with Queue and ConcurrentQueue and a custom impl.
         internal List<RtpPacket> m_OutgoingRtpPackets = new List<RtpPacket>();
         internal List<RtcpPacket> m_OutgoingRtcpPackets = new List<RtcpPacket>();
 
         //Unless I missed something that damn HashSet is good for nothing except hashing.
+        //The list also allows duplicates if required.
         internal IList<TransportContext> TransportContexts = new List<TransportContext>();
 
         internal readonly Guid m_Id = Guid.NewGuid();
@@ -1637,7 +1632,7 @@ namespace Media.Rtp
         protected internal virtual void HandleIncomingRtcpPacket(object rtpClient, RtcpPacket packet)
         {
             //Determine if the packet can be handled
-            if (!IncomingPacketEventsEnabled || Disposed || packet == null || packet.Disposed) return;
+            if (!IncomingPacketEventsEnabled || IsDisposed || packet == null || packet.IsDisposed) return;
 
             //Got a packet to handle
             //Raise an event for the packet received
@@ -1746,7 +1741,7 @@ namespace Media.Rtp
         protected internal virtual void HandleIncomingRtpPacket(object/*RtpClient*/ sender, RtpPacket packet)
         {
             //Determine if the incoming packet should be handled
-            if (!IncomingPacketEventsEnabled || Disposed || packet == null || packet.Disposed) return;
+            if (!IncomingPacketEventsEnabled || IsDisposed || packet == null || packet.IsDisposed) return;
 
             //Fire an event now to let subscribers know a packet has arrived
             OnRtpPacketReceieved(packet);
@@ -1901,7 +1896,7 @@ namespace Media.Rtp
         /// <param name="packet"></param>
         protected internal virtual void HandleRtpPacketSent(object sender, RtpPacket packet)
         {
-            if (Disposed || packet == null || !packet.Transferred.HasValue) return;
+            if (IsDisposed || packet == null || !packet.Transferred.HasValue) return;
 
             TransportContext transportContext = GetContextForPacket(packet);
 
@@ -1935,7 +1930,7 @@ namespace Media.Rtp
         protected internal virtual void HandleRtcpPacketSent(object sender, RtcpPacket packet)
         {
 
-            if (Disposed || packet == null || !packet.Transferred.HasValue) return;
+            if (IsDisposed || packet == null || !packet.Transferred.HasValue) return;
 
             TransportContext transportContext = GetContextForPacket(packet);
 
@@ -1968,7 +1963,7 @@ namespace Media.Rtp
 
         protected internal void OnInterleavedData(byte[] data, int offset, int length)
         {
-            if (!Disposed && InterleavedData != null)
+            if (!IsDisposed && InterleavedData != null)
             {
                 foreach (InterleaveHandler handler in InterleavedData.GetInvocationList())
                 {
@@ -1987,7 +1982,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtpPacketReceieved(RtpPacket packet)
         {
-            if (!Disposed && IncomingPacketEventsEnabled && RtpPacketReceieved != null)
+            if (!IsDisposed && IncomingPacketEventsEnabled && RtpPacketReceieved != null)
             {
                 foreach (RtpPacketHandler handler in RtpPacketReceieved.GetInvocationList())
                 {
@@ -2006,7 +2001,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtcpPacketReceieved(RtcpPacket packet)
         {
-            if (!Disposed && IncomingPacketEventsEnabled && RtcpPacketReceieved != null)
+            if (!IsDisposed && IncomingPacketEventsEnabled && RtcpPacketReceieved != null)
             {
                 foreach (RtcpPacketHandler handler in RtcpPacketReceieved.GetInvocationList())
                 {
@@ -2025,7 +2020,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtpPacketSent(RtpPacket packet)
         {
-            if (!Disposed) RtpPacketSent(this, packet);
+            if (!IsDisposed) RtpPacketSent(this, packet);
         }
 
         /// <summary>
@@ -2034,7 +2029,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         internal void OnRtcpPacketSent(RtcpPacket packet)
         {
-            if (!Disposed) RtcpPacketSent(this, packet);
+            if (!IsDisposed) RtcpPacketSent(this, packet);
         }
 
         /// <summary>
@@ -2043,7 +2038,7 @@ namespace Media.Rtp
         /// <param name="frame">The frame to raise the RtpFrameHandler with</param>
         internal void OnRtpFrameChanged(RtpFrame frame)
         {
-            if (!Disposed && FrameChangedEventsEnabled && RtpFrameChanged != null)
+            if (!IsDisposed && FrameChangedEventsEnabled && RtpFrameChanged != null)
             {
                 foreach (RtpFrameHandler handler in RtpFrameChanged.GetInvocationList())
                 {
@@ -2095,7 +2090,7 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if the RtpClient is not disposed and the WorkerThread is alive.
         /// </summary>
-        public virtual bool Connected { get { return !Disposed && m_WorkerThread != null && m_WorkerThread.IsAlive; } }
+        public virtual bool Connected { get { return !IsDisposed && m_WorkerThread != null && m_WorkerThread.IsAlive; } }
 
         /// <summary>
         /// Gets a value which indicates if any underlying <see cref="RtpClient.TransportContext"/> owned by this RtpClient instance utilizes Rtcp.
@@ -2114,7 +2109,7 @@ namespace Media.Rtp
         {
             get
             {
-                if (!RtcpEnabled || Disposed) return true;
+                if (!RtcpEnabled || IsDisposed) return true;
 
                 //If disposed no limit is imposed do not check
                 if (AverageMaximumRtcpBandwidthPercentage == 0) return false;
@@ -2152,52 +2147,52 @@ namespace Media.Rtp
         /// <summary>
         /// The total amount of RtpPackets sent of all contained TransportContexts
         /// </summary>
-        public long TotalRtpPacketsSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpPacketsSent); } }
+        public long TotalRtpPacketsSent { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.RtpPacketsSent); } }
 
         /// <summary>
         /// The total amount of Rtp bytes sent of all contained TransportContexts
         /// </summary>
-        public long TotalRtpBytesSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.TotalRtpBytesSent); } }
+        public long TotalRtpBytesSent { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.TotalRtpBytesSent); } }
 
         /// <summary>
         /// The total amount of Rtp bytes received of all contained TransportContexts
         /// </summary>
-        public long TotalRtpBytesReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.TotalRtpBytesReceieved); } }
+        public long TotalRtpBytesReceieved { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.TotalRtpBytesReceieved); } }
 
         /// <summary>
         /// The total amount of Rtp packets received of all contained TransportContexts
         /// </summary>
-        public long TotalRtpPacketsReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtpPacketsReceived); } }
+        public long TotalRtpPacketsReceieved { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.RtpPacketsReceived); } }
 
         /// <summary>
         /// The total amount of Rtcp packets sent of all contained TransportContexts
         /// </summary>
-        public long TotalRtcpPacketsSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtcpPacketsSent); } }
+        public long TotalRtcpPacketsSent { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.RtcpPacketsSent); } }
 
         /// <summary>
         /// The total amount of Rtcp bytes sent of all contained TransportContexts
         /// </summary>
-        public long TotalRtcpBytesSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtcpBytesSent); } }
+        public long TotalRtcpBytesSent { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.RtcpBytesSent); } }
 
         /// <summary>
         /// The total amount of bytes received of all contained TransportContexts
         /// </summary>
-        public long TotalBytesReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.TotalBytesReceieved); } }
+        public long TotalBytesReceieved { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.TotalBytesReceieved); } }
 
         /// <summary>
         /// The total amount of bytes sent of all contained TransportContexts
         /// </summary>
-        public long TotalBytesSent { get { return Disposed ? 0 : TransportContexts.Sum(c => c.TotalBytesSent); } }
+        public long TotalBytesSent { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.TotalBytesSent); } }
 
         /// <summary>
         /// The total amount of Rtcp packets received of all contained TransportContexts
         /// </summary>
-        public long TotalRtcpPacketsReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtcpPacketsReceieved); } }
+        public long TotalRtcpPacketsReceieved { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.RtcpPacketsReceieved); } }
 
         /// <summary>
         /// The total amount of Rtcp bytes received of all contained TransportContexts
         /// </summary>
-        public long TotalRtcpBytesReceieved { get { return Disposed ? 0 : TransportContexts.Sum(c => c.RtcpBytesRecieved); } }
+        public long TotalRtcpBytesReceieved { get { return IsDisposed ? 0 : TransportContexts.Sum(c => c.RtcpBytesRecieved); } }
 
         #endregion
 
@@ -2306,7 +2301,7 @@ namespace Media.Rtp
         /// <returns>The <see cref="TransportContexts"/> used by this instance.</returns>
         public virtual IEnumerable<TransportContext> GetTransportContexts()
         {
-            if (Disposed) return Enumerable.Empty<TransportContext>();
+            if (IsDisposed) return Enumerable.Empty<TransportContext>();
             try
             {
                 return TransportContexts.DefaultIfEmpty();
@@ -2332,7 +2327,7 @@ namespace Media.Rtp
 
             foreach (TransportContext tc in TransportContexts)
             {
-                if (!tc.Disposed && tc.IsRtcpEnabled && SendReports(tc))
+                if (!tc.IsDisposed && tc.IsRtcpEnabled && SendReports(tc))
                 {
                     sentAny = true;
                 }
@@ -2355,7 +2350,7 @@ namespace Media.Rtp
         internal protected virtual int SendGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null)
         {
 
-            if (Disposed || context.RtcpSocket.Handle.ToInt32() <= 0 || context.SynchronizationSourceIdentifier == 0 || context.TotalPacketsSent + context.TotalPacketsReceived == 0) return 0;
+            if (IsDisposed || context.RtcpSocket.Handle.ToInt32() <= 0 || context.SynchronizationSourceIdentifier == 0 || context.TotalPacketsSent + context.TotalPacketsReceived == 0) return 0;
 
             //Make a Goodbye, indicate version in Client, allow reason for leaving 
             //Todo add other parties where null with SourceList
@@ -2389,7 +2384,7 @@ namespace Media.Rtp
         /// </summary>
         public virtual void SendSendersReports()
         {
-            if (!Disposed && !m_StopRequested) foreach (TransportContext tc in TransportContexts) SendSendersReport(tc);
+            if (!IsDisposed && !m_StopRequested) foreach (TransportContext tc in TransportContexts) SendSendersReport(tc);
         }
 
         /// <summary>
@@ -2400,7 +2395,7 @@ namespace Media.Rtp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal protected virtual int SendSendersReport(TransportContext context)
         {
-            if (context == null || !context.IsRtcpEnabled || context.Disposed) return 0;
+            if (context == null || !context.IsRtcpEnabled || context.IsDisposed) return 0;
 
             //Ensure the SynchronizationSourceIdentifier of the transportChannel is assigned
             if (context.SynchronizationSourceIdentifier == 0)
@@ -2422,7 +2417,7 @@ namespace Media.Rtp
         /// </summary>
         public virtual void SendReceiversReports()
         {
-            if (!Disposed && !m_StopRequested) foreach (TransportContext tc in TransportContexts) SendReceiversReport(tc);
+            if (!IsDisposed && !m_StopRequested) foreach (TransportContext tc in TransportContexts) SendReceiversReport(tc);
         }
 
         /// <summary>
@@ -2432,7 +2427,7 @@ namespace Media.Rtp
         /// <param name="context">The context</param>
         internal protected virtual int SendReceiversReport(TransportContext context)
         {
-            if (context == null || !context.IsRtcpEnabled || context.Disposed || context.RtpBytesSent > 0) return 0;
+            if (context == null || !context.IsRtcpEnabled || context.IsDisposed || context.RtpBytesSent > 0) return 0;
             //Ensure the SynchronizationSourceIdentifier of the transportChannel is assigned
             else if (context.SynchronizationSourceIdentifier == 0)
             {
@@ -2456,27 +2451,27 @@ namespace Media.Rtp
         /// <returns>The context which was identified or null if no context was found.</returns>
         internal protected virtual TransportContext GetContextBySourceId(int sourceId)
         {
-            if (Disposed) return null;
+            if (IsDisposed) return null;
             try
             {
                 foreach (RtpClient.TransportContext tc in TransportContexts)
                     if (tc != null && tc.SynchronizationSourceIdentifier == sourceId || tc.RemoteSynchronizationSourceIdentifier == sourceId) return tc;
             }
             catch (InvalidOperationException) { return GetContextBySourceId(sourceId); }
-            catch { if (!Disposed) throw; }
+            catch { if (!IsDisposed) throw; }
             return null;
         }
 
         internal protected virtual TransportContext GetContextByChannel(byte channel)
         {
-            if (Disposed) return null;
+            if (IsDisposed) return null;
             try
             {
                 foreach (RtpClient.TransportContext tc in TransportContexts)
                     if (tc.DataChannel == channel || tc.ControlChannel == channel) return tc;
             }
             catch (InvalidOperationException) { return GetContextByChannel(channel); }
-            catch { if (!Disposed) throw; }
+            catch { if (!IsDisposed) throw; }
             return null;
         }
 
@@ -2487,24 +2482,24 @@ namespace Media.Rtp
         /// <returns></returns>
         internal protected virtual TransportContext GetContextForPacket(RtcpPacket packet)
         {
-            if (Disposed) return null;
+            if (IsDisposed) return null;
             //Determine based on reading the packet this is where a RtcpReport class would be useful to allow reading the Ssrc without knownin the details about the type of report
             try { return GetContextBySourceId(packet.SynchronizationSourceIdentifier); }
             catch (InvalidOperationException) { return GetContextForPacket(packet); }
-            catch { if (!Disposed) throw; }
+            catch { if (!IsDisposed) throw; }
             return null;
         }
 
         public virtual void EnquePacket(RtcpPacket packet)
         {
-            if (Disposed || m_StopRequested || packet == null || packet.Disposed) return;
+            if (IsDisposed || m_StopRequested || packet == null || packet.IsDisposed) return;
             m_OutgoingRtcpPackets.Add(packet);
         }
 
         public virtual int SendRtcpPackets(IEnumerable<RtcpPacket> packets)
         {
 
-            if (Disposed || packets == null || packets.Count() == 0) return 0;
+            if (IsDisposed || packets == null || packets.Count() == 0) return 0;
 
             TransportContext context = GetContextForPacket(packets.First());
 
@@ -2563,7 +2558,7 @@ namespace Media.Rtp
         internal virtual bool SendReports(TransportContext context)
         {
             //Check for the stop signal (or disposal)
-            if (m_StopRequested || Disposed ||  //Otherwise
+            if (m_StopRequested || IsDisposed ||  //Otherwise
                 !context.IsRtcpEnabled
                 || //Or Rtcp Bandwidth for this context or RtpClient has been exceeded
                 context.RtcpBandwidthExceeded || AverageRtcpBandwidthExceeded) return false; //No reports can be sent.
@@ -2616,7 +2611,7 @@ namespace Media.Rtp
         {
             bool inactive = false;
 
-            if (Disposed || m_StopRequested || context.LastRtpPacketReceived < context.m_ReceiveInterval || context.LastRtcpReportReceived < context.m_ReceiveInterval)
+            if (IsDisposed || m_StopRequested || context.LastRtpPacketReceived < context.m_ReceiveInterval || context.LastRtcpReportReceived < context.m_ReceiveInterval)
             {
                 return false;
             }
@@ -2697,17 +2692,17 @@ namespace Media.Rtp
         /// <param name="packet">The packet to enqueue</param> (used to take the RtpCLient too but we can just check the packet payload type
         public void EnquePacket(RtpPacket packet)
         {
-            if (Disposed || m_StopRequested || packet == null || packet.Disposed) return;
+            if (IsDisposed || m_StopRequested || packet == null || packet.IsDisposed) return;
             //Add a the packet to the outgoing
             m_OutgoingRtpPackets.Add(packet);
         }
 
         //Packets in the m_OutgoingRtpPackets list should be joined into a size which is appropraite for the network underlying MTU
 
-        public void EnqueFrame(RtpFrame frame) { if (frame == null || frame.Disposed) return; foreach (RtpPacket packet in frame) EnquePacket(packet); }
+        public void EnqueFrame(RtpFrame frame) { if (frame == null || frame.IsDisposed) return; foreach (RtpPacket packet in frame) EnquePacket(packet); }
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public void SendRtpFrame(RtpFrame frame) { if (frame == null || frame.Disposed) return; foreach (RtpPacket packet in frame) SendRtpPacket(packet); }
+        public void SendRtpFrame(RtpFrame frame) { if (frame == null || frame.IsDisposed) return; foreach (RtpPacket packet in frame) SendRtpPacket(packet); }
 
         /// <summary>
         /// Sends a RtpPacket to the connected client.
@@ -2792,7 +2787,7 @@ namespace Media.Rtp
         /// </summary>
         public void Disconnect()
         {
-            if (Disposed || !Connected) return;
+            if (IsDisposed || !Connected) return;
 
             SendGoodbyes();
 
@@ -2895,7 +2890,7 @@ namespace Media.Rtp
         {
             error = SocketError.SocketError;
             //Check there is valid data and a socket which is able to write and that the RtpClient is not stopping
-            if (Disposed || data == null || socket == null || socket.Handle.ToInt64() <= 0) return 0;
+            if (IsDisposed || data == null || socket == null || socket.Handle.ToInt64() <= 0) return 0;
             try
             {
                 int sent = 0, length = 0;
@@ -2986,7 +2981,7 @@ namespace Media.Rtp
             error = SocketError.Success;
 
             //Ensure the socket can poll
-            if (Disposed || m_StopRequested || socket == null || socket.Handle.ToInt64() <= 0 || m_Buffer.Disposed) return 0;
+            if (IsDisposed || m_StopRequested || socket == null || socket.Handle.ToInt64() <= 0 || m_Buffer.IsDisposed) return 0;
 
             bool tcp = socket.ProtocolType == ProtocolType.Tcp;
 
@@ -3067,7 +3062,7 @@ namespace Media.Rtp
             int remainingOnSocket = 0;
 
             //Handle receiving when no $ and Channel is presenent... e.g. RFC4751
-            while (!Disposed && offset < bufferLength && remainingInBuffer > 0)
+            while (!IsDisposed && offset < bufferLength && remainingInBuffer > 0)
             {
                 //If a header can be read
                 if (remainingInBuffer >= InterleavedOverhead)
@@ -3212,7 +3207,7 @@ namespace Media.Rtp
                     SocketError error = SocketError.SocketError;
 
                     //Get all the remaining data
-                    while (!Disposed && remainingOnSocket > 0)
+                    while (!IsDisposed && remainingOnSocket > 0)
                     {
                         //Recieve from the wire the amount of bytes required (up to the length of the buffer)
                         int recievedFromWire = socket == null ? 0 : Utility.AlignedReceive(buffer, offset, remainingOnSocket, socket, out error);
@@ -3247,7 +3242,7 @@ namespace Media.Rtp
                 }
 
                 //If there any data in the frame and there is a relevent context
-                if (!Disposed && frameLength > 0)
+                if (!IsDisposed && frameLength > 0)
                 {
                     //If there was a context
                     if (relevent != null)
@@ -3417,7 +3412,7 @@ namespace Media.Rtp
                         TransportContext tc = TransportContexts[i];
 
                         //Check for a context which is able to receive data
-                        if (tc == null || tc.Disposed || !tc.Connected
+                        if (tc == null || tc.IsDisposed || !tc.Connected
                             ||//If the context does not have continious media it must only receive data for the duration of the media.
                             !tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero) continue;
 
@@ -3503,7 +3498,7 @@ namespace Media.Rtp
                             TransportContext sendContext = GetContextForPacket(packet);
 
                             //Don't send packets which are disposed but do remove them
-                            if (packet == null || packet.Disposed || sendContext == null)
+                            if (packet == null || packet.IsDisposed || sendContext == null)
                             {
                                 ++remove;
                                 continue;
@@ -3547,7 +3542,7 @@ namespace Media.Rtp
         public override void Dispose()
         {
 
-            if (Disposed) return;
+            if (IsDisposed) return;
 
             Disconnect();
 
@@ -3580,15 +3575,15 @@ namespace Media.Rtp
             DisableFeedbackReports(this);
         }
 
-        IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads() { return Disposed ? null : Utility.Yield(m_WorkerThread); }
+        IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads() { return IsDisposed ? null : Utility.Yield(m_WorkerThread); }
 
         IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {
-            if (Disposed) yield break;
+            if (IsDisposed) yield break;
 
             foreach (TransportContext tc in TransportContexts)
             {
-                if (tc.Disposed) continue;
+                if (tc.IsDisposed) continue;
                 foreach (Socket referenced in ((Common.ISocketReference)tc).GetReferencedSockets())
                 {
                     yield return referenced;

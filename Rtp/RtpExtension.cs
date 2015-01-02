@@ -84,8 +84,8 @@ namespace Media.Rtp
         /// </summary>
         public ushort Flags
         {
-            get { if (Disposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian); }
-            protected set { if (Disposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, value); }
+            get { if (IsDisposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian); }
+            protected set { if (IsDisposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>
@@ -93,8 +93,8 @@ namespace Media.Rtp
         /// </summary>
         public ushort LengthInWords
         {
-            get { if (Disposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian); }
-            protected set { if (Disposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, value); }
+            get { if (IsDisposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian); }
+            protected set { if (IsDisposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>
@@ -103,18 +103,18 @@ namespace Media.Rtp
         /// </summary>
         public IEnumerable<byte> Data
         {
-            get { if (Disposed) return Utility.Empty; return m_MemorySegment.Array.Skip(m_MemorySegment.Offset + MinimumSize).Take(Math.Min(LengthInWords * 4, m_MemorySegment.Count)); }
+            get { if (IsDisposed) return Utility.Empty; return m_MemorySegment.Array.Skip(m_MemorySegment.Offset + MinimumSize).Take(Math.Min(LengthInWords * 4, m_MemorySegment.Count)); }
         }
 
         /// <summary>
         /// Gets a value indicating if there is enough binary data required for the length indicated in the `LengthInWords` property.
         /// </summary>
-        public bool IsComplete { get { if (Disposed) return false; return m_MemorySegment.Count >= Size; } }
+        public bool IsComplete { get { if (IsDisposed) return false; return m_MemorySegment.Count >= Size; } }
 
         /// <summary>
         /// Gets the size in bytes of this RtpExtension including the Flags and LengthInWords fields.
         /// </summary>
-        public int Size { get { if (Disposed) return 0; return (ushort)(MinimumSize + LengthInWords * 4); } }
+        public int Size { get { if (IsDisposed) return 0; return (ushort)(MinimumSize + LengthInWords * 4); } }
 
         #endregion
 

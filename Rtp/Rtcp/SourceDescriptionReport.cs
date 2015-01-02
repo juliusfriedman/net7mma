@@ -546,7 +546,7 @@ namespace Media.Rtcp
             /// </summary>
             public override void Dispose()
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
 
                 base.Dispose();
 
@@ -565,7 +565,7 @@ namespace Media.Rtcp
             public bool MoveNext()
             {
                 //If the enumerator is disposed or AtEndOfList is true
-                if (!Disposed && !AtEndOfList && ChunkData.Count() - ChunkDataOffset >= SourceDescriptionItem.ItemHeaderSize)
+                if (!IsDisposed && !AtEndOfList && ChunkData.Count() - ChunkDataOffset >= SourceDescriptionItem.ItemHeaderSize)
                 {
 
                     //Generate a sequence of data contained in the chunk
@@ -611,7 +611,7 @@ namespace Media.Rtcp
             /// </summary>
             public void Reset()
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
                 ChunkDataOffset = 0;
             }
 
@@ -624,7 +624,7 @@ namespace Media.Rtcp
             {
                 if (destination == null) throw new ArgumentNullException("destination");
 
-                if (Disposed) return false;
+                if (IsDisposed) return false;
 
                 try
                 {
@@ -643,7 +643,7 @@ namespace Media.Rtcp
             /// <returns>null if the instance has already been disposed otherwise a IList containing the SourceDescriptionItem contained in this SourceDescriptionItemList.</returns>
             public IList<SourceDescriptionItem> ToList()
             {
-                if (Disposed) return null;
+                if (IsDisposed) return null;
 
                 IList<SourceDescriptionItem> result = new List<SourceDescriptionItem>();
 

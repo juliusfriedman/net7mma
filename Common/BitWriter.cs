@@ -69,7 +69,7 @@ namespace Media.Common
         
         public long Seek(long offset, System.IO.SeekOrigin origin)
         {
-            if (Disposed || m_Source == null || !m_Source.CanSeek) return -1;
+            if (IsDisposed || m_Source == null || !m_Source.CanSeek) return -1;
             return m_StreamPosition = m_Source.Seek(offset, origin);
         }
 
@@ -128,7 +128,7 @@ namespace Media.Common
             //Write remaining bits
             Flush();
 
-            if (Disposed) return;
+            if (IsDisposed) return;
 
             base.Dispose();
 

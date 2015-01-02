@@ -14,7 +14,7 @@ namespace Media.Container
         /// <summary>
         /// Indicates if the instance was disposed.
         /// </summary>
-        bool Disposed { get; }
+        bool IsDisposed { get; }
 
         /// <summary>
         /// The Uri which describes the location of the data contained in this IMediaContainer

@@ -194,7 +194,7 @@ namespace Tests
         {
             try
             {
-                if (Client == null || !Client.Connected) return;
+                if (Client == null || !Client.IsConnected) return;
 
                 var x = DateTime.UtcNow - LastDrawTime;
 
@@ -234,12 +234,12 @@ namespace Tests
         public void UpdateRtsp(Media.Rtsp.RtspMessage p)
         {
 
-            if (Client == null || Client.Disposed) return;
+            if (Client == null || Client.IsDisposed) return;
 
             textBox2.AppendText("@" + p.Created.ToUniversalTime().ToString() + " - " + p.ToString() + Environment.NewLine);
 
 
-            if (Client.Playing)
+            if (Client.IsPlaying)
             {
                 button1.Text = "(Playing)STOP";
 
@@ -267,7 +267,7 @@ namespace Tests
         void sender_OnDisconnect(RtspClient sender, object args)
         {
 
-            if (sender == null || sender.Disposed) return;
+            if (sender == null || sender.IsDisposed) return;
 
             sender.Client.RtpPacketReceieved -= ShowRtpPacket;
             sender.Client.RtcpPacketReceieved -= ShowRtcpPacket;

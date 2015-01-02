@@ -41,34 +41,60 @@ using System.Text;
 
 namespace Media.Rtsp.Server
 {
-    public class RtspServerDebuggingLogger : RtspServerLogger
+    public class RtspServerConsoleLogger : RtspServerLogger
     {
         public string Format = "{0} {1} {2} {3} {4}\r\n";
 
+        public ConsoleColor RequestColor = ConsoleColor.Cyan, ResponseColor = ConsoleColor.DarkCyan, ExceptionColor = ConsoleColor.Red, NormalColor = ConsoleColor.Green;
+
         internal override void LogRequest(RtspMessage request, ClientSession session)
         {
-            try { System.Diagnostics.Debug.WriteLine(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null)); }
+            ConsoleColor previous = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = RequestColor;
+                System.Console.WriteLine(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null));
+            }
             catch { throw; }
+            finally { Console.ForegroundColor = previous; }
         }
 
         internal override void LogResponse(RtspMessage response, ClientSession session)
         {
-
-            try { System.Diagnostics.Debug.WriteLine(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null)); }
+            ConsoleColor previous = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = ResponseColor;
+                System.Console.WriteLine(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null));
+            }
             catch { throw; }
+            finally { Console.ForegroundColor = previous; }
         }
 
         internal override void LogException(Exception ex)
         {
-            try{ System.Diagnostics.Debug.WriteLine(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));}
+            ConsoleColor previous = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = ExceptionColor;
+                System.Console.WriteLine(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));
+            }
             catch { throw; }
+            finally { Console.ForegroundColor = previous; }
+                
         }
 
         internal override void Log(string data)
         {
             if (string.IsNullOrWhiteSpace(data)) return;
-            try { System.Diagnostics.Debug.WriteLine(data); }
+            ConsoleColor previous = Console.ForegroundColor;
+            try
+            {
+                Console.ForegroundColor = NormalColor;
+                System.Console.WriteLine(data);
+            }
             catch { throw; }
+            finally { Console.ForegroundColor = previous; }
         }
     }
 }

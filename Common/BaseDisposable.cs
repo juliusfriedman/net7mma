@@ -68,7 +68,7 @@ namespace Media.Common
         /// <summary>
         /// Indicates if Dispose has been called previously.
         /// </summary>
-        public virtual bool Disposed { get; protected set; }
+        public virtual bool IsDisposed { get; protected set; }
 
         /// <summary>
         /// Indicates if the instance should dispose any resourced when disposed.
@@ -78,7 +78,7 @@ namespace Media.Common
         /// <summary>
         /// Throws an ObjectDisposedException if Disposed is true.
         /// </summary>
-        protected void CheckDisposed() { if (Disposed) throw new ObjectDisposedException(GetType().Name); }
+        protected void CheckDisposed() { if (IsDisposed) throw new ObjectDisposedException(GetType().Name); }
 
         /// <summary>
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
@@ -88,10 +88,10 @@ namespace Media.Common
         public virtual void Dispose()
         {
             //If already disposed return
-            if (Disposed) return;
+            if (IsDisposed) return;
 
             //Mark the instance disposed
-            Disposed = true;
+            IsDisposed = true;
 
             //Do not call the finalizer
             GC.SuppressFinalize(this);

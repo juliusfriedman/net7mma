@@ -64,7 +64,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 
                 //Determine if the forbidden bit is set and the type of nal from the first byte
-                byte firstByte = packet.Payload[packet.NonPayloadOctets];
+                byte firstByte = packet.Payload[packet.HeaderOctets];
 
                 byte nalUnitType = (byte)(firstByte & Common.Binary.FiveBitMaxValue);
 

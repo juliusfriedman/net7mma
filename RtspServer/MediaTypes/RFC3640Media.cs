@@ -169,7 +169,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
 
                     //From the beginning of the data in the actual payload
-                    int offset = rtp.NonPayloadOctets, 
+                    int offset = rtp.HeaderOctets, 
                         max = rtp.Payload.Count - rtp.PaddingOctets, //until the end of the actual payload
                         auIndex = 0, //Indicates the serial number of the associated Access Unit
                         auIndexDelta = 0; //The AU-Index-delta field is an unsigned integer that specifies the serial number of the associated AU as the difference with respect to the serial number of the previous Access Unit.
@@ -353,7 +353,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public override void Dispose()
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
                 base.Dispose();
                 DisposeBuffer();
             }
