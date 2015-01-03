@@ -611,7 +611,7 @@ namespace Media.Rtp
                 //Jitter value
                 RtpJitter;
 
-            internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval, m_InactiveTime = TimeSpan.Zero,m_StartTime = TimeSpan.Zero, m_EndTime = Utility.InfiniteTimeSpan;
+            internal TimeSpan m_SendInterval = DefaultReportInterval, m_ReceiveInterval = DefaultReportInterval, m_InactiveTime = Utility.InfiniteTimeSpan,m_StartTime = TimeSpan.Zero, m_EndTime = Utility.InfiniteTimeSpan;
 
             //When packets are succesfully transferred the DateTime (utc) is copied in these variables and will reflect the point in time in which  the last 
             internal DateTime m_FirstPacketReceived, m_FirstPacketSent, m_LastRtcpIn, m_LastRtcpOut,  //Rtcp packets were received and sent
@@ -690,7 +690,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return IsDisposed || m_FirstPacketSent == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_FirstPacketSent;
+                    return IsDisposed || m_FirstPacketSent == DateTime.MinValue ? Utility.InfiniteTimeSpan : DateTime.UtcNow - m_FirstPacketSent;
                 }
             }
 
@@ -701,7 +701,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return IsDisposed || m_FirstPacketReceived == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_FirstPacketReceived;
+                    return IsDisposed || m_FirstPacketReceived == DateTime.MinValue ? Utility.InfiniteTimeSpan : DateTime.UtcNow - m_FirstPacketReceived;
                 }
             }
 
@@ -764,7 +764,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return m_LastRtcpOut == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_LastRtcpOut;
+                    return m_LastRtcpOut == DateTime.MinValue ? Utility.InfiniteTimeSpan : DateTime.UtcNow - m_LastRtcpOut;
                 }
             }
 
@@ -775,7 +775,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return m_LastRtcpIn == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_LastRtcpIn;
+                    return m_LastRtcpIn == DateTime.MinValue ? Utility.InfiniteTimeSpan : DateTime.UtcNow - m_LastRtcpIn;
                 }
             }
 
@@ -786,7 +786,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return m_LastRtpIn == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_LastRtpIn;
+                    return m_LastRtpIn == DateTime.MinValue ? Utility.InfiniteTimeSpan : DateTime.UtcNow - m_LastRtpIn;
                 }
             }
 
@@ -797,7 +797,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return m_LastRtpOut == DateTime.MinValue ? TimeSpan.Zero : DateTime.UtcNow - m_LastRtpOut;
+                    return m_LastRtpOut == DateTime.MinValue ? Utility.InfiniteTimeSpan : DateTime.UtcNow - m_LastRtpOut;
                 }
             }
 
@@ -1040,7 +1040,7 @@ namespace Media.Rtp
                 NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(packet.Transferred ?? packet.Created);
 
                 //Context is not inactive.
-                m_InactiveTime = TimeSpan.Zero;
+                m_InactiveTime = Utility.InfiniteTimeSpan;
             }
 
             /// <summary>
@@ -1501,13 +1501,18 @@ namespace Media.Rtp
 
                 LocalRtp = LocalRtcp = RemoteRtp = RemoteRtcp = null;
 
-                if (LeaveOpen) return;
+                if (LeaveOpen)
+                {
+                    RtpSocket = RtcpSocket = null;
+                }
+                else
+                {
+                    //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
+                    if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0) RtcpSocket.Close();
 
-                //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
-                if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0) RtcpSocket.Close();
-
-                //Close the RtpSocket
-                if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0) RtpSocket.Close();
+                    //Close the RtpSocket
+                    if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0) RtpSocket.Close();
+                }
 
                 m_FirstPacketReceived = DateTime.MinValue;
 
@@ -1704,7 +1709,7 @@ namespace Media.Rtp
             transportContext.m_LastRtcpIn = packet.Created;
 
             //The context is active.
-            transportContext.m_InactiveTime = TimeSpan.Zero;
+            transportContext.m_InactiveTime = Utility.InfiniteTimeSpan;
 
             unchecked
             {
@@ -1964,7 +1969,7 @@ namespace Media.Rtp
             }
 
             //Mark the context as active immediately.
-            transportContext.m_InactiveTime = TimeSpan.Zero;
+            transportContext.m_InactiveTime = Utility.InfiniteTimeSpan;
 
             //Get the time the packet was sent
             DateTime sent = packet.Transferred.Value;
@@ -2590,7 +2595,7 @@ namespace Media.Rtp
             IEnumerable<RtcpPacket> compound = Enumerable.Empty<RtcpPacket>();
 
             //If the last reports were sent in less time than alloted by the m_SendInterval
-            if (context.LastRtcpReportSent == TimeSpan.Zero || context.LastRtcpReportSent > context.m_SendInterval)
+            if (context.LastRtcpReportSent == Utility.InfiniteTimeSpan || context.LastRtcpReportSent > context.m_SendInterval)
             {
                 //If Rtp data was sent then send a Senders Report.
                 if (context.RtpPacketsSent > 0)
@@ -2630,15 +2635,17 @@ namespace Media.Rtp
         {
             bool inactive = false;
 
-            if (IsDisposed || m_StopRequested || context.LastRtpPacketReceived < context.m_ReceiveInterval || context.LastRtcpReportReceived < context.m_ReceiveInterval)
+            if (IsDisposed || m_StopRequested || context.LastRtpPacketReceived != Utility.InfiniteTimeSpan && context.LastRtpPacketReceived < context.m_ReceiveInterval || context.LastRtcpReportReceived != Utility.InfiniteTimeSpan && context.LastRtcpReportReceived < context.m_ReceiveInterval)
             {
                 return false;
             }
 
             //Calulcate for the currently inactive time period
             if (context.Goodbye == null 
-                && 
-                (context.IsRtcpEnabled && context.LastRtcpReportReceived > context.m_ReceiveInterval) || (context.IsRtpEnabled && !context.IsContinious && Uptime > context.MediaEndTime))
+                &&
+                (context.IsRtcpEnabled && context.LastRtcpReportReceived != Utility.InfiniteTimeSpan && context.LastRtcpReportReceived > context.m_ReceiveInterval)
+                ||
+                (context.IsRtpEnabled && !context.IsContinious && Uptime > context.MediaEndTime && context.LastRtpPacketReceived != Utility.InfiniteTimeSpan && context.LastRtpPacketReceived < context.m_ReceiveInterval))
             {
                 //Set the amount of time inactive
                 context.m_InactiveTime = DateTime.UtcNow - lastActivity;
@@ -3467,7 +3474,7 @@ namespace Media.Rtp
                         if (rtcpEnabled)
                         {
                             if (//The last report was never received or recieved longer ago then required
-                                (tc.LastRtcpReportReceived == TimeSpan.Zero || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)
+                                (tc.LastRtcpReportReceived == Utility.InfiniteTimeSpan || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)
                                 &&//And the socket can read
                                 tc.RtcpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
                             {

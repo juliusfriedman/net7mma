@@ -141,6 +141,11 @@ namespace Media.Rtsp
 
         public Socket RtspSocket { get { return m_RtspSocket; } internal set { m_RtspSocket = value; if (m_RtspSocket != null && m_RtspSocket.RemoteEndPoint != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint; } }
 
+        /// <summary>
+        /// Gets or sets a value which indicates if the socket will be closed when Dispose is called.
+        /// </summary>
+        public bool LeaveOpen { get; set; }
+
         #endregion
 
         #region Constructor
@@ -331,7 +336,7 @@ namespace Media.Rtsp
             try
             {
                 //Get rid of any attachment this ClientSession had
-                foreach (var source in Attached.Values)
+                foreach (var source in Attached.Values.ToList())
                 {
                     RemoveSource(source);
                 }
@@ -342,7 +347,7 @@ namespace Media.Rtsp
                     try
                     {
                         //Ensure the bytes were completely sent..
-                        int sent = m_RtspSocket.EndSendTo(LastSend);
+                        m_Sent  += m_RtspSocket.EndSendTo(LastSend);
                     }
                     catch { }
                 }
@@ -355,7 +360,7 @@ namespace Media.Rtsp
                         //Take note of whre we are receiving from
                         EndPoint inBound = RemoteEndPoint;
 
-                        int received = m_RtspSocket.EndReceiveFrom(LastRecieve, ref inBound);
+                        m_Receieved += m_RtspSocket.EndReceiveFrom(LastRecieve, ref inBound);
                     }
                     catch { }
                 }
@@ -372,22 +377,20 @@ namespace Media.Rtsp
                     m_RtpClient = null;
                 }
 
-                if (m_RtspSocket != null)
-                {
-                    m_RtspSocket.Shutdown(SocketShutdown.Both);
-                    m_RtspSocket.Dispose();
-                    m_RtspSocket = null;
-                }
-
                 if (m_Buffer != null)
                 {
                     m_Buffer.Dispose();
                     m_Buffer = null;
                 }
 
+                if (!LeaveOpen && m_RtspSocket != null)
+                {
+                    m_RtspSocket.Shutdown(SocketShutdown.Both);
+                    m_RtspSocket.Dispose();
+                    m_RtspSocket = null;
+                }
             }
             catch { return; }
-            
         }
 
         /// <summary>
