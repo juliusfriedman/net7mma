@@ -174,13 +174,56 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || !IsComplete || Payload.Count == 0) return Utility.Empty;
+                if (IsDisposed || Payload.Count == 0) return Utility.Empty;
+
                 int nonPayloadOctets = HeaderOctets;
-                return Payload.Skip(nonPayloadOctets).Take(Payload.Count - nonPayloadOctets - PaddingOctets);
+
+                return Payload.Skip(nonPayloadOctets).Take(IsComplete ? Payload.Count - (nonPayloadOctets + PaddingOctets) : -1);
             }
         }
 
-        //AddDataToPayload
+        public IEnumerable<byte> PaddingData
+        {
+            get
+            {
+                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Utility.Empty;
+
+                return Payload.Reverse().Take(PaddingOctets).Reverse();
+            }
+        }
+
+        /// <summary>
+        /// Copies the given octets to the Payload before any Padding and calls <see cref="SetLengthInWordsMinusOne"/>.
+        /// </summary>
+        /// <param name="octets">The octets to add</param>
+        /// <param name="offset">The offset to start copying</param>
+        /// <param name="count">The amount of bytes to copy</param>
+        internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset, int count)
+        {
+            //Build a seqeuence from the existing octets and the data in the ReportBlock
+
+            //If there are existing owned octets (which may include padding)
+            if (Padding)
+            {
+                //Determine the amount of bytes in the payload
+                int payloadCount = Payload.Count,
+                    //Determine the padding octets offset
+                    paddingOctets = PaddingOctets,
+                    //Determine the amount of octets in the payload
+                    payloadOctets = payloadCount - paddingOctets;
+
+                //The owned octets is a projection of the Payload existing, without the padding combined with the given octets from offset to count and subsequently the paddingOctets after the payload
+                m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset)).Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
+            }
+            else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
+            else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
+
+            //Create a pointer to the owned octets.
+            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+
+            //Return
+            return;
+        }
 
         #endregion
 
