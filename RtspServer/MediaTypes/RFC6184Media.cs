@@ -614,6 +614,9 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Make the width and height correct
                     using (var thumb = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
                     {
+                        //Ensure the transformation will work.
+                        if (thumb.PixelFormat != System.Drawing.Imaging.PixelFormat.Format32bppArgb) throw new NotSupportedException("Only ARGB is currently supported.");
+
                         //Create a new frame
                         var newFrame = new RFC6184Frame(96);
 
@@ -624,10 +627,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         //MUST Convert the bitmap to yuv420
                         //switch on image.PixelFormat
                         //Utility.YUV2RGBManaged()
-                        // Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
+                        //Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
                         //etc
 
-                        byte[] yuv = Utility.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);//new byte[thumb.Width * thumb.Height];
+                        byte[] yuv = Utility.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);
 
                         ((System.Drawing.Bitmap)image).UnlockBits(data);
 

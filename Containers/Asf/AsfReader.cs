@@ -499,53 +499,83 @@ namespace Media.Containers.Asf
         {
             using (var contentDescription = ReadObject(Identifier.ContentDescriptionObject, Root.DataOffset))
             {
-                if(contentDescription != null)
+                if(contentDescription != null && contentDescription.DataSize > 2)
                 {
-                    int offset = 0, len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
-                    offset += 2;
+                    int offset = 2, len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian), remaining = (int)contentDescription.DataSize;
+                    remaining -= 2;
 
-                    if (len > 0)
+                    if (remaining > 0 && len > 0)
                     {
+                        len = Utility.Clamp(len, 0, remaining);
                         m_Title = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
+                        remaining -= len;
                     }
                     else m_Title = string.Empty;
 
-                    len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
-                    offset += 2;
-
-                    if (len > 0)
+                    if (remaining > 1)
                     {
+                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        offset += 2;
+                        remaining -= 2;
+                    }
+                    else len = 0;
+
+                    if (remaining > 0 && len > 0)
+                    {
+                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Author = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
+                        remaining -= len;
                     }
                     else m_Author = string.Empty;
 
-                    len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
-                    offset += 2;
-
-                    if (len > 0)
+                    if (remaining > 1)
                     {
+                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        offset += 2;
+                        remaining -= 2;
+                    }
+                    else len = 0; 
+
+                    if (remaining > 0 && len > 0)
+                    {
+                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Copyright = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
+                        remaining -= len;
                     }
                     else m_Copyright = string.Empty;
 
-                    len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
-                    offset += 2;
+                    if (remaining > 1)
+                    {
+                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        offset += 2;
+                        remaining -= 2;
+                    }
+                    else len = 0; 
 
                     if (len > 0)
                     {
+                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Comment = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
+                        offset += len;
+                        remaining -= len;
                     }
                     else m_Comment = string.Empty;
 
-                    len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
-                    offset += 2;
-
-                    if (len > 0)
+                    if (remaining > 1)
                     {
+                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        offset += 2;
+                        remaining -= 2;
+                    }
+                    else len = 0;
+
+                    if (remaining > 0 && len > 0)
+                    {
+                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Rating = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
                     }

@@ -1033,7 +1033,7 @@ namespace Media.Rtsp
                 if (!request.ContainsHeader(RtspHeaders.CSeq)) request.CSeq = NextClientSequenceNumber();
 
                 //Set the Timestamp header if not already set to the amount of seconds since the connection started.
-                if (!request.ContainsHeader(RtspHeaders.Timestamp)) request.SetHeader(RtspHeaders.Timestamp, (DateTime.UtcNow - m_EndConnect.Value).TotalSeconds.ToString("0.0"));
+                if (!request.ContainsHeader(RtspHeaders.Timestamp)) request.SetHeader(RtspHeaders.Timestamp, (DateTime.UtcNow - m_EndConnect ?? Utility.InfiniteTimeSpan).TotalSeconds.ToString("0.0"));
 
                 //Use any additional headers if given
                 if (AdditionalHeaders.Count > 0) foreach (var additional in AdditionalHeaders) request.AppendOrSetHeader(additional.Key, additional.Value);
@@ -1976,24 +1976,23 @@ namespace Media.Rtsp
                 //Only perform these actions if playing anything.
                 if (IsPlaying)
                 {
-                    
-
                     //Raise events for ended media.
                     foreach (var context in Client.GetTransportContexts())
                     {
-                        if (context.IsContinious || context.TimeReceiving < context.MediaEndTime) continue;
+                        if (context.IsDisposed || context.IsContinious || context.TimeReceiving < context.MediaEndTime) continue;
 
                         //Remove from the playing media and if it was contained raise an event.
                         if (m_Playing.Remove(context.MediaDescription)) OnStopping(context.MediaDescription);
                     }
 
+                    //Iterate items played
                     foreach (var media in m_Playing)
                     {
                         //Get a context
                         var context = Client.GetContextForMediaDescription(media);
 
                         //If there is a context ensure it has not ended and has recieved data within the context receive interval.
-                        if (context != null && context.IsDisposed || (context.Goodbye != null && context.LastRtpPacketReceived < context.ReceiveInterval) || context.IsContinious || context.TimeReceiving < context.MediaEndTime) continue;
+                        if (context != null && !context.IsDisposed || (context.Goodbye != null && context.LastRtpPacketReceived != Utility.InfiniteTimeSpan && context.LastRtpPacketReceived < context.ReceiveInterval)) continue;
 
                         //Remove from the playing media and if it was contained raise an event.
                         if (m_Playing.Remove(media)) OnStopping(media);

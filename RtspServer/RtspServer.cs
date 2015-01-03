@@ -91,7 +91,10 @@ namespace Media.Rtsp
         /// </summary>
         Socket m_TcpServerSocket, m_UdpServerSocket;
 
-        int m_MaximumClients = 1024;
+        /// <summary>
+        /// The maximum number of clients allowed to be connected at one time.
+        /// </summary>
+        int m_MaximumClients = short.MaxValue; //32767
 
         /// <summary>
         /// The version of the Rtsp protocol in use by the server
@@ -997,8 +1000,10 @@ namespace Media.Rtsp
             //In UDP all connections are such
 
             //Iterate clients looking for the socket handle
-            foreach (ClientSession cs in Clients.ToArray())
+            foreach (ClientSession cs in Clients.ToList())
             {
+                if (cs == null) continue;
+
                 //If there is already a socket then use that one
                 if (cs.RemoteEndPoint == rtspSocket.RemoteEndPoint)
                 {
@@ -1229,17 +1234,20 @@ namespace Media.Rtsp
                         //If there is a logger then log the change in end point.
                         if (Logger != null) Logger.Log("Client Id:" + correctSession.Id + ", RtspSocket is being updated and RemoteEndPoint is chaning From: " + correctSession.RemoteEndPoint + ", To: " + session.RemoteEndPoint + ", Removing new SessionId:" + session.Id);
 
+                        //Leave the session open when disposing.
+                        session.LeaveOpen = true;
+
                         //Update the RemoteEndPoint of the session
                         correctSession.RemoteEndPoint = session.RemoteEndPoint;
-
-                        //Don't disconnect this rtsp socket, it will be used by the old session
-                        session.RtspSocket = null;
 
                         //remove the newly created session because the old session will be used.
                         RemoveSession(session);
 
                         //update the value of session
                         session = correctSession;
+
+                        //Don't leave this session's socket open anymore
+                        session.LeaveOpen = false;
                     }
                 }//Check for out of order or duplicate requests.
                 else if (session.LastRequest != null)
