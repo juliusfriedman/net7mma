@@ -618,13 +618,18 @@ namespace Media.Rtp
                 m_LastRtpIn, m_LastRtpOut; //Rtp packets were received and sent
 
             /// <summary>
-            /// Keeps track of any failures which occur when sending data.
+            /// Keeps track of any failures which occur when sending or receieving data.
             /// </summary>
-            internal protected int m_FailedRtpTransmissions, m_FailedRtcpTransmissions;
+            internal protected int m_FailedRtpTransmissions, m_FailedRtcpTransmissions, m_FailedRtpReceptions, m_FailedRtcpReceptions;
 
             #endregion
 
             #region Properties
+
+            /// <summary>
+            /// Gets or Sets a value which indicates if the Rtp and Rtcp Sockets should be Disposed when Dispose is called.
+            /// </summary>
+            public bool LeaveOpen { get; set; }
 
             //Any frames for this channel
             public RtpFrame CurrentFrame { get; internal protected set; }
@@ -802,9 +807,19 @@ namespace Media.Rtp
             public int FailedRtcpTransmissions { get { return m_FailedRtcpTransmissions; } }
 
             /// <summary>
-            /// Indicates the amount of times a failure has occured when senidng RtpPackets
+            /// Indicates the amount of times a failure has occured when sending RtpPackets
             /// </summary>
             public int FailedRtpTransmissions { get { return m_FailedRtpTransmissions; } }
+
+            /// <summary>
+            /// Indicates the amount of times a failure has occured when receiving RtcpPackets
+            /// </summary>
+            public int FailedRtcpReceptions { get { return m_FailedRtcpReceptions; } }
+
+            /// <summary>
+            /// Indicates the amount of times a failure has occured when receiving RtpPackets
+            /// </summary>
+            public int FailedRtpReceptions { get { return m_FailedRtpReceptions; } }
 
             /// <summary>
             /// Corresponds to the ID used by remote systems to identify this TransportContext, a table might be necessary if you want to use a different id in different places
@@ -1484,17 +1499,18 @@ namespace Media.Rtp
             {
                 if (!Connected || IsDisposed) return;
 
-                //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
-                if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0)
-                        RtcpSocket.Close();
-
-                //Close the RtpSocket
-                if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0)
-                    RtpSocket.Close();
-
                 LocalRtp = LocalRtcp = RemoteRtp = RemoteRtcp = null;
 
+                if (LeaveOpen) return;
+
+                //For Udp the RtcpSocket may be the same socket as the RtpSocket if the sender/reciever is duplexing
+                if (RtcpSocket != null && RtpSocket.Handle != RtcpSocket.Handle && RtcpSocket.Handle.ToInt64() > 0) RtcpSocket.Close();
+
+                //Close the RtpSocket
+                if (RtpSocket != null && RtpSocket.Handle.ToInt64() > 0) RtpSocket.Close();
+
                 m_FirstPacketReceived = DateTime.MinValue;
+
                 m_FirstPacketSent = DateTime.MinValue;
             }
 
@@ -1905,6 +1921,7 @@ namespace Media.Rtp
             unchecked
             {
                 //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
+                //http://www.rfc-editor.org/errata_search.php?rfc=3550
                 transportContext.RtpBytesSent += packet.Payload.Count;
 
                 ++transportContext.RtpPacketsSent;
@@ -1963,15 +1980,17 @@ namespace Media.Rtp
 
         protected internal void OnInterleavedData(byte[] data, int offset, int length)
         {
-            if (!IsDisposed && InterleavedData != null)
+            if (!IsDisposed)
             {
-                foreach (InterleaveHandler handler in InterleavedData.GetInvocationList())
+
+                InterleaveHandler action = InterleavedData;
+
+                if (action == null) return;
+
+                foreach (InterleaveHandler handler in action.GetInvocationList())
                 {
-                    try
-                    {
-                        handler(this, data, offset, length);
-                    }
-                    catch { }
+                    try { handler(this, data, offset, length); }
+                    catch { continue; }
                 }
             }
         }
@@ -1982,15 +2001,16 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtpPacketReceieved(RtpPacket packet)
         {
-            if (!IsDisposed && IncomingPacketEventsEnabled && RtpPacketReceieved != null)
+            if (!IsDisposed && IncomingPacketEventsEnabled)
             {
-                foreach (RtpPacketHandler handler in RtpPacketReceieved.GetInvocationList())
+                RtpPacketHandler action = RtpPacketReceieved;
+
+                if (action == null) return;
+
+                foreach (RtpPacketHandler handler in action.GetInvocationList())
                 {
-                    try
-                    {
-                        handler(this, packet);
-                    }
-                    catch { }
+                    try { handler(this, packet); }
+                    catch { continue; }
                 }
             }
         }
@@ -2001,15 +2021,37 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtcpPacketReceieved(RtcpPacket packet)
         {
-            if (!IsDisposed && IncomingPacketEventsEnabled && RtcpPacketReceieved != null)
+            if (!IsDisposed && IncomingPacketEventsEnabled)
             {
-                foreach (RtcpPacketHandler handler in RtcpPacketReceieved.GetInvocationList())
+
+                RtcpPacketHandler action = RtcpPacketReceieved;
+
+                if (action == null) return;
+
+                foreach (RtcpPacketHandler handler in action.GetInvocationList())
                 {
-                    try
-                    {
-                        handler(this, packet);
-                    }
-                    catch { }
+                    try { handler(this, packet); }
+                    catch { continue; }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Raises the RtpFrameHandler for the given frame if FrameEvents are enabled
+        /// </summary>
+        /// <param name="frame">The frame to raise the RtpFrameHandler with</param>
+        internal void OnRtpFrameChanged(RtpFrame frame)
+        {
+            if (!IsDisposed && FrameChangedEventsEnabled)
+            {
+                RtpFrameHandler action = RtpFrameChanged;
+
+                if (action == null) return;
+
+                foreach (RtpFrameHandler handler in action.GetInvocationList())
+                {
+                    try { handler(this, frame); }
+                    catch { continue; }
                 }
             }
         }
@@ -2030,29 +2072,6 @@ namespace Media.Rtp
         internal void OnRtcpPacketSent(RtcpPacket packet)
         {
             if (!IsDisposed) RtcpPacketSent(this, packet);
-        }
-
-        /// <summary>
-        /// Raises the RtpFrameHandler for the given frame if FrameEvents are enabled
-        /// </summary>
-        /// <param name="frame">The frame to raise the RtpFrameHandler with</param>
-        internal void OnRtpFrameChanged(RtpFrame frame)
-        {
-            if (!IsDisposed && FrameChangedEventsEnabled && RtpFrameChanged != null)
-            {
-                foreach (RtpFrameHandler handler in RtpFrameChanged.GetInvocationList())
-                {
-                    try
-                    {
-                        handler(this, frame);
-                        //new Thread(new ThreadStart(() =>
-                        //{
-                        //    handler(this, frame);
-                        //})).Start();
-                    }
-                    catch { }
-                }
-            }
         }
 
         #endregion
@@ -3160,8 +3179,17 @@ namespace Media.Rtp
                             //Decrease by a word.
                             remainingInBuffer -= InterleavedOverhead;
 
+                            //If there was a context associated then increment for failed receptions based on the packet type.
+                            if (relevent != null)
+                            {
+                                if (expectRtp) ++relevent.m_FailedRtpReceptions;
+
+                                if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
+                            }
+
                             //Do another pass
                             continue;
+
                         } //Very small frames like this don't belong to rtp unless compression is being used.
                         else if (frameLength <= 6)
                         {
@@ -3430,6 +3458,9 @@ namespace Media.Rtp
                             //Receive RtpData
                             receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, out lastError, rtpEnabled, duplexing);
                             if (receivedRtp > 0) lastOperation = DateTime.UtcNow;
+
+                            if (lastError != SocketError.Success) ++tc.m_FailedRtpReceptions;
+
                         }
 
                         //if Rtcp is enabled
@@ -3443,6 +3474,8 @@ namespace Media.Rtp
                                 //ReceiveRtcp Data
                                 receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, out lastError, duplexing, rtcpEnabled);
                                 if (receivedRtcp > 0) lastOperation = DateTime.UtcNow;
+
+                                if (lastError != SocketError.Success) ++tc.m_FailedRtcpReceptions;
                             }
 
                             //Try to send reports for the latest packets or continue if inactive
@@ -3451,7 +3484,7 @@ namespace Media.Rtp
                         }
                     }
 
-                    //If there are no contexts or no outgoing packets
+                    //If there are no outgoing packets
                     if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
                         //yield the time slice

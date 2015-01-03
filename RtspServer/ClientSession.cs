@@ -101,7 +101,7 @@ namespace Media.Rtsp
         //Buffer for data
         internal Common.MemorySegment m_Buffer;
 
-        //Sockets
+        //Rtsp Socket
         internal Socket m_RtspSocket;
 
         //The last response sent to this client session
@@ -112,8 +112,12 @@ namespace Media.Rtsp
 
         internal byte[] m_SendBuffer;
 
+        internal bool m_Disconnected;
+
         //Use the m_RtpClient to determine if Bandwidth is exceeded and Buffer packets until not exceeded.
         //internal double MaximumBandwidth = 0;
+        
+        internal EndPoint RemoteEndPoint;
 
         #endregion
 
@@ -133,8 +137,10 @@ namespace Media.Rtsp
             }
         }
 
-        public readonly EndPoint RemoteEndPoint;
-           
+        public bool Disconnected { get { return m_Disconnected; } internal set { m_Disconnected = value; } }
+
+        public Socket RtspSocket { get { return m_RtspSocket; } internal set { m_RtspSocket = value; if (m_RtspSocket != null && m_RtspSocket.RemoteEndPoint != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint; } }
+
         #endregion
 
         #region Constructor

@@ -485,8 +485,26 @@ namespace Media.Rtcp
         /// <summary>
         /// Gets the data of the RtcpPacket without any padding.
         /// </summary>
-        public IEnumerable<byte> RtcpData { get { return Payload.Array.Skip(Payload.Offset).Take(Payload.Count - PaddingOctets); } }
-        
+         public IEnumerable<byte> RtcpData
+         {
+             get
+             {
+                 if (IsDisposed || Payload.Count == 0) return Utility.Empty;
+
+                 return Payload.Array.Skip(Payload.Offset).Take(IsComplete ? Payload.Count - PaddingOctets  : -1);
+             }
+         }
+
+        public IEnumerable<byte> PaddingData
+        {
+            get
+            {
+                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Utility.Empty;
+
+                return Payload.Reverse().Take(PaddingOctets).Reverse();
+            }
+        }
+
         /// <summary>
         /// Provides the logic for cloning a RtcpPacket instance.
         /// The RtcpPacket class does not have a Copy Constructor because of the variations in which a RtcpPacket can be cloned.

@@ -648,17 +648,19 @@ namespace Media.Rtsp
 
             List<Guid> inactive = new List<Guid>();
 
+            //obtian a session while looking for clients.
+            ClientSession session;
+
+            //Iterate the id of each connected client
             foreach (Guid sessionId in m_Clients.Keys.ToList())
             {
-
-                ClientSession session;
-
+                //If the session is not in the dictionary then it cannot be removed.
                 if (!m_Clients.TryGetValue(sessionId, out session)) continue;
 
                 try
                 {
                     //Check for inactivity
-                    if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && !session.m_RtspSocket.Connected
+                    if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.Disconnected || !session.m_RtspSocket.Connected
                         ||
                         session.Attached.Count() == 0 && session.LastResponse == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
                         ||
@@ -670,17 +672,32 @@ namespace Media.Rtsp
                         continue;
                     }
                 }
-                //If anything bad happened assume the session is inactive
+                
+                    //If anything bad happened assume the session is inactive
                 catch { inactive.Add(session.Id); }
 
+                //Remove the reference to the session
+                session = null;
             }
 
             //Remove any inactive clients
             foreach (var id in inactive)
             {
-                ClientSession cs;
-                if (m_Clients.TryGetValue(id, out cs)) RemoveSession(cs);
-                cs = null;
+                //If a session was obtained by the id.
+                if (m_Clients.TryGetValue(id, out session))
+                {
+                    RemoveSession(session);
+
+                    //If session is not null
+                    if (session != null)
+                    {
+                        //Ensure it was disposed
+                        if (!session.IsDisposed) session.Dispose();
+
+                        //Remove the reference to the ession
+                        session = null;
+                    }
+                }
             }
         }
 
@@ -1026,6 +1043,15 @@ namespace Media.Rtsp
                 //Declare how much was recieved
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
+                //Determine if endpoint changes are allowed.
+                if (!IPEndPoint.Equals(inBound, session.RemoteEndPoint) && !AllowSessionChangesFromAlternateEndPoints)
+                {
+                    //Then this request is invalid (keep the session)
+                    ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, "Session EndPoint Changes Not Allowed.");
+
+                    return;
+                }
+
                 //If we received anything
                 if (received > 0)
                 {
@@ -1060,8 +1086,17 @@ namespace Media.Rtsp
                         }
                     }
                 }
-                else//Start to recive again (0 byte response may mean connection is closed under tcp.)
+                else
                 {
+                    
+                    //Ensure 0 byte responses are handled properly.
+                    if (received == 0 && session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                    {
+                        session.Disconnected = true;
+
+                        return;
+                    }
+
                     //Should send an invalid response..
                     ProcessSendRtspResponse(null, session);
                 }
@@ -1157,12 +1192,13 @@ namespace Media.Rtsp
                     //If the given session matched the request
                     if (session.SessionId != request.GetHeader(RtspHeaders.Session).Trim())
                     {
-
                         //If the server DOES NOT ALLOW sessions to be controled from alternate end points.
                         if (!AllowSessionChangesFromAlternateEndPoints)
                         {
-                            ProcessInvalidRtspRequest(session);
+                            //Then this request is invalid (keep the session)
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, "Session EndPoint Changes Not Allowed.");
 
+                            //return
                             return;
                         }
 
@@ -1176,14 +1212,35 @@ namespace Media.Rtsp
 
                             return;
                         }
+
+                        //If the correctSession has not disconnected then this is not allowed.
+                        if (!correctSession.Disconnected) 
+                        {
+                            correctSession = null;
+
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, "Existing Session Still Connected.");
+
+                            return;
+                        }
+
+                        //Set the RtspSocket of the correctSession to the RtspSocket of the new session.
+                        correctSession.RtspSocket = session.RtspSocket;
+
+                        //If there is a logger then log the change in end point.
+                        if (Logger != null) Logger.Log("Client Id:" + correctSession.Id + ", RtspSocket is being updated and RemoteEndPoint is chaning From: " + correctSession.RemoteEndPoint + ", To: " + session.RemoteEndPoint + ", Removing new SessionId:" + session.Id);
+
+                        //Update the RemoteEndPoint of the session
+                        correctSession.RemoteEndPoint = session.RemoteEndPoint;
+
+                        //Don't disconnect this rtsp socket, it will be used by the old session
+                        session.RtspSocket = null;
+
+                        //remove the newly created session because the old session will be used.
+                        RemoveSession(session);
+
+                        //update the value of session
+                        session = correctSession;
                     }
-
-                    //Would need to handle the case of a new socket by either 
-                    //A) Updated the old sessions socket
-                    //B) Having a Via property on the ClientSession, which when not null would be used and then set to null.
-                    //C) Having a Join method on the the Session which would create a new session with the old id and remove the older sessions.
-                    //  - Would allow the sockets used to control session to be tracked.
-
                 }//Check for out of order or duplicate requests.
                 else if (session.LastRequest != null)
                 {
@@ -1331,6 +1388,11 @@ namespace Media.Rtsp
                             ProcessSetParameter(request, session);
                             break;
                         }
+                    case RtspMethod.REDIRECT: //Client can't redirect a server
+                        {
+                            ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest);
+                            break;
+                        }
                     case RtspMethod.UNKNOWN:
                     default:
                         {                            
@@ -1430,7 +1492,7 @@ namespace Media.Rtsp
 
                         if (!response.ContainsHeader(RtspHeaders.Server)) response.SetHeader(RtspHeaders.Server, ServerName);
 
-                        //if (!response.ContainsHeader(RtspHeaders.Date)) response.SetHeader(RtspHeaders.Date, ...);
+                        if (!response.ContainsHeader(RtspHeaders.Date)) response.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
 
                         #region RFC2326 12.38 Timestamp / Delay
 
@@ -1494,10 +1556,10 @@ namespace Media.Rtsp
         /// <param name="ci">The client session to send the response on</param>
         /// <param name="code">The status code of the response if other than BadRequest</param>
         //Should allow a header to be put into the response or a KeyValuePair<string,string> headers
-        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest)
+        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, string body = null)
         {
             //Create and Send the response
-            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code) : new RtspMessage(RtspMessageType.Response) { StatusCode = code }, session);
+            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code) : new RtspMessage(RtspMessageType.Response) { StatusCode = code, Body = body }, session);
         }
 
         internal void ProcessInvalidRtspRequest(RtspMessage response, ClientSession session) { ProcessSendRtspResponse(response, session); }

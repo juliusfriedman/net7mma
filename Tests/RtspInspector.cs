@@ -71,6 +71,8 @@ namespace Tests
                     if (comboBox2.SelectedIndex == 1) Client.AuthenticationScheme = System.Net.AuthenticationSchemes.Digest;
                 }
 
+                Client.DisableKeepAliveRequest = checkBox1.Checked;
+
                 Client.OnConnect += client_OnConnect;
 
                 ClientThreadProc = new Thread(Client.Connect);
@@ -113,7 +115,8 @@ namespace Tests
             if (request != null && response != null)
             {
 
-                if (checkBox1.Checked) Client.KeepAliveTimeout = TimeSpan.Zero;
+                //Disable keep alives if indicated
+                Client.DisableKeepAliveRequest = checkBox1.Checked;
 
                 if (this.InvokeRequired)
                 {
