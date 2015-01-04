@@ -209,7 +209,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspServer is listening for requests on the ServerPort
         /// </summary>
-        public bool Listening { get { return m_ServerThread != null && m_ServerThread.ThreadState.HasFlag(ThreadState.Running); } }
+        public bool Listening { get { return m_ServerThread != null && m_ServerThread.IsAlive; } }
 
         /// <summary>
         /// The port in which the RtspServer is listening for requests
@@ -667,9 +667,7 @@ namespace Media.Rtsp
                         ||
                         session.Attached.Count() == 0 && session.LastResponse == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
                         ||
-                        session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout
-                        ||
-                        session.Attached.Count() == 0 && session.LastRequest != null && session.LastRequest.Method == RtspMethod.TEARDOWN && session.LastResponse.StatusCode == RtspStatusCode.OK)
+                        session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout)
                     {
                         inactive.Add(session.Id);
                         continue;

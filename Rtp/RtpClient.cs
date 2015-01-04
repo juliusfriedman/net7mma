@@ -3464,6 +3464,7 @@ namespace Media.Rtp
                         {
                             //Receive RtpData
                             receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, out lastError, rtpEnabled, duplexing);
+                            
                             if (receivedRtp > 0) lastOperation = DateTime.UtcNow;
 
                             if (lastError != SocketError.Success) ++tc.m_FailedRtpReceptions;
@@ -3480,6 +3481,7 @@ namespace Media.Rtp
                             {
                                 //ReceiveRtcp Data
                                 receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, out lastError, duplexing, rtcpEnabled);
+                                
                                 if (receivedRtcp > 0) lastOperation = DateTime.UtcNow;
 
                                 if (lastError != SocketError.Success) ++tc.m_FailedRtcpReceptions;

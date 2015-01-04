@@ -586,6 +586,18 @@ namespace Tests
                 },
                 new
                 {
+                    Uri = "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", //Single media item
+                    Creds = new System.Net.NetworkCredential("admin", "admin"),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://118.70.125.33/mediainput/h264", //Single media item
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
                     Uri = "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", //Single media item
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
@@ -599,7 +611,6 @@ namespace Tests
 
             })
             {
-
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
 
             TestStart:

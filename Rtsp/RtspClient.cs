@@ -1648,16 +1648,22 @@ namespace Media.Rtsp
                         }
                         else if (m_RtpProtocol != ProtocolType.Tcp) goto SetupTcp;
 
-                        //and initialize the client from the RtspSocket depdning on if the source is on the same server as the existing connection
-                        if (IPAddress.Equals(sourceIp, ((IPEndPoint)m_RemoteRtsp).Address))
+                        //If the source address contains the NAT IpAddress or the source is the same then just use the source.
+                        if (Utility.IsOnIntranet(sourceIp) || IPAddress.Equals(sourceIp, ((IPEndPoint)m_RemoteRtsp).Address))
                         {
                             //Create from the existing socket
                             created.Initialize(m_RtspSocket);
-                            
+
                             //Don't close this socket when disposing.
                             created.LeaveOpen = true;
                         }
-                        else created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort); //Might have to come from source string?
+                        else
+                        {
+                            created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort); //Might have to come from source string?
+
+                            //Don't close this socket when disposing.
+                            created.LeaveOpen = true;
+                        }
 
                         //Todo
                         //Care should be taken that the SDP is not directing us to connect to some unknown resource....
