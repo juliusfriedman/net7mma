@@ -145,7 +145,11 @@ namespace Media.Rtsp.Server.MediaTypes
             : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize, specificMedia, startTime, endTime) { }
 
         public RtspSource(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
-            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize, specificMedia, startTime, endTime) { }
+            : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize, specificMedia, startTime, endTime)
+        {
+            //Check for a null Credential and UserInfo in the Location given.
+            if (credential == null && !string.IsNullOrWhiteSpace(m_Source.UserInfo)) RtspClient.Credential = Utility.ParseUserInfo(m_Source);
+        }
 
         /// <summary>
         /// Constructs a RtspStream for use in a RtspServer

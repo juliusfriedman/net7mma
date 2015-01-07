@@ -53,7 +53,7 @@ namespace Media.Rtsp
 
         internal static string [] TimeSplit = new string[] { HyphenSign.ToString(), SemiColon.ToString() };
 
-        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space, Comma };
+        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space, Comma };        
 
         public const string Allow = "Allow";
         public const string Accept = "Accept";
@@ -936,7 +936,7 @@ namespace Media.Rtsp
                 //All requests must have a StatusLine
                 if (m_Buffer != null && m_Buffer.Length <= MinimumStatusLineSize) return false;
 
-                //All requests contain a CSeq header.
+                //All requests MUST contain a CSeq header.
                 if (m_Headers.Count == 0 || !ContainsHeader(RtspHeaders.CSeq)) return false;
 
                 //See if there is a Content-Length header
@@ -947,6 +947,7 @@ namespace Media.Rtsp
 
                 //If the content-length header cannot be parsed or the length > the data in the body the message is invalid
                 int supposedCount;
+
                 if (!int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return false;
                 
                 //Messages with ContentLength but no Body are not.

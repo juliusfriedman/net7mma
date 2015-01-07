@@ -209,7 +209,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspServer is listening for requests on the ServerPort
         /// </summary>
-        public bool Listening { get { return m_ServerThread != null && m_ServerThread.IsAlive; } }
+        public bool IsRunning { get { return m_ServerThread != null && m_ServerThread.IsAlive; } }
 
         /// <summary>
         /// The port in which the RtspServer is listening for requests
@@ -497,7 +497,7 @@ namespace Media.Rtsp
                 }
 
                 //If we are listening start the stram
-                if (Listening) stream.Start();
+                if (IsRunning) stream.Start();
             }
         }
 
@@ -980,6 +980,9 @@ namespace Media.Rtsp
                 //Make a temporary client (Could move semantics about begin recieve to ClientSession)
                 var session = CreateOrObtainSession(clientSocket);
 
+                //The session is no longer disconnected
+                session.Disconnected = false;
+
                 //If there is a logger log the accept
                 if (Logger != null) Logger.Log("Accepted Client: " + session.Id + " @ " + session.Created);
             }
@@ -1000,7 +1003,8 @@ namespace Media.Rtsp
             //Iterate clients looking for the socket handle
             foreach (ClientSession cs in Clients.ToList())
             {
-                if (cs == null) continue;
+                //Already removed or disposed
+                if (cs == null || cs.IsDisposed) continue;
 
                 //If there is already a socket then use that one
                 if (cs.RemoteEndPoint == rtspSocket.RemoteEndPoint)

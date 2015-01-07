@@ -164,8 +164,11 @@ namespace Media.Rtsp
 
             m_RtspSocket = rtspSocket;
 
+            //Disable Nagle in TCP
+            if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.NoDelay = true;
+
             if (buffer == null)
-                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength); // new byte[m_BufferLength = RtspMessage.MaximumLength];
+                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength); //Could be 1500
             else
                 m_Buffer = buffer;
 
@@ -182,8 +185,6 @@ namespace Media.Rtsp
 
         public void SendRtspData(byte[] data)
         {
-            
-
             try
             {
                 if (data != null)
