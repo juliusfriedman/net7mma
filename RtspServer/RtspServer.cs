@@ -812,9 +812,12 @@ namespace Media.Rtsp
             //Abort the worker
             Utility.Abort(ref m_ServerThread);
 
-            //Dispose the socket
-            m_TcpServerSocket.Dispose();
-            m_TcpServerSocket = null;
+            if (m_TcpServerSocket != null)
+            {
+                //Dispose the socket
+                m_TcpServerSocket.Dispose();
+                m_TcpServerSocket = null;
+            }
 
             //Stop other listeners
             DisableHttpTransport();
@@ -1112,6 +1115,36 @@ namespace Media.Rtsp
             {
                 //Something happened during the session
                 if (Logger != null) Logger.LogException(ex);
+
+                //handle the socket exception
+                if (session != null && ex is SocketException) HandleSocketException((SocketException)ex, session);
+            }
+        }
+
+        internal void HandleSocketException(SocketException se, ClientSession cs)
+        {
+            if(se == null || cs == null || cs.IsDisposed) return;
+
+            switch (se.SocketErrorCode)
+            {
+                case SocketError.ConnectionAborted:
+                case SocketError.Disconnecting:
+                case SocketError.Shutdown:
+                    {
+                        cs.Disconnected = true;
+
+                        return;
+                    }
+                default:
+                    {
+                        //Ensure the last receive was completed before starting another one.
+                        if (cs.LastRecieve != null && !cs.LastRecieve.IsCompleted) return;
+
+                        //Start receiving again
+                        cs.LastRecieve = cs.m_RtspSocket.BeginReceiveFrom(cs.m_Buffer.Array, cs.m_Buffer.Offset, cs.m_Buffer.Count, SocketFlags.None, ref cs.RemoteEndPoint, new AsyncCallback(ProcessReceive), cs);
+
+                        return;
+                    }
             }
         }
 
@@ -1308,6 +1341,9 @@ namespace Media.Rtsp
                     ProcessInvalidRtspRequest(session, RtspStatusCode.RtspVersionNotSupported);
                     return;
                 }
+
+                //4.2.  RTSP IRI and URI, Draft requires 501 response for rtspu iri but not for udp sockets using a rtsp location....
+                //Should check request.Location.Scheme to not be rtspu but it was allowed previously...
 
                 //Log the reqeust now
                 if (Logger != null) Logger.LogRequest(request, session);

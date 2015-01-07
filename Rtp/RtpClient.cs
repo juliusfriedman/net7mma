@@ -705,6 +705,17 @@ namespace Media.Rtp
                 }
             }
 
+            ///// <summary>
+            ///// Indicates if the context has been Sending or Receiving for more time then allowed.
+            ///// </summary>
+            //public bool MediaEnded
+            //{
+            //    get
+            //    {
+            //        return !IsContinious && TimeSending == Utility.InfiniteTimeSpan && TimeReceiving == TimeSending;
+            //    }
+            //}
+
             /// <summary>
             /// The time at which the media starts
             /// </summary>
