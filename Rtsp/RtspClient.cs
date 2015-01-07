@@ -593,7 +593,7 @@ namespace Media.Rtsp
                         //Calculate the length of what was received
                         received = Math.Min(length, interleaved.Length);
 
-                        //If not playing an interleaved stream, Complete the message if not complete
+                        //If not playing an interleaved stream, Complete the message if not complete (Should maybe check for Content-Length)
                         if (!(IsPlaying && m_RtpProtocol == ProtocolType.Tcp)) while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
 
                         unchecked
@@ -1825,10 +1825,10 @@ namespace Media.Rtsp
             if (!force)
             {
                 //Usually at least setup must occur so we must have sent and received a setup to actually play
-                force = m_SentBytes > 0 && m_ReceivedBytes > 0 && SupportedMethods.Contains(RtspMethod.SETUP);
+                force = m_ReceivedMessages > 0 && m_SupportedMethods.Contains(RtspMethod.SETUP);
 
                 //If not forced and the soure does not support play then throw an exception
-                if (!force && !SupportedMethods.Contains(RtspMethod.PLAY)) throw new InvalidOperationException("Server does not support PLAY.");
+                if (!m_SupportedMethods.Contains(RtspMethod.PLAY) && !force) throw new InvalidOperationException("Server does not support PLAY.");
             }
 
             try
@@ -1919,7 +1919,7 @@ namespace Media.Rtsp
         public RtspMessage SendPause(Uri location = null, bool force = false)
         {
             //If the server doesn't support it
-            if (!SupportedMethods.Contains(RtspMethod.PAUSE) && !force) throw new InvalidOperationException("Server does not support PAUSE.");
+            if (!m_SupportedMethods.Contains(RtspMethod.PAUSE) && !force) throw new InvalidOperationException("Server does not support PAUSE.");
 
             //if (!Playing) throw new InvalidOperationException("RtspClient is not Playing.");
             using (RtspMessage pause = new RtspMessage(RtspMessageType.Request)
