@@ -462,14 +462,9 @@ namespace Media.Rtsp
         public RtspClient(string location, ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspMessage.MaximumLength)
             : this(new Uri(location), rtpProtocolType, bufferSize)
         {
+            //Check for a null Credential and UserInfo in the Location given.
+            if (Credential == null && !string.IsNullOrWhiteSpace(Location.UserInfo)) Credential = Utility.ParseUserInfo(Location);
         }
-
-        //TODO A RtspClient should be able to be created from an existing socket and when the RtspClient is Disposed it should be able to leave that socket open
-        //public RtspClient(string location, ClientProtocolType? rtpProtocolType, int bufferSize, Socket existing = null, bool leaveOpen = false)
-        //    : this(new Uri(location), rtpProtocolType, bufferSize)
-        //{
-        //}
-
 
         ~RtspClient()
         {
@@ -566,12 +561,15 @@ namespace Media.Rtsp
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int received = 0;
 
-            //Should check for BigEndianFrameControl @ offset which indicates a large packet or a packet under 8 bytes.
-
             //Must contain textual data to be an interleaved rtsp request.
-            if (!Utility.FoundValidUniversalTextFormat(data, ref offset, ref length)) return;
+            if (!Utility.FoundValidUniversalTextFormat(data, ref offset, ref length)) return; //See comments below if attempting to complete large packets.
 
-            //Validate the data
+            //Should check for BigEndianFrameControl @ offset which indicates a large packet or a packet under 8 bytes.
+            //In such a case the length needs to be read and if the packet was larger than the buffer the next time this event fires the remaining data will be given
+            //Then the data can be given back to the RtpClient with ProcessFrameData when the packet is complete.
+            //If another packet arrives while one is being completed that is up to the implementation to deal with for now, other implementations just drop the data and give you no way to even receive it.
+
+            //Validate the data received
             RtspMessage interleaved = new RtspMessage(data, offset, length);
 
             //Determine what to do with the interleaved message
@@ -591,6 +589,9 @@ namespace Media.Rtsp
 
                         //Increment for messages received
                         ++m_ReceivedMessages;
+
+                        //Calculate the length of what was received
+                        received = interleaved.Length;
 
                         //If not playing an interleaved stream, Complete the message if not complete
                         if (!(IsPlaying && m_RtpProtocol == ProtocolType.Tcp)) while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
@@ -629,8 +630,12 @@ namespace Media.Rtsp
                     }
                 default:
                     {
-                        //Indicate an interleaved data transfer has occured.
+                        //Indicate an interleaved data transfer has occured. (might want to wait for IsComplete or have a seperate event)
                         m_InterleaveEvent.Set();
+
+                        //Handle any data remaining in the buffer
+                        if (received > 0 && received < length) ProcessInterleaveData(sender, data, received, length - received);
+
                         return;
                     }
             }
@@ -895,7 +900,7 @@ namespace Media.Rtsp
                         m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
 
                         //Set the read and write timeouts based upon such a time including the m_RtspTimeout.
-                        SocketReadTimeout = SocketWriteTimeout = (int)(m_ConnectionTime.TotalSeconds + m_RtspTimeout.TotalSeconds);
+                        SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalSeconds + m_RtspTimeout.TotalSeconds);
 
                         //Raise the Connected event.
                         OnConnected();
@@ -1097,8 +1102,7 @@ namespace Media.Rtsp
                 received = m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
 
                 //Try again if allowed
-                if (error == SocketError.TryAgain) goto Receive;
-
+                if (error == SocketError.TryAgain || error == SocketError.TimedOut) goto Receive;
 
                 //Handle the connection reset or connection aborted.
                 if (error != SocketError.Success) return null;
@@ -1434,11 +1438,11 @@ namespace Media.Rtsp
             {
                 throw;
             }
-            catch (Common.Exception<SessionDescription>)
+            catch (Common.Exception<SessionDescription> sde)
             {
-                Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to describe media, Session Description Exception Occured.");
+                Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to describe media, Session Description Exception Occured.", sde);
             }
-            catch(Exception ex) { Common.ExceptionExtensions.CreateAndRaiseException(this, "An error occured", ex); }
+            catch (Exception ex) { if (ex is Media.Common.IExceptionEx) throw ex; Common.ExceptionExtensions.CreateAndRaiseException(this, "An error occured", ex); }
 
 
             return response;
@@ -1520,6 +1524,10 @@ namespace Media.Rtsp
             if (location == null) throw new ArgumentNullException("location");
 
             if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");            
+
+            //Todo Setup should only create a TransportContext which COULD then be given to a RtpClient 
+            //This will allow for non RTP transports to be used such as MPEG-TS.
+            //Must de-coulple the RtpClient and replace it
 
             try
             {
@@ -1659,10 +1667,10 @@ namespace Media.Rtsp
                         }
                         else
                         {
+                            //Create a new socket
                             created.Initialize(Utility.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort); //Might have to come from source string?
 
-                            //Don't close this socket when disposing.
-                            created.LeaveOpen = true;
+                            //When the RtspClient is disposed that socket will also be disposed.
                         }
 
                         //Todo

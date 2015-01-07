@@ -208,6 +208,35 @@ namespace Media
 
         #endregion
 
+        internal static char[] CredentialSplit = new char[] { (char)Common.ASCII.Colon, (char)Common.ASCII.ForwardSlash, (char)Common.ASCII.BackSlash };
+
+        public static NetworkCredential ParseUserInfo(Uri uri)
+        {
+
+            //Check for a null Credential and UserInfo in the Location given.
+            if (string.IsNullOrWhiteSpace(uri.UserInfo)) return null;
+
+            NetworkCredential result = null;
+            //Check for ':'
+            string[] parts = uri.UserInfo.Split(CredentialSplit, 3);
+
+            //If there are two tokens
+            if (parts.Length > 1)
+            {
+                //If there is a domain use it
+                if (parts.Length > 2)
+                {
+                    result = new NetworkCredential(parts[0], parts[1], parts[2]);
+                }
+                else //Use the username and password.
+                {
+                    result = new NetworkCredential(parts[0], parts[1]);
+                }
+            }
+
+            return result;
+        }
+
         //Move to ISocketOwner
 
         public static void DontLinger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true); }

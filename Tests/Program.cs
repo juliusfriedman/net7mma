@@ -122,6 +122,8 @@ namespace Tests
                 Console.WriteLine("'" + Encoding.ASCII.GetString(buffer) + "'");
                 
 
+            GetMessage:
+
                 try
                 {
                     Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, length);
@@ -146,6 +148,17 @@ namespace Tests
                     Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + lastInterleaved.ToString() + "'");
 
                     Console.ForegroundColor = previousForegroundColor;
+
+                    int totalLength = lastInterleaved.Length;
+
+                    if (totalLength < length)
+                    {
+                        --totalLength;
+
+                        offset += totalLength;
+                        length -= totalLength;
+                        goto GetMessage;
+                    }
 
                 }
                 catch (Exception ex)
@@ -604,7 +617,7 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "rtsp://50.28.209.206/axis-media/media.amp",
+                    Uri = "rtsp://118.70.125.33:20554/mediainput/h264",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -2314,6 +2327,13 @@ namespace Tests
 
             //DESCRIBE / RTSP/1.0\nSession:\n\n
 
+            bytes = Utility.HexStringToBytes("525453502f312e3020323030204f4b0d0a435365633a20310d0a5075626c69633a2044455343524942452c2054454152444f574e2c2053455455502c20504c41592c2050415553450d0a0d0a");
+
+            fromBytes = new Media.Rtsp.RtspMessage(bytes);
+
+            //Look closely.... 'Csec'
+            if (!fromBytes.IsComplete) throw new Exception("Csec Testing Failed!");
+
         }
 
         static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
@@ -2485,6 +2505,12 @@ namespace Tests
                             consoleWriter.WriteLine("\tInterleaved=>" + count + " Bytes");
                             consoleWriter.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
                             Console.BackgroundColor = ConsoleColor.Black;
+
+                            //If analysing tcp re-transmissions ensure this data can be traced back to whatever packet monitor your using.
+                            //if (data[offset] == 36 || !char.IsLetter((char)data[offset]))
+                            //{
+                            //    System.IO.File.WriteAllBytes(DateTime.UtcNow.ToFileTime() + ".bin", data.Skip(offset).Take(count).ToArray());
+                            //}
                         };
 
                         //Handle Request event
@@ -3431,7 +3457,7 @@ a=mpeg4-esid:101");
                     {
 
                         //Forever
-                        while (server.Listening)
+                        while (server.IsRunning)
                         {
                             // Take the screenshot from the upper left corner to the right bottom corner.
                             gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
