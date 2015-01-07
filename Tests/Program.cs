@@ -2331,9 +2331,10 @@ namespace Tests
 
             fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
-            //Look closely.... 'Csec'
-            if (!fromBytes.IsComplete) throw new Exception("Csec Testing Failed!");
+            if (fromBytes.Length != bytes.Length) throw new Exception("Length Test Failed");
 
+            //Look closely.... 'Csec'
+            if (fromBytes.IsComplete) throw new Exception("Csec Testing Failed!");
         }
 
         static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
