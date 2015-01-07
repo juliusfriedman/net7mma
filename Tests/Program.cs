@@ -2712,7 +2712,7 @@ namespace Tests
                             consoleWriter.WriteLine("RTSP Info".PadRight(Console.WindowWidth / 4, '▓'));
                             consoleWriter.WriteLine("Rtsp Requets Sent: " + client.MessagesSent);
                             consoleWriter.WriteLine("Rtsp Responses Receieved: " + client.MessagesReceived);
-                            consoleWriter.WriteLine("Rtsp Missing : " + (client.MessagesReceived - client.MessagesSent));
+                            consoleWriter.WriteLine("Rtsp Missing : " + (client.MessagesSent - client.MessagesReceived));
                             consoleWriter.WriteLine("Rtsp Last Message Round Trip Time : " + client.LastMessageRoundTripTime);
                             consoleWriter.WriteLine("Rtsp Last Server Delay : " + client.LastServerDelay);
                             consoleWriter.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
