@@ -202,7 +202,19 @@ namespace Media.Rtsp
                     LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
                 }
             }
-            catch (Exception ex) { m_Server.Logger.LogException(ex); }
+            catch (Exception ex)
+            {
+                //Log the excetpion
+                m_Server.Logger.LogException(ex);
+
+                //if a socket exception occured then handle it.
+                if (ex is SocketException)
+                {
+                    m_Server.HandleSocketException((SocketException)ex, this);
+
+                }
+
+            }
         }
 
         RtpClient.TransportContext GetSourceContextForPacket(RtpPacket packet)
@@ -358,10 +370,7 @@ namespace Media.Rtsp
                 {
                     try
                     {
-                        //Take note of whre we are receiving from
-                        EndPoint inBound = RemoteEndPoint;
-
-                        m_Receieved += m_RtspSocket.EndReceiveFrom(LastRecieve, ref inBound);
+                        m_Receieved += m_RtspSocket.EndReceiveFrom(LastRecieve, ref RemoteEndPoint);
                     }
                     catch { }
                 }
@@ -460,7 +469,7 @@ namespace Media.Rtsp
                     //End playing after this time if given and not unspecified
                     endRange = end;
 
-                    http://stackoverflow.com/questions/4672359/why-does-timespan-fromsecondsdouble-round-to-milliseconds
+                    //http://stackoverflow.com/questions/4672359/why-does-timespan-fromsecondsdouble-round-to-milliseconds
                     end += Utility.InfiniteTimeSpan;
 
                     if(end != Utility.InfiniteTimeSpan
@@ -543,6 +552,10 @@ namespace Media.Rtsp
 
             //Sent the rtpInfo
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
+
+
+            //Todo
+            //Set the MediaProperties header.
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
             if (!m_RtpClient.Connected)

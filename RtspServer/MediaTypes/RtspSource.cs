@@ -202,29 +202,26 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.OnStop += RtspClient_OnStop;
                 RtspClient.Connect();
             }
-            else if(!RtspClient.IsPlaying) RtspClient.StartPlaying(MediaStartTime, MediaStartTime, SpecificMediaType);
+            else if (!RtspClient.IsPlaying) try { RtspClient.StartPlaying(MediaStartTime, MediaEndTime, SpecificMediaType); }
+                                            catch { Stop(); }
         }
 
         void RtspClient_OnStop(RtspClient sender, object args)
         {
-            if (RtspClient.IsPlaying) return;
-
-            Stop();
+            base.Ready = RtspClient.IsPlaying;
         }
 
         void RtspClient_OnPlay(RtspClient sender, object args)
         {
-            if (RtspClient.IsPlaying)
+            if ((base.Ready = RtspClient.IsPlaying))
             {
                 RtspClient.Client.FrameChangedEventsEnabled = true;
-                base.Ready = true;
             }
         }
 
         void RtspClient_OnDisconnect(RtspClient sender, object args)
         {
             base.Ready = false;
-            Stop();
         }
 
         void RtspClient_OnPausing(RtspClient sender, object args)
@@ -247,17 +244,10 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Call base to set started etc.
                 base.Start();
             }
-            catch (Common.Exception<RtspClient>)
-            {
-                //Wrong Credentails etc...
-
-                //Call base to set to stopped
-                Stop();
-            }
             catch
             {
-                //Stop?
-                throw;
+                //Indicate not ready
+                Ready = false;
             }
         }
 
@@ -266,18 +256,18 @@ namespace Media.Rtsp.Server.MediaTypes
         /// </summary>
         public override void Stop()
         {
+            if (RtspClient != null)
+            {
+                if (RtspClient.IsPlaying) RtspClient.StopPlaying();
 
-            if (State != StreamState.Started) return;
-
-            if (RtspClient != null && RtspClient.IsConnected)
-            {                
-                RtspClient.Disconnect();
+                else if (RtspClient.IsConnected) RtspClient.Disconnect();
+                
+                RtspClient.OnConnect -= RtspClient_OnConnect;
+                RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
+                RtspClient.OnPlay -= RtspClient_OnPlay;
+                RtspClient.OnStop -= RtspClient_OnStop;
             }
 
-            RtspClient.OnConnect -= RtspClient_OnConnect;
-            RtspClient.OnDisconnect -= RtspClient_OnDisconnect;
-            RtspClient.OnPlay -= RtspClient_OnPlay;
-            RtspClient.OnStop -= RtspClient_OnStop;
 
             base.Stop();
 

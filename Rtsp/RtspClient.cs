@@ -640,8 +640,9 @@ namespace Media.Rtsp
                     }
                 default:
                     {
-                        //Indicate an interleaved data transfer has occured. (might want to wait for IsComplete or have a seperate event)
-                        m_InterleaveEvent.Set();
+                        //Release the m_Interleaved event if it was set
+                        if (!m_InterleaveEvent.IsSet) m_InterleaveEvent.Set();
+                        else Received(m_LastTransmitted, null); //Otherwise indicate a message has been received.
 
                         //Handle any data remaining in the buffer (Must ensure Length property of RtspMessage is exact).
                         if (received > 0 && received < length) ProcessInterleaveData(sender, data, received, length - received);
@@ -685,14 +686,39 @@ namespace Media.Rtsp
                 //Don't setup unwanted streams
                 if (mediaType.HasValue && md.MediaType != mediaType) continue;
 
-                //If transport was already setup then see if the trasnport has a context for the media
-                if (Client != null && Client.GetContextForMediaDescription(md) != null && !hasContext)
+                //If transport was already setup then see if the transport has a context for the media
+                if (Client != null)
                 {
-                    //We have a context already, don't setup.
-                    hasContext = true;
+                    //Get the context for the media
+                    var context = Client.GetContextForMediaDescription(md);
 
-                    //Continue to the next MediaDescription
-                    continue;
+                    //If there is a context
+                    if (context != null)
+                    {
+                        //if the media is not playing (E.g. Paused)
+                        if (!m_Playing.Contains(context.MediaDescription))
+                        {
+                            //If the context is no longer receiving (should be a property on TransportContext but when pausing the RtpClient doesn't know about this)
+                            if (context.TimeReceiving == context.TimeSending && context.TimeSending == Utility.InfiniteTimeSpan)
+                            {
+                                //Remove the context
+                                Client.Remove(context);
+
+                                //Dispose it
+                                context.Dispose();
+
+                                //remove the reference
+                                context = null;
+                            }
+                        }
+                        else
+                        {
+                            //The media is already playing
+                            hasContext = true;
+
+                            continue;
+                        }
+                    }
                 }
 
                 //Send a setup
@@ -716,13 +742,13 @@ namespace Media.Rtsp
             //Send the play request
             using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
             {
-                //TODO
-                //Should check if already playing because subscribers may attach events twice because of this...
-                //Shouldn't be too much of an issue because a Pause on everything should probably set Playing to false?
+                //If there was a response or not fire a playing event.
+                if (play == null || play != null && play.StatusCode == RtspStatusCode.OK)
+                {
+                    foreach (var media in setupMedia) if (!m_Playing.Contains(media)) m_Playing.Add(media);
 
-                foreach (var media in setupMedia) if (!m_Playing.Contains(media)) m_Playing.Add(media);
-
-                if (play == null || play != null && play.StatusCode == RtspStatusCode.OK) OnPlaying();
+                    OnPlaying();
+                }
             }
         }
 
@@ -794,81 +820,85 @@ namespace Media.Rtsp
                 //Ensure logic for UDP is correct, may have to store flag.
                 if (IsConnected) return;
 
-                //If there is not yet a Rtsp socket create it
-                if (m_RtspSocket == null)
+                //Dispose previous socket and connect times.
+                if (m_RtspSocket != null)
                 {
-                    //Based on the ClientProtocolType
-                    switch (m_RtspProtocol)
-                    {
-                        case ClientProtocolType.Http:
-                        case ClientProtocolType.Tcp:
-                            {
-                                /*  9.2 Reliability and Acknowledgements
-                                 If a reliable transport protocol is used to carry RTSP, requests MUST
-                                 NOT be retransmitted; the RTSP application MUST instead rely on the
-                                 underlying transport to provide reliability.
-                                 * 
-                                 If both the underlying reliable transport such as TCP and the RTSP
-                                 application retransmit requests, it is possible that each packet
-                                 loss results in two retransmissions. The receiver cannot typically
-                                 take advantage of the application-layer retransmission since the
-                                 transport stack will not deliver the application-layer
-                                 retransmission before the first attempt has reached the receiver.
-                                 If the packet loss is caused by congestion, multiple
-                                 retransmissions at different layers will exacerbate the congestion.
-                                 * 
-                                 If RTSP is used over a small-RTT LAN, standard procedures for
-                                 optimizing initial TCP round trip estimates, such as those used in
-                                 T/TCP (RFC 1644) [22], can be beneficial.
-                                 * 
-                                The Timestamp header (Section 12.38) is used to avoid the
-                                retransmission ambiguity problem [23, p. 301] and obviates the need
-                                for Karn's algorithm.
-                                 * 
-                               Each request carries a sequence number in the CSeq header (Section
-                               12.17), which is incremented by one for each distinct request
-                               transmitted. If a request is repeated because of lack of
-                               acknowledgement, the request MUST carry the original sequence number
-                               (i.e., the sequence number is not incremented).
-                                 * 
-                               Systems implementing RTSP MUST support carrying RTSP over TCP and MAY
-                               support UDP. The default port for the RTSP server is 554 for both UDP
-                               and TCP.
-                                 * 
-                               A number of RTSP packets destined for the same control end point may
-                               be packed into a single lower-layer PDU or encapsulated into a TCP
-                               stream. RTSP data MAY be interleaved with RTP and RTCP packets.
-                               Unlike HTTP, an RTSP message MUST contain a Content-Length header
-                               whenever that message contains a payload. Otherwise, an RTSP packet
-                               is terminated with an empty line immediately following the last
-                               message header.
-                                 * 
-                                */
+                    m_RtspSocket.Dispose();
+                    m_RtspSocket = null;
+                    m_BeginConnect = m_EndConnect = null;
+                }
 
-                                //Create the socket
-                                m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                //Based on the ClientProtocolType
+                switch (m_RtspProtocol)
+                {
+                    case ClientProtocolType.Http:
+                    case ClientProtocolType.Tcp:
+                        {
+                            /*  9.2 Reliability and Acknowledgements
+                             If a reliable transport protocol is used to carry RTSP, requests MUST
+                             NOT be retransmitted; the RTSP application MUST instead rely on the
+                             underlying transport to provide reliability.
+                             * 
+                             If both the underlying reliable transport such as TCP and the RTSP
+                             application retransmit requests, it is possible that each packet
+                             loss results in two retransmissions. The receiver cannot typically
+                             take advantage of the application-layer retransmission since the
+                             transport stack will not deliver the application-layer
+                             retransmission before the first attempt has reached the receiver.
+                             If the packet loss is caused by congestion, multiple
+                             retransmissions at different layers will exacerbate the congestion.
+                             * 
+                             If RTSP is used over a small-RTT LAN, standard procedures for
+                             optimizing initial TCP round trip estimates, such as those used in
+                             T/TCP (RFC 1644) [22], can be beneficial.
+                             * 
+                            The Timestamp header (Section 12.38) is used to avoid the
+                            retransmission ambiguity problem [23, p. 301] and obviates the need
+                            for Karn's algorithm.
+                             * 
+                           Each request carries a sequence number in the CSeq header (Section
+                           12.17), which is incremented by one for each distinct request
+                           transmitted. If a request is repeated because of lack of
+                           acknowledgement, the request MUST carry the original sequence number
+                           (i.e., the sequence number is not incremented).
+                             * 
+                           Systems implementing RTSP MUST support carrying RTSP over TCP and MAY
+                           support UDP. The default port for the RTSP server is 554 for both UDP
+                           and TCP.
+                             * 
+                           A number of RTSP packets destined for the same control end point may
+                           be packed into a single lower-layer PDU or encapsulated into a TCP
+                           stream. RTSP data MAY be interleaved with RTP and RTCP packets.
+                           Unlike HTTP, an RTSP message MUST contain a Content-Length header
+                           whenever that message contains a payload. Otherwise, an RTSP packet
+                           is terminated with an empty line immediately following the last
+                           message header.
+                             * 
+                            */
 
-                                // Set option that allows socket to close gracefully without lingering.
-                                //e.g. DON'T Linger on close if unsent data is present. (Should be moved to ISocketReference)
-                                m_RtspSocket.DontLinger();
+                            //Create the socket
+                            m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-                                //Use nagle's sliding window (disables send coalescing)
-                                m_RtspSocket.NoDelay = true;
+                            // Set option that allows socket to close gracefully without lingering.
+                            //e.g. DON'T Linger on close if unsent data is present. (Should be moved to ISocketReference)
+                            m_RtspSocket.DontLinger();
 
-                                //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
-                                m_RtspSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+                            //Use nagle's sliding window (disables send coalescing)
+                            m_RtspSocket.NoDelay = true;
 
-                                break;
-                            }
-                        case ClientProtocolType.Udp:
-                            {
-                                //Create the socket
-                                m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                            //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
+                            m_RtspSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
 
-                                break;
-                            }
-                        default: throw new NotSupportedException("The given ClientProtocolType is not supported.");
-                    }
+                            break;
+                        }
+                    case ClientProtocolType.Udp:
+                        {
+                            //Create the socket
+                            m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+
+                            break;
+                        }
+                    default: throw new NotSupportedException("The given ClientProtocolType is not supported.");
                 }
 
                 //We started connecting now.
@@ -1048,7 +1078,7 @@ namespace Media.Rtsp
                 if (!request.ContainsHeader(RtspHeaders.CSeq)) request.CSeq = NextClientSequenceNumber();
 
                 //Set the Timestamp header if not already set to the amount of seconds since the connection started.
-                if (!request.ContainsHeader(RtspHeaders.Timestamp)) request.SetHeader(RtspHeaders.Timestamp, (DateTime.UtcNow - m_EndConnect ?? Utility.InfiniteTimeSpan).TotalSeconds.ToString("0.0"));
+                if (!request.ContainsHeader(RtspHeaders.Timestamp)) request.SetHeader(RtspHeaders.Timestamp, (DateTime.UtcNow - m_EndConnect ?? Utility.InfiniteTimeSpan).TotalSeconds.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
 
                 //Use any additional headers if given
                 if (AdditionalHeaders.Count > 0) foreach (var additional in AdditionalHeaders) request.AppendOrSetHeader(additional.Key, additional.Value);
@@ -1080,6 +1110,9 @@ namespace Media.Rtsp
 
                 unchecked
                 {
+                    //Check disposed
+                    if (offset < 0) return null;
+
                     sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
 
                     //If we could not send the message indicate so
@@ -1336,6 +1369,8 @@ namespace Media.Rtsp
                             {
                                 //Set the value of the servers delay
                                 m_LastServerDelay = TimeSpan.FromSeconds(delay);
+
+                                //Could add it to the existing SocketReadTimeout and SocketWriteTimeout.
                             }
                         }
                     }
@@ -1656,7 +1691,7 @@ namespace Media.Rtsp
                         RtpClient.TransportContext created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
 
                         //If there is not a client
-                        if (m_RtpClient == null)
+                        if (m_RtpClient == null || m_RtpClient.IsDisposed)
                         {
                             //Create a Duplexed reciever using the RtspSocket
                             m_RtpClient = new RtpClient(m_Buffer);
@@ -1695,7 +1730,7 @@ namespace Media.Rtsp
                         if (serverRtpPort == location.Port) goto SetupTcp;
 
                         //If we need to make a client then do so
-                        if (m_RtpClient == null)
+                        if (m_RtpClient == null || m_RtpClient.IsDisposed)
                         {
                             if (m_RtpProtocol == ProtocolType.Udp)
                             {
@@ -1838,7 +1873,7 @@ namespace Media.Rtsp
                 force = m_ReceivedMessages > 0 && m_SupportedMethods.Contains(RtspMethod.SETUP);
 
                 //If not forced and the soure does not support play then throw an exception
-                if (!m_SupportedMethods.Contains(RtspMethod.PLAY) && !force) throw new InvalidOperationException("Server does not support PLAY.");
+                if (!force && !m_SupportedMethods.Contains(RtspMethod.PLAY)) throw new InvalidOperationException("Server does not support PLAY.");
             }
 
             try

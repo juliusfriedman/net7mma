@@ -60,11 +60,13 @@ namespace Media.Rtsp
         public const string AcceptCredentials = "Accept-Credentials";
         public const string AcceptEncoding = "Accept-Encoding";
         public const string AcceptLanguage = "Accept-Language";
+        public const string AcceptRanges = "Accept-Ranges";
         public const string Authorization = "Authorization";
+        public const string AuthenticationInfo = "Authentication-Info";
         public const string Bandwidth = "Bandwidth";
         public const string Blocksize = "Blocksize";
         public const string CacheControl = "Cache-Control";
-        public const string Confrence = "Confrence";
+        public const string Conference = "Conference";
         public const string Connection = "Connection";
         public const string ConnectionCredentials = "Connection-Credentials";
         public const string ContentBase = "Content-Base";
@@ -79,36 +81,39 @@ namespace Media.Rtsp
         public const string From = "From";
         public const string Expires = "Expires";
         public const string LastModified = "Last-Modified";
+        public const string IfMatch = "If-Match";
         public const string IfModifiedSince = "If-Modified-Since";
+        public const string IfNoneMatch = "If-None-Match";
         public const string Location = "Location";
+        public const string MTag = "MTag";
         public const string MediaProperties = "Media-Properties";
         public const string MediaRange = "Media-Range";
         public const string PipelinedRequests = "Pipelined-Requests";
         public const string ProxyAuthenticate = "Proxy-Authenticate";
+        public const string ProxyAuthenticationInfo = "Proxy-Authentication-Info";
+        public const string ProxyAuthorization = "Proxy-Authorization";
         public const string ProxyRequire = "Proxy-Require";
+        public const string ProxySupported = "Proxy-Supported";
         public const string Public = "Public";
         //Private / Prividgled?
         public const string Range = "Range";
-        public const string Referer = "Referer";
+        public const string Referrer = "Referrer";
         public const string Require = "Require";
+        public const string RequestStatus = " Request-Status";
         public const string RetryAfter = "Retry-After";
         public const string RtpInfo = "RTP-Info";
         public const string Scale = "Scale";
         public const string Session = "Session";
         public const string Server = "Server";
         public const string Speed = "Speed";
+        public const string Supported = "Supported";
+        public const string TerminateReason = "Terminate-Reason";
         public const string Timestamp = "Timestamp";
         public const string Transport = "Transport";
         public const string Unsupported = "Unsupported";
         public const string UserAgent = "User-Agent";
         public const string Via = "Via";
         public const string WWWAuthenticate = "WWW-Authenticate";
-
-        #region Draft 2.0
-
-        public const string TerminateReason = "Terminate-Reason";
-
-        #endregion
 
         private RtspHeaders() { }
 
@@ -439,7 +444,55 @@ namespace Media.Rtsp
                 + (ssrc.HasValue ? "ssrc=" + ssrc.Value.ToString("X") : string.Empty)
                 );
         }
+
+        public bool TryParseScale(out double result) { throw new NotImplementedException(); }
+
+        public string ScaleHeader(double scale) { return scale.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture); }
+
+        public bool TryParseSpeed(out double result) { throw new NotImplementedException(); }
+
+        public string SpeedHeader(double speed) { return speed.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture); }
+
+        public bool TryParseBlockSize(out int result) { throw new NotImplementedException(); }
+
+        public string BlockSizeHeader(int blockSize) { return blockSize.ToString(); }
+
+        //internal const string OnDemand = "On-demand";
+
+        //internal const string DynamicOnDemand = "Dynamic On-demand";
+
+        //internal const string Live = "Live";
+
+        //internal const string LiveWithRecording = "Live with Recording";
+
+        internal const string RandomAccess = "Random-Access";
+
+        internal const string BeginningOnly = "Beginning-Only";
+
+        internal const string NoSeeking = "No-seeking";
+
+        public static string MediaPropertiesHeader() { throw new NotImplementedException(); }
+
+        public bool TryParseMediaProperties() { throw new NotImplementedException(); }
+
+        internal const string Unlimited = "Unlimited";
+
+        internal const string TimeLimited = "Time-Limited";
+
+        internal const string TimeDuration = "Time-Duration";
+
+        public static string Retention() { throw new NotImplementedException(); }
+
+        internal const string Immutable = "Immutable";
+
+        internal const string Dynamic = "Dynamic";
+
+        internal const string TimeProgressing = "Time-Progressing";
+
+        public static string ContentModifcations() { throw new NotImplementedException(); }      
     }
+
+   
 
     #region Reference
 
@@ -1649,6 +1702,9 @@ namespace Media.Rtsp
                         m_Buffer.Dispose();
 
                         m_Buffer = null;
+
+                        //The message should now be invalid.
+                        MessageType = RtspMessageType.Invalid;
                     }
 
                     //Return the amount of bytes consumed.
@@ -1691,6 +1747,9 @@ namespace Media.Rtsp
 
                         received += justReceived;
                     }
+
+                    //If any socket error occured besides a timeout or a block then stop trying to receive.
+                    if (error != System.Net.Sockets.SocketError.TimedOut && error != System.Net.Sockets.SocketError.TryAgain) break;
                 }
             }
             
