@@ -591,7 +591,7 @@ namespace Media.Rtsp
                         ++m_ReceivedMessages;
 
                         //Calculate the length of what was received
-                        received = interleaved.Length;
+                        received = Math.Min(length, interleaved.Length);
 
                         //If not playing an interleaved stream, Complete the message if not complete
                         if (!(IsPlaying && m_RtpProtocol == ProtocolType.Tcp)) while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
@@ -599,7 +599,7 @@ namespace Media.Rtsp
                         unchecked
                         {
                             //Update counters
-                            m_ReceivedBytes += length + received;
+                            m_ReceivedBytes += received;
                         }
 
                         //Disposes the last message.
@@ -633,7 +633,7 @@ namespace Media.Rtsp
                         //Indicate an interleaved data transfer has occured. (might want to wait for IsComplete or have a seperate event)
                         m_InterleaveEvent.Set();
 
-                        //Handle any data remaining in the buffer
+                        //Handle any data remaining in the buffer (Must ensure Length property of RtspMessage is exact).
                         if (received > 0 && received < length) ProcessInterleaveData(sender, data, received, length - received);
 
                         return;

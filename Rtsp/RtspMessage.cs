@@ -851,7 +851,7 @@ namespace Media.Rtsp
 
         /// <summary>
         /// The length of the RtspMessage in bytes.
-        /// (Calculated from the values parsed so some whitespace may be omitted, usually within +/- 6 bytes of the actual length)
+        /// (Calculated from the values parsed so some whitespace may be omitted, usually within +/- 4 bytes of the actual length)
         /// </summary>
         public int Length
         {
@@ -864,7 +864,7 @@ namespace Media.Rtsp
                 else if (MessageType == RtspMessageType.Response)
                     length += Encoding.GetByteCount(MessageIdentifier + '/' + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + " " + ((int)StatusCode).ToString() + " " + StatusCode.ToString() + CRLF);
 
-                return length + (string.IsNullOrEmpty(m_Body) ? 0 : 2 + m_Encoding.GetByteCount(m_Body)) + ( m_Headers.Count > 0 ? 4 + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value) + 3) : 0);
+                return length + (string.IsNullOrEmpty(m_Body) ? 0 : 2 + m_Encoding.GetByteCount(m_Body)) + ( m_Headers.Count > 0 ? 2 + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value) + 3) : 0);
             }
         }
 
