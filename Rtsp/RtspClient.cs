@@ -594,7 +594,17 @@ namespace Media.Rtsp
                         received = Math.Min(length, interleaved.Length);
 
                         //If not playing an interleaved stream, Complete the message if not complete (Should maybe check for Content-Length)
-                        if (!(IsPlaying && m_RtpProtocol == ProtocolType.Tcp)) while (!interleaved.IsComplete) received += interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
+                        if (!(IsPlaying && m_RtpProtocol == ProtocolType.Tcp)) while (!interleaved.IsComplete)
+                            {
+                                //Take in some bytes from the socket
+                                int justReceived = interleaved.CompleteFrom(m_RtspSocket, m_Buffer);
+
+                                //If no bytes were received then break
+                                if (justReceived == 0) break;
+
+                                //Incrment for justReceived
+                                received += justReceived;
+                            }
 
                         unchecked
                         {

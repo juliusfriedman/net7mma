@@ -1588,6 +1588,12 @@ namespace Media.Rtsp
             get { return (long)Length; }
         }
 
+        /// <summary>
+        /// Completes the RtspMessage from either the buffer or the socket.
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="buffer"></param>
+        /// <returns></returns>
         public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
             //Don't check IsComplete because of the notion of how a RtspMessage can be received.
@@ -1634,7 +1640,20 @@ namespace Media.Rtsp
                 }
 
                 //If the header section was not parsed indicate how much was written
-                if (!ParseHeaders()) return buffer.Count;
+                if (!ParseHeaders())
+                {
+                    //Messages larger than 4096 bytes require a content-length header
+                    if (m_Buffer.Length > MaximumLength)
+                    {
+                        //Remove the buffer
+                        m_Buffer.Dispose();
+
+                        m_Buffer = null;
+                    }
+
+                    //Return the amount of bytes consumed.
+                    return buffer.Count;
+                }
             }
 
             //If the body is now parsed then we are done.
