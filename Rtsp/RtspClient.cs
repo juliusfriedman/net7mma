@@ -823,8 +823,15 @@ namespace Media.Rtsp
                 //Dispose previous socket and connect times.
                 if (m_RtspSocket != null)
                 {
-                    m_RtspSocket.Dispose();
+                    //If the socket was NOT to be left open
+                    if (!LeaveOpen)
+                    {
+                        try { m_RtspSocket.Dispose(); }
+                        catch { /*Already Disposed?*/ }
+                    }
+
                     m_RtspSocket = null;
+
                     m_BeginConnect = m_EndConnect = null;
                 }
 
@@ -1110,9 +1117,6 @@ namespace Media.Rtsp
 
                 unchecked
                 {
-                    //Check disposed
-                    if (offset < 0) return null;
-
                     sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
 
                     //If we could not send the message indicate so
@@ -1175,10 +1179,13 @@ namespace Media.Rtsp
                 if (request.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                    while ((m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_ResponseTimeoutInterval)
+                    while (!IsDisposed && (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_ResponseTimeoutInterval)
                     {
                         //Rtspu requires another receive here.
                         if (m_RtspSocket.ProtocolType == ProtocolType.Udp) goto Receive;
+
+                        //if the connection was lost then stop waiting.
+                        if (!IsConnected) break;
 
                         //Wait a small amount of time for the response because the cancellation token was not used...
                         if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval))) continue;
