@@ -662,10 +662,8 @@ namespace Media.Rtsp
 
                 try
                 {
-                    //Check for inactivity
-                    if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.Disconnected || !session.m_RtspSocket.Connected
-                        ||
-                        session.Attached.Count() == 0 && session.LastResponse == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
+                    //Check for inactivity, not connectivity
+                    if (!session.Attached.Any()) if(session.LastResponse == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
                         ||
                         session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout)
                     {
@@ -984,7 +982,7 @@ namespace Media.Rtsp
                 var session = CreateOrObtainSession(clientSocket);
 
                 //The session is no longer disconnected
-                session.Disconnected = false;
+                session.IsDisconnected = false;
 
                 //If there is a logger log the accept
                 if (Logger != null) Logger.Log("Accepted Client: " + session.Id + " @ " + session.Created);
@@ -1102,7 +1100,7 @@ namespace Media.Rtsp
                     //Ensure 0 byte responses are handled properly.
                     if (received == 0 && session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                     {
-                        session.Disconnected = true;
+                        session.IsDisconnected = true;
 
                         return;
                     }
@@ -1116,7 +1114,7 @@ namespace Media.Rtsp
                 //Something happened during the session
                 if (Logger != null) Logger.LogException(ex);
 
-                //handle the socket exception
+                //if a socket exception occured then handle it.
                 if (session != null && ex is SocketException) HandleSocketException((SocketException)ex, session);
             }
         }
@@ -1130,21 +1128,11 @@ namespace Media.Rtsp
                 case SocketError.ConnectionAborted:
                 case SocketError.Disconnecting:
                 case SocketError.Shutdown:
-                    {
-                        cs.Disconnected = true;
+                case SocketError.NotConnected:
+                    //Mark the client as disconnected.
+                    cs.IsDisconnected = true;
 
-                        return;
-                    }
-                default:
-                    {
-                        //Ensure the last receive was completed before starting another one.
-                        if (cs.LastRecieve != null && !cs.LastRecieve.IsCompleted) return;
-
-                        //Start receiving again
-                        cs.LastRecieve = cs.m_RtspSocket.BeginReceiveFrom(cs.m_Buffer.Array, cs.m_Buffer.Offset, cs.m_Buffer.Count, SocketFlags.None, ref cs.RemoteEndPoint, new AsyncCallback(ProcessReceive), cs);
-
-                        return;
-                    }
+                    return;
             }
         }
 
@@ -1155,11 +1143,13 @@ namespace Media.Rtsp
         internal void ProcessSend(IAsyncResult ar)
         {
             if (ar == null) return;
+
+            ClientSession session = (ClientSession)ar.AsyncState;
+
             try
             {
-                ClientSession session = (ClientSession)ar.AsyncState;
 
-                if (session == null) return;
+                if (session == null || session.IsDisposed || session.IsDisconnected) return;
 
                 EndPoint remote = session.RemoteEndPoint;
 
@@ -1192,7 +1182,11 @@ namespace Media.Rtsp
             }
             catch (Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);                    
+                if (Logger != null) Logger.LogException(ex);
+
+
+                //handle the socket exception
+                if (session != null && ex is SocketException) HandleSocketException((SocketException)ex, session);
             }
         }
 
@@ -1254,7 +1248,7 @@ namespace Media.Rtsp
                         }
 
                         //If the correctSession has not disconnected then this is not allowed.
-                        if (!correctSession.Disconnected) 
+                        if (!correctSession.IsDisconnected) 
                         {
                             correctSession = null;
 
