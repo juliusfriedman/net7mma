@@ -671,8 +671,7 @@ namespace Media.Rtsp
                         continue;
                     }
                 }
-                
-                    //If anything bad happened assume the session is inactive
+                //If anything bad happened assume the session is inactive
                 catch { inactive.Add(session.Id); }
 
                 //Remove the reference to the session
@@ -693,7 +692,7 @@ namespace Media.Rtsp
                         //Ensure it was disposed
                         if (!session.IsDisposed) session.Dispose();
 
-                        //Remove the reference to the ession
+                        //Remove the reference to the session
                         session = null;
                     }
                 }

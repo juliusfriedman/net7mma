@@ -118,10 +118,10 @@ namespace Media.Rtsp
         /// <summary>
         /// Keep track of timed values.
         /// </summary>
-        TimeSpan m_RtspTimeout = TimeSpan.FromSeconds(60), 
-            m_ConnectionTime = TimeSpan.Zero, 
-            m_LastServerDelay = TimeSpan.Zero, 
-            m_LastMessageRoundTripTime = TimeSpan.Zero;
+        TimeSpan m_RtspTimeout = TimeSpan.FromSeconds(60),
+            m_ConnectionTime = Utility.InfiniteTimeSpan,
+            m_LastServerDelay = Utility.InfiniteTimeSpan,
+            m_LastMessageRoundTripTime = Utility.InfiniteTimeSpan;
 
         /// <summary>
         /// Keep track of certain values.
@@ -558,6 +558,8 @@ namespace Media.Rtsp
         /// <param name="memory">The memory to parse</param>
         void ProcessInterleaveData(object sender, byte[] data, int offset, int length)
         {
+            if (length == 0) return;
+
             //Cache offset and count, leave a register for received data (should be calulated with length)
             int received = 0;
 
@@ -632,8 +634,24 @@ namespace Media.Rtsp
                         //If playing and interleaved stream AND the last transmitted message is NOT null and is NOT Complete then attempt to complete it
                         if (IsPlaying && m_RtpProtocol == ProtocolType.Tcp && m_LastTransmitted != null)
                         {
+                            int lastLength = m_LastTransmitted.Length;
+
                             //Create a memory segment and complete the message as required from the buffer.
-                            using (var memory = new Media.Common.MemorySegment(data, offset, length)) received += m_LastTransmitted.CompleteFrom(null, memory);
+                            using (var memory = new Media.Common.MemorySegment(data, offset, length))
+                            {
+                                //Use the data recieved to complete the message and not the socket
+                                int justReceived = m_LastTransmitted.CompleteFrom(null, memory);
+
+                                //If anything was received
+                                if (justReceived > 0)
+                                {
+                                    //Account for what was just recieved.
+                                    received += justReceived;
+
+                                    //No data was consumed do nothing.
+                                    if (lastLength == m_LastTransmitted.Length) received = 0;
+                                }
+                            }
                         }
 
                         goto default;
@@ -642,10 +660,13 @@ namespace Media.Rtsp
                     {
                         //Release the m_Interleaved event if it was set
                         if (!m_InterleaveEvent.IsSet) m_InterleaveEvent.Set();
-                        else Received(m_LastTransmitted, null); //Otherwise indicate a message has been received.
-
-                        //Handle any data remaining in the buffer (Must ensure Length property of RtspMessage is exact).
-                        if (received > 0 && received < length) ProcessInterleaveData(sender, data, received, length - received);
+                        else if (received > 0)
+                        {
+                            Received(m_LastTransmitted, null); //Otherwise indicate a message has been received.
+                            
+                            //Handle any data remaining in the buffer (Must ensure Length property of RtspMessage is exact).
+                            if (received < length) ProcessInterleaveData(sender, data, received, length - received);
+                        }
 
                         return;
                     }

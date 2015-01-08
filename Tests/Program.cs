@@ -135,7 +135,14 @@ namespace Tests
 
                         interleaved = null;
 
-                        using (var memory = new Media.Common.MemorySegment(data, offset, length)) lastInterleaved.CompleteFrom(null, memory);
+                        int lastLength = lastInterleaved.Length;
+
+                        using (var memory = new Media.Common.MemorySegment(data, offset, length))
+                        {
+                            lastInterleaved.CompleteFrom(null, memory);
+
+                            if (lastLength == lastInterleaved.Length) return;
+                        }
 
                     }
                     else lastInterleaved = interleaved;
@@ -153,8 +160,6 @@ namespace Tests
 
                     if (totalLength < length)
                     {
-                        --totalLength;
-
                         offset += totalLength;
                         length -= totalLength;
                         goto GetMessage;
