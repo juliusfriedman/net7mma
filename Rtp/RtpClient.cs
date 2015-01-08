@@ -3505,14 +3505,7 @@ namespace Media.Rtp
                     }
 
                     //If there are no outgoing packets
-                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
-                    {
-                        //yield the time slice
-                        System.Threading.Thread.Sleep(0);
-
-                        //do another iteration
-                        continue;
-                    }
+                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0) continue;
 
                     #endregion
 
