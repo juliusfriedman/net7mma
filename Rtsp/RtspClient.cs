@@ -820,15 +820,10 @@ namespace Media.Rtsp
                 //Ensure logic for UDP is correct, may have to store flag.
                 if (IsConnected) return;
 
-                //Dispose previous socket and connect times.
+                //Disconnect previous socket and erase connect times.
                 if (m_RtspSocket != null)
                 {
-                    //If the socket was NOT to be left open
-                    if (!LeaveOpen)
-                    {
-                        try { m_RtspSocket.Dispose(); }
-                        catch { /*Already Disposed?*/ }
-                    }
+                    DisconnectSocket();
 
                     m_RtspSocket = null;
 
