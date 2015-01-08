@@ -2460,6 +2460,7 @@ namespace Tests
                                 try
                                 {
                                     consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
+                                    consoleWriter.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
                                     client.StartPlaying();
                                     consoleWriter.WriteLine("\t*****************\nStartedListening to :" + client.Location);
                                 }
@@ -2473,7 +2474,7 @@ namespace Tests
                             TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
                         };
 
-                        int totalFrames = 0, i = 1;
+                        int totalFrames = 0;
 
                         Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
                         {
@@ -2551,9 +2552,12 @@ namespace Tests
                             //client.Client.MaximumRtcpBandwidthPercentage = 25;
                             ///It SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
                             
-                            //If there were arguments then only a specific media item is playing, this occurs when pausing or playing from a specially sent request.
-                            if (args == null)
+                            //If there is no sdp we have not attached events yet
+                            if (!System.IO.File.Exists("current.sdp"))
                             {
+                                //Write the sdp.
+                                System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
+
                                 //Add events now that we are playing
                                 client.Client.RtpPacketReceieved += rtpPacketReceived;
                                 client.Client.RtpFrameChanged += rtpFrameReceived;
@@ -2561,8 +2565,6 @@ namespace Tests
                                 client.Client.RtcpPacketSent += rtcpPacketSent;
                                 client.Client.InterleavedData += rtpInterleave;
                             }
-
-                            System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
 
                             //Indicate if LivePlay
                             if (client.LivePlay)
@@ -2585,6 +2587,7 @@ namespace Tests
                                 }
                             }
 
+                            //Show context information
                             foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.GetTransportContexts())
                             {
                                 consoleWriter.WriteLine("\t*****************Local Id " + tc.SynchronizationSourceIdentifier);
@@ -2610,8 +2613,10 @@ namespace Tests
                             if (System.IO.File.Exists("current.sdp")) System.IO.File.Delete("current.sdp");
                         };
 
+                        //Connect the RtspClient
                         client.Connect();
 
+                        //Allow the client to switch protocols if data is not received in 10 seconds.
                         client.ProtocolSwitchTime = TimeSpan.FromSeconds(10);
 
                         //Indicate waiting
@@ -2629,7 +2634,7 @@ namespace Tests
 
                                 if (client.IsPlaying)
                                 {
-                                    Console.WriteLine("Client Playing. for :" + playingfor.ToString());
+                                    Console.WriteLine("Client Playing for :" + playingfor.ToString());
 
                                     //Testing ONLY
                                     //client.SendKeepAlive(null);
@@ -2652,10 +2657,7 @@ namespace Tests
 
                         //if the client is connected still
                         if (client.IsConnected && protocol == Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-                        {
-                            //Indicate the amount of time taken to connect
-                            Console.WriteLine(client.ConnectionTime);
-
+                        {                           
                             //Try to send some requests if quit early before the Teardown.
                             try
                             {
@@ -2716,9 +2718,13 @@ namespace Tests
                             consoleWriter.WriteLine("Rtsp Last Message Round Trip Time : " + client.LastMessageRoundTripTime);
                             consoleWriter.WriteLine("Rtsp Last Server Delay : " + client.LastServerDelay);
                             consoleWriter.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
-                            consoleWriter.WriteLine("Rtsp Unknown: " + rtspUnknown);
-                            Console.BackgroundColor = ConsoleColor.Black;
+                            
                         }
+                        
+                        //Reset colors
+                        Console.ForegroundColor = ConsoleColor.Gray;
+
+                        Console.BackgroundColor = ConsoleColor.Black;
 
                     }
                 }
