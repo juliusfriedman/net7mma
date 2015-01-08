@@ -112,7 +112,7 @@ namespace Media.Rtsp
 
         internal byte[] m_SendBuffer;
 
-        internal bool m_Disconnected;
+        internal bool m_IsDisconnected;
 
         //Use the m_RtpClient to determine if Bandwidth is exceeded and Buffer packets until not exceeded.
         //internal double MaximumBandwidth = 0;
@@ -137,7 +137,7 @@ namespace Media.Rtsp
             }
         }
 
-        public bool Disconnected { get { return m_Disconnected; } internal set { m_Disconnected = value; } }
+        public bool IsDisconnected { get { return m_IsDisconnected; } internal set { m_IsDisconnected = value; } }
 
         public Socket RtspSocket { get { return m_RtspSocket; } internal set { m_RtspSocket = value; if (m_RtspSocket != null && m_RtspSocket.RemoteEndPoint != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint; } }
 
@@ -168,7 +168,7 @@ namespace Media.Rtsp
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.NoDelay = true;
 
             if (buffer == null)
-                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength); //Could be 1500
+                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength / 2); // 2048
             else
                 m_Buffer = buffer;
 
@@ -197,6 +197,9 @@ namespace Media.Rtsp
                         }
                     }
 
+
+                    if (IsDisposed || IsDisconnected) return;
+
                     m_SendBuffer = data;
 
                     LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
@@ -208,11 +211,7 @@ namespace Media.Rtsp
                 m_Server.Logger.LogException(ex);
 
                 //if a socket exception occured then handle it.
-                if (ex is SocketException)
-                {
-                    m_Server.HandleSocketException((SocketException)ex, this);
-
-                }
+                if (ex is SocketException) m_Server.HandleSocketException((SocketException)ex, this);
 
             }
         }
