@@ -562,7 +562,7 @@ namespace Media.Rtsp
             int received = 0;
 
             //Must contain textual data to be an interleaved rtsp request.
-            if (!Utility.FoundValidUniversalTextFormat(data, ref offset, ref length)) return; //See comments below if attempting to complete large packets.
+            //if (!Utility.FoundValidUniversalTextFormat(data, ref offset, ref length)) return; //See comments below if attempting to complete large packets.
 
             //Should check for BigEndianFrameControl @ offset which indicates a large packet or a packet under 8 bytes.
             //In such a case the length needs to be read and if the packet was larger than the buffer the next time this event fires the remaining data will be given
@@ -1015,7 +1015,6 @@ namespace Media.Rtsp
 
         #region Rtsp
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public RtspMessage SendRtspRequest(RtspMessage request)
         {
 
@@ -1095,21 +1094,6 @@ namespace Media.Rtsp
                 //The error which will be ignored incase non-blocking sockets are being used.
                 SocketError error = SocketError.Success;
 
-                #region Reference
-
-                /*
-                    RFC2326 - http://tools.ietf.org/html/rfc2326 [Page 18]
-                 
-                    RTSP is a text-based protocol and uses the ISO 10646 character set in
-                    UTF-8 encoding (RFC 2279 [21]). Lines are terminated by CRLF, but
-                    receivers should be prepared to also interpret CR and LF by
-                    themselves as line terminators.
-                    
-                See also RFC 2326 - http://tools.ietf.org/html/rfc2326 [Page 28]               
-                */
-
-                #endregion
-
                 unchecked
                 {
                     sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
@@ -1157,11 +1141,11 @@ namespace Media.Rtsp
                     //Right now just pass it to the RtpClient.
                     if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl)
                     {
-                        //connect the rtp client
-                        m_RtpClient.Connect();
-
                         //Adjust for non rtsp data
                         received -= m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
+
+                        //connect the rtp client now 
+                        m_RtpClient.Connect();
 
                         //Handle when we received a lot of data and no response was found.
                         if (received < 0) received = 0;
@@ -1184,6 +1168,9 @@ namespace Media.Rtsp
 
                         //Wait a small amount of time for the response because the cancellation token was not used...
                         if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval))) continue;
+
+                        //Some times when tearing down or pausing we are no longer playing
+                        if (!IsPlaying) goto Receive;
                     }
                 }
 
@@ -1853,7 +1840,7 @@ namespace Media.Rtsp
             if (context == null) throw new InvalidOperationException("The given mediaDescription has not been SETUP.");
 
             //Check if the media was previsouly playing
-            if (mediaDescription != null && m_Playing.Contains(mediaDescription))
+            if (mediaDescription != null && !m_Playing.Contains(mediaDescription))
             {
                 //Keep track of whats playing
                 m_Playing.Add(mediaDescription);
