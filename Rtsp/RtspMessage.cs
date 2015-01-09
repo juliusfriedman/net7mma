@@ -883,7 +883,7 @@ namespace Media.Rtsp
         System.IO.MemoryStream m_Buffer;
 
         //Set when parsing the first line if not already parsed, indicates the position of the beginning of the header data in m_Buffer.
-        int headerOffset = 0;
+        int m_HeaderOffset = 0;
 
         #endregion
 
@@ -1172,17 +1172,21 @@ namespace Media.Rtsp
                 //The count of how many bytes are used to take up the header is given by
                 //The amount of bytes (after the first line PLUS the length of CRLF in the encoding of the message) minus the count of the bytes in the packet
                 int headerStart = firstLineLength + encodedEndLength,
-                headerBytes = count - headerStart;
+                remainingBytes = count - headerStart;
 
                 //If the scalar is valid
-                if (headerBytes > 0 && headerStart + headerBytes <= count)
+                if (remainingBytes > 0 && headerStart + remainingBytes <= count)
                 {
-                    m_Buffer = new System.IO.MemoryStream(headerBytes);
+                    //Create a buffer the size of the remainingData
+                    m_Buffer = new System.IO.MemoryStream(remainingBytes);
 
-                    m_Buffer.Write(data, start + headerStart, headerBytes);
+                    //Write that data
+                    m_Buffer.Write(data, start + headerStart, remainingBytes);
 
-                    m_Buffer.Position = headerOffset = 0;
+                    //Position the buffer
+                    m_Buffer.Position = m_HeaderOffset = 0;
 
+                    //Parse the body
                     ParseBody();
                 }                
             } //All messages must have at least a CSeq header.
@@ -1225,6 +1229,7 @@ namespace Media.Rtsp
             //Always from the beginning of the buffer.
             m_Buffer.Seek(0, System.IO.SeekOrigin.Begin);
 
+            //Take a new reader using the Encoding set so far.
             using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
             {
 
@@ -1232,7 +1237,7 @@ namespace Media.Rtsp
                 //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
                 string StatusLine = reader.ReadLine();
 
-                headerOffset = StatusLine.Length;
+                m_HeaderOffset = StatusLine.Length;
 
                 StatusLine = StatusLine.TrimStart();
 
@@ -1268,7 +1273,7 @@ namespace Media.Rtsp
                 #endregion
 
                 //Seek past the status line.
-                m_Buffer.Seek(headerOffset, System.IO.SeekOrigin.Begin);
+                m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
             }
 
             //The status line was parsed.
@@ -1285,9 +1290,9 @@ namespace Media.Rtsp
             //Keep track of the position
             long position = m_Buffer.Position;
 
-            m_Buffer.Seek(headerOffset, System.IO.SeekOrigin.Begin);
+            m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
 
-            //create a reader
+            //Take a new reader using the Encoding set so far.
             using (System.IO.StreamReader reader = new System.IO.StreamReader(m_Buffer, Encoding, false, RtspMessage.MaximumLength, true))
             {
 
@@ -1355,7 +1360,8 @@ namespace Media.Rtsp
             //Then there will be more data in m_Buffer, specifically Content-Length if there is a body and it has not yet been parsed.
 
             //Headers were parsed if there were 1 empty lines.
-            return ContainsHeader(RtspHeaders.CSeq) && emptyLine > 0;
+            try { return CSeq >= 0 && emptyLine > 0; }
+            catch { return false; }
         }
 
 
@@ -1679,17 +1685,20 @@ namespace Media.Rtsp
                 //Write the new data if not already written
                 if (!wroteData)
                 {
+                    //Create the buffer if it was null
                     if (m_Buffer == null) m_Buffer = new System.IO.MemoryStream((int)buffer.Count);
-                    else
+                    else //Otherwise prepare to append the buffer
                     {
                         m_Buffer.Seek(0, System.IO.SeekOrigin.End);
 
                         m_Buffer.SetLength(m_Buffer.Length + buffer.Count);
-
                     }
+
+                    //Write the new data
                     m_Buffer.Write(buffer.Array, buffer.Offset, buffer.Count);
 
-                    m_Buffer.Seek(headerOffset, System.IO.SeekOrigin.Begin);
+                    //Seek to the headerOffset (set in ParseStatusLine())
+                    m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
                 }
 
                 //If the header section was not parsed indicate how much was written

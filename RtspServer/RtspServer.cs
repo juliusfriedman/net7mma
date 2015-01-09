@@ -662,10 +662,11 @@ namespace Media.Rtsp
 
                 try
                 {
-                    //Check for inactivity, not connectivity
-                    if (!session.Attached.Any()) if(session.LastResponse == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
+                    //Check for inactivity, not connectivity (TCP clients may not be sending a rtsp keep alive request when interleaving)
+                    //Ensure this logic is correct and use the RtpClient if necessary to check for inactivity.
+                    if (session.LastResponse == null || session.LastRequest == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
                         ||
-                        session.LastResponse != null && (maintenanceStarted - session.LastResponse.Created) > RtspClientInactivityTimeout)
+                        session.LastResponse != null && session.LastResponse.Transferred.HasValue && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout)
                     {
                         inactive.Add(session.Id);
                         continue;
@@ -750,7 +751,7 @@ namespace Media.Rtsp
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            m_ServerThread.Priority = ThreadPriority.Lowest;
+            m_ServerThread.Priority = ThreadPriority.BelowNormal;
             m_ServerThread.Start();
 
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
@@ -781,7 +782,7 @@ namespace Media.Rtsp
         public virtual void Stop()
         {
             //If there is not a server thread return
-            if (m_ServerThread == null) return;
+            if (m_StopRequested || m_ServerThread == null) return;
 
             //Stop maintaining the server
             if (m_Maintainer != null)
@@ -818,6 +819,7 @@ namespace Media.Rtsp
 
             //Stop other listeners
             DisableHttpTransport();
+
             DisableUnreliableTransport();
 
             //Erase statistics
@@ -897,8 +899,9 @@ namespace Media.Rtsp
                             while (!iar.IsCompleted && !iar.AsyncWaitHandle.WaitOne(timeOut) && !m_StopRequested)
                             {
                                 //Wait the other half looking for the stop
-                                if (m_StopRequested || !iar.AsyncWaitHandle.WaitOne(timeOut) || iar.IsCompleted) break;
+                                if (m_StopRequested || !iar.AsyncWaitHandle.WaitOne(timeOut) || iar.IsCompleted) continue;
 
+                                //Relinquish time slice
                                 System.Threading.Thread.Sleep(0);
 
                                 //Should ensure that not waiting more then a certain amount of time here
@@ -989,7 +992,7 @@ namespace Media.Rtsp
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {
                 //If there is a logger log the exception
-                if (Logger != null) Logger.LogException(ex);
+                if (IsRunning && Logger != null) Logger.LogException(ex);
             }
         }
 
@@ -1037,7 +1040,7 @@ namespace Media.Rtsp
             ClientSession session = (ClientSession)ar.AsyncState;
 
             //If there is no session return
-            if (session == null) return;
+            if (session == null || session.m_RtspSocket == null) return;
 
             //Take note of whre we are receiving from
             EndPoint inBound = session.RemoteEndPoint;
@@ -1089,6 +1092,7 @@ namespace Media.Rtsp
 
                                 //If the message is now complete then process it
                                 if (session.LastRequest.IsComplete) ProcessRtspRequest(request, session);
+                                else session.SendRtspData(Utility.Empty); //Otherwise ensure connected and receive more
                             }
                         }
                     }
@@ -1114,20 +1118,24 @@ namespace Media.Rtsp
                 if (Logger != null) Logger.LogException(ex);
 
                 //if a socket exception occured then handle it.
-                if (session != null && ex is SocketException) HandleSocketException((SocketException)ex, session);
+                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
             }
         }
 
-        internal void HandleSocketException(SocketException se, ClientSession cs)
+        internal void HandleClientSocketException(SocketException se, ClientSession cs)
         {
             if(se == null || cs == null || cs.IsDisposed) return;
+
+            if(cs.m_RtpClient != null && cs.m_RtpClient.IsConnected) cs.m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Lowest;
 
             switch (se.SocketErrorCode)
             {
                 case SocketError.ConnectionAborted:
+                case SocketError.ConnectionReset:
                 case SocketError.Disconnecting:
                 case SocketError.Shutdown:
                 case SocketError.NotConnected:
+                    
                     //Mark the client as disconnected.
                     cs.IsDisconnected = true;
 
@@ -1185,7 +1193,7 @@ namespace Media.Rtsp
 
 
                 //handle the socket exception
-                if (session != null && ex is SocketException) HandleSocketException((SocketException)ex, session);
+                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
             }
         }
 
@@ -1202,8 +1210,8 @@ namespace Media.Rtsp
         {
             try
             {
-                //Ensure we have a session and request
-                if (request == null || session == null)
+                //Ensure we have a session and request and that the server is still running
+                if (request == null || session == null || !IsRunning)
                 {
                     //SessionNotFound
                     //We can't identify the request or session
@@ -1579,13 +1587,17 @@ namespace Media.Rtsp
                     }
                     else
                     {
+                        //Test the connectivity and start another receive
                         session.SendRtspData(Utility.Empty);
                     }
                 }
             }
             catch (Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);                
+                if (Logger != null) Logger.LogException(ex);
+
+                //if a socket exception occured then handle it.
+                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
             }            
         }
 

@@ -767,9 +767,12 @@ namespace Media.Rtp
                 Header.Dispose();
             }
 
-            //Payload goes away when Disposing
-            Payload.Dispose();
-            Payload = null;
+            if (Payload != null)
+            {
+                //Payload goes away when Disposing
+                Payload.Dispose();
+                Payload = null;
+            }
 
             //The private data goes away after calling Dispose
             m_OwnedOctets = null;

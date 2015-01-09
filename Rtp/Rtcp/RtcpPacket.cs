@@ -708,9 +708,12 @@ namespace Media.Rtcp
                 //Header = null;
             }
 
-            //Payload goes away when disposing
-            Payload.Dispose();
-            Payload = null;
+            if (Payload != null)
+            {
+                //Payload goes away when Disposing
+                Payload.Dispose();
+                Payload = null;
+            }
 
             //The private data goes away after calling Dispose
             m_OwnedOctets = null;

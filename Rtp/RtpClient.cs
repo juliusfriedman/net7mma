@@ -2125,7 +2125,7 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if the RtpClient is not disposed and the WorkerThread is alive.
         /// </summary>
-        public virtual bool Connected { get { return !IsDisposed && m_WorkerThread != null && m_WorkerThread.IsAlive; } }
+        public virtual bool IsConnected { get { return !IsDisposed && m_WorkerThread != null && m_WorkerThread.IsAlive; } }
 
         /// <summary>
         /// Gets a value which indicates if any underlying <see cref="RtpClient.TransportContext"/> owned by this RtpClient instance utilizes Rtcp.
@@ -2824,7 +2824,7 @@ namespace Media.Rtp
         /// </summary>
         public void Disconnect()
         {
-            if (IsDisposed || !Connected) return;
+            if (IsDisposed || !IsConnected) return;
 
             SendGoodbyes();
 
@@ -3448,12 +3448,6 @@ namespace Media.Rtp
                             continue;
                         }
 
-                        //Ensure priority is above normal
-                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
-
-                        //Reset the error.
-                        lastError = SocketError.SocketError;
-
                         //Obtain a context
                         TransportContext tc = TransportContexts[i];
 
@@ -3463,6 +3457,12 @@ namespace Media.Rtp
                             !tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero) continue;
 
                         //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
+
+                        //Reset the error.
+                        lastError = SocketError.SocketError;
+
+                        //Ensure priority is above normal
+                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
                         int receivedRtp = 0, receivedRtcp = 0;
 
@@ -3505,7 +3505,13 @@ namespace Media.Rtp
                     }
 
                     //If there are no outgoing packets
-                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0) continue;
+                    if ((lastError != SocketError.SocketError && lastError != SocketError.Success) || m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
+                    {
+                        //Relinquish priority
+                        System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
+
+                        continue;
+                    }
 
                     #endregion
 
@@ -3548,13 +3554,13 @@ namespace Media.Rtp
                             {
                                 ++remove;
                                 continue;
-                            }
+                            } //Todo socket error should be given here...
                             else if (SendRtpPacket(packet, sendContext.SynchronizationSourceIdentifier) >= packet.Length)
                             {
                                 ++remove;
                                 lastOperation = DateTime.UtcNow;
                             }
-                            else break;
+                            else break;//There was an error sending the packet
 
                             //If this was a marker packet then stop for now
                             if (packet.Marker) break;

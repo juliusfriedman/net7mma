@@ -56,6 +56,9 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspClient : Common.BaseDisposable, Media.Common.ISocketReference
     {
+
+        const double DefaultProtocolVersion = 1.0;
+
         #region Nested Types
 
         public enum ClientProtocolType
@@ -118,10 +121,11 @@ namespace Media.Rtsp
         /// <summary>
         /// Keep track of timed values.
         /// </summary>
-        TimeSpan m_RtspTimeout = TimeSpan.FromSeconds(60),
+        TimeSpan m_RtspSessionTimeout = TimeSpan.FromSeconds(60),
             m_ConnectionTime = Utility.InfiniteTimeSpan,
             m_LastServerDelay = Utility.InfiniteTimeSpan,
-            m_LastMessageRoundTripTime = Utility.InfiniteTimeSpan;
+            //Appendix G.  Requirements for Unreliable Transport of RTSP
+            m_LastMessageRoundTripTime = TimeSpan.FromMilliseconds(500);
 
         /// <summary>
         /// Keep track of certain values.
@@ -230,19 +234,19 @@ namespace Media.Rtsp
         /// The amount of time in seconds the KeepAlive request will be sent to the server after connected.
         /// If a GET_PARAMETER request is not supports OPTIONS will be sent instead.
         /// </summary>
-        public TimeSpan KeepAliveTimeout { get { return m_RtspTimeout; }
+        public TimeSpan RtspSessionTimeout { get { return m_RtspSessionTimeout; }
             set
             {
-                m_RtspTimeout = value;
+                m_RtspSessionTimeout = value;
                 
-                if (m_RtspTimeout <= TimeSpan.Zero)
+                if (m_RtspSessionTimeout <= TimeSpan.Zero)
                 {
                     if (m_KeepAliveTimer != null) m_KeepAliveTimer.Dispose();
                     m_KeepAliveTimer = null;
                 }
 
                 //Update the timer period (taking into account the last time a request was sent) if there is a timer.
-                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null && m_LastTransmitted.Transferred.HasValue ? (m_RtspTimeout - (DateTime.UtcNow - m_LastTransmitted.Created)) : m_RtspTimeout, Utility.InfiniteTimeSpan);
+                if (m_KeepAliveTimer != null) m_KeepAliveTimer.Change(m_LastTransmitted != null && m_LastTransmitted.Transferred.HasValue ? (m_RtspSessionTimeout - (DateTime.UtcNow - m_LastTransmitted.Created)) : m_RtspSessionTimeout, Utility.InfiniteTimeSpan);
             }
         }
 
@@ -392,6 +396,11 @@ namespace Media.Rtsp
         /// </summary>
         public bool LeaveOpen { get; set; }
 
+        /// <summary>
+        /// The version of Rtsp the client will utilize in messages
+        /// </summary>
+        public double ProtocolVersion { get; set; }
+
         #endregion
 
         #region Constructor
@@ -450,6 +459,9 @@ namespace Media.Rtsp
 
             //If leave open is set the socket will not be disposed.
             LeaveOpen = leaveOpen;
+
+            //Set the protocol version to use in requests.
+            ProtocolVersion = DefaultProtocolVersion;
         }
 
         /// <summary>
@@ -551,6 +563,72 @@ namespace Media.Rtsp
 
         #region Methods
 
+        void ProcessServerSentRequest()
+        {
+
+            if (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Request) return;
+
+            //handle the message received
+            switch (m_LastTransmitted.Method)
+            {
+                case RtspMethod.TEARDOWN:
+                    {
+                        //If playing
+                        if (IsPlaying)
+                        {
+                            //Use the Uri to determine what is shutting down
+                            if (Uri.Equals(m_LastTransmitted.Location, Location))
+                            {
+                                OnStopping();
+                            }
+                            else
+                            {
+                                //Attempt to find the media by the uri given.
+                                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
+
+                                //uri's follow the format /.././Type
+                                if (Enum.TryParse<Sdp.MediaType>(m_LastTransmitted.Location.Segments.Last(), true, out mediaType))
+                                {
+                                    //Find a contet for the type given
+                                    var context = Client.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.MediaType == mediaType);
+
+                                    //If a context was found
+                                    if (context != null)
+                                    {
+                                        //Indicate this media is stopping now
+                                        OnStopping(context.MediaDescription);
+
+                                        context = null;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        break;
+                    }
+                case RtspMethod.ANNOUNCE:
+                    {
+                        if (Uri.Equals(m_LastTransmitted.Location, Location))
+                        {
+                            //Check for SDP content type and update the SessionDescription
+                        }
+
+                        break;
+                    }
+                case RtspMethod.PLAY_NOTIFY:
+                    {
+                        //Use the Uri to determine what is chaning.
+                        if (Uri.Equals(m_LastTransmitted.Location, Location))
+                        {
+                            //See what is being notified.
+                        }
+                        
+                        break;
+                    }
+                default: break;
+            }
+        }
+
         /// <summary>
         /// Handles Interleaved Data for the RtspClient by parsing the given memory for a valid RtspMessage.
         /// </summary>
@@ -583,6 +661,9 @@ namespace Media.Rtsp
                         //Ensure suported methods contains the method requested.
                         m_SupportedMethods.Add(interleaved.Method);
 
+                        //if the message is complete handle it now.
+                        if (interleaved.IsComplete) ProcessServerSentRequest();
+
                         //Handle as a response
                         goto case RtspMessageType.Response;
                     }
@@ -612,15 +693,15 @@ namespace Media.Rtsp
                         {
                             //Update counters
                             m_ReceivedBytes += received;
+
+                            //Disposes the last message.
+                            m_LastTransmitted.Dispose();
+
+                            m_LastTransmitted = null;
+
+                            //Store the last message
+                            m_LastTransmitted = interleaved;
                         }
-
-                        //Disposes the last message.
-                        m_LastTransmitted.Dispose();
-
-                        m_LastTransmitted = null;
-
-                        //Store the last message
-                        m_LastTransmitted = interleaved;
 
                         goto default;
                     }
@@ -651,6 +732,9 @@ namespace Media.Rtsp
                                     //No data was consumed do nothing.
                                     if (lastLength == m_LastTransmitted.Length) received = 0;
                                 }
+
+                                //handle the completion of a request sent by the server
+                                if (m_LastTransmitted.MessageType == RtspMessageType.Request) ProcessServerSentRequest();
                             }
                         }
 
@@ -662,7 +746,8 @@ namespace Media.Rtsp
                         if (!m_InterleaveEvent.IsSet) m_InterleaveEvent.Set();
                         else if (received > 0)
                         {
-                            Received(m_LastTransmitted, null); //Otherwise indicate a message has been received.
+                            //Otherwise indicate a message has been received now.
+                            Received(m_LastTransmitted, null); 
                             
                             //Handle any data remaining in the buffer (Must ensure Length property of RtspMessage is exact).
                             if (received < length) ProcessInterleaveData(sender, data, received, length - received);
@@ -962,8 +1047,8 @@ namespace Media.Rtsp
                         //Calculate the connection time.
                         m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
 
-                        //Set the read and write timeouts based upon such a time including the m_RtspTimeout.
-                        SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalSeconds + m_RtspTimeout.TotalSeconds);
+                        //Set the read and write timeouts based upon such a time including the m_RtspSessionTimeout.
+                        SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalSeconds + m_RtspSessionTimeout.TotalSeconds);
 
                         //Raise the Connected event.
                         OnConnected();
@@ -1020,7 +1105,7 @@ namespace Media.Rtsp
                 }
             }
 
-            if (Client != null && Client.Connected) Client.Disconnect();
+            if (Client != null && Client.IsConnected) Client.Disconnect();
 
             DisconnectSocket();
 
@@ -1036,7 +1121,7 @@ namespace Media.Rtsp
 
         #region Rtsp
 
-        public RtspMessage SendRtspRequest(RtspMessage request)
+        public RtspMessage SendRtspRequest(RtspMessage request, bool useClientProtocolVersion = true)
         {
 
             if (IsDisposed) return null;
@@ -1047,6 +1132,9 @@ namespace Media.Rtsp
                 {
                     Connect();
                 }
+
+                //Ensure the request version matches the protocol version of the client if enforceVersion is true.
+                if (useClientProtocolVersion && request.Version != ProtocolVersion) request.Version = ProtocolVersion;
 
                 //Add the user agent
                 if (!request.ContainsHeader(RtspHeaders.UserAgent))
@@ -1115,6 +1203,7 @@ namespace Media.Rtsp
                 //The error which will be ignored incase non-blocking sockets are being used.
                 SocketError error = SocketError.Success;
 
+            Send:
                 unchecked
                 {
                     sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
@@ -1172,8 +1261,20 @@ namespace Media.Rtsp
                         if (received < 0) received = 0;
                     }
                     else ProcessInterleaveData(this, m_Buffer.Array, offset, received);
+                }//Otherwise if not already playing 
+                else if (!IsPlaying)
+                {
+                    //goto receive data under TCP
+                    if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) goto Receive;
+
+                    //If udp
+                    if (m_RtspSocket.ProtocolType == ProtocolType.Udp)
+                    {
+                        //If more time has elapsed than taken for the last message send again.
+                        if (DateTime.UtcNow - request.Transferred > m_LastMessageRoundTripTime) goto Send;
+                        goto Receive;
+                    }
                 }
-                else if (!IsPlaying) goto Receive;
 
             Wait: //Wait for the response unless playing or tearing down. (Some implementations do not send a play response especially in interleaved mode, others don't send a tear down response), the latter one can make quickly ending the client take a long time which is not desirable.
                 if (request.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
@@ -1188,7 +1289,7 @@ namespace Media.Rtsp
                         if (!IsConnected) break;
 
                         //Wait a small amount of time for the response because the cancellation token was not used...
-                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval))) continue;
+                        if (m_InterleaveEvent.IsSet || m_InterleaveEvent.Wait((int)((m_RtspSessionTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval))) continue;
 
                         //Some times when tearing down or pausing we are no longer playing
                         if (!IsPlaying) goto Receive;
@@ -1309,6 +1410,21 @@ namespace Media.Rtsp
                     {
                         case RtspStatusCode.NotImplemented: m_SupportedMethods.Remove(m_LastTransmitted.Method); break;
                         case RtspStatusCode.MethodNotValidInThisState: if (m_LastTransmitted.ContainsHeader(RtspHeaders.Allow)) SwitchProtocols(); break;
+                        case RtspStatusCode.RtspVersionNotSupported:
+                            {
+                                //if enforcing the version
+                                if (useClientProtocolVersion)
+                                {
+                                    //Read the version from the response
+                                    ProtocolVersion = m_LastTransmitted.Version;
+
+                                    //Send the request again.
+                                    return SendRtspRequest(request, useClientProtocolVersion);
+                                }
+
+                                //break
+                                break;
+                            }
                         default: break;
                     }
 
@@ -1341,11 +1457,11 @@ namespace Media.Rtsp
                                         //Should already be set...
                                         if (timeoutStart <= 0)
                                         {
-                                            m_RtspTimeout = TimeSpan.FromSeconds(60);//Default
+                                            m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
                                         }
                                         else
                                         {
-                                            m_RtspTimeout = TimeSpan.FromSeconds(timeoutStart);
+                                            m_RtspSessionTimeout = TimeSpan.FromSeconds(timeoutStart);
                                         }
                                     }
                                 }
@@ -1355,7 +1471,7 @@ namespace Media.Rtsp
                                 //The timeout was not present
                                 m_SessionId = sessionHeader.Trim();
 
-                                m_RtspTimeout = TimeSpan.FromSeconds(60);//Default
+                                m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
                             }
                         }
                     }
@@ -1399,6 +1515,8 @@ namespace Media.Rtsp
             catch(Exception ex)
             {
                 if (IsDisposed || ex is ObjectDisposedException) return null;
+
+                if (ex is Common.Exception<RtpClient>) return null;
 
                 throw;
             }
@@ -1919,7 +2037,7 @@ namespace Media.Rtsp
                     }
 
                     //Connect and wait for Packets
-                    if (!m_RtpClient.Connected) m_RtpClient.Connect();
+                    if (!m_RtpClient.IsConnected) m_RtpClient.Connect();
 
                     //If we have a timeout to switch the protocols and the protocol has not been forced
                     if (m_RtpClient.TotalBytesReceieved == 0)
@@ -1928,7 +2046,7 @@ namespace Media.Rtsp
                     }
 
                     //Setup a timer to send any requests to keep the connection alive and ensure media is flowing.
-                    if (m_KeepAliveTimer == null) m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspTimeout, Utility.InfiniteTimeSpan);
+                    if (m_KeepAliveTimer == null) m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, m_RtspSessionTimeout, Utility.InfiniteTimeSpan);
 
                     //Don't keep the tcp socket open when not required under Udp.
                     //if (m_RtpProtocol == ProtocolType.Udp) DisconnectSocket();
@@ -2022,7 +2140,7 @@ namespace Media.Rtsp
 
                 if (!wasConnected) Connect();
 
-                if (!DisableKeepAliveRequest && m_RtspTimeout > TimeSpan.Zero)
+                if (!DisableKeepAliveRequest && m_RtspSessionTimeout > TimeSpan.Zero)
                 {
                     //Darwin DSS and other servers might not support GET_PARAMETER
                     if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER))
@@ -2040,7 +2158,7 @@ namespace Media.Rtsp
                 }
               
                 //Determine next time
-                m_KeepAliveTimer.Change(m_RtspTimeout, Utility.InfiniteTimeSpan);
+                m_KeepAliveTimer.Change(m_RtspSessionTimeout, Utility.InfiniteTimeSpan);
 
                 //Only perform these actions if playing anything.
                 if (IsPlaying)
@@ -2094,7 +2212,7 @@ namespace Media.Rtsp
         public void EnsureMediaFlow()
         {
             //If playing for greater than the timeout (If the media is shorter than this it would have already ended).
-            if (IsPlaying && Client.Uptime > m_RtspTimeout)
+            if (IsPlaying && Client.Uptime > m_RtspSessionTimeout)
             {
                 //Determine if there any are contexts without data flow by findings contexts where a packet has not been received  OR the last packet was received more then the interval ago.
                 var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.LastRtpPacketReceived > tc.ReceiveInterval);

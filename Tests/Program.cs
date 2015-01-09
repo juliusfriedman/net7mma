@@ -945,7 +945,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
                         //Wait for packets to be received
-                        while (receiver.Connected && (receiversContext.ReceiversReport == null || receiversContext.ReceiversReport.Transferred == null)) System.Threading.Thread.Yield();
+                        while (receiver.IsConnected && (receiversContext.ReceiversReport == null || receiversContext.ReceiversReport.Transferred == null)) System.Threading.Thread.Yield();
 
                         //Measure QoE / QoS based on sent / received ratio.
                         consoleWriter.WriteLine("\t Since : " + sendersContext.SendersReport.Transferred);
@@ -2630,7 +2630,7 @@ namespace Tests
                         //Wait for a key press of 'Q' once playing
                         while (!shouldStop)
                         {
-                            System.Threading.Thread.Sleep(client.KeepAliveTimeout.Seconds + 1 * 5000);
+                            System.Threading.Thread.Sleep(client.RtspSessionTimeout.Seconds + 1 * 5000);
 
                             if (client.IsPlaying)
                             {
