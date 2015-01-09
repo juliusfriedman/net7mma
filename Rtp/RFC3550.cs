@@ -90,7 +90,7 @@ namespace Media
             //Perform MD5 on structure per 3550
             byte[] digest;
             
-            using(var md5 = Utility.MD5HashAlgorithm) digest = md5.ComputeHash(structure);
+            using(var md5 = Utility.CreateMD5HashAlgorithm()) digest = md5.ComputeHash(structure);
 
             //Complete hash
             uint r = 0;
