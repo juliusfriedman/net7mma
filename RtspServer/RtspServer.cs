@@ -661,17 +661,44 @@ namespace Media.Rtsp
                 //If the session is not in the dictionary then it cannot be removed.
                 if (!m_Clients.TryGetValue(sessionId, out session)) continue;
 
+                //Don't try to dispose sessions twice
+                if (session.IsDisposed) continue;
+
+                //If the client disconnects the rtsp socket the transport session may still be active
+                if (session.IsDisconnected)
+                {
+                    //Enumerate each context in the session
+                    foreach (var context in session.m_RtpClient.GetTransportContexts())
+                    {
+                        //If the context has not been sent a packet or received a rtcp packet
+                        if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval || context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
+                        {
+                            //See if there was a source for the context
+                            var sourceContext = session.GetSourceContext(context.MediaDescription);
+
+                            //If there was a source
+                            if (sourceContext != null)
+                            {
+                                //Remove the attachment to the session
+                                session.RemoveSource(session.Attached[sourceContext]);
+
+                                sourceContext = null;
+                            }
+                        }
+                    }
+                }
+
                 //Check for inactivity, not connectivity (TCP clients may not be sending a rtsp keep alive request when interleaving)
                 //Ensure this logic is correct and use the RtpClient if necessary to check for inactivity.
                 if (session.LastResponse == null || session.LastRequest == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
                     ||
                     session.LastResponse != null && session.LastResponse.Transferred.HasValue && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout
                     ||
-                    session.IsDisconnected)
+                    session.IsDisconnected && session.Playing.Count == 0)
                 {
                     inactive.Add(session.Id);
                     continue;
-                }
+                }                
                 
                 //Remove the reference to the session
                 session = null;

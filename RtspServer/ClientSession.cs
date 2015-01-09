@@ -378,6 +378,8 @@ namespace Media.Rtsp
                 m_RtspSocket = null;
             }
 
+            Playing.Clear();
+
             IsDisconnected = true;
         }
 
