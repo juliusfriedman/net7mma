@@ -168,7 +168,7 @@ namespace Media.Rtsp
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.NoDelay = true;
 
             if (buffer == null)
-                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength / 2); // 2048
+                m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength);
             else
                 m_Buffer = buffer;
 
@@ -211,7 +211,7 @@ namespace Media.Rtsp
                 m_Server.Logger.LogException(ex);
 
                 //if a socket exception occured then handle it.
-                if (ex is SocketException) m_Server.HandleSocketException((SocketException)ex, this);
+                if (ex is SocketException) m_Server.HandleClientSocketException((SocketException)ex, this);
 
             }
         }
@@ -353,31 +353,31 @@ namespace Media.Rtsp
                     RemoveSource(source);
                 }
 
-                //End any pending send.
-                if (LastSend != null && !LastSend.IsCompleted)
-                {
-                    try
-                    {
-                        //Ensure the bytes were completely sent..
-                        m_Sent  += m_RtspSocket.EndSendTo(LastSend);
-                    }
-                    catch { }
-                }
+                ////End any pending send.
+                //if (LastSend != null && !LastSend.IsCompleted)
+                //{
+                //    try
+                //    {
+                //        //Ensure the bytes were completely sent..
+                //        m_Sent  += m_RtspSocket.EndSendTo(LastSend);
+                //    }
+                //    catch { }
+                //}
 
                 //End any pending recieve.
-                if (LastRecieve != null && !LastRecieve.IsCompleted)
-                {
-                    try
-                    {
-                        m_Receieved += m_RtspSocket.EndReceiveFrom(LastRecieve, ref RemoteEndPoint);
-                    }
-                    catch { }
-                }
+                //if (LastRecieve != null && !LastRecieve.IsCompleted)
+                //{
+                //    try
+                //    {
+                //        m_Receieved += m_RtspSocket.EndReceiveFrom(LastRecieve, ref RemoteEndPoint);
+                //    }
+                //    catch { }
+                //}
 
                 //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
-                if (m_RtpClient != null && m_RtpClient.Connected)
+                if (m_RtpClient != null && m_RtpClient.IsConnected)
                 {
-                    m_RtpClient.SendGoodbyes();
+                    m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Lowest;
 
                     m_RtpClient.InterleavedData -= m_Server.ProcessRtspInterleaveData;
 
@@ -557,7 +557,7 @@ namespace Media.Rtsp
             //Set the MediaProperties header.
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
-            if (!m_RtpClient.Connected)
+            if (!m_RtpClient.IsConnected)
             {
                 m_RtpClient.Connect();
                 
@@ -684,7 +684,7 @@ namespace Media.Rtsp
                 }
 
                 //Check if the client was already created.
-                if (m_RtpClient == null)
+                if (m_RtpClient == null || m_RtpClient.IsDisposed)
                 {
                     //Create a sender
                     m_RtpClient = new RtpClient(m_Buffer);
@@ -720,7 +720,7 @@ namespace Media.Rtsp
             if (sourceStream.ForceTCP || interleaved) 
             {
                 //Check if the client was already created.
-                if (m_RtpClient == null)
+                if (m_RtpClient == null || m_RtpClient.IsDisposed)
                 {
                     //Create a new RtpClient
                     m_RtpClient = new RtpClient(m_Buffer);

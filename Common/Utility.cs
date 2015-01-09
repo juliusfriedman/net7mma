@@ -208,34 +208,38 @@ namespace Media
 
         #endregion
 
-        internal static char[] CredentialSplit = new char[] { (char)Common.ASCII.Colon, (char)Common.ASCII.ForwardSlash, (char)Common.ASCII.BackSlash };
+        internal static char[] CredentialSplit = new char[] { (char)Common.ASCII.AtSign, (char)Common.ASCII.ForwardSlash, (char)Common.ASCII.BackSlash, (char)Common.ASCII.Colon };
 
         public static NetworkCredential ParseUserInfo(Uri uri)
         {
-
-            //Check for a null Credential and UserInfo in the Location given.
-            if (string.IsNullOrWhiteSpace(uri.UserInfo)) return null;
+            if (uri == null || string.IsNullOrWhiteSpace(uri.UserInfo)) return null;
 
             NetworkCredential result = null;
-            //Check for ':'
+
+            //Split into tokens taking only 3 tokens max
             string[] parts = uri.UserInfo.Split(CredentialSplit, 3);
 
-            //If there are two tokens
-            if (parts.Length > 1)
+            //cache the length of the split
+            int partsLength = parts.Length;
+
+            //If there are atleast two tokens
+            if (partsLength > 1)
             {
                 //If there is a domain use it
-                if (parts.Length > 2)
+                if (partsLength > 2)
                 {
-                    result = new NetworkCredential(parts[0], parts[1], parts[2]);
+                    result = new NetworkCredential(parts[0], parts[2], parts[1]);
                 }
-                else //Use the username and password.
+                else //Use the username and password. (optionally use the host as the domain)
                 {
-                    result = new NetworkCredential(parts[0], parts[1]);
+                    result = new NetworkCredential(parts[0], parts[1]);//, uri.Host);
                 }
-            }
+            }//There was only one token?
 
             return result;
         }
+
+        public static bool TryParseUserInfo(Uri uri, out NetworkCredential result) { return (result = ParseUserInfo(uri)) != null; }
 
         //Move to ISocketOwner
 
