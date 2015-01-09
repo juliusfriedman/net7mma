@@ -80,6 +80,8 @@ namespace Media.Rtsp
 
         internal Dictionary<RtpClient.TransportContext, SourceMedia> Attached = new Dictionary<RtpClient.TransportContext, SourceMedia>();
 
+        internal HashSet<Guid> Playing = new HashSet<Guid>();
+
         /// <summary>
         /// A one to many collection which is keyed by the source media's SSRC to which subsequently the values are packets which also came from the source
         /// </summary>
@@ -167,6 +169,8 @@ namespace Media.Rtsp
             //Disable Nagle in TCP
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.NoDelay = true;
 
+            //Create a buffer using the size of the largest message possible without a Content-Length header.
+            //This helps to ensure that partial messages are not recieved by the server from a client if possible
             if (buffer == null)
                 m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength);
             else
@@ -216,7 +220,7 @@ namespace Media.Rtsp
             }
         }
 
-        RtpClient.TransportContext GetSourceContextForPacket(RtpPacket packet)
+        internal RtpClient.TransportContext GetSourceContext(RtpPacket packet)
         {
             try
             {
@@ -225,13 +229,13 @@ namespace Media.Rtsp
             }
             catch (InvalidOperationException)
             {
-                return GetSourceContextForPacket(packet);
+                return GetSourceContext(packet);
             }
             catch { }
             return null;
         }
 
-        RtpClient.TransportContext GetSourceContextForPacket(Sdp.MediaDescription md)
+        internal RtpClient.TransportContext GetSourceContext(Sdp.MediaDescription md)
         {
             try
             {
@@ -240,7 +244,7 @@ namespace Media.Rtsp
             }
             catch (InvalidOperationException)
             {
-                return GetSourceContextForPacket(md);
+                return GetSourceContext(md);
             }
             catch { }
             return null;
@@ -258,7 +262,7 @@ namespace Media.Rtsp
             if (packet == null || packet.IsDisposed || m_RtpClient == null) return;
 
             //Get a source context
-            RtpClient.TransportContext context = null, sourceContext = GetSourceContextForPacket(packet);
+            RtpClient.TransportContext context = null, sourceContext = GetSourceContext(packet);
 
             //Get the sourceContext incase the same payload type was used more then once otherwise fallback to the context for the Payloadtype
             if (sourceContext != null)
@@ -345,61 +349,36 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
-            try
+            //Get rid of any attachment this ClientSession had
+            foreach (var source in Attached.Values.ToList())
             {
-                //Get rid of any attachment this ClientSession had
-                foreach (var source in Attached.Values.ToList())
-                {
-                    RemoveSource(source);
-                }
-
-                ////End any pending send.
-                //if (LastSend != null && !LastSend.IsCompleted)
-                //{
-                //    try
-                //    {
-                //        //Ensure the bytes were completely sent..
-                //        m_Sent  += m_RtspSocket.EndSendTo(LastSend);
-                //    }
-                //    catch { }
-                //}
-
-                //End any pending recieve.
-                //if (LastRecieve != null && !LastRecieve.IsCompleted)
-                //{
-                //    try
-                //    {
-                //        m_Receieved += m_RtspSocket.EndReceiveFrom(LastRecieve, ref RemoteEndPoint);
-                //    }
-                //    catch { }
-                //}
-
-                //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
-                if (m_RtpClient != null && m_RtpClient.IsConnected)
-                {
-                    m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Lowest;
-
-                    m_RtpClient.InterleavedData -= m_Server.ProcessRtspInterleaveData;
-
-                    m_RtpClient.Dispose();
-                    
-                    m_RtpClient = null;
-                }
-
-                if (m_Buffer != null)
-                {
-                    m_Buffer.Dispose();
-                    m_Buffer = null;
-                }
-
-                if (!LeaveOpen && m_RtspSocket != null)
-                {
-                    m_RtspSocket.Shutdown(SocketShutdown.Both);
-                    m_RtspSocket.Dispose();
-                    m_RtspSocket = null;
-                }
+                //Remove the attached media
+                RemoveSource(source);
             }
-            catch { return; }
+
+            //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
+            if (m_RtpClient != null && m_RtpClient.IsConnected)
+            {
+                m_RtpClient.InterleavedData -= m_Server.ProcessRtspInterleaveData;
+
+                m_RtpClient.Dispose();
+
+                m_RtpClient = null;
+            }
+
+            if (m_Buffer != null)
+            {
+                m_Buffer.Dispose();
+                m_Buffer = null;
+            }
+
+            if (!LeaveOpen && m_RtspSocket != null)
+            {
+                m_RtspSocket.Dispose();
+                m_RtspSocket = null;
+            }
+
+            IsDisconnected = true;
         }
 
         /// <summary>
@@ -439,9 +418,16 @@ namespace Media.Rtsp
 
             //13.4.16 464 Data Transport Not Ready Yet
             //The data transmission channel to the media destination is not yet ready for carrying data.
-            if (!Attached.ContainsValue(source))
+            if (!(source.RtpClient.GetTransportContexts().Where(sc => GetSourceContext(sc.MediaDescription) != null).Any()))
             {
                 return CreateRtspResponse(playRequest, RtspStatusCode.DataTransportNotReadyYet, "Source Not Setup");
+            }
+
+            //Attach the packet events if not already attached
+            if (!Playing.Contains(source.Id))
+            {
+                if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
+                else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;                
             }
 
             //Else is already attached but may not be playing...
@@ -570,7 +556,7 @@ namespace Media.Rtsp
 
         void OnSourceFrameChanged(object sender, RtpFrame frame)
         {
-            foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
+          if(frame != null && !frame.IsDisposed)  foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
         }
 
         /// <summary>
@@ -601,6 +587,7 @@ namespace Media.Rtsp
         /// <param name="request"></param>
         /// <param name="sourceContext"></param>
         /// <returns></returns>
+        /// //TODO Should be SourceMedia and SourceContext.
         internal RtspMessage ProcessSetup(RtspMessage request, RtpSource sourceStream, RtpClient.TransportContext sourceContext)
         {
             //We also have to send one back
@@ -767,14 +754,7 @@ namespace Media.Rtsp
 
             //Start and end times are always equal.
             setupContext.MediaStartTime = sourceContext.MediaStartTime;
-            setupContext.MediaEndTime = sourceContext.MediaEndTime;
-
-            //Only attach events once
-            if (!Attached.ContainsValue(sourceStream))
-            {
-                if (sourceStream.RtpClient.FrameChangedEventsEnabled) sourceStream.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
-                else sourceStream.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
-            }
+            setupContext.MediaEndTime = sourceContext.MediaEndTime;           
 
             //Add the new source
             Attached.Add(sourceContext, sourceStream);
@@ -827,6 +807,8 @@ namespace Media.Rtsp
                     rtpSource.RtpClient.RtpFrameChanged -= OnSourceFrameChanged;
                 }
             }
+
+            Playing.Remove(source.Id);
         }
 
         /// <summary>
@@ -876,7 +858,7 @@ namespace Media.Rtsp
             }
             else //Tear down all streams
             {
-                RemoveSource(source);
+                RemoveSource(source);                
             }
 
             //Return the response

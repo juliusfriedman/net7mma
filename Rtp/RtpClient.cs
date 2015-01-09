@@ -3015,10 +3015,10 @@ namespace Media.Rtp
         internal protected virtual int ReceiveData(Socket socket, ref EndPoint remote, out SocketError error, bool expectRtp = true, bool expectRtcp = true)
         {
             //Nothing bad happened yet.
-            error = SocketError.Success;
+            error = SocketError.SocketError;
 
             //Ensure the socket can poll
-            if (IsDisposed || m_StopRequested || socket == null || socket.Handle.ToInt64() <= 0 || m_Buffer.IsDisposed) return 0;
+            if (IsDisposed || m_StopRequested || socket == null || socket.Handle.ToInt64() <= 0 || m_Buffer.IsDisposed || remote == null) return 0;
 
             bool tcp = socket.ProtocolType == ProtocolType.Tcp;
 
@@ -3033,12 +3033,14 @@ namespace Media.Rtp
             {
                 received = socket.ReceiveFrom(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, ref recievedFrom);
 
+                error = SocketError.Success;
+
                 //If the receive was a success
                 if (received > 0)
                 {
 
                     //Under TCP use Framing to obtain the length of the packet as well as the context.
-                    if (tcp)  return ProcessFrameData(m_Buffer.Array, offset, received, socket);
+                    if (tcp) return ProcessFrameData(m_Buffer.Array, offset, received, socket);
 
                     //When port 0 is used the port could change
                     if (remoteIpEndPoint.Port == 0)
@@ -3059,6 +3061,7 @@ namespace Media.Rtp
                 error = (SocketError)se.ErrorCode;
                 return -1;
             }
+            catch { }
 
             //Return the amount of bytes received from this operation
             return received;
@@ -3560,7 +3563,11 @@ namespace Media.Rtp
                                 ++remove;
                                 lastOperation = DateTime.UtcNow;
                             }
-                            else break;//There was an error sending the packet
+                            else
+                            {
+                                ++remove;
+                                break;//There was an error sending the packet
+                            }
 
                             //If this was a marker packet then stop for now
                             if (packet.Marker) break;
