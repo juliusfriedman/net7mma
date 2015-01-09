@@ -565,8 +565,16 @@ namespace Media.Rtsp
 
         void ProcessServerSentRequest()
         {
+            if (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Request || !m_LastTransmitted.IsComplete) return;
 
-            if (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Request) return;
+            //Check the sequence number
+            int sequenceNumber = m_LastTransmitted.CSeq;
+
+            //Don't handle a request with an invalid sequence number
+            if (sequenceNumber <= m_CSeq) return;
+
+            //Ensure the next sequence number obtained starts after this one.
+            m_CSeq = sequenceNumber;
 
             //handle the message received
             switch (m_LastTransmitted.Method)
@@ -595,9 +603,14 @@ namespace Media.Rtsp
                                     //If a context was found
                                     if (context != null)
                                     {
-                                        //Indicate this media is stopping now
-                                        OnStopping(context.MediaDescription);
+                                        //If it was playing
+                                        if (m_Playing.Contains(context.MediaDescription))
+                                        {
+                                            //Indicate this media is stopping now
+                                            OnStopping(context.MediaDescription);
+                                        }
 
+                                        //remove the reference to the context
                                         context = null;
                                     }
                                 }
@@ -1264,6 +1277,9 @@ namespace Media.Rtsp
                 }//Otherwise if not already playing 
                 else if (!IsPlaying)
                 {
+
+                    //todo switch and integrate inplaying check
+
                     //goto receive data under TCP
                     if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) goto Receive;
 
@@ -2215,7 +2231,7 @@ namespace Media.Rtsp
             if (IsPlaying && Client.Uptime > m_RtspSessionTimeout)
             {
                 //Determine if there any are contexts without data flow by findings contexts where a packet has not been received  OR the last packet was received more then the interval ago.
-                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.LastRtpPacketReceived > tc.ReceiveInterval);
+                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.IsRtpEnabled && tc.LastRtpPacketReceived > tc.ReceiveInterval && tc.IsRtcpEnabled && tc.LastRtcpReportReceived > tc.ReceiveInterval);
 
                 //If there are such contexts
                 if (contextsWithoutDataFlow.Any())
