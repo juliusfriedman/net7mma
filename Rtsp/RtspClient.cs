@@ -151,9 +151,18 @@ namespace Media.Rtsp
 
         List<MediaDescription> m_Playing = new List<MediaDescription>();
 
+        bool m_TriedCredentials;
+
+        NetworkCredential m_Credential;
+
         #endregion
 
         #region Properties
+
+        /// <summary>
+        /// Indicates if the client has tried to Authenticate using the current <see cref="Credential"/>'s
+        /// </summary>
+        public bool TriedCredentials { get { return m_TriedCredentials; } }
 
         /// <summary>
         /// Indicates if Keep Alive Requests will be sent
@@ -326,7 +335,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The network credential to utilize in RtspRequests
         /// </summary>
-        public NetworkCredential Credential { get; set; }
+        public NetworkCredential Credential { get { return m_Credential; } set { m_Credential = value; m_TriedCredentials = false; } }
 
         /// <summary>
         /// The type of AuthenticationScheme to utilize in RtspRequests
@@ -1322,8 +1331,11 @@ namespace Media.Rtsp
                 //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
                 //(Note for Vivontek you can still bypass the Auth anyway :)
                 //http://www.coresecurity.com/advisories/vivotek-ip-cameras-rtsp-authentication-bypass
-                if (m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
+                if (!m_TriedCredentials && m_LastTransmitted != null && m_LastTransmitted.MessageType == RtspMessageType.Response && m_LastTransmitted.StatusCode == RtspStatusCode.Unauthorized && m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) && Credential != null)
                 {
+                    //Indicate credentials were tried.
+                    m_TriedCredentials = true;
+
                     //http://tools.ietf.org/html/rfc2617
                     //3.2.1 The WWW-Authenticate Response Header
                     //Example
@@ -1336,17 +1348,6 @@ namespace Media.Rtsp
                     if (string.Compare(baseParts[0].Trim(), "basic", true) == 0)
                     {
                         AuthenticationScheme = AuthenticationSchemes.Basic;
-
-                        //Get the realm if we don't have one.
-                        if (Credential.Domain == null)
-                        {
-                            string realm = baseParts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-                            if (!string.IsNullOrWhiteSpace(realm))
-                            {
-                                realm = realm.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
-                                Credential.Domain = realm;
-                            }
-                        }
 
                         request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
 
@@ -1364,10 +1365,10 @@ namespace Media.Rtsp
                         if (!string.IsNullOrWhiteSpace(username)) username = username.Substring(9);
                         else username = Credential.UserName; //use the username of the credential.
 
-                        string realm;
+                        string realm = Credential.Domain;
 
                         //Get the realm if we don't have one.
-                        if (Credential.Domain == null)
+                        if (string.IsNullOrWhiteSpace(realm))
                         {
                             realm = baseParts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                             if (!string.IsNullOrWhiteSpace(realm))
@@ -1376,7 +1377,6 @@ namespace Media.Rtsp
                                 Credential.Domain = realm;
                             }
                         }
-                        else realm = Credential.Domain; //Use the realm of the Credential.
 
                         string nc = baseParts.Where(p => p.StartsWith("nc", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                         if (!string.IsNullOrWhiteSpace(nc)) nc = realm.Substring(3);

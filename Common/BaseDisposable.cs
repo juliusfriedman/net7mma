@@ -84,7 +84,6 @@ namespace Media.Common
         /// Allows derived implemenations a chance to destory manged or unmanged resources.
         /// The System.Runtime.CompilerServices.MethodImplOptions.Synchronized attribute prevents two threads from being in this method at the same time.
         /// </summary>
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public virtual void Dispose()
         {
             //If already disposed return

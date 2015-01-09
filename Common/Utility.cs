@@ -160,7 +160,7 @@ namespace Media
 
         #region Properties
 
-        public static System.Security.Cryptography.MD5 MD5HashAlgorithm { get { return System.Security.Cryptography.MD5.Create(); } }
+        public static System.Security.Cryptography.MD5 CreateMD5HashAlgorithm() { return System.Security.Cryptography.MD5.Create(); }
 
         public static Random Random = new Random();
 
