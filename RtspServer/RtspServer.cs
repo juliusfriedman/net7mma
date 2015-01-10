@@ -667,6 +667,14 @@ namespace Media.Rtsp
                 //If the client disconnects the rtsp socket the transport session may still be active
                 if (session.IsDisconnected)
                 {
+                    //if there is no client ensure nothing is playing
+                    if (session.m_RtpClient == null)
+                    {
+                        session.Playing.Clear();
+
+                        continue;
+                    }
+
                     //Enumerate each context in the session
                     foreach (var context in session.m_RtpClient.GetTransportContexts())
                     {
