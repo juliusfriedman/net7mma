@@ -1313,9 +1313,8 @@ namespace Media.Rtsp
                 }//Otherwise if not already playing 
                 else if (!IsPlaying)
                 {
-
                     //If more time has elapsed than taken for the last message send again.
-                    if (DateTime.UtcNow - request.Transferred > m_LastMessageRoundTripTime) goto Send;
+                    if (DateTime.UtcNow - request.Transferred > m_LastMessageRoundTripTime + m_ConnectionTime) goto Send;
                     goto Receive;
                 }
 
@@ -1323,7 +1322,7 @@ namespace Media.Rtsp
                 if (request.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
                 {
                     //We have not yet received a COMPLETE response, wait on the interleave event for the amount of time specified, if signaled a response was created
-                    while (!IsDisposed && (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && ++attempt <= m_ResponseTimeoutInterval)
+                    while (!IsDisposed && (m_LastTransmitted == null || m_LastTransmitted.MessageType != RtspMessageType.Response || !m_LastTransmitted.IsComplete) && m_LastTransmitted.CSeq != request.CSeq && ++attempt <= m_ResponseTimeoutInterval)
                     {
                         //Rtspu requires another receive here.
                         if (m_RtspSocket.ProtocolType == ProtocolType.Udp) goto Receive;

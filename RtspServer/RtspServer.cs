@@ -721,15 +721,7 @@ namespace Media.Rtsp
                 {
                     RemoveSession(session);
 
-                    //If session is not null
-                    if (session != null)
-                    {
-                        //Ensure it was disposed
-                        if (!session.IsDisposed) session.Dispose();
-
-                        //Remove the reference to the session
-                        session = null;
-                    }
+                    session = null;
                 }
             }
         }
@@ -1153,6 +1145,7 @@ namespace Media.Rtsp
                     //Count for the client
                     session.m_Receieved += received;
 
+                    //Use a segment around the data received
                     using (Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received))
                     {
                         //Ensure the message is really Rtsp
@@ -1227,7 +1220,7 @@ namespace Media.Rtsp
         /// Handles the sending of responses to clients which made requests
         /// </summary>
         /// <param name="ar">The asynch result</param>
-        internal void ProcessSend(IAsyncResult ar)
+        internal void ProcessSendComplete(IAsyncResult ar)
         {
             if (ar == null) return;
 
@@ -1264,7 +1257,7 @@ namespace Media.Rtsp
                 else if(session.LastSend == null || session.LastSend.IsCompleted)
                 {                   
                     //Start sending
-                    session.LastSend = session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, remote, new AsyncCallback(ProcessSend), session);
+                    session.LastSend = session.m_RtspSocket.BeginSendTo(session.m_SendBuffer, sent, neededLength - sent, SocketFlags.None, remote, new AsyncCallback(ProcessSendComplete), session);
                 }
             }
             catch (Exception ex)
