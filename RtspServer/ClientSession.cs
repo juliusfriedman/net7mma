@@ -206,7 +206,7 @@ namespace Media.Rtsp
 
                     m_SendBuffer = data;
 
-                    LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSend), this);//Begin to Send the response over the RtspSocket
+                    LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSendComplete), this);//Begin to Send the response over the RtspSocket
                 }
             }
             catch (Exception ex)
