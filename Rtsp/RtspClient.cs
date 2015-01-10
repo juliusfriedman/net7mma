@@ -471,6 +471,8 @@ namespace Media.Rtsp
 
             //Set the protocol version to use in requests.
             ProtocolVersion = DefaultProtocolVersion;
+            
+            //Hopefully the Location doensn't have a UserInfo at this point.
         }
 
         /// <summary>
@@ -484,7 +486,13 @@ namespace Media.Rtsp
             : this(new Uri(location), rtpProtocolType, bufferSize)
         {
             //Check for a null Credential and UserInfo in the Location given.
-            if (Credential == null && !string.IsNullOrWhiteSpace(Location.UserInfo)) Credential = Utility.ParseUserInfo(Location);
+            if (Credential == null && !string.IsNullOrWhiteSpace(Location.UserInfo))
+            {
+                //Remove the user info from the location
+                Location = new Uri(Location.AbsoluteUri.Replace(Location.UserInfo + (char)Common.ASCII.AtSign, string.Empty));
+
+                Credential = Utility.ParseUserInfo(Location);
+            }
         }
 
         ~RtspClient()
@@ -717,9 +725,12 @@ namespace Media.Rtsp
                             m_ReceivedBytes += received;
 
                             //Disposes the last message.
-                            m_LastTransmitted.Dispose();
+                            if (m_LastTransmitted != null)
+                            {
+                                m_LastTransmitted.Dispose();
 
-                            m_LastTransmitted = null;
+                                m_LastTransmitted = null;
+                            }
 
                             //Store the last message
                             m_LastTransmitted = interleaved;
@@ -1035,11 +1046,27 @@ namespace Media.Rtsp
                 m_BeginConnect = DateTime.UtcNow;
 
                 //Attempt the connection
-                IAsyncResult connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, ProcessEndConnect, null);
+                //IAsyncResult connectResult = m_RtspSocket.BeginConnect(m_RemoteRtsp, ProcessEndConnect, null);
+                //TODO use #if
+                //No IAsyncResult
+                {
+                    m_RtspSocket.Connect(m_RemoteRtsp);
 
+                    //Sample the clock
+                    m_EndConnect = DateTime.UtcNow;
+
+                    //Calculate the connection time.
+                    m_ConnectionTime = m_EndConnect.Value - m_BeginConnect.Value;
+
+                    //Set the read and write timeouts based upon such a time including the m_RtspSessionTimeout.
+                    SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalSeconds + m_RtspSessionTimeout.TotalSeconds);
+
+                    //Raise the Connected event.
+                    OnConnected();
+                }
                 //While waiting for the connection sleep.
-                while (!connectResult.IsCompleted) System.Threading.Thread.Sleep(0);
-               
+                //while (!connectResult.IsCompleted) System.Threading.Thread.Sleep(0);
+
             }
             catch
             {
@@ -1089,7 +1116,7 @@ namespace Media.Rtsp
         {
             if (!LeaveOpen && m_RtspSocket != null)
             {
-                if (m_RtspSocket.Connected) m_RtspSocket.Close();
+                if (m_RtspSocket.Connected) m_RtspSocket.Dispose();
                 m_RtspSocket = null;
             }
         }
@@ -1237,7 +1264,7 @@ namespace Media.Rtsp
                     request.Transferred = DateTime.UtcNow;
 
                     //Fire the event
-                    Requested(m_LastTransmitted = request);
+                    Requested(request);
 
                     //Increment our byte counters for Rtsp
                     m_SentBytes += sent;
@@ -1287,18 +1314,9 @@ namespace Media.Rtsp
                 else if (!IsPlaying)
                 {
 
-                    //todo switch and integrate inplaying check
-
-                    //goto receive data under TCP
-                    if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) goto Receive;
-
-                    //If udp
-                    if (m_RtspSocket.ProtocolType == ProtocolType.Udp)
-                    {
-                        //If more time has elapsed than taken for the last message send again.
-                        if (DateTime.UtcNow - request.Transferred > m_LastMessageRoundTripTime) goto Send;
-                        goto Receive;
-                    }
+                    //If more time has elapsed than taken for the last message send again.
+                    if (DateTime.UtcNow - request.Transferred > m_LastMessageRoundTripTime) goto Send;
+                    goto Receive;
                 }
 
             Wait: //Wait for the response unless playing or tearing down. (Some implementations do not send a play response especially in interleaved mode, others don't send a tear down response), the latter one can make quickly ending the client take a long time which is not desirable.
@@ -1370,10 +1388,21 @@ namespace Media.Rtsp
                         //Get the realm if we don't have one.
                         if (string.IsNullOrWhiteSpace(realm))
                         {
+                            //Check for the realm token
                             realm = baseParts.Where(p => p.StartsWith("realm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+                            
+                            //If it was there
                             if (!string.IsNullOrWhiteSpace(realm))
                             {
-                                realm = realm.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
+                                //Extract it from the origional string.
+                                int realmStart = authenticateHeader.IndexOf("realm", StringComparison.InvariantCultureIgnoreCase);
+
+                                realm = authenticateHeader.Substring(realmStart + 7);
+
+                                int realmEnd = realm.IndexOf(',');
+
+                                realm = realm.Substring(0, realmEnd).Replace("\"", string.Empty).Replace("\'", string.Empty).Trim();
+
                                 Credential.Domain = realm;
                             }
                         }
@@ -1608,14 +1637,19 @@ namespace Media.Rtsp
 
                     describe.SetHeader(RtspHeaders.Accept, Sdp.SessionDescription.MimeType);
 
-                    response = SendRtspRequest(describe);
+                    response = SendRtspRequest(describe);                    
 
                     if (response == null) Common.ExceptionExtensions.CreateAndRaiseException(describe, "Unable to describe media, no response to DESCRIBE request. The request is in the Tag property.");
-                    else if (response.StatusCode != RtspStatusCode.OK)
+
+                    string contentType = response[RtspHeaders.ContentType];
+
+                    if (string.IsNullOrWhiteSpace(contentType)) return SendDescribe();
+
+                    if (string.Compare(contentType, Sdp.SessionDescription.MimeType, true) > 0 || response.StatusCode != RtspStatusCode.OK)
                     {
                         Common.ExceptionExtensions.CreateAndRaiseException(response.StatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
                     }
-                    else if (response.GetHeader(RtspHeaders.ContentType).Trim() != Sdp.SessionDescription.MimeType || string.IsNullOrWhiteSpace(response.Body))
+                    else if (string.IsNullOrWhiteSpace(response.Body))
                     {
                         Common.ExceptionExtensions.CreateAndRaiseException(this, "Unable to describe media, Missing Session Description");
                     }

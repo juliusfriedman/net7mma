@@ -148,7 +148,13 @@ namespace Media.Rtsp.Server.MediaTypes
             : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize, specificMedia, startTime, endTime)
         {
             //Check for a null Credential and UserInfo in the Location given.
-            if (credential == null && !string.IsNullOrWhiteSpace(m_Source.UserInfo)) RtspClient.Credential = Utility.ParseUserInfo(m_Source);
+            if (credential == null && !string.IsNullOrWhiteSpace(m_Source.UserInfo))
+            {
+                //Remove the user info from the location
+                RtspClient.Location = new Uri(RtspClient.Location.AbsoluteUri.Replace(RtspClient.Location.UserInfo + (char)Common.ASCII.AtSign, string.Empty));
+
+                RtspClient.Credential = Utility.ParseUserInfo(m_Source);
+            }
         }
 
         /// <summary>
@@ -200,7 +206,8 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.OnPlay += RtspClient_OnPlay;
                 RtspClient.OnPause += RtspClient_OnPausing;
                 RtspClient.OnStop += RtspClient_OnStop;
-                RtspClient.Connect();
+                try { RtspClient.Connect(); }
+                catch { Stop(); }
             }
             else if (!RtspClient.IsPlaying) try { RtspClient.StartPlaying(MediaStartTime, MediaEndTime, SpecificMediaType); }
                                             catch { Stop(); }

@@ -610,7 +610,7 @@ namespace Tests
                 },
                  new
                 {
-                    Uri = "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", //Single media item
+                    Uri = "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -2624,8 +2624,8 @@ namespace Tests
                         //Allow the client to switch protocols if data is not received in 10 seconds.
                         client.ProtocolSwitchTime = TimeSpan.FromSeconds(10);
 
-                        //Indicate waiting
-                        Console.WriteLine("Waiting for connection. Press Q to exit");
+                        //Indicate waiting and commands
+                        Console.WriteLine("Waiting for connection. Press Q to exit\r\nPress K to send KeepAlive\r\nPress D to DisconnectSocket");
 
                         //Wait for a key press of 'Q' once playing
                         while (!shouldStop)
@@ -2640,9 +2640,6 @@ namespace Tests
                                 if (client.IsPlaying)
                                 {
                                     Console.WriteLine("Client Playing for :" + playingfor.ToString());
-
-                                    //Testing ONLY
-                                    //client.SendKeepAlive(null);
                                 }
 
                                 if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
@@ -2650,7 +2647,10 @@ namespace Tests
                                 shouldStop = !client.LivePlay && playingfor > client.EndTime;
                             }
 
-                            if (!shouldStop) shouldStop = Console.KeyAvailable ? Console.ReadKey(true).Key == ConsoleKey.Q : false;
+
+                            ConsoleKey read = ConsoleKey.NoName;
+
+                            if (!shouldStop) shouldStop = Console.KeyAvailable ? (read = Console.ReadKey(true).Key) == ConsoleKey.Q : false;
 
                             if (client.IsConnected == false && shouldStop == false)
                             {
@@ -2658,6 +2658,25 @@ namespace Tests
                                 continue;
                             }
 
+                            if (!shouldStop)
+                            {
+
+                                switch (read)
+                                {
+                                    case ConsoleKey.D:
+                                        {
+                                            Console.WriteLine("Disconnecting Client Socket");
+                                            client.DisconnectSocket();
+                                            break;
+                                        }
+                                    case ConsoleKey.K:
+                                        {
+                                            Console.WriteLine("Sending Client KeepAlive");
+                                            client.SendKeepAlive(null);
+                                            break;
+                                        }
+                                }
+                            }
                         }
 
                         //if the client is connected still
@@ -3409,7 +3428,7 @@ a=mpeg4-esid:101");
             {
                 //Will force VLC et al to connect over TCP
                 //                m_ForceTCP = true
-            };
+            };            
 
             //server.AddCredential(source, new System.Net.NetworkCredential("test", "test"), "Basic");
 
@@ -3514,6 +3533,8 @@ a=mpeg4-esid:101");
 
             //Start the server
             server.Start();
+
+            while (!server.IsRunning) System.Threading.Thread.Sleep(0);
 
             //Start taking pictures of the desktop and making packets
             taker.Start();
@@ -3674,7 +3695,18 @@ a=mpeg4-esid:101");
 
                             client.StartPlaying();
 
-                            while (client.Client.TotalRtpBytesReceieved <= 4096 && client.Client.Uptime.TotalSeconds < 10) { System.Threading.Thread.Sleep(10); }
+                            while (client.Client.TotalRtpBytesReceieved <= 4096 && client.Client.Uptime.TotalSeconds < 30)
+                            {
+                                //Test that client disconnection under udp is working
+                                if (client.RtpProtocol == System.Net.Sockets.ProtocolType.Udp)
+                                {
+                                    //Disconnect the client socket if it was connected to test that that media session persists
+                                    if (client.IsConnected) client.DisconnectSocket();
+                                    else client.SendKeepAlive(null); //Send a keep alive to test connections and session retrival
+                                }
+
+                                System.Threading.Thread.Sleep(10);
+                            }
 
                             Console.BackgroundColor = ConsoleColor.Green;
                             Console.WriteLine("Test passed " + client.Client.TotalRtpBytesReceieved + " " + client.RtpProtocol);
