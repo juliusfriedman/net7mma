@@ -670,27 +670,28 @@ namespace Media.Rtsp
                     //if there is no client ensure nothing is playing
                     if (session.m_RtpClient == null)
                     {
+                        //Clear anything we may think is playing
                         session.Playing.Clear();
-
-                        continue;
                     }
-
-                    //Enumerate each context in the session
-                    foreach (var context in session.m_RtpClient.GetTransportContexts())
+                    else
                     {
-                        //If the context has not been sent a packet or received a rtcp packet
-                        if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval || context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
+                        //Enumerate each context in the session
+                        foreach (var context in session.m_RtpClient.GetTransportContexts())
                         {
-                            //See if there was a source for the context
-                            var sourceContext = session.GetSourceContext(context.MediaDescription);
-
-                            //If there was a source
-                            if (sourceContext != null)
+                            //If the context has not been sent a packet or received a rtcp packet
+                            if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval || context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
                             {
-                                //Remove the attachment to the session
-                                session.RemoveSource(session.Attached[sourceContext]);
+                                //See if there was a source for the context
+                                var sourceContext = session.GetSourceContext(context.MediaDescription);
 
-                                sourceContext = null;
+                                //If there was a source
+                                if (sourceContext != null)
+                                {
+                                    //Remove the attachment to the session
+                                    session.RemoveSource(session.Attached[sourceContext]);
+
+                                    sourceContext = null;
+                                }
                             }
                         }
                     }
@@ -763,16 +764,12 @@ namespace Media.Rtsp
         public virtual void Start()
         {
             //If we already have a thread return
-            if (m_ServerThread != null) return;
+            if (IsRunning) return;
 
-            m_StopRequested = false;
+            //Indicate start was called
+            if (Logger != null) Logger.Log("Server Started @ " + DateTime.UtcNow);
 
-            //Start streaming from m_Streams before server can accept connections.
-            StartStreams();
-
-            //Start listening for requests only after streams have been started.
-
-            //Create the server Socket (Should allow InterNetworkV6)
+            //Create the server Socket
             m_TcpServerSocket = new Socket(m_ServerIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
             //Bind the server Socket to the server EndPoint
@@ -784,21 +781,34 @@ namespace Media.Rtsp
             //Set the recieve timeout
             m_TcpServerSocket.ReceiveTimeout = DefaultReceiveTimeout;
 
+            //Set the send timeout
             m_TcpServerSocket.SendTimeout = DefaultSendTimeout;
 
             //Create a thread to handle client connections
             m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
+            
+            //Configure the thread
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
             m_ServerThread.Priority = ThreadPriority.Lowest;
+
+            //Start it
             m_ServerThread.Start();
 
+            //Timer for maintaince
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
-
-            m_Started = DateTime.UtcNow;
 
             if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
             if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
+
+            //Start streaming from m_Streams before server can accept connections.
+            StartStreams();
+
+            //Erase any prior stats
+            m_Sent = m_Recieved = 0;
+
+            //Indicate when start was finished.
+            m_Started = DateTime.UtcNow;
         }
 
         /// <summary>
@@ -822,6 +832,15 @@ namespace Media.Rtsp
         {
             //If there is not a server thread return
             if (m_StopRequested || m_ServerThread == null) return;
+
+            if (Logger != null)
+            {
+                Logger.Log("Connected Clients:" + ConnectedClients);
+                Logger.Log("Server Stopped @ " + DateTime.UtcNow);
+                Logger.Log("Uptime:" + Uptime);
+                Logger.Log("Sent:" + m_Sent);
+                Logger.Log("Receieved:" + m_Recieved);
+            }
 
             //Stop maintaining the server
             if (m_Maintainer != null)
@@ -862,7 +881,10 @@ namespace Media.Rtsp
             DisableUnreliableTransport();
 
             //Erase statistics
-            m_Started = null;
+            m_Started = null;            
+
+            //Allow restart
+            m_StopRequested = false;
         }
 
         /// <summary>
@@ -872,12 +894,19 @@ namespace Media.Rtsp
         {
             foreach (IMedia stream in MediaStreams)
             {
+                if (m_StopRequested) return;
+
                 try
                 {
-                    stream.Start();
+                    if (Logger != null) Logger.Log("Starting Stream:" + stream.Id);
+                    new Thread(stream.Start)
+                    {
+                        Priority = ThreadPriority.Lowest
+                    }.Start();
                 }
-                catch
+                catch(Exception ex)
                 {
+                    if (Logger != null) Logger.LogException(ex);
                     continue;
                 }
             }
@@ -888,14 +917,21 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (IMedia stream in MediaStreams.ToArray())
+            foreach (IMedia stream in MediaStreams)
             {
+                if (m_StopRequested) return;
+
                 try
                 {
-                    stream.Stop();
+                    if (Logger != null) Logger.Log("Stopping Stream:" + stream.Id);
+                    new Thread(stream.Stop)
+                    {
+                        Priority = ThreadPriority.Lowest
+                    }.Start();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    if (Logger != null) Logger.LogException(ex);
                     continue;
                 }
             }
@@ -1018,6 +1054,13 @@ namespace Media.Rtsp
 
                 //there must be a client socket.
                 if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
+
+                //If the server is not runing dispose any connected socket
+                if (!IsRunning)
+                {
+                    clientSocket.Dispose();
+                    return;
+                }
 
                 //Make a temporary client (Could move semantics about begin recieve to ClientSession)
                 var session = CreateOrObtainSession(clientSocket);

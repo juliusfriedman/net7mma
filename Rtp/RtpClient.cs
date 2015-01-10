@@ -3508,7 +3508,7 @@ namespace Media.Rtp
                     }
 
                     //If there are no outgoing packets
-                    if ((lastError != SocketError.SocketError && lastError != SocketError.Success) || m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
+                    if (m_OutgoingRtcpPackets.Count + m_OutgoingRtpPackets.Count == 0)
                     {
                         //Relinquish priority
                         System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
