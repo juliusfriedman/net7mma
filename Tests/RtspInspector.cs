@@ -97,7 +97,10 @@ namespace Tests
         {
             sender.OnPlay += sender_OnPlay;
 
+            sender.OnRequest += sender_OnRequest;
+
             sender.OnResponse += sender_OnResponse;
+
             try
             {
                 if (numericUpDown1.Value == 0) sender.StartPlaying();
@@ -106,6 +109,27 @@ namespace Tests
             catch
             {
                 return;
+            }
+        }
+
+
+        void sender_OnRequest(RtspClient sender, RtspMessage request)
+        {
+
+            if (request != null)
+            {
+
+                //Disable keep alives if indicated
+                Client.DisableKeepAliveRequest = checkBox1.Checked;
+
+                if (this.InvokeRequired)
+                {
+                    Invoke(new FillTextRtsp(UpdateRtsp), request);
+                }
+                else
+                {
+                    textBox2.AppendText(string.Format(Program.TestingFormat, request.ToString()));
+                }
             }
         }
 
@@ -279,6 +303,7 @@ namespace Tests
             sender.OnPlay -= sender_OnPlay;
 
             sender.OnResponse -= sender_OnResponse;
+            sender.OnRequest -= sender_OnRequest;
 
             sender.OnDisconnect -= sender_OnDisconnect;
             sender.Client.RtpPacketReceieved -= ShowRtpPacket;

@@ -854,14 +854,14 @@ namespace Media.Rtp
             public virtual bool IsValid { get { return RtpPacketsReceived >= MinimumSequentialValidRtpPackets; } }
 
             /// <summary>
-            /// <c>false</c> if LocalRtp.Port NOT EQ LocalRtcp.Port
+            /// Indicates if the Rtcp is enabled and the LocalRtp is equal to the LocalRtcp
             /// </summary>
-            public bool LocalMultiplexing { get { return IsDisposed ? false : LocalRtp.Equals(LocalRtcp); } }
+            public bool LocalMultiplexing { get { return IsDisposed || IsRtcpEnabled == false || LocalRtp == null ? false : LocalRtp.Equals(LocalRtcp); } }
 
             /// <summary>
-            /// <c>false</c> if RemoteRtp.Port NOT EQ RemoteRtcp.Port
+            /// Indicates if the Rtcp is enabled and the RemoteRtp is equal to the RemoteRtcp
             /// </summary>
-            public bool RemoteMultiplexing { get { return IsDisposed ? false : RemoteRtp.Equals(RemoteRtcp); } }
+            public bool RemoteMultiplexing { get { return IsDisposed || IsRtcpEnabled == false || RemoteRtp == null ? false : RemoteRtp.Equals(RemoteRtcp); } }
             
             /// <summary>
             /// <c>false</c> if NOT [RtpEnabled AND RtcpEnabled] AND [LocalMultiplexing OR RemoteMultiplexing]
@@ -1836,6 +1836,8 @@ namespace Media.Rtp
 
             //If the instance does not handle frame changed events then return
             if (!FrameChangedEventsEnabled) return;
+
+            //Take local variable of frame ... multiple threads may access this logic
 
             //If we have not allocated a currentFrame
             if (transportContext.CurrentFrame == null)
@@ -3472,7 +3474,7 @@ namespace Media.Rtp
                         bool duplexing = tc.Duplexing, rtpEnabled = tc.IsRtpEnabled, rtcpEnabled = tc.IsRtcpEnabled;
 
                         //If receiving Rtp and the socket is able to read
-                        if (rtpEnabled
+                        if (!m_StopRequested && rtpEnabled
                             //Check if the socket can read data
                             && tc.RtpSocket.Poll((int)Math.Round(tc.m_ReceiveInterval.TotalMicroseconds(), MidpointRounding.ToEven), SelectMode.SelectRead))
                         {
@@ -3486,7 +3488,7 @@ namespace Media.Rtp
                         }
 
                         //if Rtcp is enabled
-                        if (rtcpEnabled)
+                        if (!m_StopRequested && rtcpEnabled)
                         {
                             if (//The last report was never received or recieved longer ago then required
                                 (tc.LastRtcpReportReceived == Utility.InfiniteTimeSpan || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)

@@ -421,6 +421,8 @@ namespace Tests
             TestProcessFrameData.BackToBackRtspMessages, TestProcessFrameData.Issue17245_Case1_Iteration, TestProcessFrameData.Issue17245_Case2_Iteration
         };
 
+        static string executingAssemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
         [MTAThread]
         public static void Main(string[] args)
         {
@@ -626,7 +628,24 @@ namespace Tests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
-
+                new
+                {
+                    Uri = "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://127.0.0.1/live/screen",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -634,7 +653,6 @@ namespace Tests
             TestStart:
                 try
                 {
-                    ///Allow for disable of GetParameter (set m_RtspTimeout = 0)
                     TestRtspClient(TestObject.Uri, TestObject.Creds, proto);
                 }
                 catch (Exception ex)
@@ -1075,6 +1093,20 @@ namespace Tests
                 //Write the amount of failures and successes unless all tests passed
                 if (failures == 0) writeInfo("\tAll '"+ count + "' Tests Passed!\r\n\tPress (W) To Run Again, (D) to Debug or any other key to continue.", null, ConsoleColor.Green);
                 else writeInfo("\t" + failures + " Failures, " + successes + " Successes", null, failures > 0 ? ConsoleColor.Red : ConsoleColor.Green);
+
+                //Oops core lib
+                //var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation) + "*.log.txt")
+                
+                //Delete log.txt files.
+                foreach (var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation), "*.log.txt"))
+                {
+                    try { System.IO.File.Delete(logFile); }
+                    catch (Exception ex)
+                    {
+                        if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
+                        continue;
+                    }
+                }
 
                 //If the debugger is attached Read a ConsoleKey. (intercepting the key so it does not appear on the console)
                 if (System.Diagnostics.Debugger.IsAttached)
@@ -1632,7 +1664,7 @@ namespace Tests
         static void TestRtpTools()
         {
 
-            string currentPath = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            string currentPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
             Console.WriteLine("RtpDump Test - " + currentPath);
 
@@ -2430,213 +2462,261 @@ namespace Tests
 
         static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Media.Rtsp.RtspClient.ClientProtocolType? protocol = null)
         {
-
             //For display
-            int emptyFrames = 0, incompleteFrames = 0, rtspInterleaved = 0, rtspUnknown = 0;
+            int emptyFrames = 0, incompleteFrames = 0, rtspInterleaved = 0, totalFrames = 0;
 
-            //For allow the test to run in an automated manner
-            bool shouldStop = false;
+            //For allowing the test to run in an automated manner or otherwise some output is disabled.
+            bool shouldStop = false, packetEvents = false, interleaveEvents = false;
 
+            //Check for a location
             if (string.IsNullOrWhiteSpace(location))
             {
                 Console.WriteLine("Enter a RTSP URL and press enter (Or enter to quit):");
                 location = Console.ReadLine();
             }
 
+            //Write information about the test to the console
             Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
+
+            //Define a RtspClient
             Media.Rtsp.RtspClient client = null;
-            if (!string.IsNullOrWhiteSpace(location) && Console.ReadKey().Key != ConsoleKey.Q)
+
+            //If There was a location given
+            if (Console.ReadKey().Key == ConsoleKey.Q) return;
+
+            //Using a new Media.RtspClient optionally with a specified buffer size (Should be at least the Mtu) by adding it below
+            using (client = new Media.Rtsp.RtspClient(location, protocol))
             {
-                using (System.IO.TextWriter consoleWriter = new System.IO.StreamWriter(Console.OpenStandardOutput()))
+                //Use the credential specified
+                if (cred != null) client.Credential = cred;
+
+                //FileInfo to represent the log
+                System.IO.FileInfo rtspLog = new System.IO.FileInfo("rtspLog" + DateTime.UtcNow.ToFileTimeUtc() + ".log.txt");
+
+                //Create a log to write the responses to.
+                using (System.IO.StreamWriter logWriter = rtspLog.CreateText())
                 {
-                    //Using a new Media.RtspClient optionally with a specified buffer size (SHould be at least the Mtu) by adding it below
-                    using (client = new Media.Rtsp.RtspClient(location, protocol))
-                    {                        
-
-                        //Use the credential specified
-                        if (cred != null) client.Credential = cred;
-
-                        //Connection event
-                        client.OnConnect += (sender, args) =>
+                    //Define a connection event
+                    client.OnConnect += (sender, args) =>
+                    {
+                        if (client.IsConnected && !client.IsPlaying && !shouldStop)
                         {
-                            if (client.IsConnected && !client.IsPlaying && !shouldStop)
+                            //Try to start listening
+                            try
                             {
-                                //Try to start listening
-                                try
-                                {
-                                    consoleWriter.WriteLine("\t*****************\nConnected to :" + client.Location);
-                                    consoleWriter.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
-                                    client.StartPlaying();
-                                    consoleWriter.WriteLine("\t*****************\nStartedListening to :" + client.Location);
-                                }
-                                catch (Exception ex) { writeError(ex); shouldStop = true; }
+                                Console.WriteLine("\t*****************\nConnected to :" + client.Location);
+                                Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
+                                client.StartPlaying();
+                                Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
                             }
-                        };
+                            catch (Exception ex) { writeError(ex); shouldStop = true; }
+                        }
+                    };
 
-                        //Define handles once playing
-                        Media.Rtp.RtpClient.RtpPacketHandler rtpPacketReceived = (sender, rtpPacket) =>
+                    //Define an event for RtpPackets Received.
+                    Media.Rtp.RtpClient.RtpPacketHandler rtpPacketReceived = (sender, rtpPacket) => TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
+
+                    //Define an even for RtcpPackets Received
+                    Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketReceived = (sender, rtcpPacket) => TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtcpPacket);
+
+                    //Define an even for RtcpPackets sent
+                    Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketSent = (sender, rtcpPacket) => TryPrintClientPacket(sender, false, (Media.Common.IPacket)rtcpPacket);
+
+                    //Define an even for RtpPackets sent
+                    Media.Rtp.RtpClient.RtcpPacketHandler rtpPacketSent = (sender, rtpPacket) => TryPrintClientPacket(sender, false, (Media.Common.IPacket)rtpPacket);
+
+                    //Define an event for Rtp Frames Changed.
+                    Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
+                    {
+                        if (rtpFrame.IsDisposed) return;
+                        if (rtpFrame.IsEmpty)
                         {
-                            TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
-                        };
-
-                        int totalFrames = 0;
-
-                        Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
+                            ++emptyFrames;
+                            Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("\t*******Got a EMTPTY RTP FRAME*******"); Console.BackgroundColor = ConsoleColor.Black;
+                        }
+                        else if (rtpFrame.IsMissingPackets)
                         {
-                            if (rtpFrame.IsDisposed) return;
-                            if (rtpFrame.IsEmpty)
-                            {
-                                ++emptyFrames;
-                                Console.BackgroundColor = ConsoleColor.Red; consoleWriter.WriteLine("\t*******Got a EMTPTY RTP FRAME*******"); Console.BackgroundColor = ConsoleColor.Black;
-                            }
-                            else if (rtpFrame.IsMissingPackets)
-                            {
-                                ++incompleteFrames;
-                                Console.BackgroundColor = ConsoleColor.Yellow; consoleWriter.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
-                            }
-                            else
-                            {
-                                ++totalFrames;
-                                Console.BackgroundColor = ConsoleColor.Blue; consoleWriter.WriteLine("\tGot a RTPFrame("+ rtpFrame.PayloadTypeByte +") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
-                            }
-                        };
-
-                        Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketReceived = (sender, rtcpPacket) => TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtcpPacket);
-
-                        Media.Rtp.RtpClient.RtcpPacketHandler rtcpPacketSent = (sender, rtcpPacket) => TryPrintClientPacket(sender, false, (Media.Common.IPacket)rtcpPacket);
-
-                        Media.Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data, offset, count) =>
+                            ++incompleteFrames;
+                            Console.ForegroundColor = ConsoleColor.Yellow; Console.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                        }
+                        else
                         {
-                            ++rtspInterleaved;
-                            Console.BackgroundColor = ConsoleColor.Cyan;
-                            consoleWriter.WriteLine("\tInterleaved=>" + count + " Bytes");
-                            consoleWriter.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
-                            Console.BackgroundColor = ConsoleColor.Black;
+                            ++totalFrames;
+                            Console.ForegroundColor = ConsoleColor.Blue; Console.WriteLine("\tGot a RTPFrame(" + rtpFrame.PayloadTypeByte + ") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                        }
+                    };
 
-                            //If analysing tcp re-transmissions ensure this data can be traced back to whatever packet monitor your using.
-                            //if (data[offset] == 36 || !char.IsLetter((char)data[offset]))
-                            //{
-                            //    System.IO.File.WriteAllBytes(DateTime.UtcNow.ToFileTime() + ".bin", data.Skip(offset).Take(count).ToArray());
-                            //}
-                        };
+                    //Define an event to handle 'InterleavedData'
+                    //This is usually not required.
+                    //You can use this event for large or incomplete packet data or othewise as required from the RtspClient.
+                    //Under Rtp Transport this event is used propegate data which does not belong to Rtp from the RtpClient to the RtspClient.
+                    Media.Rtp.RtpClient.InterleaveHandler rtpInterleave = (sender, data, offset, count) =>
+                    {
+                        ++rtspInterleaved;
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine("\tInterleaved=>" + count + " Bytes");
+                        Console.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
+                        Console.ForegroundColor = ConsoleColor.DarkGray;
 
-                        //Handle Request event
-                        client.OnRequest += (sender, request) =>
+                        //If analysing tcp re-transmissions ensure this data can be traced back to whatever packet monitor your using.
+                        //if (data[offset] == 36 || !char.IsLetter((char)data[offset]))
+                        //{
+                        //    System.IO.File.WriteAllBytes(DateTime.UtcNow.ToFileTime() + ".bin", data.Skip(offset).Take(count).ToArray());
+                        //}
+                    };
+
+                    //Define an event to handle Rtsp Request events
+                    client.OnRequest += (sender, request) =>
+                    {
+                        if (request != null)
                         {
-                            if (request != null)
-                            {
-                                Console.WriteLine("Client Requested :" + request.Location + " " + request.Method);
-                            }
-                        };
+                            string output = "Client Requested :" + request.ToString();
 
-                        //When the RtpClient disconnects this event is raised.
-                        client.OnDisconnect += (sender, args) =>
-                        {                            
-                            consoleWriter.WriteLine("\t*****************Disconnected from :" + client.Location);                            
-                        };
+                            logWriter.Write(output);
 
-                        //Hanle Media.Rtsp Responses
-                        client.OnResponse += (sender, request, response) =>
-                        {
-                            //Track null and unknown responses
-                            if (response != null)
-                            {
-                                if (response.StatusCode == Media.Rtsp.RtspStatusCode.Unknown) ++rtspUnknown;
-                            }
-                            
-                            if(request != null)
-                            {
-                                consoleWriter.WriteLine("\t*****************\nClient got response :" + response.StatusCode.ToString() + ", for request: " + request.Location + " " + request.Method);
-                            }
-                        };
-
-                        //Playing event
-                        client.OnPlay += (sender, args) =>
-                        {
-                            //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
-                            //client.Client.MaximumRtcpBandwidthPercentage = 25;
-                            ///It SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
-                            
-                            //If there is no sdp we have not attached events yet
-                            if (!System.IO.File.Exists("current.sdp"))
-                            {
-                                //Write the sdp.
-                                System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
-
-                                //Add events now that we are playing
-                                client.Client.RtpPacketReceieved += rtpPacketReceived;
-                                client.Client.RtpFrameChanged += rtpFrameReceived;
-                                client.Client.RtcpPacketReceieved += rtcpPacketReceived;
-                                client.Client.RtcpPacketSent += rtcpPacketSent;
-                                client.Client.InterleavedData += rtpInterleave;
-                            }
-
-                            //Indicate if LivePlay
-                            if (client.LivePlay)
-                            {
-                                consoleWriter.WriteLine("\t*****************Playing from Live Source");
-                            }
-                            else
-                            {
-                                //Indicate if StartTime is found
-                                if (client.StartTime.HasValue)
-                                {
-                                    consoleWriter.WriteLine("\t*****************Media Start Time:" + client.StartTime);
-
-                                }
-
-                                //Indicate if EndTime is found
-                                if (client.EndTime.HasValue)
-                                {
-                                    consoleWriter.WriteLine("\t*****************Media End Time:" + client.EndTime);
-                                }
-                            }
-
-                            //Show context information
-                            foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.GetTransportContexts())
-                            {
-                                consoleWriter.WriteLine("\t*****************Local Id " + tc.SynchronizationSourceIdentifier);
-                                consoleWriter.WriteLine("\t*****************Remote Id " + tc.RemoteSynchronizationSourceIdentifier);
-                            }
-
-                        };
-
-                        client.OnStop += (sender, args) =>
+                            Console.ForegroundColor = ConsoleColor.DarkCyan;
+                            Console.WriteLine(output);
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                        }
+                        else
                         {
 
-                            //Remove events now that we are Disconnected
-                            client.Client.RtpPacketReceieved -= rtpPacketReceived;
-                            client.Client.RtpFrameChanged -= rtpFrameReceived;
-                            client.Client.RtcpPacketReceieved -= rtcpPacketReceived;
-                            client.Client.RtcpPacketSent -= rtcpPacketSent;
-                            client.Client.InterleavedData -= rtpInterleave;
+                            string output = "Null Response";
 
+                            logWriter.Write(output);
+
+                            Console.ForegroundColor = ConsoleColor.Red;
+
+                            Console.WriteLine(output);
+
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                        }
+                    };
+
+                    //Define an event to handle Disconnection from the RtspClient.
+                    client.OnDisconnect += (sender, args) => Console.WriteLine("\t*****************Disconnected from :" + client.Location);
+
+                    //Define an event to handle Rtsp Response events
+                    //Note that this event is also used to handle `pushed` responses which the server sent to the RtspClient without a request.
+                    //This can be determined when request is null OR response.MessageType == Request
+                    client.OnResponse += (sender, request, response) =>
+                    {
+                        //Track null and unknown responses
+                        if (response != null)
+                        {
+                            string output = "Client Received RtspMessage :" + response.ToString();
+
+                            logWriter.Write(output);
+
+                            Console.ForegroundColor = ConsoleColor.DarkGreen;
+
+                            Console.WriteLine(output);
+
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                        }
+                        else
+                        {
+                            string output = "Null Response";
+
+                            logWriter.Write(output);
+
+                            Console.ForegroundColor = ConsoleColor.Red;
+
+                            Console.WriteLine(output);
+
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                        }
+                    };
+
+                    //Define an event to handle what happens when a Media is played.
+                    //args are null if the event applies to all all playing Media.
+                    client.OnPlay += (sender, args) =>
+                    {
+                        //There is a single intentional duality in the design of the pattern utilized for the RtpClient such that                    
+                        //client.Client.MaximumRtcpBandwidthPercentage = 25;
+                        ///It SHOULD also subsequently limit the maximum amount of CPU the client will be able to use
+
+                        //If there is no sdp we have not attached events yet
+                        if (!System.IO.File.Exists("current.sdp"))
+                        {
+                            //Write the sdp that we are playing
+                            System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
+                        }
+
+                        //Indicate if LivePlay
+                        if (client.LivePlay)
+                        {
+                            Console.WriteLine("\t*****************Playing from Live Source");
+                        }
+                        else
+                        {
+                            //Indicate if StartTime is found
+                            if (client.StartTime.HasValue)
+                            {
+                                Console.WriteLine("\t*****************Media Start Time:" + client.StartTime);
+
+                            }
+
+                            //Indicate if EndTime is found
+                            if (client.EndTime.HasValue)
+                            {
+                                Console.WriteLine("\t*****************Media End Time:" + client.EndTime);
+                            }
+                        }
+
+                        //Show context information
+                        foreach (Media.Rtp.RtpClient.TransportContext tc in client.Client.GetTransportContexts())
+                        {
+                            Console.WriteLine("\t*****************Local Id " + tc.SynchronizationSourceIdentifier + "\t*****************Remote Id " + tc.RemoteSynchronizationSourceIdentifier);
+                        }
+
+                    };
+
+                    //Define an event to handle what happens when a Media is paused.
+                    //args are null if the event applies to all all playing Media.
+                    client.OnPause += (sender, args) =>
+                    {
+                        Console.WriteLine("\t*****************Pausing Playback (Press Q To Exit)");
+                    };
+
+                    //Define an event to handle what happens when a Media is stopped.
+                    //args are null if the event applies to all all playing Media.
+                    client.OnStop += (sender, args) =>
+                    {
+                        Console.WriteLine("\t*****************Stopping Playback (Press Q To Exit)");
+
+                        if (!client.IsPlaying && System.IO.File.Exists("current.sdp"))
+                        {
                             shouldStop = true;
 
-                            consoleWriter.WriteLine("\t*****************Stopping Playback (Press Q To Exit)");
+                            System.IO.File.Delete("current.sdp");
+                        }
+                    };
 
-                            if (System.IO.File.Exists("current.sdp")) System.IO.File.Delete("current.sdp");
-                        };
+                    //Allow the client to switch protocols if data is not received.
+                    client.AllowAlternateTransport = true;
 
-                        //Connect the RtspClient
-                        client.Connect();
+                    //Connect the RtspClient
+                    client.Connect();
 
-                        //Allow the client to switch protocols if data is not received in 10 seconds.
-                        client.ProtocolSwitchTime = TimeSpan.FromSeconds(10);
+                    //Indicate waiting and commands the program accepts
+                    Console.WriteLine("Waiting for connection. Press Q to exit\r\nPress K to send KeepAlive\r\nPress D to DisconnectSocket\r\nPress A to Attach events for packets\r\nPress E to Detach packet events\r\nPress I to Attach Interleaved events\r\nPress U to Detach Interleaved events");
 
-                        //Indicate waiting and commands
-                        Console.WriteLine("Waiting for connection. Press Q to exit\r\nPress K to send KeepAlive\r\nPress D to DisconnectSocket");
+                    TimeSpan playingfor = TimeSpan.Zero;
 
-                        //Wait for a key press of 'Q' once playing
-                        while (!shouldStop)
+                    DateTime lastNotice = DateTime.MinValue;
+
+                    //Wait for a key press of 'Q' once playing
+                    while (!shouldStop)
+                    {
+                        System.Threading.Thread.Sleep(0);
+
+                        if (client.IsPlaying)
                         {
-                            System.Threading.Thread.Sleep(client.RtspSessionTimeout.Seconds + 1 * 5000);
+                            playingfor = (DateTime.UtcNow - client.StartedPlaying.Value);
 
-                            if (client.IsPlaying)
+                            if ((DateTime.UtcNow - lastNotice).TotalSeconds > 1)
                             {
-
-                                TimeSpan playingfor = (DateTime.UtcNow - client.StartedPlaying.Value);
-
                                 if (client.IsPlaying)
                                 {
                                     Console.WriteLine("Client Playing for :" + playingfor.ToString());
@@ -2644,113 +2724,169 @@ namespace Tests
 
                                 if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
 
-                                shouldStop = !client.LivePlay && playingfor > client.EndTime;
+                                lastNotice = DateTime.UtcNow + TimeSpan.FromSeconds(1);
+
                             }
 
-
-                            ConsoleKey read = ConsoleKey.NoName;
-
-                            if (!shouldStop) shouldStop = Console.KeyAvailable ? (read = Console.ReadKey(true).Key) == ConsoleKey.Q : false;
-
-                            if (client.IsConnected == false && shouldStop == false)
-                            {
-                                Console.WriteLine("Client Not connected Waiting for (Q)");
-                                continue;
-                            }
-
-                            if (!shouldStop)
-                            {
-
-                                switch (read)
-                                {
-                                    case ConsoleKey.D:
-                                        {
-                                            Console.WriteLine("Disconnecting Client Socket");
-                                            client.DisconnectSocket();
-                                            break;
-                                        }
-                                    case ConsoleKey.K:
-                                        {
-                                            Console.WriteLine("Sending Client KeepAlive");
-                                            client.SendKeepAlive(null);
-                                            break;
-                                        }
-                                }
-                            }
+                            shouldStop = !client.LivePlay && playingfor > client.EndTime;
                         }
 
-                        //if the client is connected still
-                        if (client.IsConnected && protocol == Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-                        {                           
-                            //Try to send some requests if quit early before the Teardown.
-                            try
+
+                        ConsoleKey read = ConsoleKey.NoName;
+
+                        //Read a key if not already stopping
+                        if (shouldStop == false) shouldStop = Console.KeyAvailable ? (read = Console.ReadKey(true).Key) == ConsoleKey.Q : false;
+
+                        //If not stopping
+                        if (shouldStop == false)
+                        {
+                            switch (read)
                             {
+                                case ConsoleKey.A:
+                                    {
 
-                                Media.Rtsp.RtspMessage one = null, two = null;
+                                        if (packetEvents == false)
+                                        {
 
-                                //Send a few requests just because
-                                if (client.SupportedMethods.Contains(Media.Rtsp.RtspMethod.GET_PARAMETER))
-                                    one = client.SendGetParameter();
-                                else one = client.SendOptions(true);
-
-                                //Try to send an options request now, if that fails just send a tear down
-                                try { two = client.SendOptions(true); }
-                                catch { two = null; }
-
-                                //All done with the client
-                                client.StopPlaying();
-
-                                if (one == null && two == null) Media.Common.ExceptionExtensions.CreateAndRaiseException(client, "Sending In Play Failed");//Must get a response to at least one of these
-                                else Console.WriteLine("Sending Requests In Play Success");
-
-                                if (one != null) consoleWriter.WriteLine(one);
-
-                                if (two != null) consoleWriter.WriteLine(two);
+                                            //Attach events
+                                            client.Client.RtpPacketReceieved += rtpPacketReceived;
+                                            client.Client.RtpFrameChanged += rtpFrameReceived;
+                                            client.Client.RtcpPacketReceieved += rtcpPacketReceived;
+                                            client.Client.RtcpPacketSent += rtcpPacketSent;
 
 
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                consoleWriter.WriteLine(ex.Message);
-                                Console.ForegroundColor = ConsoleColor.Red;
+                                            packetEvents = true;
+
+                                            Console.WriteLine("Events Attached.");
+                                        }
+
+                                        break;
+                                    }
+                                case ConsoleKey.D:
+                                    {
+                                        Console.WriteLine("Disconnecting Client Socket");
+                                        client.DisconnectSocket();
+                                        break;
+                                    }
+                                case ConsoleKey.E:
+                                    {
+                                        //Remove events
+                                        client.Client.RtpPacketReceieved -= rtpPacketReceived;
+                                        client.Client.RtpFrameChanged -= rtpFrameReceived;
+                                        client.Client.RtcpPacketReceieved -= rtcpPacketReceived;
+                                        client.Client.RtcpPacketSent -= rtcpPacketSent;
+
+
+                                        packetEvents = false;
+
+                                        Console.WriteLine("Events Detached.");
+
+                                        break;
+                                    }
+                                case ConsoleKey.I:
+                                    {
+
+                                        if (interleaveEvents == false)
+                                        {
+                                            client.Client.InterleavedData += rtpInterleave;
+
+                                            Console.WriteLine("Attached Interleave Event.");
+
+                                            interleaveEvents = true;
+                                        }
+
+
+                                        break;
+                                    }
+                                case ConsoleKey.U:
+                                    {
+
+                                        client.Client.InterleavedData -= rtpInterleave;
+
+                                        Console.WriteLine("Detached Interleave Event.");
+
+                                        interleaveEvents = false;
+                                        break;
+                                    }
+                                case ConsoleKey.K:
+                                    {
+                                        Console.WriteLine("Sending Client KeepAlive");
+                                        client.SendKeepAlive(null);
+                                        break;
+                                    }
                             }
                         }
+                    }
 
-                        //Output test info before ending
-                        if (client.Client != null)
+                    //if the client is connected still
+                    if (client.IsConnected && protocol == Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+                    {
+                        //Try to send some requests if quit early before the Teardown.
+                        try
                         {
 
-                            //Print out some information about our program
-                            Console.BackgroundColor = ConsoleColor.Blue;
-                            consoleWriter.WriteLine("RTCP Info ".PadRight(Console.WindowWidth / 4, '▓'));
-                            consoleWriter.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
-                            consoleWriter.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
-                            consoleWriter.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
-                            consoleWriter.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
-                            Console.BackgroundColor = ConsoleColor.Magenta;
-                            consoleWriter.WriteLine("RTP Info".PadRight(Console.WindowWidth / 4, '▓'));
-                            consoleWriter.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
-                            consoleWriter.WriteLine("Encountered Frames with missing packets: " + incompleteFrames);
-                            consoleWriter.WriteLine("Encountered Empty Frames: " + emptyFrames);
-                            consoleWriter.WriteLine("Total Frames: " + totalFrames);
-                            Console.BackgroundColor = ConsoleColor.Cyan;
-                            consoleWriter.WriteLine("RTSP Info".PadRight(Console.WindowWidth / 4, '▓'));
-                            consoleWriter.WriteLine("Rtsp Requets Sent: " + client.MessagesSent);
-                            consoleWriter.WriteLine("Rtsp Responses Receieved: " + client.MessagesReceived);
-                            consoleWriter.WriteLine("Rtsp Missing : " + (client.MessagesSent - client.MessagesReceived));
-                            consoleWriter.WriteLine("Rtsp Last Message Round Trip Time : " + client.LastMessageRoundTripTime);
-                            consoleWriter.WriteLine("Rtsp Last Server Delay : " + client.LastServerDelay);
-                            consoleWriter.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
-                            
-                        }
-                        
-                        //Reset colors
-                        Console.ForegroundColor = ConsoleColor.Gray;
+                            Media.Rtsp.RtspMessage one = null, two = null;
 
-                        Console.BackgroundColor = ConsoleColor.Black;
+                            //Send a few requests just because
+                            if (client.SupportedMethods.Contains(Media.Rtsp.RtspMethod.GET_PARAMETER))
+                                one = client.SendGetParameter();
+                            else one = client.SendOptions(true);
+
+                            if (one != null) Console.WriteLine(one);
+
+                            //Try to send an options request now, if that fails just send a tear down
+                            try { two = client.SendOptions(true); }
+                            catch { two = null; }
+
+                            if (two != null) Console.WriteLine(two);
+
+                            //All done with the client
+                            client.StopPlaying();
+
+                            if (one == null && two == null) Media.Common.ExceptionExtensions.CreateAndRaiseException(client, "Sending In Play Failed");//Must get a response to at least one of these
+                            else Console.WriteLine("Sending Requests In Play Success");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine(ex.Message);
+                            Console.ForegroundColor = ConsoleColor.Red;
+                        }
+                    }
+
+                    //Output test info before ending
+                    if (client.Client != null)
+                    {
+
+                        //Print out some information about our program
+                        Console.BackgroundColor = ConsoleColor.Blue;
+                        Console.WriteLine("RTCP Info ".PadRight(Console.WindowWidth / 4, '▓'));
+                        Console.WriteLine("RtcpBytes Sent: " + client.Client.TotalRtcpBytesSent);
+                        Console.WriteLine("Rtcp Packets Sent: " + client.Client.TotalRtcpPacketsSent);
+                        Console.WriteLine("RtcpBytes Recieved: " + client.Client.TotalRtcpBytesReceieved);
+                        Console.WriteLine("Rtcp Packets Recieved: " + client.Client.TotalRtcpPacketsReceieved);
+                        Console.BackgroundColor = ConsoleColor.Magenta;
+                        Console.WriteLine("RTP Info".PadRight(Console.WindowWidth / 4, '▓'));
+                        Console.WriteLine("Rtp Packets Recieved: " + client.Client.TotalRtpPacketsReceieved);
+                        Console.WriteLine("Encountered Frames with missing packets: " + incompleteFrames);
+                        Console.WriteLine("Encountered Empty Frames: " + emptyFrames);
+                        Console.WriteLine("Total Frames: " + totalFrames);
+                        Console.BackgroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine("RTSP Info".PadRight(Console.WindowWidth / 4, '▓'));
+                        Console.WriteLine("Rtsp Requets Sent: " + client.MessagesSent);
+                        Console.WriteLine("Rtsp Requets Retransmitted: " + client.RetransmittedMessages);
+                        Console.WriteLine("Rtsp Responses Receieved: " + client.MessagesReceived);
+                        Console.WriteLine("Rtsp Missing : " + (client.MessagesSent - client.MessagesReceived));
+                        Console.WriteLine("Rtsp Last Message Round Trip Time : " + client.LastMessageRoundTripTime);
+                        Console.WriteLine("Rtsp Last Server Delay : " + client.LastServerDelay);
+                        Console.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
 
                     }
+
+
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+
+                    Console.BackgroundColor = ConsoleColor.Black;
                 }
             }
         }
@@ -2828,14 +2964,44 @@ a=mpeg4-esid:101");
 
             Console.WriteLine(sd);
 
+            sd = new Media.Sdp.SessionDescription(@"v=0
+o=- 1419841619185835 1 IN IP4 192.168.1.208
+s=IP Camera Video
+i=videoMain
+a=tool:LIVE555 Streaming Media v2014.02.10
+a=type:broadcast
+a=control:*
+a=range:npt=0-
+a=x-qt-text-nam:IP Camera Video
+a=x-qt-text-inf:videoMain
+t=0
+m=video 0 RTP/AVP 96
+c=IN IP4 0.0.0.0
+b=AS:96
+a=rtpmap:96 H264/90000
+a=fmtp:96 packetization-mode=1;profile-level-id=000000;sprop-parameter-sets=Z0IAHpWoKA9k,aM48gA==
+a=control:track1
+m=audio 0 RTP/AVP 0
+c=IN IP4 0.0.0.0
+b=AS:64
+a=control:track2");
+
+            if (sd.MediaDescriptions.Count != 2) throw new Exception("Did not find all Media Descriptions");
+
+            if (sd.MediaDescriptions[0].MediaFormat != 96 || sd.MediaDescriptions[0].MediaType != Media.Sdp.MediaType.video) throw new Exception("Did not find correct Media Description Media Format");
+
+            if (sd.MediaDescriptions[1].MediaFormat != 0 || sd.MediaDescriptions[1].MediaType != Media.Sdp.MediaType.audio) throw new Exception("Did not find correct Media Description Media Format");
+
+            if (sd.MediaDescriptions.Any(m => m.ControlLine == null)) throw new Exception("Did not find all Control Lines");
+
+            Console.WriteLine(sd);
+
         }
 
         static void TestContainerImplementations()
         {
 
-            string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
-
-            string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
+            string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
             //Todo allow reletive paths?
 
@@ -3473,9 +3639,7 @@ a=mpeg4-esid:101");
             server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
             server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-            string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
-
-            string localPath = System.IO.Path.GetDirectoryName(assemblyLocation);
+            string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
             //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
             server.AddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
@@ -3534,9 +3698,10 @@ a=mpeg4-esid:101");
             //Start the server
             server.Start();
 
+            //Wait for the server to start.
             while (!server.IsRunning) System.Threading.Thread.Sleep(0);
 
-            //Start taking pictures of the desktop and making packets
+            //Start taking pictures of the desktop and making packets in a seperate thread.
             taker.Start();
 
             //If you add more streams they will be started once the server is started
@@ -3665,7 +3830,7 @@ a=mpeg4-esid:101");
                         {
                             Console.WriteLine("Performing Udp / Media.Rtsp Test");
 
-                            udpClient.ProtocolSwitchTime = TimeSpan.FromSeconds(2);
+                            udpClient.AllowAlternateTransport = true;
 
                             udpClient.StartPlaying();
 
@@ -3695,7 +3860,7 @@ a=mpeg4-esid:101");
 
                             client.StartPlaying();
 
-                            while (client.Client.TotalRtpBytesReceieved <= 4096 && client.Client.Uptime.TotalSeconds < 30)
+                            while (client.Client.TotalRtpBytesReceieved <= 4096 && client.Client.Uptime.TotalSeconds < 120)
                             {
                                 //Test that client disconnection under udp is working
                                 if (client.RtpProtocol == System.Net.Sockets.ProtocolType.Udp)

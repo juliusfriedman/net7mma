@@ -141,7 +141,16 @@ namespace Media.Rtsp
 
         public bool IsDisconnected { get { return m_IsDisconnected; } internal set { m_IsDisconnected = value; } }
 
-        public Socket RtspSocket { get { return m_RtspSocket; } internal set { m_RtspSocket = value; if (m_RtspSocket != null && m_RtspSocket.RemoteEndPoint != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint; } }
+        public Socket RtspSocket
+        {
+            get { return m_RtspSocket; }
+            internal set
+            {
+                m_RtspSocket = value;
+
+                if (m_RtspSocket != null && m_RtspSocket.RemoteEndPoint != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint;
+            }
+        }
 
         /// <summary>
         /// Gets or sets a value which indicates if the socket will be closed when Dispose is called.
@@ -167,7 +176,14 @@ namespace Media.Rtsp
             m_RtspSocket = rtspSocket;
 
             //Disable Nagle in TCP
-            if (m_RtspSocket.ProtocolType == ProtocolType.Tcp) m_RtspSocket.NoDelay = true;
+            if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+            {
+                m_RtspSocket.NoDelay = true;
+
+                m_RtspSocket.DontLinger();
+            }
+
+            m_RtspSocket.DontFragment = true;
 
             //Create a buffer using the size of the largest message possible without a Content-Length header.
             //This helps to ensure that partial messages are not recieved by the server from a client if possible
@@ -179,13 +195,22 @@ namespace Media.Rtsp
             //Assign the remote endPoint, IPPacketInformation provides thus for UDP
             RemoteEndPoint = rtspSocket.RemoteEndPoint;
 
-            //Begin to receive what is available
-            LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+            //Start receiving data.
+            StartReceive();
         }
 
         #endregion
 
         #region Methods
+
+        public void StartReceive()
+        {
+            if (LastRecieve == null || LastRecieve.IsCompleted)
+            {
+                //Begin to receive what is available
+                LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+            }
+        }
 
         public void SendRtspData(byte[] data)
         {
@@ -429,7 +454,10 @@ namespace Media.Rtsp
             if (!Playing.Contains(source.Id))
             {
                 if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
-                else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;                
+                else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
+
+                //Ensure playing
+                Playing.Add(source.Id);
             }
 
             //Else is already attached but may not be playing...
@@ -1068,8 +1096,8 @@ namespace Media.Rtsp
                 //}                
             }
 
-            //Top level stream control line
-            sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
+            //Top level stream control line (Should only be added if Aggregate Control of the stream is allowed.
+            //sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
 
             //Clients sessionId is created from the Sdp
             SessionId = sessionId;
