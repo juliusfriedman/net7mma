@@ -951,9 +951,22 @@ namespace Media.Rtsp
         public RtspMessageType MessageType { get; internal set; }
 
         /// <summary>
-        /// Indicates the CSeq of this RtspMessage
+        /// Gets or Sets the CSeq of this RtspMessage, if found and parsed; otherwise -1.
         /// </summary>
-        public int CSeq { get { return Convert.ToInt32(GetHeader(RtspHeaders.CSeq)); } set { SetHeader(RtspHeaders.CSeq, value.ToString()); } }
+        public int CSeq
+        {
+            get
+            {
+                try { return Convert.ToInt32(GetHeader(RtspHeaders.CSeq)); }
+                catch { return -1; }
+                
+            }
+            set
+            {
+                //Use the unsigned representation
+                SetHeader(RtspHeaders.CSeq, ((uint)value).ToString());
+            }
+        }
 
         /// <summary>
         /// Accesses the header value 
@@ -1459,7 +1472,7 @@ namespace Media.Rtsp
         {
             actualName = null;
             if (string.IsNullOrWhiteSpace(name)) return null;
-            foreach (string headerName in m_Headers.Keys)
+            foreach (string headerName in GetHeaders())
                 if (string.Compare(name, headerName, true) == 0)
                 {
                     actualName = headerName;
@@ -1583,15 +1596,15 @@ namespace Media.Rtsp
             //Call the base implementation
             base.Dispose();
 
-            //Clear local references
-            m_Body = null;
-            m_Headers.Clear();
-
             if (m_Buffer != null)
             {
                 m_Buffer.Dispose();
                 m_Buffer = null;
             }
+
+            //Clear local references (Will change output of ToString())
+            m_Body = null;
+            m_Headers.Clear();
         }
 
         public override int GetHashCode()

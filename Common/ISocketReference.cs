@@ -26,7 +26,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                s.ReceiveBufferSize = Utility.Clamp(size, 0, int.MaxValue);
+                if (s != null) s.ReceiveBufferSize = Utility.Clamp(size, 0, int.MaxValue);
             }
         }
 
@@ -34,7 +34,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                s.SendBufferSize = Utility.Clamp(size, 0, int.MaxValue);
+                if (s != null) s.SendBufferSize = Utility.Clamp(size, 0, int.MaxValue);
             }
         }
 
@@ -43,7 +43,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                s.ReceiveTimeout = timeoutMsec;
+                if (s != null) s.ReceiveTimeout = timeoutMsec;
             }
         }
 
@@ -51,7 +51,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                s.SendTimeout = timeoutMsec;
+                if (s != null) s.SendTimeout = timeoutMsec;
             }
         }
 

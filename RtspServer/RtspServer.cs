@@ -55,9 +55,11 @@ namespace Media.Rtsp
     {
         public const int DefaultPort = 554;
 
-        public const int DefaultReceiveTimeout = 1000;
-
-        public const int DefaultSendTimeout = 1000;
+        //Milliseconds
+        internal const int DefaultReceiveTimeout = 500;
+        
+        //Milliseconds
+        internal const int DefaultSendTimeout = 500;
 
         #region Nested Types
 
@@ -162,11 +164,6 @@ namespace Media.Rtsp
         /// Indicates if setup requests require a Range Header
         /// </summary>
         public bool RequireRangeHeader { get; set; }
-
-        /// <summary>
-        /// Allows a socket to control another session if true and the session id matches.
-        /// </summary>
-        public bool AllowSessionChangesFromAlternateEndPoints { get; set; }
 
         /// <summary>
         /// The name of the server (used in responses)
@@ -647,61 +644,53 @@ namespace Media.Rtsp
 
         internal void DisconnectAndRemoveInactiveSessions()
         {
-            //Allow some small varaince
-            DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
-
             List<Guid> inactive = new List<Guid>();
 
             //obtian a session while looking for clients.
             ClientSession session;
 
+            //Allow some small varaince
+            DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
+
             //Iterate the id of each connected client
             foreach (Guid sessionId in m_Clients.Keys.ToList())
             {
                 //If the session is not in the dictionary then it cannot be removed.
-                if (!m_Clients.TryGetValue(sessionId, out session)) continue;
-
-                //Don't try to dispose sessions twice
-                if (session.IsDisposed) continue;
+                if (!m_Clients.TryGetValue(sessionId, out session) || session.IsDisposed) continue;
 
                 //If the client disconnects the rtsp socket the transport session may still be active
-                if (session.IsDisconnected)
+                if (session.IsDisconnected && session.m_RtpClient != null)
                 {
-                    //if there is no client ensure nothing is playing
-                    if (session.m_RtpClient == null)
+                    //Enumerate each context 'SETUP' in the session
+                    foreach (var context in session.m_RtpClient.GetTransportContexts())
                     {
-                        //Clear anything we may think is playing
-                        session.Playing.Clear();
-                    }
-                    else
-                    {
-                        //Enumerate each context in the session
-                        foreach (var context in session.m_RtpClient.GetTransportContexts())
+                        //If the context has not been sent a packet or received a rtcp packet in the allowed time
+                        if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval || context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
                         {
-                            //If the context has not been sent a packet or received a rtcp packet
-                            if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval || context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
+                            //See if there is still a source for the context 
+                            var sourceContext = session.GetSourceContext(context.MediaDescription);
+
+                            //If there was a source context
+                            if (sourceContext != null)
                             {
-                                //See if there was a source for the context
-                                var sourceContext = session.GetSourceContext(context.MediaDescription);
+                                //Log the detachment from the source context
+                                if (Logger != null) Logger.Log("Session:" + session.Id + "Inactive, Removing Source Attachement");
 
-                                //If there was a source
-                                if (sourceContext != null)
-                                {
-                                    //Remove the attachment to the session
-                                    session.RemoveSource(session.Attached[sourceContext]);
+                                //Remove the attachment from the source context to the session context
+                                session.RemoveSource(session.Attached[sourceContext]);
 
-                                    sourceContext = null;
-                                }
+                                //Remove the reference to the sourceContext
+                                sourceContext = null;
                             }
                         }
                     }
-                }
+                }                
 
                 //Check for inactivity, not connectivity (TCP clients may not be sending a rtsp keep alive request when interleaving)
                 //Ensure this logic is correct and use the RtpClient if necessary to check for inactivity.
-                if (session.LastResponse == null || session.LastRequest == null && maintenanceStarted - session.Created > RtspClientInactivityTimeout
+                if (session.LastResponse == null || session.LastRequest == null && session.Created < maintenanceStarted && maintenanceStarted - session.Created > RtspClientInactivityTimeout
                     ||
-                    session.LastResponse != null && session.LastResponse.Transferred.HasValue && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout
+                    session.LastResponse != null && session.LastResponse.Transferred.HasValue && session.LastResponse.Transferred < maintenanceStarted && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout //&& session.LastSend != null && session.LastSend.IsCompleted
                     ||
                     session.IsDisconnected && session.Playing.Count == 0)
                 {
@@ -782,7 +771,7 @@ namespace Media.Rtsp
             //Configure the thread
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
-            m_ServerThread.Priority = ThreadPriority.Lowest;
+            m_ServerThread.Priority = ThreadPriority.BelowNormal;
 
             //Start it
             m_ServerThread.Start();
@@ -1114,7 +1103,7 @@ namespace Media.Rtsp
             ClientSession session = (ClientSession)ar.AsyncState;
 
             //If there is no session return
-            if (session == null || session.m_RtspSocket == null) return;
+            if (session == null || session.IsDisposed) return;
 
             //Take note of whre we are receiving from
             EndPoint inBound = session.RemoteEndPoint;
@@ -1125,20 +1114,19 @@ namespace Media.Rtsp
                 RtspMessage request = null;
 
                 //Declare how much was recieved
-                int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
+                int received = session.m_RtspSocket == null ? 0 : session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
 
-                //Determine if endpoint changes are allowed.
-                if (!IPEndPoint.Equals(inBound, session.RemoteEndPoint) && !AllowSessionChangesFromAlternateEndPoints)
-                {
-                    //Then this request is invalid (keep the session)
-                    ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, "Session EndPoint Changes Not Allowed.");
+                //Todo Let the ClientSession have a RtspClient.
 
-                    return;
-                }
+                //Let the client propagate the message
+                if (session.m_RtpClient != null) received -= session.m_RtpClient.ProcessFrameData(session.m_Buffer.Array, session.m_Buffer.Offset, received, session.m_RtspSocket);
 
                 //If we received anything
                 if (received > 0)
                 {
+                    //The session is not disconnected 
+                    session.IsDisconnected = false;
+
                     //Count for the server
                     m_Recieved += received;
 
@@ -1167,24 +1155,21 @@ namespace Media.Rtsp
 
                                 //If the message is now complete then process it
                                 if (session.LastRequest.IsComplete) ProcessRtspRequest(request, session);
-                                else session.SendRtspData(Utility.Empty); //Otherwise ensure connected and receive more
+                                //else session.SendRtspData(Utility.Empty); //Otherwise ensure connected and receive more
                             }
                         }
                     }
                 }
-                else
+                else //Zero  bytes were received either due to consumption of data or lack thereof.
                 {
-                    
-                    //Ensure 0 byte responses are handled properly.
-                    if (received == 0 && session.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                    if (session.m_RtpClient == null && !session.m_RtpClient.IsConnected)
                     {
+                        //Mark the session as Disconnected
                         session.IsDisconnected = true;
 
-                        return;
+                        //Try a send to ensure that there is no connection error, also begin another recieve.
+                        ProcessSendRtspMessage(null, session);
                     }
-
-                    //Should send an invalid response..
-                    ProcessSendRtspMessage(null, session);
                 }
             }
             catch (Exception ex)
@@ -1193,7 +1178,7 @@ namespace Media.Rtsp
                 if (Logger != null) Logger.LogException(ex);
 
                 //if a socket exception occured then handle it.
-                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
+                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);                                     
             }
         }
 
@@ -1203,16 +1188,40 @@ namespace Media.Rtsp
 
             switch (se.SocketErrorCode)
             {
+                case SocketError.TimedOut:
+                    {
+
+                        //Clients interleaving shouldn't time out ever
+                        if (cs.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
+                        {
+                            if (Logger != null) Logger.Log("Client:" + cs.Id + " Timeouts when interleaving");
+
+                             if(cs.Playing.Count > 0) return;
+                        }
+
+                        //Increase send and receive timeout
+                        cs.m_RtspSocket.SendTimeout = cs.m_RtspSocket.ReceiveTimeout += (int)(RtspClient.DefaultConnectionTime.TotalMilliseconds);
+
+                        if (Logger != null) Logger.Log("Increased Client:" + cs.Id + " Timeouts to: " + cs.m_RtspSocket.SendTimeout);
+
+                        //Try to receive again
+                        cs.StartReceive();
+
+                        return;
+                    }
                 case SocketError.ConnectionAborted:
                 case SocketError.ConnectionReset:
                 case SocketError.Disconnecting:
                 case SocketError.Shutdown:
                 case SocketError.NotConnected:
-                    
-                    //Mark the client as disconnected.
-                    cs.IsDisconnected = true;
+                    {
+                        if (Logger != null) Logger.Log("Marking Client:" + cs.Id + " Disconnected");
 
-                    return;
+                        //Mark the client as disconnected.
+                        cs.IsDisconnected = true;
+                        
+                        return;
+                    }
             }
         }
 
@@ -1284,7 +1293,7 @@ namespace Media.Rtsp
             try
             {
                 //Ensure we have a session and request and that the server is still running
-                if (request == null || session == null || !IsRunning)
+                if (request == null || session == null || session.IsDisposed)
                 {
                     //SessionNotFound
                     //We can't identify the request or session
@@ -1300,24 +1309,16 @@ namespace Media.Rtsp
                 }//only certain requests require a session header but when present it must match the sessionid of the session
                 else if (request.ContainsHeader(RtspHeaders.Session))
                 {
-                    //If the server allows new sockets to control old sessions...
-                    //The Response must be sent to the session given not the session being acted on?
+                    //The Response must be sent to the session given not the session being acted on.
+
+                    //Determine what session is being acted on.
+                    string requestedSessionId = request.GetHeader(RtspHeaders.Session).Trim();
 
                     //If the given session matched the request
-                    if (session.SessionId != request.GetHeader(RtspHeaders.Session).Trim())
+                    if (session.SessionId != requestedSessionId)
                     {
-                        //If the server DOES NOT ALLOW sessions to be controled from alternate end points.
-                        if (!AllowSessionChangesFromAlternateEndPoints)
-                        {
-                            //Then this request is invalid (keep the session)
-                            ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, "Session EndPoint Changes Not Allowed.");
-
-                            //return
-                            return;
-                        }
-
                         //Get the correct session
-                        ClientSession correctSession = GetSession(session.SessionId);
+                        ClientSession correctSession = GetSession(requestedSessionId);
 
                         //If no session could be found then indicate such
                         if (correctSession == null)
@@ -1327,44 +1328,32 @@ namespace Media.Rtsp
                             return;
                         }
 
-                        //If the correctSession has not disconnected then this is not allowed.
-                        if (!correctSession.IsDisconnected) 
-                        {
-                            correctSession = null;
+                        //Set the last response time 'transferred' to now to ensure the client is not disconnected.
+                        correctSession.LastResponse.Transferred = DateTime.UtcNow;
 
-                            ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, "Existing Session Still Connected.");
+                        //The session is no longer disconnected
+                        correctSession.IsDisconnected = false;
 
-                            return;
-                        }
+                        //Log the EndPoint change
+                        if (Logger != null) Logger.Log("Session: " + correctSession.Id + " @ " + correctSession.RemoteEndPoint + " Reconnected From new EndPoint: " + session.RemoteEndPoint + " New SessionId:" + session.Id);
 
-                        //Set the RtspSocket of the correctSession to the RtspSocket of the new session.
+                        //update the value of session socket
                         correctSession.RtspSocket = session.RtspSocket;
 
-                        //If there is a logger then log the change in end point.
-                        if (Logger != null) Logger.Log("Client Id:" + correctSession.Id + ", RtspSocket is being updated and RemoteEndPoint is chaning From: " + correctSession.RemoteEndPoint + ", To: " + session.RemoteEndPoint + ", Removing new SessionId:" + session.Id);
-
-                        //Leave the session open when disposing.
-                        session.LeaveOpen = true;
-
-                        //Update the RemoteEndPoint of the session
-                        correctSession.RemoteEndPoint = session.RemoteEndPoint;
-
-                        //remove the newly created session because the old session will be used.
-                        RemoveSession(session);
+                        //The session is disconnected
+                        session.IsDisconnected = true;
 
                         //update the value of session
                         session = correctSession;
-
-                        //Don't leave this session's socket open anymore
-                        session.LeaveOpen = false;
                     }
+
                 }//Check for out of order or duplicate requests.
                 else if (session.LastRequest != null)
                 {
                     //Duplicate Request
                     if (request.CSeq == session.LastRequest.CSeq)
                     {
-                        ProcessSendRtspMessage(null, session);
+                        ProcessSendRtspMessage(session.LastResponse, session);
 
                         return;
                     }//Out of order
@@ -1375,6 +1364,8 @@ namespace Media.Rtsp
                         return;
                     }
                 }
+
+                if (session.LastRequest != null) session.LastRequest.Dispose();
 
                 //Synchronize the server and client since this is not a duplicate
                 session.LastRequest = request;
@@ -1601,22 +1592,23 @@ namespace Media.Rtsp
                        (basic play, TCP is supported)
             setup.playing means that setup and teardown can be used in the play state.
             */
+
+            //If we have a session
+            if (session == null | session.IsDisposed) return;
             try
             {
-                //If we have a session
-                if (session != null)
+                //if there is a message to send
+                if (message != null)
                 {
-                    if (message != null)
-                    {
-                        //AddServerHeaders()->
+                    //AddServerHeaders()->
 
-                        if (!message.ContainsHeader(RtspHeaders.Server)) message.SetHeader(RtspHeaders.Server, ServerName);
+                    if (!message.ContainsHeader(RtspHeaders.Server)) message.SetHeader(RtspHeaders.Server, ServerName);
 
-                        if (!message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
+                    if (!message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
 
-                        #region RFC2326 12.38 Timestamp / Delay
+                    #region RFC2326 12.38 Timestamp / Delay
 
-                        /*
+                    /*
                          12.38 Timestamp
 
                            The timestamp general header describes when the client sent the
@@ -1632,39 +1624,47 @@ namespace Media.Rtsp
                            delay      =  *(DIGIT) [ "." *(DIGIT) ]
                          */
 
-                        if(!message.ContainsHeader(RtspHeaders.Timestamp)
-                            &&
-                            session.LastRequest != null
-                            &&
-                            session.LastRequest.ContainsHeader(RtspHeaders.Timestamp))
-                        {
-                            //Apparently not joined with ;
-                            message.SetHeader(RtspHeaders.Timestamp, session.LastRequest[RtspHeaders.Timestamp] + "delay=" + (DateTime.UtcNow - session.LastRequest.Created).TotalSeconds);
-                        }
-
-                        #endregion
-
-                        string sess = message.GetHeader(RtspHeaders.Session);
-
-                        //Not closing
-                        if (!message.ContainsHeader(RtspHeaders.Connection) &&//Check for if timeout needs to be added
-                            RtspClientInactivityTimeout > TimeSpan.Zero && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) message.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)RtspClientInactivityTimeout.TotalSeconds);
-
-                        //Log response
-                        if (Logger != null) Logger.LogResponse(message, session);
-
-                        //Oops
-                        //if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.Attached.Count > 0) response.SetHeader("Ignore", "$0\09\r\n$\0:\0");
-
-                        session.SendRtspData((session.LastResponse = message).ToBytes());
-
-                        session.LastResponse.Transferred = DateTime.UtcNow;
-                    }
-                    else
+                    if (!message.ContainsHeader(RtspHeaders.Timestamp)
+                        &&
+                        session.LastRequest != null
+                        &&
+                        session.LastRequest.ContainsHeader(RtspHeaders.Timestamp))
                     {
-                        //Test the connectivity and start another receive
-                        session.SendRtspData(Utility.Empty);
+                        ////Apparently not joined with ;
+                        ////message.SetHeader(RtspHeaders.Timestamp, session.LastRequest[RtspHeaders.Timestamp] + "delay=" + (DateTime.UtcNow - session.LastRequest.Created).TotalSeconds);
+
+                        //Set the value of the Timestamp header as given
+                        message.AppendOrSetHeader(RtspHeaders.Timestamp, session.LastRequest[RtspHeaders.Timestamp]);
+
+                        //Add a delay datum
+                        message.AppendOrSetHeader(RtspHeaders.Timestamp, "delay=" + (DateTime.UtcNow - session.LastRequest.Created).TotalSeconds);
                     }
+
+                    #endregion
+
+                    string sess = message.GetHeader(RtspHeaders.Session);
+
+                    //Not closing
+                    if (!message.ContainsHeader(RtspHeaders.Connection) &&//Check for if timeout needs to be added
+                        RtspClientInactivityTimeout > TimeSpan.Zero && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) message.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)RtspClientInactivityTimeout.TotalSeconds);
+
+                    //Log response
+                    if (Logger != null) Logger.LogResponse(message, session);
+
+                    //Dispose the last response
+                    if (session.LastResponse != null) session.LastResponse.Dispose();
+
+                    //Oops
+                    //if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.Attached.Count > 0) response.SetHeader("Ignore", "$0\09\r\n$\0:\0");
+                    session.SendRtspData((session.LastResponse = message).ToBytes());
+
+                    //Indicaet the last response was sent now.
+                    session.LastResponse.Transferred = DateTime.UtcNow;
+                }
+                else
+                {
+                    //Test the connectivity and start another receive
+                    session.SendRtspData(Utility.Empty);
                 }
             }
             catch (Exception ex)
@@ -1685,7 +1685,7 @@ namespace Media.Rtsp
         internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, string body = null)
         {
             //Create and Send the response
-            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code) : new RtspMessage(RtspMessageType.Response) { StatusCode = code, Body = body }, session);
+            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code, body) : new RtspMessage(RtspMessageType.Response) { StatusCode = code, Body = body }, session);
         }
 
         internal void ProcessInvalidRtspRequest(RtspMessage response, ClientSession session) { ProcessSendRtspMessage(response, session); }
