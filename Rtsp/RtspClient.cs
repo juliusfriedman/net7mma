@@ -2490,7 +2490,9 @@ namespace Media.Rtsp
 
         IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {
-            return m_RtspSocket.Yield();
+            if (IsDisposed) yield break;
+
+            yield return m_RtspSocket;
         }
     }
 }

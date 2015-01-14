@@ -1461,7 +1461,7 @@ namespace Media.Rtsp
         /// Gets an array of all headers present in the RtspMessage
         /// </summary>
         /// <returns>The array containing all present headers</returns>
-        public string[] GetHeaders() { return m_Headers.Keys.ToArray(); }
+        public IEnumerable<string> GetHeaders() { return m_Headers.Keys.ToList(); }
 
         /// <summary>
         /// Gets a header value with cases insensitivity

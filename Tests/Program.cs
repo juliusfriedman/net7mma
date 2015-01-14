@@ -3579,198 +3579,197 @@ a=control:track2");
         static void TestServer()
         {
             //Setup a Media.RtspServer on port 554
-            Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
+            using(Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
             {
                 //new Media.Rtsp.Server.RtspServerDebuggingLogger() 
                 Logger = new Media.Rtsp.Server.RtspServerConsoleLogger()
-            };
-            
-            //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
-            //server.EnableUdp();
-
-            //The server will take in Media.RtspSourceStreams and make them available locally
-
-            Media.Rtsp.Server.MediaTypes.RtspSource source = new Media.Rtsp.Server.MediaTypes.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
+            })
             {
-                //Will force VLC et al to connect over TCP
-                //                m_ForceTCP = true
-            };            
+                //Should be working also, allows rtsp requests to be handled over UDP port 555 by default
+                //server.EnableUdp();
 
-            //server.AddCredential(source, new System.Net.NetworkCredential("test", "test"), "Basic");
+                //The server will take in Media.RtspSourceStreams and make them available locally
 
-            //If the stream had a username and password
-            //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
-            
-            //Add the stream to the server
-            server.AddMedia(source);
-
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
-
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
-
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
-
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
-
-            //thaibienbac Test Cameras - Thanks!
-
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic1", "rtsp://118.70.125.33:20554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic2", "rtsp://118.70.125.33:21554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic3", "rtsp://118.70.125.33:22554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic4", "rtsp://118.70.125.33:23554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic5", "rtsp://118.70.125.33:24554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic6", "rtsp://118.70.125.33:25554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic7", "rtsp://118.70.125.33:26554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem1", "rtsp://admin:12345@118.70.125.33:12554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1280x960, 30 fps
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem2", "rtsp://admin:12345@118.70.125.33:13554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33:35554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco2", "rtsp://118.70.125.33:36554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco3", "rtsp://118.70.125.33:37554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco4", "rtsp://118.70.125.33:38554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam1", "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam2", "rtsp://hptvn:hptvn@fe7037.myfoscam.org:9826/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam3", "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech1", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech2", "rtsp://admin:admin@avm561.ddns.eagleeyes.tw:161/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("lilin", "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
-            string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
-
-            //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-            server.AddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
-
-            Media.Rtsp.Server.MediaTypes.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
-
-            //Expose Bandit's Pictures through Udp and Tcp
-            server.AddMedia(imageStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
-
-            //Test Experimental H.264 Encoding
-            //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
-
-            //Test Experimental MPEG Encoding
-            //server.AddMedia(new Media.Rtsp.Server.Media.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
-
-            //Test Http Jpeg Transcoding
-            //server.AddMedia(new Media.Rtsp.Server.Media.JPEGMedia("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
-            //server.AddMedia(new Media.Rtsp.Server.Media.MJPEGMedia("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
-            
-            Media.Rtsp.Server.MediaTypes.RFC2435Media screenShots = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Screen", null, false, 800, 600, false);
-
-            server.AddMedia(screenShots);
-
-            System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
-            {
-                using (var bmpScreenshot = new System.Drawing.Bitmap(Screen.PrimaryScreen.Bounds.Width,
-                           Screen.PrimaryScreen.Bounds.Height,
-                           System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                Media.Rtsp.Server.MediaTypes.RtspSource source = new Media.Rtsp.Server.MediaTypes.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
                 {
+                    //Will force VLC et al to connect over TCP
+                    //                m_ForceTCP = true
+                };
 
-                    // Create a graphics object from the bitmap.
-                    using (var gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot))
+                //server.AddCredential(source, new System.Net.NetworkCredential("test", "test"), "Basic");
+
+                //If the stream had a username and password
+                //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
+
+                //Add the stream to the server
+                server.AddMedia(source);
+
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
+
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+
+                //thaibienbac Test Cameras - Thanks!
+
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic1", "rtsp://118.70.125.33:20554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic2", "rtsp://118.70.125.33:21554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic3", "rtsp://118.70.125.33:22554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic4", "rtsp://118.70.125.33:23554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic5", "rtsp://118.70.125.33:24554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic6", "rtsp://118.70.125.33:25554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic7", "rtsp://118.70.125.33:26554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem1", "rtsp://admin:12345@118.70.125.33:12554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1280x960, 30 fps
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem2", "rtsp://admin:12345@118.70.125.33:13554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33:35554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco2", "rtsp://118.70.125.33:36554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco3", "rtsp://118.70.125.33:37554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco4", "rtsp://118.70.125.33:38554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam1", "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam2", "rtsp://hptvn:hptvn@fe7037.myfoscam.org:9826/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam3", "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech1", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech2", "rtsp://admin:admin@avm561.ddns.eagleeyes.tw:161/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("lilin", "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
+
+                //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
+                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
+
+                Media.Rtsp.Server.MediaTypes.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+
+                //Expose Bandit's Pictures through Udp and Tcp
+                server.AddMedia(imageStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
+
+                //Test Experimental H.264 Encoding
+                //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
+
+                //Test Experimental MPEG Encoding
+                //server.AddMedia(new Media.Rtsp.Server.Media.RFC2250Media(128, 96, "mpeg", localPath + "\\JpegTest\\") { Loop = true });
+
+                //Test Http Jpeg Transcoding
+                //server.AddMedia(new Media.Rtsp.Server.Media.JPEGMedia("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
+                //server.AddMedia(new Media.Rtsp.Server.Media.MJPEGMedia("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
+
+                Media.Rtsp.Server.MediaTypes.RFC2435Media screenShots = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Screen", null, false, 800, 600, false);
+
+                server.AddMedia(screenShots);
+
+                System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
+                {
+                    using (var bmpScreenshot = new System.Drawing.Bitmap(Screen.PrimaryScreen.Bounds.Width,
+                               Screen.PrimaryScreen.Bounds.Height,
+                               System.Drawing.Imaging.PixelFormat.Format32bppArgb))
                     {
 
-                        //Forever
-                        while (server.IsRunning)
+                        // Create a graphics object from the bitmap.
+                        using (var gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot))
                         {
-                            // Take the screenshot from the upper left corner to the right bottom corner.
-                            gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
-                                                        Screen.PrimaryScreen.Bounds.Y,
-                                                        0,
-                                                        0,
-                                                        Screen.PrimaryScreen.Bounds.Size,
-                                                        System.Drawing.CopyPixelOperation.SourceCopy);
 
-                            //Convert to JPEG and put in packets
-                            screenShots.Packetize(bmpScreenshot);
+                            //Forever
+                            while (server.IsRunning)
+                            {
+                                // Take the screenshot from the upper left corner to the right bottom corner.
+                                gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
+                                                            Screen.PrimaryScreen.Bounds.Y,
+                                                            0,
+                                                            0,
+                                                            Screen.PrimaryScreen.Bounds.Size,
+                                                            System.Drawing.CopyPixelOperation.SourceCopy);
 
-                            //REST
-                            System.Threading.Thread.Sleep(50);
+                                //Convert to JPEG and put in packets
+                                screenShots.Packetize(bmpScreenshot);
+
+                                //REST
+                                System.Threading.Thread.Sleep(50);
+                            }
                         }
                     }
-                }
-            }));
+                }));
 
-            //Start the server
-            server.Start();
+                //Start the server
+                server.Start();
 
-            //Wait for the server to start.
-            while (!server.IsRunning) System.Threading.Thread.Sleep(0);
+                //Wait for the server to start.
+                while (!server.IsRunning) System.Threading.Thread.Sleep(0);
 
-            //Start taking pictures of the desktop and making packets in a seperate thread.
-            taker.Start();
+                //Start taking pictures of the desktop and making packets in a seperate thread.
+                taker.Start();
 
-            //If you add more streams they will be started once the server is started
+                //If you add more streams they will be started once the server is started
 
-            Console.WriteLine("Listening on: " + server.LocalEndPoint);
+                Console.WriteLine("Listening on: " + server.LocalEndPoint);
 
-            Console.WriteLine("Waiting for input...");
-            Console.WriteLine("Press 'U' to Enable Udp on Media.RtspServer");
-            Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
-            Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
-            Console.WriteLine("Press 'C' to See how many clients are connected.");
-            if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
+                Console.WriteLine("Waiting for input...");
+                Console.WriteLine("Press 'U' to Enable Udp on Media.RtspServer");
+                Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
+                Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
+                Console.WriteLine("Press 'C' to See how many clients are connected.");
+                if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
-            while (true)
-            {
-                ConsoleKeyInfo keyInfo = Console.ReadKey();
-
-                if (keyInfo.Key == ConsoleKey.Q) break;
-                else if (keyInfo.Key == ConsoleKey.H)
+                while (true)
                 {
-                    Console.WriteLine("Enabling Http");
-                    server.EnableHttpTransport();
-                }
-                else if (keyInfo.Key == ConsoleKey.U)
-                {
-                    Console.WriteLine("Enabling Udp");
-                    server.EnableUnreliableTransport();
-                }
-                else if (keyInfo.Key == ConsoleKey.F)
-                {
-                    Console.WriteLine("======= RFC2435 Stream Information =======");
-                    Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
-                    Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
-                    Console.WriteLine("==============");
-                }
-                else if (keyInfo.Key == ConsoleKey.T)
-                {
-                    Console.WriteLine("Performing Load Test");
-                    System.Threading.ThreadPool.QueueUserWorkItem(o =>
+                    ConsoleKeyInfo keyInfo = Console.ReadKey(true);
+
+                    if (keyInfo.Key == ConsoleKey.Q) break;
+                    else if (keyInfo.Key == ConsoleKey.H)
                     {
-                        SubTestLoad(server);
-                        Console.WriteLine("Load Test Completed!!!!!!!!!!");
-                    });
-                }
-                else if (keyInfo.Key == ConsoleKey.C)
-                {
-                    Console.WriteLine(server.ConnectedClients + " Clients Connected");
-                }
-                else if (System.Diagnostics.Debugger.IsAttached)
-                {
-                    System.Diagnostics.Debugger.Break();
+                        Console.WriteLine("Enabling Http");
+                        server.EnableHttpTransport();
+                    }
+                    else if (keyInfo.Key == ConsoleKey.U)
+                    {
+                        Console.WriteLine("Enabling Udp");
+                        server.EnableUnreliableTransport();
+                    }
+                    else if (keyInfo.Key == ConsoleKey.F)
+                    {
+                        Console.WriteLine("======= RFC2435 Stream Information =======");
+                        Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
+                        Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
+                        Console.WriteLine("==============");
+                    }
+                    else if (keyInfo.Key == ConsoleKey.T)
+                    {
+                        Console.WriteLine("Performing Load Test");
+                        System.Threading.ThreadPool.QueueUserWorkItem(o =>
+                        {
+                            SubTestLoad(server);
+                            Console.WriteLine("Load Test Completed!!!!!!!!!!");
+                        });
+                    }
+                    else if (keyInfo.Key == ConsoleKey.C)
+                    {
+                        Console.WriteLine(server.ConnectedClients + " Clients Connected");
+                    }
+                    else if (System.Diagnostics.Debugger.IsAttached)
+                    {
+                        System.Diagnostics.Debugger.Break();
+                    }
                 }
 
-                System.Threading.Thread.Yield();
+                server.DisableHttpTransport();
+
+                server.DisableUnreliableTransport();
+
+                Console.WriteLine("Server Streamed : " + server.TotalStreamedBytes);
+
+                Console.WriteLine("Rtsp Sent : " + server.TotalRtspBytesSent);
+
+                Console.WriteLine("Rtsp Recieved : " + server.TotalRtspBytesRecieved);
+
+                Console.WriteLine("Stopping Server");
+
+                server.Stop();
             }
-
-            server.DisableHttpTransport();
-
-            server.DisableUnreliableTransport();
-
-            Console.WriteLine("Server Streamed : " + server.TotalStreamedBytes);
-
-            Console.WriteLine("Rtsp Sent : " + server.TotalRtspBytesSent);
-
-            Console.WriteLine("Rtsp Recieved : " + server.TotalRtspBytesRecieved);
-
-            Console.WriteLine("Stopping Server");            
-
-            server.Stop();
         }
         
         /// <summary>
