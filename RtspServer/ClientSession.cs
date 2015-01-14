@@ -90,7 +90,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The server which created this ClientSession
         /// </summary>
-        internal RtspServer m_Server;
+        internal RtspServer m_Server, m_Contained;
         
         //The Id of the client
         internal Guid m_Id = Guid.NewGuid();
@@ -173,7 +173,8 @@ namespace Media.Rtsp
 
             m_Server = server;
 
-            m_RtspSocket = rtspSocket;
+            //Assign the socket and remote endPoint, IPPacketInformation provides thus for UDP
+            RtspSocket = rtspSocket;
 
             //Disable Nagle in TCP
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
@@ -191,9 +192,6 @@ namespace Media.Rtsp
                 m_Buffer = new Common.MemorySegment(RtspMessage.MaximumLength);
             else
                 m_Buffer = buffer;
-
-            //Assign the remote endPoint, IPPacketInformation provides thus for UDP
-            RemoteEndPoint = rtspSocket.RemoteEndPoint;
 
             //Start receiving data.
             StartReceive();
@@ -381,6 +379,10 @@ namespace Media.Rtsp
                 RemoveSource(source);
             }
 
+            Playing.Clear();
+
+            IsDisconnected = true;
+
             //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
             if (m_RtpClient != null && m_RtpClient.IsConnected)
             {
@@ -402,10 +404,20 @@ namespace Media.Rtsp
                 m_RtspSocket.Dispose();
                 m_RtspSocket = null;
             }
+          
+            if (LastRequest != null && LastRequest.IsDisposed == false)
+            {
+                LastRequest.Dispose();
+                LastRequest = null;
+            }
 
-            Playing.Clear();
+            if (LastResponse != null && LastResponse.IsDisposed == false)
+            {
+                LastResponse.Dispose();
+                LastResponse = null;
+            }
 
-            IsDisconnected = true;
+            m_Server = m_Contained = null;
         }
 
         /// <summary>
@@ -437,11 +449,10 @@ namespace Media.Rtsp
 
         internal RtspMessage ProcessPlay(RtspMessage playRequest, RtpSource source)
         {
-            
-            ///TODO MAY ALREADY BE PLAYING OR PAUSED>....
-            ///
             ///If the client was paused then simply calling ProcessPacketBuffer will resume correctly without any further processing required
             ///So long as the Source's RtpClient.TransportContext RtpTimestamp is updated to reflect the value given in the playRequest...
+
+            //This should not be allowed if the server is stopping
 
             //13.4.16 464 Data Transport Not Ready Yet
             //The data transmission channel to the media destination is not yet ready for carrying data.
@@ -620,6 +631,9 @@ namespace Media.Rtsp
         /// //TODO Should be SourceMedia and SourceContext.
         internal RtspMessage ProcessSetup(RtspMessage request, RtpSource sourceStream, RtpClient.TransportContext sourceContext)
         {
+
+            //This should not be allowed if the server is stopping
+
             //We also have to send one back
             string returnTransportHeader = null;
 
