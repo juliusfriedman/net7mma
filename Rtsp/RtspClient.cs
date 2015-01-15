@@ -1349,7 +1349,7 @@ namespace Media.Rtsp
                         //Wait while
                         while (!IsDisposed //The client connected and is not disposed
                             && //There is no last transmitted message assigned or the interleaved event was not cleared
-                            m_LastTransmitted == null || m_InterleaveEvent.IsSet
+                            m_LastTransmitted == null || !m_InterleaveEvent.IsSet
                             && //And the client is still allowed to wait
                             ++attempt <= m_ResponseTimeoutInterval)
                         {
