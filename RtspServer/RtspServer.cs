@@ -460,7 +460,7 @@ namespace Media.Rtsp
             }
         }
 
-        internal bool RemoveSession(ClientSession session)
+        internal bool DisposeAndRemoveSession(ClientSession session)
         {
             if (session == null) return false;
 
@@ -472,23 +472,19 @@ namespace Media.Rtsp
                 session.Dispose();
             }
 
-            //If the session was contained
-            if (m_Clients.TryGetValue(session.Id, out session))
+            try
             {
-                try
-                {
-                    if (Logger != null) Logger.Log("Removing Client: " + session.Id);
+                if (Logger != null) Logger.Log("Removing Client: " + session.Id);
 
-                    bool removed = m_Clients.Remove(session.Id);
+                bool removed = m_Clients.Remove(session.Id);
 
-                    if (!removed && Logger != null) Logger.Log("Client Already Removed(" + session.Id + ")");
-                }
-                catch(Exception ex)
-                {
-                    if (Logger != null) Logger.LogException(ex);
+                if (!removed && Logger != null) Logger.Log("Client Already Removed(" + session.Id + ")");
+            }
+            catch (Exception ex)
+            {
+                if (Logger != null) Logger.LogException(ex);
 
-                    return false;
-                }
+                return false;
             }
 
             return true;
@@ -688,11 +684,14 @@ namespace Media.Rtsp
             //Allow some small varaince
             DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
 
+            //Maximum amount to remove at a time.
+            int removed = 0, max = (int)((m_MaximumClients / Utility.MicrosecondsPerMillisecond) * 1.5);
+
             //Iterate the id of each connected client
             foreach (ClientSession session in Clients)
             {
                 //If the session is not in the dictionary then it cannot be removed.
-                if (session == null || session.IsDisposed) continue;
+                if (session == null) continue;
 
                 //If the client disconnects the rtsp socket the transport session may still be active
                 if (!session.IsDisposed && session.IsDisconnected && session.m_RtpClient != null)
@@ -701,7 +700,9 @@ namespace Media.Rtsp
                     foreach (var context in session.m_RtpClient.GetTransportContexts())
                     {
                         //If the context has not been sent a packet or received a rtcp packet in the allowed time
-                        if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval || context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
+                        if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval 
+                            || 
+                            context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
                         {
                             //See if there is still a source for the context 
                             var sourceContext = session.GetSourceContext(context.MediaDescription);
@@ -724,24 +725,22 @@ namespace Media.Rtsp
 
                 //Check for inactivity, not connectivity (TCP clients may not be sending a rtsp keep alive request when interleaving)
                 //Ensure this logic is correct and use the RtpClient if necessary to check for inactivity.
-                if (session.IsDisposed || session.LastResponse == null || session.LastRequest == null && session.Created < maintenanceStarted && maintenanceStarted - session.Created > RtspClientInactivityTimeout
+                if (session.IsDisposed 
+                    || 
+                    (session.LastResponse == null || session.LastRequest == null && session.Created < maintenanceStarted && maintenanceStarted - session.Created > RtspClientInactivityTimeout)
                     ||
-                    session.LastResponse != null && session.LastResponse.Transferred.HasValue && session.LastResponse.Transferred < maintenanceStarted && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout //&& session.LastSend != null && session.LastSend.IsCompleted
+                    (session.LastResponse != null && session.LastResponse.Transferred.HasValue && session.LastResponse.Transferred < maintenanceStarted && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout) //&& session.LastSend != null && session.LastSend.IsCompleted
                     ||
-                    session.IsDisconnected && session.Playing.Count == 0)
+                    (session.IsDisconnected && session.Playing.Count == 0))
                 {
-                    inactive.Add(session);
+                    DisposeAndRemoveSession(session);
+
+                    //Don't spend too much time removing inactive sessions.
+                    if (++removed >= max) break;
+
                     continue;
                 }                
             }
-
-            //Remove any inactive clients
-            foreach (var toRemove in inactive)
-            {
-                bool removed = RemoveSession(toRemove);
-            }
-
-            inactive.Clear();
         }
 
 
@@ -845,7 +844,10 @@ namespace Media.Rtsp
 
                 m_Maintaining = false;
 
-            })).Start();
+            }))
+            {
+                Priority = m_ServerThread.Priority
+            }.Start();
 
             if (m_Maintainer != null) m_Maintainer.Change(RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
         }
@@ -891,11 +893,8 @@ namespace Media.Rtsp
             foreach (ClientSession session in Clients)
             {
                 //Remove the session
-                RemoveSession(session);
+                DisposeAndRemoveSession(session);
             }
-
-            //Ensure no clients remain
-            m_Clients.Clear();
 
             //Abort the worker from receiving clients
             if (IsRunning) Utility.Abort(ref m_ServerThread);
@@ -927,8 +926,11 @@ namespace Media.Rtsp
                 try
                 {
                     if (Logger != null) Logger.Log("Starting Stream:" + stream.Id);
-                    
-                    new Thread(stream.Start).Start();
+
+                    new Thread(stream.Start)
+                    {
+                        Priority = m_ServerThread.Priority
+                    }.Start();
                 }
                 catch(Exception ex)
                 {
@@ -950,8 +952,11 @@ namespace Media.Rtsp
                 try
                 {
                     if (Logger != null) Logger.Log("Stopping Stream:" + stream.Id);
-                    
-                    new Thread(stream.Stop).Start();
+
+                    new Thread(stream.Stop)
+                    {
+                        Priority = m_ServerThread.Priority
+                    }.Start();
                 }
                 catch (Exception ex)
                 {
@@ -973,10 +978,10 @@ namespace Media.Rtsp
                 while (IsRunning)
                 {
                     //If we can accept
-                    if (!m_StopRequested && m_Clients.Count < m_MaximumClients)
+                    if (m_StopRequested == false && m_Clients.Count < m_MaximumClients)
                     {
                         //Start acceping with a 0 size buffer
-                        var iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
+                        IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
                         //Get the timeout from the socket
                         int timeOut = m_TcpServerSocket.ReceiveTimeout;
@@ -1006,7 +1011,9 @@ namespace Media.Rtsp
                             }
                         }
                     }
-                    else System.Threading.Thread.Sleep(0);
+
+                    //Relinquish time slice
+                    System.Threading.Thread.Sleep(0);
                 }
             }
             catch (ThreadAbortException)
@@ -1128,9 +1135,6 @@ namespace Media.Rtsp
             //Create a new session with the new socket, there may be an existing session from another port or address at this point....
             //So long as that session does not attempt to access resources in another session given by 'sessionId' of that session then everything should be okay.
             ClientSession session = new ClientSession(this, rtspSocket);
-
-            //Add the session now
-            AddSession(session);
 
             //Return a new client session
             return session;
@@ -1493,6 +1497,14 @@ namespace Media.Rtsp
                 //This would force everything to have some type of authentication which would also be applicable to all lower level streams in the uri in the credential cache.
                 //I could also change up the semantic and make everything Uri based rather then locations
                 //Then it would also be easier to make /audio only passwords etc.
+
+                //When stopping only handle teardown and keep alives
+                if (m_StopRequested && (request.Method != RtspMethod.TEARDOWN || request.Method != RtspMethod.GET_PARAMETER || request.Method != RtspMethod.OPTIONS))
+                {
+                    ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest);
+
+                    return;
+                }
 
                 //Determine the handler for the request and process it
                 switch (request.Method)
