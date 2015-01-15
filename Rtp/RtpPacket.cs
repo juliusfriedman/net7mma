@@ -80,7 +80,7 @@ namespace Media.Rtp
         #region Properties
 
         /// <summary>
-        /// The binary data of the RtpPacket which may contain a ContributingSourceList and RtpExtension.
+        /// The binary data of the RtpPacket which may contain a ContributingSourceList, RtpExtension and Padding.
         /// </summary>
         public MemorySegment Payload { get; protected set; }
 
