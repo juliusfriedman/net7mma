@@ -909,6 +909,44 @@ namespace Media.Rtsp
             return CreateRtspResponse(request);
         }
 
+        internal void ReleaseUnusedResources()
+        {
+            if (IsDisposed) return;
+
+            //Enumerate each context 'SETUP' in the session
+            if(m_RtpClient != null) foreach (var context in m_RtpClient.GetTransportContexts())
+            {
+                //If the context has not been sent a packet or received a rtcp packet in the allowed time
+                if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval
+                    ||
+                    context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
+                {
+                    //See if there is still a source for the context 
+                    var sourceContext = GetSourceContext(context.MediaDescription);
+
+                    //If there was a source context
+                    if (sourceContext != null)
+                    {
+                        //Remove the attachment from the source context to the session context
+                        RemoveSource(Attached[sourceContext]);
+
+                        //Remove the reference to the sourceContext
+                        sourceContext = null;
+                    }
+                }
+            }
+
+            //Remove rtp theads
+            if (Playing.Count == 0)
+            {
+                if (m_RtpClient != null)
+                {
+                    m_RtpClient.Dispose();
+                    m_RtpClient = null;
+                }
+            }
+        }
+
         internal RtspMessage ProcessRecord(RtspMessage request, IMedia source)
         {
             //Can't record when no Archiver is present

@@ -83,6 +83,11 @@ namespace Media.Rtsp.Server.MediaTypes
         #region Properties
 
         /// <summary>
+        /// Gets or sets a value which indicates if Start can be called.
+        /// </summary>
+        public bool Disabled { get; set; }
+
+        /// <summary>
         /// The amount of time the Stream has been Started
         /// </summary>
         public TimeSpan Uptime { get { if (m_StartedTimeUtc.HasValue) return DateTime.UtcNow - m_StartedTimeUtc.Value; return TimeSpan.MinValue; } }
@@ -182,14 +187,27 @@ namespace Media.Rtsp.Server.MediaTypes
         #region Methods
 
         //Sets the State = StreamState.Started
-        public virtual void Start() { State = StreamState.Started; m_StartedTimeUtc = DateTime.UtcNow; }
+        public virtual void Start()
+        {
+            if (Disabled) return;
+
+            State = StreamState.Started; 
+            
+            m_StartedTimeUtc = DateTime.UtcNow;
+        }
 
         //Sets the State = StreamState.Stopped
-        public virtual void Stop() { State = StreamState.Stopped; m_StartedTimeUtc = null; }
+        public virtual void Stop()
+        {
+            State = StreamState.Stopped; 
+            
+            m_StartedTimeUtc = null;
+        }
 
         public void AddAlias(string name)
         {
-            if (m_Aliases.Contains(name)) return;
+            if (m_Aliases.Any(a=> string.Compare(a, name, true) == 0)) return;
+
             m_Aliases.Add(name);
         }
 

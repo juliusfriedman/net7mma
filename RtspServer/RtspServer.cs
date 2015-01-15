@@ -684,49 +684,19 @@ namespace Media.Rtsp
             //Allow some small varaince
             DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
 
-            //Maximum amount to remove at a time.
-            int removed = 0, max = (int)((m_MaximumClients / Utility.MicrosecondsPerMillisecond) * 1.5);
-
-            //Iterate the id of each connected client
+            //Iterate each connected client
             foreach (ClientSession session in Clients)
             {
                 //If the session is not in the dictionary then it cannot be removed.
                 if (session == null) continue;
 
-                //If the client disconnects the rtsp socket the transport session may still be active
-                if (!session.IsDisposed && session.IsDisconnected && session.m_RtpClient != null)
-                {
-                    //Enumerate each context 'SETUP' in the session
-                    foreach (var context in session.m_RtpClient.GetTransportContexts())
-                    {
-                        //If the context has not been sent a packet or received a rtcp packet in the allowed time
-                        if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval 
-                            || 
-                            context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
-                        {
-                            //See if there is still a source for the context 
-                            var sourceContext = session.GetSourceContext(context.MediaDescription);
-
-                            //If there was a source context
-                            if (sourceContext != null)
-                            {
-                                //Log the detachment from the source context
-                                if (Logger != null) Logger.Log("Session:" + session.Id + "Inactive, Removing Source Attachement");
-
-                                //Remove the attachment from the source context to the session context
-                                session.RemoveSource(session.Attached[sourceContext]);
-
-                                //Remove the reference to the sourceContext
-                                sourceContext = null;
-                            }
-                        }
-                    }
-                }                
+                //Remove any inactive source attachments.
+                session.ReleaseUnusedResources();
 
                 //Check for inactivity, not connectivity (TCP clients may not be sending a rtsp keep alive request when interleaving)
                 //Ensure this logic is correct and use the RtpClient if necessary to check for inactivity.
-                if (session.IsDisposed 
-                    || 
+                if (session.IsDisposed
+                    ||
                     (session.LastResponse == null || session.LastRequest == null && session.Created < maintenanceStarted && maintenanceStarted - session.Created > RtspClientInactivityTimeout)
                     ||
                     (session.LastResponse != null && session.LastResponse.Transferred.HasValue && session.LastResponse.Transferred < maintenanceStarted && (maintenanceStarted - session.LastResponse.Transferred) > RtspClientInactivityTimeout) //&& session.LastSend != null && session.LastSend.IsCompleted
@@ -735,11 +705,8 @@ namespace Media.Rtsp
                 {
                     DisposeAndRemoveSession(session);
 
-                    //Don't spend too much time removing inactive sessions.
-                    if (++removed >= max) break;
-
                     continue;
-                }                
+                }
             }
         }
 
@@ -753,14 +720,14 @@ namespace Media.Rtsp
             foreach (IMedia stream in MediaStreams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
             {
 
-                if(Logger != null) Logger.Log("Stopping Stream: " + stream.Id);
+                if(Logger != null) Logger.Log("Stopping Stream: " + stream.Name + " Id=" + stream.Id);
 
                 //Ensure Stopped
                 stream.Stop();
 
                 if (IsRunning)
                 {
-                    if (Logger != null) Logger.Log("Starting Stream: " + stream.Id);
+                    if (Logger != null) Logger.Log("Starting Stream: " + stream.Name + " Id=" + stream.Id);
 
                     //try to start it again
                     stream.Start();
@@ -811,7 +778,7 @@ namespace Media.Rtsp
             m_ServerThread.Start();
 
             //Timer for maintaince
-            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
+            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Utility.InfiniteTimeSpan);
 
             if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
             if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
@@ -849,7 +816,7 @@ namespace Media.Rtsp
                 Priority = m_ServerThread.Priority
             }.Start();
 
-            if (m_Maintainer != null) m_Maintainer.Change(RtspClientInactivityTimeout, Utility.InfiniteTimeSpan);
+            if (m_Maintainer != null) m_Maintainer.Change(TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Utility.InfiniteTimeSpan);
         }
 
         /// <summary>
@@ -923,6 +890,8 @@ namespace Media.Rtsp
             {
                 if (m_StopRequested) return;
 
+                if (stream == null || stream.Disabled) continue;
+
                 try
                 {
                     if (Logger != null) Logger.Log("Starting Stream:" + stream.Id);
@@ -948,6 +917,8 @@ namespace Media.Rtsp
             foreach (IMedia stream in MediaStreams)
             {
                 if (m_StopRequested) return;
+
+                if (stream == null || stream.Disabled) continue;
 
                 try
                 {
@@ -1096,7 +1067,7 @@ namespace Media.Rtsp
                     return;
                 }
 
-                //Make a temporary client (Could move semantics about begin recieve to ClientSession)
+                //Make a session
                 ClientSession session = CreateOrObtainSession(clientSocket);
 
                 //The session is no longer disconnected
@@ -1272,6 +1243,12 @@ namespace Media.Rtsp
                         
                         return;
                     }
+                default:
+                    {
+                        if (Logger != null) Logger.LogException(se);
+
+                        return;
+                    }
             }
         }
 
@@ -1311,7 +1288,7 @@ namespace Media.Rtsp
                     if (session.LastRecieve != null && !session.LastRecieve.IsCompleted) return;
 
                     //Start receiving again
-                    session.LastRecieve = session.m_RtspSocket.BeginReceiveFrom(session.m_Buffer.Array, session.m_Buffer.Offset, session.m_Buffer.Count, SocketFlags.None, ref remote, new AsyncCallback(ProcessReceive), session);
+                    session.StartReceive();
                 }
                 else if(session.LastSend == null || session.LastSend.IsCompleted)
                 {                   
@@ -1462,7 +1439,7 @@ namespace Media.Rtsp
                 //Log the reqeust now
                 if (Logger != null) Logger.LogRequest(request, session);
 
-                //Ensure the session is added to the connected clients
+                //Ensure the session is added to the connected clients if it was not already
                 if (session.m_Contained == null) AddSession(session);
 
                 //If any custom handlers were registered.
@@ -1499,7 +1476,7 @@ namespace Media.Rtsp
                 //Then it would also be easier to make /audio only passwords etc.
 
                 //When stopping only handle teardown and keep alives
-                if (m_StopRequested && (request.Method != RtspMethod.TEARDOWN || request.Method != RtspMethod.GET_PARAMETER || request.Method != RtspMethod.OPTIONS))
+                if (m_StopRequested && (request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.GET_PARAMETER && request.Method != RtspMethod.OPTIONS))
                 {
                     ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest);
 
@@ -1654,7 +1631,7 @@ namespace Media.Rtsp
             */
 
             //If we have a session
-            if (session == null || session.IsDisposed) return;            
+            if (session == null || session.IsDisposed) return;
 
             try
             {
@@ -1705,9 +1682,8 @@ namespace Media.Rtsp
 
                     string sess = message.GetHeader(RtspHeaders.Session);
 
-                    //Not closing
-                    if (!message.ContainsHeader(RtspHeaders.Connection) &&//Check for if timeout needs to be added
-                        RtspClientInactivityTimeout > TimeSpan.Zero && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) message.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)RtspClientInactivityTimeout.TotalSeconds);
+                    //Add the timeout header
+                    if (RtspClientInactivityTimeout > TimeSpan.Zero && !string.IsNullOrWhiteSpace(sess) && !sess.Contains("timeout")) message.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)RtspClientInactivityTimeout.TotalSeconds);
 
                     //Log response
                     if (Logger != null) Logger.LogResponse(message, session);
@@ -1806,6 +1782,8 @@ namespace Media.Rtsp
                 //Could retrieve values from last Request if needed..
                 //string realm = "//", nOnceCount = "00000001";
 
+                //Should handle multiple types of auth
+
                 //Should store the nonce and cnonce values on the session
                 statusCode = RtspStatusCode.Unauthorized;
 
@@ -1818,7 +1796,10 @@ namespace Media.Rtsp
                 //Check for Digest first - Todo Finish implementation
                 if ((requiredCredential = RequiredCredentials.GetCredential(relativeLocation, "Digest")) != null)
                 {
-                    //Might need to store values qop nc, cnonce and nonce in session storage for later retrival
+                    //Might need to store values qop nc, cnonce and nonce in session storage for later retrival                    
+
+                    //Should use auth-int and qop
+
                     authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", requiredCredential.UserName, (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain), ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));
                 }
                 else if ((requiredCredential = RequiredCredentials.GetCredential(relativeLocation, "Basic")) != null)
@@ -2153,7 +2134,10 @@ namespace Media.Rtsp
             using (var resp = session.ProcessTeardown(request, found))
             {
                 resp.AppendOrSetHeader(RtspHeaders.Connection, "close");
+
                 ProcessSendRtspMessage(resp, session);
+
+                session.ReleaseUnusedResources();
             }
         }
 
@@ -2186,7 +2170,11 @@ namespace Media.Rtsp
             //Should have a way to determine to forward send parameters... public bool ForwardSetParameter { get; set; }
             //Should have a way to call SendSetParamter on the source if required.
             //Should allow sever parameters to be set?
-            using (var resp = session.CreateRtspResponse(request)) ProcessSendRtspMessage(resp, session);
+            using (var resp = session.CreateRtspResponse(request))
+            {
+                //Content type
+                ProcessSendRtspMessage(resp, session);
+            }
         }        
 
         /// <summary>
@@ -2215,7 +2203,9 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(authHeader))
             {
                 authType = "basic";
+
                 requiredCredential = RequiredCredentials.GetCredential(source.ServerLocation, authType);
+
                 if (requiredCredential == null) requiredCredential = RequiredCredentials.GetCredential(source.ServerLocation, authType = "digest");
             }
             else
@@ -2243,6 +2233,8 @@ namespace Media.Rtsp
                 //If the SourceAuthenticationScheme is Basic and the header contains the BASIC indication then validiate using BASIC authentication
                 if (string.Compare(authType, "basic", true) == 0)
                 {
+                    //realm may be present? 
+                    //Basic realm="''" dasfhadfhsaghf
 
                     //Get the decoded value
                     authHeader = request.Encoding.GetString(Convert.FromBase64String(authHeader));

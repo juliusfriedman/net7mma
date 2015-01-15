@@ -1297,6 +1297,8 @@ namespace Media.Rtp
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = localRtp);
                     RtpSocket.Connect(RemoteRtp = remoteRtp);
+                    RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(m_ReceiveInterval.TotalMilliseconds / 2);
+
                     //RtpSocket.Blocking = false;
                     //RtpSocket.SendBufferSize = RtpSocket.ReceiveBufferSize = 0; //Use local buffer dont copy
 
@@ -1354,7 +1356,7 @@ namespace Media.Rtp
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = localRtcp);
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
-
+                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(m_ReceiveInterval.TotalMilliseconds / 2);
                         RtcpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
                         //Tell the network stack what we send and receive has an order
@@ -2807,7 +2809,7 @@ namespace Media.Rtp
                 Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), m_Buffer.Count * m_Buffer.Count);
 
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
-                m_WorkerThread.Priority = ThreadPriority.AboveNormal;
+                //m_WorkerThread.Priority = ThreadPriority.AboveNormal;
                 //m_WorkerThread.IsBackground = true;
                 m_WorkerThread.Name = "RtpClient-" + m_Id;
                 Started = DateTime.UtcNow;
