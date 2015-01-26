@@ -45,7 +45,7 @@ using System.Text;
 
 #endregion
 
-namespace Media.Common//.Collections
+namespace Media.Common.Collections
 {
     #region ConcurrentThesaurus
 
@@ -57,13 +57,13 @@ namespace Media.Common//.Collections
     /// <typeparam name="TValue">The types of the definitions</typeparam>
     /// <remarks>
     /// Fancy tryin to get a IDictionary to flatten into this.
-    /// GroupBy gives an IGrouping but we can't use that or GroupBy to implement `IEnumerable<IGrouping<TKey, TValue>>.GetEnumerator()`
+    /// GroupBy gives an IGrouping but we can't use that or GroupBy to implement `IEnumerable<IGrouping<TKey, TValue>>.GetEnumerator()` unless IEnumerabled of TValue is used.
     /// </remarks>
     public class ConcurrentThesaurus<TKey, TValue> : ILookup<TKey, TValue>, ICollection<TKey>
     {
         #region Properties
 
-        System.Collections.Concurrent.ConcurrentDictionary<TKey, IList<TValue>> Dictionary = new System.Collections.Concurrent.ConcurrentDictionary<TKey, IList<TValue>>();
+        Dictionary<TKey, IList<TValue>> Dictionary = new Dictionary<TKey, IList<TValue>>();
 
         System.Collections.ICollection Collection { get { return ((System.Collections.ICollection)Dictionary); } }
 
@@ -89,7 +89,7 @@ namespace Media.Common//.Collections
         /// <param name="key"></param>
         public void Add(TKey key)
         {
-            if (!CoreAdd(key, default(TValue), null, false, true))
+            if (false == CoreAdd(key, default(TValue), null, false, true))
             {
                 //throw new ArgumentException("The given key was already present in the dictionary");
             }
@@ -108,7 +108,7 @@ namespace Media.Common//.Collections
             bool hadValue = Dictionary.TryGetValue(key, out Predicates);
 
             //Add the value
-            if (!CoreAdd(key, value, Predicates, hadValue, false))
+            if (false == CoreAdd(key, value, Predicates, hadValue, false))
             {
                 //throw new ArgumentException("The given key was already present in the dictionary");
             }
@@ -121,7 +121,7 @@ namespace Media.Common//.Collections
         /// <returns></returns>
         public bool Remove(TKey key)
         {
-            IList<TValue> removed;
+            IEnumerable<TValue> removed;
             return Remove(key, out removed);
         }
 
@@ -131,9 +131,13 @@ namespace Media.Common//.Collections
         /// <param name="key"></param>
         /// <param name="values"></param>
         /// <returns></returns>
-        public bool Remove(TKey key, out IList<TValue> values)
+        public bool Remove(TKey key, out IEnumerable<TValue> values)
         {
-            return Dictionary.TryRemove(key, out values);
+            Exception any;
+            IList<TValue> list;
+            bool result = Dictionary.TryRemove(key, out list, out any);
+            values = list;
+            return result;
         }
 
         //Remove TKey, TValue (Remove a single value from possibly many)
@@ -168,8 +172,10 @@ namespace Media.Common//.Collections
             else if (predicates == null) predicates = new List<TValue>() { value };
             else predicates.Add(value);//Othewise add the value to the predicates which is a reference to the key
 
+            Exception any;
+
             //Add the value if not already in the dictionary
-            return !inDictionary ? Dictionary.TryAdd(key, predicates) : true;
+            return false == inDictionary ? Dictionary.TryAdd(key, predicates, out any) : true;
         }
 
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()

@@ -15,11 +15,11 @@ namespace Media.Common
 
         int m_Offset, m_Length;
 
-        public int Count { get { return m_Length; } }
+        public int Count { get { return m_Length; } protected set { m_Length = value; } }
 
-        public int Offset { get { return m_Offset; } }
+        public int Offset { get { return m_Offset; } protected set { m_Offset = value; } }
 
-        public byte[] Array { get { return m_Array; } }
+        public byte[] Array { get { return m_Array; } protected set { m_Array = value; } }
 
         public MemorySegment(byte[] reference)  : base()
         {
@@ -49,23 +49,48 @@ namespace Media.Common
             m_Length = size;
         }
 
+        public MemorySegment(MemorySegment other)
+        {
+            IsDisposed = other.IsDisposed;
+            
+            if (IsDisposed) return;
+
+            m_Array = other.Array;
+
+            m_Offset = other.Offset;
+
+            m_Length = other.m_Length;
+        }
+
         //internal void SetLength(int length) { m_Length = length; }
 
         public override void Dispose()
         {
-            //if (m_Owner) m_Array = null;
-            m_Offset = m_Length = -1;
+            if (IsDisposed) return;
+
             base.Dispose();
+
+            //m_Array = Utility.Empty;
+            //m_Offset = m_Length = 0;
+
+            //Don't remove the reference to the array
+            //if (m_Owner) m_Array = null;
+            
+            //Don't change the offset or length 
+            //m_Offset = m_Length = -1;
         }
 
         IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
-            return m_Array.Skip(m_Offset).Take(m_Length).GetEnumerator(); //Skip is slow (N)
+            for (int i = 0;  i < m_Length; ++i)
+            {
+                yield return m_Array[m_Offset + i];
+            }
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return m_Array.Skip(m_Offset).Take(m_Length).GetEnumerator(); //Skip is slow (N)
+            return ((IEnumerable<byte>)this).GetEnumerator();
         }
 
         public byte this[int index]

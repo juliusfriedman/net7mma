@@ -53,7 +53,9 @@ namespace Media.Rtsp
 
         internal static string [] TimeSplit = new string[] { HyphenSign.ToString(), SemiColon.ToString() };
 
-        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space, Comma };        
+        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space, Comma };
+
+        internal static char[] ValueSplit = new char[] { (char)Common.ASCII.EqualsSign, SemiColon };        
 
         public const string Allow = "Allow";
         public const string Accept = "Accept";
@@ -166,6 +168,8 @@ namespace Media.Rtsp
                 //Example 
                 //Authorization: Digest username="admin", realm="GeoVision", nonce="b923b84614fc11c78c712fb0e88bc525", uri="rtsp://203.11.64.27:8554/CH001.sdp", response="d771e4e5956e3d409ce5747927db10af"\r\n
 
+                //Todo Check that Digest works with Options * or when uriPart is \
+
                 using (var md5 = Utility.CreateMD5HashAlgorithm())
                 {
                     string usernamePart = credential.UserName,
@@ -240,6 +244,8 @@ namespace Media.Rtsp
 
             //layers = / Hops Ttl
 
+            //Should also given tokens for profile e.g. SAVP or RAW etc.
+
             ssrc = 0;
             source = System.Net.IPAddress.Any;
             serverRtpPort = serverRtcpPort = clientRtpPort = clientRtcpPort = 0;
@@ -286,7 +292,7 @@ namespace Media.Rtsp
                             {
                                 string ssrcPart = subParts[1];
 
-                                if (!int.TryParse(ssrcPart, out ssrc)) //plain int                        
+                                if (false == int.TryParse(ssrcPart, out ssrc)) //plain int                        
                                     ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
                                 
                                 continue;
@@ -353,21 +359,122 @@ namespace Media.Rtsp
         public static string TransportHeader(string connectionType, int? ssrc, System.Net.IPAddress source, int? clientRtpPort, int? clientRtcpPort, int? serverRtpPort, int? serverRtcpPort, bool? unicast, bool? multicast, int? ttl, bool? interleaved, byte? dataChannel, byte? controlChannel)
         {
             if (string.IsNullOrWhiteSpace(connectionType)) throw new ArgumentNullException("connectionType");
+
             if (unicast.HasValue && multicast.HasValue && unicast.Value == multicast.Value) throw new InvalidOperationException("unicast and multicast cannot have the same value.");
 
-            return ( (connectionType + SemiColon.ToString())
-                + (source != null ? "source=" + source.ToString() + SemiColon : string.Empty)
-                + (unicast.HasValue && unicast.Value == true ? "unicast" + SemiColon : string.Empty)
-                + (multicast.HasValue && multicast.Value == true ? "multicast" + SemiColon : string.Empty)
-                + (clientRtpPort.HasValue ? "client_port=" + clientRtpPort.Value + (clientRtcpPort.HasValue ? HyphenSign.ToString() + clientRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
-                + (serverRtpPort.HasValue ? "server_port=" + serverRtpPort.Value + (serverRtcpPort.HasValue ? HyphenSign.ToString() + serverRtcpPort.Value : string.Empty) + SemiColon : string.Empty)
-                + (interleaved.HasValue && interleaved.Value == true && dataChannel.HasValue ? "interleaved=" + dataChannel.Value + (controlChannel.HasValue ? HyphenSign.ToString() + controlChannel.Value : string.Empty) + SemiColon : string.Empty)
-                + (ttl.HasValue ? "ttl=" + ttl.Value : string.Empty)
-                + (ssrc.HasValue ? "ssrc=" + ssrc.Value.ToString("X") : string.Empty));
+            StringBuilder builder = null;
+
+            try
+            {
+                builder = new StringBuilder();
+
+                builder.Append(connectionType);
+
+                if (source != null)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("source=");
+                    builder.Append(source);
+                }
+
+                if (unicast.HasValue && unicast.Value == true)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("unicast");
+                }
+                else if (multicast.HasValue && multicast.Value == true)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("unicast");
+                }
+
+                //Should eventually also allow for rtcp only?
+
+                if (clientRtpPort.HasValue)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("client_port=");
+                    builder.Append(clientRtpPort.Value);
+
+                    if (clientRtcpPort.HasValue)
+                    {
+                        builder.Append(HyphenSign);
+                        builder.Append(clientRtcpPort);
+                    }
+                } //else if
+
+                if (serverRtpPort.HasValue)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("server_port=");
+                    builder.Append(serverRtpPort.Value);
+
+                    if (serverRtcpPort.HasValue)
+                    {
+                        builder.Append(HyphenSign);
+                        builder.Append(serverRtcpPort);
+                    }
+                } //else if
+
+                //
+
+                if (interleaved.HasValue && interleaved.Value == true)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("interleaved=");
+
+                    if (dataChannel.HasValue)
+                    {
+                        builder.Append(dataChannel);
+                    }
+
+                    if (controlChannel.HasValue)
+                    {
+                        if (dataChannel.HasValue) builder.Append(HyphenSign);
+
+                        builder.Append(controlChannel);
+                    }
+                }
+
+                if (ttl.HasValue)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("ttl=");
+
+                    builder.Append(ttl);
+                }
+
+                if (ssrc.HasValue)
+                {
+                    builder.Append(SemiColon);
+
+                    builder.Append("ssrc=");
+
+                    builder.Append(ssrc.Value.ToString("X"));
+                }
+
+                return builder.ToString();
+            }
+            catch { throw; }
+            finally { builder = null; }
         }
 
+        //internal static string BuildHeader(string sep, params string[] values)
+        //{
+        //    return string.Join(sep, values, 0, values.Length - 1) + values.Last();
+        //}
+    
+      
+
         /// <summary>
-        /// Parses a RFC2326 Rtp-Info header
+        /// Parses a RFC2326 Rtp-Info header, if two sub headers are present only the values from the last header are returned.
         /// </summary>
         /// <param name="value"></param>
         /// <param name="url"></param>
@@ -375,53 +482,64 @@ namespace Media.Rtsp
         /// <param name="rtpTime"></param>
         /// <returns></returns>
         ///NEEDS TO RETURN []s instead of single values out Uri[], etc.
-        public static bool TryParseRtpInfo(string value, out Uri url, out int seq, out int rtpTime, out int ssrc)
+        ///Or make en enumerator...
+        public static bool TryParseRtpInfo(string value, out Uri url, out int? seq, out int? rtpTime, out int? ssrc)
         {
-            if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("value");
-
             url = null;
-            seq = rtpTime = ssrc = 0;
 
+            seq = rtpTime = ssrc = null;
+
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            
             try
             {
-                string[] allParts = value.Split(SemiColon);
+                string[] allParts = value.Split(Comma);
 
                 for (int i = 0, e = allParts.Length; i < e; ++i)
                 {
 
                     string part = allParts[i];
 
-                    if (string.IsNullOrWhiteSpace(part)) continue;
+                    if (string.IsNullOrWhiteSpace(part)) continue;                    
 
-                    string[] subParts = part.Split((char)Common.ASCII.EqualsSign);
-
-                    switch (subParts[0])
+                    foreach (var token in part.Split(SemiColon))
                     {
-                        case "url":
-                            {
-                                url = new Uri(subParts[1], UriKind.RelativeOrAbsolute);
-                                continue;
-                            }
-                        case "seq":
-                            {
-                                seq = int.Parse(subParts[1]);
-                                continue;
-                            }
-                        case "rtptime":
-                            {
-                                rtpTime = int.Parse(subParts[1]);
-                                continue;
-                            }
-                        case "ssrc":
-                            {
-                                string ssrcPart = subParts[1];
+                        string[] subParts = token.Split(ValueSplit, 2);
 
-                                if (!int.TryParse(ssrcPart, out ssrc)) //plain int                        
-                                    ssrc = int.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
+                        if (subParts.Length < 2) continue;
 
-                                continue;
-                            }
-                        default: continue;
+                        switch (subParts[0].Trim())
+                        {
+                            case "url":
+                                {
+                                    url = new Uri(subParts[1].Trim(), UriKind.RelativeOrAbsolute);
+                                    continue;
+                                }
+                            case "seq":
+                                {
+                                    seq = (int)uint.Parse(subParts[1].Trim());
+                                    continue;
+                                }
+                            case "rtptime":
+                                {
+                                    rtpTime = (int)uint.Parse(subParts[1].Trim());
+                                    continue;
+                                }
+                            case "ssrc":
+                                {
+                                    string ssrcPart = subParts[1].Trim();
+
+                                    uint id;
+
+                                    if (false == uint.TryParse(ssrcPart, out id)) //plain int                        
+                                        id = uint.Parse(ssrcPart, System.Globalization.NumberStyles.HexNumber); //hex
+
+                                    ssrc = (int)id;
+
+                                    continue;
+                                }
+                            default: continue;
+                        }
                     }
                 }
 
@@ -431,6 +549,17 @@ namespace Media.Rtsp
             {
                 return false;
             }
+        }
+
+        public static bool TryParseRtpInfo(string value, out string[] values)
+        {
+            values = null;
+
+            if (string.IsNullOrWhiteSpace(value)) return false;
+
+            values = value.Split(Comma);
+
+            return true;
         }
 
         /// <summary>
@@ -918,7 +1047,7 @@ namespace Media.Rtsp
                 int length = 0;
 
                 if (MessageType == RtspMessageType.Request)
-                    length += Encoding.GetByteCount(Method.ToString() + " " + Location.ToString() + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + CRLF);
+                    length += Encoding.GetByteCount(Method.ToString() + " " + (Location != null ? Location.ToString() : string.Empty) + " " + RtspMessage.MessageIdentifier + '/' + Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + CRLF);
                 else if (MessageType == RtspMessageType.Response)
                     length += Encoding.GetByteCount(MessageIdentifier + '/' + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture) + " " + ((int)StatusCode).ToString() + " " + StatusCode.ToString() + CRLF);
 
@@ -1004,11 +1133,14 @@ namespace Media.Rtsp
         {
             get
             {
+                //Disposed is complete 
+                if (IsDisposed) return IsDisposed;
+
                 //All requests must have a StatusLine
                 if (m_Buffer != null && m_Buffer.Length <= MinimumStatusLineSize) return false;
 
                 //All requests MUST contain a CSeq header.
-                if (m_Headers.Count == 0 || !ContainsHeader(RtspHeaders.CSeq)) return false;
+                if (m_Headers.Count == 0 || CSeq == -1) return false;
 
                 //See if there is a Content-Length header
                 string contentLength = GetHeader(RtspHeaders.ContentLength);
@@ -1019,7 +1151,7 @@ namespace Media.Rtsp
                 //If the content-length header cannot be parsed or the length > the data in the body the message is invalid
                 int supposedCount;
 
-                if (!int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return false;
+                if (false == int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return false;
                 
                 //Messages with ContentLength but no Body are not.
                 if (supposedCount > 0 && string.IsNullOrWhiteSpace(m_Body)) return false; 
@@ -1088,9 +1220,10 @@ namespace Media.Rtsp
         public RtspMessage(byte[] data, int offset, int length)
         {
             //Sanely
-            if (data == null)
+            //length could be > data.Length or offset could be allowed to be negitive...
+            if (data == null || offset < 0) 
             {
-                throw new ArgumentNullException("packet");
+                return;
             }
 
             //Syntax, what syntax? there is no syntax ;)
@@ -1108,13 +1241,9 @@ namespace Media.Rtsp
             //Skip any non character data.
             while (!char.IsLetter(first))
             {
-                --count;
-                if (count <= 0) break;
+                if (--count <= 0) return;
                 first = (char)data[++start];
             }
-
-            //No more data
-            if (count <= 0) return;            
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
@@ -1159,7 +1288,7 @@ namespace Media.Rtsp
                 //C->S[0]SETUP[1]rtsp://example.com/media.mp4/streamid=0[2]RTSP/1.0
                 string[] parts = StatusLine.Split(' ');
 
-                if (parts.Length < 2 || !Enum.TryParse<RtspMethod>(parts[0], true, out Method) || !Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) || !double.TryParse(parts[2].Substring(parts[2].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
+                if (parts.Length < 2 || false == Enum.TryParse<RtspMethod>(parts[0], true, out Method) || false == Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) || false == double.TryParse(parts[2].Substring(parts[2].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
                     MessageType = RtspMessageType.Invalid;
                     return;
@@ -1170,7 +1299,7 @@ namespace Media.Rtsp
                 //S->C[0]RTSP/1.0[1]200[2]OK
                 string[] parts = StatusLine.Split(' ');
 
-                if (parts.Length < 2 || !double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || !int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
+                if (parts.Length < 2 || false == double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || false == int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
                 {
                     MessageType = RtspMessageType.Invalid;
                     return;
@@ -1231,7 +1360,7 @@ namespace Media.Rtsp
 
         #region Methods
 
-        bool ParseStatusLine()
+        virtual protected bool ParseStatusLine()
         {
 
             if (IsDisposed) return false;
@@ -1281,7 +1410,7 @@ namespace Media.Rtsp
                     //S->C[0]RTSP/1.0[1]200[2]OK
                     string[] parts = StatusLine.Split(' ');
 
-                    if (parts.Length < 2 || !double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || !int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
+                    if (parts.Length < 2 || !double.TryParse(parts[0].Substring(parts[0].IndexOf('/') + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version) || false == int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode))
                     {
                         return false;
                     }
@@ -1298,7 +1427,7 @@ namespace Media.Rtsp
             return true;
         }
 
-        bool ParseHeaders()
+        virtual protected bool ParseHeaders()
         {
             if (IsDisposed) return false;
 
@@ -1382,8 +1511,7 @@ namespace Media.Rtsp
             catch { return false; }
         }
 
-
-        bool ParseBody()
+        virtual protected bool ParseBody()
         {
             if (IsDisposed) return false;
 
@@ -1461,7 +1589,7 @@ namespace Media.Rtsp
         /// Gets an array of all headers present in the RtspMessage
         /// </summary>
         /// <returns>The array containing all present headers</returns>
-        public IEnumerable<string> GetHeaders() { return m_Headers.Keys.ToList(); }
+        public virtual IEnumerable<string> GetHeaders() { return m_Headers.Keys.ToList(); }
 
         /// <summary>
         /// Gets a header value with cases insensitivity
@@ -1481,7 +1609,7 @@ namespace Media.Rtsp
             return null;
         }
 
-        public string GetHeader(string name)
+        public virtual string GetHeader(string name)
         {
             return GetHeader(name, out name);
         }
@@ -1491,10 +1619,13 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="name">The name of the header</param>
         /// <param name="value">The value of the header</param>
-        public void SetHeader(string name, string value)
+        public virtual void SetHeader(string name, string value)
         {
             //If the name is not valid then return without adding it
             if (string.IsNullOrWhiteSpace(name) || !char.IsLetter(name[0])) return;
+
+            //If there is no value for the header then return without adding it
+            if (string.IsNullOrWhiteSpace(value)) return;
             
             string actualName = null;
             
@@ -1503,7 +1634,7 @@ namespace Media.Rtsp
             else m_Headers.Add(name, value);
         }
 
-        public void AppendOrSetHeader(string name, string value)
+        public virtual void AppendOrSetHeader(string name, string value)
         {
             if (string.IsNullOrWhiteSpace(name)) return;
 
@@ -1526,7 +1657,7 @@ namespace Media.Rtsp
             return GetHeader(name, out headerName) != null;
         }
 
-        public bool ContainsHeader(string name)
+        public virtual bool ContainsHeader(string name)
         {
             return ContainsHeader(name, out name);
         }
@@ -1536,7 +1667,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="name">The name of the header to remove</param>
         /// <returns>True if removed, false otherwise</returns>
-        public bool RemoveHeader(string name)
+        public virtual bool RemoveHeader(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return false;
             else
@@ -1580,7 +1711,7 @@ namespace Media.Rtsp
             return result.ToArray();
         }
 
-        public IEnumerable<byte> Prepare() { return ToBytes(); }
+        public virtual IEnumerable<byte> Prepare() { return ToBytes(); }
 
         #endregion
 
@@ -1596,15 +1727,23 @@ namespace Media.Rtsp
             //Call the base implementation
             base.Dispose();
 
-            if (m_Buffer != null)
+            if (m_Buffer != null && m_Buffer.CanWrite)
             {
-                m_Buffer.Dispose();
-                m_Buffer = null;
+                try
+                {
+                    System.IO.MemoryStream buffer = m_Buffer;
+
+                    buffer.Dispose();
+
+                    m_Buffer = buffer = null;
+                }
+                catch { }
             }
 
             //Clear local references (Will change output of ToString())
-            m_Body = null;
-            m_Headers.Clear();
+            //m_Body = null;
+
+            //m_Headers.Clear();
         }
 
         public override int GetHashCode()
@@ -1677,18 +1816,42 @@ namespace Media.Rtsp
 
             bool wroteData = false;
 
+            int received = 0;
+
             //Try to parse the status line first
             if (MessageType == RtspMessageType.Invalid)
             {
-                if (m_Buffer == null) m_Buffer = new System.IO.MemoryStream((int)buffer.Count);
+                if (m_Buffer == null) m_Buffer = new System.IO.MemoryStream();
 
-                //Write the new data
-                m_Buffer.Write(buffer.Array, buffer.Offset, buffer.Count);
+                //If there was a buffer
+                if (buffer != null)
+                {
+                    //Write the new data
+                    m_Buffer.Write(buffer.Array, buffer.Offset, received = buffer.Count);
 
-                wroteData = true;
+                    //indicate something was written
+                    wroteData = true;
+                }
+                
 
-                //If the status line or header section was not parsed return the number of bytes written
-                if(!ParseStatusLine()) return buffer.Count;
+                //If the status line was not parsed return the number of bytes written
+                if (false == ParseStatusLine())
+                {
+                    //Messages larger than 4096 bytes require a content-length header
+                    if (m_Buffer.Length > MaximumLength)
+                    {
+                        //Remove the buffer
+                        m_Buffer.Dispose();
+
+                        m_Buffer = null;
+
+                        //The message should now be invalid.
+                        MessageType = RtspMessageType.Invalid;
+                    }
+                    
+                    //Return the amount of bytes in the buffer.
+                    return received;
+                } 
             }
 
             //Should first check for cSeq header...
@@ -1701,10 +1864,10 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(sCseq) || string.IsNullOrWhiteSpace(contentLength))
             {
                 //Write the new data if not already written
-                if (!wroteData)
+                if (buffer != null && false == wroteData)
                 {
                     //Create the buffer if it was null
-                    if (m_Buffer == null) m_Buffer = new System.IO.MemoryStream((int)buffer.Count);
+                    if (m_Buffer == null || false == m_Buffer.CanWrite) m_Buffer = new System.IO.MemoryStream();
                     else //Otherwise prepare to append the buffer
                     {
                         m_Buffer.Seek(0, System.IO.SeekOrigin.End);
@@ -1713,14 +1876,14 @@ namespace Media.Rtsp
                     }
 
                     //Write the new data
-                    m_Buffer.Write(buffer.Array, buffer.Offset, buffer.Count);
+                    m_Buffer.Write(buffer.Array, buffer.Offset, received += buffer.Count);
 
                     //Seek to the headerOffset (set in ParseStatusLine())
                     m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
                 }
 
                 //If the header section was not parsed indicate how much was written
-                if (!ParseHeaders())
+                if (false == ParseHeaders())
                 {
                     //Messages larger than 4096 bytes require a content-length header
                     if (m_Buffer.Length > MaximumLength)
@@ -1735,21 +1898,21 @@ namespace Media.Rtsp
                     }
 
                     //Return the amount of bytes consumed.
-                    return buffer.Count;
+                    return received;
                 }
             }
 
             //If the body is now parsed then we are done.
-            if (null == m_Body && ParseBody() || IsComplete) return buffer.Count;
+            if (null == m_Body && ParseBody()) return received;
 
             //Calulcate the amount of bytes in the body
             int encodedBodyCount = Encoding.GetByteCount(m_Body), supposedCount;
 
             //If the content-length header cannot be parsed or the length > the data in the body the message is invalid
-            if (!int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return 0;
+            if (false == int.TryParse(contentLength, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out supposedCount)) return 0;
 
             //Determine how much remaing
-            int remaining = supposedCount - encodedBodyCount, received = 0;
+            int remaining = supposedCount - encodedBodyCount;
 
             //If there are remaining octetes then complete the RtspMessage
             if (remaining > 0)

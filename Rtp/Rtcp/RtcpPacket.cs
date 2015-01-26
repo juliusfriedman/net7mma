@@ -120,7 +120,7 @@ namespace Media.Rtcp
                     int lengthInBytes = ((lengthInWords + 1) * 4) - payloadOffset;
 
                     //Create a packet using the existing header and the bytes left in the packet
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, Math.Min(lengthInBytes, upperBound - (offset + payloadOffset)))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, Math.Min(lengthInBytes, count - payloadOffset))))
                     {
                         //Move the offset the length in bytes of the size of the last packet (including the header).
                         offset += newPacket.Length;
@@ -627,6 +627,8 @@ namespace Media.Rtcp
             if (ImplementationMap.TryGetValue(payloadType, out result)) return result;
             return null;
         }
+
+        public static Type GetImplementationForPayloadType(int payloadType) { return GetImplementationForPayloadType((byte)payloadType); }
 
         /// <summary>
         /// Finds all types in all loaded assemblies which are a subclass of RtcpPacket and adds those types to either the InstanceMap or the AbstractionBag

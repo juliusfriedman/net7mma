@@ -1308,7 +1308,7 @@ namespace Media.Containers.Mxf
         /// <summary>
         /// Provides a lookup of a (Related/Linked)TrackId to a GenericDescriptor
         /// </summary>
-        Common.ConcurrentThesaurus<int, Node> m_TrackDescriptors;
+        Common.Collections.ConcurrentThesaurus<int, Node> m_TrackDescriptors;
 
         /// <summary>
         /// Obtains information which describes all tracks in the container
@@ -1330,7 +1330,7 @@ namespace Media.Containers.Mxf
             //Could also make virtual Nodes with each tag but would increase IO
 
             //Create a lookup to asscioate a descriptor to the node
-            m_TrackDescriptors = new Common.ConcurrentThesaurus<int, Node>();
+            m_TrackDescriptors = new Common.Collections.ConcurrentThesaurus<int, Node>();
 
             //Iterate the GenericDescriptors in the file parsing for trackId.
             foreach (var descriptor in ReadObjects(offsetStart, false, UniversalLabel.GenericDescriptor).ToArray())

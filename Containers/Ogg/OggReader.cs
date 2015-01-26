@@ -319,7 +319,7 @@ namespace Media.Containers.Ogg
 
         Dictionary<int, Node> m_PageBegins, m_PageEnds;
 
-        Common.ConcurrentThesaurus<int, Node> m_InfoPages;
+        Common.Collections.ConcurrentThesaurus<int, Node> m_InfoPages;
 
         void ParsePages()
         {
@@ -330,7 +330,7 @@ namespace Media.Containers.Ogg
 
             m_PageEnds = new Dictionary<int, Node>();
 
-            m_InfoPages = new Common.ConcurrentThesaurus<int, Node>();
+            m_InfoPages = new Common.Collections.ConcurrentThesaurus<int, Node>();
 
             long position = Position;
 

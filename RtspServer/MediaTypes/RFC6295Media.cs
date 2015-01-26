@@ -118,7 +118,7 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.audio, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
             //Add the control line
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             //Should be a field set in constructor.
             // a=fmtp:96 cm_unused=ACGHJKNMPTVWXYZ; cm_used=__7F_00-7F_01_01__; j_sec=none
             /* lazzaro...
@@ -131,9 +131,9 @@ namespace Media.Rtsp.Server.MediaTypes
                ch_anchor=__7F_00-7F_04_01.02__;
               tsmode=async; linerate=320000; octpos=first (tsmode=buffer; linerate=320000; octpos=last; mperiod=44) (rtp_ptime=0; rtp_maxptime=0) (guardtime=44100)
              */
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " rtp-midi/" + clockRate));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " rtp-midi/" + clockRate));
 
-            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
+            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
         }
         #endregion
     }

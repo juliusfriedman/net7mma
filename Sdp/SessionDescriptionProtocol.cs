@@ -71,13 +71,13 @@ namespace Media.Sdp
     /// http://en.wikipedia.org/wiki/Session_Description_Protocol
     /// http://tools.ietf.org/html/rfc4566
     /// </summary>
-    public sealed class SessionDescription
+    public sealed class SessionDescription : Common.BaseDisposable
     {
         #region Statics
         
         public const string MimeType = "application/sdp";
 
-        public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon;
+        public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
 
         internal const string CR = "\r", LF = "\n", CRLF = CR + LF;
 
@@ -247,9 +247,10 @@ namespace Media.Sdp
 
         #region Fields
 
-        Media.Sdp.Lines.SessionVersionLine m_Version = new Media.Sdp.Lines.SessionVersionLine(0);
-        Media.Sdp.Lines.SessionOriginatorLine m_Originator = new Media.Sdp.Lines.SessionOriginatorLine("Owner");
-        Media.Sdp.Lines.SessionNameLine m_SessionName = new Media.Sdp.Lines.SessionNameLine("Session Name");
+        //Should be done in constructor of a new 
+        Media.Sdp.Lines.SessionVersionLine m_SessionVersion;
+        Media.Sdp.Lines.SessionOriginatorLine m_Originator;
+        Media.Sdp.Lines.SessionNameLine m_SessionName;
 
         List<MediaDescription> m_MediaDescriptions = new List<MediaDescription>();
         List<TimeDescription> m_TimeDescriptions = new List<TimeDescription>();
@@ -259,17 +260,87 @@ namespace Media.Sdp
 
         #region Properties
 
-        public int Version { get { return m_Version.Version; } private set { if (value != m_Version.Version) { m_Version.Version = value; ++m_Originator.Version; } } }
+        /// <summary>
+        /// Gets or Sets the version as indicated on the `v=` line.
+        /// </summary>
+        public int SessionVersion
+        {
+            get { return m_SessionVersion.Version; }
+            private set
+            {
+                if (m_SessionVersion == null || value != m_SessionVersion.Version)
+                {
+                    m_SessionVersion = new Lines.SessionVersionLine(value); ++m_Originator.SessionVersion;
+                }
+            }
+        }
 
-        public string OriginatorAndSessionIdentifier { get { return m_Originator.ToString(); } set { m_Originator = new Media.Sdp.Lines.SessionOriginatorLine(value.ToString()); } }
+        /// <summary>
+        /// Gets or sets the value of the 'o=' line.
+        /// </summary>
+        public string OriginatorAndSessionIdentifier
+        {
+            get { return m_Originator.ToString(); }
+            set { m_Originator = new Media.Sdp.Lines.SessionOriginatorLine(value.ToString()); }
+        }
 
-        public string SessionName { get { return m_SessionName.SessionName; } set { if (value != m_SessionName.SessionName) { m_SessionName.SessionName = value; ++m_Originator.Version; } } }
+        /// <summary>
+        /// Gets or sets the value of the 's=' line.
+        /// When setting the version of the document is changed.
+        /// </summary>
+        public string SessionName
+        {
+            get { return m_SessionName.SessionName; }
+            set
+            {
+                if (m_SessionName == null || value != m_SessionName.SessionName)
+                {
+                    m_SessionName = new Lines.SessionNameLine(value); 
+                    
+                    ++m_Originator.SessionVersion;
+                }
+            }
+        }
 
-        public System.Collections.ObjectModel.ReadOnlyCollection<TimeDescription> TimeDescriptions { get { return m_TimeDescriptions.AsReadOnly(); } set { m_TimeDescriptions = value.ToList(); ++m_Originator.Version; } }
+        /// <summary>
+        /// Gets or sets the value assoicated with the SessionId of this SessionDescription as indicated in the 'o=' line.
+        /// </summary>
+        public string SessionId
+        {
+            get
+            {
+                return m_Originator == null ? string.Empty : m_Originator.SessionId;
+            }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException();
 
-        public System.Collections.ObjectModel.ReadOnlyCollection<MediaDescription> MediaDescriptions { get { return m_MediaDescriptions.AsReadOnly(); } set { m_MediaDescriptions = value.ToList(); ++m_Originator.Version; } }
+                m_Originator.SessionId = value;
 
-        public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } set { m_Lines = value.ToList(); ++m_Originator.Version; } }
+                ++m_Originator.SessionVersion;
+            }
+        }
+
+        public IEnumerable<TimeDescription> TimeDescriptions { get { return m_TimeDescriptions.AsReadOnly(); } set { m_TimeDescriptions = value.ToList(); ++m_Originator.SessionVersion; } }
+
+        public IEnumerable<MediaDescription> MediaDescriptions { get { return m_MediaDescriptions.AsReadOnly(); } set { m_MediaDescriptions = value.ToList(); ++m_Originator.SessionVersion; } }
+
+        /// <summary>
+        /// Gets the lines assoicated with the Session level attributes which are lines other than the o, i or c lines.
+        /// </summary>
+        public IEnumerable<SessionDescriptionLine> Lines
+        {
+            get
+            {
+                //Should also return m_Originator, m_Version and m_SessionName lines before m_Lines?
+                return (((SessionDescriptionLine)m_SessionVersion).Yield()).Concat(m_Originator.Yield()).Concat(m_SessionName.Yield()).Concat(m_Lines);
+            }
+            //set
+            //{
+            //    m_Lines = value.ToList(); 
+            //    ++m_Originator.SessionVersion;
+            //}
+        }
 
         public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType); } }
 
@@ -277,19 +348,41 @@ namespace Media.Sdp
 
         public SessionDescriptionLine ControlLine { get { return m_Lines.FirstOrDefault(l => l.Type == AttributeType && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase)); } }
 
+        /// <summary>
+        /// Calculates the length in bytes of this SessionDescription.
+        /// </summary>
+        public int Length
+        {
+            get
+            {
+                return (m_Originator == null ? 0 : m_Originator.Length) +
+                    (m_SessionName == null ? 0 : m_SessionName.Length) +
+                    (m_SessionVersion == null ? 0 : m_SessionVersion.Length) + 
+                    m_Lines.Sum(l=>l.Length) + 
+                    m_MediaDescriptions.Sum(md => md.Length) + 
+                    m_TimeDescriptions.Sum(td => td.Length) +
+                    2; //CRLF
+            }
+        }
+
         #endregion
 
         #region Constructor
 
         public SessionDescription(int version)
         {
-            Version = version;
+            m_Originator = new Lines.SessionOriginatorLine();
+
+            m_SessionName = new Sdp.Lines.SessionNameLine();
+
+            SessionVersion = version;
         }
 
         public SessionDescription(string originatorString, string sessionName)
             :this(0)
         {
             OriginatorAndSessionIdentifier = originatorString;
+
             SessionName = sessionName;
         }
 
@@ -326,7 +419,7 @@ namespace Media.Sdp
                 {
                     case Media.Sdp.Lines.SessionVersionLine.VersionType:
                         {
-                            m_Version = new Media.Sdp.Lines.SessionVersionLine(lines, ref lineIndex);
+                            m_SessionVersion = new Media.Sdp.Lines.SessionVersionLine(lines, ref lineIndex);
                             continue;
                         }
                     case Media.Sdp.Lines.SessionOriginatorLine.OriginatorType:
@@ -351,9 +444,11 @@ namespace Media.Sdp
                         }
                     default:
                         {
-                            SessionDescriptionLine parsed = SessionDescriptionLine.Parse(lines, ref lineIndex);
-                            if (parsed != null) m_Lines.Add(parsed);
+                            SessionDescriptionLine parsed;
+
+                            if(SessionDescriptionLine.TryParse(lines, ref lineIndex, out parsed)) m_Lines.Add(parsed);
                             else lineIndex++;//No advance was made on lineIndex by SessionDescriptionLine if parsed was null
+
                             continue;
                         }
                 }
@@ -364,19 +459,30 @@ namespace Media.Sdp
         /// Creates a copy of another SessionDescription
         /// </summary>
         /// <param name="other">The SessionDescription to copy</param>
-        public SessionDescription(SessionDescription other)
+        public SessionDescription(SessionDescription other, bool reference = false)
         {
-            Version = other.Version;
+            SessionVersion = other.SessionVersion;
 
             OriginatorAndSessionIdentifier = other.OriginatorAndSessionIdentifier;
 
             SessionName = other.SessionName;
 
-            m_TimeDescriptions = new List<TimeDescription>(other.TimeDescriptions);
+            if (reference)
+            {
+                m_TimeDescriptions = other.m_TimeDescriptions;
 
-            m_MediaDescriptions = new List<MediaDescription>(other.m_MediaDescriptions);
+                m_MediaDescriptions = other.m_MediaDescriptions;
 
-            m_Lines = new List<SessionDescriptionLine>(other.Lines);
+                m_Lines = other.m_Lines;
+            }
+            else
+            {
+                m_TimeDescriptions = new List<TimeDescription>(other.TimeDescriptions);
+
+                m_MediaDescriptions = new List<MediaDescription>(other.m_MediaDescriptions);
+
+                m_Lines = new List<SessionDescriptionLine>(other.Lines);
+            }
         }
 
         #endregion
@@ -387,50 +493,75 @@ namespace Media.Sdp
         {
             if (mediaDescription == null) return;
             m_MediaDescriptions.Add(mediaDescription);
-            if (updateVersion) ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.SessionVersion;
         }
 
         public void Add(TimeDescription timeDescription, bool updateVersion = true)
         {
             if (timeDescription == null) return;
             m_TimeDescriptions.Add(timeDescription);
-            if (updateVersion) ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.SessionVersion;
         }
 
         public void Add(SessionDescriptionLine line, bool updateVersion = true)
         {
             if (line == null) return;
             m_Lines.Add(line);
-            if (updateVersion) ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.SessionVersion;
+        }
+
+        public bool Remove(SessionDescriptionLine line, bool updateVersion = true)
+        {
+            bool result = m_Lines.Remove(line);
+            if (updateVersion && result) ++m_Originator.SessionVersion;
+            return result;
+        }
+
+        public bool Remove(TimeDescription timeDescription, bool updateVersion = true)
+        {
+            bool result = m_TimeDescriptions.Remove(timeDescription);
+            if (updateVersion && result) ++m_Originator.SessionVersion;
+            return result;
+        }
+
+        public bool Remove(MediaDescription mediaDescription, bool updateVersion = true)
+        {
+            bool result = m_MediaDescriptions.Remove(mediaDescription);
+            if (updateVersion && result) ++m_Originator.SessionVersion;
+            return result;
         }
 
         public void RemoveLine(int index, bool updateVersion = true)
         {
             m_Lines.RemoveAt(index);
-            if (updateVersion) ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.SessionVersion;
         }
 
         public void RemoveMediaDescription(int index, bool updateVersion = true)
         {
             m_MediaDescriptions.RemoveAt(index);
-            if (updateVersion) ++m_Originator.Version;
+            if (updateVersion) ++m_Originator.SessionVersion;
         }
 
         public void RemoveTimeDescription(int index, bool updateVersion = true)
         {
             m_TimeDescriptions.RemoveAt(index);
-            if(updateVersion) ++m_Originator.Version;
+            if(updateVersion) ++m_Originator.SessionVersion;
         }
+
+        #endregion
+
+        #region Overrides
 
         public override string ToString()
         {
             StringBuilder buffer = new StringBuilder();
 
-            buffer.Append(m_Version.ToString());
+            if(m_SessionVersion != null) buffer.Append(m_SessionVersion.ToString());
 
-            buffer.Append(m_Originator.ToString());
+            if (m_Originator != null) buffer.Append(m_Originator.ToString());
 
-            buffer.Append(m_SessionName.ToString());
+            if (m_SessionName != null) buffer.Append(m_SessionName.ToString());
 
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.SessionDescription.BandwidthType && l.Type != Sdp.SessionDescription.AttributeType))
             {
@@ -452,13 +583,40 @@ namespace Media.Sdp
             m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString(this)));
 
             //End of SDP
-            buffer.Append(default(char) + CRLF); 
+            buffer.Append(CRLF);
 
             //Strings in .Net are Unicode code points ( subsequently the characters only are addressable by their 16 bit code point representation).
             return buffer.ToString();
         }
 
+        public override void Dispose()
+        {
+
+            if (IsDisposed) return;
+
+            base.Dispose();
+
+            m_SessionVersion = null;
+
+            m_Originator = null;
+
+            m_SessionName = null;
+
+            m_MediaDescriptions.Clear();
+
+            m_MediaDescriptions = null;
+
+            m_TimeDescriptions.Clear();
+
+            m_TimeDescriptions = null;
+
+            m_Lines.Clear();
+
+            m_Lines = null;
+        }
+
         #endregion
+
     }
 
     public static class SessionDescriptionExtensions
@@ -474,7 +632,7 @@ namespace Media.Sdp
             string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
 
             //If there is a controlPart in the controlLine
-            if (!string.IsNullOrWhiteSpace(controlPart))
+            if (false == string.IsNullOrWhiteSpace(controlPart))
             {
                 //Prepare the part
                 controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
@@ -539,6 +697,19 @@ namespace Media.Sdp
 
         public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } }
 
+
+        /// <summary>
+        /// Calculates the length in bytes of this MediaDescription.
+        /// </summary>
+        public int Length
+        {
+            get
+            {
+                //(m=)X(\r\n)
+                return (4 + (string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat)).Length) + m_Lines.Sum(l => l.Length);
+            }
+        }
+
         #region Constructor
 
         public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, byte mediaFormat)
@@ -556,7 +727,7 @@ namespace Media.Sdp
             if (!sdpLine.StartsWith("m=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
             else sdpLine = sdpLine.Replace("m=", string.Empty);
 
-            string[] parts = sdpLine.Split(' ');
+            string[] parts = sdpLine.Split(SessionDescription.Space);
 
             if (parts.Length != 4) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
 
@@ -569,11 +740,16 @@ namespace Media.Sdp
                 MediaType = Sdp.MediaType.unknown;
             }
 
-            MediaPort = int.Parse(SessionDescription.TrimLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture); //Listener should probably verify ports with this
+            MediaPort = int.Parse(SessionDescription.TrimLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
 
-            MediaProtocol = parts[2]; //Listener should probably be using this to decide port
+            MediaProtocol = parts[2];
 
-            MediaFormat = byte.Parse(SessionDescription.TrimLineValue(parts[3]), System.Globalization.CultureInfo.InvariantCulture);
+            //Notes that this can apparently be a * or something besides 3 digits, rightnow ("*" turns into 43)
+            //Maybe should allow to be int or string?
+            byte temp;
+
+            if (byte.TryParse(SessionDescription.TrimLineValue(parts[3]), out temp)) MediaFormat = temp;
+            else MediaFormat = (byte)parts[3].FirstOrDefault();
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e;)
@@ -587,8 +763,9 @@ namespace Media.Sdp
                 }
                 else
                 {
-                    SessionDescriptionLine parsed = SessionDescriptionLine.Parse(sdpLines, ref index);
-                    if (parsed != null) m_Lines.Add(parsed);
+                    SessionDescriptionLine parsed;
+
+                    if (SessionDescriptionLine.TryParse(sdpLines, ref index, out parsed)) m_Lines.Add(parsed);
                     else index++;
                 }
             }
@@ -630,13 +807,15 @@ namespace Media.Sdp
 
                     if (portSpecifier.HasValue)
                     {
-                        buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(" ", MediaType, MediaPort.ToString() + '/' + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+                        //Note if Unassigned MediaFormat is used that this might have to be a 'char' to be exactly what was given
+                        buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + '/' + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.CRLF);
                         goto LinesOnly;
                     }
                 }
             }
 
-            buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(" ", MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
+            //Note if Unassigned MediaFormat is used that this might have to be a 'char' to be exactly what was given
+            buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat) + SessionDescription.CRLF);
 
         LinesOnly:
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.SessionDescription.BandwidthType && l.Type != Sdp.SessionDescription.AttributeType))
@@ -650,6 +829,8 @@ namespace Media.Sdp
 
             return buffer.ToString();
         }
+
+        public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType); } }
 
         public SessionDescriptionLine RtpMapLine
         {
@@ -703,7 +884,7 @@ namespace Media.Sdp
 
             if (mediaDescription == null) return source;
 
-            if (!source.IsAbsoluteUri) throw new InvalidOperationException("source.IsAbsoluteUri must be true.");
+            if (false == source.IsAbsoluteUri) throw new InvalidOperationException("source.IsAbsoluteUri must be true.");
 
             SessionDescriptionLine controlLine = mediaDescription.ControlLine;
 
@@ -746,25 +927,46 @@ namespace Media.Sdp
 
         public const char TimeDescriptionType = 't', RepeatTimeType = 'r';
 
-        public long SessionStartTime { get; private set; }
+        public double SessionStartTime { get; private set; }
 
-        public long SessionStopTime { get; private set; }
+        public double SessionStopTime { get; private set; }
 
-        //public bool Live { get { return SessionStartTime == 0 } }
+        //public bool IsLive { get { return SessionStartTime == 0 } }
+
+        //public bool IsContinious { get { return SessionStopTime <= 0; } }
 
         //Ntp Timestamps from above, NOTE they do not wrap in 2036
         //public DateTime Start, Stop;
 
-        public List<long> RepeatTimes { get; private set; }
+        public List<string> RepeatTimes { get; private set; }
+
+        /// <summary>
+        /// Calculates the length in bytes of this TimeDescription.
+        /// </summary>
+        public int Length
+        {
+            get
+            {
+                
+                       //(t=)X()Y(\r\n)                      //(r=)X(\r\n)
+                return 5 + (SessionStartTime.ToString().Length + SessionStopTime.ToString().Length) + RepeatTimes.Sum(p => p.Length + 4);
+            }
+        }
+
+        public TimeDescription()
+        {
+            RepeatTimes = new List<string>();
+        }
 
         public TimeDescription(int startTime, int stopTime)            
+            : this()
         {
             SessionStartTime = startTime;
             SessionStopTime = stopTime;
-            RepeatTimes = new List<long>();
         }
 
-        public TimeDescription(string[] sdpLines, ref int index)
+        public TimeDescription(string[] sdpLines, ref int index) 
+            : this()
         {
             string sdpLine = sdpLines[index++].Trim();
 
@@ -780,18 +982,73 @@ namespace Media.Sdp
 
             //TODO Use constants...
 
-            string[] parts = sdpLine.Split(' ', '-');
+
+            /*
+                         5.9.  Timing ("t=")
+
+                  t=<start-time> <stop-time>
+
+               The "t=" lines specify the start and stop times for a session.
+               Multiple "t=" lines MAY be used if a session is active at multiple
+               irregularly spaced times; each additional "t=" line specifies an
+               additional period of time for which the session will be active.  If
+               the session is active at regular times, an "r=" line (see below)
+               should be used in addition to, and following, a "t=" line -- in which
+               case the "t=" line specifies the start and stop times of the repeat
+               sequence.
+
+               The first and second sub-fields give the start and stop times,
+               respectively, for the session.  These values are the decimal
+               representation of Network Time Protocol (NTP) time values in seconds
+               since 1900 [13].  To convert these values to UNIX time, subtract
+               decimal 2208988800.
+
+               NTP timestamps are elsewhere represented by 64-bit values, which wrap
+               sometime in the year 2036.  Since SDP uses an arbitrary length
+               decimal representation, this should not cause an issue (SDP
+               timestamps MUST continue counting seconds since 1900, NTP will use
+               the value modulo the 64-bit limit).
+
+               If the <stop-time> is set to zero, then the session is not bounded,
+               though it will not become active until after the <start-time>.  If
+               the <start-time> is also zero, the session is regarded as permanent.
+
+               User interfaces SHOULD strongly discourage the creation of unbounded
+               and permanent sessions as they give no information about when the
+               session is actually going to terminate, and so make scheduling
+               difficult.
+
+               The general assumption may be made, when displaying unbounded
+               sessions that have not timed out to the user, that an unbounded
+               session will only be active until half an hour from the current time
+               or the session start time, whichever is the later.  If behaviour
+               other than this is required, an end-time SHOULD be given and modified
+               as appropriate when new information becomes available about when the
+               session should really end.
+
+               Permanent sessions may be shown to the user as never being active
+               unless there are associated repeat times that state precisely when
+               the session will be active.
+             */
+
+            string[] parts = sdpLine.Split(SessionDescription.Space);
 
             int partsLength = parts.Length;
 
             if (partsLength > 0)
             {
-                if(parts[0] != "now") SessionStartTime = long.Parse(SessionDescription.TrimLineValue(parts[0]), System.Globalization.CultureInfo.InvariantCulture);
+                double time;
 
-                if(partsLength > 1) SessionStopTime = long.Parse(SessionDescription.TrimLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
+                if (parts[0] != "now")
+                {
+                    if (double.TryParse(SessionDescription.TrimLineValue(parts[0]), out time)) SessionStartTime = time;
+                }
+
+                if (partsLength > 1)
+                {
+                    if (double.TryParse(SessionDescription.TrimLineValue(parts[1]), out time)) SessionStopTime = time;
+                }
             }
-
-            RepeatTimes = new List<long>();
 
             //Iterate remaining lines
             for (; index < sdpLines.Length; ++index)
@@ -805,8 +1062,8 @@ namespace Media.Sdp
                 //Parse and add the repeat time
                 try
                 {
-                    //Use parts and substring?
-                    RepeatTimes.Add(long.Parse(SessionDescription.TrimLineValue(sdpLine.Substring(2)), System.Globalization.CultureInfo.InvariantCulture));
+                    //r=<repeat interval> <active duration> <offsets from start-time>
+                    RepeatTimes.Add(SessionDescription.TrimLineValue(sdpLine.Substring(2)));
                 }
                 catch (Exception ex)
                 {
@@ -816,10 +1073,21 @@ namespace Media.Sdp
 
         }
 
+
+        public TimeDescription(TimeDescription other, bool referenceRepeatTimes = false)
+        {
+            SessionStartTime = other.SessionStartTime;
+            
+            SessionStopTime = other.SessionStopTime;
+
+            if (referenceRepeatTimes) RepeatTimes = other.RepeatTimes;
+            else RepeatTimes.AddRange(other.RepeatTimes);
+        }
+
         public string ToString(SessionDescription sdp = null)
         {
-            string result = TimeDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign.ToString() + SessionStartTime.ToString() + ( SessionStopTime > 0 ?  " " + SessionStopTime.ToString() : string.Empty) + SessionDescription.CRLF;
-            foreach (long repeatTime in RepeatTimes)
+            string result = TimeDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign.ToString() + SessionStartTime.ToString() + SessionDescription.Space + SessionStopTime + SessionDescription.CRLF;
+            foreach (string repeatTime in RepeatTimes)
                 result += RepeatTimeType.ToString() + Sdp.SessionDescription.EqualsSign.ToString() + repeatTime + SessionDescription.CRLF;
             return result;
         }
@@ -844,13 +1112,71 @@ namespace Media.Sdp
     //     */
     //}
 
-
     /// <summary>
     /// Low level class for dealing with Sdp lines with a format of 'X=V{st:sv0,sv1;svN}'    
     /// </summary>
     /// <remarks>Should use byte[] and should have Encoding as a property</remarks>
     public class SessionDescriptionLine
     {
+        #region Statics
+
+        public static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
+        {
+            string sdpLine = sdpLines[index] = sdpLines[index].Trim();
+
+            if (sdpLine.Length <= 2) return null;
+            else if (sdpLine[1] != SessionDescription.EqualsSign) return null;
+
+            char type = sdpLine[0];
+
+            //Invalid Line
+            if (type == default(char)) return null;
+
+            try
+            {
+                switch (type)
+                {
+                    case Media.Sdp.Lines.SessionVersionLine.VersionType: return new Media.Sdp.Lines.SessionVersionLine(sdpLines, ref index);
+                    case Media.Sdp.Lines.SessionOriginatorLine.OriginatorType: return new Media.Sdp.Lines.SessionOriginatorLine(sdpLines, ref index);
+                    case Media.Sdp.Lines.SessionNameLine.NameType: return new Media.Sdp.Lines.SessionNameLine(sdpLines, ref index);
+                    case Media.Sdp.Lines.SessionConnectionLine.ConnectionType: return new Media.Sdp.Lines.SessionConnectionLine(sdpLines, ref index);
+                    case Media.Sdp.Lines.SessionUriLine.LocationType: return new Media.Sdp.Lines.SessionUriLine(sdpLines, ref index);
+                    case Media.Sdp.Lines.SessionEmailLine.EmailType: return new Media.Sdp.Lines.SessionEmailLine(sdpLines, ref index);
+                    case Media.Sdp.Lines.SessionPhoneLine.PhoneType: return new Media.Sdp.Lines.SessionPhoneLine(sdpLines, ref index);
+                    case 'z': //TimeZone Information
+                    case Sdp.SessionDescription.AttributeType: //Attribute
+                    case Sdp.SessionDescription.BandwidthType: //Bandwidth
+                    default:
+                        {
+                            ++index;
+                            return new SessionDescriptionLine(sdpLine);
+                        }
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        public static bool TryParse(string[] sdpLines, ref int index, out SessionDescriptionLine result)
+        {
+            try
+            {
+                result = Parse(sdpLines, ref index);
+
+                return result != null;
+            }
+            catch
+            {
+                result = null;
+
+                return false;
+            }
+        }
+
+        #endregion
+
         static char[] ValueSplit = new char[] { ';' };
 
         public readonly char Type;
@@ -858,6 +1184,15 @@ namespace Media.Sdp
         protected List<string> m_Parts;
 
         public System.Collections.ObjectModel.ReadOnlyCollection<string> Parts { get { return m_Parts.AsReadOnly(); } }
+
+        /// <summary>
+        /// Calculates the length in bytes of this line.
+        /// </summary>
+        public int Length
+        {
+            //Each part gets a type, =, all parts are joined with ';' and lines are ended with `\r\n\`.
+            get { return 2 + m_Parts.Sum(p => p.Length) + ( m_Parts.Count > 0 ? m_Parts.Count - 1 : 0) + 2; }
+        }
 
         internal string GetPart(int index) { return m_Parts.Count > index ? m_Parts[index] : string.Empty; }
 
@@ -898,7 +1233,7 @@ namespace Media.Sdp
             //a=<flag>
             //a=<name>:<value> where value = {...,...,...;x;y;z}
 
-            m_Parts = new List<string>(line.Remove(0, 2)/*.Replace("\"", string.Empty)*/.Split(ValueSplit));
+            m_Parts = new List<string>(line.Remove(0, 2).Split(ValueSplit));
         }
 
         /// <summary>
@@ -907,51 +1242,13 @@ namespace Media.Sdp
         /// <returns>The string representation of the SessionDescriptionLine including the required new lines.</returns>
         public override string ToString()
         {
-            return Type.ToString() + SessionDescription.EqualsSign + string.Join(";", m_Parts.ToArray()) + SessionDescription.CRLF;
+            return Type.ToString() + SessionDescription.EqualsSign + string.Join(SessionDescription.SemiColon.ToString(), m_Parts.ToArray()) + SessionDescription.CRLF;
         }
 
-        internal static SessionDescriptionLine Parse(string[] sdpLines, ref int index)
-        {
-            string sdpLine = sdpLines[index] = sdpLines[index].Trim();
-
-            if (sdpLine.Length <= 2) return null;
-            else if (sdpLine[1] != SessionDescription.EqualsSign) return null;
-
-            char type = sdpLine[0];
-
-            //Invalid Line
-            if (type == default(char)) return null;
-
-            try
-            {
-                switch (type)
-                {
-                    case Media.Sdp.Lines.SessionVersionLine.VersionType: return new Media.Sdp.Lines.SessionVersionLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionOriginatorLine.OriginatorType: return new Media.Sdp.Lines.SessionOriginatorLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionNameLine.NameType: return new Media.Sdp.Lines.SessionNameLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionConnectionLine.ConnectionType: return new Media.Sdp.Lines.SessionConnectionLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionUriLine.LocationType: return new Media.Sdp.Lines.SessionUriLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionEmailLine.EmailType: return new Media.Sdp.Lines.SessionEmailLine(sdpLines, ref index);
-                    case Media.Sdp.Lines.SessionPhoneLine.PhoneType: return new Media.Sdp.Lines.SessionPhoneLine(sdpLines, ref index);
-                    case 'z': //TimeZone Information
-                    case Sdp.SessionDescription.AttributeType: //Attribute
-                    case Sdp.SessionDescription.BandwidthType: //Bandwidth
-                    default:
-                        {
-                            ++index;
-                            return new SessionDescriptionLine(sdpLine);
-                        }
-                }
-            }
-            catch
-            {
-                return null;
-            }
-
-        }
+      
     }
 
-    //Public?
+    //Public? TryRegisterLineImplementation
 
     #region Internal Line Types
    
@@ -967,7 +1264,18 @@ namespace Media.Sdp
                 if (Type != VersionType) throw new InvalidOperationException("Not a version line");
             }
 
-            public int Version { get { return m_Parts.Count > 0 ? int.Parse(m_Parts[0], System.Globalization.CultureInfo.InvariantCulture) : 0; } set { m_Parts.Clear(); m_Parts.Add(value.ToString()); } }
+            public int Version
+            {
+                get
+                {
+                    return m_Parts.Count > 0 ? int.Parse(m_Parts[0], System.Globalization.CultureInfo.InvariantCulture) : 0;
+                }
+                set
+                {
+                    m_Parts.Clear(); 
+                    m_Parts.Add(value.ToString());
+                }
+            }
 
             public SessionVersionLine(int version)
                 : base(VersionType)
@@ -1001,10 +1309,23 @@ namespace Media.Sdp
             internal const char OriginatorType = 'o';
 
             public string Username { get { return GetPart(0); } set { SetPart(0, value); } }
+            
             public string SessionId { get { return GetPart(1); } set { SetPart(1, value); } }
-            public ulong Version { get { string part = GetPart(2); return !string.IsNullOrWhiteSpace(part) ? ulong.Parse(part, System.Globalization.CultureInfo.InvariantCulture) : 0; } set { SetPart(2, value.ToString()); } }
+
+            public ulong SessionVersion
+            {
+                get
+                {
+                    string part = GetPart(2); 
+                    return false == string.IsNullOrWhiteSpace(part) ? ulong.Parse(part, System.Globalization.CultureInfo.InvariantCulture) : 0;
+                }
+                set { SetPart(2, value.ToString()); }
+            }
+            
             public string NetworkType { get { return GetPart(3); } set { SetPart(3, value); } }
+            
             public string AddressType { get { return GetPart(4); } set { SetPart(4, value); } }
+            
             public string Address { get { return GetPart(5); } set { SetPart(5, value); } }
 
             public SessionOriginatorLine()
@@ -1012,7 +1333,7 @@ namespace Media.Sdp
             {
                 while (m_Parts.Count < 6) m_Parts.Add(string.Empty);
                 Username = string.Empty;
-                Version = 1;
+                SessionVersion = 1;
             }
 
             public SessionOriginatorLine(SessionDescriptionLine line)
@@ -1024,11 +1345,20 @@ namespace Media.Sdp
             public SessionOriginatorLine(string owner)
                 : this()
             {
-                m_Parts = new List<string>(owner.Substring(2).Replace(SessionDescription.CRLF, string.Empty).Split(' '));
+
+                if (string.IsNullOrWhiteSpace(owner)) m_Parts = new List<string>();
+                else if (owner[0] != OriginatorType)
+                {
+                    m_Parts = new List<string>(owner.Split(SessionDescription.Space));
+                }
+                else m_Parts = new List<string>(owner.Substring(2).Replace(SessionDescription.CRLF, string.Empty).Split(SessionDescription.Space));
+
                 if (m_Parts.Count < 6)
                 {
                     EnsureParts(6);
-                    Version++;
+
+                    //Make a new version if anything was added.
+                    SessionVersion++;
                 }
             }
 
@@ -1055,7 +1385,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return OriginatorType.ToString() + Media.Sdp.SessionDescription.EqualsSign + string.Join(" ", Username, SessionId, Version, NetworkType, AddressType, Address) + SessionDescription.CRLF;
+                return OriginatorType.ToString() + Media.Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), Username, SessionId, SessionVersion, NetworkType, AddressType, Address) + SessionDescription.CRLF;
             }
 
         }
@@ -1315,7 +1645,7 @@ namespace Media.Sdp
                         var parts = Address.Split('/');
                         if (parts.Length > 2)
                         {
-                            return int.Parse(parts.Skip(1).Single(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
+                            return int.Parse(parts.Skip(1).First(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
                         }
                     }
                     return null;
@@ -1343,7 +1673,7 @@ namespace Media.Sdp
             {
                 if (Type != ConnectionType) throw new InvalidOperationException("Not a connection line");
 
-                if(m_Parts.Count == 1) m_Parts = new List<string>(m_Parts[0].Split(' '));
+                if (m_Parts.Count == 1) m_Parts = new List<string>(m_Parts[0].Split(SessionDescription.Space));
             }
 
 
@@ -1366,7 +1696,7 @@ namespace Media.Sdp
 
                     m_Parts.Add(sdpLine);
 
-                    m_Parts = new List<string>(sdpLine.Split(' '));
+                    m_Parts = new List<string>(sdpLine.Split(SessionDescription.Space));
                 }
                 catch
                 {
@@ -1376,7 +1706,7 @@ namespace Media.Sdp
 
             public override string ToString()
             {
-                return ConnectionType.ToString() + Media.Sdp.SessionDescription.EqualsSign + string.Join(" ", NetworkType, AddressType, Address) + SessionDescription.CRLF;
+                return ConnectionType.ToString() + Media.Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), NetworkType, AddressType, Address) + SessionDescription.CRLF;
             }
         }
     }

@@ -45,29 +45,29 @@ namespace Media.Rtsp.Server
     {
         public string Format = "{0} {1} {2} {3} {4}\r\n";
 
+        readonly Common.ILogging Logger = new Common.Loggers.DebuggingLogger();
+
         internal override void LogRequest(RtspMessage request, ClientSession session)
         {
-            try { System.Diagnostics.Debug.WriteLine(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null)); }
+            try { Logger.Log(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null)); }
             catch { throw; }
         }
 
         internal override void LogResponse(RtspMessage response, ClientSession session)
         {
-
-            try { System.Diagnostics.Debug.WriteLine(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null)); }
+            try { Logger.Log(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null)); }
             catch { throw; }
         }
 
-        internal override void LogException(Exception ex)
+        public override void LogException(Exception ex)
         {
-            try{ System.Diagnostics.Debug.WriteLine(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));}
+            try { Logger.Log(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty)); }
             catch { throw; }
         }
 
-        internal override void Log(string data)
+        public override void Log(string data)
         {
-            if (string.IsNullOrWhiteSpace(data)) return;
-            try { System.Diagnostics.Debug.WriteLine(data); }
+            try { Logger.Log(data); }
             catch { throw; }
         }
     }
