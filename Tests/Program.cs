@@ -464,7 +464,7 @@ namespace Tests
                 //Check for an invalid result in the test
                 if (!match.SequenceEqual(needle)
                             ||//Double check the result is valid by examining the first byte to be equal to the offset (which is by design)                        
-                                match.Take(1).First() != offset) throw new Exception("Invalid result found!");                    
+                                match.First() != offset) throw new Exception("Invalid result found!");                    
                 ///////////////////////////////////////////////////                
                 //Write the info about the test to show progress
                 else Console.WriteLine(string.Format(TestingFormat, "FoundBytes Found", "@" + offset + " : " + BitConverter.ToString(match.ToArray())));
@@ -874,8 +874,8 @@ namespace Tests
 
                         //Create two transport contexts, one for the sender and one for the receiver.
                         //The Id of the parties must be known in advance in this stand alone example. (A conference would support more then 1 participant)
-                        Media.Rtp.RtpClient.TransportContext sendersContext = new Media.Rtp.RtpClient.TransportContext(0, 1, sendersId, SessionDescription.MediaDescriptions[0], true, receiversId),
-                            receiversContext = new Media.Rtp.RtpClient.TransportContext(0, 1, receiversId, SessionDescription.MediaDescriptions[0], true, sendersId);
+                        Media.Rtp.RtpClient.TransportContext sendersContext = new Media.Rtp.RtpClient.TransportContext(0, 1, sendersId, SessionDescription.MediaDescriptions.First(), true, receiversId),
+                            receiversContext = new Media.Rtp.RtpClient.TransportContext(0, 1, receiversId, SessionDescription.MediaDescriptions.First(), true, sendersId);
 
                         if (tcp) consoleWriter.WriteLine("TCP TEST");
                         else consoleWriter.WriteLine("UDP TEST");
@@ -957,19 +957,25 @@ namespace Tests
                         //Send it
                         sender.SendRtpFrame(testFrame);
 
-                        //Wait for the frame to be sent only once
-                        while (testFrame.Transferred == false || sendersContext.SendersReport == null || sendersContext.SendersReport.Transferred == null) System.Threading.Thread.Yield();
+                        //Wait for the senders report to be sent AND for the frame to be sent at least one time while the sender is connected
+                        while (sender.IsConnected && (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
 
+                        //Print the report information
+                        if (sendersContext.SendersReport != null)
+                        {
+                            //Measure QoE / QoS based on sent / received ratio.
+                            consoleWriter.WriteLine("\t Since : " + sendersContext.SendersReport.Transferred);
+                            consoleWriter.WriteLine("\t -----------------------");
+                            consoleWriter.WriteLine("\t Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
+
+                        }
+                        
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
-                        //Wait for packets to be received
-                        while (receiver.IsConnected && (receiversContext.ReceiversReport == null || receiversContext.ReceiversReport.Transferred == null)) System.Threading.Thread.Yield();
+                        //Wait for a receivers report to be sent while the receiver is connected
+                        while (receiver.IsConnected &&  (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
 
-                        //Measure QoE / QoS based on sent / received ratio.
-                        consoleWriter.WriteLine("\t Since : " + sendersContext.SendersReport.Transferred);
-                        consoleWriter.WriteLine("\t -----------------------");
-                        consoleWriter.WriteLine("\t Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
-
+                        //Print the report information
                         if (receiversContext.ReceiversReport != null)
                         {
                             //Determine what is actually being received by obtaining the TransportContext of the receiver            
@@ -985,7 +991,6 @@ namespace Tests
                                 consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
                             }      
                         }
-                                          
                     }//Disposes the receiver
                 }//Disposes the sender
                 consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Exit");
@@ -2437,7 +2442,13 @@ namespace Tests
 
                 if (client != null) matched = client.GetContextForPacket(rtcpPacket);
 
+                Type implemented = Media.Rtcp.RtcpPacket.GetImplementationForPayloadType(rtcpPacket.PayloadType);
+
+                if (implemented != null) packetType = implemented;
+
                 Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
+
+                if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
 
                 if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
                 else
@@ -2452,7 +2463,13 @@ namespace Tests
                     }
                 }
 
-                if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
+                if (implemented != null)
+                {
+                    //Could dump the packet contents here.
+                    Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, rtcpPacket));
+                }
+
+                
             }
 
             Console.ForegroundColor = previousForegroundColor;
@@ -2466,7 +2483,7 @@ namespace Tests
             int emptyFrames = 0, incompleteFrames = 0, rtspInterleaved = 0, totalFrames = 0;
 
             //For allowing the test to run in an automated manner or otherwise some output is disabled.
-            bool shouldStop = false, packetEvents = false, interleaveEvents = false;
+            bool shouldStop = false, packetEvents = false, interleaveEvents = false, repeatTest = false;
 
             //Check for a location
             if (string.IsNullOrWhiteSpace(location))
@@ -2494,24 +2511,27 @@ namespace Tests
                 System.IO.FileInfo rtspLog = new System.IO.FileInfo("rtspLog" + DateTime.UtcNow.ToFileTimeUtc() + ".log.txt");
 
                 //Create a log to write the responses to.
-                using (System.IO.StreamWriter logWriter = rtspLog.CreateText())
+                using (Media.Common.Loggers.FileLogger logWriter = new Media.Common.Loggers.FileLogger(rtspLog))
                 {
-                    //Define a connection event
-                    client.OnConnect += (sender, args) =>
+                    //Define a connection eventHandler
+                    Media.Rtsp.RtspClient.RtspClientAction connectHandler = null;
+                    connectHandler = (sender, args) =>
                     {
-                        if (client.IsConnected && !client.IsPlaying && !shouldStop)
+                        client.OnConnect -= connectHandler;
+
+                        //Try to start listening
+                        try
                         {
-                            //Try to start listening
-                            try
-                            {
-                                Console.WriteLine("\t*****************\nConnected to :" + client.Location);
-                                Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
-                                client.StartPlaying();
-                                Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
-                            }
-                            catch (Exception ex) { writeError(ex); shouldStop = true; }
+                            Console.WriteLine("\t*****************\nConnected to :" + client.Location);
+                            Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
+                            client.StartPlaying();
+                            Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
                         }
+                        catch (Exception ex) { writeError(ex); shouldStop = true; }
                     };
+
+                    //Attach it
+                    client.OnConnect += connectHandler;
 
                     //Define an event for RtpPackets Received.
                     Media.Rtp.RtpClient.RtpPacketHandler rtpPacketReceived = (sender, rtpPacket) => TryPrintClientPacket(sender, true, (Media.Common.IPacket)rtpPacket);
@@ -2524,6 +2544,9 @@ namespace Tests
 
                     //Define an even for RtpPackets sent
                     Media.Rtp.RtpClient.RtcpPacketHandler rtpPacketSent = (sender, rtpPacket) => TryPrintClientPacket(sender, false, (Media.Common.IPacket)rtpPacket);
+
+                    //Keep tracking of frames with missing packets.
+                    HashSet<Media.Rtp.RtpFrame> missing = new HashSet<Media.Rtp.RtpFrame>();
 
                     //Define an event for Rtp Frames Changed.
                     Media.Rtp.RtpClient.RtpFrameHandler rtpFrameReceived = (sender, rtpFrame) =>
@@ -2538,12 +2561,22 @@ namespace Tests
                         {
                             ++incompleteFrames;
                             Console.ForegroundColor = ConsoleColor.Yellow; Console.WriteLine("\t*******Got a RTPFrame With Missing Packets PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
+                            missing.Add(rtpFrame);
                         }
                         else
                         {
                             ++totalFrames;
                             Console.ForegroundColor = ConsoleColor.Blue; Console.WriteLine("\tGot a RTPFrame(" + rtpFrame.PayloadTypeByte + ") PacketCount = " + rtpFrame.Count + " Complete = " + rtpFrame.IsComplete + " HighestSequenceNumber = " + rtpFrame.HighestSequenceNumber); Console.BackgroundColor = ConsoleColor.Black;
                         }
+
+                        //A RtpFrame may be changed many times by a RtpClient
+                        //If a frame is now complete and it was thought to be missing packets before
+                        if (rtpFrame.IsComplete && missing.Remove(rtpFrame))
+                        {
+                            //Correct the count
+                            --incompleteFrames;
+                        }
+
                     };
 
                     //Define an event to handle 'InterleavedData'
@@ -2572,7 +2605,7 @@ namespace Tests
                         {
                             string output = "Client Requested :" + request.ToString();
 
-                            logWriter.Write(output);
+                            logWriter.Log(output);
 
                             Console.ForegroundColor = ConsoleColor.DarkCyan;
                             Console.WriteLine(output);
@@ -2583,7 +2616,7 @@ namespace Tests
 
                             string output = "Null Response";
 
-                            logWriter.Write(output);
+                            logWriter.Log(output); 
 
                             Console.ForegroundColor = ConsoleColor.Red;
 
@@ -2606,7 +2639,7 @@ namespace Tests
                         {
                             string output = "Client Received RtspMessage :" + response.ToString();
 
-                            logWriter.Write(output);
+                            logWriter.Log(output); 
 
                             Console.ForegroundColor = ConsoleColor.DarkGreen;
 
@@ -2618,7 +2651,7 @@ namespace Tests
                         {
                             string output = "Null Response";
 
-                            logWriter.Write(output);
+                            logWriter.Log(output); 
 
                             Console.ForegroundColor = ConsoleColor.Red;
 
@@ -2693,6 +2726,8 @@ namespace Tests
                         }
                     };
 
+                Start:
+
                     //Allow the client to switch protocols if data is not received.
                     client.AllowAlternateTransport = true;
 
@@ -2707,7 +2742,7 @@ namespace Tests
                     DateTime lastNotice = DateTime.MinValue;
 
                     //Wait for a key press of 'Q' once playing
-                    while (!shouldStop)
+                    while (false == shouldStop)
                     {
                         System.Threading.Thread.Sleep(0);
 
@@ -2722,26 +2757,44 @@ namespace Tests
                                     Console.WriteLine("Client Playing for :" + playingfor.ToString());
                                 }
 
-                                if (!client.LivePlay) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
+                                if (false == client.LivePlay && client.EndTime.HasValue) Console.WriteLine("Remaining Time in media:" + playingfor.Subtract(client.EndTime.Value).Negate().ToString());
 
                                 lastNotice = DateTime.UtcNow + TimeSpan.FromSeconds(1);
 
-                            }
+                            }                            
+                        }
+                        else if ((DateTime.UtcNow - lastNotice).TotalSeconds > 1)
+                        {
+                            Console.WriteLine("Client Not Playing");
 
-                            shouldStop = !client.LivePlay && playingfor > client.EndTime;
+                            lastNotice = DateTime.UtcNow + TimeSpan.FromSeconds(1);
                         }
 
-
+                        //Read a key to determine the stop
                         ConsoleKey read = ConsoleKey.NoName;
 
-                        //Read a key if not already stopping
-                        if (shouldStop == false) shouldStop = Console.KeyAvailable ? (read = Console.ReadKey(true).Key) == ConsoleKey.Q : false;
+                        if (Console.KeyAvailable)
+                        {
+                            try { read = Console.ReadKey(true).Key; }
+                            catch (Exception ex)
+                            {
+                                writeError(ex); 
+                                
+                                read = ConsoleKey.Q;
+                            }
+                        }
 
                         //If not stopping
-                        if (shouldStop == false)
+                        if (false == (shouldStop = read == ConsoleKey.Q))
                         {
                             switch (read)
                             {
+                                case ConsoleKey.R:
+                                    {
+                                        Console.WriteLine("Repeating Test:" + (repeatTest = !repeatTest));
+
+                                        continue;
+                                    }
                                 case ConsoleKey.A:
                                     {
 
@@ -2760,13 +2813,14 @@ namespace Tests
                                             Console.WriteLine("Events Attached.");
                                         }
 
-                                        break;
+                                        continue;
                                     }
                                 case ConsoleKey.D:
                                     {
                                         Console.WriteLine("Disconnecting Client Socket");
                                         client.DisconnectSocket();
-                                        break;
+                                        
+                                        continue;
                                     }
                                 case ConsoleKey.E:
                                     {
@@ -2781,7 +2835,7 @@ namespace Tests
 
                                         Console.WriteLine("Events Detached.");
 
-                                        break;
+                                        continue;
                                     }
                                 case ConsoleKey.I:
                                     {
@@ -2796,7 +2850,7 @@ namespace Tests
                                         }
 
 
-                                        break;
+                                        continue;
                                     }
                                 case ConsoleKey.U:
                                     {
@@ -2806,20 +2860,35 @@ namespace Tests
                                         Console.WriteLine("Detached Interleave Event.");
 
                                         interleaveEvents = false;
-                                        break;
+                                        
+                                        continue;
                                     }
                                 case ConsoleKey.K:
                                     {
                                         Console.WriteLine("Sending Client KeepAlive");
                                         client.SendKeepAlive(null);
+                                        
+                                        continue;
+                                    }
+                                case ConsoleKey.Q:
+                                    {
+                                        Console.WriteLine("Quiting.");
                                         break;
+                                    }
+                                default:
+                                    {
+                                        if(read != ConsoleKey.NoName) Console.WriteLine(read + ": Is not a recognized command.");
+
+                                        System.Threading.Thread.Sleep(0);
+
+                                        continue;
                                     }
                             }
                         }
                     }
 
                     //if the client is connected still
-                    if (client.IsConnected && protocol == Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+                    if (client.IsConnected)
                     {
                         //Try to send some requests if quit early before the Teardown.
                         try
@@ -2851,6 +2920,9 @@ namespace Tests
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine(ex.Message);
                             Console.ForegroundColor = ConsoleColor.Red;
+
+                            while (Console.KeyAvailable) Console.ReadKey(true);
+
                         }
                     }
 
@@ -2871,6 +2943,7 @@ namespace Tests
                         Console.WriteLine("Encountered Frames with missing packets: " + incompleteFrames);
                         Console.WriteLine("Encountered Empty Frames: " + emptyFrames);
                         Console.WriteLine("Total Frames: " + totalFrames);
+                        Console.WriteLine("Frames still missing packets: " + missing.Count);
                         Console.BackgroundColor = ConsoleColor.Cyan;
                         Console.WriteLine("RTSP Info".PadRight(Console.WindowWidth / 4, '▓'));
                         Console.WriteLine("Rtsp Requets Sent: " + client.MessagesSent);
@@ -2887,6 +2960,13 @@ namespace Tests
                     Console.ForegroundColor = ConsoleColor.DarkGray;
 
                     Console.BackgroundColor = ConsoleColor.Black;
+
+                    if (repeatTest)
+                    {
+                        shouldStop = false;
+
+                        goto Start;
+                    }
                 }
             }
         }
@@ -2975,6 +3055,8 @@ a=range:npt=0-
 a=x-qt-text-nam:IP Camera Video
 a=x-qt-text-inf:videoMain
 t=0
+r=604800 3600 0 90000
+r=7d 1h 0 25h
 m=video 0 RTP/AVP 96
 c=IN IP4 0.0.0.0
 b=AS:96
@@ -2986,15 +3068,107 @@ c=IN IP4 0.0.0.0
 b=AS:64
 a=control:track2");
 
-            if (sd.MediaDescriptions.Count != 2) throw new Exception("Did not find all Media Descriptions");
+            if (sd.MediaDescriptions.Count() != 2) throw new Exception("Did not find all Media Descriptions");
 
-            if (sd.MediaDescriptions[0].MediaFormat != 96 || sd.MediaDescriptions[0].MediaType != Media.Sdp.MediaType.video) throw new Exception("Did not find correct Media Description Media Format");
+            if (sd.MediaDescriptions.First().MediaFormat != 96 || sd.MediaDescriptions.First().MediaType != Media.Sdp.MediaType.video) throw new Exception("Did not find correct Media Description Media Format");
 
-            if (sd.MediaDescriptions[1].MediaFormat != 0 || sd.MediaDescriptions[1].MediaType != Media.Sdp.MediaType.audio) throw new Exception("Did not find correct Media Description Media Format");
+            if (sd.MediaDescriptions.Last().MediaFormat != 0 || sd.MediaDescriptions.Last().MediaType != Media.Sdp.MediaType.audio) throw new Exception("Did not find correct Media Description Media Format");
 
             if (sd.MediaDescriptions.Any(m => m.ControlLine == null)) throw new Exception("Did not find all Control Lines");
 
             Console.WriteLine(sd);
+
+            //Check time descriptions repeat times
+            if (sd.TimeDescriptions.Count() == 0) throw new Exception("Did not parse TimeDescription");
+
+            if (sd.TimeDescriptions.First().SessionStartTime != 0) throw new Exception("Did not parse SessionStartTime");
+
+            if (sd.TimeDescriptions.First().SessionStopTime != 0) throw new Exception("Did not parse SessionStopTime");
+
+            if (sd.TimeDescriptions.First().RepeatTimes.Count == 0) throw new Exception("Did not parse RepeatTimes");
+
+            //Todo RepeatTimes should be an Object with the properties  (RepeatInterval, ActiveDuration, Offsets[start / stop])
+            //r=<repeat interval> <active duration> <offsets from start-time>
+
+            if (sd.TimeDescriptions.First().RepeatTimes[0] != "604800 3600 0 90000") throw new Exception("Did not parse RepeatTimes");
+
+            if (sd.TimeDescriptions.First().RepeatTimes[1] != "7d 1h 0 25h") throw new Exception("Did not parse RepeatTimes");
+
+            if (sd.Length != sd.ToString().Length) throw new Exception("Did not calculate length correctly");
+
+            /*
+             https://tools.ietf.org/html/rfc4975
+             * 
+               Figure 2: Example MSRP Exchange
+
+   Alice's request begins with the MSRP start line, which contains a
+   transaction identifier that is also used for request framing.  Next
+   she includes the path of URIs to the destination in the To-Path
+   header field, and her own URI in the From-Path header field.  In this
+   typical case, there is just one "hop", so there is only one URI in
+   each path header field.  She also includes a message ID, which she
+   can use to correlate status reports with the original message.  Next
+   she puts the actual content.  Finally, she closes the request with an
+   end-line of seven hyphens, the transaction identifier, and a "$" to
+   indicate that this request contains the end of a complete message.
+             * 
+             * 
+            5.  Key Concepts
+
+5.1.  MSRP Framing and Message Chunking
+
+   Messages sent using MSRP can be very large and can be delivered in
+   several SEND requests, where each SEND request contains one chunk of
+   the overall message.  Long chunks may be interrupted in mid-
+   transmission to ensure fairness across shared transport connections.
+   To support this, MSRP uses a boundary-based framing mechanism.  The
+   start line of an MSRP request contains a unique identifier that is
+   also used to indicate the end of the request.  Included at the end of
+   the end-line, there is a flag that indicates whether this is the last
+   chunk of data for this message or whether the message will be
+   continued in a subsequent chunk.  There is also a Byte-Range header
+   field in the request that indicates the overall position of this
+   chunk inside the complete message.
+
+   For example, the following snippet of two SEND requests demonstrates
+   a message that contains the text "abcdEFGH" being sent as two chunks.
+
+    MSRP dkei38sd SEND
+    Message-ID: 4564dpWd
+    Byte-Range: 1-* /8
+    Content-Type: text/plain
+
+    abcd
+    -------dkei38sd+
+
+    MSRP dkei38ia SEND
+    Message-ID: 4564dpWd
+    Byte-Range: 5-8/8
+    Content-Type: text/plain
+
+    EFGH
+    -------dkei38ia$
+
+             */
+
+            sd = new Media.Sdp.SessionDescription(@"c=IN IP4 atlanta.example.com
+   m=message 7654 TCP/MSRP *
+   a=accept-types:text/plain
+   a=path:msrp://atlanta.example.com:7654/jshA7weztas;tcp");
+
+            if (sd.MediaDescriptions.First().MediaType != Media.Sdp.MediaType.message
+                ||
+                sd.MediaDescriptions.First().MediaProtocol != "TCP/MSRP"
+                ||
+                sd.MediaDescriptions.First().MediaPort != 7654
+                ||
+                sd.Lines.Count() != 4) throw new Exception("Did not parse media line correctly");
+
+            if (sd.Length != sd.ToString().Length) throw new Exception("Did not calculate length correctly");
+
+            Console.WriteLine(sd.ToString());
+
+
 
         }
 
@@ -3590,7 +3764,7 @@ a=control:track2");
 
                 //The server will take in Media.RtspSourceStreams and make them available locally
 
-                Media.Rtsp.Server.MediaTypes.RtspSource source = new Media.Rtsp.Server.MediaTypes.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov")
+                Media.Rtsp.Server.MediaTypes.RtspSource source = new Media.Rtsp.Server.MediaTypes.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
                 {
                     //Will force VLC et al to connect over TCP
                     //                m_ForceTCP = true
@@ -3602,52 +3776,52 @@ a=control:track2");
                 //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
 
                 //Add the stream to the server
-                server.AddMedia(source);
+                server.TryAddMedia(source);
 
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
 
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
                 //thaibienbac Test Cameras - Thanks!
 
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic1", "rtsp://118.70.125.33:20554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic2", "rtsp://118.70.125.33:21554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic3", "rtsp://118.70.125.33:22554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic4", "rtsp://118.70.125.33:23554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic5", "rtsp://118.70.125.33:24554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic6", "rtsp://118.70.125.33:25554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic7", "rtsp://118.70.125.33:26554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem1", "rtsp://admin:12345@118.70.125.33:12554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1280x960, 30 fps
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem2", "rtsp://admin:12345@118.70.125.33:13554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33:35554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco2", "rtsp://118.70.125.33:36554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco3", "rtsp://118.70.125.33:37554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco4", "rtsp://118.70.125.33:38554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam1", "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam2", "rtsp://hptvn:hptvn@fe7037.myfoscam.org:9826/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam3", "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech1", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech2", "rtsp://admin:admin@avm561.ddns.eagleeyes.tw:161/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("lilin", "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic1", "rtsp://118.70.125.33:20554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic2", "rtsp://118.70.125.33:21554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic3", "rtsp://118.70.125.33:22554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic4", "rtsp://118.70.125.33:23554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic5", "rtsp://118.70.125.33:24554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic6", "rtsp://118.70.125.33:25554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic7", "rtsp://118.70.125.33:26554/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem1", "rtsp://admin:12345@118.70.125.33:12554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1280x960, 30 fps
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("oem2", "rtsp://admin:12345@118.70.125.33:13554/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco1", "rtsp://118.70.125.33:35554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco2", "rtsp://118.70.125.33:36554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco3", "rtsp://118.70.125.33:37554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("benco4", "rtsp://118.70.125.33:38554/user=admin&password=&channel=1&stream=0.sdp?real_stream", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam1", "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam2", "rtsp://hptvn:hptvn@fe7037.myfoscam.org:9826/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("foscam3", "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech1", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("avtech2", "rtsp://admin:admin@avm561.ddns.eagleeyes.tw:161/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("lilin", "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
                 //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
-                server.AddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
                 Media.Rtsp.Server.MediaTypes.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
                 //Expose Bandit's Pictures through Udp and Tcp
-                server.AddMedia(imageStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
+                server.TryAddMedia(imageStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
                 //Test Experimental H.264 Encoding
                 //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
@@ -3661,7 +3835,7 @@ a=control:track2");
 
                 Media.Rtsp.Server.MediaTypes.RFC2435Media screenShots = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Screen", null, false, 800, 600, false);
 
-                server.AddMedia(screenShots);
+                server.TryAddMedia(screenShots);
 
                 System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
                 {
@@ -3850,8 +4024,16 @@ a=control:track2");
                 }
                 else
                 {
+
+                    string uri = "rtsp://127.0.0.1/live/Omega";
+
+                    if (server != null)
+                    {
+                        uri = "rtsp://127.0.0.1/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count() - 1)).First().Name;
+                    }
+
                     //Use Media.Rtsp / Tcp
-                    using (Media.Rtsp.RtspClient client = new Media.Rtsp.RtspClient("rtsp://127.0.0.1/live/Omega", i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
+                    using (Media.Rtsp.RtspClient client = new Media.Rtsp.RtspClient(uri, i % 2 == 0 ? Media.Rtsp.RtspClient.ClientProtocolType.Tcp : Media.Rtsp.RtspClient.ClientProtocolType.Udp))
                     {
                         try
                         {

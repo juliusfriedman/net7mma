@@ -134,16 +134,16 @@ namespace Media
 
         public static bool IsMulticast(this IPAddress ip)
         {
-            bool result = true;
-            if (!ip.IsIPv6Multicast)
+            //Check for a ipv6 multicast address
+            if (ip.IsIPv6Multicast) return true;
+            byte highIP = ip.GetAddressBytes()[0];
+            if (highIP < 224 || highIP > 239)
             {
-                byte highIP = ip.GetAddressBytes()[0];
-                if (highIP < 224 || highIP > 239)
-                {
-                    result = false;
-                }
+                return false;
             }
-            return result;
+
+            //Is a multicast address
+            return true;
         }
 
         public static void AddRange<T>(this List<T> list, IEnumerable<T> source, int start, int length)
@@ -247,12 +247,12 @@ namespace Media
 
         public static void Linger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, false); }
 
-        #region Static Helper Functions
+        #region Static Helper Functions        
 
         public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
         {
             //If the worker IsAlive and has the requested state.
-            if (thread != null && thread.IsAlive && thread.ThreadState.HasFlag(state))
+            if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
             {
                 //Attempt to join
                 if (!thread.Join(timeout))
@@ -262,6 +262,7 @@ namespace Media
                         //Abort
                         thread.Abort();
                     }
+                    catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
                     catch { return; } //Cancellation not supported
                 }
 

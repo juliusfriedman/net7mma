@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Media.Common
+namespace Media.Common//.Binary
 {
     /// <summary>
     /// Allows for writing bits from a <see cref="System.IO.Stream"/> with a variable sized buffer

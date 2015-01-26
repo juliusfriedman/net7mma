@@ -41,11 +41,15 @@ using System.Text;
 
 namespace Media.Rtsp.Server
 {
-    public abstract class RtspServerLogger
+    /// <summary>
+    /// Provides a base class around the concept of a logger specifically designed for the RtspServer.
+    /// </summary>
+    public abstract class RtspServerLogger : Common.Loggers.BaseLogger
     {
         internal abstract void LogRequest(RtspMessage request, ClientSession session);
+
         internal abstract void LogResponse(RtspMessage response, ClientSession session);
-        internal abstract void LogException(Exception ex);
-        internal abstract void Log(string data);
+
+        public abstract void LogException(Exception ex);
     }
 }

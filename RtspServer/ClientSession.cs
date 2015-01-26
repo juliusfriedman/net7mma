@@ -65,6 +65,7 @@ namespace Media.Rtsp
         //Counters for authenticate and attempts should use static key names, maybe use a dictionary..
         internal System.Collections.Hashtable Storage = System.Collections.Hashtable.Synchronized(new System.Collections.Hashtable());
 
+        //Keep track of the last send or receive when using Async
         internal IAsyncResult LastRecieve, LastSend;
 
         /// <summary>
@@ -85,7 +86,7 @@ namespace Media.Rtsp
         /// <summary>
         /// A one to many collection which is keyed by the source media's SSRC to which subsequently the values are packets which also came from the source
         /// </summary>
-        internal Common.ConcurrentThesaurus<int, RtpPacket> PacketBuffer = new Common.ConcurrentThesaurus<int, RtpPacket>();
+        internal Common.Collections.ConcurrentThesaurus<int, RtpPacket> PacketBuffer = new Common.Collections.ConcurrentThesaurus<int, RtpPacket>();
 
         /// <summary>
         /// The server which created this ClientSession
@@ -141,6 +142,35 @@ namespace Media.Rtsp
 
         public bool IsDisconnected { get { return m_IsDisconnected; } internal set { m_IsDisconnected = value; } }
 
+        public bool SharesSocket
+        {
+            get
+            {
+                //The socket is shared with the GC
+                if (IsDisposed) return true;
+
+                //Fast path if it was already decided.
+                if (LeaveOpen) return LeaveOpen;
+
+                //If the session has any playing media
+                if (Playing.Count > 0)
+                {
+                    //Get thr transport
+                    Common.ISocketReference sockets = m_RtpClient;
+
+                    //If the transport is not null and the handle is equal to the rtsp socket's handle
+                    if (sockets != null && sockets.GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
+                    {
+                        //Indicate the socket is shared
+                        return true;
+                    }
+                }
+
+                //The socket is not shared
+                return false;
+            }
+        }
+
         public Socket RtspSocket
         {
             get { return m_RtspSocket; }
@@ -176,15 +206,18 @@ namespace Media.Rtsp
             //Assign the socket and remote endPoint, IPPacketInformation provides thus for UDP
             RtspSocket = rtspSocket;
 
-            //Disable Nagle in TCP
+            //Configure TCP Sockets
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
             {
                 m_RtspSocket.NoDelay = true;
 
-                m_RtspSocket.DontLinger();
+                m_RtspSocket.DontLinger();                
             }
 
             m_RtspSocket.DontFragment = true;
+
+
+            m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)(m_Server.RtspClientInactivityTimeout.TotalMilliseconds / 3);
 
             //Create a buffer using the size of the largest message possible without a Content-Length header.
             //This helps to ensure that partial messages are not recieved by the server from a client if possible
@@ -193,7 +226,7 @@ namespace Media.Rtsp
             else
                 m_Buffer = buffer;
 
-            //Start receiving data.
+            //Start receiving data
             StartReceive();
         }
 
@@ -203,19 +236,55 @@ namespace Media.Rtsp
 
         public void StartReceive()
         {
-            if (LastRecieve == null || LastRecieve.IsCompleted)
+            //while the socket cannot read in 1msec or less 
+            while (false == m_RtspSocket.Poll((int)Utility.MicrosecondsPerMillisecond, SelectMode.SelectRead))
             {
-                //Begin to receive what is available
-                LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+
+                //Wait for the last recieve to complete
+                //Might not need this when not using Async.
+                if (LastRecieve != null)
+                {
+                    if (false == LastRecieve.IsCompleted)
+                    {
+                        using (var wait = LastSend.AsyncWaitHandle) wait.WaitOne();
+                    }
+                }
+
+                //If session is disposed or the socket is shared then jump
+                if (IsDisposed || SharesSocket)
+                {
+                    goto NotDisconnected;
+                }
             }
+
+            //Ensure not disposed or marked disconnected
+            if (IsDisposed || IsDisconnected || SharesSocket) return;
+
+            //Begin to receive what is available
+            LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
+
+        NotDisconnected:
+            //Mark as not disconnected.
+            IsDisconnected = false;
         }
 
         public void SendRtspData(byte[] data)
         {
+            SendRtspData(data, 0, data.Length, SocketFlags.None, RemoteEndPoint);
+        }
+
+        public void SendRtspData(byte[] data, int offset, int length, SocketFlags flags = SocketFlags.None, EndPoint other = null)
+        {
+            if (data == null) return;
+
             try
             {
-                if (data != null)
+               
+
+                //while the socket cannot write in 1msec or less 
+                while (false == m_RtspSocket.Poll((int)Utility.MicrosecondsPerMillisecond, SelectMode.SelectWrite))
                 {
+                    ////Wait for the last send to complete
                     if (LastSend != null)
                     {
                         if (!LastSend.IsCompleted)
@@ -224,13 +293,21 @@ namespace Media.Rtsp
                         }
                     }
 
-
-                    if (IsDisposed || IsDisconnected) return;
-
-                    m_SendBuffer = data;
-
-                    LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, 0, m_SendBuffer.Length, SocketFlags.None, RemoteEndPoint, new AsyncCallback(m_Server.ProcessSendComplete), this);//Begin to Send the response over the RtspSocket
+                    //If session is disposed then return
+                    if (IsDisposed) return;
                 }
+
+                //Ensure not disposed or marked disconnected
+                if (IsDisposed || IsDisconnected) return;
+
+                //Assign the buffer
+                m_SendBuffer = data;
+
+                //The state is this session.
+                LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, offset, length, flags, other ?? RemoteEndPoint, new AsyncCallback(m_Server.ProcessSendComplete), this);
+
+                //Mark as not disconnected.
+                IsDisconnected = false;
             }
             catch (Exception ex)
             {
@@ -372,49 +449,87 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
-            //Get rid of any attachment this ClientSession had
-            foreach (var source in Attached.Values.ToList())
+
+            if (IsDisposed) return;
+
+            base.Dispose();
+
+            try
             {
-                //Remove the attached media
-                RemoveSource(source);
+                //Get rid of any attachment this ClientSession had
+                foreach (IMediaSource source in Attached.Values.ToList())
+                {
+                    //Remove the attached media
+                    RemoveSource(source);
+                }
+            }
+            catch
+            {
+                // The list was being cleared already.
             }
 
+            //Ensure nothing is playing
             Playing.Clear();
 
+            //Mark as disconnected
             IsDisconnected = true;
 
             //Disconnect the RtpClient so it's not hanging around wasting resources for nothing
-            if (m_RtpClient != null && m_RtpClient.IsConnected)
+            if (m_RtpClient != null)
             {
-                m_RtpClient.InterleavedData -= m_Server.ProcessRtspInterleaveData;
+                try
+                {
+                    m_RtpClient.InterleavedData -= m_RtpClient_InterleavedData;
 
-                m_RtpClient.Dispose();
+                    m_RtpClient.Dispose();
 
-                m_RtpClient = null;
+                    m_RtpClient = null;
+                }
+                catch { }
             }
 
             if (m_Buffer != null)
             {
-                m_Buffer.Dispose();
-                m_Buffer = null;
+                try
+                {
+                    m_Buffer.Dispose();
+
+                    m_Buffer = null;
+                }
+                catch { }
             }
 
-            if (!LeaveOpen && m_RtspSocket != null)
+            if (m_RtspSocket != null)
             {
-                m_RtspSocket.Dispose();
-                m_RtspSocket = null;
+                try
+                {
+                    if (false == LeaveOpen) m_RtspSocket.Dispose();
+
+                    m_RtspSocket = null;
+                }
+                catch { }
             }
           
-            if (LastRequest != null && LastRequest.IsDisposed == false)
+            if (LastRequest != null)
             {
-                LastRequest.Dispose();
-                LastRequest = null;
+                try
+                {
+                    LastRequest.Dispose();
+
+                    LastRequest = null;
+                }
+                catch { }
             }
 
-            if (LastResponse != null && LastResponse.IsDisposed == false)
+            if (LastResponse != null)
             {
-                LastResponse.Dispose();
-                LastResponse = null;
+                try
+                {
+                    LastResponse.Dispose();
+
+                    LastResponse = null;
+                }
+                catch { }
             }
 
             m_Server = m_Contained = null;
@@ -442,28 +557,70 @@ namespace Media.Rtsp
                 describeResponse.SetHeader(RtspHeaders.ContentBase, describeRequest.Location.ToString());
             }
 
-            describeResponse.Body = CreateSessionDescription(source).ToString();
+            //Create a Session Description to describe the media requested
+            using (var sessionDescription = CreateSessionDescription(source))
+            {
+                //Set the body
+                describeResponse.Body = sessionDescription.ToString();
 
+                //Clients sessionId is created from the Sdp's SessionId Line
+                //if (string.IsNullOrWhiteSpace(SessionId)) SessionId = sessionDescription.SessionId;
+            }
+
+            //Return the resulting message
             return describeResponse;
         }
 
         internal RtspMessage ProcessPlay(RtspMessage playRequest, RtpSource source)
         {
-            ///If the client was paused then simply calling ProcessPacketBuffer will resume correctly without any further processing required
-            ///So long as the Source's RtpClient.TransportContext RtpTimestamp is updated to reflect the value given in the playRequest...
+            //Determine if the request can be processed.
+            bool playAllowed = false;
 
-            //This should not be allowed if the server is stopping
+            //Indicate why play would not be allowed.
+            string information = string.Empty;
+
+            //Check the there is an underlying transport which has not already been disposed.
+            if (m_RtpClient == null
+                ||
+                true == m_RtpClient.IsDisposed)
+            {
+                //Indicate the SETUP needs to occur again.
+                information = "Session Transport closed. Perform SETUP.";
+
+                //REDIRECT TO SETUP?
+
+            }
+            else playAllowed = true;
+
+            //Get the contexts which are available if play is allowed.
+            IEnumerable<RtpClient.TransportContext> sourceAvailable = Enumerable.Empty<RtpClient.TransportContext>();
+
+            //If there is a tranport which can communicate the media then determine if there is an applicable source.
+            if (playAllowed)
+            {
+                //Query the source's transport for a context which has been attached to the session via SETUP.
+                sourceAvailable = source.RtpClient.GetTransportContexts().Where(sc => GetSourceContext(sc.MediaDescription) != null);
+
+                //If any context is available then this PLAY request can be honored.
+                playAllowed = sourceAvailable.Any();
+
+                //Information 
+                information = "No Source Transport. Perform SETUP.";
+
+                //REDIRECT TO SETUP?
+            }
 
             //13.4.16 464 Data Transport Not Ready Yet
             //The data transmission channel to the media destination is not yet ready for carrying data.
-            if (!(source.RtpClient.GetTransportContexts().Where(sc => GetSourceContext(sc.MediaDescription) != null).Any()))
+            if (false == playAllowed)                
             {
-                return CreateRtspResponse(playRequest, RtspStatusCode.DataTransportNotReadyYet, "Source Not Setup");
+                return CreateRtspResponse(playRequest, RtspStatusCode.DataTransportNotReadyYet, information);
             }
 
-            //Attach the packet events if not already attached
-            if (!Playing.Contains(source.Id))
+            //Attach the packet events if not already attached (E.g. paused)
+            if (false == Playing.Contains(source.Id))
             {
+                //Attach events based on how the source will raise them.
                 if (source.RtpClient.FrameChangedEventsEnabled) source.RtpClient.RtpFrameChanged += OnSourceFrameChanged;
                 else source.RtpClient.RtpPacketReceieved += OnSourceRtpPacketRecieved;
 
@@ -471,23 +628,30 @@ namespace Media.Rtsp
                 Playing.Add(source.Id);
             }
 
-            //Else is already attached but may not be playing...
-
             //Prepare a place to hold the response
             RtspMessage playResponse = CreateRtspResponse(playRequest);
 
             //Get the Range header
-            string rangeString = playRequest[RtspHeaders.Range];
+            string rangeHeader = playRequest[RtspHeaders.Range];
+            
             TimeSpan? startRange = null, endRange = null;
 
+            /*
+             A PLAY request without a Range header is legal. It starts playing a
+             stream from the beginning unless the stream has been paused. If a
+             stream has been paused via PAUSE, stream delivery resumes at the
+             pause point. If a stream is playing, such a PLAY request causes no
+             further action and can be used by the client to test server liveness.
+           */
+
             //Determine if the client wants to start playing from a specific point in time or until a specific point
-            if (!string.IsNullOrWhiteSpace(rangeString))
+            if (!string.IsNullOrWhiteSpace(rangeHeader))
             {
                 string type; TimeSpan start, end;
-                if (RtspHeaders.TryParseRange(rangeString, out type, out start, out end))
+                if (RtspHeaders.TryParseRange(rangeHeader, out type, out start, out end))
                 {
                     //Determine the max start time
-                    TimeSpan max = source.RtpClient.TransportContexts.Max(tc => tc.MediaEndTime);                  
+                    TimeSpan max = sourceAvailable.Max(tc => tc.MediaEndTime);                  
 
                     //Start playing from here
                     startRange = start;                    
@@ -496,13 +660,12 @@ namespace Media.Rtsp
                     endRange = end;
 
                     //http://stackoverflow.com/questions/4672359/why-does-timespan-fromsecondsdouble-round-to-milliseconds
-                    end += Utility.InfiniteTimeSpan;
 
                     if(end != Utility.InfiniteTimeSpan
                         &&
-                        end > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid End Range");
+                        (end += Utility.InfiniteTimeSpan) > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid End Range");
 
-                    //If the given time > zero
+                    //If the given time to start at is > zero
                     if (start > TimeSpan.Zero)
                     {
                         //If the maximum is not infinite and the start exceeds the max indicate this.
@@ -516,6 +679,7 @@ namespace Media.Rtsp
 
                     //If the start time is 0 and the end time is not infinite then start the start time to the uptime of the stream (how long it has been playing)
                     if (start == TimeSpan.Zero && end != Utility.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
+                    else startRange = null;
                 }
             }
 
@@ -525,7 +689,6 @@ namespace Media.Rtsp
 
             //Prepare the RtpInfo header
             //Iterate the source's TransportContext's to Augment the RtpInfo header for the current request
-
             List<string> rtpInfos = new List<string>();
 
             string lastSegment = playRequest.Location.Segments.Last();
@@ -535,7 +698,7 @@ namespace Media.Rtsp
             //If the mediaType was specified
             if (Enum.TryParse(lastSegment, out mediaType))
             {
-                var sourceContext = source.RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.MediaType == mediaType);
+                var sourceContext = sourceAvailable.FirstOrDefault(tc => tc.MediaDescription.MediaType == mediaType);
 
                 //AggreateOperationNotAllowed?
                 if (sourceContext == null) return CreateRtspResponse(playRequest, RtspStatusCode.BadRequest, "Source Not Setup");
@@ -543,6 +706,10 @@ namespace Media.Rtsp
                 var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                 //Create the RtpInfo header for this context.
+
+                //There should be a better way to get the Uri for the stream
+                //E.g. ServerLocation should be used.
+
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
                     sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
 
@@ -554,13 +721,16 @@ namespace Media.Rtsp
             }
             else
             {
-                foreach (RtpClient.TransportContext sourceContext in source.RtpClient.GetTransportContexts())
+                foreach (RtpClient.TransportContext sourceContext in sourceAvailable)
                 {
                     var context = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                     if (context == null) continue;
 
                     //Create the RtpInfo header for this context.
+
+                    //There should be a better way to get the Uri for the stream
+                    //E.g. ServerLocation should be used.
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
                         sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
 
@@ -570,11 +740,10 @@ namespace Media.Rtsp
 
                 //Send all reports
                 m_RtpClient.SendSendersReports();
-            }
+            }          
 
-            //Set the range Range for the playResponse
-            //!string.IsNullOrWhiteSpace(rangeString)
-            if(startRange.HasValue || endRange.HasValue) playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
+            //Indicate the range of the play response. (`Range` will be 'now-' if no start or end was given)
+            playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
             //Sent the rtpInfo
             playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
@@ -584,7 +753,7 @@ namespace Media.Rtsp
             //Set the MediaProperties header.
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
-            if (!m_RtpClient.IsConnected)
+            if (false == m_RtpClient.IsConnected)
             {
                 m_RtpClient.Connect();
                 
@@ -607,14 +776,14 @@ namespace Media.Rtsp
         internal void ProcessPacketBuffer(RtpSource source)
         {
             //Process packets from the PacketBuffer relevent to the Range Header
-            IList<RtpPacket> packets;            
+            IEnumerable<RtpPacket> packets;            
 
             //Iterate all TransportContext's in the Source
             foreach (RtpClient.TransportContext sourceContext in source.RtpClient.GetTransportContexts())
             {
                 if (sourceContext == null) continue;
                 //If the PacketBuffer has any packets related remove packets from the PacketBuffer
-                if (PacketBuffer.Remove((int)sourceContext.SynchronizationSourceIdentifier, out packets) && packets.Count > 0)
+                if (PacketBuffer.Remove((int)sourceContext.SynchronizationSourceIdentifier, out packets))
                 {
                     //Send them out
                     m_RtpClient.m_OutgoingRtpPackets.AddRange(packets.SkipWhile(rtp => rtp.SequenceNumber < sourceContext.SequenceNumber));
@@ -631,8 +800,8 @@ namespace Media.Rtsp
         /// //TODO Should be SourceMedia and SourceContext.
         internal RtspMessage ProcessSetup(RtspMessage request, RtpSource sourceStream, RtpClient.TransportContext sourceContext)
         {
-
-            //This should not be allowed if the server is stopping
+            //Assign the sessionId now if it has not been assigned before.
+            if (SessionId == null) SessionId = m_Id.GetHashCode().ToString();
 
             //We also have to send one back
             string returnTransportHeader = null;
@@ -641,7 +810,7 @@ namespace Media.Rtsp
             RtspMessage response = CreateRtspResponse(request);
 
             //Check for already setup stream
-            if (Attached.ContainsKey(sourceContext)) return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Stream Already Setup");
+            //if (Attached.ContainsKey(sourceContext)) return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Stream Already Setup");
 
             Sdp.MediaDescription mediaDescription = sourceContext.MediaDescription;
 
@@ -687,15 +856,10 @@ namespace Media.Rtsp
             //Maybe better to just give tokens from the function ..
             //Without explicitly checking for !interleaved VLC will recieve what it thinks are RTSP responses unless RTSP Interleaved is Forced.
             //Was trying to Quicktime to pickup RTSP Interleaved by default on the first response but it doesn't seem that easy (quick time tries to switch but fails?)
-            if (!interleaved && (unicast || multicast)) 
+
+            //If the source does not force TCP and interleaved was not given and this is a unicast or multicast connection
+            if (false == interleaved && (unicast || multicast)) 
             {
-                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
-
-                if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
-
-                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
-
-                if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
 
                 //Check requested transport is allowed by server
                 if (sourceStream.ForceTCP)//The client wanted Udp and Tcp was forced
@@ -708,21 +872,37 @@ namespace Media.Rtsp
 
                     return result;
                 }
-                else if (m_Server.MaximumUdpPort.HasValue && (clientRtpPort > m_Server.MaximumUdpPort || clientRtcpPort > m_Server.MaximumUdpPort))
+
+                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
+
+                if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
+
+                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
+
+                if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
+
+                //Ensure the ports are allowed to be used.
+                if (m_Server.MaximumUdpPort.HasValue && (clientRtpPort > m_Server.MaximumUdpPort || clientRtcpPort > m_Server.MaximumUdpPort))
                 {
                     //Handle port out of range
                     return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Requested Udp Ports were out of range. Maximum Port = " + m_Server.MaximumUdpPort);
                 }
 
+                //Create sockets to reserve the ports.
+
+                Socket tempRtp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort);
+
+                Socket tempRtcp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtcpPort);
+
                 //Check if the client was already created.
                 if (m_RtpClient == null || m_RtpClient.IsDisposed)
                 {
-                    //Create a sender
-                    m_RtpClient = new RtpClient(m_Buffer);
+                    //Create a sender using a new segment on the existing buffer.
+                    m_RtpClient = new RtpClient(new Common.MemorySegment(m_Buffer));
 
                     m_RtpClient.FrameChangedEventsEnabled = false;
 
-                    m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
+                    m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
 
                     //Use default data and control channel
                     setupContext = new RtpClient.TransportContext(0, 1, localSsrc, mediaDescription, !rtcpDisabled, remoteSsrc, 0);
@@ -745,18 +925,34 @@ namespace Media.Rtsp
                 //Create the returnTransportHeader (Should be setupContext.SynchronizationSourceIdentifier)
                 returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
 
+                tempRtp.Dispose();
+
+                tempRtp = null;
+
+                tempRtcp.Dispose();
+
+                tempRtcp = null;
+
             }
 
-            //Check for 'interleavd' token or TCP being forced
+            //Check for 'interleaved' token or TCP being forced
             if (sourceStream.ForceTCP || interleaved) 
             {
                 //Check if the client was already created.
                 if (m_RtpClient == null || m_RtpClient.IsDisposed)
                 {
-                    //Create a new RtpClient
-                    m_RtpClient = new RtpClient(m_Buffer);
+                    //Create a sender using a new segment on the existing buffer.
+                    m_RtpClient = new RtpClient(new Common.MemorySegment(m_Buffer));
 
-                    m_RtpClient.InterleavedData += m_Server.ProcessRtspInterleaveData;
+                    m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
+
+                    #region Unused [Helps with debugging]
+
+                    //m_RtpClient.RtcpPacketReceieved += m_RtpClient_RecievedRtcp;
+
+                    //m_RtpClient.RtcpPacketSent += m_RtpClient_SentRtcp;
+
+                    #endregion
 
                     m_RtpClient.FrameChangedEventsEnabled = false;
 
@@ -786,12 +982,12 @@ namespace Media.Rtsp
 
                 //Create the returnTransportHeader
                 //returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", setupContext.SynchronizationSourceIdentifier, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, LocalEndPoint.Port, LocalEndPoint.Port, ((IPEndPoint)RemoteEndPoint).Port, ((IPEndPoint)RemoteEndPoint).Port, true, false, null, true, dataChannel, controlChannel);
-                
 
-                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", remoteSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel);
+                //Leave the socket open when disposing the RtpClient
+                setupContext.LeaveOpen = true;
+
+                returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel);
             }
-            
-           
 
             //Synchronize the context sequence numbers
             setupContext.SequenceNumber = sourceContext.SequenceNumber;
@@ -806,7 +1002,66 @@ namespace Media.Rtsp
             //Set the returnTransportHeader to the value above 
             response.SetHeader(RtspHeaders.Transport, returnTransportHeader);
 
+            //Give the sessionid for the transport setup
+            response.SetHeader(RtspHeaders.Session, SessionId);
+
             return response;
+        }
+
+        void m_RtpClient_InterleavedData(object sender, byte[] data, int offset, int length)
+        {
+            if (length <= 0) return;
+
+            //The session is not disconnected 
+            IsDisconnected = false;
+
+
+            //Process the data received
+            m_Server.ProcessClientBuffer(this, length);
+        }
+
+        void m_RtpClient_RecievedRtcp(object sender, RtcpPacket packet)
+        {
+
+            if (packet == null || packet.IsDisposed) return;
+
+            //Get an implementation for the packet recieved
+            var implementation = Rtcp.RtcpPacket.GetImplementationForPayloadType((byte)packet.PayloadType);
+
+            if (implementation == null) m_Server.Logger.LogException(new Exception("Recieved Unknown PacketType: " + packet.PayloadType + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation.Name + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+
+            var context = m_RtpClient.GetContextForPacket(packet);
+
+            if (context == null) m_Server.Logger.LogException(new Exception("Unknown Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else m_Server.Logger.LogException(new Exception("Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
+
+            //Crash... check bugs in compiler.. emited wrong instruction...
+            //m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
+        }
+
+        void m_RtpClient_SentRtcp(object sender, RtcpPacket packet)
+        {
+
+            if (packet == null || packet.IsDisposed) return;
+
+            //Get an implementation for the packet recieved
+            var implementation = Rtcp.RtcpPacket.GetImplementationForPayloadType((byte)packet.PayloadType);
+
+            if (implementation == null) m_Server.Logger.LogException(new Exception("Sent Unknown PacketType: " + packet.PayloadType + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else m_Server.Logger.LogException(new Exception("Sent PacketType: " + packet.PayloadType + " - " + implementation.Name + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+
+            //If the context should have been synchronized then determine if a context can be found
+            if (m_RtpClient.Uptime > RtpClient.DefaultReportInterval)
+            {
+                var context = m_RtpClient.GetContextForPacket(packet);
+
+                if (context == null) m_Server.Logger.LogException(new Exception("Sent Unknown Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+                else m_Server.Logger.LogException(new Exception("Sent Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
+            }
+
+            //Crash... check bugs in compiler.. emited wrong instruction...
+            //m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
         internal RtspMessage ProcessPause(RtspMessage request, RtpSource source)
@@ -835,7 +1090,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="source">The SourceStream to detach</param>
         /// <param name="session">The session to detach from</param>
-        internal void RemoveSource(SourceMedia source)
+        internal void RemoveSource(IMediaSource source)
         {
             if (source is RtpSource)
             {
@@ -874,6 +1129,17 @@ namespace Media.Rtsp
             }
         }
 
+        /*
+         10.7 TEARDOWN
+
+        The TEARDOWN request stops the stream delivery for the given URI,
+        freeing the resources associated with it. If the URI is the
+        presentation URI for this presentation, any RTSP session identifier
+        associated with the session is no longer valid. Unless all transport
+        parameters are defined by the session description, a SETUP request
+        has to be issued before the session can be played again.
+         */
+
         internal RtspMessage ProcessTeardown(RtspMessage request, RtpSource source)
         {
             //Determine if this is for only a single track or the entire shebang
@@ -911,29 +1177,44 @@ namespace Media.Rtsp
 
         internal void ReleaseUnusedResources()
         {
-            if (IsDisposed) return;
-
             //Enumerate each context 'SETUP' in the session
-            if(m_RtpClient != null) foreach (var context in m_RtpClient.GetTransportContexts())
+            if (m_RtpClient != null)
             {
-                //If the context has not been sent a packet or received a rtcp packet in the allowed time
-                if (context.IsRtpEnabled && context.LastRtpPacketSent > context.ReceiveInterval
-                    ||
-                    context.IsRtcpEnabled && context.LastRtcpReportReceived > context.ReceiveInterval)
+                //Iterate each context in the client
+                foreach (var context in m_RtpClient.GetTransportContexts())
                 {
-                    //See if there is still a source for the context 
-                    var sourceContext = GetSourceContext(context.MediaDescription);
+                    //Could be a property of the transport.. (especially the rtpclient.)
+                    //E.g. IsInactive
 
-                    //If there was a source context
-                    if (sourceContext != null)
+                    //If the context does not have any active transport purpose OR
+                    if (context.IsRtpEnabled == context.IsRtcpEnabled == false
+                        || //If the context has rtp enabled and not been sent a rtp packet packet in the allowed time AND
+                        (context.IsRtpEnabled ? context.LastRtpPacketSent == Utility.InfiniteTimeSpan || context.LastRtpPacketSent >= context.ReceiveInterval : !context.IsRtpEnabled)
+                        && //The context has rtcp enabled and the context has not been sent a rtcp packet in the allowed time
+                        (context.IsRtcpEnabled ? context.LastRtcpReportSent == Utility.InfiniteTimeSpan || context.LastRtcpReportSent >= context.ReceiveInterval : !context.IsRtcpEnabled))
                     {
-                        //Remove the attachment from the source context to the session context
-                        RemoveSource(Attached[sourceContext]);
+                        //See if there is still a source for the context 
+                        RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
 
-                        //Remove the reference to the sourceContext
-                        sourceContext = null;
+                        //If there was a source context
+                        if (sourceContext != null)
+                        {
+                            //Remove the attachment from the source context to the session context
+                            RemoveSource(Attached[sourceContext]);
+
+                            //Remove the reference to the sourceContext
+                            sourceContext = null;
+                        }
                     }
                 }
+            }
+
+
+            //Get rid of any attachment this ClientSession had which no longer have a context.
+            foreach (IMediaSource source in Attached.Keys.ToList().Where(s=> GetSourceContext(s.MediaDescription) == null))
+            {
+                //Remove the attached media
+                RemoveSource(source);
             }
 
             //Remove rtp theads
@@ -971,12 +1252,23 @@ namespace Media.Rtsp
         internal RtspMessage CreateRtspResponse(RtspMessage request = null, RtspStatusCode statusCode = RtspStatusCode.OK, string body = null)
         {
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
+
             response.StatusCode = statusCode;
 
-            response.CSeq = request != null ? request.CSeq : LastRequest != null ? LastRequest.CSeq : 1;
-            if (!string.IsNullOrWhiteSpace(SessionId))
-                response.SetHeader(RtspHeaders.Session, SessionId);
+            //See notes, it may be wise to give a different sequence number here
 
+            //Use the same Cseq in the response as the request (maybe -1 if not found in the request) or 0 if none can be determined.
+            response.CSeq = request != null ? request.CSeq : LastRequest != null ? LastRequest.CSeq : 0;
+
+            //If there was a request ensure the same sessionId appears in the response as it does in the request
+            if (request != null && request.ContainsHeader(RtspHeaders.Session)) response.SetHeader(RtspHeaders.Session, request.GetHeader(RtspHeaders.Session));
+            //else if (!string.IsNullOrWhiteSpace(SessionId)) //Otherwise if one has been assigned as a result of the request.
+            //{
+            //    //Then also indicate the value in the response.
+            //    response.SetHeader(RtspHeaders.Session, SessionId);
+            //}
+
+            //Include any body.
             if (!string.IsNullOrWhiteSpace(body)) response.Body = body;
 
             return response;
@@ -1011,7 +1303,7 @@ namespace Media.Rtsp
 
                 sourceClient = rtpSource.RtpClient;
             }
-            else sdp = new Sdp.SessionDescription(1);
+            else sdp = new Sdp.SessionDescription(0);
             sdp.SessionName = sessionName;
             sdp.OriginatorAndSessionIdentifier = originatorString;
 
@@ -1024,7 +1316,7 @@ namespace Media.Rtsp
             //If there was one remove it
             while (controlLine != null)
             {
-                sdp.RemoveLine(sdp.Lines.IndexOf(controlLine));
+                sdp.Remove(controlLine);
                 controlLine = sdp.ControlLine;
             }
             
@@ -1032,7 +1324,7 @@ namespace Media.Rtsp
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;
 
             //Remove the old connection line
-            if (connectionLine != null) sdp.RemoveLine(sdp.Lines.IndexOf(connectionLine));
+            if (connectionLine != null) sdp.Remove(connectionLine, false);
 
             //Rewrite a new connection line
             string addressString = LocalEndPoint.Address.ToString();// +"/127/2";
@@ -1056,12 +1348,18 @@ namespace Media.Rtsp
             sdp.Add(connectionLine, false);
 
             //Add the information line if not present
-            if (sdp.Lines.Where(l => l.Type == 'i').Count() == 0) sdp.Add(new Sdp.SessionDescriptionLine("i=" + stream.Name));
+            //Could also overwrite it.
+            if (sdp.SessionName == null) sdp.Add(new Sdp.SessionDescriptionLine("i=" + stream.Name), false);
 
             IEnumerable<Sdp.SessionDescriptionLine> bandwithLines;
 
-            //Indicate the recipient does not need to send
-            sdp.Add(new Sdp.SessionDescriptionLine("a=recvonly"));
+            //Indicate that the server will not accept media as input for this session
+            sdp.Add(new Sdp.SessionDescriptionLine("a=sendonly"));
+
+            //Remove any existing session range lines, don't upate the version
+            while (sdp.RangeLine != null) sdp.Remove(sdp.RangeLine, false);
+
+            //Todo add a Range line which shows the length of this media.
 
             //Iterate the source MediaDescriptions, could just create a new one with the fmt which contains the profile level information
             foreach (Sdp.MediaDescription md in sdp.MediaDescriptions)
@@ -1119,6 +1417,8 @@ namespace Media.Rtsp
 
                 }
 
+                #region Independent TCP
+
                 //if (!stream.m_ForceTCP)
                 //{
                 //    //md.MediaPort = lastPort;
@@ -1145,14 +1445,19 @@ namespace Media.Rtsp
                 //    //The RtpClient would then need to have a RtcpSocket ready on the 'standby' just in case the remote end point connected and began sending the data.
 
                 //    //The other way to hanle this would be use only a single socket in both cases and change the remote endpoint = 0.... and decypher the data based on the end point... e.g. the port.
-                //}                
+                //}          
+
+                #endregion
+
+
+                //Verify Timing lines.
+                //Lines should have a startTime equal the Uptime of the stream
+                //Lines should have a stopTime equal to the EndTime of the stream.
+
             }
 
             //Top level stream control line (Should only be added if Aggregate Control of the stream is allowed.
-            //sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));
-
-            //Clients sessionId is created from the Sdp
-            SessionId = sessionId;
+            //sdp.Add(new Sdp.SessionDescriptionLine(controlLineBase));           
 
             return sdp;
         }

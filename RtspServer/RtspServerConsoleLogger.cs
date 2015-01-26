@@ -47,13 +47,16 @@ namespace Media.Rtsp.Server
 
         public ConsoleColor RequestColor = ConsoleColor.Cyan, ResponseColor = ConsoleColor.DarkCyan, ExceptionColor = ConsoleColor.Red, NormalColor = ConsoleColor.Green;
 
+        //This could be a DebuggingLogger or something else...
+        readonly Common.ILogging Logger = new Common.Loggers.ConsoleLogger();
+
         internal override void LogRequest(RtspMessage request, ClientSession session)
         {
             ConsoleColor previous = Console.ForegroundColor;
             try
             {
                 Console.ForegroundColor = RequestColor;
-                System.Console.WriteLine(string.Format(Format, request.MessageType, request.Method, request.Location, session.Id, null));
+                Logger.Log(string.Format(Format, "Request=>", request, "Session=>", session.Id, null));
             }
             catch { throw; }
             finally { Console.ForegroundColor = previous; }
@@ -65,28 +68,27 @@ namespace Media.Rtsp.Server
             try
             {
                 Console.ForegroundColor = ResponseColor;
-                System.Console.WriteLine(string.Format(Format, response.MessageType, response.CSeq, response.StatusCode, session.Id, null));
+                Logger.Log(string.Format(Format, "Response=>", response, "Session=>", session.Id, null));
             }
             catch { throw; }
             finally { Console.ForegroundColor = previous; }
         }
 
-        internal override void LogException(Exception ex)
+        public override void LogException(Exception ex)
         {
             ConsoleColor previous = Console.ForegroundColor;
             try
             {
                 Console.ForegroundColor = ExceptionColor;
-                System.Console.WriteLine(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));
+                Logger.Log(string.Format(Format, ex.Message, Environment.NewLine, ex.StackTrace, Environment.NewLine, ex.InnerException != null ? ex.InnerException.ToString() : string.Empty));
             }
             catch { throw; }
             finally { Console.ForegroundColor = previous; }
                 
         }
 
-        internal override void Log(string data)
+        public override void Log(string data)
         {
-            if (string.IsNullOrWhiteSpace(data)) return;
             ConsoleColor previous = Console.ForegroundColor;
             try
             {

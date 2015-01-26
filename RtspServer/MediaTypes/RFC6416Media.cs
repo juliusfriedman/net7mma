@@ -161,20 +161,20 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.audio, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 97));
 
             //Add the control line for video
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4V-ES/90000"));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4V-ES/90000"));
 
             //Add the control line for audio
-            SessionDescription.MediaDescriptions[1].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
-            SessionDescription.MediaDescriptions[1].Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4A-LATM/90000"));
+            SessionDescription.MediaDescriptions.Last().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions.Last().Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 MP4A-LATM/90000"));
 
             //Should be a field set in constructor.
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("fmtp:96 profile-level-id=1"));
-            SessionDescription.MediaDescriptions[1].Add(new Sdp.SessionDescriptionLine("fmtp:97 profile-level-id=15; profile=1;"));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("fmtp:96 profile-level-id=1"));
+            SessionDescription.MediaDescriptions.Last().Add(new Sdp.SessionDescriptionLine("fmtp:97 profile-level-id=15; profile=1;"));
 
-            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
+            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
 
-            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(2, 3, sourceId, SessionDescription.MediaDescriptions[1], false, 0));
+            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(2, 3, sourceId, SessionDescription.MediaDescriptions.Last(), false, 0));
         }
 
         /// <summary>

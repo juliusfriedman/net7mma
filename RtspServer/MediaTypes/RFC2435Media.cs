@@ -1731,7 +1731,7 @@ namespace Media.Rtsp.Server.MediaTypes
             //If this class was used to send directly to one person it would be setup with the recievers address
             m_RtpClient = new Rtp.RtpClient();
 
-            SessionDescription = new Sdp.SessionDescription(1, "v√ƒ", Name );
+            SessionDescription = new Sdp.SessionDescription(0, "v√ƒ", Name );
             SessionDescription.Add(new Sdp.Lines.SessionConnectionLine()
             {
                 NetworkType = "IN",
@@ -1742,14 +1742,12 @@ namespace Media.Rtsp.Server.MediaTypes
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
 
-            SessionDescription.Add(new Sdp.TimeDescription(0, -1), false);
-
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks
-            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
+            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
 
             //Add the control line
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
 
             //Add the line with the clock rate in ms, obtained by TimeSpan.TicksPerMillisecond * clockRate            
 
@@ -1900,9 +1898,13 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
                     if (m_Frames.Count == 0)
                     {
+
+                        m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.Lowest;
+
                         System.Threading.Thread.Sleep(clockRate);
+
                         continue;
-                    }
+                    }                    
 
                     int period = (clockRate * 1000 / m_Frames.Count);
 
@@ -1914,8 +1916,12 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Get the transportChannel for the packet
                     Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
 
+                    //If there is a context
                     if (transportContext != null)
                     {
+                        //Increase priority
+                        m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+
                         transportContext.RtpTimestamp += period;
 
                         foreach (Rtp.RtpPacket packet in frame)
@@ -1940,8 +1946,6 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
 
                         unchecked { ++m_FramesPerSecondCounter; }
-
-                        
                     }
 
                     //If we are to loop images then add it back at the end
@@ -1952,15 +1956,6 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     System.Threading.Thread.Sleep(clockRate);
                         
-                }
-                catch (OverflowException)
-                {
-#if DEBUG
-                    System.Diagnostics.Debug.WriteLine("Source " + Id + " Overflow");
-#endif
-                    //m_FramesPerSecondCounter overflowed, take a break
-                    System.Threading.Thread.Sleep(0);
-                    continue;
                 }
                 catch (Exception ex)
                 {
