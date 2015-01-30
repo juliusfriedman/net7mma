@@ -783,7 +783,7 @@ namespace Media.Rtp
 
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (!(obj is RtpPacket)) return false;
+            if (false == (obj is RtpPacket)) return false;
 
             RtpPacket other = obj as RtpPacket;
 

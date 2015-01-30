@@ -178,7 +178,9 @@ namespace Media.Rtsp
             {
                 m_RtspSocket = value;
 
-                if (m_RtspSocket != null && m_RtspSocket.RemoteEndPoint != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint;
+                EndPoint remote = m_RtspSocket.RemoteEndPoint;
+
+                if (m_RtspSocket != null && remote != null) RemoteEndPoint = remote;
             }
         }
 
@@ -547,6 +549,13 @@ namespace Media.Rtsp
             RtspMessage describeResponse = CreateRtspResponse(describeRequest);
 
             describeResponse.SetHeader(RtspHeaders.ContentType, Sdp.SessionDescription.MimeType);
+
+            //Don't cache this SDP
+            describeResponse.SetHeader(RtspHeaders.CacheControl, "no-cache");
+            //describeResponse.SetHeader(RtspHeaders.Pragma, "no-cache");
+
+            //If desired you will need a way to determine when the last time the sdp was modified, could use the sessionId from the SDP or its' created property etc.)
+            //describeResponse.SetHeader(RtspHeaders.LastModified, 
 
             if (describeRequest.Location.ToString().ToLowerInvariant().Contains("live"))
             {
@@ -1170,7 +1179,7 @@ namespace Media.Rtsp
             {
                 RemoveSource(source);                
             }
-
+                           
             //Return the response
             return CreateRtspResponse(request);
         }

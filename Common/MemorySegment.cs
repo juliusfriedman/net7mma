@@ -15,6 +15,8 @@ namespace Media.Common
 
         int m_Offset, m_Length;
 
+        //public readonly Binary.Endian Endian;
+
         public int Count { get { return m_Length; } protected set { m_Length = value; } }
 
         public int Offset { get { return m_Offset; } protected set { m_Offset = value; } }
@@ -24,13 +26,18 @@ namespace Media.Common
         public MemorySegment(byte[] reference)  : base()
         {
             if (reference == null) throw new ArgumentNullException("reference");
+            
             m_Array = reference;
+            
             m_Length = m_Array.Length;
+
+            //Endian = Binary.SystemEndian;
         }
 
         public MemorySegment(byte[] reference, int offset): this(reference)
         {
             m_Offset = offset;
+
             if (m_Offset > m_Length) throw new ArgumentOutOfRangeException("offset");
         }
 
@@ -38,15 +45,21 @@ namespace Media.Common
             : this(reference, offset)
         {
             m_Length = length;
+
             if (m_Offset + m_Length > m_Array.Length) throw new ArgumentOutOfRangeException("length");
         }
 
         public MemorySegment(int size)
         {
             if (size < 0) throw new ArgumentException("size");
+            
             m_Array = new byte[size];
+            
             m_Offset = 0;
+            
             m_Length = size;
+
+            //Endian = Binary.SystemEndian;
         }
 
         public MemorySegment(MemorySegment other)
@@ -60,9 +73,9 @@ namespace Media.Common
             m_Offset = other.Offset;
 
             m_Length = other.m_Length;
-        }
 
-        //internal void SetLength(int length) { m_Length = length; }
+            //Endian = other.Endian;
+        }
 
         public override void Dispose()
         {

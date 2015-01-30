@@ -95,14 +95,38 @@ namespace Media.Common
 
         #endregion
 
+        #region Nested Types
+
+        /// <summary>
+        /// Adopted from the example at <see href="http://en.wikipedia.org/wiki/Endianness">Wikipedia - Endianness</see>
+        /// </summary>
+        public enum Endian
+        {
+            Unknown = 0,
+            //System = 1,
+            Big = 0x0A0B0C0D,
+            Little = 0x0D0C0B0A,
+            Middle = 0x0B0A0D0C
+        }
+
+        #endregion
+
         #region Statics
 
-        internal static byte[] BitsSetTable;
+        public static readonly bool IsLittleEndian = System.BitConverter.IsLittleEndian;
 
-        internal static byte[] BitsReverseTable;
+        internal static readonly byte[] BitsSetTable;
 
+        internal static readonly byte[] BitsReverseTable;
+
+        public static readonly Endian SystemEndian = Endian.Unknown;
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         static Binary()
         {
+            //ensure not already called.
+            if (BitsSetTable != null || BitsReverseTable != null) return;
+
             BitsSetTable = new byte[256];
             BitsReverseTable = new byte[256];
 
@@ -110,12 +134,44 @@ namespace Media.Common
             BitsSetTable[1] = BitsReverseTable[128] = 1; 
             BitsSetTable[128] = BitsReverseTable[1] = 128;
             BitsSetTable[255] = 8; BitsReverseTable[255] = 255;
+            
             //253 Operations [2 -> 254]
             for (int i = 2; i < byte.MaxValue; ++i)
             {
                 byte reverse = MultiplyReverseU8((byte)i);
+
                 BitsReverseTable[i] = reverse;
                 BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+            }
+
+            //Get the bytes of the little endian value
+            //Then read them back as an integer
+            int systemReadLittleEndian = BitConverter.ToInt32(BitConverter.GetBytes((int)Endian.Little), 0);
+
+            //Assign the proerty SystemEndian as a result of the cast to Endian
+            SystemEndian = ((Endian)systemReadLittleEndian);
+
+            //Assign the system endian from the value read and then verify
+            switch (SystemEndian)
+            {
+                case Endian.Little:
+                    if (false == IsLittleEndian) goto default;
+                    break;
+
+                case Endian.Big:
+                    if (true == IsLittleEndian) goto default;
+                    break;
+
+                case Endian.Middle:
+                    if (true == BitConverter.IsLittleEndian || true == IsLittleEndian) goto default;
+                    break;
+
+                default:
+                    if (IsLittleEndian) SystemEndian = Endian.Little;
+
+                    SystemEndian = Endian.Unknown;
+
+                    throw new NotSupportedException("SystemEndian Unknown is not supported.");
             }
         }
 
@@ -361,10 +417,9 @@ namespace Media.Common
 
                     //Should probably not check endian here because reverse was already given...
 
-                    if (BitConverter.IsLittleEndian)
-                        placeHolder <<= BitSize;
-                    else
-                        placeHolder >>= BitSize;
+                    //Additionally there may be another endian such as middle endian in use.
+
+                    placeHolder <<= BitSize;
                 }
 
                 //Return the result

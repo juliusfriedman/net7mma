@@ -300,7 +300,6 @@ namespace Tests
         private static void Issue17245_Case2(int breakingPaketLength)
         {
             int sequenceNumber = 0x3030;   //  "00"
-            string line = "Case2(): SequenceNumber = ";
 
             System.Console.Clear();
             Console.WriteLine("TestProcessFrameData Issue17245_Case2(): Interleaved RTSPResponse");
@@ -480,6 +479,8 @@ namespace Tests
         public static void TestBinary()
         {
 
+            Console.WriteLine("Detected a: " + Media.Common.Binary.SystemEndian.ToString() + " System.");
+
             //Test bit 0
             byte one = 1, testBits = Media.Common.Binary.ReverseU8(one);
 
@@ -511,6 +512,8 @@ namespace Tests
             //Test is binary, so test both ways, 0 and 1
             for(int i = 0; i < 2; ++i)
             {
+
+            //Test:
                 //First test uses writing Network Endian and reading System Endian, next test does the opposite
                 bool reverse = i > 0;
 
@@ -521,7 +524,7 @@ namespace Tests
 
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? (ushort)System.Net.IPAddress.HostToNetworkOrder((short)v) : v);
 
-                    if (!SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
                     else if (Media.Common.Binary.ReadInteger(Octets, 0, 2, reverse) != v) throw new Exception("Can't read back what was written");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
@@ -529,21 +532,21 @@ namespace Tests
                 }
 
                 //Repeat the test using each permutation of 16 bits not yet tested within the 4 octets which provide an integer of 32 bits
-                for (uint s = uint.MinValue; s <= uint.MaxValue / ushort.MaxValue; ++s)
+                for (uint s = uint.MinValue, e = uint.MaxValue / ushort.MaxValue; s <= e; ++s)
                 {
                     uint v = uint.MaxValue * s;
                     Media.Common.Binary.WriteNetwork32(Octets, 0, reverse, v);
 
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? (uint)System.Net.IPAddress.HostToNetworkOrder((int)v) : v);
 
-                    if (!SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
                     else if (Media.Common.Binary.ReadInteger(Octets, 0, 4, reverse) != v) throw new Exception("Can't read back what was written");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
                 }
 
                 //Repeat the test using each permuation of 16 bits within the 8 octets which provide an integer of 64 bits.
-                for (uint s = uint.MinValue; s <= uint.MaxValue / ushort.MaxValue; ++s)
+                for (uint s = uint.MinValue, e = uint.MaxValue / ushort.MaxValue; s <= e; ++s)
                 {
                     //The low 32 bits. (Already tested in the previous test)
                     ulong v = s * uint.MaxValue;
@@ -554,11 +557,19 @@ namespace Tests
 
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? (ulong)System.Net.IPAddress.HostToNetworkOrder((long)v) : v);
 
-                    if (!SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
                     else if ((ulong)Media.Common.Binary.ReadInteger(Octets, 0, 8, reverse) != v) throw new Exception("Can't read back what was written");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
                 }
+
+                ////Do it again in reverse (without a for)
+                //if (reverse)
+                //{
+                //    reverse = false;
+
+                //    goto Test;
+                //}
 
             }
         }
@@ -646,6 +657,7 @@ namespace Tests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -694,30 +706,38 @@ namespace Tests
                 //Setup an even to see what data was transmited.
                 test.InterleavedData += (sender, data, offset, count) =>
                 {
-                    Console.BackgroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("\tInterleaved=>" + Encoding.ASCII.GetString(data, offset, count));
-                    Console.BackgroundColor = ConsoleColor.Black;
+                    Console.ForegroundColor = ConsoleColor.Cyan;
+                    Console.WriteLine("\tInterleaved (" + count + ") =>" + Encoding.ASCII.GetString(data, offset, count));
 
-                    var result = new Media.Rtsp.RtspMessage(data, offset, count);
-                    
-                    if (result.MessageType == Media.Rtsp.RtspMessageType.Invalid)
+                GetMessage:
+                    Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, count);
+
+                    if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
                     {
-                        result.Dispose();
-                        if (lastInterleaved == null) lastInterleaved = result;
-                        if (lastInterleaved.CompleteFrom(null, new Media.Common.MemorySegment(data, offset, count)) == 0)
+
+                        interleaved.Dispose();
+
+                        interleaved = null;
+
+                        int lastLength = lastInterleaved.Length;
+
+                        using (var memory = new Media.Common.MemorySegment(data, offset, count))
                         {
-                            lastInterleaved = result;
+                            lastInterleaved.CompleteFrom(null, memory);
+
+                            if (lastLength == lastInterleaved.Length) return;
                         }
+
                     }
-                    else lastInterleaved = result;
+                    else lastInterleaved = interleaved;
 
+                    int totalLength = lastInterleaved.Length;
 
-                    if (lastInterleaved.IsComplete && !string.IsNullOrWhiteSpace(lastInterleaved.Body))
+                    if (totalLength < count)
                     {
-                        Console.BackgroundColor = ConsoleColor.Green;
-                        ++rtspIn;
-                        Console.WriteLine(lastInterleaved.ToString());
-                        Console.BackgroundColor = ConsoleColor.Black;
+                        offset += totalLength;
+                        count -= totalLength;
+                        goto GetMessage;
                     }
                     
                 };
@@ -812,9 +832,8 @@ namespace Tests
                     //Some Rtsp messages may have been hidden by invalid tcp frames which indicated a longer length then they actually had.
                     if (rtspOut != rtspIn)
                     {
-                        Console.BackgroundColor = ConsoleColor.Yellow;
+                        Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine("Missed:" + (rtspOut - rtspIn) + " Messages");
-                        Console.BackgroundColor = ConsoleColor.Black;
                     }
 
                 }
@@ -1106,7 +1125,7 @@ namespace Tests
                 foreach (var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation), "*.log.txt"))
                 {
                     try { System.IO.File.Delete(logFile); }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
                         continue;
@@ -2274,7 +2293,7 @@ namespace Tests
 
             fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
-            if (!(fromBytes.StatusCode == response.StatusCode && fromBytes.CSeq == request.CSeq))
+            if (false == (fromBytes.StatusCode == response.StatusCode && fromBytes.CSeq == request.CSeq))
             {
                 throw new Exception("Response Testing Failed!");
             }
@@ -2290,7 +2309,7 @@ namespace Tests
 
             fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
-            if (!(fromBytes.Method == request.Method && fromBytes.Location == request.Location && fromBytes.Version == response.Version))
+            if (false == (fromBytes.Method == request.Method && fromBytes.Location == request.Location && fromBytes.Version == response.Version))
             {
                 throw new Exception("Request Testing Failed!");
             }
@@ -2363,11 +2382,7 @@ namespace Tests
                 throw new Exception("Response Testing Failed!");
             }
 
-            //Test Parsing bytes containing valid and invalid messages
-
-            //GET_PARAMETER / RTSP/1.0\n\n
-
-            //DESCRIBE / RTSP/1.0\nSession:\n\n
+            //Test parsing from hex
 
             bytes = Utility.HexStringToBytes("525453502f312e3020323030204f4b0d0a435365633a20310d0a5075626c69633a2044455343524942452c2054454152444f574e2c2053455455502c20504c41592c2050415553450d0a0d0a");
 
@@ -2377,6 +2392,72 @@ namespace Tests
 
             //Look closely.... 'Csec'
             if (fromBytes.IsComplete) throw new Exception("Csec Testing Failed!");
+
+            //Test Parsing bytes containing valid and invalid messages
+
+            request = Media.Rtsp.RtspMessage.FromString(@"ANNOUNCE / RTSP/1.0\n\n");
+
+            string output = request.ToString();
+
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request &&
+                request.Method != Media.Rtsp.RtspMethod.ANNOUNCE && 
+                request.Version != 1.0 &&
+                output != "ANNOUNCE / RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid message");
+
+            Console.WriteLine(output);
+
+            request = Media.Rtsp.RtspMessage.FromString("GET_PARAMETER / RTSP/1.0\n\nTest:Value\n\n");
+
+            output = request.ToString();
+
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request && 
+                request.Method != Media.Rtsp.RtspMethod.GET_PARAMETER && 
+                request.Version != 1.0 && 
+                request.HeaderCount != 1 &&
+                request.GetHeader("Test") != "Value" &&
+                output != "GET_PARAMETER / RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid request");
+
+            Console.WriteLine(output);
+
+            request = Media.Rtsp.RtspMessage.FromString("DESCRIBE / RTSP/1.0\nSession:\n\n");
+
+            output = request.ToString();
+
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request && 
+                request.Method != Media.Rtsp.RtspMethod.DESCRIBE && 
+                request.Version != 1.0 && output != "DESCRIBE / RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid request");
+
+            Console.WriteLine(output);
+
+            string input = "SETUP rtsp://server.com/foo/bar/baz.rm RTSP/1.0\nCSeq: 302\rRequire: funky-feature\rFunky-Parameter: funkystuff\n";
+
+            request = Media.Rtsp.RtspMessage.FromString(input);
+
+            output = request.ToString();
+
+            //After parsing a message with only \n as end lines the resulting output will be longer because it will now have \r\n
+            //It must never be less but it can be equal to.
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request && 
+                request.Method != Media.Rtsp.RtspMethod.SETUP && 
+                request.Version != 1.0 && 
+                request.CSeq != 302 &&
+                request.HeaderCount != 3 &&
+                output.Length <= request.Length) throw new Exception("Invalid request output length");
+
+            Console.WriteLine(output);
+
+            response = Media.Rtsp.RtspMessage.FromString("RTSP/1.0 551 Option not supported\nCSeq: 302\nUnsupported: funky-feature\n");
+
+            output = response.ToString();
+
+            if (response.MessageType != Media.Rtsp.RtspMessageType.Response && 
+                response.Version != 1.0 && 
+                response.StatusCode != Media.Rtsp.RtspStatusCode.OptionNotSupported &&
+                response.CSeq != 302 &&
+                response.HeaderCount != 2 &&
+                output.Length <= response.Length) throw new Exception("Invalid response output length");
+
+            Console.WriteLine(output);
         }
 
         static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
@@ -2517,14 +2598,12 @@ namespace Tests
                     Media.Rtsp.RtspClient.RtspClientAction connectHandler = null;
                     connectHandler = (sender, args) =>
                     {
-                        client.OnConnect -= connectHandler;
-
                         //Try to start listening
                         try
                         {
                             Console.WriteLine("\t*****************\nConnected to :" + client.Location);
                             Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
-                            client.StartPlaying();
+                            if(false == client.IsPlaying) client.StartPlaying();
                             Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
                         }
                         catch (Exception ex) { writeError(ex); shouldStop = true; }
@@ -2818,6 +2897,9 @@ namespace Tests
                                 case ConsoleKey.D:
                                     {
                                         Console.WriteLine("Disconnecting Client Socket");
+
+                                        //Use force parameter to force a new socket to be created when connect is called again.
+
                                         client.DisconnectSocket();
                                         
                                         continue;
@@ -2897,7 +2979,7 @@ namespace Tests
                             Media.Rtsp.RtspMessage one = null, two = null;
 
                             //Send a few requests just because
-                            if (client.SupportedMethods.Contains(Media.Rtsp.RtspMethod.GET_PARAMETER))
+                            if (client.SupportedMethods.Contains(Media.Rtsp.RtspMethod.GET_PARAMETER.ToString()))
                                 one = client.SendGetParameter();
                             else one = client.SendOptions(true);
 
@@ -3873,7 +3955,7 @@ a=control:track2");
                 server.Start();
 
                 //Wait for the server to start.
-                while (!server.IsRunning) System.Threading.Thread.Sleep(0);
+                while (false == server.IsRunning) System.Threading.Thread.Sleep(0);
 
                 //Start taking pictures of the desktop and making packets in a seperate thread.
                 taker.Start();
@@ -3956,12 +4038,12 @@ a=control:track2");
             //Get the Degrees Of Parallelism
             int dop = 0;
 
-            if (server == null) dop = 7;
+            if (server == null) dop = 1024;
             else
             {
-                if (server.HttpEnabled) dop += 2;
-                if (server.UdpEnabled) dop += 2;
-                dop += 3;//Tcp
+                if (server.HttpEnabled) dop *= 2;
+                if (server.UdpEnabled) dop *= 2;
+                dop *= 3;//Tcp
             }
 
             //Test the server

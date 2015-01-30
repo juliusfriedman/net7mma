@@ -726,7 +726,7 @@ namespace Media.Rtcp
         {
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (!(obj is RtcpPacket)) return false;
+            if (false == (obj is RtcpPacket)) return false;
 
             RtcpPacket other = obj as RtcpPacket;
 
