@@ -515,7 +515,7 @@ namespace Media.Rtsp
             }
             finally
             {
-                if (any != null && Logger != null) Logger.LogException(any);
+                if (Logger != null && any != null) Logger.LogException(any);
             }
         }
 
@@ -592,7 +592,7 @@ namespace Media.Rtsp
             }
             finally
             {
-                if (any != null && Logger != null) Logger.LogException(any);
+                if (Logger != null && any != null) Logger.LogException(any);
             }
         }
 
@@ -926,7 +926,7 @@ namespace Media.Rtsp
         public virtual void Stop()
         {
             //If there is not a server thread return
-            if (IsDisposed || m_StopRequested || !IsRunning) return;
+            if (IsDisposed || m_StopRequested || false == IsRunning) return;
 
             //Stop listening for new clients
             m_StopRequested = true;
@@ -1554,8 +1554,16 @@ namespace Media.Rtsp
                             //Log the EndPoint change
                             if (Logger != null) Logger.Log("Session: " + correctSession.Id + " @ " + correctSession.RemoteEndPoint + " Reconnected From new EndPoint: " + session.RemoteEndPoint + " New SessionId:" + session.Id);
 
-                            //update the value of session socket of the correction session.
+                            //Keep the new socket used in the old session
+                            //Socket old = correctSession.RtspSocket;
+
+                            //update the value of session socket of the correctSession.
                             correctSession.RtspSocket = session.RtspSocket;
+
+                            //The existing rtp sessions socket are still using the old socket, they should be updated to reflect the new endPoint in interleaved mode.
+
+                            //store the old socket in the `old` session
+                            //session.RtspSocket = old;
 
                             //Leave the session's socket open if it becomes inactive because it is now used by the existing session.
                             correctSession.LeaveOpen = session.LeaveOpen = true;
@@ -1579,7 +1587,7 @@ namespace Media.Rtsp
                 }
 
                 //Dispose any last request.
-                if (session.LastRequest != null && !session.LastRequest.IsDisposed) session.LastRequest.Dispose();
+                if (session.LastRequest != null && false == session.LastRequest.IsDisposed) session.LastRequest.Dispose();
 
                 //Synchronize the server and client since this is not a duplicate
                 session.LastRequest = request;
@@ -1592,18 +1600,20 @@ namespace Media.Rtsp
                 }
 
                 //If there is a body and no content-length
-                if (!string.IsNullOrWhiteSpace(request.Body) && !request.ContainsHeader(RtspHeaders.ContentLength))
+                if (false == string.IsNullOrWhiteSpace(request.Body) && false == request.ContainsHeader(RtspHeaders.ContentLength))
                 {
                     ProcessInvalidRtspRequest(session);
+
                     return;
                 }
 
                 //Optional Checks
 
                 //UserAgent
-                if (RequireUserAgent && !request.ContainsHeader(RtspHeaders.UserAgent))
+                if (RequireUserAgent && false == request.ContainsHeader(RtspHeaders.UserAgent))
                 {
                     ProcessInvalidRtspRequest(session);
+
                     return;
                 }
 
@@ -1865,10 +1875,10 @@ namespace Media.Rtsp
                     string sess = message.GetHeader(RtspHeaders.Session);
 
                     //Check for a session header
-                    if (!string.IsNullOrWhiteSpace(sess))
+                    if (false == string.IsNullOrWhiteSpace(sess))
                     {
                         //Add the timeout header if there was a session header.
-                        if (RtspClientInactivityTimeout > TimeSpan.Zero && !sess.Contains("timeout")) message.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)(RtspClientInactivityTimeout.TotalSeconds / 2));
+                        if (RtspClientInactivityTimeout > TimeSpan.Zero && false == sess.Contains("timeout")) message.AppendOrSetHeader(RtspHeaders.Session, "timeout=" + (int)(RtspClientInactivityTimeout.TotalSeconds / 2));
                     }
 
                     //Log response
@@ -2291,7 +2301,13 @@ namespace Media.Rtsp
             //Send the response
             using (var resp = session.ProcessTeardown(request, found))
             {
-                resp.AppendOrSetHeader(RtspHeaders.Connection, "close");
+                //Keep track if LeaveOpen should be set (based on if the session still shared the socket)
+                if (false == (session.LeaveOpen = session.SharesSocket))
+                {
+                    //if it doesn't then inform that close may occur?
+                    resp.AppendOrSetHeader(RtspHeaders.Connection, "close");
+                }
+
 
                 ProcessSendRtspMessage(resp, session);
 
@@ -2319,6 +2335,7 @@ namespace Media.Rtsp
             using (var resp = session.CreateRtspResponse(request))
             {
                 resp.SetHeader(RtspHeaders.Connection, "Keep-Alive");
+
                 ProcessSendRtspMessage(resp, session);
             }
         }

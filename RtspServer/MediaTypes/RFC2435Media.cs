@@ -78,6 +78,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="l">optional last bit (defaults to 1)</param>
             /// <param name="count">optional number of restart markers (defaults to 0x3FFF)</param>
             /// <returns>Rst Marker</returns>
+            [CLSCompliant(false)]
             public static byte[] CreateRtpJpegDataRestartIntervalMarker(ushort dri, bool f = true, bool l = true, ushort count = 0x3FFF)
             {
                 //     0                   1                   2                   3
@@ -91,16 +92,18 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Network Endian            
 
-                IEnumerable<byte> countBytes = BitConverter.GetBytes(count);
-
-                if (BitConverter.IsLittleEndian) countBytes = countBytes.Reverse();
-                countBytes.ToArray().CopyTo(data, 2);
+                Media.Common.Binary.WriteNetwork16(data, 2, BitConverter.IsLittleEndian, count);
 
                 if (f) data[2] = (byte)((1) << 7);
 
                 if (l) data[2] |= (byte)((1) << 6);
 
                 return data;
+            }
+
+            public static byte[] CreateRtpJpegDataRestartIntervalMarker(short dri, bool f = true, bool l = true, short count = 0x3FFF)
+            {
+                return CreateRtpJpegDataRestartIntervalMarker((ushort)dri, f, l, (ushort)count);
             }
 
             /// <summary>
@@ -115,7 +118,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="dri"></param>
             /// <param name="qTables"></param>
             /// <returns></returns>
-            public static byte[] CreateRtpJpegHeader(uint typeSpecific, long fragmentOffset, uint jpegType, uint quality, uint width, uint height, byte[] dri, byte precisionTable, List<byte> qTables)
+            public static byte[] CreateRtpJpegHeader(int typeSpecific, long fragmentOffset, int jpegType, int quality, int width, int height, byte[] dri, byte precisionTable, List<byte> qTables)
             {
                 List<byte> RtpJpegHeader = new List<byte>();
 
@@ -136,8 +139,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Three byte fragment offset
                 //http://tools.ietf.org/search/rfc2435#section-3.1.2
 
-                if (BitConverter.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
+                //Common.Binary.WriteNetwork24()
 
+                if (BitConverter.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
                 RtpJpegHeader.AddRange(BitConverter.GetBytes((uint)fragmentOffset), 1, 3);
 
 
@@ -173,7 +177,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (qTablesCount < 64) throw new InvalidOperationException("At least 1 quantization table must be included when quality >= 100");
 
                         //Check for overflow
-                        if (qTablesCount > ushort.MaxValue) Common.Binary.CreateOverflowException("qTables", qTables.Count, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
+                        if (qTablesCount > ushort.MaxValue) Common.Binary.CreateOverflowException("qTables", qTablesCount, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
 
                         RtpJpegHeader.Add(0); //Must Be Zero      
 
@@ -262,7 +266,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Todo properly build headers?
                 //If only 1 table (AND NOT PROGRESSIVE)
-                if(tablesCount == 64 && !progressive)
+                if(tablesCount == 64 && false == progressive)
                 {
                     result.Add(0x00); //Length
                     result.Add(0x0b); //
@@ -326,7 +330,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 
 
                 //More then 1 table (AND NOT PROGRESSIVE)
-                if (tablesCount > 64 && !progressive)
+                if (tablesCount > 64 && false == progressive)
                 {
                     result.AddRange(CreateHuffmanTableMarker(chm_dc_codelens, chm_dc_symbols, 1, 0));
                     result.AddRange(CreateHuffmanTableMarker(chm_ac_codelens, chm_ac_symbols, 1, 1));
@@ -1543,11 +1547,15 @@ namespace Media.Rtsp.Server.MediaTypes
 
                             //If there is Table Data Read it from the payload, Length should never be larger than 128 * tableCount
                             if (Length == 0 && Quality == byte.MaxValue) throw new InvalidOperationException("RtpPackets MUST NOT contain Q = 255 and Length = 0.");
-                            else if (Length > packet.Payload.Count - offset) //If the indicated length is greater than that of the packet taking into account the offset
+                            else if (Length > packet.Payload.Count - offset)
+                            { 
+                                //If the indicated length is greater than that of the packet taking into account the offset
                                 continue; // The packet must be discarded
+                            }
 
                             //Copy the tables present
                             tables = new Common.MemorySegment(packet.Payload.Array, packet.Payload.Offset + offset, (int)Length);
+
                             offset += (int)Length;
                         }
                         else // Create them from the given Quality parameter
@@ -1568,9 +1576,13 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Check for EOI Marker and write if not found
                 if (Buffer.Position == Buffer.Length)
                 {
+                    //Backup one byte
                     Buffer.Seek(-1, System.IO.SeekOrigin.Current);
+
+                    //Check for the EOI Marker and if not found
                     if (Buffer.ReadByte() != Media.Codecs.Video.Jpeg.Markers.EndOfInformation)
                     {
+                        //Write it
                         Buffer.WriteByte(Media.Codecs.Video.Jpeg.Markers.Prefix);
                         Buffer.WriteByte(Media.Codecs.Video.Jpeg.Markers.EndOfInformation);
                     }
@@ -1590,6 +1602,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 try
                 {
                     if (Buffer == null) PrepareBuffer();
+                    
                     return System.Drawing.Image.FromStream(Buffer, true, false); 
                 }
                 catch
@@ -1616,6 +1629,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (Buffer != null)
                 {
                     Buffer.Dispose();
+
                     Buffer = null;
                 }
             }
@@ -1959,7 +1973,13 @@ namespace Media.Rtsp.Server.MediaTypes
                 }
                 catch (Exception ex)
                 {
-                    if (ex is System.Threading.ThreadAbortException) return;
+                    if (ex is System.Threading.ThreadAbortException)
+                    {
+                        //Handle the abort
+                        System.Threading.Thread.ResetAbort();
+
+                        return;
+                    }
                     continue;
                 }
             }

@@ -208,6 +208,113 @@ namespace Media
 
         #endregion
 
+        public static System.Net.NetworkInformation.NetworkInterface GetNetworkInterface(Socket s)
+        {
+            foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                foreach (System.Net.NetworkInformation.UnicastIPAddressInformation ip in networkInterface.GetIPProperties().UnicastAddresses)
+                {
+                    if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        return networkInterface;
+                    }
+                }
+            }
+
+            return default(System.Net.NetworkInformation.NetworkInterface);
+        }
+
+        public unsafe static void TryModifyString(string toModify, int index, char newValue)
+        {
+            try
+            {
+                fixed (char* str = toModify)
+                {
+                    str[index] = newValue;
+                }
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        public static string ExtractPrecisionNumber(string input, char sign = (char)Common.ASCII.Period)
+        {
+            if (string.IsNullOrWhiteSpace(input)) throw new InvalidOperationException("input cannot be null or consist only of whitespace.");
+
+            return ExtractPrecisionNumber(input, 0, input.Length, sign);
+        }
+
+        public static string ExtractPrecisionNumber(string input, int offset, int length, char sign = (char)Common.ASCII.Period)
+        {
+            return ExtractNumber(input, offset, length, sign);
+        }
+
+        public static string ExtractNumber(string input, char? sign = null)
+        {
+            if (string.IsNullOrWhiteSpace(input)) throw new InvalidOperationException("input cannot be null or consist only of whitespace.");
+
+            return ExtractNumber(input, 0, input.Length, sign);
+        }
+
+        public static string ExtractNumber(string input, int offset, int length, char? sign = null)
+        {
+            if (string.IsNullOrWhiteSpace(input)) throw new InvalidOperationException("input cannot be null or consist only of whitespace.");
+
+            try
+            {
+                //Make a builder to extract the number
+                StringBuilder output = new StringBuilder(input.Length);
+
+                //Keep track of the sign if it was found
+                bool foundSign = false == sign.HasValue;
+
+                //Iterate the characters indicated.
+                for (; offset < length; ++offset)
+                {
+                    //Look at the character
+                    char c = input[offset];
+
+                    //If its the sign
+                    if (c == sign)
+                    {
+                        //If it was not found already
+                        if (false == foundSign)
+                        {
+                            //Include it
+                            foundSign = true;
+
+                            output.Append(c);
+                        }
+
+                        //Skip
+                        continue;
+                    }
+
+                    //If the value contains what is possibly realted to the number then append it.
+                    //if (false == char.IsDigit(c)) continue;
+
+                    //If the value is not a hex digit then do not allow it
+                    if(false == IsHexDigit(ref c)) continue;
+                    //if(c > 'f' || c > 'F') continue;
+
+                    //Append the char
+                    output.Append(c);
+                }
+
+                //Return the string.
+                return output.ToString();
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+                                                            //0 - 9,            A - F,                  a - f
+        public static bool IsHexDigit(ref char c) { return (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102); }
+
         internal static char[] CredentialSplit = new char[] { (char)Common.ASCII.AtSign, (char)Common.ASCII.ForwardSlash, (char)Common.ASCII.BackSlash, (char)Common.ASCII.Colon };
 
         public static NetworkCredential ParseUserInfo(Uri uri)
@@ -312,43 +419,53 @@ namespace Media
             //If the buffer or the octets are null no dice
             if (buffer == null || octets == null) return -1;
 
-            //Cache the length
-            int bufferLength = buffer.Length;
+            //Cache the lengths
+            int bufferLength = buffer.Length, octetsLength = octets.Length;
 
             //Make sure there is no way to run out of bounds given correct input
-            if (bufferLength < octetCount || start + octetCount > bufferLength) return -1;
+            if (bufferLength < octetCount || start + octetCount > bufferLength || octetCount > octetsLength) return -1;
 
             //Nothing to search nothing to return, leave start where it was.
             if (octetCount == 0 && bufferLength == 0 || count == 0) return -1;
 
             //Create the variables we will use in the searching process
-            int checkedBytes = 0, lastPosition = -1;
+            int checkedBytes = 0, matchedBytes = 0, lastPosition = -1;
 
-            //Loop the buffer from start to count
-            while (count > 0 && start < bufferLength && checkedBytes < octetCount)
+            //Ensure we account for the bytes checked.
+            int position = start + checkedBytes,
+                depth = bufferLength - position;
+
+            //Loop the buffer from start to count while the checkedBytes has not increased past the amount of octets required.
+            while (count > 0 && 
+                start < bufferLength && 
+                matchedBytes < octetCount)
             {
-                //Ensure we account for the bytes checked.
-                int position = start + checkedBytes;
-
-                //Find the next occurance of the required octet storing the result in lastPosition reducing the amount of places to search each time
-                if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes], position, bufferLength - position)) >= start)
+                //Find the next occurance of the required octet storing the result in lastPosition
+                //If the result occured after the start
+                if ((lastPosition = Array.IndexOf<byte>(buffer, octets[checkedBytes++], position, depth)) >= start)
                 {
                     //Check for completion
-                    if (++checkedBytes == octetCount) break;
+                    if (++matchedBytes == octetCount) break;
 
                     //Partial match only
                     start = lastPosition;
                 }
                 else
                 {
+                    //No bytes were matched
+                    matchedBytes = 0;
+
+                    //Check for another possible match
+                    if (checkedBytes < octetsLength) continue;
+
                     //The match failed at the current offset
                     checkedBytes = 0;
 
                     //Move the position
-                    start++;
+                    start += depth;
 
                     //Decrease the amount which remains
-                    count--;
+                    count -= depth;
                 }
             }
 
@@ -361,6 +478,7 @@ namespace Media
         public static int Find(this byte[] array, byte[] needle, int startIndex, int sourceLength)
         {
             int needleLen = needle.Length;
+
             int index;
 
             while (sourceLength >= needleLen)
@@ -393,6 +511,63 @@ namespace Media
                 startIndex = index + 1;
             }
             return -1;
+        }
+
+        public static string ReadLine(System.IO.Stream stream, Encoding encoding)
+        {
+            if (stream == null || false == stream.CanRead) return null;
+
+            if (encoding == null) encoding = System.Text.Encoding.Default;
+
+            StringBuilder builder = null;
+
+            try
+            {
+                builder = new StringBuilder();
+
+                int readResult = -1;
+
+                byte cache;
+
+                while ((readResult = stream.ReadByte()) != -1)
+                {
+
+                    cache = (byte)readResult;
+
+                    switch (cache)
+                    {
+                        case Common.ASCII.NewLine:
+                        case Common.ASCII.LineFeed:
+                            goto Done;
+                        default:
+                            {
+                                builder.Append((char)cache);
+
+                                continue;
+                            }
+                    }
+                }
+            }
+            catch
+            {
+                goto Done;
+            }
+
+        Done:
+
+            return builder != null ? builder.ToString() : null;
+        }
+
+        public static string ReadToEnd(System.IO.Stream stream, Encoding encoding)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            while (stream.Position < stream.Length)
+            {
+                builder.Append(ReadLine(stream, encoding));
+            }
+
+            return builder.ToString();
         }
 
         /// <summary>

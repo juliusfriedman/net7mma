@@ -1056,7 +1056,7 @@ namespace Media.RtpTools.RtpDump
                 using (var buffer = new System.IO.MemoryStream())
                 {
                     //While data can be read from the stream
-                    while (!terminate) 
+                    while (false == terminate) 
                     {
                         //Read a byte from the stream
                         register = stream.ReadByte();
@@ -1065,7 +1065,7 @@ namespace Media.RtpTools.RtpDump
                         terminate = register == -1 || register == delimit;
 
                         //If the byte read is equal to the delimit and the delimit byte is not included then return the array contained in the MemoryStream.
-                        if (terminate && !includeDelimit) break;
+                        if (terminate && false == includeDelimit) break;
 
                         //Write the value read from the reader to the MemoryStream
                         buffer.WriteByte((byte)register);

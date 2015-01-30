@@ -71,6 +71,8 @@ namespace Media.Sdp
     /// http://en.wikipedia.org/wiki/Session_Description_Protocol
     /// http://tools.ietf.org/html/rfc4566
     /// </summary>
+    /// 
+    ///https://msdn.microsoft.com/en-us/library/bb758954(v=office.13).aspx
     public sealed class SessionDescription : Common.BaseDisposable
     {
         #region Statics

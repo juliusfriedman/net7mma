@@ -153,7 +153,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.Credential = Utility.ParseUserInfo(m_Source);
 
                 //Remove the user info from the location
-                RtspClient.Location = new Uri(RtspClient.Location.AbsoluteUri.Replace(RtspClient.Location.UserInfo + (char)Common.ASCII.AtSign, string.Empty));
+                RtspClient.Location = new Uri(RtspClient.Location.AbsoluteUri.Replace(RtspClient.Location.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(RtspClient.Location.UserInfo, string.Empty));
             }
         }
 
