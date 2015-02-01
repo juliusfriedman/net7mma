@@ -85,7 +85,7 @@ namespace Media.Common
         /// </summary>
         public const string ExceptionFormat = "A System.Exception occured related to the following System.Type: `{0}`. If there is related data it is located in the Tag property.";
 
-        public static string DefaultExceptionTypeMessage<T>() { return string.Format(Exception<T>.ExceptionFormat, typeof(T).FullName); }
+        public static string DefaultExceptionTypeMessage<t>() { return string.Format(Exception<t>.ExceptionFormat, typeof(T).FullName); }
 
         /// <summary>
         /// <see cref="ExceptionExtensions.InException"/>

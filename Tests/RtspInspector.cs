@@ -75,7 +75,7 @@ namespace Tests
 
                 Client.OnConnect += client_OnConnect;
 
-                ClientThreadProc = new Thread(Client.Connect);
+                ClientThreadProc = new Thread(() => Client.Connect());
 
                 ClientThreadProc.Start();
 
