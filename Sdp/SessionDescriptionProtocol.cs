@@ -76,7 +76,7 @@ namespace Media.Sdp
     public sealed class SessionDescription : Common.BaseDisposable
     {
         #region Statics
-        
+
         public const string MimeType = "application/sdp";
 
         public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
@@ -1095,6 +1095,11 @@ namespace Media.Sdp
         }
     }
 
+    public static class TimeDescriptionExtensions
+    {
+
+    }
+
     //public class SessionAnnouncement
     //{
     //    /*
@@ -1250,7 +1255,7 @@ namespace Media.Sdp
       
     }
 
-    //Public? TryRegisterLineImplementation
+    //Public? TryRegisterLineImplementation, TypeCollection
 
     #region Internal Line Types
    

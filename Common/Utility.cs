@@ -93,7 +93,7 @@ namespace Media
             CheckIPVersion(ipAddress, mask, out addressBytes, out maskBytes);
 
             byte[] resultBytes = new byte[addressBytes.Length];
-            for (int i = 0; i < addressBytes.Length; ++i)
+            for (int i = 0, e = addressBytes.Length; i < e; ++i)
             {
                 resultBytes[i] = (byte)(addressBytes[i] & maskBytes[i]);
             }
@@ -122,12 +122,32 @@ namespace Media
             {
                 return false;
             }
-            bool onIntranet = IPAddress.IsLoopback(ipAddress);
-            onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask1)); //10.255.255.255
-            onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4)); ////192.168.255.255
 
-            onIntranet = onIntranet || (intranetMask2.Equals(ipAddress.And(intranetMask2))
-              && ipAddress.Equals(ipAddress.And(intranetMask3)));
+            bool onIntranet = IPAddress.IsLoopback(ipAddress);
+
+            if (false == onIntranet)
+            {
+                //Handle IPv6 by getting the IPv4 Mapped Address. 
+                if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                {
+
+                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1.MapToIPv6())); //10.255.255.255
+                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4.MapToIPv6())); ////192.168.255.255
+
+                    onIntranet = onIntranet || (intranetMask2.Equals(ipAddress.And(intranetMask2.MapToIPv6()))
+                      && ipAddress.Equals(ipAddress.And(intranetMask3.MapToIPv6())));
+                }
+                else
+                {
+                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1)); //10.255.255.255
+                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4)); ////192.168.255.255
+
+                    onIntranet = onIntranet || (intranetMask2.Equals(ipAddress.And(intranetMask2))
+                      && ipAddress.Equals(ipAddress.And(intranetMask3)));
+                }
+                
+                
+            }
 
             return onIntranet;
         }

@@ -955,6 +955,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                     int offset = 0;
                                     jpegStream.Read(data, offset, CodeSize);
 
+                                    //If this is a SOF2 (progressive) marker the type should be set appropraitely.
+
                                     //@0 - Sample precision – Specifies the precision in bits for the samples of the components in the frame (1)
                                     ++offset;
 
@@ -1977,6 +1979,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     {
                         //Handle the abort
                         System.Threading.Thread.ResetAbort();
+
+                        Stop();
 
                         return;
                     }

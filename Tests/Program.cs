@@ -650,7 +650,8 @@ namespace Tests
                     Uri = "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                },
+                }, 
+                //Todo Test against REAL-RTSP and MS-RTSP Servers
                 new
                 {
                     Uri = "rtsp://127.0.0.1/live/screen",
@@ -742,8 +743,8 @@ namespace Tests
                     
                 };
 
-                //Loop 65535 times
-                foreach (var testIndex in Enumerable.Range(ushort.MinValue, ushort.MaxValue))
+                //Loop 255 times
+                foreach (var testIndex in Enumerable.Range(byte.MinValue, byte.MaxValue))
                 {
 
                     //reset rtsp count
@@ -2406,7 +2407,7 @@ namespace Tests
 
             Console.WriteLine(output);
 
-            request = Media.Rtsp.RtspMessage.FromString("GET_PARAMETER / RTSP/1.0\n\nTest:Value\n\n");
+            request = Media.Rtsp.RtspMessage.FromString("GET_PARAMETER * RTSP/1.0\n\nTest:Value\n\n");
 
             output = request.ToString();
 
@@ -2415,7 +2416,7 @@ namespace Tests
                 request.Version != 1.0 && 
                 request.HeaderCount != 1 &&
                 request.GetHeader("Test") != "Value" &&
-                output != "GET_PARAMETER / RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid request");
+                output != "GET_PARAMETER * RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid request");
 
             Console.WriteLine(output);
 
@@ -2456,6 +2457,20 @@ namespace Tests
                 response.CSeq != 302 &&
                 response.HeaderCount != 2 &&
                 output.Length <= response.Length) throw new Exception("Invalid response output length");
+
+            Console.WriteLine(output);
+
+            response = Media.Rtsp.RtspMessage.FromString("RTSP/1.0 551 Option not supported\nCSeq: 302\nUnsupported: funky-feature\nContent-Length:24\r\n\rBody Data ! 1234567890-ABCDEF\r\n");
+
+            output = response.ToString();
+
+            if (response.MessageType != Media.Rtsp.RtspMessageType.Response &&
+                response.Version != 1.0 &&
+                response.StatusCode != Media.Rtsp.RtspStatusCode.OptionNotSupported &&
+                response.CSeq != 302 &&
+                response.HeaderCount != 2 &&
+                output.Length <= response.Length ||
+                response.Body.Length != 24) throw new Exception("Invalid response output length");
 
             Console.WriteLine(output);
         }
@@ -2582,8 +2597,8 @@ namespace Tests
             //If There was a location given
             if (Console.ReadKey().Key == ConsoleKey.Q) return;
 
-            //Using a new Media.RtspClient optionally with a specified buffer size (Should be at least the Mtu) by adding it below
-            using (client = new Media.Rtsp.RtspClient(location, protocol))
+            //Using a new Media.RtspClient optionally with a specified buffer size (0 indicates use the MTU if possible)
+            using (client = new Media.Rtsp.RtspClient(location, protocol, 0))
             {
                 //Use the credential specified
                 if (cred != null) client.Credential = cred;
@@ -2603,8 +2618,14 @@ namespace Tests
                         {
                             Console.WriteLine("\t*****************\nConnected to :" + client.Location);
                             Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
-                            if(false == client.IsPlaying) client.StartPlaying();
-                            Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
+                            if (false == client.IsPlaying)
+                            {
+                                Console.WriteLine("\t*****************\nStarting Playback of :" + client.Location);
+
+                                client.StartPlaying();
+
+                                Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
+                            }
                         }
                         catch (Exception ex) { writeError(ex); shouldStop = true; }
                     };
@@ -2814,7 +2835,7 @@ namespace Tests
                     client.Connect();
 
                     //Indicate waiting and commands the program accepts
-                    Console.WriteLine("Waiting for connection. Press Q to exit\r\nPress K to send KeepAlive\r\nPress D to DisconnectSocket\r\nPress A to Attach events for packets\r\nPress E to Detach packet events\r\nPress I to Attach Interleaved events\r\nPress U to Detach Interleaved events");
+                    Console.WriteLine("Waiting for connection. Press Q to exit\r\nPress K to send KeepAlive\r\nPress D to DisconnectSocket\r\nPress C to Connect\r\nPress A to Attach events for packets\r\nPress E to Detach packet events\r\nPress I to Attach Interleaved events\r\nPress U to Detach Interleaved events\r\nPress P to send a Partial GET_PARAMETER\r\nPress L to RemoveSession\r\nPress X to send Wildcard DESCRIBE.");
 
                     TimeSpan playingfor = TimeSpan.Zero;
 
@@ -2870,7 +2891,7 @@ namespace Tests
                             {
                                 case ConsoleKey.R:
                                     {
-                                        Console.WriteLine("Repeating Test:" + (repeatTest = !repeatTest));
+                                        Console.WriteLine("Repeating Test:" + (repeatTest = false == repeatTest));
 
                                         continue;
                                     }
@@ -2891,6 +2912,14 @@ namespace Tests
 
                                             Console.WriteLine("Events Attached.");
                                         }
+
+                                        continue;
+                                    }
+                                case ConsoleKey.C:
+                                    {
+                                        Console.WriteLine("Connecting Client Socket");
+
+                                        client.Connect();
 
                                         continue;
                                     }
@@ -2951,6 +2980,81 @@ namespace Tests
                                         client.SendKeepAlive(null);
                                         
                                         continue;
+                                    }
+                                case ConsoleKey.P:
+                                    {
+
+                                        if (false == client.IsConnected)
+                                        {
+                                            Console.WriteLine("Client Not Connected, Connect First!");
+
+                                            continue;
+                                        }
+
+                                        Console.WriteLine("Sending Partial GET_PARAMETER");
+                                        using (Media.Rtsp.RtspMessage get = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request)
+                                        {
+                                            Method = Media.Rtsp.RtspMethod.GET_PARAMETER,
+                                            Location = Media.Rtsp.RtspMessage.Wildcard                                            
+                                        })
+                                        {
+
+                                            get.SetHeader("Session", client.SessionId);
+
+                                            byte[] buffer = new byte[Utility.Random.Next(0, Media.Rtsp.RtspMessage.MaximumLength)];
+
+                                            Utility.Random.NextBytes(buffer);
+
+                                            get.Body = get.Encoding.GetString(buffer);
+
+                                            get.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, "binary");
+
+                                            int max = get.Length, toSend = Utility.Random.Next(client.m_Buffer.Count);
+
+                                            if (toSend == max) using (client.SendRtspRequest(get)) ;
+                                            else
+                                            {
+                                                int sent = 0;
+                                                //Send only some of the data
+                                                do sent = client.m_RtspSocket.Send(buffer);
+                                                while (sent == 0);
+
+                                                //Send the real request
+                                                using (client.SendRtspRequest(get)) ;
+                                            }
+                                            
+                                        }
+
+                                        continue;
+                                    }
+                                case ConsoleKey.L:
+                                    {
+                                        //Indicate the session is being removed
+                                        Console.WriteLine("Removing Session");
+
+                                        //Send the TEARDOWN with a WildcardLocation.
+                                        client.RemoveSession(null);
+
+                                        break;
+                                    }
+                                case ConsoleKey.X:
+                                    {
+                                        Console.WriteLine("Sending DESCRIBE Wildcard");
+
+                                        using (Media.Rtsp.RtspMessage describe = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request)
+                                        {
+                                            Method = Media.Rtsp.RtspMethod.DESCRIBE,
+                                            Location = Media.Rtsp.RtspMessage.Wildcard
+                                        })
+                                        {
+
+                                            describe.SetHeader("Session", client.SessionId);
+
+                                            //Send the real request
+                                            using (client.SendRtspRequest(describe)) ;
+
+                                        }
+                                        break;
                                     }
                                 case ConsoleKey.Q:
                                     {
@@ -3971,6 +4075,8 @@ a=control:track2");
                 Console.WriteLine("Press 'C' to See how many clients are connected.");
                 if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
 
+                //SUB TEST LOAD ON SAME PROC has UNKNOWNS
+
                 while (true)
                 {
                     ConsoleKeyInfo keyInfo = Console.ReadKey(true);
@@ -4035,15 +4141,14 @@ a=control:track2");
         {
             //100 times about a GB in total
 
-            //Get the Degrees Of Parallelism
-            int dop = 0;
+            //Get the Degrees Of Parallelism (Shuld be based on ProcessorCount)
+            int dop = Environment.ProcessorCount;
 
-            if (server == null) dop = 1024;
-            else
+            if(server != null)
             {
-                if (server.HttpEnabled) dop *= 2;
-                if (server.UdpEnabled) dop *= 2;
-                dop *= 3;//Tcp
+                if (server.HttpEnabled) dop /= 2;
+                if (server.UdpEnabled) dop /= 2;
+                dop /= 2;//Tcp
             }
 
             //Test the server
@@ -4111,7 +4216,7 @@ a=control:track2");
 
                     if (server != null)
                     {
-                        uri = "rtsp://127.0.0.1/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count() - 1)).First().Name;
+                        uri = "rtsp://127.0.0.1/live/" + server.MediaStreams.Skip(Utility.Random.Next(0, server.MediaStreams.Count() - 2)).First().Name;
                     }
 
                     //Use Media.Rtsp / Tcp

@@ -232,6 +232,8 @@ namespace Media.Rtp
             get { return PointerToLast10Bytes.Count < 10; }
         }
 
+        public int Size { get { return RFC3550.CommonHeaderBits.Size + PointerToLast10Bytes.Count; } }
+
         /// <summary>
         /// Gets or Sets the unsigned 16 bit SequenceNumber field in the RtpHeader.
         /// </summary>
@@ -465,7 +467,6 @@ namespace Media.Rtp
         public static bool operator !=(RtpHeader a, RtpHeader b) { return !(a == b); }
 
         #endregion
-
     }
 
     #endregion

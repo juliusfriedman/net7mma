@@ -69,12 +69,12 @@ namespace Media.Rtcp
         /// Maps the PayloadType field to the implementation which best represents it.
         /// Derived instance which can be instantied are found in this collection after <see cref="MapDerivedImplementations"/> is called.
         /// </summary>
-        internal protected static System.Collections.Concurrent.ConcurrentDictionary<byte, Type> ImplementationMap = new System.Collections.Concurrent.ConcurrentDictionary<byte, Type>();
+        internal protected static Dictionary<byte, Type> ImplementationMap = new Dictionary<byte, Type>();
 
         /// <summary>
         /// Provides a collection of abstractions which dervive from RtcpPacket, e.g. RtcpReport.
         /// </summary>
-        internal protected static System.Collections.Concurrent.ConcurrentBag<Type> Abstractions = new System.Collections.Concurrent.ConcurrentBag<Type>();
+        internal protected static HashSet<Type> Abstractions = new HashSet<Type>();
 
         /// <summary>
         /// Parses all RtcpPackets contained in the array using the given paramters.
@@ -650,7 +650,7 @@ namespace Media.Rtcp
                     }
 
                     //Obtain the field mapped to the derviedType which corresponds to the PayloadTypeField defined by the RtcpPacket implementation.
-                    var payloadTypeField = derivedType.GetField(PayloadTypeField);
+                    System.Reflection.FieldInfo payloadTypeField = derivedType.GetField(PayloadTypeField);
 
                     //If the field exists then try to map it, the field should be instance and have the attributes Static and Literal
                     if (payloadTypeField != null)
@@ -659,7 +659,7 @@ namespace Media.Rtcp
                         byte payloadType = (byte)((int)payloadTypeField.GetValue(derivedType));
 
                         //if the mapping was not successful and the debbuger is attached break.
-                        if (!TryMapImplementation(payloadType, derivedType) && System.Diagnostics.Debugger.IsAttached)
+                        if (false == TryMapImplementation(payloadType, derivedType) && System.Diagnostics.Debugger.IsAttached)
                         {
                             //Another type was already mapped to the given payloadTypeField
                             System.Diagnostics.Debugger.Break();
@@ -677,14 +677,15 @@ namespace Media.Rtcp
         /// <returns>The result of adding the implemention to the InstanceMap</returns>
         internal static bool TryMapImplementation(byte payloadType, Type implementation)
         {
+            Exception any;
             return payloadType > default(byte) &&
             implementation != null &&
-            !implementation.IsAbstract &&
+            false == implementation.IsAbstract &&
             implementation.IsSubclassOf(RtcpPacketType)
-                ? ImplementationMap.TryAdd(payloadType, implementation) : false;
+                ? Media.Common.Collections.DictionaryExtensions.TryAdd(ImplementationMap, payloadType, implementation, out any) : false;
         }
 
-        internal static bool TryUnMapImplementation(byte payloadType, out Type implementation) { implementation = null;  return payloadType > default(byte) && ImplementationMap.TryRemove(payloadType, out implementation); }
+        internal static bool TryUnMapImplementation(byte payloadType, out Type implementation) { implementation = null; Exception any; return payloadType > default(byte) && Media.Common.Collections.DictionaryExtensions.TryRemove(ImplementationMap, payloadType, out implementation, out any); }
 
         #endregion
 
@@ -696,13 +697,13 @@ namespace Media.Rtcp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (IsDisposed || !ShouldDispose) return;
+            if (IsDisposed || false == ShouldDispose) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.IsDisposed)
+            if (m_OwnsHeader && Header != null && false == Header.IsDisposed)
             {
                 //Dispose it
                 Header.Dispose();
@@ -720,7 +721,6 @@ namespace Media.Rtcp
             //The private data goes away after calling Dispose
             m_OwnedOctets = null;
         }
-
 
         public override bool Equals(object obj)
         {
