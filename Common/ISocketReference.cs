@@ -13,6 +13,7 @@ namespace Media.Common
     {
         /// <summary>
         /// The <see cref="System.Net.Sockets"/> which belong to this instance.
+        /// Should never contain a 'null' socket.
         /// </summary>
         IEnumerable<System.Net.Sockets.Socket> GetReferencedSockets();
     }
@@ -26,7 +27,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                if (s != null) s.ReceiveBufferSize = Utility.Clamp(size, 0, int.MaxValue);
+                s.ReceiveBufferSize = Utility.Clamp(size, 0, int.MaxValue);
             }
         }
 
@@ -34,7 +35,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                if (s != null) s.SendBufferSize = Utility.Clamp(size, 0, int.MaxValue);
+                s.SendBufferSize = Utility.Clamp(size, 0, int.MaxValue);
             }
         }
 
@@ -43,7 +44,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                if (s != null) s.ReceiveTimeout = timeoutMsec;
+                s.ReceiveTimeout = timeoutMsec;
             }
         }
 
@@ -51,7 +52,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                if (s != null) s.SendTimeout = timeoutMsec;
+                s.SendTimeout = timeoutMsec;
             }
         }
 

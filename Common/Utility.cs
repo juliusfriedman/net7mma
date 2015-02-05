@@ -64,6 +64,31 @@ namespace Media
 
         public static TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
 
+        public static void TryWaitAndDispose(ref System.Threading.WaitHandle handle)
+        {
+
+            if (handle == null) return;
+
+            try
+            {
+                handle.WaitOne();
+            }
+            catch(ObjectDisposedException)
+            {
+                return;
+            }
+            catch(Exception ex)
+            {
+                Common.ExceptionExtensions.TryRaiseTaggedException(handle, "An exception occured while waiting.", ex);
+            }
+            finally
+            {
+                if(handle != null) handle.Dispose();
+            }
+
+            handle = null;
+        }
+
         #region Extensions
 
         public static IEnumerable<T> Yield<T>(this T t) { yield return t; }
@@ -297,7 +322,7 @@ namespace Media
                     char c = input[offset];
 
                     //If its the sign
-                    if (c == sign)
+                    if (sign.HasValue && c == sign)
                     {
                         //If it was not found already
                         if (false == foundSign)
@@ -376,7 +401,7 @@ namespace Media
 
         #region Static Helper Functions        
 
-        public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
+        public static void TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
         {
             //If the worker IsAlive and has the requested state.
             if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))

@@ -81,9 +81,11 @@ namespace Media.Sdp
 
         public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
 
-        internal const string CR = "\r", LF = "\n", CRLF = CR + LF;
+        internal static string LF = new string((char)Common.ASCII.LineFeed, 1), CR = new string((char)Common.ASCII.NewLine, 1), CRLF = CR + LF;
 
         internal static string[] ColonSplit = new string[] { Colon.ToString() }, CRLFSplit = new string[] { CRLF };
+
+        internal static char[] SlashSplit = new char[] { (char)Common.ASCII.ForwardSlash };
 
         internal static string TrimLineValue(string value) { return string.IsNullOrWhiteSpace(value) ? value : value.Trim(); }
 
@@ -410,7 +412,7 @@ namespace Media.Sdp
         {
             string[] lines = sdpContents.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries);
 
-            if (lines.Length < 3) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Session Description");
+            if (lines.Length < 3) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Session Description");
 
             //Parse remaining optional entries
             for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
@@ -584,9 +586,6 @@ namespace Media.Sdp
 
             m_MediaDescriptions.ForEach(md => buffer.Append(md.ToString(this)));
 
-            //End of SDP
-            buffer.Append(CRLF);
-
             //Strings in .Net are Unicode code points ( subsequently the characters only are addressable by their 16 bit code point representation).
             return buffer.ToString();
         }
@@ -726,12 +725,12 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (!sdpLine.StartsWith("m=")) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
+            if (!sdpLine.StartsWith("m=")) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Media Description");
             else sdpLine = sdpLine.Replace("m=", string.Empty);
 
             string[] parts = sdpLine.Split(SessionDescription.Space);
 
-            if (parts.Length != 4) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Media Description");
+            if (parts.Length != 4) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Media Description");
 
             try
             {
@@ -784,6 +783,11 @@ namespace Media.Sdp
         internal void RemoveLine(int index)
         {
             m_Lines.RemoveAt(index);
+        }
+
+        public override string ToString()
+        {
+            return ToString(null);
         }
 
         public string ToString(SessionDescription sdp = null)
@@ -972,7 +976,7 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (sdpLine[0] != TimeDescriptionType) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Time Description");
+            if (sdpLine[0] != TimeDescriptionType) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Time Description");
 
             sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1069,7 +1073,7 @@ namespace Media.Sdp
                 }
                 catch (Exception ex)
                 {
-                    Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid Repeat Time", ex);
+                    Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Repeat Time", ex);
                 }
             }
 
@@ -1092,6 +1096,11 @@ namespace Media.Sdp
             foreach (string repeatTime in RepeatTimes)
                 result += RepeatTimeType.ToString() + Sdp.SessionDescription.EqualsSign.ToString() + repeatTime + SessionDescription.CRLF;
             return result;
+        }
+
+        public override string ToString()
+        {
+            return ToString(null);
         }
     }
 
@@ -1232,7 +1241,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line.Length < 2 || line[1] != SessionDescription.EqualsSign) Common.ExceptionExtensions.CreateAndRaiseException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line.Length < 2 || line[1] != SessionDescription.EqualsSign) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -1297,7 +1306,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != VersionType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Version Line");
+                    if (sdpLine[0] != VersionType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Version Line");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1376,7 +1385,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != OriginatorType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Owner");
+                    if (sdpLine[0] != OriginatorType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Owner");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1429,7 +1438,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != NameType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Session Name");
+                    if (sdpLine[0] != NameType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Session Name");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1479,7 +1488,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != PhoneType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid PhoneNumber");
+                    if (sdpLine[0] != PhoneType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid PhoneNumber");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1528,7 +1537,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != EmailType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Email");
+                    if (sdpLine[0] != EmailType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Email");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1599,7 +1608,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != LocationType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Uri");
+                    if (sdpLine[0] != LocationType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Uri");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1634,14 +1643,16 @@ namespace Media.Sdp
             {
                 get
                 {
-                    if (!string.IsNullOrWhiteSpace(Address))
+                    if (false == string.IsNullOrWhiteSpace(Address))
                     {
-                        var parts = Address.Split('/');
+                        var parts = Address.Split(SessionDescription.SlashSplit, 2);
                         return parts.First();
                     }
                     return null;
                 }
             }
+
+            
 
             public int? Hops
             {
@@ -1649,7 +1660,7 @@ namespace Media.Sdp
                 {
                     if (!string.IsNullOrWhiteSpace(Address))
                     {
-                        var parts = Address.Split('/');
+                        var parts = Address.Split(SessionDescription.SlashSplit, 3);
                         if (parts.Length > 2)
                         {
                             return int.Parse(parts.Skip(1).First(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
@@ -1665,7 +1676,7 @@ namespace Media.Sdp
                 {
                     if (!string.IsNullOrWhiteSpace(Address)) 
                     {
-                        var parts = Address.Split('/');
+                        var parts = Address.Split(SessionDescription.SlashSplit, 3);
                         if (parts.Length > 2)
                         {
                             return int.Parse(parts.Last(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
@@ -1697,7 +1708,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != ConnectionType) Common.ExceptionExtensions.CreateAndRaiseException(this, "Invalid Session Connection Line");
+                    if (sdpLine[0] != ConnectionType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Session Connection Line");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 

@@ -97,7 +97,7 @@ namespace Media.Common
         {
             for (int i = 0;  i < m_Length; ++i)
             {
-                yield return m_Array[m_Offset + i];
+                yield return m_Array[m_Offset + i]; //this[i]
             }
         }
 

@@ -311,7 +311,7 @@ namespace Media.Rtp
                     }
                 }
 
-                //Should chyeck Coefficients is > profileHeaderSize ?
+                //Should chyeck PayloadData is > profileHeaderSize ?
 
                 sequence = sequence.Concat(packet.PayloadData.Skip(profileHeaderSize));
             }
