@@ -26,4 +26,14 @@ namespace Media.Common
 
         //Notice, Fatal, Information(al)/WhoCares
     }
+
+    public static class ILoggingExtensions
+    {
+        public static void Log(this ILogging log, string message)
+        {
+            if (log == null) return;
+
+            log.Log(message);
+        }
+    }
 }
