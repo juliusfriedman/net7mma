@@ -24,7 +24,7 @@ namespace Media.Common
             foreach (var tp in reference.GetReferencedThreads())
             {
                 System.Threading.Thread t = tp;
-                Utility.Abort(ref t, System.Threading.ThreadState.Running, timeoutSec);
+                Utility.TryAbort(ref t, System.Threading.ThreadState.Running, timeoutSec);
             }
         }
     }

@@ -61,20 +61,6 @@ namespace Media.Rtsp
         //Milliseconds
         internal const int DefaultSendTimeout = 500;
 
-        #region Nested Types
-
-        /// <summary>
-        /// Encapsulated exceptions thrown from a RtspServer
-        /// </summary>
-        public class RtspServerException : Exception
-        {
-            public RtspServerException(string message) : base(message) { }
-
-            public RtspServerException(string message, Exception inner  ) : base(message, inner) { }
-        }
-        
-        #endregion
-
         #region Fields
 
         DateTime? m_Started;
@@ -96,7 +82,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The maximum number of clients allowed to be connected at one time.
         /// </summary>
-        int m_MaximumClients = short.MaxValue; //32767
+        int m_MaximumConnections = short.MaxValue; //32767
 
         /// <summary>
         /// The version of the Rtsp protocol in use by the server
@@ -212,7 +198,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The maximum amount of connected clients
         /// </summary>
-        public int MaximumClients { get { return m_MaximumClients; } set { if (value <= 0) throw new ArgumentOutOfRangeException(); m_MaximumClients = value; } }
+        public int MaximumConnections { get { return m_MaximumConnections; } set { if (value <= 0) throw new ArgumentOutOfRangeException(); m_MaximumConnections = value; } }
 
         /// <summary>
         /// The amount of time the server has been running
@@ -300,7 +286,7 @@ namespace Media.Rtsp
             }
         }
 
-        public int ConnectedClients { get { return m_Clients.Count; } }
+        public int ActiveConnections { get { return m_Clients.Count; } }
 
         public Rtsp.Server.RtspServerLogger Logger { get; set; }
 
@@ -342,7 +328,8 @@ namespace Media.Rtsp
         public RtspServer(IPEndPoint listenEndPoint)
         {
             RtspClientInactivityTimeout = TimeSpan.FromSeconds(60);
-            ServerName = "ASTI Media Server RTSP/" + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture);
+            //NO / ... Because apparently some values are not allowed in the ServerName in MOST implementation (not this one)
+            ServerName = "ASTI Media Server RTSP " + Version.ToString(RtspMessage.VersionFormat, System.Globalization.CultureInfo.InvariantCulture);
             m_ServerEndPoint = listenEndPoint;
             m_ServerIP = listenEndPoint.Address;
             m_ServerPort = listenEndPoint.Port;
@@ -368,7 +355,7 @@ namespace Media.Rtsp
                 }
                 catch (Exception ex)
                 {
-                    throw new RtspServerException("Error Enabling Http on Port '" + port + "' : " + ex.Message, ex);
+                    throw new Exception("Error Enabling Http on Port '" + port + "' : " + ex.Message, ex);
                 }
             }
         }
@@ -403,7 +390,7 @@ namespace Media.Rtsp
                 }
                 catch (Exception ex)
                 {
-                    throw new RtspServerException("Error Enabling Udp on Port '" + port + "' : " + ex.Message, ex);
+                    throw new Exception("Error Enabling Udp on Port '" + port + "' : " + ex.Message, ex);
                 }
             }
         }
@@ -844,7 +831,7 @@ namespace Media.Rtsp
             m_TcpServerSocket.Bind(m_ServerEndPoint);
 
             //Set the backlog
-            m_TcpServerSocket.Listen(MaximumClients);
+            m_TcpServerSocket.Listen(m_MaximumConnections);
 
             //Set the recieve timeout
             m_TcpServerSocket.ReceiveTimeout = DefaultReceiveTimeout;
@@ -864,7 +851,7 @@ namespace Media.Rtsp
             m_ServerThread.Start();
 
             //Timer for maintaince
-            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Utility.InfiniteTimeSpan);
+            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 4), Utility.InfiniteTimeSpan);
 
             if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
             if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
@@ -938,7 +925,7 @@ namespace Media.Rtsp
             //Stop listening for new clients
             m_StopRequested = true;
 
-            Common.ILoggingExtensions.Log(Logger, "Connected Clients:" + ConnectedClients);
+            Common.ILoggingExtensions.Log(Logger, "Connected Clients:" + ActiveConnections);
             Common.ILoggingExtensions.Log(Logger, "Server Stopped @ " + DateTime.UtcNow);
             Common.ILoggingExtensions.Log(Logger, "Uptime:" + Uptime);
             Common.ILoggingExtensions.Log(Logger, "Sent:" + m_Sent);
@@ -970,7 +957,7 @@ namespace Media.Rtsp
             }
 
             //Abort the worker from receiving clients
-            if (IsRunning) Utility.Abort(ref m_ServerThread);
+            if (IsRunning) Utility.TryAbort(ref m_ServerThread);
 
             //Dispose the server socket
             if (m_TcpServerSocket != null)
@@ -1055,7 +1042,7 @@ namespace Media.Rtsp
                 while (IsRunning)
                 {
                     //If we can accept
-                    if (m_StopRequested == false && m_Clients.Count < m_MaximumClients)
+                    if (m_StopRequested == false && m_Clients.Count < m_MaximumConnections)
                     {
                         //Start acceping with a 0 size buffer
                         IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
@@ -1330,7 +1317,7 @@ namespace Media.Rtsp
                             case RtspMessageType.Request:
                                 {
                                     //If the request is complete now then process it
-                                    if (request.IsComplete)
+                                    if (session.LastRequest.IsComplete)
                                     {
                                         //Process the request (it may not be complete yet)
                                         ProcessRtspRequest(session.LastRequest, session);
@@ -1899,16 +1886,20 @@ namespace Media.Rtsp
                     //Oops
                     //if (session.m_RtspSocket.ProtocolType == ProtocolType.Tcp && session.Attached.Count > 0) response.SetHeader("Ignore", "$0\09\r\n$\0:\0");
 
+                    //Dispose the last response
+                    if (session.LastResponse != null) session.LastResponse.Dispose();
+
+                    //Todo
+                    //Content-Encoding should be the same as the request's if possible..
+
                     //If sending a response
                     if (sendResponse)
                     {
-                        //Dispose the last response
-                        if (session.LastResponse != null) session.LastResponse.Dispose();
-
                         //Log response
                         if (Logger != null) Logger.LogResponse(message, session);
 
                         session.SendRtspData((session.LastResponse = message).ToBytes());
+
                     }//Otherwise just update the property
                     else session.LastResponse = message;
 
@@ -2272,17 +2263,33 @@ namespace Media.Rtsp
                 return;
             }
 
-            RtspMessage resp = session.ProcessPlay(request, found);
-            //Send the response to the client
-            ProcessSendRtspMessage(resp, session, sendResponse);
+            //New method...
+            TryCreateResponse:
 
-            if (resp.StatusCode == RtspStatusCode.OK)
+            try
             {
-                //Take the range into account given.
-                session.ProcessPacketBuffer(found);
-            }
+                RtspMessage resp = session.ProcessPlay(request, found);
+                
+                //Send the response to the client
+                ProcessSendRtspMessage(resp, session, sendResponse);
 
-            resp = null;
+                if (resp.StatusCode == RtspStatusCode.OK)
+                {
+                    //Take the range into account given.
+                    session.ProcessPacketBuffer(found);
+                }
+
+                resp = null;
+            }
+            catch(Exception ex)
+            {
+                if(Logger != null) Logger.LogException(ex);
+
+                if (ex is InvalidOperationException) goto TryCreateResponse;
+
+                throw;
+
+            }
         }
 
         /// <summary>

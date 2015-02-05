@@ -41,7 +41,7 @@ namespace Tests
                     Client = null;
                 }
 
-                Media.Utility.Abort(ref ClientThreadProc);
+                Media.Utility.TryAbort(ref ClientThreadProc);
 
                 ClientThreadProc = null;
 

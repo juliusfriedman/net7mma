@@ -155,11 +155,11 @@ namespace Media.Rtsp
                 //If the session has any playing media
                 if (Playing.Count > 0)
                 {
-                    //Get thr transport
-                    Common.ISocketReference sockets = m_RtpClient;
+                    // A null or disposed client or one which is no longer connected cannot share the socket
+                    if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsConnected) return false;
 
                     //If the transport is not null and the handle is equal to the rtsp socket's handle
-                    if (sockets != null && sockets.GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
+                    if (((Common.ISocketReference)m_RtpClient).GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
                     {
                         //Indicate the socket is shared
                         return true;
@@ -220,7 +220,9 @@ namespace Media.Rtsp
 
             m_RtspSocket.SendBufferSize = 0;
 
-            m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)(m_Server.RtspClientInactivityTimeout.TotalMilliseconds / 3);
+            //m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)(m_Server.RtspClientInactivityTimeout.TotalMilliseconds / 3);
+
+            m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)RtspClient.DefaultConnectionTime.TotalMilliseconds;
 
             //Create a buffer using the size of the largest message possible without a Content-Length header.
             //This helps to ensure that partial messages are not recieved by the server from a client if possible (should eventually allow much smaller)
@@ -249,11 +251,13 @@ namespace Media.Rtsp
                 {
                     if (false == LastRecieve.IsCompleted)
                     {
-                        return;
-                        //using (var wait = LastSend.AsyncWaitHandle) wait.WaitOne();
+
+                        WaitHandle wait = LastRecieve.AsyncWaitHandle;
+
+                        Utility.TryWaitAndDispose(ref wait);
                     }
                 }
-
+                
                 //If session is disposed or the socket is shared then jump
                 if (IsDisposed || SharesSocket)
                 {
@@ -291,7 +295,10 @@ namespace Media.Rtsp
                     {
                         if (false == LastSend.IsCompleted)
                         {
-                            using (var wait = LastSend.AsyncWaitHandle) wait.WaitOne();
+
+                            WaitHandle wait = LastSend.AsyncWaitHandle;
+
+                            Utility.TryWaitAndDispose(ref wait);
                         }
                     }
                 }
@@ -659,12 +666,15 @@ namespace Media.Rtsp
             //Determine if the client wants to start playing from a specific point in time or until a specific point
             if (false == string.IsNullOrWhiteSpace(rangeHeader))
             {
-
+                
+                //TODO
                 //If the source does not support seeking then a 456 must be returned.
+                //Will require a property or convention in the SessionDescripton e.g. a=broadcast.
                 //return CreateRtspResponse(playRequest, RtspStatusCode.HeaderFieldNotValidForResource);
                     
                 string type; TimeSpan start, end;
 
+                //If parsing of the range header was successful
                 if (RtspHeaders.TryParseRange(rangeHeader, out type, out start, out end))
                 {
                     //Determine the max start time
@@ -1294,11 +1304,6 @@ namespace Media.Rtsp
 
             response.StatusCode = statusCode;
 
-            //See notes, it may be wise to give a different sequence number here
-
-            //Use the same Cseq in the response as the request (maybe -1 if not found in the request) or 0 if none can be determined.
-            response.CSeq = request != null ? request.CSeq : LastRequest != null ? LastRequest.CSeq : 0;
-
             /*
              12.4.1 400 Bad Request
 
@@ -1307,6 +1312,8 @@ namespace Media.Rtsp
            modifications [H10.4.1]. If the request does not have a CSeq header,
            the server MUST NOT include a CSeq in the response.
              */
+
+            if (request.CSeq >= 0) response.CSeq = request.CSeq;
 
             if (statusCode == RtspStatusCode.BadRequest) request.RemoveHeader(RtspHeaders.CSeq);
 
@@ -1319,7 +1326,7 @@ namespace Media.Rtsp
             //}
 
             //Include any body.
-            if (!string.IsNullOrWhiteSpace(body)) response.Body = body;
+            if (false == string.IsNullOrWhiteSpace(body)) response.Body = body;
 
             return response;
         }
@@ -1339,7 +1346,7 @@ namespace Media.Rtsp
 
             string originatorString = "ASTI-Media-Server " + sessionId + " " + sessionVersion + " IN " + (m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6 " : "IP4 " ) + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 
-            string sessionName = "ASTI Streaming Session"; // +  m_Server.ServerName + " " + stream.Name
+            string sessionName = "ASTI-Streaming-Session-" + stream.Name; // +  m_Server.ServerName + " " + stream.Name
 
             Sdp.SessionDescription sdp;
 

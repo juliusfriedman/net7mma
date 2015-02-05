@@ -141,10 +141,10 @@ namespace Media.Rtsp.Server.MediaTypes
 
         #region Constructor
 
-        public RtspSource(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = RtspMessage.MaximumLength, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, string location, RtspClient.ClientProtocolType rtpProtocolType, int bufferSize = RtspClient.DefaultBufferSize, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : this(name, location, null, AuthenticationSchemes.None, rtpProtocolType, bufferSize, specificMedia, startTime, endTime) { }
 
-        public RtspSource(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, string sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspClient.DefaultBufferSize, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : this(name, new Uri(sourceLocation), credential, authType, rtpProtocolType, bufferSize, specificMedia, startTime, endTime)
         {
             //Check for a null Credential and UserInfo in the Location given.
@@ -164,7 +164,7 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
-        public RtspSource(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = 8192, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
+        public RtspSource(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspClient.DefaultBufferSize, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
             : base(name, sourceLocation)
         {
             //Create the listener if we are the top level stream (Parent)

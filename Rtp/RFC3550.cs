@@ -58,7 +58,7 @@ namespace Media
 
         public static int Random32(int type = 0)
         {
-
+            #region Reference
             /*
                gettimeofday(&s.tv, 0);
                uname(&s.name);
@@ -70,15 +70,6 @@ namespace Media
                s.gid  = getgid();
              */
 
-            byte[] structure = BitConverter.GetBytes(type).//int     type;
-                Concat(BitConverter.GetBytes(DateTime.UtcNow.Ticks)).Concat(BitConverter.GetBytes(Environment.TickCount)).//struct  timeval tv;
-                Concat(BitConverter.GetBytes(TimeSpan.TicksPerMillisecond)).//clock_t cpu;
-                Concat(BitConverter.GetBytes(System.Diagnostics.Process.GetCurrentProcess().Id)).//pid_t   pid;
-                Concat(BitConverter.GetBytes(42)).//u_long  hid;
-                Concat(BitConverter.GetBytes(7)).//uid_t   uid;
-                Concat(Guid.NewGuid().ToByteArray()).//gid_t   gid;
-                Concat(System.Text.Encoding.Default.GetBytes(Environment.OSVersion.VersionString)).ToArray();//struct  utsname name;
-
             //UtsName equivelant information would be
 
             //char  sysname[]  name of this implementation of the operating system
@@ -87,18 +78,33 @@ namespace Media
             //char  version[]  current version level of this release
             //char  machine[]  name of the hardware type on which the system is running
 
-            //Perform MD5 on structure per 3550
-            byte[] digest;
+            #endregion
             
-            using(var md5 = Utility.CreateMD5HashAlgorithm()) digest = md5.ComputeHash(structure);
+            using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
+            {
+                byte[] structure = BitConverter.GetBytes(type).//int     type;
+                 Concat(BitConverter.GetBytes(DateTime.UtcNow.Ticks)).Concat(BitConverter.GetBytes(Environment.TickCount)).//struct  timeval tv;
+                 Concat(BitConverter.GetBytes(TimeSpan.TicksPerMillisecond)).//clock_t cpu;
+                 Concat(BitConverter.GetBytes(currentProcess.Id)).//pid_t   pid;
+                 Concat(System.Text.Encoding.Default.GetBytes(Environment.MachineName)).//u_long  hid;
+                 Concat(BitConverter.GetBytes(currentProcess.SessionId)).//uid_t   uid;
+                 Concat(Guid.NewGuid().ToByteArray()).//gid_t   gid;
+                 Concat(System.Text.Encoding.Default.GetBytes(Environment.OSVersion.VersionString)).ToArray();//struct  utsname name;
 
-            //Complete hash
-            uint r = 0;
-            r ^= BitConverter.ToUInt32(digest, 0);
-            r ^= BitConverter.ToUInt32(digest, 4);
-            r ^= BitConverter.ToUInt32(digest, 8);
-            r ^= BitConverter.ToUInt32(digest, 12);
-            return (int)r;
+                //Perform MD5 on structure per 3550
+                byte[] digest;
+
+                using (var md5 = Utility.CreateMD5HashAlgorithm()) digest = md5.ComputeHash(structure);
+
+                //Complete hash
+                uint r = 0;
+                r ^= BitConverter.ToUInt32(digest, 0);
+                r ^= BitConverter.ToUInt32(digest, 4);
+                r ^= BitConverter.ToUInt32(digest, 8);
+                r ^= BitConverter.ToUInt32(digest, 12);
+                return (int)r;
+
+            }
         }
 
         public const int RtcpValidMask = 0xc000 | 0x2000 | 0xfe;
@@ -278,7 +284,7 @@ namespace Media
                     if (!hasCName && currentPacket.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket, false)) if ((hasCName = asReport.HasCName)) break;
                 }
 
-                if (hasSourceDescription && !hasCName) Common.ExceptionExtensions.CreateAndRaiseException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
+                if (hasSourceDescription && false == hasCName) Common.ExceptionExtensions.RaiseTaggedException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
 
                 yield return currentPacket;
             }

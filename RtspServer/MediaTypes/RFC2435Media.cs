@@ -1825,7 +1825,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             Ready = false;
 
-            if (m_RtpClient != null) Utility.Abort(ref m_RtpClient.m_WorkerThread);
+            if (m_RtpClient != null) Utility.TryAbort(ref m_RtpClient.m_WorkerThread);
 
             if (m_Watcher != null)
             {

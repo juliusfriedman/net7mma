@@ -13,6 +13,68 @@ namespace Media.Rtsp.Server.MediaTypes
     {
         public class RFC6295Frame : Rtp.RtpFrame
         {
+
+            #region Statics
+
+            /// <summary>
+            ///     Returns a byte-array containing a timestamp value suitable for inclusion in a MIDI command list.
+            /// </summary>
+            /// <param name="delta"></param>
+            /// <remarks>
+            ///     As per RFC 6295 (RTP-MIDI):
+            ///     A MIDI list encodes time using the following compact delta time format:
+            ///     One-Octet Delta Time:
+            ///     Encoded form: 0ddddddd
+            ///     Decoded form: 00000000 00000000 00000000 0ddddddd
+            ///     Two-Octet Delta Time:
+            ///     Encoded form: 1ccccccc 0ddddddd
+            ///     Decoded form: 00000000 00000000 00cccccc cddddddd
+            ///     Three-Octet Delta Time:
+            ///     Encoded form: 1bbbbbbb 1ccccccc 0ddddddd
+            ///     Decoded form: 00000000 000bbbbb bbcccccc cddddddd
+            ///     Four-Octet Delta Time:
+            ///     Encoded form: 1aaaaaaa 1bbbbbbb 1ccccccc 0ddddddd
+            ///     Decoded form: 0000aaaa aaabbbbb bbcccccc cddddddd
+            /// </remarks>
+            /// <returns></returns>
+            internal static byte[] GetDeltaTime(uint delta)
+            {
+                if (delta <= 0x0FFFFFFF) return Utility.Empty;
+
+                if ( /* delta > 0 && */ delta <= 0x7F)
+                    return new[]
+                           {
+                               (byte) (delta & 0x7F),
+                           };
+
+                else if ( /* delta > 0x7F && */ delta <= 0x3FFF)
+                    return new[]
+                           {
+                               (byte) (((delta & 0x3F80) >> 7) | 0x80),
+                               (byte) (delta & 0x7F),
+                           };
+
+                else if ( /* delta > 0x3FFF && */ delta <= 0x001FFFFF)
+                    return new[]
+                           {
+                               (byte) (((delta & 0x1FC000) >> 14) | 0x80),
+                               (byte) (((delta & 0x3F80) >> 7) | 0x80),
+                               (byte) (delta & 0x7F),
+                           };
+
+
+                else /* if (delta > 0x1FFFFFF && delta <= 0x0FFFFFFFF) */
+                    return new[]
+                           {
+                               (byte) (((delta & 0xFE00000) >> 21) | 0x80),
+                               (byte) (((delta & 0x1FC000) >> 14) | 0x80),
+                               (byte) (((delta & 0x3F80) >> 7) | 0x80),
+                               (byte) (delta & 0x7F),
+                           };
+            }
+
+            #endregion
+
             public RFC6295Frame(byte payloadType) : base(payloadType) { }
 
             public RFC6295Frame(Rtp.RtpFrame existing) : base(existing) { }
@@ -21,9 +83,20 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public System.IO.MemoryStream Buffer { get; set; }
 
-            public void Packetize(byte[] data, int mtu = 1500)
+            public void Packetize(int delta, byte[] command, int mtu = 1500)
             {
                 throw new NotImplementedException();
+
+                //http://winrtpmidi.codeplex.com/SourceControl/latest#src/Spring.Net.Rtp/Rtp/RtpMidiCommandListBuilder.cs
+
+                //if(delta > 0)
+
+                //var payload = GetDeltaTime((uint)delta).Concat(command);
+
+                //if (payload.Count() > mtu)
+                //{
+
+                //}
             }
 
             public void Depacketize()

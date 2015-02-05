@@ -537,6 +537,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Provides a sample implementation of what would be required to complete a RtpPacket that has the IsComplete property False.
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public virtual int CompleteFrom(System.Net.Sockets.Socket socket, Common.MemorySegment buffer)
         {
             if (IsReadOnly) throw new InvalidOperationException("Cannot modify a RtcpPacket when IsReadOnly is false.");

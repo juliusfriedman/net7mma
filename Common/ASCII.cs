@@ -16,11 +16,11 @@ namespace Media.Common
             HyphenSign = 0x2d, // -
             Comma = 0x2c, // ,
             Period = 0x2e, // .
-            ForwardSlash = 0x2F, // '\'
+            ForwardSlash = 0x2F, // '/'
             Colon = 0x3a, // :
             SemiColon = 0x3b, // ;
             AtSign = 0x40, // @
             R = 0x52, // 'R' = 82 Decimal
-            BackSlash = 0x5C; // '/'
+            BackSlash = 0x5C; // '\'
     }
 }
