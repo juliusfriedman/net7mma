@@ -21,6 +21,8 @@ namespace Media.Common
             SemiColon = 0x3b, // ;
             AtSign = 0x40, // @
             R = 0x52, // 'R' = 82 Decimal
-            BackSlash = 0x5C; // '\'
+            BackSlash = 0x5C, // '\'
+            DoubleQuote = (byte)'"',
+            SingleQuote = (byte)'\'';
     }
 }

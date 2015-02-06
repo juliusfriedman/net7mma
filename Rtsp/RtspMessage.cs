@@ -481,9 +481,11 @@ namespace Media.Rtsp
                 {
                     builder.Append(SemiColon);
 
-                    builder.Append("mode=");
+                    builder.Append("mode=\"");
 
                     builder.Append(mode);
+
+                    builder.Append((char)Common.ASCII.DoubleQuote); 
                 }
 
                 return builder.ToString();
@@ -937,7 +939,7 @@ namespace Media.Rtsp
         public const int MaximumLength = 4096;        
 
         //String which identifies a Rtsp Request or Response
-        internal const string MessageIdentifier = "RTSP";
+        public const string MessageIdentifier = "RTSP";
         
         //String which can be used to delimit a RtspMessage for preprocessing
         internal static string[] HeaderLineSplit = new string[] { CRLF };

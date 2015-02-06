@@ -56,7 +56,13 @@ namespace Media.Common
             }
         }
 
-        //
+        public static IEnumerable<System.Net.NetworkInformation.NetworkInterface> GetNetworkInterfaces(this ISocketReference reference)
+        {
+            foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
+            {
+                yield return Utility.GetNetworkInterface(s);
+            }
+        }
 
     }
 

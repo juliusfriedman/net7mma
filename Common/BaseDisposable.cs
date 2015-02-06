@@ -47,16 +47,13 @@ using System.Text;
 
 namespace Media.Common
 {
-
-    //Should define a serpate interface `IDisposableEx` which exposes IsDisposed and is IDisposable
-
-    #region BaseDisposable    
+    #region BaseDisposable
 
     /// <summary>
     /// Provides an implementation which contains the members required to adhere to the IDisposable implementation
     /// </summary>
     [CLSCompliant(true)]
-    public abstract class BaseDisposable : IDisposable
+    public abstract class BaseDisposable : IDisposed
     {
         /// <summary>
         /// Constructs a new BaseDisposable

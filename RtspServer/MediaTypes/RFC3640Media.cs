@@ -70,7 +70,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             }
 
-            public void Depacketize(bool readHeaderLength = true, int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0)
+            public void Depacketize(int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0)
             {
                 #region Expired Draft Notes
 
@@ -170,7 +170,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //From the beginning of the data in the actual payload
                     int offset = rtp.HeaderOctets, 
-                        max = rtp.Payload.Count - rtp.PaddingOctets, //until the end of the actual payload
+                        max = rtp.Payload.Count - (offset + rtp.PaddingOctets), //until the end of the actual payload
                         auIndex = 0, //Indicates the serial number of the associated Access Unit
                         auIndexDelta = 0; //The AU-Index-delta field is an unsigned integer that specifies the serial number of the associated AU as the difference with respect to the serial number of the previous Access Unit.
 
@@ -214,7 +214,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         parsedUnits = 0;
 
                     //If we are reading the Access Unit Header Length
-                    if (readHeaderLength)
+                    if (sizeLength  > 0)
                     {
                         //Then read it
                         auHeaderLength = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
@@ -223,10 +223,17 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (auHeaderLength > 0)
                         {
                             //Convert bits to bytes
+                            auHeaderLength +=7;
                             auHeaderLength /= 8;
 
                             //Move the offset
                             offset += 2;
+                            
+                            //now in bytes
+                            if (auHeaderLength > max - offset) throw new InvalidOperationException("Invalid Au Headers?");
+
+                            //move the offset
+                            offset += auHeaderLength;
                         }
                     }
 
@@ -242,8 +249,20 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     #endregion
 
+                    // Figure out how many AU-headers are present in the packet:
+                    int bitsAvail = auHeaderLength - (sizeLength + indexDeltaLength);
+
+                    int headersAvailable = 0;
+
+                    //If any bits are available AND there were any fields presents
+                    if (bitsAvail >= 0 && (sizeLength + indexDeltaLength) > 0)
+                    {
+                        //Account for the headers with the fields present.
+                        headersAvailable = 1 + bitsAvail / (sizeLength + indexDeltaLength);
+                    }
+
                     //Look for Access Units in the packet
-                    while (offset < max)
+                    while (offset < max && parsedUnits < headersAvailable)
                     {
                         //AU Headers
 

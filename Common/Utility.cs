@@ -64,7 +64,7 @@ namespace Media
 
         public static TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
 
-        public static void TryWaitAndDispose(ref System.Threading.WaitHandle handle)
+        public static void TryWaitOnHandleAndDispose(ref System.Threading.WaitHandle handle)
         {
 
             if (handle == null) return;
@@ -126,11 +126,17 @@ namespace Media
             return new IPAddress(resultBytes);
         }
 
-        private static IPAddress empty = IPAddress.Parse("0.0.0.0");
-        private static IPAddress intranetMask1 = IPAddress.Parse("10.255.255.255");
-        private static IPAddress intranetMask2 = IPAddress.Parse("172.16.0.0");
-        private static IPAddress intranetMask3 = IPAddress.Parse("172.31.255.255");
-        private static IPAddress intranetMask4 = IPAddress.Parse("192.168.255.255");
+        private static IPAddress emptyIpv4 = IPAddress.Parse("0.0.0.0");
+        private static IPAddress intranetMask1v4 = IPAddress.Parse("10.255.255.255");
+        private static IPAddress intranetMask2v4 = IPAddress.Parse("172.16.0.0");
+        private static IPAddress intranetMask3v4 = IPAddress.Parse("172.31.255.255");
+        private static IPAddress intranetMask4v4 = IPAddress.Parse("192.168.255.255");
+
+        private static IPAddress emptyIpv6 = emptyIpv4.MapToIPv6();
+        private static IPAddress intranetMask1v6 = intranetMask1v4.MapToIPv6();
+        private static IPAddress intranetMask2v6 = intranetMask2v4.MapToIPv6();
+        private static IPAddress intranetMask3v6 = intranetMask3v4.MapToIPv6();
+        private static IPAddress intranetMask4v6 = intranetMask4v4.MapToIPv6();
 
         /// <summary>
         /// Retuns true if the ip address is one of the following
@@ -143,7 +149,7 @@ namespace Media
         /// <returns></returns>
         public static bool IsOnIntranet(this IPAddress ipAddress)
         {
-            if (empty.Equals(ipAddress))
+            if (emptyIpv4.Equals(ipAddress))
             {
                 return false;
             }
@@ -156,22 +162,21 @@ namespace Media
                 if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
                 {
 
-                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1.MapToIPv6())); //10.255.255.255
-                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4.MapToIPv6())); ////192.168.255.255
+                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1v6)); //10.255.255.255
+                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4v6)); ////192.168.255.255
 
-                    onIntranet = onIntranet || (intranetMask2.Equals(ipAddress.And(intranetMask2.MapToIPv6()))
-                      && ipAddress.Equals(ipAddress.And(intranetMask3.MapToIPv6())));
+                    onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v6))
+                      && ipAddress.Equals(ipAddress.And(intranetMask3v6)));
                 }
-                else
+                else if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
                 {
-                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1)); //10.255.255.255
-                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4)); ////192.168.255.255
+                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1v4)); //10.255.255.255
+                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4v4)); ////192.168.255.255
 
-                    onIntranet = onIntranet || (intranetMask2.Equals(ipAddress.And(intranetMask2))
-                      && ipAddress.Equals(ipAddress.And(intranetMask3)));
+                    onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v4))
+                      && ipAddress.Equals(ipAddress.And(intranetMask3v4)));
                 }
-                
-                
+                else throw new NotSupportedException("Only InterNetwork and InterNetworkV6 Address Families are supported.");
             }
 
             return onIntranet;
@@ -249,7 +254,7 @@ namespace Media
 
             //Return the bytes
             return result.ToArray();
-        }
+        }       
 
         #endregion
 
@@ -267,22 +272,7 @@ namespace Media
             }
 
             return default(System.Net.NetworkInformation.NetworkInterface);
-        }
-
-        public unsafe static void TryModifyString(string toModify, int index, char newValue)
-        {
-            try
-            {
-                fixed (char* str = toModify)
-                {
-                    str[index] = newValue;
-                }
-            }
-            catch
-            {
-                throw;
-            }
-        }
+        }       
 
         public static string ExtractPrecisionNumber(string input, char sign = (char)Common.ASCII.Period)
         {

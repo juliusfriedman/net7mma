@@ -2377,6 +2377,9 @@ namespace Media.Rtsp
                 //Create the response
                 var resp = session.CreateRtspResponse(request);
 
+                //Todo 
+                //Make a RtpInfo header for each stream ending...
+
                 //Stop transport level activity if required
                 if (session.m_RtpClient != null &&
                     session.m_RtpClient.IsConnected) session.m_RtpClient.SendGoodbyes();

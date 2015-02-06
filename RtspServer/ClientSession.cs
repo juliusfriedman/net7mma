@@ -254,7 +254,7 @@ namespace Media.Rtsp
 
                         WaitHandle wait = LastRecieve.AsyncWaitHandle;
 
-                        Utility.TryWaitAndDispose(ref wait);
+                        Utility.TryWaitOnHandleAndDispose(ref wait);
                     }
                 }
                 
@@ -298,7 +298,7 @@ namespace Media.Rtsp
 
                             WaitHandle wait = LastSend.AsyncWaitHandle;
 
-                            Utility.TryWaitAndDispose(ref wait);
+                            Utility.TryWaitOnHandleAndDispose(ref wait);
                         }
                     }
                 }
@@ -1346,7 +1346,7 @@ namespace Media.Rtsp
 
             string originatorString = "ASTI-Media-Server " + sessionId + " " + sessionVersion + " IN " + (m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6 " : "IP4 " ) + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 
-            string sessionName = "ASTI-Streaming-Session-" + stream.Name; // +  m_Server.ServerName + " " + stream.Name
+            string sessionName = "ASTI-Streaming-Session-" + stream.Name;
 
             Sdp.SessionDescription sdp;
 
@@ -1364,7 +1364,7 @@ namespace Media.Rtsp
             sdp.SessionName = sessionName;
             sdp.OriginatorAndSessionIdentifier = originatorString;
 
-            string protcol = "rtsp", controlLineBase = "a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address.ToString() + "/live/" + stream.Id;
+            string protcol = RtspMessage.MessageIdentifier.ToLowerInvariant(), controlLineBase = "a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address.ToString() + "/live/" + stream.Id;
             //check for rtspu later...
 
             //Find an existing control line
@@ -1406,7 +1406,7 @@ namespace Media.Rtsp
 
             //Add the information line if not present
             //Could also overwrite it.
-            if (sdp.SessionName == null) sdp.Add(new Sdp.SessionDescriptionLine("i=" + stream.Name), false);
+            if (sdp.SessionName == null) sdp.Add(new Sdp.SessionDescriptionLine("s=" + stream.Name), false);
 
             IEnumerable<Sdp.SessionDescriptionLine> bandwithLines;
 

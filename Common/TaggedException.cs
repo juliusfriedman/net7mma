@@ -62,7 +62,7 @@ namespace Media.Common
     /// It is not marked abstract because it would be useless.
     /// </summary>
     /// <typeparam name="T">The type data in the Tag property</typeparam>
-    public class TaggedException<T> : Exception, ITaggedException, IDisposable, System.Runtime.Serialization.ISerializable
+    public class TaggedException<T> : Exception, ITaggedException, IDisposed, System.Runtime.Serialization.ISerializable
     {
         /// <summary>
         /// The string which will be used on all instances if no message was provided when instantiated.
@@ -108,7 +108,7 @@ namespace Media.Common
         /// <summary>
         /// Indicates if the Exception has been previously disposed
         /// </summary>
-        public bool Disposed { get { return m_Disposed; } protected set { m_Disposed = value; } }
+        public bool IsDisposed { get { return m_Disposed; } protected set { m_Disposed = value; } }
 
         #endregion
 

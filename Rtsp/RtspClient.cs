@@ -1439,8 +1439,8 @@ namespace Media.Rtsp
 
             List<MediaDescription> setupMedia = new List<MediaDescription>();
 
-            //For each MediaDescription in the SessionDecscription
-            foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions) //.OrderBy(md=> md.MediaType).Reverse()
+            //For each MediaDescription in the SessionDecscription (ordered by the media type) and then reversed to ensure wms rtx going first (but it doesn't seem to matter anyway)
+            foreach (Sdp.MediaDescription md in SessionDescription.MediaDescriptions)  //.OrderBy(md=> md.MediaType).Reverse()
             {
                 //Don't setup unwanted streams
                 if (mediaType.HasValue && md.MediaType != mediaType) continue;
@@ -2920,20 +2920,18 @@ namespace Media.Rtsp
                         else
                         {
                             //Handle host dropping the connection
-                            if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
-                            {
-                                DisconnectSocket();
-
-                                Connect();
-                            }
-
-                            setup.RemoveHeader(RtspHeaders.CSeq);
-
-                            setup.RemoveHeader(RtspHeaders.Timestamp);
+                            if (error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset) Reconnect();
 
                             //make another request if we didn't already try.
                             if (false == triedTwoTimes)
                             {
+                                //Use a new Sequence number
+                                setup.RemoveHeader(RtspHeaders.CSeq);
+
+                                //Use a new Timestamp
+                                setup.RemoveHeader(RtspHeaders.Timestamp);
+
+                                //Dont try again
                                 triedTwoTimes = true;
 
                                 goto Setup;
@@ -3733,7 +3731,7 @@ namespace Media.Rtsp
         public RtspMessage SendGetParameter(string body = null, string contentType = null, bool force = false)
         {
             //If the server doesn't support it
-            if (false == SupportedMethods.Contains(RtspMethod.GET_PARAMETER.ToString()) && false == force) throw new InvalidOperationException("Server does not support GET_PARAMETER.");
+            if (false == m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER.ToString()) && false == force) throw new InvalidOperationException("Server does not support GET_PARAMETER.");
 
             using (RtspMessage get = new RtspMessage(RtspMessageType.Request)
             {

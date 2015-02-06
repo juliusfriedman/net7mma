@@ -3526,7 +3526,7 @@ namespace Media.Rtp
                         if (relevent != null)
                         {                           
                             //Verify minimum and maximum packet sizes allowed by context.
-                            if (frameLength < relevent.MinimumPacketSize || frameLength > relevent.MaximumPacketSize)
+                            if (frameLength < relevent.MinimumPacketSize + sessionRequired || frameLength > relevent.MaximumPacketSize + sessionRequired)
                             {
                                 //mark as incompatible
                                 incompatible = true;
