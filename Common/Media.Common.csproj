@@ -56,11 +56,13 @@
     <Compile Include="Collections\ConcurrentThesaurus.cs" />
     <Compile Include="Collections\RingBuffer.cs" />
     <Compile Include="ExceptionExtensions.cs" />
+    <Compile Include="IDisposed.cs" />
     <Compile Include="ITaggedException.cs" />
     <Compile Include="Loggers\BaseLogger.cs" />
     <Compile Include="Loggers\ConsoleLogger.cs" />
     <Compile Include="Loggers\DebuggingLogger.cs" />
     <Compile Include="Collections\DictionaryExtensions.cs" />
+    <Compile Include="StringExtensions.cs" />
     <Compile Include="TaggedException.cs" />
     <Compile Include="Loggers\FileLogger.cs" />
     <Compile Include="Grouping.cs" />

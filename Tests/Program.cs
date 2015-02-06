@@ -3134,7 +3134,7 @@ namespace Tests
                                         Console.WriteLine("Removing Session");
 
                                         //Send the TEARDOWN with a WildcardLocation.
-                                        client.RemoveSession(null);
+                                        using (client.RemoveSession(null)) ;
 
                                         break;
                                     }
@@ -3206,6 +3206,7 @@ namespace Tests
                         {
                             Console.ForegroundColor = ConsoleColor.Yellow;
                             Console.WriteLine(ex.Message);
+                            Console.WriteLine(ex.StackTrace);
                             Console.ForegroundColor = ConsoleColor.Red;
 
                             while (Console.KeyAvailable) Console.ReadKey(true);
@@ -3316,12 +3317,17 @@ namespace Tests
 
                     Console.WriteLine(client.InternalId + " - Sent Partial(" + sent + "/" + message.Length + "): " + output);
 
+                    parsed.Dispose();
+
                     parsed = Media.Rtsp.RtspMessage.FromString(output);
 
                     Console.WriteLine(client.InternalId + " - Parsed: " + parsed);
 
                     //Send the real request with the same data
                     using (client.SendRtspMessage(message)) ;
+
+                    parsed.Dispose();
+
                 }
             }
         }

@@ -9,7 +9,7 @@ namespace Media.Common
     /// <summary>
     /// Defines an interface which allow access to an <see cref="Exception"/> and a user stored object.
     /// </summary>
-    public interface ITaggedException
+    public interface ITaggedException /*,IDisposed*/
     {
         /// <summary>
         /// <see cref="Exception.InnerException"/>.
