@@ -416,8 +416,23 @@ namespace Tests
         internal static string TestingFormat = "{0}:=>{1}";
 
         static Action[] Tests = new Action[] { 
-            TestUtility, TestBinary, TestRtpPacket, TestRtpExtension, TestRtpFrame, TestJpegFrame, TestRtcpPacket, TestRtcpPacketExamples, TestRtpTools, TestContainerImplementations, TestSdp, TestRtspMessage, TestRtspInterleavedFraming,
-            TestProcessFrameData.BackToBackRtspMessages, TestProcessFrameData.Issue17245_Case1_Iteration, TestProcessFrameData.Issue17245_Case2_Iteration
+            TestUtility, 
+            TestBinary, 
+            //Rtp
+            TestRtpPacket, TestRtpExtension, TestRtpFrame, TestRFC2435Frame, TestRFC3640Frame, 
+            //Rtcp
+            TestRtcpPacket, TestRtcpPacketExamples, 
+            TestRtpTools, 
+            TestContainerImplementations, 
+            //Sdp
+            TestSdp, 
+            //RtspMessage
+            TestRtspMessage, 
+            //RtpClient ProcessFrameData
+            TestRtspInterleavedFraming,
+            TestProcessFrameData.BackToBackRtspMessages, 
+            TestProcessFrameData.Issue17245_Case1_Iteration, 
+            TestProcessFrameData.Issue17245_Case2_Iteration
         };
 
         static string executingAssemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
@@ -693,7 +708,7 @@ namespace Tests
                 //RtspServer
                 new
                 {
-                    Uri = "rtsp://127.0.0.1/live/screen",
+                    Uri = "rtsp://127.0.0.1/live/Mirror",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -2579,6 +2594,36 @@ namespace Tests
                  response.Body != expectedBody) throw new Exception("Invalid response output length");
 
             Console.WriteLine(output);
+
+            //Check soon to be depreceated leading white space support in the headers..
+            response = Media.Rtsp.RtspMessage.FromString("RTSP/1.0 551 Option not supported\nCSeq: 302\nUnsupported: \r\n \r \n \r\nfunky-feature\nContent-Length:24\r\n\rBody Data ! 1234567890-ABCDEF\r\n");
+
+            output = response.ToString();
+
+            if (response.MessageType != Media.Rtsp.RtspMessageType.Response &&
+                response.Version != 1.0 &&
+                response.StatusCode != Media.Rtsp.RtspStatusCode.OptionNotSupported &&
+                response.CSeq != 302 &&
+                response.HeaderCount != 2 &&
+                output.Length <= response.Length ||
+                 response.Body != expectedBody) throw new Exception("Invalid response output length");
+
+            Console.WriteLine(output);
+
+            //Check corner case
+            response = Media.Rtsp.RtspMessage.FromString("RTSP/1.0 551 Option not supported\nCSeq:\t 302\nUnsupported:\r \r\n \t\r \n \r\nfunky-feature\nContent-Length:24\r\n\rBody Data ! 1234567890-ABCDEF\r\n");
+
+            output = response.ToString();
+
+            if (response.MessageType != Media.Rtsp.RtspMessageType.Response &&
+                response.Version != 1.0 &&
+                response.StatusCode != Media.Rtsp.RtspStatusCode.OptionNotSupported &&
+                response.CSeq != 302 &&
+                response.HeaderCount != 2 &&
+                output.Length <= response.Length ||
+                 response.Body != expectedBody) throw new Exception("Invalid response output length");
+
+            Console.WriteLine(output);
         }
 
         static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
@@ -3269,7 +3314,7 @@ namespace Tests
             client.SendKeepAlive(state);
         }
 
-        internal static void SendRandomPartial(Media.Rtsp.RtspClient client, Media.Rtsp.RtspMethod method = Media.Rtsp.RtspMethod.GET_PARAMETER, Uri location = null)
+        internal static void SendRandomPartial(Media.Rtsp.RtspClient client, Media.Rtsp.RtspMethod method = Media.Rtsp.RtspMethod.GET_PARAMETER, Uri location = null, string contentType = null, byte[] data = null)
         {
             if (client == null || client.IsDisposed) return;
 
@@ -3293,24 +3338,38 @@ namespace Tests
 
                 message.SetHeader(Media.Rtsp.RtspHeaders.CSeq, client.NextClientSequenceNumber().ToString());
 
-                byte[] buffer = new byte[Utility.Random.Next(0, Media.Rtsp.RtspMessage.MaximumLength)];
+                byte[] buffer;
+                
+                if(data == null)
+                {
+                    buffer = new byte[Utility.Random.Next(0, Media.Rtsp.RtspMessage.MaximumLength)];
 
-                Utility.Random.NextBytes(buffer);
+                    Utility.Random.NextBytes(buffer);
 
-                message.Body = message.Encoding.GetString(buffer);
+                    message.Body = message.Encoding.GetString(buffer);
+                    
+                    message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, "application/octet-string");
+                }
+                else
+                {
+                    buffer = data;
 
-                message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, "application/octet-string");
+                    message.Encoding.GetString(data);
+
+                    message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, contentType ?? "application/octet-string");
+                }
+                
 
                 Media.Rtsp.RtspMessage parsed = Media.Rtsp.RtspMessage.FromString(message.ToString());
 
-                int max = message.Length, toSend = Utility.Random.Next(client.m_Buffer.Count);
+                int max = message.Length, toSend = Utility.Random.Next(client.Buffer.Count);
 
                 if (toSend == max) using (client.SendRtspMessage(message)) ;
                 else
                 {
                     int sent = 0;
                     //Send only some of the data
-                    do sent = client.m_RtspSocket.Send(buffer);
+                    do sent = client.RtspSocket.Send(buffer);
                     while (sent == 0);
 
                     string output = message.Encoding.GetString(message.ToBytes(), 0, sent);
@@ -4179,10 +4238,10 @@ a=control:track2");
                 //Local Stream Provided from pictures in a Directory - Exposed @ rtsp://localhost/live/PicsTcp through Tcp
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RFC2435Media("PicsTcp", localPath + "\\JpegTest\\") { Loop = true, ForceTCP = true });
 
-                Media.Rtsp.Server.MediaTypes.RFC2435Media imageStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
+                Media.Rtsp.Server.MediaTypes.RFC2435Media sampleStream = null;// new Media.Rtsp.Server.Streams.RFC2435Stream("SamplePictures", @"C:\Users\Public\Pictures\Sample Pictures\") { Loop = true };
 
                 //Expose Bandit's Pictures through Udp and Tcp
-                server.TryAddMedia(imageStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
+                server.TryAddMedia(sampleStream = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Bandit", localPath + "\\Bandit\\") { Loop = true });
 
                 //Test Experimental H.264 Encoding
                 //server.AddMedia(new Media.Rtsp.Server.Media.RFC6184Media(128, 96, "h264", localPath + "\\JpegTest\\") { Loop = true });
@@ -4194,9 +4253,10 @@ a=control:track2");
                 //server.AddMedia(new Media.Rtsp.Server.Media.JPEGMedia("HttpTestJpeg", new Uri("http://118.70.125.33:8000/cgi-bin/camera")));
                 //server.AddMedia(new Media.Rtsp.Server.Media.MJPEGMedia("HttpTestMJpeg", new Uri("http://extcam-16.se.axis.com/axis-cgi/mjpg/video.cgi?")));
 
-                Media.Rtsp.Server.MediaTypes.RFC2435Media screenShots = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Screen", null, false, 800, 600, false);
+                //Make a 1080p MJPEG Stream
+                Media.Rtsp.Server.MediaTypes.RFC2435Media mirror = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Mirror", null, false, 1920, 1080, false);
 
-                server.TryAddMedia(screenShots);
+                server.TryAddMedia(mirror);
 
                 System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
                 {
@@ -4221,7 +4281,7 @@ a=control:track2");
                                                             System.Drawing.CopyPixelOperation.SourceCopy);
 
                                 //Convert to JPEG and put in packets
-                                screenShots.Packetize(bmpScreenshot);
+                                mirror.Packetize(bmpScreenshot);
 
                                 //REST
                                 System.Threading.Thread.Sleep(50);
@@ -4248,7 +4308,7 @@ a=control:track2");
                 Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
                 Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
                 Console.WriteLine("Press 'C' to See how many clients are connected.");
-                if (imageStream != null) Console.WriteLine("Press 'F' to See statistics for " + imageStream.Name);
+                if (sampleStream != null) Console.WriteLine("Press 'F' to See statistics for " + sampleStream.Name);
 
                 //SUB TEST LOAD ON SAME PROC has UNKNOWNS
 
@@ -4270,8 +4330,8 @@ a=control:track2");
                     else if (keyInfo.Key == ConsoleKey.F)
                     {
                         Console.WriteLine("======= RFC2435 Stream Information =======");
-                        Console.WriteLine("Uptime (Seconds) :" + imageStream.Uptime.TotalSeconds);
-                        Console.WriteLine("Frames Per Second :" + imageStream.FramesPerSecond);
+                        Console.WriteLine("Uptime (Seconds) :" + sampleStream.Uptime.TotalSeconds);
+                        Console.WriteLine("Frames Per Second :" + sampleStream.FramesPerSecond);
                         Console.WriteLine("==============");
                     }
                     else if (keyInfo.Key == ConsoleKey.T)
@@ -4387,7 +4447,7 @@ a=control:track2");
                 else
                 {
 
-                    string uri = "rtsp://127.0.0.1/live/Omega";
+                    string uri = "rtsp://127.0.0.1/live/Mirror";
 
                     if (server != null)
                     {
@@ -4429,7 +4489,6 @@ a=control:track2");
                             Console.BackgroundColor = ConsoleColor.Red;
                             Console.WriteLine("Rtp / Tcp Test Failed: " + ex.Message);
                             Console.BackgroundColor = ConsoleColor.Black;
-                            return;
                         }
                     }
                 }                
@@ -4473,7 +4532,7 @@ a=control:track2");
             if (!frame.IsMissingPackets) throw new Exception("Frame is not missing packets");
         }
 
-        static void TestJpegFrame()
+        static void TestRFC2435Frame()
         {
 
             byte[][] jpegPackets = new byte[][]
@@ -4707,6 +4766,29 @@ a=control:track2");
             }
 
             
+        }
+
+        static void TestRFC3640Frame()
+        {
+
+            byte[] packetBytes = Utility.HexStringToBytes("80e114d0125d991bf875885300100f60013a542d34884316054183aa77d6456ae482549152513112007d0e726de7e7016d6dd9eb129389ba59bb5f5376c6750a2843ad22e4d0755b1c657371b4093239e166bb2fc43bd81866da766d80bfdb5ad37cfb1343334f0ae84305c7e7585585155289fa0a9867ae5594ae692edd252c23dfb9e52f784a4d7c97897750f48e9b818f364bf4f0a9e6ae54d8c6f5d01890ac32ea2de029bd55fee73b082af69ad55d44a9a8b6b5ca4648a88224a89701a890ca141ad4b05d000e854cc99226c7c319b423d947487550972a048cc6d3609f5b77cf7d9a6abeb8ae3af45c6a4c9f0cf957fdd7b57d3db90e7a8f114fc4bf432772c54e7be3568a2de58f2eebbc31e3a9cbdc4a9586934dbb73111081197f975a8ea7f02cf057af17f52665f70199f796169df1c40c9496287609522f30a9725be54fccf7b75f50ec8a232ada4f735051557b56754a16cace4af6b323efb2400d24b00442ae198316b2099b444128e32e6f148eba6192ade8e98e934497175a3bcb944a4a34c0de78b4d38b777cbb0b04e56d99ab25d56ab31b7442cd2dbdf00e5b7d0b44980aa26caadd0a15150975f1036fb1b5670060e05a41712846c197168eaeddb091562466d616460ed6f623557b8c842562293d1a361912134d0ad7a3d44eb3d3c9cbabb1b7c3262cfc8d8000000000000000000000001c");
+
+            using (Media.Rtp.RtpPacket managedPacket = new Media.Rtp.RtpPacket(packetBytes, 0))
+            {
+                using (Media.Rtp.RtpFrame managedFrame = new Media.Rtp.RtpFrame(managedPacket))
+                {
+                    using (Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame(managedFrame))
+                    {
+
+                        //a=fmtp:97 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=1588; sizeLength=13; indexLength=3; indexDeltaLength=3; profile=1; bitrate=32000;
+
+                        profileFrame.Depacketize(13, 3, 3);
+
+                        System.Console.Write(BitConverter.ToString(profileFrame.Buffer.ToArray()));
+
+                    }
+                }
+            }
         }
 
         static void RtspInspector()

@@ -78,7 +78,7 @@ namespace Media.Common
 
         #region Fields
 
-        bool m_Disposed;// = false;
+        Common.CommonDisposable m_Base = new Common.CommonDisposable(true);
 
         #endregion
 
@@ -108,7 +108,9 @@ namespace Media.Common
         /// <summary>
         /// Indicates if the Exception has been previously disposed
         /// </summary>
-        public bool IsDisposed { get { return m_Disposed; } protected set { m_Disposed = value; } }
+        public bool IsDisposed { get { return m_Base.IsDisposed; } }
+
+        public bool ShouldDispose { get { return m_Base.ShouldDispose; } }
 
         #endregion
 
@@ -173,9 +175,9 @@ namespace Media.Common
         /// </summary>
         public virtual void Dispose()
         {
-            if (m_Disposed) return;
+            if (m_Base.IsDisposed) return;
             GC.SuppressFinalize(this);
-            m_Disposed = true;            
+            m_Base.Dispose();
             //ClearData();
         }
 

@@ -272,6 +272,16 @@ namespace Media.Rtsp.Server.MediaTypes
             }
         }
 
+        public override void TrySetLogger(Common.ILogging logger)
+        {
+            try
+            {
+                //Set the rtp logger and the rtsp logger
+                RtspClient.Client.Logger = RtspClient.Logger = logger;
+            }
+            catch { }
+        }
+
         /// <summary>
         /// Stops streaming from the source
         /// </summary>

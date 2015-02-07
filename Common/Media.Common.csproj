@@ -55,8 +55,10 @@
     <Compile Include="BitWriter.cs" />
     <Compile Include="Collections\ConcurrentThesaurus.cs" />
     <Compile Include="Collections\RingBuffer.cs" />
+    <Compile Include="CommonDisposable.cs" />
     <Compile Include="ExceptionExtensions.cs" />
     <Compile Include="IDisposed.cs" />
+    <Compile Include="IPEndPointExtensions.cs" />
     <Compile Include="ITaggedException.cs" />
     <Compile Include="Loggers\BaseLogger.cs" />
     <Compile Include="Loggers\ConsoleLogger.cs" />

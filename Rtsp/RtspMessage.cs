@@ -540,6 +540,8 @@ namespace Media.Rtsp
                         {
                             case "url":
                                 {
+                                    //UriDecode?
+
                                     url = new Uri(subParts[1].Trim(), UriKind.RelativeOrAbsolute);
 
                                     continue;
@@ -615,7 +617,7 @@ namespace Media.Rtsp
         /// <returns></returns>
         public static string RtpInfoHeader(Uri url, int? seq, int? rtpTime, int? ssrc)
         {
-            return (
+            return ( //UriEncode?
                 (url != null ? "url=" + url.ToString() + SemiColon.ToString() : string.Empty)
                 + (seq.HasValue ? "seq=" + seq.Value + SemiColon.ToString() : string.Empty)
                 + (rtpTime.HasValue ? "rtptime=" + rtpTime.Value + SemiColon.ToString() : string.Empty)
@@ -1051,8 +1053,10 @@ namespace Media.Rtsp
         }
 
         #endregion
-
+        
         #region Fields
+
+        readonly byte[] m_EncodedLineEnds;
 
         double m_Version;
 
@@ -1409,14 +1413,14 @@ namespace Media.Rtsp
             }
 
             //Use the static line ends (\r\n)
-            byte[] lineEnds = LineEnds;
+            m_EncodedLineEnds = LineEnds;
 
             //use the supplied encoding if present.
             if (encoding != null && encoding != Encoding)
             {
                 Encoding = encoding;
 
-                lineEnds = Encoding.Convert(RtspMessage.DefaultEncoding, Encoding, lineEnds);
+                m_EncodedLineEnds = Encoding.Convert(RtspMessage.DefaultEncoding, Encoding, m_EncodedLineEnds);
             }
 
             //Syntax, what syntax? there is no syntax ;)
@@ -1437,7 +1441,7 @@ namespace Media.Rtsp
 
             //Find the end of the first line first,
             //If it cannot be found then the message does not contain the end line
-            firstLineLength = Utility.ContainsBytes(data, ref start, ref count, lineEnds, 0, requiredEndLength);
+            firstLineLength = Utility.ContainsBytes(data, ref start, ref count, m_EncodedLineEnds, 0, requiredEndLength);
 
             //Assume everything belongs to the first line.
             if (firstLineLength - offset > count || firstLineLength == -1 || firstLineLength < 9)
@@ -1489,7 +1493,7 @@ namespace Media.Rtsp
                     //Parse the headers and body
                     ParseBody();
                 }                
-            } //All messages must have at least a CSeq header.
+            } //All messages SHOULD have at least a CSeq header.
             //else MessageType = RtspMessageType.Invalid;
         }
 
@@ -1588,6 +1592,8 @@ namespace Media.Rtsp
 
                 MethodString = parts[0].Trim();
 
+                //UriDecode?
+
                 if (string.IsNullOrWhiteSpace(MethodString) ||
                     false == Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) ||
                     parts[2].Length <= 5 ||
@@ -1613,12 +1619,12 @@ namespace Media.Rtsp
             return true;
         }
 
-        virtual protected bool ParseHeaders()
+        virtual protected bool ParseHeaders(bool force = false)
         {
-            if (IsDisposed || MessageType == RtspMessageType.Invalid) return false;
+            if (IsDisposed || MessageType == RtspMessageType.Invalid && false == force) return false;
 
             //Headers were parsed if there is already a body.
-            if (false == string.IsNullOrWhiteSpace(m_Body)) return true;
+            if (false == string.IsNullOrWhiteSpace(m_Body) && false == force) return true;
 
             //Need 2 empty lines to end the header section
             int emptyLine = 0;
@@ -1629,33 +1635,53 @@ namespace Media.Rtsp
             //Ensure at the beginning of the buffer.
             m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
 
+            //Reparsing should clear headers?
+            //if (force) m_Headers.Clear();
+
+            bool readingValue = false;
+
+            //Store the headerName
+            string headerName = null;
+
+
             //While we didn't find the end of the header section
             while (position < max && emptyLine <= 2)
             {
                 //Read a line using the encoding determined so far.
-                
+            ReadLine:
+
                 //Might want a flag that a newline was read to ensure that we don't try to parse incomplete values.
                 string rawLine = Utility.ReadLine(m_Buffer, Encoding);
 
                 //Check for the empty line
-                if (string.IsNullOrWhiteSpace(rawLine))
+                if (string.IsNullOrWhiteSpace(rawLine))                
                 {
-                    //Don't do anything for empty lines
-                    ++emptyLine;
+                    ////LWS means a new line in the value which can be safely ignored.
+                    if (false == readingValue)
+                    {
+                        //Don't do anything for empty lines (outside of header values)
+                        ++emptyLine;
+                    }
 
+                    //Do update the position
                     position = m_Buffer.Position;
 
                     continue;
-                }                
+                }      
+
+                string[] parts = null;
+          
+                //Update the value if already read the header name
+                if(readingValue) goto SetValue;
 
                 //We only want the first 2 sub strings to allow for headers which have a ':' in the data
                 //E.g. Rtp-Info: rtsp://....
-                string[] parts = rawLine.Split(HeaderValueSplit, 2);
+                parts = rawLine.Split(HeaderValueSplit, 2);
 
                 //not a valid header
-                if (parts.Length == 1)
+                if (parts.Length <= 1 || string.IsNullOrWhiteSpace(parts[0]))
                 {
-                    //If there is more data try to read the next line
+                    //If there is not a header name and there more data try to read the next line
                     if (max - m_Buffer.Position > 1) goto UpdatePosition;
 
                     //When only 1 char is left it could be `\r` or `\n` which is another line end
@@ -1667,8 +1693,21 @@ namespace Media.Rtsp
                     break;
                 }
 
+                //Store the headerName
+                headerName = parts[0];
+
+            SetValue:
+
+                string headerValue = readingValue ? rawLine : parts[1];
+
+                //Have a header name
+                readingValue = true;
+
+                //If there is LWS read the next line
+                if (string.IsNullOrWhiteSpace(headerValue)) goto ReadLine;
+
                 //This seems to be a valid header
-                SetHeader(parts[0], parts[1]);
+                SetHeader(headerName, headerValue);
 
                 //Todo Handle Duplicate headers as HTTP would. (Will required a change in the collection used).
 
@@ -1684,6 +1723,8 @@ namespace Media.Rtsp
                 #endregion
 
             UpdatePosition:
+
+                readingValue = false;
 
                 //Empty line count must be reset to include the end line we have already obtained when reading the header
                 emptyLine = 1;
@@ -2006,6 +2047,8 @@ namespace Media.Rtsp
                 result.AddRange(Encoding.GetBytes(Method.ToString()));
                 
                 result.Add(Common.ASCII.Space);
+
+                //UriEncode?
 
                 result.AddRange(Encoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString()));
 

@@ -922,6 +922,38 @@ namespace Media.Sdp
             //There is no control line, just return the source.
             return source;
         }
+
+        //Todo Seperate into GetReceiveBandwidth, GetSendBandwidth, GetApplicationSpecificBandwidth
+
+        //public static bool IsRtcpEnabled(this MediaDescription mediaDescription)
+        //{
+
+        //    if (mediaDescription == null) return false;
+
+        //    int reportSendingEvery = 0, reportReceivingEvery = 0;
+
+        //    foreach (Media.Sdp.SessionDescriptionLine line in mediaDescription.BandwidthLines)
+        //    {
+        //        //Should be constant
+        //        if (line.Parts[0].StartsWith("RR"))
+        //        {
+        //            reportReceivingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries)[1]);
+        //        }
+
+        //        if (line.Parts[0].StartsWith("RS"))
+        //        {
+        //            reportSendingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries)[1]);
+        //        }
+
+        //        //if (line.Parts[0].StartsWith("AS"))
+        //        //{
+        //        //    applicationSpecific = int.Parse(line.Parts[0].Split(Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
+        //        //}
+        //    }
+
+        //    //Determine if rtcp is disabled
+        //    return reportReceivingEvery + reportSendingEvery > 0;
+        //}
     }
 
     /// <summary>
@@ -1565,7 +1597,10 @@ namespace Media.Sdp
                 get
                 {
                     Uri result;
+
+                    //UriDecode?
                     Uri.TryCreate(m_Parts[0], UriKind.RelativeOrAbsolute, out result);
+
                     return result;
                 }
                 set { m_Parts.Clear(); m_Parts.Add(value.ToString()); }

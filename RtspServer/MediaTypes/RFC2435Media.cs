@@ -53,18 +53,24 @@ namespace Media.Rtsp.Server.MediaTypes
         /// Implements RFC2435
         /// Encodes from a System.Drawing.Image to a RFC2435 Jpeg.
         /// Decodes a RFC2435 Jpeg to a System.Drawing.Image.
-        ///  <see cref="http://tools.ietf.org/rfc/rfc2435.txt">RFC 2435</see>
-        ///  <see cref="http://www.jpeg.org/public/fcd15444-10.pdf">Jpeg Spec</see>
+        ///  <see cref="http://tools.ietf.org/rfc/rfc2435.txt">RFC 2435</see>        
+        ///  <see cref="http://en.wikipedia.org/wiki/JPEG"/>
         /// </summary>
         public class RFC2435Frame : Rtp.RtpFrame
         {
             #region Statics
 
-            const int JpegMaxWH = 65500;
+            const int JpegMaxSizeDimension = 65500; //65535
 
-            public const int MaxWidth = 2048;
+            //public const int MaxWidth = 2048;
 
-            public const int MaxHeight = 4096;
+            //public const int MaxHeight = 4096;
+
+            //RFC2435 Section 3.1.4 and 3.1.5
+
+            public const int MaxWidth = 2040;
+
+            public const int MaxHeight = 2040;
 
             public const byte RtpJpegPayloadType = 26;
 
@@ -729,10 +735,14 @@ namespace Media.Rtsp.Server.MediaTypes
                 
                 System.Drawing.Image image;
 
+                bool disposeImage = false;
+
                 //If the data is larger then supported resize
-                if (existing.Width > JpegMaxWH || existing.Height > JpegMaxWH)
+                if (existing.Width > JpegMaxSizeDimension || existing.Height > JpegMaxSizeDimension)
                 {
                     image = existing.GetThumbnailImage(MaxWidth, MaxHeight, null, IntPtr.Zero);
+
+                    disposeImage = true;
                 }
                 else //Otherwise use the image itself
                 {
@@ -764,6 +774,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     }
 
                     image.Save(temp, JpegCodecInfo, parameters);
+
+                    if (disposeImage) image.Dispose();
 
                     return new RFC2435Frame(temp, imageQuality, ssrc, sequenceNo, timeStamp, bytesPerPacket);
                 }
@@ -1685,18 +1697,19 @@ namespace Media.Rtsp.Server.MediaTypes
 
         #endregion
 
+        static List<string> SupportedImageFormats = new List<string>(System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders().SelectMany(enc => enc.FilenameExtension.Split(';')).Select(s=>s.Substring(1).ToLowerInvariant()));
+
         #region Propeties
 
         public virtual double FramesPerSecond { get { return Math.Max(m_FramesPerSecondCounter, 1) / Math.Abs(Uptime.TotalSeconds); } }
 
-        public virtual int Width { get; protected set; }
+        public virtual int Width { get; protected set; } //EnsureDimensios
 
         public virtual int Height { get; protected set; }
 
         public virtual int Quality { get; protected set; }
 
         public virtual bool Interlaced { get; protected set; }
-
 
         //Should also allow payloadsize e.g. BytesPerPacketPayload to be set here?
 
@@ -1729,14 +1742,32 @@ namespace Media.Rtsp.Server.MediaTypes
             :this(name, directory, watch)
         {
             Width = width;
+
             Height = height;
+
             Interlaced = interlaced;
+
             Quality = quality;
+
+            EnsureDimensions();
         }
 
         #endregion
 
         #region Methods
+
+        void EnsureDimensions()
+        {
+            int over;
+
+            Math.DivRem(Width, 8, out over);
+
+            if (over > 0) Width += over;
+
+            Math.DivRem(Height, 8, out over);
+
+            if (over > 0) Height += over;
+        }
 
         //SourceStream Implementation
         public override void Start()
@@ -1777,15 +1808,18 @@ namespace Media.Rtsp.Server.MediaTypes
             //If we are watching and there are already files in the directory then add them to the Queue
             if (m_Watcher != null && !string.IsNullOrWhiteSpace(base.Source.LocalPath) && System.IO.Directory.Exists(base.Source.LocalPath))
             {
-                foreach (string file in System.IO.Directory.GetFiles(base.Source.LocalPath, "*.jpg"))
+                foreach (string file in System.IO.Directory.GetFiles(base.Source.LocalPath))
                 {
+
+                    if (false == SupportedImageFormats.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase))) continue;
+
                     try
                     {
 #if DEBUG
                         System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Encoding: " + file);
 #endif
                         //Packetize the Image adding the resulting Frame to the Queue (Encoded implicitly with operator)
-                        Packetize(System.Drawing.Image.FromFile(file));
+                        using (var image = System.Drawing.Image.FromFile(file)) Packetize(image);
 #if DEBUG
                         System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Done Encoding: " + file);
 #endif
@@ -1856,11 +1890,11 @@ namespace Media.Rtsp.Server.MediaTypes
         internal virtual void FileCreated(object sender, System.IO.FileSystemEventArgs e)
         {
             string path = e.FullPath.ToLowerInvariant();
-            if (path.EndsWith("bmp") || path.EndsWith("jpg") || path.EndsWith("jpeg") || path.EndsWith("gif") || path.EndsWith("png") || path.EndsWith("emf") || path.EndsWith("exif") || path.EndsWith("gif") || path.EndsWith("ico") || path.EndsWith("tiff") || path.EndsWith("wmf"))
-            {
-                try { Packetize(System.Drawing.Image.FromFile(path)); }
-                catch { throw; }
-            }
+
+            if (false == SupportedImageFormats.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase))) return;
+
+            try { Packetize(System.Drawing.Image.FromFile(path)); }
+            catch { throw; }
         }
 
         /// <summary>
@@ -1869,11 +1903,8 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <param name="frame">The frame with packets to send</param>
         public void AddFrame(Rtp.RtpFrame frame)
         {
-            lock (m_Frames)
-            {
-                try { m_Frames.Enqueue(frame); }
-                catch { throw; }
-            }
+            try { m_Frames.Enqueue(frame); }
+            catch { throw; }
         }
 
         /// <summary>
@@ -1882,23 +1913,28 @@ namespace Media.Rtsp.Server.MediaTypes
         /// </summary>
         /// <param name="image">The Image to Encode and Send</param>
         /// <param name="quality">The quality of the encoded image, 100 specifies the quantization tables are sent in band</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public virtual void Packetize(System.Drawing.Image image)
         {
-            lock (m_Frames)
+            try
             {
-                try
+                if (Width == 0 && Height == 0 || Width == image.Width && Height == image.Height)
                 {
-                    if (Width == 0 || Height == 0)
-                    {
-                        Width = image.Width;
-                        Height = image.Height;
-                    }
-                    else if (image.Width != Width || image.Height != Height) image = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero);
+                    Width = image.Width;
+
+                    Height = image.Height;
 
                     m_Frames.Enqueue(RFC2435Media.RFC2435Frame.Packetize(image, Quality, Interlaced, (int)sourceId));
                 }
-                catch { throw; }
+                else if (image.Width != Width || image.Height != Height)
+                {
+                    using (var thumb = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
+                    {
+                        m_Frames.Enqueue(RFC2435Media.RFC2435Frame.Packetize(thumb, Quality, Interlaced, (int)sourceId));
+                    }
+                }
             }
+            catch { throw; }
         }
 
         //Needs to only send packets and not worry about updating the frame, that should be done by ImageSource

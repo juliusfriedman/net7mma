@@ -25,6 +25,11 @@ namespace Media.Rtsp.Server.MediaTypes
         Guid Id { get; }
 
         /// <summary>
+        /// Any logger associcated with the media
+        /// </summary>
+        //Media.Common.ILogging Logger { get; }
+
+        /// <summary>
         /// The state of the media
         /// </summary>
         SourceMedia.StreamState State { get; }
@@ -58,5 +63,7 @@ namespace Media.Rtsp.Server.MediaTypes
         /// Stops the media
         /// </summary>
         void Stop();
+
+        void TrySetLogger(Media.Common.ILogging logger);
     }
 }

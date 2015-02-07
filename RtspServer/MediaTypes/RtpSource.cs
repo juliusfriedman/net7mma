@@ -92,6 +92,16 @@ namespace Media.Rtsp.Server.MediaTypes
         //    }
         //}
 
+        public override void TrySetLogger(Common.ILogging logger)
+        {
+            try
+            {
+                //Set the logger
+                RtpClient.Logger = logger;
+            }
+            catch { }
+        }
+
         public override void Start()
         {
             //Add handler for frame events

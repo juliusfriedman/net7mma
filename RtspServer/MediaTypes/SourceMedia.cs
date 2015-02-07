@@ -82,6 +82,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
         #region Properties
 
+        //public Media.Common.ILogging Logger { get; set; }
+
         /// <summary>
         /// Gets or sets a value which indicates if Start can be called.
         /// </summary>
@@ -185,6 +187,11 @@ namespace Media.Rtsp.Server.MediaTypes
         #endregion
 
         #region Methods
+
+        public virtual void TrySetLogger(Media.Common.ILogging logger)
+        {
+            return;
+        }
 
         //Sets the State = StreamState.Started
         public virtual void Start()
