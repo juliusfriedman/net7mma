@@ -737,6 +737,8 @@ namespace Media.Rtsp
                 //There should be a better way to get the Uri for the stream
                 //E.g. ServerLocation should be used.
 
+                //UriEnecode?
+
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
                     sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
 
@@ -755,6 +757,8 @@ namespace Media.Rtsp
                     if (context == null) continue;
 
                     //Create the RtpInfo header for this context.
+
+                    //UriEnecode?
 
                     //There should be a better way to get the Uri for the stream
                     //E.g. ServerLocation should be used.
@@ -856,8 +860,9 @@ namespace Media.Rtsp
             string transportHeader = request[RtspHeaders.Transport];
 
             //If that is not present we cannot determine what transport the client wants
-            if (string.IsNullOrWhiteSpace(transportHeader) || !(transportHeader.Contains("RTP"))
-                || !RtspHeaders.TryParseTransportHeader(transportHeader,
+            if (string.IsNullOrWhiteSpace(transportHeader) || 
+                false == (transportHeader.Contains("RTP")) ||
+                false == RtspHeaders.TryParseTransportHeader(transportHeader,
                     out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
                     out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
             {
@@ -950,6 +955,9 @@ namespace Media.Rtsp
 
                     m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
 
+                    //Attach logger (have option?)
+                    m_RtpClient.Logger = m_Server.Logger;
+
                     //Use default data and control channel
                     setupContext = new RtpClient.TransportContext(0, 1, localSsrc, mediaDescription, false == rtcpDisabled, remoteSsrc, 0);
                 }
@@ -964,6 +972,15 @@ namespace Media.Rtsp
 
                 //Initialize the Udp sockets
                 setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
+
+                ////Check if the punch packets made it out.
+                //if ((setupContext.IsRtpEnabled && ((IPEndPoint)setupContext.RemoteRtp).Port == 0) 
+                //    || 
+                //    (setupContext.IsRtcpEnabled && ((IPEndPoint)setupContext.RemoteRtcp).Port == 0))
+                //{
+                //    //Response should be a 461 or we should indicate the remote party is not yet listening in the response 
+                //    //Could also use StatusCode (100) with a reason phrase or header
+                //}
 
                 //Add the transportChannel
                 m_RtpClient.Add(setupContext);
@@ -991,6 +1008,9 @@ namespace Media.Rtsp
                     m_RtpClient = new RtpClient(new Common.MemorySegment(m_Buffer));
 
                     m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
+
+                    //Attach logger (have option?)
+                    m_RtpClient.Logger = m_Server.Logger;
 
                     #region Unused [Helps with debugging]
 

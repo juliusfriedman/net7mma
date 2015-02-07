@@ -203,7 +203,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The amount of time the server has been running
         /// </summary>
-        public TimeSpan Uptime { get { if (m_Started.HasValue) return DateTime.UtcNow - m_Started.Value; return TimeSpan.Zero; } }
+        public TimeSpan Uptime { get { return m_Started.HasValue ? DateTime.UtcNow - m_Started.Value : TimeSpan.Zero; } }
 
         /// <summary>
         /// Indicates if the RtspServer has a worker process which is listening for requests on the ServerPort.
@@ -211,7 +211,20 @@ namespace Media.Rtsp
         /// <notes>m_TcpServerSocket.IsBound could also be another check or property.</notes>
         public bool IsRunning
         {
-            get { return false == IsDisposed && m_ServerThread != null && m_ServerThread.IsAlive; }
+            get
+            {
+                return false == IsDisposed &&
+                    false == m_StopRequested &&
+                     m_ServerThread != null;
+
+                #region Unused IsRunning
+
+                //Applied from
+                //https://msdn.microsoft.com/en-us/library/system.threading.threadstate%28v=vs.110%29.aspx
+                //(m_ServerThread.ThreadState & (ThreadState.Stopped | ThreadState.Unstarted)) == 0;
+
+                #endregion
+            }
         }
 
         /// <summary>
@@ -286,8 +299,14 @@ namespace Media.Rtsp
             }
         }
 
+        /// <summary>
+        /// Indicates the amount of active connections the server has accepted.
+        /// </summary>
         public int ActiveConnections { get { return m_Clients.Count; } }
 
+        /// <summary>
+        /// The <see cref="RtspServerLogger"/> used for logging in the server.
+        /// </summary>
         public Rtsp.Server.RtspServerLogger Logger { get; set; }
 
         public bool HttpEnabled { get { return m_HttpPort != -1; } }
@@ -296,7 +315,7 @@ namespace Media.Rtsp
 
         #endregion
 
-        #region Delegates
+        #region Custom Request Handlers
 
         /// <summary>
         /// A function which creates a RtspResponse.
@@ -306,11 +325,33 @@ namespace Media.Rtsp
         /// <returns>True if NO futher processing is required otherwise false.</returns>
         public delegate bool RtspRequestHandler(RtspMessage request, out RtspMessage response);
 
+        //Should support multiple handlers per method, use ConcurrentThesarus
+
         internal Dictionary<RtspMethod, RtspRequestHandler> m_RequestHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
 
-        public void AddRequestHandler(RtspMethod method, RtspRequestHandler handler) { try { m_RequestHandlers.Add(method, handler); } catch { throw; } }
+        public bool TryAddRequestHandler(RtspMethod method, RtspRequestHandler handler)
+        {
+            Exception any;
+            if (false == Common.Collections.DictionaryExtensions.TryAdd(m_RequestHandlers, method, handler, out any))
+            {
+                try { Common.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already registered", any); }
+                catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
+                return false;
+            }
+            return true;
+        }
 
-        public bool RemoveRequestHandler(RtspMethod method) { return m_RequestHandlers.Remove(method); }
+        public bool RemoveRequestHandler(RtspMethod method)
+        {
+            Exception any;
+            if (false == Common.Collections.DictionaryExtensions.TryRemove(m_RequestHandlers, method, out any))
+            {
+                try { Common.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already removed", any); }
+                catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
+                return false;
+            }
+            return true;
+        }
 
         #endregion
 
@@ -583,6 +624,8 @@ namespace Media.Rtsp
             }
             finally
             {
+                //if (stream != null) stream.TrySetLogger(Logger);
+
                 if (Logger != null && any != null) Logger.LogException(any);
             }
         }
@@ -874,42 +917,54 @@ namespace Media.Rtsp
         {
             if (m_Maintaining || IsDisposed || m_StopRequested) return;
 
-            if (false == m_Maintaining)
+            if (IsRunning && false == m_Maintaining)
             {
                 m_Maintaining = true;
 
-                new Thread(new ThreadStart(() =>
+                try
                 {
 
-                    try
+                    new Thread(new ThreadStart(() =>
                     {
-                        Common.ILoggingExtensions.Log(Logger, "RestartFaultedStreams");
 
-                        RestartFaultedStreams(state);
-                    }
-                    catch (Exception ex)
+                        try
+                        {
+                            Common.ILoggingExtensions.Log(Logger, "RestartFaultedStreams");
+
+                            RestartFaultedStreams(state);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (Logger != null) Logger.LogException(ex);
+                        }
+
+                        try
+                        {
+                            Common.ILoggingExtensions.Log(Logger, "DisconnectAndRemoveInactiveSessions");
+
+                            DisconnectAndRemoveInactiveSessions(state);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (Logger != null) Logger.LogException(ex);
+                        }
+
+                        m_Maintaining = false;
+
+                    }))
                     {
-                        if (Logger != null) Logger.LogException(ex);
-                    }
-
-                    try
-                    {
-                        Common.ILoggingExtensions.Log(Logger, "DisconnectAndRemoveInactiveSessions");
-
-                        DisconnectAndRemoveInactiveSessions(state);
-                    }
-                    catch (Exception ex)
-                    {
-                        if (Logger != null) Logger.LogException(ex);
-                    }
-
-                    m_Maintaining = false;
-
-                }))
+                        Priority = m_ServerThread.Priority
+                    }.Start();
+                }
+                catch (Exception ex)
                 {
-                    Priority = m_ServerThread.Priority
-                }.Start();
+                    if (Logger != null) Logger.LogException(ex);
+
+                    m_Maintaining = m_Maintainer != null;
+                }
             }
+
+            if (IsDisposed) return;
 
             if (m_Maintainer != null) m_Maintainer.Change(TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Utility.InfiniteTimeSpan);
         }
@@ -957,7 +1012,14 @@ namespace Media.Rtsp
             }
 
             //Abort the worker from receiving clients
-            if (IsRunning) Utility.TryAbort(ref m_ServerThread);
+            if (IsRunning)
+            {
+                Thread serverThread = m_ServerThread;
+
+                m_ServerThread = null;
+
+                Utility.TryAbort(ref m_ServerThread);
+            }
 
             //Dispose the server socket
             if (m_TcpServerSocket != null)
@@ -1047,6 +1109,9 @@ namespace Media.Rtsp
                         //Start acceping with a 0 size buffer
                         IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
 
+                        //Sample the clock
+                        DateTime lastAcceptStarted = DateTime.UtcNow;
+
                         //Get the timeout from the socket
                         int timeOut = m_TcpServerSocket.ReceiveTimeout;
 
@@ -1063,10 +1128,10 @@ namespace Media.Rtsp
                         using (var handle = iar.AsyncWaitHandle)
                         {
                             //Wait half using the event
-                            while (!m_StopRequested && !iar.IsCompleted && !iar.AsyncWaitHandle.WaitOne(timeOut))
+                            while (false == m_StopRequested && false == iar.IsCompleted && false == iar.AsyncWaitHandle.WaitOne(timeOut))
                             {
                                 //Wait the other half looking for the stop
-                                if (m_StopRequested || iar.IsCompleted || !iar.AsyncWaitHandle.WaitOne(timeOut)) continue;
+                                if (m_StopRequested || iar.IsCompleted || iar.AsyncWaitHandle.WaitOne(timeOut)) continue;
 
                                 //Relinquish time slice
                                 System.Threading.Thread.Sleep(0);
@@ -1074,10 +1139,16 @@ namespace Media.Rtsp
                                 //Should ensure that not waiting more then a certain amount of time here
                             }
                         }
+
+                        //Dont wait too long
+                        //if ((DateTime.UtcNow - lastAcceptStarted).TotalMilliseconds > timeOut)
+                        //{
+                        //    break;
+                        //}
                     }
 
                     //Relinquish time slice
-                    System.Threading.Thread.Sleep(0);
+                    //System.Threading.Thread.Sleep(0);
                 }
             }
             catch (ThreadAbortException)
@@ -1153,7 +1224,7 @@ namespace Media.Rtsp
                 if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
 
                 //If the server is not runing dispose any connected socket
-                if (false == IsRunning)
+                if (m_StopRequested)
                 {
                     //If there is a logger then indicate what is happening
                     Common.ILoggingExtensions.Log(Logger, "Accepted Socket while not running @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing.");
@@ -1171,6 +1242,8 @@ namespace Media.Rtsp
 
                 //If there is a logger log the accept
                 Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created);
+
+                System.Threading.Thread.Sleep(0);
             }
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {

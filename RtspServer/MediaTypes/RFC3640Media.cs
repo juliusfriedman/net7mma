@@ -70,7 +70,44 @@ namespace Media.Rtsp.Server.MediaTypes
 
             }
 
-            public void Depacketize(int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0)
+            private static int getIntFromBitArray(System.Collections.BitArray bitArray, int offset, int count)
+            {
+                int value = 0;
+
+                for (int i = offset; i < count; ++i)
+                {
+                    if (bitArray[i])
+                        value += Convert.ToInt16(Math.Pow(2, i));
+                }
+
+                return value;
+            }
+
+            private static byte[] getBytesFromBitArray(System.Collections.BitArray bitArray, int bitOffset, int byteCount)
+            {
+                int numBytes = byteCount / Common.Binary.BitSize;
+                if (byteCount % Common.Binary.BitSize != 0) numBytes++;
+
+                byte[] bytes = new byte[numBytes];
+                int byteIndex = 0, bitIndex = 0;
+
+                for (int i = bitOffset; i < byteCount; ++i)
+                {
+                    if (bitArray[i]) bytes[byteIndex] |= (byte)(1 << (7 - bitIndex));
+
+                    ++bitIndex;
+
+                    if (bitIndex == Common.Binary.BitSize)
+                    {
+                        bitIndex = 0;
+                        ++byteIndex;
+                    }
+                }
+
+                return bytes;
+            }
+
+            public void Depacketize(int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0, int CTSDeltaLength = 0, int DTSDeltaLength = 0, bool randomAccessIndication = false, int auxDataSizeLength = 0)
             {
                 #region Expired Draft Notes
 
@@ -162,12 +199,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //For each packet select the result of
                 this.Buffer = new MemoryStream(this.SelectMany(rtp =>
-                {
-                    
-                    //Create a sorted list to allow the de-interleaving of access units if required.
-                    //Todo only create if needed?
-                    SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
-
+                {                                       
                     //From the beginning of the data in the actual payload
                     int offset = rtp.HeaderOctets, 
                         max = rtp.Payload.Count - (offset + rtp.PaddingOctets), //until the end of the actual payload
@@ -182,6 +214,10 @@ namespace Media.Rtsp.Server.MediaTypes
                        headers-length is a two octet field that specifies the length in bits
                        of the immediately following AU-headers, excluding the padding bits.
                     */
+
+                    #region Reference
+
+                    //http://www.netmite.com/android/mydroid/donut/external/opencore/protocols/rtp_payload_parser/rfc_3640/src/rfc3640_payload_parser.cpp
 
                     /*  https://gstrtpmp4adepay.c#L189
                     * Parse StreamMuxConfig according to ISO/IEC 14496-3:
@@ -208,32 +244,30 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //For object types 1-7 Then Parse the Frame Flags. (Which indicate a frameLength of 960?)
 
+                    #endregion
+
                     //Determine the AU Headers Length (in bits)
-                    int auHeaderLength = 0,
+                    int auHeaderLengthBits = 0,
+                        auHeaderLengthBytes = 0,
                         auSize = 0, //AU-Size And the length of the underlying Elementary Stream Data for that access unit
                         parsedUnits = 0;
 
                     //If we are reading the Access Unit Header Length
-                    if (sizeLength  > 0)
+                    if (sizeLength > 0)
                     {
-                        //Then read it
-                        auHeaderLength = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+                        //Then read it (value in in bits)
+                        auHeaderLengthBits = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
 
                         //If the value was positive
-                        if (auHeaderLength > 0)
+                        if (auHeaderLengthBits > 0)
                         {
-                            //Convert bits to bytes
-                            auHeaderLength +=7;
-                            auHeaderLength /= 8;
+                            auHeaderLengthBytes = ((auHeaderLengthBits + 7) / 8);
 
-                            //Move the offset
-                            offset += 2;
+                            //Check enough bytes are available
+                            if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Au Headers?");
                             
-                            //now in bytes
-                            if (auHeaderLength > max - offset) throw new InvalidOperationException("Invalid Au Headers?");
-
-                            //move the offset
-                            offset += auHeaderLength;
+                            //move the offset the amount of BYTES indicated
+                            offset += auHeaderLengthBytes;
                         }
                     }
 
@@ -250,109 +284,147 @@ namespace Media.Rtsp.Server.MediaTypes
                     #endregion
 
                     // Figure out how many AU-headers are present in the packet:
-                    int bitsAvail = auHeaderLength - (sizeLength + indexDeltaLength);
+                    int bitsAvail = auHeaderLengthBits - (sizeLength + indexDeltaLength);
 
-                    int headersAvailable = 0;
+                    int maxHeadersAvailable = 0;
 
                     //If any bits are available AND there were any fields presents
                     if (bitsAvail >= 0 && (sizeLength + indexDeltaLength) > 0)
                     {
-                        //Account for the headers with the fields present.
-                        headersAvailable = 1 + bitsAvail / (sizeLength + indexDeltaLength);
+                        //Determine the amount of AU Headers possibly contained
+                        maxHeadersAvailable = 1 + bitsAvail / (sizeLength + indexDeltaLength);
                     }
 
-                    //Look for Access Units in the packet
-                    while (offset < max && parsedUnits < headersAvailable)
+                    //If there was an AU HeadersLegth The size and index and related are given from a configuration
+                    if (auHeaderLengthBits <= 0)
                     {
-                        //AU Headers
+                        //Assume that there is no information related to size or index and all data in this packet belongs to a single access unit.
+                        return rtp.Payload.Skip(offset);
+                    }
 
+                    //Create a sorted list to allow the de-interleaving of access units if required.
+                    SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
+
+
+                    //Could create all bits in array here
+
+                    System.Collections.BitArray headerBits = new System.Collections.BitArray(rtp.Payload.Skip(offset).Take(max).ToArray());
+
+                    int bitOffset = 0, maxBitOffset = headerBits.Length;
+
+                    //Look for Access Units in the packet
+                    while (offset < max && 
+                        bitOffset < maxBitOffset &&
+                        parsedUnits < maxHeadersAvailable)
+                    {
                         //sizeLength is the amount of bits set in composite which are used for the size of the access unit
 
-                        //indexLength is the amount of bits set in composite which are used for the index of the access unit
-
-                        //If there was an AU HeadersLegth The size and index and related are given from a configuration
-                        if (auHeaderLength > 0)
+                        if (sizeLength > 0)
                         {
-                            //Read a variable size integer given by the auHeaderLength  usually (0 - 2  bytes)
-                            long composite = Common.Binary.ReadInteger(rtp.Payload, offset, auHeaderLength, BitConverter.IsLittleEndian);
+                            auSize = getIntFromBitArray(headerBits, bitOffset, sizeLength);
 
-                            //Move the offset past the bytes read
-                            offset += auHeaderLength;
+                            bitOffset += sizeLength;
+                        }
+                        
+                        //indexLength is the amount of bits set in composite which are used for the index of the access unit (only the first)
+                        if (parsedUnits == 0 && indexLength > 0)
+                        {
+                            auIndex = getIntFromBitArray(headerBits, bitOffset, indexLength);
 
-                            //The size of the esData is given by removing the bits used for the index
-                            auSize = (int)composite >> indexLength;
+                            bitOffset += indexLength;
+                        }
 
-                            //The index of the access unit is given by removing the bits used for the size
-                            auIndex = (int)composite << sizeLength;
+                        //If there is no data then try again
+                        if (auSize == 0) continue;
 
-                            /*
-                             AU-Index-delta: The AU-Index-delta field is an unsigned integer that
-                              specifies the serial number of the associated AU as the difference
-                              with respect to the serial number of the previous Access Unit.
-                              Hence, for the n-th (n>1) AU, the serial number is found from:
+                        /*
+                         AU-Index-delta: The AU-Index-delta field is an unsigned integer that
+                          specifies the serial number of the associated AU as the difference
+                          with respect to the serial number of the previous Access Unit.
+                          Hence, for the n-th (n>1) AU, the serial number is found from:
 
-                              AU-Index(n) = AU-Index(n-1) + AU-Index-delta(n) + 1
+                          AU-Index(n) = AU-Index(n-1) + AU-Index-delta(n) + 1
 
-                              If the AU-Index field is present in the first AU-header in the AU
-                              Header Section, then the AU-Index-delta field MUST be present in
-                              any subsequent (non-first) AU-header.  When the AU-Index-delta is
-                              coded with the value 0, it indicates that the Access Units are
-                              consecutive in decoding order.  An AU-Index-delta value larger
-                              than 0 signals that interleaving is applied.
-                             */
+                          If the AU-Index field is present in the first AU-header in the AU
+                          Header Section, then the AU-Index-delta field MUST be present in
+                          any subsequent (non-first) AU-header.  When the AU-Index-delta is
+                          coded with the value 0, it indicates that the Access Units are
+                          consecutive in decoding order.  An AU-Index-delta value larger
+                          than 0 signals that interleaving is applied.
+                         */
 
-                            //For the first access unit determine the auIndexDelta
-                            if (parsedUnits == 0 && indexDeltaLength > 0)
+                        //For the first access unit determine the auIndexDelta
+                        if (parsedUnits == 0 && indexDeltaLength > 0)
+                        {
+                            auIndexDelta = getIntFromBitArray(headerBits, bitOffset, indexDeltaLength);
+
+                            bitOffset += indexLength;
+
+                            System.Console.WriteLine(auIndexDelta);
+
+                            //Interleaving is applied
+                            //if (auIndexDelta > 0) 
+                        }
+
+                        //From RFC3640: "The CTS-flag field MUST be present in each AU-header
+                        //               if the length of the CTS-delta field is signaled to
+                        //               be larger than zero."
+                        if (0 != CTSDeltaLength)
+                        {
+                            bool CTSFlag = headerBits[++bitOffset];
+                            if (CTSFlag)
                             {
-                                //The delta index is given by removing the bits in the auIndex which are used for the index itself.
-                                auIndexDelta = auIndex << indexDeltaLength;
-
-                                //Interleaving is applied
-                                //if (auIndexDelta > 0) 
+                                int CTSDelta = getIntFromBitArray(headerBits, bitOffset, CTSDeltaLength);
                             }
                         }
-                        else //auHeaderLength is 0
+
+                        if (0 != DTSDeltaLength)
                         {
-                            //Assume that there is no information related to size or index and all data in this packet belongs to a single access unit.
-                            return rtp.Payload.Skip(offset);
+                            bool DTSFlag = headerBits[++bitOffset];
+                            if (DTSFlag)
+                            {
+                                int DTSDelta = getIntFromBitArray(headerBits, bitOffset, CTSDeltaLength);
+                            }
                         }
 
-                        #region Zero sizeLength or Zero indexLength
-                        //The size and index need to be determined before proceeding (this is an example for AAC lbr and AAC hbr)
-                        //{
+                        if (randomAccessIndication)
+                        {
+                            bool RAPFlag = headerBits[++bitOffset];
+                        }
 
-                        //    //////16 Bits (or more) contains the size and the index
-                        //    ////ushort composite = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian);
+                        //Ensure aligned?
 
-                        //    //////Move the offset
-                        //    ////offset += 2;
+                        //Now skip over the aux data region.
+                        if (0 != auxDataSizeLength)
+                        {
+                            int auxDataSize = getIntFromBitArray(headerBits, bitOffset, auxDataSizeLength);
+                            if (auxDataSize > 0)
+                            {
+                                //Skip over the aux data region.
+                                bitOffset += auxDataSize;
 
-                        //    //////This specifically applies for Audio media type AAC-hbr
+                                //Skip past any padding.
+                                if (bitOffset != 7)
+                                {
+                                    ++bitOffset;
+                                }
+                            }
+                        }
 
-                        //    //////The aac size is 13 bits
-                        //    ////esDataLength = composite >> 3;
+                        if (auSize > 0)
+                        {
+                            //Add the Access Unit to the list and move to the next in the packet payload
+                            int toMove = auSize * Common.Binary.BitSize;
 
-                        //    //////The index is 3 bits, when interleaving the access units should be sorted by this before being written to the resulting stream.
-                        //    ////accessUnitIndex = composite & 7;
+                            accessUnits.Add(auIndex, getBytesFromBitArray(headerBits, bitOffset, toMove));
 
-                        //    //////This specifically applies for Audio media type AAC-lbr
+                            //Move the offset in parsing
+                            bitOffset += toMove;
 
-                        //    //////The aac size is 6 bits
-                        //    ////esDataLength = composite >> 2;
+                            //Keep track of the amount of access units parsed
+                            ++parsedUnits;
+                        }
 
-                        //    //////The index is 2 bits
-                        //    ////accessUnitIndex = composite & 3;
-                        //}
-                        #endregion
-
-                        //Return the data which belongs to the access unit
-                        IEnumerable<byte> accessUnit = rtp.Payload.Skip(offset).Take(auSize);
-
-                        //Add the Access Unit to the list and move to the next in the packet payload
-                        accessUnits.Add(auIndex, accessUnit);
-
-                        //Keep track of the amount of access units parsed
-                        ++parsedUnits;
                     }
 
                     //Return the access units in decoding order

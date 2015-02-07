@@ -154,7 +154,6 @@ namespace Media.Rtp
             //Indicate when this instance was created
             Created = DateTime.UtcNow;
 
-
             if (payloadType > byte.MaxValue) throw Common.Binary.CreateOverflowException("payloadType", payloadType, byte.MinValue.ToString(), byte.MaxValue.ToString());
 
             //Assign the type of RtpFrame
@@ -169,6 +168,12 @@ namespace Media.Rtp
 
             //Assign the Timestamp
             m_Timestamp = timeStamp;    
+        }
+
+        public RtpFrame(RtpPacket packet, bool addPacket = true)
+            :this(packet.PayloadType, packet.Timestamp, packet.SynchronizationSourceIdentifier)
+        {
+            if(addPacket) Add(packet);
         }
 
         /// <summary>
