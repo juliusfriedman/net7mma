@@ -348,6 +348,103 @@ namespace Media.Rtp
         {
             #region Statics
 
+            #region RFC3556 Bandwidth
+
+            const string RecieveBandwidthToken = "RR", SendBandwdithToken = "RS", ApplicationSpecificBandwidthToken = "AS";
+
+            public static bool TryParseBandwidthLine(Media.Sdp.SessionDescriptionLine line, out int result)
+            {
+                string token;
+
+                return TryParseBandwidthLine(line, out token, out result);
+            }
+
+            public static bool TryParseBandwidthLine(Media.Sdp.SessionDescriptionLine line, out string token, out int result)
+            {
+                token = string.Empty;
+
+                result = -1;
+
+                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
+
+                string[] tokens = line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries);
+
+                if (tokens.Length < 2) return false;
+
+                token = tokens[0];
+
+                return int.TryParse(tokens[1], out result);
+            }
+
+            public static bool TryParseRecieveBandwidth(Media.Sdp.SessionDescriptionLine line, out int result)
+            {
+                result = -1;
+
+                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
+
+                if (false == line.Parts[0].StartsWith(RecieveBandwidthToken, StringComparison.OrdinalIgnoreCase)) return false;
+
+                return TryParseBandwidthLine(line, out result);
+            }
+
+            public static bool TryParseSendBandwidth(Media.Sdp.SessionDescriptionLine line, out int result)
+            {
+                result = -1;
+
+                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
+
+                if (false == line.Parts[0].StartsWith(SendBandwdithToken, StringComparison.OrdinalIgnoreCase)) return false;
+
+                return TryParseBandwidthLine(line, out result);
+            }
+
+            public static bool TryParseGetApplicationSpecificBandwidth(Media.Sdp.SessionDescriptionLine line, out int result)
+            {
+                result = -1;
+
+                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
+
+                if (false == line.Parts[0].StartsWith(ApplicationSpecificBandwidthToken, StringComparison.OrdinalIgnoreCase)) return false;
+
+                return TryParseBandwidthLine(line, out result);
+            }
+
+            public static bool TryParseBandwidthDirectives(Media.Sdp.MediaDescription mediaDescription, out int rrDirective, out int rsDirective, out int asDirective)
+            {
+                rrDirective = rsDirective = asDirective = -1;
+
+                if (mediaDescription == null) return false;
+
+                int parsed = -1;
+
+                string token = string.Empty;
+
+                foreach (Media.Sdp.SessionDescriptionLine line in mediaDescription.BandwidthLines)
+                {
+                    if (TryParseBandwidthLine(line, out token, out parsed))
+                    {
+                        switch (token)
+                        {
+                            case RecieveBandwidthToken:
+                                rrDirective = parsed;
+                                continue;
+                            case SendBandwdithToken:
+                                rsDirective = parsed;
+                                continue;
+                            case ApplicationSpecificBandwidthToken:
+                                asDirective = parsed;
+                                continue;
+
+                        }
+                    }
+                }
+
+                //Determine if rtcp is disabled
+                return parsed >= 0;
+            }
+
+            #endregion
+
             public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2)
             {
 
@@ -355,46 +452,52 @@ namespace Media.Rtp
 
                 TransportContext tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.SourceDescriptionReport.PayloadType), mediaDescription, rtcpEnabled, remoteSsrc, minimumSequentialpackets);
 
-                int reportReceivingEvery = rtcpEnabled ?  (int)DefaultReportInterval.TotalMilliseconds : 0, 
-                    reportSendingEvery = rtcpEnabled ? (int)DefaultReportInterval.TotalMilliseconds : 0;
+                int reportReceivingEvery = 0, 
+                    reportSendingEvery = 0, 
+                    asData = 0;
 
                 if (rtcpEnabled)
                 {
-                    foreach (Media.Sdp.SessionDescriptionLine line in mediaDescription.BandwidthLines)
+                    //Set to the default interval
+                    reportSendingEvery = reportReceivingEvery = (int)DefaultReportInterval.TotalMilliseconds;
+
+                    //If any lines were parsed
+                    if (TryParseBandwidthDirectives(mediaDescription, out reportReceivingEvery, out reportSendingEvery, out asData))
                     {
-                        //Should be constant
-                        if (line.Parts[0].StartsWith("RR"))
-                        {
-                            reportReceivingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries)[1]);
-                        }
+                        //Determine if rtcp is disabled
+                        bool rtcpDisabled = reportReceivingEvery == 0 && reportSendingEvery == 0;
 
-                        if (line.Parts[0].StartsWith("RS"))
+                        //If Rtcp is not disabled then this will set the read and write timeouts.
+                        if (false == rtcpDisabled)
                         {
-                            reportSendingEvery = int.Parse(line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries)[1]);
-                        }
+                            /*
+                             For the RTP A/V Profile [2], which specifies that the default RTCP
+                                interval algorithm defined in the RTP spec [1] is to be used, at
+                                least RS/(RS+RR) of the RTCP bandwidth is dedicated to active data
+                                senders.  If the proportion of senders to total participants is less
+                                than or equal to RS/(RS+RR), each sender gets RS divided by the
+                                number of senders.  When the proportion of senders is greater than
+                                RS/(RS+RR), the senders get their proportion of the sum of these
+                                parameters, which means that a sender and a non-sender each get the
+                                same allocation.  Therefore, it is not possible to constrain the data
+                                senders to use less RTCP bandwidth than is allowed for non-senders.
+                                A few special cases are worth noting:
+                             */
 
-                        //if (line.Parts[0].StartsWith("AS"))
-                        //{
-                        //    applicationSpecific = int.Parse(line.Parts[0].Split(Colon, StringSplitOptions.RemoveEmptyEntries)[1]);
-                        //}
+                            tc.IsRtcpEnabled = true;
+
+                            tc.m_ReceiveInterval = TimeSpan.FromSeconds(reportReceivingEvery / Utility.MicrosecondsPerMillisecond);
+
+                            tc.m_SendInterval = TimeSpan.FromSeconds(reportSendingEvery / Utility.MicrosecondsPerMillisecond);
+
+                            //Todo
+                            //Should set MaximumRtcpBandwidthPercentage
+
+                        }
+                        else if (rtcpEnabled) tc.IsRtcpEnabled = false;
                     }
                 }
-
-                //Determine if rtcp is disabled
-                bool rtcpDisabled = false == (rtcpEnabled && reportReceivingEvery + reportSendingEvery > 0);
-
-                //If Rtcp is not disabled then this will set the read and write timeouts.
-                if (false == rtcpDisabled)
-                {
-                    //Should also check app specific and add if rtcp is enabled?
-
-                    tc.IsRtcpEnabled = true;
-
-                    tc.m_ReceiveInterval = TimeSpan.FromSeconds(reportReceivingEvery / Utility.MicrosecondsPerMillisecond);
-
-                    tc.m_SendInterval = TimeSpan.FromSeconds(reportSendingEvery / Utility.MicrosecondsPerMillisecond);
-                }
-                else if (rtcpEnabled) tc.IsRtcpEnabled = false;
+               
 
                 //check for range in mediaDescription
 
@@ -3708,7 +3811,10 @@ namespace Media.Rtp
                                         {
                                             using (Rtp.RtpHeader header = new RtpHeader(buffer, offset + InterleavedOverhead))
                                             {
-                                                incompatible = GetContextBySourceId(header.SynchronizationSourceIdentifier) != relevent;
+                                                //The context was obtained by the frameChannel
+                                                //Use the SSRC to determine where it should be handled.
+                                                //If there is no context the packet is incompatible
+                                                incompatible = (relevent = GetContextBySourceId(header.SynchronizationSourceIdentifier)) == null;
 
                                                 ////Verify extensions (handled by ValidatePacket)
                                                 //if (header.Extension)

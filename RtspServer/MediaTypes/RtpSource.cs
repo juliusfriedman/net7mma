@@ -92,14 +92,18 @@ namespace Media.Rtsp.Server.MediaTypes
         //    }
         //}
 
-        public override void TrySetLogger(Common.ILogging logger)
+        public override bool TrySetLogger(Common.ILogging logger)
         {
+            if (false == Ready) return false;
+
             try
             {
                 //Set the logger
                 RtpClient.Logger = logger;
+
+                return true;
             }
-            catch { }
+            catch { return false; }
         }
 
         public override void Start()

@@ -188,9 +188,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
         #region Methods
 
-        public virtual void TrySetLogger(Media.Common.ILogging logger)
+        public virtual bool TrySetLogger(Media.Common.ILogging logger)
         {
-            return;
+            return false;
         }
 
         //Sets the State = StreamState.Started

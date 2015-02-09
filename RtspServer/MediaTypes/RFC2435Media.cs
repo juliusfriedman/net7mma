@@ -1018,7 +1018,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                             byte sampleHFactor = (byte)(samplingFactors >> 4);
                                             byte sampleVFactor = (byte)(samplingFactors & 0x0f);
 
-                                            //Check for 1x1
+                                            //Check for 1x1 (Default supported)
                                             if (sampleHFactor != 1 || sampleVFactor != 1)
                                             {
                                                 //Not 2x1 must be flagged
@@ -1428,7 +1428,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     Type = (packet.Payload.Array[packet.Payload.Offset + offset++]);
 
                     //Check for a RtpJpeg Type of less than 5 used in RFC2035 for which RFC2435 is the errata
-                    if (!allowLegacyPackets && Type >= 2 && Type <= 5)
+                    if (false == allowLegacyPackets && 
+                        Type >= 2 && Type <= 5)
                     {
                         //Should allow for 2035 decoding seperately
                         throw new ArgumentException("Type numbers 2-5 are reserved and SHOULD NOT be used.  Applications based on RFC 2035 should be updated to indicate the presence of restart markers with type 64 or 65 and the Restart Marker header.");
@@ -1488,7 +1489,15 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     // A Q value of 255 denotes that the  quantization table mapping is dynamic and can change on every frame.
                     // Decoders MUST NOT depend on any previous version of the tables, and need to reload these tables on every frame.
-                    if (FragmentOffset == 0 /*Buffer.Position == 0*/)
+
+                    //I check for the buffer position to be 0 because on large images which exceed the size allowed FragmentOffset wraps.
+                    //Due to my 'updates' [which will soon be seperated from the RFC2435 implementation into another e.g. a new RFC or seperate class.]
+                    //One cannot use the TypeSpecific field because I have also allowed for TypeSpecific to be set from the StartOfFrame marker to allow:
+                    //1) Correct component numbering when component numbers do not start at 0 or use non incremental indexes.
+                    //2) Allow for the SubSampling to be indicated in that same field when not 1x1
+                    // 2a) For CMYK or RGB one would also need to provide additional data such as Huffman tables and count (the same for Quantization information)
+                    //Could keep TotalFragmentOffset rather than local to not check the buffer position
+                    if (FragmentOffset == 0  && Buffer.Position == 0)
                     {
 
                         //RFC2435 http://tools.ietf.org/search/rfc2435#section-3.1.8
