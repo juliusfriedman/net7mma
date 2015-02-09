@@ -1206,7 +1206,8 @@ namespace Media.Rtsp
 
         void ProcessServerSentRequest()
         {
-            if (m_LastTransmitted == null || 
+            if (false == IgnoreServerSentMessages && 
+                m_LastTransmitted == null || 
                 m_LastTransmitted.MessageType != RtspMessageType.Request || 
                 false == m_LastTransmitted.IsComplete) return;
 
@@ -1223,7 +1224,7 @@ namespace Media.Rtsp
             ++m_PushedMessages;
 
             //Raise an event for the request received.
-            Received(m_LastTransmitted, null);
+             Received(m_LastTransmitted, null);
 
             //Determine 
             string session = m_LastTransmitted[RtspHeaders.Session];
@@ -1244,8 +1245,8 @@ namespace Media.Rtsp
                 case RtspMethod.TEARDOWN:
                     {
                         ProcessRemoteTeardown(m_LastTransmitted);
-                        
-                        break;
+
+                        return;
                     }
                 case RtspMethod.ANNOUNCE:
                     {
@@ -1254,14 +1255,14 @@ namespace Media.Rtsp
                             //Check for SDP content type and update the SessionDescription
                         }
 
-                        break;
+                        return;
                     }
                 case RtspMethod.GET_PARAMETER:
                     {
 
                         ProcessRemoteGetParameter(m_LastTransmitted);
 
-                        break;
+                        return;
                     }
                 case RtspMethod.SET_PARAMETER:
                     {
@@ -1301,9 +1302,25 @@ namespace Media.Rtsp
                         {
 
                             ProcessRemoteEndOfStream(m_LastTransmitted);
+
+                            return;
                         }
 
-                        break;
+                         //Make a response to indicate the method is not supported
+                        using (var response = new RtspMessage(RtspMessageType.Response, m_LastTransmitted.Version, m_LastTransmitted.Encoding))
+                        {
+                            //Indicate Not Allowed.
+                            response.StatusCode = RtspStatusCode.NotImplemented;
+
+                            //Set the sequence number
+                            response.CSeq = m_LastTransmitted.CSeq;
+
+                            //Send it
+                            using (SendRtspMessage(response, false, false)) ;
+                        }
+
+
+                        return;
                     }
             }
         }
@@ -1381,8 +1398,7 @@ namespace Media.Rtsp
                                 m_LastTransmitted = interleaved;
 
                                 //if the message was a request and is complete handle it now.
-                                if (m_LastTransmitted.MessageType == RtspMessageType.Request &&
-                                    false == IgnoreServerSentMessages &&
+                                if (m_LastTransmitted.MessageType == RtspMessageType.Request &&                                    
                                     m_InterleaveEvent.IsSet && 
                                     interleaved.IsComplete)
                                 {
@@ -1427,9 +1443,8 @@ namespace Media.Rtsp
 
                                     //handle the completion of a request sent by the server if allowed.
                                     if (received > 0 &&
-                                        m_LastTransmitted != null && 
+                                        m_LastTransmitted != null && false == m_LastTransmitted.IsDisposed &&
                                         m_LastTransmitted.MessageType == RtspMessageType.Request && 
-                                        false == IgnoreServerSentMessages &&
                                         m_InterleaveEvent.IsSet)
                                     {
                                         //Process the pushed message
@@ -1454,9 +1469,9 @@ namespace Media.Rtsp
                                     //Thus allowing threads blocked by it to proceed.
                                     m_InterleaveEvent.Set();
                                 }
-                                else
+                                else if (false == IgnoreServerSentMessages && m_LastTransmitted.MessageType != RtspMessageType.Request)
                                 {
-                                    //Otherwise indicate a message has been received now.
+                                    //Otherwise indicate a message has been received now. (for responses only)
                                     Received(m_LastTransmitted, null);
                                 }
 
@@ -1468,6 +1483,7 @@ namespace Media.Rtsp
                                 }
                             }
 
+                            //done
                             return;
                         }
                 }
@@ -1567,7 +1583,7 @@ namespace Media.Rtsp
                         #region Unused Feature [NewSocketEachSetup]
 
                         //Testing if a new socket can be used with each setup
-                        // if(NewSocketEachSetup) { DisconnectSocket(); Connect(); }
+                        // if(NewSocketEachSetup) { Reconnect(); }
 
                         #endregion
                     }
@@ -2895,13 +2911,74 @@ namespace Media.Rtsp
             //This will allow for non RTP transports to be used such as MPEG-TS.
             //Must de-coulple the RtpClient and replace it
 
-            //This comment was from other software
-            //WMS-RTSP rtx in Tcp may not works despite available information (It can be setup in TCP mode but just wont work)
+            #region [WMS Notes / Log]
+
+            //Some sources indicate that rtx must be or must not be setup
+            //They also say that only one ssrc should be sent
+            //There are various different advices.
+
+            //Check the spec if you have doubts https://msdn.microsoft.com/en-us/library/cc245238.aspx
+
+            /* WMS Server
+             1. 
+            client -->
+            SETUP rtsp://s-media1/spider_od/rtx RTSP/1.0
+            Transport:
+            RTP/AVP/UDP;unicast;client_port=1206-1207;ssrc=9cef6565;mode=PLAY
+
+            server <--
+            RTSP/1.0 200 OK
+            Transport:
+            RTP/AVP/UDP;unicast;server_port=5004-5005;client_port=1206-1207;ssrc=e34
+            90f0d;mode=PLAY
+
+            2. 
+            client -->
+            SETUP rtsp://s-media1/spider_od/audio RTSP/1.0
+            Transport: RTP/AVP/UDP;unicast;client_port=1208;ssrc=9a789797;mode=PLAY 
+
+            Server <--
+            RTSP/1.0 200 OK
+            Transport:
+            RTP/AVP/UDP;unicast;server_port=5004;client_port=1208;ssrc=8873c0ac;mode
+            =PLAY
+
+            3. 
+            client -->
+            SETUP rtsp://s-media1/spider_od/video RTSP/1.0
+            Transport: RTP/AVP/UDP;unicast;client_port=1208;ssrc=275f7979;mode=PLAY
+
+            Server <--
+            RTSP/1.0 200 OK
+            Transport:
+            RTP/AVP/UDP;unicast;server_port=5004;client_port=1208;ssrc=8873c0cf;mode
+            =PLAY
+             */            
+
+            ////Determine if a rtcp datum should be sent in the Transport header.
+            bool needsRtcp = true;
+
+            ////Keep the values parsed from the description
+            //int rr, rs, a;
+
+            ////Attempt to parse them
+            //if (RtpClient.TransportContext.TryParseBandwidthDirectives(mediaDescription, out rr, out rs, out a) &&
+            //    rr == 0 && //If the rr AND
+            //    rs == 0/* && a == 0*/) // rs directive specified 0 (Should check AS?)
+            //{
+            //    //RTSP is not needed
+            //    needsRtcp = false;
+            //}
+
+            ////Rtx streams for a WMS Server always require RTCP?
+            ////Should ensure this convention doesn't interfere with names where are not for WMS
+            ////Possible check server header in m_LastTransmitted
+            //if (location.AbsoluteUri.EndsWith("rtx", StringComparison.OrdinalIgnoreCase)) needsRtcp = true;
+
+            #endregion
 
             try
             {
-                //TODO Shouldn't create a RtcpSocket when mediaDescription has Rtcp Disabled.
-
                 //Should either create context NOW or use these sockets in the created context.
 
                 //Create sockets to reserve the ports we think we will need.
@@ -2914,7 +2991,10 @@ namespace Media.Rtsp
                 })
                 {
                     //Values in the header we need
-                    int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, ssrc = 0;
+                    int clientRtpPort = -1, clientRtcpPort = -1,
+                        serverRtpPort = -1, serverRtcpPort = -1,
+                        localSsrc = RFC3550.Random32(),  //Wowza uses this ssrc (for all media when given)
+                        remoteSsrc = 0;
 
                     //Cache this to prevent having to go to get it every time down the line
                     IPAddress sourceIp = IPAddress.Any;
@@ -2947,24 +3027,22 @@ namespace Media.Rtsp
                     //It also tells the server what our buffer size is so if they wanted they could intentionally make packets which allowed only a certain amount of bytes remaining in the buffer....
                     setup.SetHeader(RtspHeaders.Blocksize, m_Buffer.Count.ToString());
 
-                    //Todo, could send ssrc here to let server know the ssrc we have early...
-                    //This is legal but DSS only echoes it back and might not apply it, WMS Ignores it anyway.
+                    //TODO
+                    // IF TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
+                    // DETERMINE if only 1 channel should be sent in the TransportHeader if we know RTCP is not going to be used. (doing so would force RTCP to stay disabled the entire stream unless a SETUP for just the RTCP occured, how does one setup just a RTCP session..)
 
-                    // TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
-
-                    //Should also take into account if RTCP is disabled in the MediaDescription and not request it's setup.
-
+                    //Interleaved
                     if (interleaved)
                     {
                         //If there is already a RtpClient with at-least 1 TransportContext
                         if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), controlChannel = (byte)(lastContext.ControlChannel + 2), RtspMethod.PLAY.ToString()));
+                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), RtspMethod.PLAY.ToString()));
                         }
                         else
                         {
-                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", null, null, null, null, null, null, true, false, null, true, dataChannel, controlChannel, RtspMethod.PLAY.ToString()));
+                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
                         }
                     }
                     else if (string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
@@ -2977,12 +3055,7 @@ namespace Media.Rtsp
                         int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000, true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
 
                         rtpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort = openPort);
-
-                        //Revise
-                        bool needsRtcp = true; // mediaDescription.IsRtcpEnabled();
-
-                       // if (location.AbsoluteUri.EndsWith("rtx", StringComparison.OrdinalIgnoreCase)) needsRtcp = true;
-
+                        
                         if(needsRtcp) rtcpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = openPort + 1));
 
                         if (openPort == -1) Common.ExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
@@ -2993,7 +3066,7 @@ namespace Media.Rtsp
 
                         //WMS Server will complain if there is a RTCP port and no RTCP is allowed.
 
-                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", null, null, openPort, (needsRtcp ? (int?)(openPort + 1) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc, null, openPort, (needsRtcp ? (int?)(openPort + 1) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
                     }
                     else throw new NotSupportedException("The required Transport is not yet supported.");
 
@@ -3087,7 +3160,6 @@ namespace Media.Rtsp
 
                     //Handle anything else
 
-
                 NoResponse:
 
                     //We SHOULD have a valid TransportHeader in the response
@@ -3109,9 +3181,22 @@ namespace Media.Rtsp
                         if (false == transportHeader.Contains("RTP")
                         ||
                         false == RtspHeaders.TryParseTransportHeader(transportHeader,
-                        out ssrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
+                        out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
                         out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
                             Common.ExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Invalid Transport Header in Rtsp Response: " + transportHeader);
+                    }
+
+                    //Ensure we are not overlapping context's 
+                    if (remoteSsrc != 0)
+                    {
+                        if (m_RtpClient != null && m_RtpClient.GetContextBySourceId(remoteSsrc) != null)
+                        {
+                            Common.ExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Identity Collision in `ssrc` datum: " + transportHeader);
+                        }
+                        else if (remoteSsrc == localSsrc) //If there was no indication back then discover the remote party
+                        {
+                            remoteSsrc = 0;
+                        }
                     }
                    
                     //Just incase the source was not given
@@ -3148,7 +3233,10 @@ namespace Media.Rtsp
                         if (created == null)
                         {
                             //Create the context if required
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+
+                            //Set the identity to what we indicated to the server.
+                            //created.SynchronizationSourceIdentifier = localSsrc;
 
                             //Set the minimum packet size
                             created.MinimumPacketSize = minimumPacketSize;
@@ -3209,19 +3297,24 @@ namespace Media.Rtsp
 
                         RtpClient.TransportContext created;
 
-                        if (false == m_RtpClient.GetTransportContexts().Any())
+                        var availableContexts = m_RtpClient.GetTransportContexts();
+
+                        if (false == availableContexts.Any())
                         {
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
                         }
                         else
                         {
-                            RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().LastOrDefault();
+                            RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
-                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, ssrc, ssrc != 0 ? 0 : 2);
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+                            else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
                         }
 
                         created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+
+                        //Set the identity to what we indicated to the server.
+                        //created.SynchronizationSourceIdentifier = localSsrc;
 
                         //rtpTemp.Connect(sourceIp, serverRtpPort);
                         //rtcpTemp.Connect(sourceIp, serverRtcpPort);

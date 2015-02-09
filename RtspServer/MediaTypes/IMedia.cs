@@ -64,6 +64,6 @@ namespace Media.Rtsp.Server.MediaTypes
         /// </summary>
         void Stop();
 
-        void TrySetLogger(Media.Common.ILogging logger);
+        bool TrySetLogger(Media.Common.ILogging logger);
     }
 }

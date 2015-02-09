@@ -107,11 +107,18 @@ namespace Media.Common
             Big = 0x0A0B0C0D,
             Little = 0x0D0C0B0A,
             Middle = 0x0B0A0D0C
+            //
         }
 
         #endregion
 
+        //Binary Representation Detection
+
         #region Statics
+
+        public static bool IsPowerOfTwo(int x) { return 0 == (x & (x - 1)); }
+
+        public static readonly int MostSignificantBit = -1, LeastSignificantBit = -1;
 
         public static readonly bool IsLittleEndian = System.BitConverter.IsLittleEndian;
 
@@ -141,6 +148,7 @@ namespace Media.Common
                 byte reverse = MultiplyReverseU8((byte)i);
 
                 BitsReverseTable[i] = reverse;
+
                 BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
             }
 
@@ -155,23 +163,50 @@ namespace Media.Common
             switch (SystemEndian)
             {
                 case Endian.Little:
-                    if (false == IsLittleEndian) goto default;
-                    break;
+                    {
+                        //If not little endian double check
+                        if (false == IsLittleEndian) goto default;
 
+                        MostSignificantBit = 7;
+
+                        LeastSignificantBit = 0;
+
+                        break;
+                    }
                 case Endian.Big:
-                    if (true == IsLittleEndian) goto default;
-                    break;
+                    {
+                        //If little endian double check
+                        if (true == IsLittleEndian) goto default;
 
+                        MostSignificantBit = 0;
+
+                        LeastSignificantBit = 7;
+                        break;
+                    }
                 case Endian.Middle:
-                    if (true == BitConverter.IsLittleEndian || true == IsLittleEndian) goto default;
-                    break;
+                    {
+                        //If little endian double check
+                        if (true == IsLittleEndian) goto default;
 
+                        //Determine
+
+                        break;
+                    }
                 default:
-                    if (IsLittleEndian) SystemEndian = Endian.Little;
+                    {
+                        //If little endian set to little
+                        if (true == BitConverter.IsLittleEndian)
+                        {
+                            SystemEndian = Endian.Little;
 
-                    SystemEndian = Endian.Unknown;
+                            break;
+                        }
 
-                    throw new NotSupportedException("SystemEndian Unknown is not supported.");
+                        //Not sure
+                        SystemEndian = Endian.Unknown;
+
+                        throw new NotSupportedException("SystemEndian Unknown is not supported.");
+                    }
             }
         }
 
@@ -223,6 +258,8 @@ namespace Media.Common
         #endregion
 
         #region Methods
+
+        #region Bit Methods
 
         /// <summary>
         /// Determines the amount of bits set in the byte
@@ -277,7 +314,7 @@ namespace Media.Common
 
             if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-            return octet == 0 ? false : ReadBitsWithShift(octet, BitSize - index, BitSize - index) > 0;
+            return octet == byte.MaxValue ? true : unchecked((octet & (1 << index)) != 0);
         }
 
         /// <summary>
@@ -300,17 +337,7 @@ namespace Media.Common
             //If the newValue has been set already return
             if (oldValue == newValue) return oldValue;
 
-            //http://en.wikipedia.org/wiki/Bit_manipulation, Depends on the Sign Bit, however the value of the sign bit could be detected
-            //m_Octet &= (byte)(~(BitSize - index));
-
-            //Sets a bit without a dependence on the sign bit or detecting it
-
-            //Shift to the index to obtain the previously set lower bits
-            //Combine with the octet shifted right to the index to obtain the previously set higher bits
-            octet = (byte)((octet << index) | (octet >> index));
-
-            //Set the bit at the index because it is not already set
-            if (newValue) SetBit(ref octet, index);
+            octet = (byte)(newValue ? (octet | (byte)(1 << index)) : (octet & ~(byte)(1 << index)));
 
             //Return the old value
             return oldValue;
@@ -348,7 +375,7 @@ namespace Media.Common
         /// <remarks>
         /// http://stackoverflow.com/questions/2605913/invert-1-bit-in-c-sharp
         /// </remarks>
-        public static void ToggleBit(byte octet, int index)
+        public static void ToggleBit(ref byte octet, int index)
         {
             if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
@@ -366,6 +393,125 @@ namespace Media.Common
         public static byte And(int lsb, int msb) { return (byte)(lsb & msb); }
 
         //public static int Nand, Nor
+
+        //ReadBits from a byte[]
+
+        public static long ReadBits(byte[] data)
+        {
+            int byteOffset = 0, bitOffset = 0;
+            return ReadBits(data, ref byteOffset, ref bitOffset, BitSize * data.Length);
+        }
+
+        public static long ReadBits(byte[] data, int byteOffset)
+        {
+            int bitOffset = 0;
+            return ReadBits(data, ref byteOffset, ref bitOffset, BitSize * data.Length);
+        }
+
+        public static long ReadBits(byte[] data, int byteOffset, int count)
+        {
+            int bitOffset = 0;
+            return ReadBits(data, ref byteOffset, ref bitOffset, count);
+        }
+
+
+        //Needs reverse parameter overload
+
+        public static long ReadBits(byte[] data, ref int byteOffset, ref int bitOffset, int count)
+        {
+            long value = 0;
+
+            if (data == null || count == 0) return value;
+
+            //While there is a byte needed decrement for the bit consumed
+            while (count-- > 0)
+            {
+                //Check for the end of bits
+                if (bitOffset >= BitSize)
+                {
+                    //reset
+                    bitOffset = 0;
+
+                    //move the index of the byte
+                    ++byteOffset;
+                }
+
+                //Get a bit from the byte at our offset to determine if the value needs to be incremented
+                if (GetBit(ref data[byteOffset], bitOffset))
+                {
+                    value += 1 << bitOffset;
+                }
+                
+                //Increment for the bit consumed
+                ++bitOffset;
+            }
+
+            return value;
+
+        }
+
+        public static long ReadBitsReverse(byte[] data, ref int byteOffset, ref int bitOffset, int count)
+        {
+            long value = 0;
+
+            if (data == null || count == 0) return value;
+
+            //While there is a byte needed decrement for the bit consumed
+            while (count-- > 0)
+            {
+                //Check for the end of bits
+                if (bitOffset >= BitSize)
+                {
+                    //reset
+                    bitOffset = 0;
+
+                    //move the index of the byte
+                    ++byteOffset;
+                }
+
+                //Get a bit from the byte at our offset to determine if the value needs to be incremented
+                if (GetBit(ref data[byteOffset], BitSize - bitOffset))
+                {
+                    value += 1 << bitOffset;
+                }
+
+                //Increment for the bit consumed
+                ++bitOffset;
+            }
+
+            return value;
+
+        }
+
+        //http://stackoverflow.com/questions/21408109/set-specific-bit-in-byte-array
+        //public static class ByteArrayExt
+
+        public static byte[] SetBit(byte[] self, int index, bool value)
+        {
+            int bitIndex, byteIndex = Math.DivRem(index, BitSize, out bitIndex);
+
+            self[byteIndex] = (byte)(value ? (self[byteIndex] | (byte)(1 << bitIndex)) : (self[byteIndex] & ~(byte)(1 << bitIndex)));
+
+            return self;
+        }
+
+        public static byte[] ToggleBit(byte[] self, int index)
+        {
+            int bitIndex, byteIndex = Math.DivRem(index, BitSize, out bitIndex);
+
+            self[byteIndex] ^= (byte)(1 << bitIndex);
+
+            return self;
+        }
+
+        public static bool GetBit(byte[] self, int index, bool value)
+        {
+            int bitIndex, byteIndex = Math.DivRem(index, BitSize, out bitIndex);
+
+            return (self[byteIndex] & (byte)(1 << bitIndex)) != 0;
+        }
+
+        #endregion
 
         #region Reading
 
@@ -530,7 +676,60 @@ namespace Media.Common
 
         #region Writing (Provided to reduce unsafe transition when using BitConverter)
 
-        //WriteInteger
+        [CLSCompliant(false)]
+        public static void WriteInteger(byte[] buffer, int index, int count, ulong value, bool reverse)
+        {
+            if (reverse) WriteReversedInteger(buffer, index, count, value);
+            else WriteInteger(buffer, index, count, (ulong)value);
+        }
+
+        public static void WriteInteger(byte[] buffer, int index, int count, long value, bool reverse)
+        {
+            WriteInteger(buffer, index, count, (ulong)value, reverse);
+        }
+
+        [CLSCompliant(false)]
+        public static void WriteInteger(byte[] buffer, int index, int count, ulong value)
+        {
+            if (buffer == null || count == 0) return;
+
+            unchecked
+            {
+                //While something remains
+                while (count-- > 0)
+                {
+                    //Write the byte at the index
+                    buffer[index++] = (byte)(value & byte.MaxValue);
+
+                    //Remove the bits we used
+                    value >>= BitSize;
+                }
+            }
+        }
+
+        public static void WriteReversedInteger(byte[] buffer, int index, int count, long value)
+        {
+            WriteReversedInteger(buffer, index, count, value);
+        }
+
+        [CLSCompliant(false)]
+        public static void WriteReversedInteger(byte[] buffer, int index, int count, ulong value)
+        {
+            if (buffer == null || count == 0) return;
+
+            unchecked
+            {
+                //While something remains
+                while(count > 0)
+                {
+                    //Write the byte at the reversed index
+                    buffer[index + --count] = (byte)(value & byte.MaxValue);
+
+                    //Remove the bits we used
+                    value >>= BitSize;
+                }
+            }
+        }
 
         public static void WriteNetworkU8(byte[] buffer, int index, bool reverse, byte value)
         {
@@ -547,50 +746,36 @@ namespace Media.Common
         /// <param name="value"></param>
         public static void WriteNetwork16(byte[] buffer, int index, bool reverse, short value)
         {
-            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).CopyTo(buffer, index);
+            WriteInteger(buffer, index, 2, value, reverse);
         }
 
         [CLSCompliant(false)]
         public static void WriteNetwork16(byte[] buffer, int index, bool reverse, ushort value)
         {
-            WriteNetwork16(buffer, index, reverse, (short)value);
+            WriteInteger(buffer, index, 2, (short)value, reverse);
         }
 
         [CLSCompliant(false)]
         public static void WriteNetwork24(byte[] buffer, int index, bool reverse, uint value)
         {
-            WriteNetwork24(buffer, index, reverse, (int)value);
+            WriteInteger(buffer, index, 3, (int)value, reverse);
         }
 
         public static void WriteNetwork24(byte[] buffer, int index, bool reverse, int value)
         {
-            //If writing in reverse
-            if (reverse)
-            {
-                //Start at the highest index
-                buffer[index + 2] = (byte)(value & byte.MaxValue);
-                buffer[index + 1] = (byte)(value >> 8 & byte.MaxValue);
-                buffer[index] = (byte)(value >> 16 & byte.MaxValue);
-            }
-            else
-            {
-                //Start at the lowest index
-                buffer[index] = (byte)(value & byte.MaxValue);
-                buffer[index + 1] = (byte)(value >> 8 & byte.MaxValue);
-                buffer[index + 2] = (byte)(value >> 16 & byte.MaxValue);
-            }
+            WriteInteger(buffer, index, 3, (int)value, reverse);
         }
 
         [CLSCompliant(false)]
         public static void WriteNetwork32(byte[] buffer, int index, bool reverse, uint value)
         {
-            WriteNetwork32(buffer, index, reverse, (int)value);
+            WriteInteger(buffer, index, 4, (int)value, reverse);
         }
 
         //Todo
         public static void WriteNetwork32(byte[] buffer, int index, bool reverse, int value)
         {
-            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).CopyTo(buffer, index);
+            WriteInteger(buffer, index, 4, (int)value, reverse);
         }
 
         /// <summary>
@@ -603,13 +788,13 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static void WriteNetwork64(byte[] buffer, int index, bool reverse, ulong value)
         {
-            WriteNetwork64(buffer, index, reverse, (long)value);
+            WriteInteger(buffer, index, 8, value, reverse);
         }
 
         //Todo
         public static void WriteNetwork64(byte[] buffer, int index, bool reverse, long value)
         {
-            BitConverter.GetBytes(reverse ? System.Net.IPAddress.HostToNetworkOrder(value) : value).CopyTo(buffer, index);
+            WriteInteger(buffer, index, 8, value, reverse);
         }
 
 

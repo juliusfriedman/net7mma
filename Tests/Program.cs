@@ -496,33 +496,93 @@ namespace Tests
 
             Console.WriteLine("Detected a: " + Media.Common.Binary.SystemEndian.ToString() + " System.");
 
-            //Test bit 0
-            byte one = 1, testBits = Media.Common.Binary.ReverseU8(one);
+            //Test reversing 127 which should equal 254
 
-            if (testBits != 128) throw new Exception("Bit 0 Not Correct");
+            //127 = 0x7F = 01111111
 
-            if (Media.Common.Binary.GetBit(ref testBits, 0) != true) throw new Exception("GetBit Does not Work");
+            //254 = 0xFE = 11111110
 
-            if (Media.Common.Binary.SetBit(ref testBits, 0, true) != true) throw new Exception("SetBit Does not Work");
+            byte testBits = Media.Common.Binary.ReverseU8((byte)sbyte.MaxValue);
 
-            //Test Bit Methods from 1 - 8
-            for (int i = 1, e = 8; i <= e; ++i)
-            {
-                //Only 1 bit should be set from 1 - 8
-                byte bits = (byte)i;
+            if (testBits != 254 && Media.Common.Binary.ReverseU8(1) != 128) throw new Exception("Bit 0 Not Correct");
 
-                //Test readomg the bit
-                if (Media.Common.Binary.GetBit(ref bits, i) != true) throw new Exception("GetBit Does not Work");
+            //Get the MostSignificantBit and ensure it is set.
 
-                //Set the same bit
-                if (Media.Common.Binary.SetBit(ref bits, i, true) != true) throw new Exception("SetBit Does not Work");
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.MostSignificantBit) != true) throw new Exception("GetBit Does not Work");
 
-                //If the value is not exactly the same then throw an exception
-                if (bits != i || Media.Common.Binary.GetBit(ref bits, i) != true) throw new Exception("GetBit Does not Work");
-            }
+            //Unset the MostSignificantBit and ensure it was set.
+
+            if (Media.Common.Binary.SetBit(ref testBits, Media.Common.Binary.MostSignificantBit, false) != true) throw new Exception("SetBit Does not Work");
+
+            //testBits should now equal 126
+
+            //126 = 0x7E = 01111110
+
+            if (testBits != 126) throw new Exception("No idea what we did");
+
+            //Get the MostSignificantBit and ensure it is not set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.MostSignificantBit) != false) throw new Exception("GetBit Does not Work");
+
+            //Get the LeastSignificantBit and ensure it is not set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.LeastSignificantBit) != false) throw new Exception("GetBit Does not Work");
+
+            //Set the LeastSignificantBit and ensure it was not set.
+
+            if (Media.Common.Binary.SetBit(ref testBits, Media.Common.Binary.LeastSignificantBit, true) != false) throw new Exception("SetBit Does not Work");
+
+            //Get the LeastSignificantBit and ensure it is was set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.LeastSignificantBit) != true) throw new Exception("GetBit Does not Work");
+
+            //testBits should now equal 127
+
+            //127 = 0x7F = 01111111
+
+            if (testBits != sbyte.MaxValue) throw new Exception("No idea what we did");
 
             //Use 8 octets, each write over-writes the previous written value
-            byte[] Octets = new byte[8];
+            byte[] Octets = new byte[8];            
+
+            //Test Bit Methods from 0 - 255 inclusive
+            //[256] Operations
+            for (int test = Octets[0]; test <= byte.MaxValue; Octets[0] = (byte)(++test))
+            {
+                testBits = (byte)test;
+
+                int bitsSet = 0, bitsNotSet = 0;
+
+                Console.WriteLine("Bit Testing:" + testBits);
+
+                //Test each bit in the byte
+                //[8 Operations]
+                for (int b = 0; b < Media.Common.Binary.BitSize; ++b)
+                {
+                    if (Media.Common.Binary.GetBit(ref testBits, b)) ++bitsSet;
+                    else ++bitsNotSet;
+                }
+
+                //Test the BitSetTable and verify the result
+                if (bitsSet != Media.Common.Binary.BitsSet(testBits)) throw new Exception("GetBit Does not Work");
+
+                //Test the logic of BitsUnSet and verify the result
+                if (bitsNotSet != Media.Common.Binary.BitsUnSet(testBits)) throw new Exception("GetBit Does not Work");
+
+                Console.WriteLine("Bits Set:" + bitsSet);
+
+                Console.WriteLine("Bits Not Set:" + bitsNotSet);
+
+                //Test reading and parsing the value
+                long read = Media.Common.Binary.ReadBits(Octets, 0, 8);
+
+                //Check the result
+                if (read != testBits) throw new Exception("GetBit Does not Work");
+
+                Console.WriteLine("Read:" + read);
+
+                //Test writing and parsing the same value
+            }
 
             //Test is binary, so test both ways, 0 and 1
             for(int i = 0; i < 2; ++i)
@@ -4782,7 +4842,7 @@ a=control:track2");
 
                         //a=fmtp:97 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=1588; sizeLength=13; indexLength=3; indexDeltaLength=3; profile=1; bitrate=32000;
 
-                        profileFrame.Depacketize(13, 3, 3);
+                        profileFrame.Depacketize(true, 13, 3, 3);
 
                         System.Console.Write(BitConverter.ToString(profileFrame.Buffer.ToArray()));
 

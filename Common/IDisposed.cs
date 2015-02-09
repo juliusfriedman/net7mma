@@ -7,13 +7,15 @@ using System.Threading.Tasks;
 namespace Media.Common
 {
     //ICanDispose / IShouldDispose
+
+    //IDisposeAware
     #region IDisposed
 
     /// <summary>
     /// Defines an interface which expands on <see cref="IDisposable"/> with an IsDisposed property.
     /// Implementers of this type usually only throw <see cref="System.ObjectDisposedExcpetions"/> when desired, typically <see cref="BaseDisposable.CheckDisposed"/> is called to enfore this.
     /// </summary>
-    public interface IDisposed/*Aware*/ : IDisposable
+    public interface IDisposed : IDisposable
     {
         bool IsDisposed { get; }
 
