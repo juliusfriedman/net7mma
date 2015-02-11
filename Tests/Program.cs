@@ -228,7 +228,7 @@ namespace Tests
             byte[] header = new byte[4];
             header[0] = 0x24;   //  '$'
             header[1] = 0;      //  Channel 0
-            Media.Common.Binary.WriteNetwork16(header, 2, BitConverter.IsLittleEndian, (short)length);
+            Media.Common.Binary.Write16(header, 2, BitConverter.IsLittleEndian, (short)length);
             return header;
         }
 
@@ -494,7 +494,7 @@ namespace Tests
         public static void TestBinary()
         {
 
-            Console.WriteLine("Detected a: " + Media.Common.Binary.SystemEndian.ToString() + " System.");
+            Console.WriteLine("Detected a: " + Media.Common.Binary.SystemEndian.ToString() + ' ' + Media.Common.Binary.SystemEndian.GetType().Name + " System.");
 
             //Test reversing 127 which should equal 254
 
@@ -579,9 +579,14 @@ namespace Tests
                 //Check the result
                 if (read != testBits) throw new Exception("GetBit Does not Work");
 
+                //Check in reverse
+                //if (Media.Common.Binary.ReadBitsReverse(Octets, 0, 8) != Media.Common.Binary.ReverseU8((byte)read)) throw new Exception("GetBit Does not Work");
+
                 Console.WriteLine("Read:" + read);
 
                 //Test writing and parsing the same value
+
+                //Test reverse
             }
 
             //Test is binary, so test both ways, 0 and 1
@@ -595,7 +600,7 @@ namespace Tests
                 //65535 iterations uses 16 bits of a 32 bit integer
                 for (ushort v = ushort.MinValue; v < ushort.MaxValue; ++v)
                 {
-                    Media.Common.Binary.WriteNetwork16(Octets, 0, reverse, v);
+                    Media.Common.Binary.Write16(Octets, 0, reverse, v);
 
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? (ushort)System.Net.IPAddress.HostToNetworkOrder((short)v) : v);
 
@@ -603,14 +608,13 @@ namespace Tests
                     else if (Media.Common.Binary.ReadInteger(Octets, 0, 2, reverse) != v) throw new Exception("Can't read back what was written");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
-
                 }
 
                 //Repeat the test using each permutation of 16 bits not yet tested within the 4 octets which provide an integer of 32 bits
                 for (uint s = uint.MinValue, e = uint.MaxValue / ushort.MaxValue; s <= e; ++s)
                 {
                     uint v = uint.MaxValue * s;
-                    Media.Common.Binary.WriteNetwork32(Octets, 0, reverse, v);
+                    Media.Common.Binary.Write32(Octets, 0, reverse, v);
 
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? (uint)System.Net.IPAddress.HostToNetworkOrder((int)v) : v);
 
@@ -628,7 +632,7 @@ namespace Tests
 
                     //Test the high 32 bits and the low 32 bits at once
                     v = v << 32 | v;
-                    Media.Common.Binary.WriteNetwork64(Octets, 0, reverse, v);
+                    Media.Common.Binary.Write64(Octets, 0, reverse, v);
 
                     byte[] SystemBits = BitConverter.GetBytes(reverse ? (ulong)System.Net.IPAddress.HostToNetworkOrder((long)v) : v);
 
@@ -691,7 +695,7 @@ namespace Tests
                 //GrandStream
                 new
                 {
-                    Uri = "rtsp://avollmar.dyndns.org:3030/0", //Continious Media
+                    Uri = "rtsp://avollmar.dyndns.org:3030/0", //Continious Media (Turned off?)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -715,19 +719,19 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", //Continious Media
+                    Uri = "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", //Continious Media (TCP Re-transmission happen frequently)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", //Continious Media
+                    Uri = "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", //Continious Media (turned off)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", //Continious Media
+                    Uri = "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", //Continious Media  (turned off)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 }, 
@@ -748,20 +752,20 @@ namespace Tests
                 //MS-RTSP ASF wma2 wmv3
                 new
                 {
-                    Uri = "rtsp://www.reelgood.tv/reelgoodtv",
+                    Uri = "rtsp://www.reelgood.tv/reelgoodtv", // (turned off)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 //Real RTSP
                 new
                 {
-                    Uri = "rtsp://164.107.27.156:554/media/medvids/drape_positions.rm",
+                    Uri = "rtsp://164.107.27.156:554/media/medvids/drape_positions.rm", // (turned off)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://dl.lib.brown.edu:554/areserves/1093545294660883.mp3",
+                    Uri = "rtsp://dl.lib.brown.edu:554/areserves/1093545294660883.mp3", // (turned off)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -896,7 +900,7 @@ namespace Tests
                     var header = new byte[] { Media.Rtp.RtpClient.BigEndianFrameControl, (byte)channel, 0, 0 };
 
                     //Write the length in the header
-                    Media.Common.Binary.WriteNetwork16(header, 2, BitConverter.IsLittleEndian, (short)length);
+                    Media.Common.Binary.Write16(header, 2, BitConverter.IsLittleEndian, (short)length);
 
                     //Get the data indicated
                     //var data = header.Concat(Enumerable.Repeat(default(byte), actualLength));
@@ -947,7 +951,7 @@ namespace Tests
 
                             var headerLast = new byte[] { 0x24, (byte)channel, 0, 0 };
 
-                            Media.Common.Binary.WriteNetwork16(headerLast, 2, BitConverter.IsLittleEndian, (short)needed);
+                            Media.Common.Binary.Write16(headerLast, 2, BitConverter.IsLittleEndian, (short)needed);
 
                             data = new byte[needed];
 
@@ -2820,6 +2824,9 @@ namespace Tests
                 //Create a log to write the responses to.
                 using (Media.Common.Loggers.FileLogger logWriter = new Media.Common.Loggers.FileLogger(rtspLog))
                 {
+                    //Attach the logger to the client
+                    client.Logger = logWriter;
+
                     //Define a connection eventHandler
                     Media.Rtsp.RtspClient.RtspClientAction connectHandler = null;
                     connectHandler = (sender, args) =>
@@ -2953,7 +2960,7 @@ namespace Tests
                         //Track null and unknown responses
                         if (response != null)
                         {
-                            string output = "Client Received " + request.MessageType + " :" + response.ToString();
+                            string output = "Client Received " + response.MessageType + " :" + response.ToString();
 
                             logWriter.Log(output); 
 
@@ -2969,7 +2976,10 @@ namespace Tests
 
                             if (request != null)
                             {
-                                output = "Client Received Server Sent " + request.MessageType +" :" + request.ToString();
+                                if(request.MessageType == Media.Rtsp.RtspMessageType.Request)
+                                    output = "Client Received Server Sent " + request.MessageType +" :" + request.ToString();
+                                else
+                                    output = "Client Received " + request.MessageType + " :" + request.ToString();
                             }
 
                             logWriter.Log(output); 
@@ -2993,6 +3003,8 @@ namespace Tests
                         if (args != null)
                         {
                             Console.WriteLine("\t*****************Playing `"+ args.ToString() +"`");
+
+                            client.Client.Logger = logWriter;
 
                             return;
                         }
@@ -4839,10 +4851,15 @@ a=control:track2");
                 {
                     using (Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame(managedFrame))
                     {
-
+                        //Example of Media Description
+                        //a=rtpmap:97 mpeg4-generic/8000/1
                         //a=fmtp:97 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=1588; sizeLength=13; indexLength=3; indexDeltaLength=3; profile=1; bitrate=32000;
+                        
+                        profileFrame.Depacketize(true, //This is specified by the profile (SDP)
+                            2, 1, 11,  //These values come from the config = portion
+                            13, 3, 3); //These values from from the profile
 
-                        profileFrame.Depacketize(true, 13, 3, 3);
+                        //Should have 6 access units, each unit should be index w, x, y and z with the following amount of octets.
 
                         System.Console.Write(BitConverter.ToString(profileFrame.Buffer.ToArray()));
 

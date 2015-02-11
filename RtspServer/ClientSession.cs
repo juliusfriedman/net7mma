@@ -739,8 +739,12 @@ namespace Media.Rtsp
 
                 //UriEnecode?
 
+                bool hasAnyState = sourceContext.RtpPacketsReceived > 0 || sourceContext.RtpPacketsSent > 0 && false == context.InDiscovery;
+
                 rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                    sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
+                    hasAnyState ? sourceContext.SequenceNumber : (int?)null,
+                    hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
+                    hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
                 //Identify now to emulate GStreamer :P
                 m_RtpClient.SendSendersReport(context);
@@ -762,8 +766,12 @@ namespace Media.Rtsp
 
                     //There should be a better way to get the Uri for the stream
                     //E.g. ServerLocation should be used.
+                    bool hasAnyState = sourceContext.RtpPacketsReceived > 0 || sourceContext.RtpPacketsSent > 0 && false == context.InDiscovery;
+
                     rtpInfos.Add(RtspHeaders.RtpInfoHeader(new Uri("rtsp://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address + "/live/" + source.Id + '/' + context.MediaDescription.MediaType.ToString()),
-                        sourceContext.SequenceNumber, sourceContext.RtpTimestamp, context.SynchronizationSourceIdentifier));
+                        hasAnyState ? sourceContext.SequenceNumber : (int?)null,
+                        hasAnyState ? sourceContext.RtpTimestamp : (int?)null,
+                        hasAnyState ? (int?)null : context.SynchronizationSourceIdentifier));
 
                     //Done with context.
                     context = null;
@@ -863,7 +871,7 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(transportHeader) || 
                 false == (transportHeader.Contains("RTP")) ||
                 false == RtspHeaders.TryParseTransportHeader(transportHeader,
-                    out remoteSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
+                    out localSsrc, out sourceIp, out serverRtpPort, out serverRtcpPort, out clientRtpPort, out clientRtcpPort,
                     out interleaved, out dataChannel, out controlChannel, out mode, out unicast, out multicast))
             {
                 return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Invalid Transport Header");
@@ -880,12 +888,18 @@ namespace Media.Rtsp
              //Check for already setup stream and determine if the stream needs to be setup again or just updated
             if (Attached.ContainsKey(sourceContext))
             {
-                //The contex may already exist
+                //The contex may already existm should look first by ssrc.
                 setupContext = m_RtpClient.GetContextForMediaDescription(sourceContext.MediaDescription);
 
                 //If the context exists
                 if (setupContext != null)
                 {
+                    //Update the ssrc  if it doesn't match.
+                    if (localSsrc != 0 && setupContext.SynchronizationSourceIdentifier != localSsrc)
+                    {
+                        setupContext.SynchronizationSourceIdentifier = localSsrc;
+                    }
+
                     multicast = Utility.IsMulticast(((IPEndPoint)setupContext.RemoteRtp).Address);
 
                     interleaved = setupContext.RtpSocket.ProtocolType == ProtocolType.Tcp && SharesSocket;
@@ -894,6 +908,9 @@ namespace Media.Rtsp
                     returnTransportHeader = RtspHeaders.TransportHeader(setupContext.MediaDescription.MediaProtocol, setupContext.SynchronizationSourceIdentifier, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, ((IPEndPoint)setupContext.RemoteRtp).Port, ((IPEndPoint)setupContext.RemoteRtcp).Port, ((IPEndPoint)setupContext.LocalRtp).Port, ((IPEndPoint)setupContext.LocalRtcp).Port, false == multicast, multicast, null, interleaved, setupContext.DataChannel, setupContext.ControlChannel);
 
                     setupContext.LeaveOpen = interleaved;
+
+                    //Attach logger (have option?)
+                    m_RtpClient.Logger = m_Server.Logger;
 
                     goto UpdateContext;
                 }
@@ -1380,9 +1397,17 @@ namespace Media.Rtsp
 
                 sourceClient = rtpSource.RtpClient;
             }
-            else sdp = new Sdp.SessionDescription(0);
+            else
+            {
+                sdp = new Sdp.SessionDescription(0);
+            }
+
             sdp.SessionName = sessionName;
+
             sdp.OriginatorAndSessionIdentifier = originatorString;
+
+            //Type = broadcast
+            //charset 
 
             string protcol = RtspMessage.MessageIdentifier.ToLowerInvariant(), controlLineBase = "a=control:" + protcol + "://" + ((IPEndPoint)(m_RtspSocket.LocalEndPoint)).Address.ToString() + "/live/" + stream.Id;
             //check for rtspu later...
@@ -1396,6 +1421,7 @@ namespace Media.Rtsp
                 sdp.Remove(controlLine);
                 controlLine = sdp.ControlLine;
             }
+            //Determine if session level control line should be present
             
             //Find an existing connection line
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;

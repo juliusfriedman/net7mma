@@ -112,14 +112,76 @@ namespace Media.Common
 
         #endregion
 
-        //Binary Representation Detection
+        #region Todo
+
+        //Binary Representation (Detection)
+
+        //Min, Max
+
+        #endregion
 
         #region Statics
 
-        public static bool IsPowerOfTwo(int x) { return 0 == (x & (x - 1)); }
+        [CLSCompliant(false)]
+        public static bool IsPowerOfTwo(ref int x) { return 0 == (x & (x - 1)); }
 
-        public static readonly int MostSignificantBit = -1, LeastSignificantBit = -1;
+        public static bool IsPowerOfTwo(int x) { return IsPowerOfTwo(ref x); }
 
+        [CLSCompliant(false)]
+        public static bool IsEven(ref int x) { return 0 == (x & 1); }
+
+        public static bool IsEven(int x) { return IsEven(ref x); }
+
+        [CLSCompliant(false)]
+        public static bool IsOdd(ref int x) { return 1 == (x & 1); }
+
+        public static bool IsOdd(int x) { return IsOdd(ref x); }
+
+        /// <summary>
+        /// Corresponds to the value 0 with the sign bit set (-0).
+        /// </summary>
+        public static readonly long NegativeZeroBits = BitConverter.DoubleToInt64Bits(-0.0);
+
+        /// <summary>
+        /// Defines a mask which can be used to obtain the sign bit.
+        /// </summary>
+        public static readonly long SignMask = NegativeZeroBits ^ BitConverter.DoubleToInt64Bits(+0.0);
+
+        /// <summary>
+        /// Determines if the given value is negitive
+        /// </summary>
+        /// <param name="arg"></param>
+        /// <returns>True if the value is negative, otherwise false</returns>
+        [CLSCompliant(false)]
+        public static bool IsNegative(ref double arg) { return (BitConverter.DoubleToInt64Bits(arg) & SignMask) == SignMask; }
+
+        public static bool IsNegative(double arg) { return IsNegative(ref arg); }
+
+        /// <summary>
+        /// An equivalent to C's `signbit`
+        /// </summary>
+        /// <param name="d">The value</param>
+        /// <returns>true if arg is negative, false otherwise</returns>
+        public unsafe static bool signbit(double d)
+        {
+            ushort* pd = (ushort*)&d;
+            return (pd[3] & 0x8000) != 0;
+        }
+
+        /// <summary>
+        /// The logical 0 based index of what this library reguards as the most significant bit of an octet according to system architecture.
+        /// </summary>
+        public static readonly int MostSignificantBit = BitConverter.IsLittleEndian ? 7 : -1;
+
+        /// <summary>
+        /// The logical 0 based index of what this library reguards as the least significant bit of an octet according to system architecture.
+        /// </summary>
+        public static readonly int LeastSignificantBit = BitConverter.IsLittleEndian ? 0 : -1;
+
+        /// <summary>
+        /// Indicates the byte order in which the data is stored in this computer architecture
+        /// <see cref="System.BitConverter.IsLittleEndian"/>
+        /// </summary>
         public static readonly bool IsLittleEndian = System.BitConverter.IsLittleEndian;
 
         internal static readonly byte[] BitsSetTable;
@@ -132,25 +194,7 @@ namespace Media.Common
         static Binary()
         {
             //ensure not already called.
-            if (BitsSetTable != null || BitsReverseTable != null) return;
-
-            BitsSetTable = new byte[256];
-            BitsReverseTable = new byte[256];
-
-            //Start at 2, since BitsSetTable[0] = BitsReverseTable[0] = 0 
-            BitsSetTable[1] = BitsReverseTable[128] = 1; 
-            BitsSetTable[128] = BitsReverseTable[1] = 128;
-            BitsSetTable[255] = 8; BitsReverseTable[255] = 255;
-            
-            //253 Operations [2 -> 254]
-            for (int i = 2; i < byte.MaxValue; ++i)
-            {
-                byte reverse = MultiplyReverseU8((byte)i);
-
-                BitsReverseTable[i] = reverse;
-
-                BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
-            }
+            if (SystemEndian != Endian.Unknown || BitsSetTable != null || BitsReverseTable != null) return;
 
             //Get the bytes of the little endian value
             //Then read them back as an integer
@@ -194,8 +238,8 @@ namespace Media.Common
                     }
                 default:
                     {
-                        //If little endian set to little
-                        if (true == BitConverter.IsLittleEndian)
+                        //Check endian again
+                        if (IsLittleEndian = BitConverter.IsLittleEndian)
                         {
                             SystemEndian = Endian.Little;
 
@@ -207,6 +251,26 @@ namespace Media.Common
 
                         throw new NotSupportedException("SystemEndian Unknown is not supported.");
                     }
+            }
+
+            //Build Tables.
+
+            BitsSetTable = new byte[256];
+            BitsReverseTable = new byte[256];
+
+            //Start at 2, since BitsSetTable[0] = BitsReverseTable[0] = 0 
+            BitsSetTable[1] = BitsReverseTable[128] = 1; 
+            BitsSetTable[128] = BitsReverseTable[1] = 128;
+            BitsSetTable[255] = 8; BitsReverseTable[255] = 255;
+            
+            //253 Operations [2 -> 254]
+            for (int i = 2; i < byte.MaxValue; ++i)
+            {
+                byte reverse = MultiplyReverseU8((byte)i);
+
+                BitsReverseTable[i] = reverse;
+
+                BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
             }
         }
 
@@ -257,8 +321,6 @@ namespace Media.Common
 
         #endregion
 
-        #region Methods
-
         #region Bit Methods
 
         /// <summary>
@@ -266,18 +328,30 @@ namespace Media.Common
         /// </summary>
         /// <param name="b"></param>
         /// <returns></returns>
-        public static int BitsSet(byte b) { return BitsSetTable[b]; }
+        [CLSCompliant(false)]
+        public static int BitsSet(ref byte b) { return BitsSetTable[b]; }
+
+        public static int BitsSet(byte b) { return BitsSet(ref b); }
 
         /// <summary>
         /// Determines the amount of bits not set in the byte
         /// </summary>
         /// <param name="b"></param>
         /// <returns></returns>
-        public static int BitsUnSet(byte b) { return BitSize - BitsSetTable[b]; }
+        [CLSCompliant(false)]
+        public static int BitsUnSet(ref byte b) { return BitSize - BitsSetTable[b]; }
 
-        public static int BitsSet(int i) { return BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+        public static int BitsUnSet(byte b) { return BitsUnSet(ref b); }
 
-        public static int BitsUnSet(int i) { return QuadrupleBitSize - BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+        [CLSCompliant(false)]
+        public static int BitsSet(ref int i) { return BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+
+        public static int BitsSet(int i) { return BitsSet(ref i); }
+
+        [CLSCompliant(false)]
+        public static int BitsUnSet(ref int i) { return QuadrupleBitSize - BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+
+        public static int BitsUnSet(int i) { return BitsUnSet(ref i); }
 
         /// <summary>
         /// Reads the given amount of bits from an octet via shifting.
@@ -314,7 +388,12 @@ namespace Media.Common
 
             if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-            return octet == byte.MaxValue ? true : unchecked((octet & (1 << index)) != 0);
+            switch (octet)
+            {
+                case byte.MinValue: return false;
+                case byte.MaxValue: return true;
+                default: return unchecked((octet & (1 << index)) != 0);
+            }
         }
 
         /// <summary>
@@ -328,16 +407,16 @@ namespace Media.Common
         /// <returns>The value which was previously set in the bit where true = 1 and false = 0</returns>
         internal static bool SetBit(ref byte octet, int index, bool newValue)
         {
-
             if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-            //Allows writes to be read (performs two shifts to measure the value)
+            //Read the bit
             bool oldValue = GetBit(ref octet, index);
 
             //If the newValue has been set already return
             if (oldValue == newValue) return oldValue;
 
-            octet = (byte)(newValue ? (octet | (byte)(1 << index)) : (octet & ~(byte)(1 << index)));
+            //Set or clear the bit according to newValue
+            octet = (byte)(newValue ? (octet | (1 << index)) : (octet & ~(1 << index)));
 
             //Return the old value
             return oldValue;
@@ -352,7 +431,7 @@ namespace Media.Common
         {
             if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-            SetBit(ref octet, index, true);
+            octet |= (byte)(1 << index);
         }
 
         /// <summary>
@@ -364,7 +443,7 @@ namespace Media.Common
         {
             if (index < 0 || index > BitSize) throw new ArgumentOutOfRangeException("index", "Must be a value 0 - 8");
 
-            SetBit(ref octet, index, false);
+            octet &= (byte)(~(1 << index));
         }
 
         /// <summary>
@@ -483,14 +562,11 @@ namespace Media.Common
 
         }
 
-        //http://stackoverflow.com/questions/21408109/set-specific-bit-in-byte-array
-        //public static class ByteArrayExt
-
         public static byte[] SetBit(byte[] self, int index, bool value)
         {
             int bitIndex, byteIndex = Math.DivRem(index, BitSize, out bitIndex);
 
-            self[byteIndex] = (byte)(value ? (self[byteIndex] | (byte)(1 << bitIndex)) : (self[byteIndex] & ~(byte)(1 << bitIndex)));
+            SetBit(ref self[byteIndex], index, value);
 
             return self;
         }
@@ -499,7 +575,7 @@ namespace Media.Common
         {
             int bitIndex, byteIndex = Math.DivRem(index, BitSize, out bitIndex);
 
-            self[byteIndex] ^= (byte)(1 << bitIndex);
+            ToggleBit(ref self[byteIndex], index);
 
             return self;
         }
@@ -508,7 +584,7 @@ namespace Media.Common
         {
             int bitIndex, byteIndex = Math.DivRem(index, BitSize, out bitIndex);
 
-            return (self[byteIndex] & (byte)(1 << bitIndex)) != 0;
+            return GetBit(ref self[byteIndex], index);
         }
 
         #endregion
@@ -672,9 +748,34 @@ namespace Media.Common
 
         #endregion
 
-        //GetBytes Methods?
+        #region GetBytes
 
-        #region Writing (Provided to reduce unsafe transition when using BitConverter)
+        public static byte[] GetBytes(short i, bool reverse)
+        {
+            byte[] result = new byte[2];
+            Write16(result, 0, reverse, i);
+            return result;
+        }
+
+        public static byte[] GetBytes(int i, bool reverse)
+        {
+            byte[] result = new byte[4];
+            Write32(result, 0, reverse, i);
+            return result;
+        }
+
+        public static byte[] GetBytes(long i, bool reverse)
+        {
+            byte[] result = new byte[8];
+            Write64(result, 0, reverse, i);
+            return result;
+        }
+
+        #endregion
+
+        #region Writing
+
+        //Todo Expand upon reading and writing a number in different lengths than normally found.
 
         [CLSCompliant(false)]
         public static void WriteInteger(byte[] buffer, int index, int count, ulong value, bool reverse)
@@ -731,7 +832,7 @@ namespace Media.Common
             }
         }
 
-        public static void WriteNetworkU8(byte[] buffer, int index, bool reverse, byte value)
+        public static void WriteU8(byte[] buffer, int index, bool reverse, byte value)
         {
             buffer[index] = reverse ? ReverseU8(value) : value;
         }
@@ -744,36 +845,36 @@ namespace Media.Common
         /// <param name="index"></param>
         /// <param name="reverse"></param>
         /// <param name="value"></param>
-        public static void WriteNetwork16(byte[] buffer, int index, bool reverse, short value)
+        public static void Write16(byte[] buffer, int index, bool reverse, short value)
         {
             WriteInteger(buffer, index, 2, value, reverse);
         }
 
         [CLSCompliant(false)]
-        public static void WriteNetwork16(byte[] buffer, int index, bool reverse, ushort value)
+        public static void Write16(byte[] buffer, int index, bool reverse, ushort value)
         {
             WriteInteger(buffer, index, 2, (short)value, reverse);
         }
 
         [CLSCompliant(false)]
-        public static void WriteNetwork24(byte[] buffer, int index, bool reverse, uint value)
+        public static void Write24(byte[] buffer, int index, bool reverse, uint value)
         {
             WriteInteger(buffer, index, 3, (int)value, reverse);
         }
 
-        public static void WriteNetwork24(byte[] buffer, int index, bool reverse, int value)
+        public static void Write24(byte[] buffer, int index, bool reverse, int value)
         {
             WriteInteger(buffer, index, 3, (int)value, reverse);
         }
 
         [CLSCompliant(false)]
-        public static void WriteNetwork32(byte[] buffer, int index, bool reverse, uint value)
+        public static void Write32(byte[] buffer, int index, bool reverse, uint value)
         {
             WriteInteger(buffer, index, 4, (int)value, reverse);
         }
 
         //Todo
-        public static void WriteNetwork32(byte[] buffer, int index, bool reverse, int value)
+        public static void Write32(byte[] buffer, int index, bool reverse, int value)
         {
             WriteInteger(buffer, index, 4, (int)value, reverse);
         }
@@ -786,13 +887,13 @@ namespace Media.Common
         /// <param name="reverse">A value indicating if the given value should be written in reverse</param>
         /// <param name="value"></param>
         [CLSCompliant(false)]
-        public static void WriteNetwork64(byte[] buffer, int index, bool reverse, ulong value)
+        public static void Write64(byte[] buffer, int index, bool reverse, ulong value)
         {
             WriteInteger(buffer, index, 8, value, reverse);
         }
 
         //Todo
-        public static void WriteNetwork64(byte[] buffer, int index, bool reverse, long value)
+        public static void Write64(byte[] buffer, int index, bool reverse, long value)
         {
             WriteInteger(buffer, index, 8, value, reverse);
         }
@@ -803,23 +904,30 @@ namespace Media.Common
         #region Reversal
 
         /// <summary>
-        /// Reverses the given unsigned 8 bit value via calulcation of the reverse value.
+        /// Reverses the given unsigned 8 bit value via table lookup of the reverse value.
         /// </summary>
         /// <param name="source">The unsigned 8 bit value which is requried to be reversed</param>
         /// <returns>The reversed unsigned 8 bit value</returns>
-        public static byte ReverseU8(byte source)
+        [CLSCompliant(false)]
+        public static byte ReverseU8(ref byte source)
         {
             //http://graphics.stanford.edu/~seander/bithacks.html
-            //per Rich Schroeppel in the Programming Hacks section of  Beeler, M., Gosper, R. W., and Schroeppel, R. HAKMEM. MIT AI Memo 239, Feb. 29, 1972. 
             return BitsReverseTable[source];
         }
 
-        public static byte MultiplyReverseU8(byte source)
+        public static byte ReverseU8(byte source) { return ReverseU8(ref source); }
+
+        /// <summary>
+        /// Reverses the given unsigned 8 bit value via calculation of the reverse value.
+        /// </summary>
+        [CLSCompliant(false)]
+        public static byte MultiplyReverseU8(ref byte source)
         {
             //http://graphics.stanford.edu/~seander/bithacks.html
-            //per Rich Schroeppel in the Programming Hacks section of  Beeler, M., Gosper, R. W., and Schroeppel, R. HAKMEM. MIT AI Memo 239, Feb. 29, 1972. 
             return (byte)(((source * 0x80200802UL) & 0x0884422110UL) * 0x0101010101UL >> 32);
         }
+
+        public static byte MultiplyReverseU8(byte source) { return MultiplyReverseU8(ref source); }
 
         [CLSCompliant(false)]
         public static sbyte Reverse8(sbyte source)
@@ -908,7 +1016,6 @@ namespace Media.Common
 
         #endregion
 
-        #endregion
     }
 
     #endregion

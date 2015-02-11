@@ -279,9 +279,9 @@ namespace Media.Rtsp.Server.MediaTypes
             try
             {
                 //Set the rtp logger and the rtsp logger
-                RtspClient.Client.Logger = RtspClient.Logger = logger;
+                RtspClient.Logger = logger;
 
-                return true;
+                return base.TrySetLogger(logger);
             }
             catch { return false; }
         }

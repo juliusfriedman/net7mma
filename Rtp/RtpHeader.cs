@@ -232,6 +232,9 @@ namespace Media.Rtp
             get { return PointerToLast10Bytes.Count < 10; }
         }
 
+        /// <summary>
+        /// The amount of bytes this instance would occupy when serialized
+        /// </summary>
         public int Size { get { return RFC3550.CommonHeaderBits.Size + PointerToLast10Bytes.Count; } }
 
         /// <summary>
@@ -241,7 +244,7 @@ namespace Media.Rtp
         {
             //The sequence number is stored in Netword Byte Order @ + 0x00 from the second octet (relative offset of 0x02 from the beginning of any header pointer)
             get { /*CheckDisposed();*/ return (ushort)Binary.ReadU16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian); }
-            set { /*CheckDisposed();*/ Binary.WriteNetwork16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
+            set { /*CheckDisposed();*/ Binary.Write16(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value); }
         }
 
         /// <summary>
@@ -254,7 +257,7 @@ namespace Media.Rtp
         {
             //The sequence number is stored in Netword Byte Order  @ + 0x02 from the second octet (relative offset of 0x04 from the beginning of any header pointer)
             get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian); } //Always read in reverse
-            set { /*CheckDisposed();*/ Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
+            set { /*CheckDisposed();*/ Binary.Write32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -264,7 +267,7 @@ namespace Media.Rtp
         {
             //The sequence number is stored in Netword Byte Order @ + 0x06 from the second octet (relative offset of 0x08 from the beginning of any header pointer)
             get { /*CheckDisposed();*/ return (int)Binary.ReadU32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian); }
-            set { /*CheckDisposed();*/ Binary.WriteNetwork32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
+            set { /*CheckDisposed();*/ Binary.Write32(PointerToLast10Bytes.Array, PointerToLast10Bytes.Offset + 6, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         #endregion

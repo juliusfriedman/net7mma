@@ -228,7 +228,7 @@ namespace Media.RtpTools
             {
                 if (IsDisposed) return;
 
-                Common.Binary.WriteNetwork16(Blob, Pointer, ReverseValues, (ushort)value);
+                Common.Binary.Write16(Blob, Pointer, ReverseValues, (ushort)value);
             }
         }
 
@@ -246,7 +246,7 @@ namespace Media.RtpTools
             {
                 if (IsDisposed) return;
                 
-                Common.Binary.WriteNetwork16(Blob, Pointer + 2, ReverseValues, (ushort)value);
+                Common.Binary.Write16(Blob, Pointer + 2, ReverseValues, (ushort)value);
 
             }
         }
@@ -266,7 +266,7 @@ namespace Media.RtpTools
             {
                 if (IsDisposed) return;
 
-                Common.Binary.WriteNetwork32(Blob, Pointer + 4, ReverseValues, value);
+                Common.Binary.Write32(Blob, Pointer + 4, ReverseValues, value);
             }
         }
 

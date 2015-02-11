@@ -58,7 +58,7 @@ namespace Media.Rtmp
             }
             set
             {
-                Binary.WriteNetwork16(m_Packet, HeaderLength + 1, !BitConverter.IsLittleEndian, (ushort)value);
+                Binary.Write16(m_Packet, HeaderLength + 1, !BitConverter.IsLittleEndian, (ushort)value);
             }
         }
 
@@ -85,7 +85,7 @@ namespace Media.Rtmp
             {
                 if (HasTimesamp)
                 {
-                    Binary.WriteNetwork32(m_Packet, HeaderLength - 4, !BitConverter.IsLittleEndian, (uint)value);
+                    Binary.Write32(m_Packet, HeaderLength - 4, !BitConverter.IsLittleEndian, (uint)value);
                 }
             }
         }

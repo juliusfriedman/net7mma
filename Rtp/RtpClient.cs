@@ -3843,7 +3843,7 @@ namespace Media.Rtp
                                             //If the packet was not ruled incompatible check the SSRC if not discovering
                                             if (false == incompatible && false == relevent.InDiscovery)
                                             {
-                                                incompatible = GetContextBySourceId(header.SendersSynchronizationSourceIdentifier) != relevent;
+                                                incompatible = (relevent = GetContextBySourceId(header.SendersSynchronizationSourceIdentifier)) == null;
                                             }
                                         }
                                     } //Not Rtp or Rtcp

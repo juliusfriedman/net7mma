@@ -193,7 +193,7 @@ namespace Media.Rtcp
 
                 //Write the value
                 if (value > ushort.MaxValue) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
-                Binary.WriteNetwork16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
+                Binary.Write16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
             }
         }
 
@@ -201,18 +201,53 @@ namespace Media.Rtcp
         /// <summary>
         /// The ID of the participant who sent this SendersInformation if <see cref="LengthInWordsMinusOne"/> is not <see cref="ushort.MaxValue"/> and at least 6 bytes are contained in the header.
         /// </summary>
+        /// <notes><see cref="PointerToLast6Bytes"/>.Count MUST be >= 6 for a SSRC to occur in the header.</notes>
         public int SendersSynchronizationSourceIdentifier
         {
-            get { /*CheckDisposed();*/  int lengthInWords = LengthInWordsMinusOne; return lengthInWords == 0 || lengthInWords == ushort.MaxValue || PointerToLast6Bytes.Count < 6 ? 0 : (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian); }
+            get
+            { 
+
+                /*CheckDisposed();*/
+                
+                return Size > RtcpHeader.Length ? (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian) : 0;
+            }
             set
-            { /*CheckDisposed();*/
-                if (PointerToLast6Bytes.Count >= 6)
+            { 
+                /*CheckDisposed();*/
+
+                if (Size > RtcpHeader.Length)
                 {
-                    Binary.WriteNetwork32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value);
-                    int lengthInWords = LengthInWordsMinusOne;
-                    //If there was no words other than the header than indicate another word is present.
-                    if (lengthInWords == 0 || lengthInWords == ushort.MaxValue) LengthInWordsMinusOne = 1;
+                    Binary.Write32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value);
+                    
+                    //If there was no words in the packet (other than the header itself) than indicate another word is present.
+                    switch (LengthInWordsMinusOne)
+                    {
+                        case 0:
+                        case ushort.MaxValue:
+                            LengthInWordsMinusOne = 1;
+                            return;
+                    }
                 }
+            }
+        }
+
+        /// <summary>
+        /// The amount of bytes this instance would occupy when serialized
+        /// </summary>
+        public int Size
+        {
+            get
+            {
+
+                return RFC3550.CommonHeaderBits.Size + PointerToLast6Bytes.Count;
+
+                ////Get the lenth in words
+                //int lengthInWords = LengthInWordsMinusOne;
+
+                ////Account for the Senders SSRC word if present.
+                //if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) return Media.Common.Binary.BitSize; //8
+
+                //return RtcpHeader.Length;
             }
         }
 
@@ -236,7 +271,7 @@ namespace Media.Rtcp
             if (offset > octetsLength) throw new ArgumentOutOfRangeException("offset", "Cannot be greater than the length of octets");
 
             //Check for the amount of octets required to build a RtcpHeader given by the delination of the offset
-            if (octetsLength == 0 || availableOctets < 4) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
+            if (octetsLength == 0 || availableOctets < RtcpHeader.Length) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
 
             //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
             First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
@@ -244,10 +279,11 @@ namespace Media.Rtcp
             //Allocate space for the other 6 octets which consist of the 
             //LengthInWordsMinusOne (16 bits)
             //SynchronizationSourceIdentifier (32 bits)
+            // 48 Bits = 6 bytes
             Last6Bytes = new byte[6];
 
             //Copy the remaining bytes of the header which consist of the aformentioned properties
-            Array.Copy(octets, offset + 2, Last6Bytes, 0, Math.Min(6, availableOctets - 2));
+            Array.Copy(octets, offset + RFC3550.CommonHeaderBits.Size, Last6Bytes, 0, Math.Min(6, availableOctets - RFC3550.CommonHeaderBits.Size));
 
             //Make a pointer to the last 6 bytes
             PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
@@ -263,14 +299,19 @@ namespace Media.Rtcp
             if (reference)
             {
                 First16Bits = other.First16Bits;
+                
                 Last6Bytes = other.Last6Bytes;
+                
                 PointerToLast6Bytes = other.PointerToLast6Bytes;
             }
             else
             {
                 First16Bits = new Media.RFC3550.CommonHeaderBits(other.First16Bits);
+                
                 Last6Bytes = new byte[6];
+                
                 PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
+
                 if (other.Last6Bytes != null)
                 {
                     other.Last6Bytes.CopyTo(Last6Bytes, 0);
@@ -284,19 +325,22 @@ namespace Media.Rtcp
 
         public RtcpHeader(Common.MemorySegment memory, int additionalOffset = 0) 
         {
-            if (Math.Abs(memory.Count - additionalOffset) < 4) throw new ArgumentException("memory must contain at least 4 elements", "memory");
+            if (Math.Abs(memory.Count - additionalOffset) < RtcpHeader.Length) throw new ArgumentException("memory must contain at least 4 elements", "memory");
 
             First16Bits = new Media.RFC3550.CommonHeaderBits(memory, additionalOffset);
 
             //das infamous clamp max min
-            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + 2, Math.Max(Math.Min(memory.Count - additionalOffset - 2, 6), 4));
+            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + RFC3550.CommonHeaderBits.Size, Math.Max(Math.Min(memory.Count - additionalOffset - RFC3550.CommonHeaderBits.Size, 6), RtcpHeader.Length));
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)
         {
             First16Bits = new Media.RFC3550.CommonHeaderBits(version, padding, false, false, payloadType, (byte)blockCount);
+            
             Last6Bytes = new byte[6];
+            
             PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
+            
             //The default value must be set into the LengthInWords field otherwise it will reflect 65535.
             if(blockCount == 0) LengthInWordsMinusOne = ushort.MaxValue;
         }
