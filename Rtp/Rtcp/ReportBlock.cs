@@ -88,7 +88,7 @@ namespace Media.Rtcp
         public int SendersSynchronizationSourceIdentifier
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetwork32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace Media.Rtcp
         public byte FractionsLost
         {
             get { return Binary.ReadU8(Memory.Array, Memory.Offset + 4, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetworkU8(Memory.Array, Memory.Offset + 4, BitConverter.IsLittleEndian, value); }
+            protected set { Binary.WriteU8(Memory.Array, Memory.Offset + 4, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>
@@ -108,7 +108,7 @@ namespace Media.Rtcp
         public int CumulativePacketsLost
         {
             get { return (int)Binary.ReadU24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -118,7 +118,7 @@ namespace Media.Rtcp
         public int ExtendedHighestSequenceNumberReceived
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetwork32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -127,7 +127,7 @@ namespace Media.Rtcp
         public int InterarrivalJitterEstimate
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write24(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -136,7 +136,7 @@ namespace Media.Rtcp
         public int LastSendersReportTimestamp
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write24(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -145,7 +145,7 @@ namespace Media.Rtcp
         public int DelaySinceLastSendersReport
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteNetwork24(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write24(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         int IReportBlock.BlockIdentifier

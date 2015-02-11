@@ -73,7 +73,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 IEnumerable<byte> data = nals.SelectMany(n => {
 
                     byte[] lengthBytes = new byte[2];
-                    Common.Binary.WriteNetwork16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+                    Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
 
                     return lengthBytes.Concat(n);
                 });
@@ -82,7 +82,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (DON.HasValue)
                 {
                     byte[] DONBytes = new byte[2];
-                    Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+                    Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
 
                     data = Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB.Yield().Concat(DONBytes).Concat(data);
                 }//STAP - A
@@ -100,21 +100,21 @@ namespace Media.Rtsp.Server.MediaTypes
                 IEnumerable<byte> data = nals.SelectMany(n =>
                 {
                     byte[] lengthBytes = new byte[2];
-                    Common.Binary.WriteNetwork16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+                    Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
 
                     //DOND
                     //TS OFFSET
 
                     byte[] tsOffsetBytes = new byte[3];
 
-                    Common.Binary.WriteNetwork24(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
+                    Common.Binary.Write24(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
 
                     return dond.Yield().Concat(lengthBytes).Concat(n);
                 });
 
                 //MTAP has DON at the very beginning
                 byte[] DONBytes = new byte[2];
-                Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+                Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
 
                 data = Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16.Yield().Concat(DONBytes).Concat(data);
 
@@ -130,7 +130,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 IEnumerable<byte> data = nals.SelectMany(n =>
                 {
                     byte[] lengthBytes = new byte[2];
-                    Common.Binary.WriteNetwork16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
+                    Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
 
                     //DOND
 
@@ -138,14 +138,14 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     byte[] tsOffsetBytes = new byte[2];
 
-                    Common.Binary.WriteNetwork16(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
+                    Common.Binary.Write16(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
                     
                     return dond.Yield().Concat(tsOffsetBytes).Concat(lengthBytes).Concat(n);
                 });
 
                 //MTAP has DON at the very beginning
                 byte[] DONBytes = new byte[2];
-                Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+                Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
 
                 data = Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24.Yield().Concat(DONBytes).Concat(data);
 
@@ -282,7 +282,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (fragmentType == Media.Codecs.Video.H264.NalUnitType.FragmentationUnitB && highestSequenceNumber == 0)
                         {
                             byte[] DONBytes = new byte[2];
-                            Common.Binary.WriteNetwork16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
+                            Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
                             data = Enumerable.Concat(DONBytes, data);
                         }
                         
@@ -359,6 +359,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     case Media.Codecs.Video.H264.NalUnitType.PayloadContentScalabilityInformation:
                     case Media.Codecs.Video.H264.NalUnitType.Reserved:
                         {
+                            //May have 4 byte NAL header.
                             //Do not handle
                             return;
                         }
@@ -493,6 +494,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                     Buffer.Write(packetData, offset, fragment_size);
                                 }
                             }
+
                             return;
                         }
                     default:

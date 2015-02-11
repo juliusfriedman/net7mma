@@ -88,7 +88,7 @@ namespace Media.Rtcp
         public int NtpMSW
         {
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian); }
-            internal protected set { Binary.WriteNetwork32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace Media.Rtcp
         public int NtpLSW
         {
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian); }
-            internal protected set { Binary.WriteNetwork32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian, (uint)value); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 4, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>            
@@ -110,7 +110,7 @@ namespace Media.Rtcp
         public int RtpTimestamp
         {
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian); }
-            internal protected set { Binary.WriteNetwork32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 8, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace Media.Rtcp
         public int SendersPacketCount
         {
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian); }
-            internal protected set { Binary.WriteNetwork32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -131,7 +131,7 @@ namespace Media.Rtcp
         public int SendersOctetCount
         {
             get { return (int)Binary.ReadU32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian); }
-            internal protected set { Binary.WriteNetwork32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
+            internal protected set { Binary.Write32(Payload.Array, Payload.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>

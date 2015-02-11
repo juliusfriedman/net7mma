@@ -98,7 +98,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //Network Endian            
 
-                Media.Common.Binary.WriteNetwork16(data, 2, BitConverter.IsLittleEndian, count);
+                Media.Common.Binary.Write16(data, 2, BitConverter.IsLittleEndian, count);
 
                 if (f) data[2] = (byte)((1) << 7);
 
@@ -1234,8 +1234,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                         }
 
                                         //Check for FragmentOffset to exceed 24 bits
-                                        if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
-                                        else Common.Binary.WriteNetwork24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)streamOffset);
+                                        if (streamOffset > Common.Binary.U24MaxValue) Common.Binary.Write24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)(streamOffset - Common.Binary.U24MaxValue));
+                                        else Common.Binary.Write24(RtpJpegHeader, 1, BitConverter.IsLittleEndian, (uint)streamOffset);
 
                                         //Copy header
                                         RtpJpegHeader.CopyTo(currentPacket.Payload.Array, currentPacket.Payload.Offset);
@@ -1617,14 +1617,16 @@ namespace Media.Rtsp.Server.MediaTypes
             //Overload Buffer to PrepareBuffer.
 
             /// <summary>
-            /// Creates a image from the processed packets in the memory stream
+            /// Creates a image from the processed packets in the memory stream.
             /// </summary>
             /// <returns>The image created from the packets</returns>
+            /// <notes>If <see cref="Dispose"/> is called the image data will be invalidated</notes>
             public System.Drawing.Image ToImage()
             {
+                if (IsDisposed) return null;
                 try
                 {
-                    if (Buffer == null) PrepareBuffer();
+                    if (Buffer == null || false == Buffer.CanRead) PrepareBuffer();
                     
                     return System.Drawing.Image.FromStream(Buffer, true, false); 
                 }
@@ -1637,7 +1639,6 @@ namespace Media.Rtsp.Server.MediaTypes
           
             public override void Dispose()
             {
-
                 if (IsDisposed) return;
 
                 //Call dispose on the base class
@@ -1706,7 +1707,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         #endregion
 
-        static List<string> SupportedImageFormats = new List<string>(System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders().SelectMany(enc => enc.FilenameExtension.Split(';')).Select(s=>s.Substring(1).ToLowerInvariant()));
+        static List<string> SupportedImageFormats = new List<string>(System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders().SelectMany(enc => enc.FilenameExtension.Split((char)Common.ASCII.SemiColon)).Select(s=>s.Substring(1).ToLowerInvariant()));
 
         #region Propeties
 

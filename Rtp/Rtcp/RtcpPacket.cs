@@ -111,10 +111,7 @@ namespace Media.Rtcp
                     int lengthInWords = header.LengthInWordsMinusOne;
 
                     //Determine how long the header was
-                    int payloadOffset = RtcpHeader.Length;
-
-                    //Account for the Senders SSRC if present.
-                    if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) payloadOffset += RtcpHeader.Length;
+                    int payloadOffset = header.Size;
 
                     //Determine the amount of bytes in the packet NOT INCLUDING the RtcpHeader (Which may be 0)
                     int lengthInBytes = ((lengthInWords + 1) * 4) - payloadOffset;

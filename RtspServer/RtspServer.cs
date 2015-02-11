@@ -949,12 +949,9 @@ namespace Media.Rtsp
                             if (Logger != null) Logger.LogException(ex);
                         }
 
-                        if (Logger != null)
+                        foreach (IMedia readyStream in MediaStreams)
                         {
-                            foreach (IMedia readyStream in MediaStreams.Where(s => s.Ready))
-                            {
-                                readyStream.TrySetLogger(Logger);
-                            }
+                            readyStream.TrySetLogger(Logger);
                         }
 
                         m_Maintaining = false;

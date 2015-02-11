@@ -85,7 +85,7 @@ namespace Media.Rtp
         public ushort Flags
         {
             get { if (IsDisposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian); }
-            protected set { if (IsDisposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, value); }
+            protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>
@@ -94,7 +94,7 @@ namespace Media.Rtp
         public ushort LengthInWords
         {
             get { if (IsDisposed) return 0; return Binary.ReadU16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian); }
-            protected set { if (IsDisposed) return; Binary.WriteNetwork16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, value); }
+            protected set { if (IsDisposed) return; Binary.Write16(m_MemorySegment.Array, m_MemorySegment.Offset + 2, BitConverter.IsLittleEndian, value); }
         }
 
         /// <summary>

@@ -455,7 +455,7 @@ namespace Media
 
             public static byte PacketOctet(int version, byte remainingBits)
             {
-                return (byte)((byte)(BitConverter.IsLittleEndian ? version << 6 : version >> 6) | (byte)remainingBits);
+                return (byte)(version << 6 | (byte)remainingBits);
             }
 
             /// <summary>
@@ -466,7 +466,7 @@ namespace Media
             /// <returns></returns>
             public static byte PackOctet(bool marker, int payloadTypeBits)
             {
-                return ((byte)(marker ? Binary.Or(128, (byte)payloadTypeBits) : (byte)payloadTypeBits));
+                return ((byte)(marker ? Binary.Or(128, (byte)payloadTypeBits) : payloadTypeBits));
             }
 
             #endregion
@@ -708,9 +708,9 @@ namespace Media
 
             public CommonHeaderBits(Common.MemorySegment memory, int additionalOffset = 0)
             {
-                if (Math.Abs(memory.Count - additionalOffset) < 2) throw new InvalidOperationException("at least two octets are required in memory");
+                if (Math.Abs(memory.Count - additionalOffset) < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
 
-                m_Memory = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset, 2);
+                m_Memory = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset, CommonHeaderBits.Size);
             }
 
             /// <summary>
@@ -783,7 +783,7 @@ namespace Media
 
             public override bool Equals(object obj)
             {
-                if (!(obj is CommonHeaderBits)) return false;
+                if (false == (obj is CommonHeaderBits)) return false;
 
                 CommonHeaderBits bits = obj as CommonHeaderBits;
 

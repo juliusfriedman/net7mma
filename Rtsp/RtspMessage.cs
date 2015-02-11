@@ -373,6 +373,8 @@ namespace Media.Rtsp
             }
         }
 
+        
+
         public static string TransportHeader(string connectionType, int? ssrc, System.Net.IPAddress source, int? clientRtpPort, int? clientRtcpPort, int? serverRtpPort, int? serverRtcpPort, bool? unicast, bool? multicast, int? ttl, bool? interleaved, byte? dataChannel, byte? controlChannel, string mode = null) //string[] others?
         {
             if (string.IsNullOrWhiteSpace(connectionType)) throw new ArgumentNullException("connectionType");
@@ -408,7 +410,16 @@ namespace Media.Rtsp
                     builder.Append("unicast");
                 }
 
-                //Should eventually also allow for rtcp only?
+                //Should eventually also allow for rtcp only but how..
+
+                /*
+                  client_port:
+                  This parameter provides the unicast RTP/RTCP port pair on
+                  which the client has chosen to receive media data and control
+                  information.  It is specified as a range, e.g.,
+                  client_port=3456-3457.
+
+                 */
 
                 if (clientRtpPort.HasValue)
                 {
@@ -468,6 +479,16 @@ namespace Media.Rtsp
                     builder.Append(ttl);
                 }
 
+                /*
+                 ssrc:
+                  The ssrc parameter indicates the RTP SSRC [24, Sec. 3] value
+                  that should be (request) or will be (response) used by the
+                  media server.
+                  This parameter is only valid for unicast
+                  transmission. It identifies the synchronization source to be
+                  associated with the media stream.
+                 */
+
                 if (ssrc.HasValue)
                 {
                     builder.Append(SemiColon);
@@ -476,6 +497,8 @@ namespace Media.Rtsp
 
                     builder.Append(ssrc.Value.ToString("X"));
                 }
+
+                //address datum
 
                 if (false == string.IsNullOrWhiteSpace(mode))
                 {

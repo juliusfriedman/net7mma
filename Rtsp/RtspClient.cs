@@ -1445,7 +1445,7 @@ namespace Media.Rtsp
                                     if (received > 0 &&
                                         m_LastTransmitted != null && false == m_LastTransmitted.IsDisposed &&
                                         m_LastTransmitted.MessageType == RtspMessageType.Request && 
-                                        m_InterleaveEvent.IsSet)
+                                        m_InterleaveEvent.IsSet) //dont handle if waiting for a resposne...
                                     {
                                         //Process the pushed message
                                         ProcessServerSentRequest();
@@ -1463,13 +1463,18 @@ namespace Media.Rtsp
                             //If anything was received
                             if (received > 0)
                             {
+
+                                //Todo could have TransactionCache with requests which are then paried to response here.
+
                                 //Release the m_Interleaved event if it was set
                                 if (false == m_InterleaveEvent.IsSet)
                                 {
                                     //Thus allowing threads blocked by it to proceed.
                                     m_InterleaveEvent.Set();
-                                }
-                                else if (false == IgnoreServerSentMessages && m_LastTransmitted.MessageType != RtspMessageType.Request)
+                                } //Otherwise
+                                else if (m_LastTransmitted != null && //Ensure there was a message
+                                    false == m_LastTransmitted.IsDisposed && //Which was not disposed
+                                    m_LastTransmitted.MessageType == RtspMessageType.Response) //and was a request
                                 {
                                     //Otherwise indicate a message has been received now. (for responses only)
                                     Received(m_LastTransmitted, null);
@@ -2275,7 +2280,7 @@ namespace Media.Rtsp
                             //Otherwise just process the data via the event.
                             ProcessInterleaveData(this, m_Buffer.Array, offset, received);
                         }
-                    }
+                    } //Nothing was received, if the socket is not shared
                     else if (false == SharesSocket)
                     {
                         //Check for fatal exceptions
@@ -2377,7 +2382,7 @@ namespace Media.Rtsp
                     {
                         System.Threading.Thread.Sleep(0);
                     }
-                    else
+                    else //m_LastTransmitted is not null
                     {
                         //Obtain the CSeq of the response if present.
                         int sequenceNumber = m_LastTransmitted.CSeq;
@@ -2406,8 +2411,18 @@ namespace Media.Rtsp
                                 goto Wait;
                             }
                         }
-                    }
-                }
+                    } // end check m_LastTransmitted == null
+                }//Unchecked
+
+                #region Notes
+
+                //m_LastTransmitted is either null or not
+                //if it is not null it may not be the same response we are looking for. (mostly during threaded sends and receives)
+                //this could be dealt with by using a hash `m_Transactions` which holds requests which are sent and a space for their response if desired.
+                //Then a function GetMessage(message) would be able to use that hash to get the outgoing or incoming message which resulted.
+                //The structure of the hash would allow any response to be stored.
+
+                #endregion
 
                 //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
                 //(Note for Vivontek you can still bypass the Auth anyway :)
@@ -2993,7 +3008,8 @@ namespace Media.Rtsp
                     //Values in the header we need
                     int clientRtpPort = -1, clientRtcpPort = -1,
                         serverRtpPort = -1, serverRtcpPort = -1,
-                        localSsrc = RFC3550.Random32(),  //Wowza uses this ssrc (for all media when given)
+                        //Darwin and Wowza uses this ssrc, VLC Gives a Unsupported Transport, WMS and most others seem to ignore it.
+                        localSsrc = 0,//RFC3550.Random32(),  
                         remoteSsrc = 0;
 
                     //Cache this to prevent having to go to get it every time down the line
@@ -3038,11 +3054,11 @@ namespace Media.Rtsp
                         if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), RtspMethod.PLAY.ToString()));
+                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), RtspMethod.PLAY.ToString()));
                         }
                         else
                         {
-                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
+                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
                         }
                     }
                     else if (string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
@@ -3066,7 +3082,7 @@ namespace Media.Rtsp
 
                         //WMS Server will complain if there is a RTCP port and no RTCP is allowed.
 
-                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc, null, openPort, (needsRtcp ? (int?)(openPort + 1) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc != 0 ? localSsrc : (int?)null, null, openPort, (needsRtcp ? (int?)(openPort + 1) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
                     }
                     else throw new NotSupportedException("The required Transport is not yet supported.");
 
@@ -3106,7 +3122,9 @@ namespace Media.Rtsp
                             }
                         }
                     }
-                    else if (response == null) goto NoResponse;
+                    
+                    //Ensure there was a response
+                    if (response == null) goto NoResponse;
 
                     //Response not OK
                     if (response.StatusCode != RtspStatusCode.OK)

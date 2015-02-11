@@ -1022,12 +1022,12 @@ namespace Media.RtpTools.RtpDump
             byte[] result = new byte[RtpToolEntry.sizeOf_RD_hdr_t];
 
             TimeSpan off = timeBase.Subtract(Utility.UtcEpoch1970);
-            Common.Binary.WriteNetwork32(result, 0, BitConverter.IsLittleEndian, (int)off.TotalMilliseconds);
-            Common.Binary.WriteNetwork32(result, 4, BitConverter.IsLittleEndian, (int)(off.TotalMilliseconds / Utility.MicrosecondsPerMillisecond));
+            Common.Binary.Write32(result, 0, BitConverter.IsLittleEndian, (int)off.TotalMilliseconds);
+            Common.Binary.Write32(result, 4, BitConverter.IsLittleEndian, (int)(off.TotalMilliseconds / Utility.MicrosecondsPerMillisecond));
 
-            Common.Binary.WriteNetwork32(result, 0, BitConverter.IsLittleEndian, (int)source.Address.Address);
+            Common.Binary.Write32(result, 0, BitConverter.IsLittleEndian, (int)source.Address.Address);
 
-            Common.Binary.WriteNetwork16(result, 0, BitConverter.IsLittleEndian, (short)source.Port);
+            Common.Binary.Write16(result, 0, BitConverter.IsLittleEndian, (short)source.Port);
 
             return result;
         }
