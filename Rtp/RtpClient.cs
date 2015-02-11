@@ -2213,7 +2213,7 @@ namespace Media.Rtp
             //If the context is still null
             if (transportContext == null)
             {
-                //System.Diagnostics.Debug.WriteLine("Unaddressed RTP Packet " + packet.SynchronizationSourceIdentifier + " PT =" + packet.PayloadType + " len =" + packet.Length);
+                Media.Common.ILoggingExtensions.Log(Logger, "Unaddressed RTP Packet " + packet.SynchronizationSourceIdentifier + " PT =" + packet.PayloadType + " len =" + packet.Length);
 
                 //Do nothing else.
                 return;
@@ -2245,6 +2245,9 @@ namespace Media.Rtp
                 &&
                 transportContext.IsValid)
             {
+
+                Media.Common.ILoggingExtensions.Log(Logger, "SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + " - " + partyId + ". ResetState");
+
                 //Reset the state if not discovering
                 if(false == transportContext.InDiscovery) transportContext.ResetState();
 

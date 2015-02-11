@@ -381,6 +381,9 @@ namespace Media.Rtsp.Server.MediaTypes
                         auxillaryData = rtp.Payload.Skip(auxHeaderOffset).Take(auxLengthBytes);
                     }
 
+                    //Create the ADTS header
+                    //byte[] adtsHeader = CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, auSize);
+
                     //Look for Access Units in the packet
                     while (offset < max)
                     {
@@ -495,12 +498,15 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (frameHeader != null)
                         {
                             //May have to write the length in the frameData
-
                             depacketizedAccessUnit = Enumerable.Concat(frameHeader, depacketizedAccessUnit);
                         }
                         else
                         {
+                            //Could just update the length but
+                            //This is a bit field though and needs to have the WriteBits methods available then
+                            //Media.Common.Binary.Write16(adtsHeader, 6, false, (short)auSize);
 
+                            //Create the header for the frame, (should only be done once and the length should be updated each time)
                             depacketizedAccessUnit = Enumerable.Concat(CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, auSize), depacketizedAccessUnit);
                         }
 
