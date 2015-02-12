@@ -486,9 +486,9 @@ namespace Media.Rtp
 
                             tc.IsRtcpEnabled = true;
 
-                            tc.m_ReceiveInterval = TimeSpan.FromSeconds(reportReceivingEvery / Utility.MicrosecondsPerMillisecond);
+                            if(reportReceivingEvery > 0) tc.m_ReceiveInterval = TimeSpan.FromSeconds(reportReceivingEvery / Utility.MicrosecondsPerMillisecond);
 
-                            tc.m_SendInterval = TimeSpan.FromSeconds(reportSendingEvery / Utility.MicrosecondsPerMillisecond);
+                            if (reportSendingEvery > 0) tc.m_SendInterval = TimeSpan.FromSeconds(reportSendingEvery / Utility.MicrosecondsPerMillisecond);
 
                             //Todo
                             //Should set MaximumRtcpBandwidthPercentage
@@ -512,11 +512,11 @@ namespace Media.Rtp
                 return tc;
             }
 
-            public static GoodbyeReport CreateGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null)
+            public static GoodbyeReport CreateGoodbye(TransportContext context, byte[] reasonForLeaving = null, int? ssrc = null, RFC3550.SourceList sourcesLeaving = null)
             {
                 //Make a Goodbye, indicate version in Client, allow reason for leaving 
                 //Todo add other parties where null with SourceList
-                return new GoodbyeReport(context.Version, ssrc ?? (int)context.SynchronizationSourceIdentifier, reasonForLeaving);
+                return new GoodbyeReport(context.Version, ssrc ?? (int)context.SynchronizationSourceIdentifier, sourcesLeaving ?? new RFC3550.SourceList((uint)context.SynchronizationSourceIdentifier), reasonForLeaving);
             }
 
             /// <summary>
@@ -1931,14 +1931,14 @@ namespace Media.Rtp
             transportContext = GetContextBySourceId(partyId);
 
             //Only if the packet was not addressed to a unique party with the id of 0
-            if (transportContext != null && partyId != 0 &&
+            if (partyId != 0 &&
+                transportContext == null || 
                 transportContext.InDiscovery) //The remote party has not yet been identified.
             {
                 //Cache the payloadType
                 int payloadType = packet.PayloadType;
 
-                if(payloadType == Rtcp.ReceiversReport.PayloadType &&  //The packet is a RecieversReport                   
-                    partyId == transportContext.RemoteSynchronizationSourceIdentifier && //The partyId of the packet corresponds to the remote party of the context
+                if(payloadType == Rtcp.ReceiversReport.PayloadType &&  //The packet is a RecieversReport                                       
                     packet.BlockCount > 0)//There is at least 1 block
                 {
                     //Create a wrapper around the packet to access the ReportBlocks
@@ -1947,14 +1947,18 @@ namespace Media.Rtp
                         //Iterate each contained ReportBlock
                         foreach (Rtcp.IReportBlock reportBlock in rr)
                         {
-                            //Attempt to obtain a context by the identifier in the report block
-                            transportContext = GetContextBySourceId(reportBlock.BlockIdentifier);
+                            int blockId = reportBlock.BlockIdentifier;
 
-                            //If there was a context
-                            if (transportContext != null)
+                            //Attempt to obtain a context by the identifier in the report block
+                            transportContext = GetContextBySourceId(blockId);
+
+                            //If there was a context and the remote party has not yet been identified.
+                            if (transportContext != null && transportContext.InDiscovery)
                             {
                                 //Identify the remote party by this id.
-                                transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
+                                transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+
+                                Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + "RR blockId=" + blockId);
 
                                 //Stop looking for a context.
                                 break;
@@ -1979,10 +1983,13 @@ namespace Media.Rtp
                                 transportContext = GetContextBySourceId(party);
 
                                 //If there was a context
-                                if (transportContext != null)
+                                if (transportContext != null && 
+                                    false == transportContext.IsDisposed)
                                 {
                                     //Send report now if possible.
-                                    SendReports(transportContext);
+                                    bool reportsSent = SendReports(transportContext);
+
+                                    Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Recieved Goodbye @ " + transportContext.SynchronizationSourceIdentifier + " from=" + partyId + " reportSent=" + reportsSent);
 
                                     //Stop looking for a context.
                                     break;
@@ -1993,70 +2000,79 @@ namespace Media.Rtp
                 }
                 else if (payloadType == Rtcp.SendersReport.PayloadType) //The senders report from a remote party                    
                 {
-                    //The context is valid and still discovering a remote identity
-                    if (transportContext.IsValid && transportContext.InDiscovery)
+                    //If there is a context
+                    if (transportContext != null)
                     {
-                        //Assign it
-                        transportContext.RemoteSynchronizationSourceIdentifier = partyId;
-                    } //If the context has been identified by an identity other than the remote party of the packet
-                    else if(transportContext.RemoteSynchronizationSourceIdentifier != partyId)
-                    {
-                        //Attempt to obtain a context by the identity used previously
-                        transportContext = GetContextBySourceId(partyId);
-
-                        //If ther is no longer a context or the context cannot handle the packet
-                        if (transportContext == null ||
-                            transportContext.IsDisposed)
-                        {
-                            goto NoContext;
-                        }
-
-                        //If the context needs a remote identity and is still not yet valid
-                        if (transportContext.InDiscovery && false == transportContext.IsValid)
+                        //The context is valid and still discovering a remote identity
+                        if (transportContext.IsValid && transportContext.InDiscovery)
                         {
                             //Assign it
                             transportContext.RemoteSynchronizationSourceIdentifier = partyId;
-                        }
-                        else if (packet.BlockCount > 0) //Validate by using the blocks of the report if possible
+
+                            Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + " SR=" + partyId);
+
+                        } //If the context has been identified by an identity other than the remote party of the packet                    
+                        else if (transportContext.RemoteSynchronizationSourceIdentifier != partyId)
                         {
-                            //Create a wrapper around the packet to access the ReportBlocks
-                            using (var rr = new Rtcp.SendersReport(packet, false))
+                            //Attempt to obtain a context by the identity used previously
+                            transportContext = GetContextBySourceId(partyId);
+
+                            //If ther is no longer a context or the context cannot handle the packet
+                            if (transportContext == null ||
+                                transportContext.IsDisposed)
                             {
-                                //Iterate each contained ReportBlock
-                                foreach (Rtcp.IReportBlock reportBlock in rr)
+                                goto NoContext;
+                            }
+
+                            //If the context needs a remote identity and is still not yet valid
+                            if (transportContext.InDiscovery && false == transportContext.IsValid)
+                            {
+                                //Assign it
+                                transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+
+                                Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + " SR=" + partyId);
+                            }
+
+                        }
+                    }//Validate by using the blocks of the report if possible
+                    else if (packet.BlockCount > 0) 
+                    {
+                        //Create a wrapper around the packet to access the ReportBlocks
+                        using (var rr = new Rtcp.SendersReport(packet, false))
+                        {
+                            //Iterate each contained ReportBlock
+                            foreach (Rtcp.IReportBlock reportBlock in rr)
+                            {
+                                int blockId = reportBlock.BlockIdentifier;
+
+                                //Attempt to obtain a context by the identifier in the report block
+                                var context = GetContextBySourceId(reportBlock.BlockIdentifier);
+
+                                //If there was a context
+                                if (context != null)
                                 {
-                                    //Attempt to obtain a context by the identifier in the report block
-                                    var context = GetContextBySourceId(reportBlock.BlockIdentifier);
-
-                                    //If there was a context
-                                    if (context != null)
+                                    //if the context found identifies the context assumed
+                                    if (context.SynchronizationSourceIdentifier == transportContext.SynchronizationSourceIdentifier)
                                     {
-                                        //if the context found identifies the context assumed
-                                        if (context == transportContext)
-                                        {
-                                            //Identify the remote party by this id.
-                                            transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
+                                        //Identify the remote party by this id.
+                                        transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
 
-                                            //Remove any reference
-                                            context = null;
+                                        Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + "SR blockId=" + blockId);
 
-                                            //Stop looking for a context.
-                                            break;
-                                        }                                        
+                                        //Remove any reference
+                                        context = null;
+
+                                        //Stop looking for a context.
+                                        break;
                                     }
                                 }
-
-                                //If no context could be found then do not handle the packet
-                                if (transportContext == null) goto NoContext;
                             }
                         }
                     }
-                    else //Don't handle further
-                    {
-                        return;
-                    }
                 }
-            }            
+            }
+
+            //Handle Goodbyes?
 
         NoContext:
 
@@ -2068,7 +2084,7 @@ namespace Media.Rtp
 
                 if (rtpPayloadType == 13 || GetContextByPayloadType(rtpPayloadType) != null)
                 {
-                    Media.Common.ILoggingExtensions.Log(Logger, "No Context for packet " + partyId + ". Incoming RtcpPacket actually was Rtp. Type=" + rtpPayloadType + " Len=" + packet.Length);
+                    Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtcpPacket - Incoming RtcpPacket actually was Rtp. Ssrc= " + partyId + " Type=" + rtpPayloadType + " Len=" + packet.Length);
 
                     //Raise an event for the 'RtpPacket' received.
                     OnRtpPacketReceieved(new RtpPacket(packet.Prepare().ToArray(), 0));
@@ -2082,7 +2098,7 @@ namespace Media.Rtp
                 //Could attempt to check that there is only 1 context and then if not yet valid assign the identity...
                 //if(TransportContexts.Count == 1) ...
 
-                Media.Common.ILoggingExtensions.Log(Logger, "No Context for packet " + partyId + "@" + packet.PayloadType);
+                Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtcpPacket - No Context for packet " + partyId + "@" + packet.PayloadType);
 
                 //Don't do anything else.
                 return;
@@ -2245,14 +2261,18 @@ namespace Media.Rtp
                 &&
                 transportContext.IsValid)
             {
-
-                Media.Common.ILoggingExtensions.Log(Logger, "SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + " - " + partyId + ". ResetState");
-
                 //Reset the state if not discovering
-                if(false == transportContext.InDiscovery) transportContext.ResetState();
+                if (false == transportContext.InDiscovery)
+                {
+                    Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + '-' + transportContext.RemoteSynchronizationSourceIdentifier + " / " + partyId + ". ResetState");
+
+                    transportContext.ResetState();
+                }
 
                 //Assign the id of the remote party.
                 transportContext.RemoteSynchronizationSourceIdentifier = partyId;
+
+                Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier);
             }
 
             //Don't worry about overflow.
@@ -2268,11 +2288,19 @@ namespace Media.Rtp
                     //Increment for a failed reception 
                     ++transportContext.m_FailedRtpReceptions;
 
-                    return;
+                    Media.Common.ILoggingExtensions.Log(Logger, "HandleIncomingRtpPacket Failed Reception " +
+                             "(= " + transportContext.m_FailedRtpReceptions + ") @" + transportContext.SynchronizationSourceIdentifier + 
+                            " seq=" + packet.SequenceNumber + " len= " + packet.Length);
+
+                    //Only proceeed further in the context is valid
+                    //if(transportContext.IsValid) return;
                 }
 
                 //Increment RtpPacketsReceived for the context relating to the packet.
                 ++transportContext.RtpPacketsReceived;
+
+                //Ensure the id matches.
+                if (transportContext.InDiscovery && transportContext.IsValid) transportContext.RemoteSynchronizationSourceIdentifier = partyId;
 
                 //The counters for the bytes will now be be updated (without the 12 octets of the header)
                 //increment the counters (Only use the Payload.Count per the RFC) (new Erratta Submitted)
@@ -3221,7 +3249,7 @@ namespace Media.Rtp
                     //Disable further service
                     context.IsRtpEnabled = context.IsRtcpEnabled = false;
                 }
-                else if (context.m_InactiveTime >= context.m_ReceiveInterval)
+                else if (context.m_InactiveTime >= context.m_ReceiveInterval + context.m_SendInterval)
                 {
                     //send a goodbye but don't store it
                     inactive = SendGoodbye(context) <= 0;
@@ -3739,11 +3767,12 @@ namespace Media.Rtp
 
                         #endregion
 
-                        //If there was NOT a null packet and there WAS a context
+                        //If there WAS a context
                         if (relevent != null)
                         {                           
                             //Verify minimum and maximum packet sizes allowed by context.
-                            if (frameLength < relevent.MinimumPacketSize + sessionRequired || frameLength > relevent.MaximumPacketSize + sessionRequired)
+                            if (frameLength < relevent.MinimumPacketSize + sessionRequired || 
+                                frameLength > relevent.MaximumPacketSize + sessionRequired)
                             {
                                 //mark as incompatible
                                 incompatible = true;
@@ -3778,10 +3807,10 @@ namespace Media.Rtp
                                 //If this is a valid data backer there must be at least a RtpHeader's worth of data in the buffer. If this was a RtcpPacket with only 4 bytes it wouldn't have a ssrc and wouldn't be valid to be sent.
                                 if (false == incompatible && 
                                     (frameChannel == relevent.DataChannel && 
-                                    remainingInBuffer <= 16) //Todo handle when $ is not used
+                                    remainingInBuffer <= Rtp.RtpHeader.Length + sessionRequired)
                                     || 
                                     (frameChannel == relevent.ControlChannel &&
-                                    remainingInBuffer <= Rtp.RtpHeader.Length)) //Todo handle when $ is not used
+                                    remainingInBuffer <= Rtcp.RtcpHeader.Length + sessionRequired))
                                 {
                                     //Remove the context
                                     relevent = null;
@@ -3850,7 +3879,7 @@ namespace Media.Rtp
                                             }
                                         }
                                     } //Not Rtp or Rtcp
-                                    else incompatible = true;
+                                    //else incompatible = true;
                                 }                                                               
                             }
                         }
@@ -3860,7 +3889,7 @@ namespace Media.Rtp
                         //Handle null packets or large packet as well as incompatible packets
 
                         //Log for no context.
-                        if (relevent == null && false == raisedEvent) Media.Common.ILoggingExtensions.Log(Logger, "No Context for Channel " + frameChannel);
+                        if (relevent == null && false == raisedEvent) Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - No Context for Channel " + frameChannel);
 
                         if (incompatible)
                         {
@@ -3871,10 +3900,9 @@ namespace Media.Rtp
 
                                 if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
 
-                                Media.Common.ILoggingExtensions.Log(Logger, "Incompatible Packet of " + frameLength + " for Channel " + frameChannel);
+                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Incompatible Packet of " + frameLength + " for Channel " + frameChannel);
                             }
-
-
+                            
                             //Determine how much we can move
                             int toMove = Math.Min(remainingInBuffer, sessionRequired);
 
@@ -3902,19 +3930,17 @@ namespace Media.Rtp
                             //Just because there is no assoicated context on the client does not mean the packet is not useful elsewhere in Transport.
 
                             //TODO It may be possible to let the event reiever known how much is available here.
-
-                            //If there was a context then increment for failed receptions only for large packets
-                            if (frameLength > 0 && relevent != null)
+                            if (frameLength == 0)
+                            {
+                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Null Packet for Channel " + frameChannel);
+                            }
+                            else //If there was a context then increment for failed receptions only for large packets
                             {
                                 if (expectRtp) ++relevent.m_FailedRtpReceptions;
 
                                 if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
 
-                                Media.Common.ILoggingExtensions.Log(Logger, "Large Packet of " + frameLength + " for Channel " + frameChannel);
-                            }
-                            else if (frameLength == 0 && relevent != null)
-                            {
-                                Media.Common.ILoggingExtensions.Log(Logger, "Null Packet for Channel " + frameChannel);
+                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Large Packet of " + frameLength + " for Channel " + frameChannel);
                             }
 
                             //if an event was not already raised then raise one.

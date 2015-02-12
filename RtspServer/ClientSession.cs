@@ -853,7 +853,7 @@ namespace Media.Rtsp
             bool rtcpDisabled = sourceStream.m_DisableQOS;
 
             //Values in the header we need
-            int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, localSsrc, remoteSsrc = 0;
+            int clientRtpPort = -1, clientRtcpPort = -1, serverRtpPort = -1, serverRtcpPort = -1, localSsrc = 0, remoteSsrc = 0;
 
             //Cache this to prevent having to go to get it every time down the line
             IPAddress sourceIp = IPAddress.Any;
@@ -877,9 +877,8 @@ namespace Media.Rtsp
                 return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Invalid Transport Header");
             }
 
-            //This allows the requester to specify their id to prevent collisions now...
-            if (remoteSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
-            else localSsrc = remoteSsrc + 1; //Ensure no collision
+            //Check if the ssrc was 0 which indicates any id
+            if (localSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
 
             //Could also randomize the setupContext sequenceNumber here.
             //We need to make an TransportContext in response to a setup
@@ -1272,21 +1271,23 @@ namespace Media.Rtsp
                     //Could be a property of the transport.. (especially the rtpclient.)
                     //E.g. IsInactive
 
-                    //If the context does not have any active transport purpose OR
-                    if (context.IsRtpEnabled == context.IsRtcpEnabled == false
-                        || //If the context has rtp enabled and not been sent a rtp packet packet in the allowed time AND
-                        (context.IsRtpEnabled ? context.LastRtpPacketSent == Utility.InfiniteTimeSpan || context.LastRtpPacketSent >= context.ReceiveInterval : !context.IsRtpEnabled)
-                        && //The context has rtcp enabled and the context has not been sent a rtcp packet in the allowed time
-                        (context.IsRtcpEnabled ? context.LastRtcpReportSent == Utility.InfiniteTimeSpan || context.LastRtcpReportSent >= context.ReceiveInterval : !context.IsRtcpEnabled))
+                    //If the context does not have any activity
+                    if (false == context.HasAnyActivity)
                     {
+                        //Session level logger
+                        //Context has no activity
+
                         //See if there is still a source for the context 
                         RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
 
-                        //If there was a source context
-                        if (sourceContext != null)
+                        //If there was a source context with activity
+                        if (sourceContext != null && sourceContext.HasAnyActivity)
                         {
                             //Remove the attachment from the source context to the session context
                             RemoveSource(Attached[sourceContext]);
+
+                            //Session level logger
+                            //Removed Attachment for sourceContext.Id
 
                             //Remove the reference to the sourceContext
                             sourceContext = null;
@@ -1442,9 +1443,9 @@ namespace Media.Rtsp
 
             connectionLine = new Sdp.Lines.SessionConnectionLine()
             {
-                Address = addressString,
-                AddressType = m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6" : "IP4",
-                NetworkType = "IN",
+                ConnectionAddress = addressString,
+                ConnectionAddressType = m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6" : "IP4",
+                ConnectionNetworkType = "IN",
             };
 
             //Add the new line

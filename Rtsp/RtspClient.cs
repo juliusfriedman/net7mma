@@ -2301,7 +2301,7 @@ namespace Media.Rtsp
                         //Wait while
                         while (false == IsDisposed //The client connected and is not disposed AND
                             //There is no last transmitted message assigned AND it has not already been disposed
-                            && (m_LastTransmitted == null && false == m_LastTransmitted.IsDisposed)
+                            && (m_LastTransmitted == null || false == m_LastTransmitted.IsDisposed)
                             //AND the client is still allowed to wait
                             && ++attempt <= m_ResponseTimeoutInterval)
                         {
@@ -2318,7 +2318,7 @@ namespace Media.Rtsp
                             }
 
                             //Check for any new messages
-                            if (m_LastTransmitted != null) continue;
+                            if (m_LastTransmitted != null) goto GotResponse;
 
                             //Calculate how much time has elapsed
                             TimeSpan taken = DateTime.UtcNow - (message.Transferred ?? message.Created);
@@ -2374,6 +2374,7 @@ namespace Media.Rtsp
                         }
                     }
 
+                GotResponse:
                     //Update counters for any data received.
                     m_ReceivedBytes += received;
 
@@ -2385,16 +2386,17 @@ namespace Media.Rtsp
                     else //m_LastTransmitted is not null
                     {
                         //Obtain the CSeq of the response if present.
-                        int sequenceNumber = m_LastTransmitted.CSeq;
+                        int sequenceNumberSent = message.CSeq, sequenceNumberReceived = m_LastTransmitted.CSeq;
 
                         //If the sequence number was present and did not match then wait again
-                        if (sequenceNumber >= 0 && sequenceNumber != message.CSeq)
+                        if (sequenceNumberReceived >= 0 && sequenceNumberReceived != sequenceNumberSent)
                         {
                             //Check if someone else is transmitting and wait
                             if (m_InterleaveEvent.IsSet) m_InterleaveEvent.Wait();
                             
-                            //Check for a new response
-                            if (m_LastTransmitted.CSeq != sequenceNumber)
+                            //Check for a new response to have bet set by the event
+                            if (sequenceNumberReceived == m_LastTransmitted.CSeq &&
+                                sequenceNumberReceived != sequenceNumberSent)
                             {
                                 //Reset the block
                                 m_InterleaveEvent.Reset();
@@ -2835,7 +2837,7 @@ namespace Media.Rtsp
             }
         }
 
-        public RtspMessage SendTeardown(MediaDescription mediaDescription = null, bool force = false)
+        public RtspMessage SendTeardown(MediaDescription mediaDescription = null, bool disconnect = false, bool force = false)
         {
             RtspMessage response = null;
 
@@ -2860,7 +2862,7 @@ namespace Media.Rtsp
                         //If context was determined then send a goodbye
                         if (context != null)
                         {
-                            //Send a goodbye now
+                            //Send a goodbye now (but still allow reception)
                             m_RtpClient.SendGoodbye(context);
 
                             //Remove the reference
@@ -2888,7 +2890,11 @@ namespace Media.Rtsp
                     Location = mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(Location) : Location
                 })
                 {
-                    return SendRtspMessage(teardown);
+                    //Set the close header if disconnecting
+                    if (disconnect) teardown.SetHeader(RtspHeaders.Connection, "close");
+
+                    //Send the request and if not closing the connecting then wait for a response
+                    return SendRtspMessage(teardown, true, false == disconnect);
                 }
                 
             }

@@ -120,7 +120,7 @@ namespace Tests
                 //  Using ASCII instead of UTF8 to get all bytes printed.
                 Console.ForegroundColor = ConsoleColor.DarkYellow;
                 Console.WriteLine("'" + Encoding.ASCII.GetString(buffer) + "'");
-                
+
 
             GetMessage:
 
@@ -412,10 +412,15 @@ namespace Tests
 
     public class Program
     {
-
+        /// <summary>
+        /// A format for the output which occurs when unit testing.
+        /// </summary>
         internal static string TestingFormat = "{0}:=>{1}";
 
-        static Action[] Tests = new Action[] { 
+        /// <summary>
+        /// The UnitTests which will be run to test the implemenation logic
+        /// </summary>
+        static Action[] LogicTests = new Action[] { 
             TestUtility, 
             TestBinary, 
             //Rtp
@@ -435,15 +440,26 @@ namespace Tests
             TestProcessFrameData.Issue17245_Case2_Iteration
         };
 
+        /// <summary>
+        /// This is where the Tests.Program is currently running.
+        /// </summary>
         static string executingAssemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
 
+        /// <summary>
+        /// The entry point of the unit testing application
+        /// </summary>
+        /// <param name="args"></param>
         [MTAThread]
         public static void Main(string[] args)
         {
+            //Run the main tests
+            foreach (Action test in LogicTests) RunTest(test);
 
-            //Enable Shift / Control + Shift moving through tests, e.g. some type menu 
-            foreach (Action test in Tests) RunTest(test);            
+            Console.WriteLine("Logic Tests Complete! Press Q to Exit or any other key to perform the live tests.");
 
+            if (Console.ReadKey(true).Key == ConsoleKey.Q) return;
+
+            //Run the live tests
             RunTest(TestRtpClient, 777);
 
             RunTest(RtspClientTests);
@@ -453,19 +469,19 @@ namespace Tests
             RunTest(TestServer);
         }
 
-        
+        #region Unit Test
 
-        public static void TestUtility() 
+        public static void TestUtility()
         {
 
             //Each octet reflects it's offset in hexidecimal
-                                        // 0 - 9 in hex is the same as decimal
+            // 0 - 9 in hex is the same as decimal
             byte[] haystack = new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15 },
                 //Something to look for in the above
                    needle = new byte[] { 0x14, 0x15 };
 
             //For all 20 bytes look for them in the ensure haystack starting at the beginning
-            for (int offset = 0, test = 0, haystackLength = haystack.Length, count = haystackLength , needleBegin = 0, needleLength = needle.Length; 
+            for (int offset = 0, test = 0, haystackLength = haystack.Length, count = haystackLength, needleBegin = 0, needleLength = needle.Length;
                 //Perform tests up to the highest value in haystack by design
                 test < haystackLength - 1; ++test, offset = 0, count = haystackLength, needle[1] = (byte)test, needle[0] = (byte)(test - 1)) //increment the test and reset the offset each and count each time
             {
@@ -478,7 +494,7 @@ namespace Tests
                 //Check for an invalid result in the test
                 if (!match.SequenceEqual(needle)
                             ||//Double check the result is valid by examining the first byte to be equal to the offset (which is by design)                        
-                                match.First() != offset) throw new Exception("Invalid result found!");                    
+                                match.First() != offset) throw new Exception("Invalid result found!");
                 ///////////////////////////////////////////////////                
                 //Write the info about the test to show progress
                 else Console.WriteLine(string.Format(TestingFormat, "FoundBytes Found", "@" + offset + " : " + BitConverter.ToString(match.ToArray())));
@@ -543,7 +559,7 @@ namespace Tests
             if (testBits != sbyte.MaxValue) throw new Exception("No idea what we did");
 
             //Use 8 octets, each write over-writes the previous written value
-            byte[] Octets = new byte[8];            
+            byte[] Octets = new byte[8];
 
             //Test Bit Methods from 0 - 255 inclusive
             //[256] Operations
@@ -590,10 +606,10 @@ namespace Tests
             }
 
             //Test is binary, so test both ways, 0 and 1
-            for(int i = 0; i < 2; ++i)
+            for (int i = 0; i < 2; ++i)
             {
 
-            //Test:
+                //Test:
                 //First test uses writing Network Endian and reading System Endian, next test does the opposite
                 bool reverse = i > 0;
 
@@ -917,7 +933,7 @@ namespace Tests
                                 CSeq = Utility.Random.Next(byte.MinValue, int.MaxValue),
                                 UserAgent = "$UserAgent $009\r\n$\0\0\aRTSP/1.0",
                                 Body = "$009\r\n$\0:\0"
-                            }.Prepare();                        
+                            }.Prepare();
 
                         byte[] data = new byte[Utility.Random.Next(1, length)];
 
@@ -961,7 +977,7 @@ namespace Tests
 
                             actualLength += needed;
                         }
-                    }                    
+                    }
 
                     //Start at 0
                     int offset = 0;
@@ -995,7 +1011,7 @@ namespace Tests
                         Console.ForegroundColor = ConsoleColor.Yellow;
                         Console.WriteLine("Missed:" + (rtspOut - rtspIn) + " Messages of" + rtspOut);
                     }
-                    else if(rtspIn == 0)
+                    else if (rtspIn == 0)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.WriteLine("Missed All Messages");
@@ -1092,11 +1108,11 @@ namespace Tests
                             {
                                 //Get the socket used
                                 var acceptedSocket = sendersSocket.EndAccept(iar);
-                                
+
                                 sendersContext.Initialize(acceptedSocket);
-                                
+
                                 receiversContext.Initialize(acceptedSocket);
-                                
+
                                 //Connect the sender
                                 sender.Connect();
 
@@ -1107,7 +1123,7 @@ namespace Tests
 
                             //Make a socket for the receiver to connect to the sender on.
                             var rr = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-                            
+
                             //Connect to the sender
                             rr.Connect(new System.Net.IPEndPoint(localIp, 17777));
 
@@ -1157,11 +1173,11 @@ namespace Tests
                             consoleWriter.WriteLine("\t Sender Sent : " + sendersContext.SendersReport.SendersPacketCount + " Packets");
 
                         }
-                        
+
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
                         //Wait for a receivers report to be sent while the receiver is connected
-                        while (receiver.IsConnected &&  (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
+                        while (receiver.IsConnected && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (receiversContext.ReceiversReport != null)
@@ -1177,152 +1193,12 @@ namespace Tests
                             {
                                 consoleWriter.WriteLine("\t Receiver  : " + reportBlock.SendersSynchronizationSourceIdentifier);
                                 consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
-                            }      
+                            }
                         }
                     }//Disposes the receiver
                 }//Disposes the sender
                 consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Exit");
             }
-        }
-
-
-        static void writeError(Exception ex)
-        {
-            Console.BackgroundColor = ConsoleColor.Red;
-            Console.WriteLine("Test Failed!");
-            Console.WriteLine("Exception.Message: " + ex.Message);
-            Console.WriteLine("Press (W) to try again or any other key to continue.");
-            Console.BackgroundColor = ConsoleColor.Black;
-        }
-
-        static void writeInfo(string message, ConsoleColor? backgroundColor, ConsoleColor? foregroundColor)
-        {
-
-            ConsoleColor? previousBackgroundColor = null, previousForegroundColor = null;
-
-            if (backgroundColor.HasValue)
-            {
-                previousBackgroundColor = Console.BackgroundColor;
-                Console.BackgroundColor = backgroundColor.Value;
-            }
-
-            if (foregroundColor.HasValue)
-            {
-                previousForegroundColor = Console.ForegroundColor;
-                Console.ForegroundColor = foregroundColor.Value;
-            }
-            
-            Console.WriteLine(message);
-
-            if (previousBackgroundColor.HasValue)
-            {
-                Console.BackgroundColor = previousBackgroundColor.Value;
-            }
-
-            if (previousForegroundColor.HasValue)
-            {
-                Console.ForegroundColor = previousForegroundColor.Value;
-            }
-        }
-
-        static void RunTest(Action test, int count = 1, bool waitForGoAhead = true)
-        {            
-            System.Console.Clear();
-            ConsoleColor pForeGround = Console.ForegroundColor,
-                        pBackGound = Console.BackgroundColor;
-            Console.BackgroundColor = ConsoleColor.Blue;
-            Console.WriteLine("About to run test: " + test.Method.Name);
-            Console.WriteLine("Press Q to skip or any other key to continue.");
-            Console.BackgroundColor = ConsoleColor.Black;
-            
-            //If the debugger is attached get a ConsoleKey, the key is Q return.
-            if (waitForGoAhead && System.Diagnostics.Debugger.IsAttached && Console.ReadKey(true).Key == ConsoleKey.Q) return;
-            else
-            {
-                Dictionary<int, Exception> log = null;
-
-                int remaining = count, failures = 0, successes = 0; bool multipleTests = count > 1;
-
-                if (multipleTests) log = new Dictionary<int, Exception>();
-
-                foreach (var testIndex in Enumerable.Range(0, count).AsParallel())
-                {
-                    try
-                    {
-
-                        //Decrement remaining
-                        --remaining;
-
-                        TraceMessage("Beginning Test '" + testIndex + "'", test.Method.Name);
-
-                        //Run the test
-                        test();
-
-                        TraceMessage("Completed Test'" + testIndex + "'", test.Method.Name);
-
-                        //Increment the success counter
-                        ++successes;
-                    }
-                    catch (Exception ex)
-                    {
-                        //Incrment the exception counter
-                        ++failures;
-
-                        //Only break if the debugger is attached
-                        if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
-
-                        //Write the exception to the console
-                        writeError(ex);
-
-                        //If there were multiple tests
-                        if (multipleTests)
-                        {
-                            //Add the exception to the log
-                            log.Add(remaining, ex);
-                        }
-                    }                    
-                }
-
-                //Write the amount of failures and successes unless all tests passed
-                if (failures == 0) writeInfo("\tAll '"+ count + "' Tests Passed!\r\n\tPress (W) To Run Again, (D) to Debug or any other key to continue.", null, ConsoleColor.Green);
-                else writeInfo("\t" + failures + " Failures, " + successes + " Successes", null, failures > 0 ? ConsoleColor.Red : ConsoleColor.Green);
-
-                //Oops core lib
-                //var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation) + "*.log.txt")
-                
-                //Delete log.txt files.
-                foreach (var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation), "*.log.txt"))
-                {
-                    try { System.IO.File.Delete(logFile); }
-                    catch (Exception)
-                    {
-                        if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
-                        continue;
-                    }
-                }
-
-                //If the debugger is attached Read a ConsoleKey. (intercepting the key so it does not appear on the console)
-                if (System.Diagnostics.Debugger.IsAttached)
-                {
-                    ConsoleKey input = Console.ReadKey(true).Key;
-                    switch (input)
-                    {
-                        case ConsoleKey.W:
-                            {
-                                RunTest(test, 1, false);
-                                return;
-                            }
-                        case ConsoleKey.D: System.Diagnostics.Debugger.Break(); goto default;
-                        default: break;
-                    }                    
-                }
-            }
-
-
-            Console.BackgroundColor = pBackGound; 
-
-            Console.ForegroundColor = pForeGround;
-
         }
 
         static void TestRtcpPacketExamples()
@@ -1390,7 +1266,7 @@ namespace Tests
             }
 
             //Create a new SendersReport with no blocks
-            using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, false, 0, 7)) 
+            using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, false, 0, 7))
             {
                 //The Media.RtcpData property contains all data which in the Media.RtcpPacket without padding
                 if (testReport.RtcpData.Count() != 20 && testReport.Length != 20) throw invalidLength;
@@ -1407,11 +1283,11 @@ namespace Tests
                             0x00,0x00,0x00,0x00
                          };
 
-             rtcpPacket= new Media.Rtcp.RtcpPacket(example, 0);
+            rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0);
             if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Length.");
 
             //Make a SendersReport to access the SendersInformation and ReportBlocks, do not dispose the packet when done with the report
-            using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(rtcpPacket, false)) 
+            using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(rtcpPacket, false))
             {
                 //Check the invalid block count
                 if (sr.BlockCount != 1) throw new Exception("Invalid Block Count!");
@@ -1455,7 +1331,7 @@ namespace Tests
             }
 
             if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
-           
+
             //Now the packet can be disposed
             rtcpPacket.Dispose();
             rtcpPacket = null;
@@ -1469,7 +1345,7 @@ namespace Tests
             //Next Sub Test
             /////
 
-            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7)) 
+            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7))
             {
                 output = testReport.Prepare().ToArray();
 
@@ -1478,11 +1354,11 @@ namespace Tests
                 if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
             }
 
-            
+
 
             //Add a Reason For Leaving
 
-            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, Encoding.ASCII.GetBytes("v"))) 
+            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, Encoding.ASCII.GetBytes("v")))
             {
                 output = testReport.Prepare().ToArray();
 
@@ -1571,7 +1447,7 @@ namespace Tests
             rtcpPacket = new Media.Rtcp.RtcpPacket(example, output.Length);
 
             //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
-            using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false)) 
+            using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false))
             {
 
                 foreach (var chunk in sourceDescription.GetChunkIterator())
@@ -1591,7 +1467,7 @@ namespace Tests
                 output = sourceDescription.Prepare().ToArray();//should be exactly equal to example
                 for (int i = output.Length, e = sourceDescription.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
 
-            }          
+            }
 
             //ApplicationSpecific - qtsi
 
@@ -1601,7 +1477,7 @@ namespace Tests
 
             //Make a ApplicationSpecificReport instance
             Media.Rtcp.ApplicationSpecificReport app = new Media.Rtcp.ApplicationSpecificReport(rtcpPacket);
-            
+
             //Check the name to be equal to qtsi
             if (!app.Name.SequenceEqual(Encoding.UTF8.GetBytes("qtsi"))) throw new Exception("Invalid App Packet Type");
 
@@ -1630,80 +1506,6 @@ namespace Tests
             //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
             //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
             if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
-        }
-
-        static void PrintRtcpInformation(Media.Rtcp.RtcpPacket p)
-        {
-            Console.BackgroundColor = ConsoleColor.Blue;
-            TryPrintPacket(true, p);
-            //Console.WriteLine("RTCP Packet Version:" + p.Version + "Length =" + p.Length + " Bytes: " + BitConverter.ToString(p.Prepare().ToArray(), 0, Math.Min(Console.BufferWidth, p.Length)));
-            Console.BackgroundColor = ConsoleColor.Black;
-
-            //Dissect the packet
-            switch (p.PayloadType)
-            {
-                case Media.Rtcp.SendersReport.PayloadType:
-                    {
-                        Console.WriteLine(string.Format(TestingFormat, "SendersReport From", p.SynchronizationSourceIdentifier));
-                        Console.WriteLine(string.Format(TestingFormat, "Length", p.Length));
-
-                        using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(p, false))
-                        {
-                            Console.WriteLine(string.Format(TestingFormat, "NtpTime", sr.NtpTime));
-
-                            Console.WriteLine(string.Format(TestingFormat, "RtpTimestamp", sr.RtpTimestamp));
-
-                            Console.WriteLine(string.Format(TestingFormat, "SendersOctetCount", sr.SendersOctetCount));
-
-                            Console.WriteLine(string.Format(TestingFormat, "SendersPacketCount", sr.SendersPacketCount));
-
-                            //Enumerate any blocks in the senders report
-                            using (var enumerator = sr.GetEnumerator())
-                            {
-                                while (enumerator.MoveNext())
-                                {
-                                    Media.Rtcp.ReportBlock asReportBlock = enumerator.Current as Media.Rtcp.ReportBlock;
-
-                                    Console.WriteLine("Found a ReportBlock");
-
-                                    Console.WriteLine("FractionsLost: " + asReportBlock.FractionsLost);
-                                    Console.WriteLine("CumulativePacketsLost: " + asReportBlock.CumulativePacketsLost);
-                                    Console.WriteLine("ExtendedHighestSequenceNumberReceived: " + asReportBlock.ExtendedHighestSequenceNumberReceived);
-                                    Console.WriteLine("InterarrivalJitterEstimate: " + asReportBlock.InterarrivalJitterEstimate);
-                                    Console.WriteLine("LastSendersReportTimestamp: " + asReportBlock.LastSendersReportTimestamp);
-                                }
-                            }
-                        }
-
-                        break;
-                    }                
-                case Media.Rtcp.SourceDescriptionReport.PayloadType:
-                    {
-                        //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
-                        using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(p, false))
-                        {
-
-                            Console.WriteLine(string.Format(TestingFormat, "SourceDescription From", sourceDescription.SynchronizationSourceIdentifier));
-                            Console.WriteLine(string.Format(TestingFormat, "Length", p.Length));
-
-                            foreach (var chunk in sourceDescription.GetChunkIterator())
-                            {
-                                Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
-                                //Use a SourceDescriptionItemList to access the items within the Chunk
-                                //This is performed auto magically when using the foreach pattern
-                                foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
-                                {
-                                    Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
-                                    Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
-                                    Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.Data.ToArray())));
-                                }
-                            }
-                        }
-                        break;
-                    }
-                default: Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, p)); break;
-
-            }
         }
 
         static void TestRtpDumpReader(string path, Media.RtpTools.FileFormat? knownFormat = null)
@@ -1756,7 +1558,7 @@ namespace Tests
                                 PrintRtcpInformation(p);
 
                                 //Move the offset for the packet
-                                offset += p.Length;                              
+                                offset += p.Length;
 
                             }//Done with the Media.Rtcp portion
 
@@ -1785,14 +1587,12 @@ namespace Tests
                                     Console.BackgroundColor = ConsoleColor.Black;
                                     offset += p.Payload.Count;
                                 }
-                           
+
                         }//Done using the header 
                     }//Done using the RtpEntry(entry)
                 }//The reader has no more entries
             }//Done using the RtpDumpReader (reader)
         }
-
-        static System.Net.IPEndPoint testingEndPoint = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7);
 
         /// <summary>
         /// Creates a <see cref="DumpWriter"/> and writes a single <see cref="Rtp.RtpPacket"/>, and a single <see cref="Rtcp.RtcpPacket"/>.
@@ -1801,6 +1601,8 @@ namespace Tests
         /// <param name="format">The format the packets should be written in</param>
         static void TestRtpDumpWriter(string path, Media.RtpTools.FileFormat format)
         {
+            System.Net.IPEndPoint testingEndPoint = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 7);
+
             //Use a write to write a RtpPacket
             using (Media.RtpTools.RtpDump.DumpWriter dumpWriter = new Media.RtpTools.RtpDump.DumpWriter(path, format, testingEndPoint))
             {
@@ -1954,7 +1756,7 @@ namespace Tests
                                 Media.Rtp.RtpPacket rtpPacket = new Media.Rtp.RtpPacket(data, 0);
                                 Console.WriteLine("Found Rtp Packet: SequenceNum=" + rtpPacket.SequenceNumber + " , Timestamp=" + rtpPacket.Timestamp + (rtpPacket.Marker ? " MARKER" : string.Empty));
                                 writer.WritePacket(rtpPacket);
-                            }                            
+                            }
 
                         }
 
@@ -1963,7 +1765,7 @@ namespace Tests
                 }
             }
 
-            #endregion           
+            #endregion
 
             //ToDo a byte by byte compairson on a dump file before modifying
 
@@ -1978,10 +1780,14 @@ namespace Tests
             System.IO.File.Delete(currentPath + @"\Header.rtpdump");
 
             System.IO.File.Delete(currentPath + @"\ShortDump.rtpdump");
-        }
+        }        
 
-        //Declare a few exceptions
-        static Exception versionException = new Exception("Unable to set the version"),
+        static void TestRtpPacket()
+        {
+
+
+            //Declare a few exceptions
+            Exception versionException = new Exception("Unable to set the version"),
             extensionException = new Exception("Incorrectly set the Extensions Bit"),
             contributingSourceException = new Exception("Incorrectly set the ContributingSource nibble"),
             inValidHeaderException = new Exception("Invalid header."),
@@ -1992,15 +1798,6 @@ namespace Tests
             markerException = new Exception("Marker is not set"),
             payloadException = new Exception("Incorreclty set PayloadType bits");
 
-        static void TraceMessage(string message,
-        string memberName = "",
-        [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
-        [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
-        {
-            Console.WriteLine(string.Format(TestingFormat, message, memberName ?? "No MethodName Provided"));
-        }
-        static void TestRtpPacket()
-        {
             //Create a RtpPacket instance
             Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(new Media.Rtp.RtpHeader(0, false, false), Enumerable.Empty<byte>());
 
@@ -2118,7 +1915,7 @@ namespace Tests
                             if (p.ContributingSourceCount != ContributingSourceCounter) throw contributingSourceException;
                         }
                     }
-                }                
+                }
                 Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
             }
 
@@ -2321,11 +2118,23 @@ namespace Tests
 
         }
 
-        private static void TestRtcpPacket()
+        static void TestRtcpPacket()
         {
+            //Declare a few exceptions
+            Exception versionException = new Exception("Unable to set the version"),
+            extensionException = new Exception("Incorrectly set the Extensions Bit"),
+            contributingSourceException = new Exception("Incorrectly set the ContributingSource nibble"),
+            inValidHeaderException = new Exception("Invalid header."),
+            reportBlockException = new Exception("Incorrectly set the ReportBlock 7 bits"),
+            paddingException = new Exception("Incorreclty set the Padding Bit"),
+            timestampException = new Exception("Incorrect Timestamp value"),
+            sequenceNumberException = new Exception("Sequence Number Incorrect"),
+            markerException = new Exception("Marker is not set"),
+            payloadException = new Exception("Incorreclty set PayloadType bits");
+
             //Write all Abstrractions to the console
             foreach (var abstraction in Media.Rtcp.RtcpPacket.GetImplementedAbstractions())
-                Console.WriteLine(string.Format(TestingFormat, "\tFound Abstraction" ,"Implemented By" + abstraction.Name));
+                Console.WriteLine(string.Format(TestingFormat, "\tFound Abstraction", "Implemented By" + abstraction.Name));
 
             //Write all Implementations to the console
             foreach (var implementation in Media.Rtcp.RtcpPacket.GetImplementations())
@@ -2427,11 +2236,11 @@ namespace Tests
                             //Perform checks with length in words set incorrectly
                         }
                     }
-                }                
+                }
                 Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
-            }          
+            }
         }
-        
+
         static void TestRtspMessage()
         {
             Media.Rtsp.RtspMessage request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
@@ -2439,7 +2248,7 @@ namespace Tests
             request.Method = Media.Rtsp.RtspMethod.REDIRECT;
             request.Version = 7;
             request.CSeq = 2;
-            
+
             byte[] bytes = request.ToBytes();
 
             Media.Rtsp.RtspMessage fromBytes = new Media.Rtsp.RtspMessage(bytes);
@@ -2466,7 +2275,7 @@ namespace Tests
             {
                 throw new Exception("Response Testing Failed!");
             }
-            
+
             //Check *
 
             request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
@@ -2489,7 +2298,7 @@ namespace Tests
             request.Location = new Uri("rtsp://someServer.com");
             request.Method = Media.Rtsp.RtspMethod.REDIRECT;
             request.Version = 7;
-            
+
             bytes = request.ToBytes();
 
             fromBytes = new Media.Rtsp.RtspMessage(bytes);
@@ -2543,7 +2352,7 @@ namespace Tests
             response.Version = fromBytes.Version;
 
             bytes = response.ToBytes();
-            
+
             fromBytes = new Media.Rtsp.RtspMessage(bytes);
 
             if (!(fromBytes.StatusCode == response.StatusCode && fromBytes.Version == response.Version && fromBytes.Body == response.Body))
@@ -2570,7 +2379,7 @@ namespace Tests
             string output = request.ToString();
 
             if (request.MessageType != Media.Rtsp.RtspMessageType.Request &&
-                request.Method != Media.Rtsp.RtspMethod.ANNOUNCE && 
+                request.Method != Media.Rtsp.RtspMethod.ANNOUNCE &&
                 request.Version != 1.0 &&
                 output != "ANNOUNCE / RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid message");
 
@@ -2580,9 +2389,9 @@ namespace Tests
 
             output = request.ToString();
 
-            if (request.MessageType != Media.Rtsp.RtspMessageType.Request && 
-                request.Method != Media.Rtsp.RtspMethod.GET_PARAMETER && 
-                request.Version != 1.0 && 
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request &&
+                request.Method != Media.Rtsp.RtspMethod.GET_PARAMETER &&
+                request.Version != 1.0 &&
                 request.HeaderCount != 1 &&
                 request.GetHeader("Test") != "Value" &&
                 output != "GET_PARAMETER * RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid request");
@@ -2593,8 +2402,8 @@ namespace Tests
 
             output = request.ToString();
 
-            if (request.MessageType != Media.Rtsp.RtspMessageType.Request && 
-                request.Method != Media.Rtsp.RtspMethod.DESCRIBE && 
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request &&
+                request.Method != Media.Rtsp.RtspMethod.DESCRIBE &&
                 request.Version != 1.0 && output != "DESCRIBE / RTSP/1.0\r\n") throw new Exception("Did not output expected result for invalid request");
 
             Console.WriteLine(output);
@@ -2607,9 +2416,9 @@ namespace Tests
 
             //After parsing a message with only \n as end lines the resulting output will be longer because it will now have \r\n
             //It must never be less but it can be equal to.
-            if (request.MessageType != Media.Rtsp.RtspMessageType.Request && 
-                request.Method != Media.Rtsp.RtspMethod.SETUP && 
-                request.Version != 1.0 && 
+            if (request.MessageType != Media.Rtsp.RtspMessageType.Request &&
+                request.Method != Media.Rtsp.RtspMethod.SETUP &&
+                request.Version != 1.0 &&
                 request.CSeq != 302 &&
                 request.HeaderCount != 3 &&
                 output.Length <= request.Length) throw new Exception("Invalid request output length");
@@ -2620,8 +2429,8 @@ namespace Tests
 
             output = response.ToString();
 
-            if (response.MessageType != Media.Rtsp.RtspMessageType.Response && 
-                response.Version != 1.0 && 
+            if (response.MessageType != Media.Rtsp.RtspMessageType.Response &&
+                response.Version != 1.0 &&
                 response.StatusCode != Media.Rtsp.RtspStatusCode.OptionNotSupported &&
                 response.CSeq != 302 &&
                 response.HeaderCount != 2 &&
@@ -2690,104 +2499,6 @@ namespace Tests
             Console.WriteLine(output);
         }
 
-        static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
-
-        static void TryPrintClientPacket (object sender,  bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false)
-        {
-            if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).IsDisposed) return;            
-
-            ConsoleColor previousForegroundColor = Console.ForegroundColor,
-                    previousBackgroundColor = Console.BackgroundColor;
-
-            string format = "{0} a {1} {2}";
-
-            Type packetType = packet.GetType();
-
-            if (packet is Media.Rtp.RtpPacket)
-            {
-                Media.Rtp.RtpPacket rtpPacket = packet as Media.Rtp.RtpPacket;
-                
-                if (packet == null || packet.IsDisposed) return;
-
-                if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
-                else Console.ForegroundColor = ConsoleColor.Red;
-
-                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
-
-                Media.Rtp.RtpClient.TransportContext matched = null;
-
-                if (client != null) matched = client.GetContextForPacket(rtpPacket);
-
-                if (matched == null)
-                {
-                    Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty :  "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
-                    if(client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
-                    {
-                        Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
-                        Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
-                        Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
-                        Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
-                    }
-                }
-                else
-                {
-                    Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
-                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
-                        rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount 
-                        + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
-                }
-                if (rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
-            }
-            else
-            {
-                if (packet == null || packet.IsDisposed) return;
-
-                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
-
-                if (packet.IsComplete) if(packet.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
-                else Console.ForegroundColor = ConsoleColor.Yellow;
-
-                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
-
-                Media.Rtp.RtpClient.TransportContext matched = null;
-
-                if (client != null) matched = client.GetContextForPacket(rtcpPacket);
-
-                Type implemented = Media.Rtcp.RtcpPacket.GetImplementationForPayloadType(rtcpPacket.PayloadType);
-
-                if (implemented != null) packetType = implemented;
-
-                Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
-
-                if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
-
-                if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
-                else
-                {
-                    Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
-                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
-                    {
-                        Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
-                        Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
-                        Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
-                        Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
-                    }
-                }
-
-                if (implemented != null)
-                {
-                    //Could dump the packet contents here.
-                    Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, rtcpPacket));
-                }
-
-                
-            }
-
-            Console.ForegroundColor = previousForegroundColor;
-            Console.BackgroundColor = previousBackgroundColor;
-            
-        }
-
         static void TestRtspClient(string location, System.Net.NetworkCredential cred = null, Media.Rtsp.RtspClient.ClientProtocolType? protocol = null)
         {
             //For display
@@ -2838,10 +2549,12 @@ namespace Tests
                         {
                             Console.WriteLine("\t*****************\nConnected to :" + client.Location);
                             Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
+
+                            //If the client is not already playing, and the client hasn't received any messages yet then start playing
                             if (false == client.IsPlaying && client.MessagesReceived == 0)
                             {
                                 Console.WriteLine("\t*****************\nStarting Playback of :" + client.Location);
-                                
+
                                 //Try to start listening
                                 client.StartPlaying();
 
@@ -2924,7 +2637,7 @@ namespace Tests
                     {
                         if (message != null)
                         {
-                            string output = "Client Sent "+ message.MessageType +" :" + message.ToString();
+                            string output = "Client Sent " + message.MessageType + " :" + message.ToString();
 
                             logWriter.Log(output);
 
@@ -2939,7 +2652,7 @@ namespace Tests
 
                             string output = "Null Response";
 
-                            logWriter.Log(output); 
+                            logWriter.Log(output);
 
                             Console.ForegroundColor = ConsoleColor.Red;
 
@@ -2962,7 +2675,7 @@ namespace Tests
                         {
                             string output = "Client Received " + response.MessageType + " :" + response.ToString();
 
-                            logWriter.Log(output); 
+                            logWriter.Log(output);
 
                             Console.ForegroundColor = ConsoleColor.DarkGreen;
 
@@ -2976,13 +2689,13 @@ namespace Tests
 
                             if (request != null)
                             {
-                                if(request.MessageType == Media.Rtsp.RtspMessageType.Request)
-                                    output = "Client Received Server Sent " + request.MessageType +" :" + request.ToString();
+                                if (request.MessageType == Media.Rtsp.RtspMessageType.Request)
+                                    output = "Client Received Server Sent " + request.MessageType + " :" + request.ToString();
                                 else
                                     output = "Client Received " + request.MessageType + " :" + request.ToString();
                             }
 
-                            logWriter.Log(output); 
+                            logWriter.Log(output);
 
                             Console.ForegroundColor = ConsoleColor.Red;
 
@@ -3002,7 +2715,7 @@ namespace Tests
 
                         if (args != null)
                         {
-                            Console.WriteLine("\t*****************Playing `"+ args.ToString() +"`");
+                            Console.WriteLine("\t*****************Playing `" + args.ToString() + "`");
 
                             client.Client.Logger = logWriter;
 
@@ -3052,7 +2765,7 @@ namespace Tests
                     //args are null if the event applies to all all playing Media.
                     client.OnPause += (sender, args) =>
                     {
-                        if(args != null) Console.WriteLine("\t*****************Pausing Playback `" + args.ToString() + "`(Press Q To Exit)");
+                        if (args != null) Console.WriteLine("\t*****************Pausing Playback `" + args.ToString() + "`(Press Q To Exit)");
                         else Console.WriteLine("\t*****************Pausing All Playback. (Press Q To Exit)");
                     };
 
@@ -3060,7 +2773,7 @@ namespace Tests
                     //args are null if the event applies to all all playing Media.
                     client.OnStop += (sender, args) =>
                     {
-                        if(args != null) Console.WriteLine("\t*****************Stopping Playback of `"+ args.ToString() +"`(Press Q To Exit)");
+                        if (args != null) Console.WriteLine("\t*****************Stopping Playback of `" + args.ToString() + "`(Press Q To Exit)");
                         else Console.WriteLine("\t*****************Stopping All Playback. (Press Q To Exit)");
 
                         if (false == client.IsPlaying && System.IO.File.Exists("current.sdp"))
@@ -3075,7 +2788,7 @@ namespace Tests
                     client.Logger = new Media.Common.Loggers.ConsoleLogger();
 
                     //Enable echoing headers
-                    //client.EchoXHeaders = true;
+                //client.EchoXHeaders = true;
 
                 Start:
 
@@ -3120,7 +2833,7 @@ namespace Tests
 
                                 lastNotice = DateTime.UtcNow + TimeSpan.FromSeconds(1);
 
-                            }                            
+                            }
                         }
                         else if ((DateTime.UtcNow - lastNotice).TotalSeconds > 1)
                         {
@@ -3137,8 +2850,8 @@ namespace Tests
                             try { read = Console.ReadKey(true).Key; }
                             catch (Exception ex)
                             {
-                                writeError(ex); 
-                                
+                                writeError(ex);
+
                                 read = ConsoleKey.Q;
                             }
                         }
@@ -3189,7 +2902,7 @@ namespace Tests
                                         //Use force parameter to force a new socket to be created when connect is called again.
 
                                         client.DisconnectSocket();
-                                        
+
                                         continue;
                                     }
                                 case ConsoleKey.E:
@@ -3230,17 +2943,17 @@ namespace Tests
                                         Console.WriteLine("Detached Interleave Event.");
 
                                         interleaveEvents = false;
-                                        
+
                                         continue;
                                     }
                                 case ConsoleKey.K:
                                     {
                                         SendKeepAlive(client);
-                                        
+
                                         continue;
                                     }
                                 case ConsoleKey.P:
-                                    {                                                                                
+                                    {
                                         SendRandomPartial(client);
 
                                         continue;
@@ -3281,7 +2994,7 @@ namespace Tests
                                     }
                                 default:
                                     {
-                                        if(read != ConsoleKey.NoName) Console.WriteLine(read + ": Is not a recognized command.");
+                                        if (read != ConsoleKey.NoName) Console.WriteLine(read + ": Is not a recognized command.");
 
                                         System.Threading.Thread.Sleep(0);
 
@@ -3297,6 +3010,8 @@ namespace Tests
                         //Try to send some requests if quit early before the Teardown.
                         try
                         {
+
+                            int messagesRecievedPrior = client.MessagesReceived;
 
                             Media.Rtsp.RtspMessage one = null, two = null;
 
@@ -3316,7 +3031,7 @@ namespace Tests
                             //All done with the client
                             client.StopPlaying();
 
-                            if (one == null && two == null) Media.Common.ExceptionExtensions.RaiseTaggedException(client, "Sending In Play Failed");//Must get a response to at least one of these
+                            if (client.MessagesReceived == messagesRecievedPrior) Media.Common.ExceptionExtensions.RaiseTaggedException(client, "Sending In Play Failed");//Must get a response to at least one of these
                             else Console.WriteLine("Sending Requests In Play Success");
                         }
                         catch (Exception ex)
@@ -3377,875 +3092,13 @@ namespace Tests
             }
         }
 
-        internal static void SendKeepAlive(Media.Rtsp.RtspClient client, object state = null)
-        {
-            if (client == null || client.IsDisposed) return;
-
-            Console.WriteLine(client.InternalId + " - Sending KeepAlive");
-
-            client.SendKeepAlive(state);
-        }
-
-        internal static void SendRandomPartial(Media.Rtsp.RtspClient client, Media.Rtsp.RtspMethod method = Media.Rtsp.RtspMethod.GET_PARAMETER, Uri location = null, string contentType = null, byte[] data = null)
-        {
-            if (client == null || client.IsDisposed) return;
-
-            if (false == client.IsConnected)
-            {
-                Console.WriteLine(client.InternalId + " - Client Not Connected, Connect First!");
-
-                return;
-            }
-
-            Console.WriteLine(client.InternalId + " - Sending Partial " + method);
-
-            using (Media.Rtsp.RtspMessage message = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request)
-                                       {
-                                           Method = method,
-                                           Location = location ?? Media.Rtsp.RtspMessage.Wildcard
-                                       })
-            {
-
-                message.SetHeader(Media.Rtsp.RtspHeaders.Session, client.SessionId);
-
-                message.SetHeader(Media.Rtsp.RtspHeaders.CSeq, client.NextClientSequenceNumber().ToString());
-
-                byte[] buffer;
-                
-                if(data == null)
-                {
-                    buffer = new byte[Utility.Random.Next(0, Media.Rtsp.RtspMessage.MaximumLength)];
-
-                    Utility.Random.NextBytes(buffer);
-
-                    message.Body = message.Encoding.GetString(buffer);
-                    
-                    message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, "application/octet-string");
-                }
-                else
-                {
-                    buffer = data;
-
-                    message.Encoding.GetString(data);
-
-                    message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, contentType ?? "application/octet-string");
-                }
-                
-
-                Media.Rtsp.RtspMessage parsed = Media.Rtsp.RtspMessage.FromString(message.ToString());
-
-                int max = message.Length, toSend = Utility.Random.Next(client.Buffer.Count);
-
-                if (toSend == max) using (client.SendRtspMessage(message)) ;
-                else
-                {
-                    int sent = 0;
-                    //Send only some of the data
-                    do sent = client.RtspSocket.Send(buffer);
-                    while (sent == 0);
-
-                    string output = message.Encoding.GetString(message.ToBytes(), 0, sent);
-
-                    Console.WriteLine(client.InternalId + " - Sent Partial(" + sent + "/" + message.Length + "): " + output);
-
-                    parsed.Dispose();
-
-                    parsed = Media.Rtsp.RtspMessage.FromString(output);
-
-                    Console.WriteLine(client.InternalId + " - Parsed: " + parsed);
-
-                    //Send the real request with the same data
-                    using (client.SendRtspMessage(message)) ;
-
-                    parsed.Dispose();
-
-                }
-            }
-        }
-
-        static void TestSdp()
-        {
-            Media.Sdp.SessionDescription sd = new Media.Sdp.SessionDescription(@"v=0
-o=jdoe 2890844526 2890842807 IN IP4 10.47.16.5
-s=SDP Seminar
-i=A Seminar on the session description protocol
-u=http://www.example.com/seminars/sdp.pdf
-e=j.doe@example.com (Jane Doe)
-c=IN IP4 224.2.17.12/127
-t=2873397496 2873404696
-a=recvonly
-m=audio 49170 RTP/AVP 0
-m=video 51372 RTP/AVP 99
-a=rtpmap:99 h263-1998/90000");
-
-            Console.WriteLine(sd.ToString());
-
-            sd = new Media.Sdp.SessionDescription(@"v=0
-o=- 1183588701 6 IN IP4 10.3.1.221
-s=Elecard NWRenderer
-i=Elecard streaming
-u=http://www.elecard.com
-e=tsup@elecard.net.ru
-c=IN IP4 239.255.0.1/64
-b=CT:0
-a=ISMA-compliance:2,2.0,2
-a=mpeg4-iod: ""data:application/mpeg4-iod;base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA""
-m=video 10202 RTP/AVP 98
-a=rtpmap:98 H264/90000
-a=control:trackID=1
-a=fmtp:98 packetization-mode=1; profile-level-id=4D001E; sprop-parameter-sets=Z00AHp5SAWh7IA==,aOuPIAAA
-a=mpeg4-esid:201
-m=audio 10302 RTP/AVP 96
-a=rtpmap:96 mpeg4-generic/48000/2
-a=control:trackID=2
-a=fmtp:96 streamtype=5; profile-level-id=255; mode=AAC-hbr; config=11900000000000000000; objectType=64; sizeLength=13; indexLength=3; indexDeltaLength=3
-a=mpeg4-esid:101");
-
-            Console.WriteLine(sd.ToString());
-
-            //Get a few attributes
-
-            Media.Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("mpeg4-iod"))).FirstOrDefault();
-
-            Media.Sdp.SessionDescriptionLine connectionLine = sd.ConnectionLine;
-
-            //make a new Sdp using the media descriptions from the old but a new name
-
-            sd = new Media.Sdp.SessionDescription(0)
-            {
-                //OriginatorAndSessionIdentifier = sd.OriginatorAndSessionIdentifier,
-                SessionName = sd.SessionName,
-                MediaDescriptions = sd.MediaDescriptions,
-                TimeDescriptions = sd.TimeDescriptions,
-
-            };                       
-
-            //Add a few lines from the old one
-
-            sd.Add(connectionLine);
-
-            sd.Add(mpeg4IodLine);
-
-            Console.WriteLine(sd.ToString());
-
-            Console.WriteLine(mpeg4IodLine.ToString());
-
-            Console.WriteLine(connectionLine.ToString());
-
-            sd = new Media.Sdp.SessionDescription("v=0\r\no=StreamingServer 3219006789 1223277283000 IN IP4 10.8.127.4\r\ns=/sample_100kbit.mp4\r\nu=http:///\r\ne=admin@\r\nc=IN IP4 0.0.0.0\r\nb=AS:96\r\nt=0 0\r\na=control:*\r\na=mpeg4-iod:\"data:application/mpeg4-iod;base64,AoJrAE///w/z/wOBdgABQNhkYXRhOmF\"");
-
-            Console.WriteLine(sd);
-
-            sd = new Media.Sdp.SessionDescription(@"v=0
-o=- 1419841619185835 1 IN IP4 192.168.1.208
-s=IP Camera Video
-i=videoMain
-a=tool:LIVE555 Streaming Media v2014.02.10
-a=type:broadcast
-a=control:*
-a=range:npt=0-
-a=x-qt-text-nam:IP Camera Video
-a=x-qt-text-inf:videoMain
-t=0
-r=604800 3600 0 90000
-r=7d 1h 0 25h
-m=video 0 RTP/AVP 96
-c=IN IP4 0.0.0.0
-b=AS:96
-a=rtpmap:96 H264/90000
-a=fmtp:96 packetization-mode=1;profile-level-id=000000;sprop-parameter-sets=Z0IAHpWoKA9k,aM48gA==
-a=control:track1
-m=audio 0 RTP/AVP 0
-c=IN IP4 0.0.0.0
-b=AS:64
-a=control:track2");
-
-            if (sd.MediaDescriptions.Count() != 2) throw new Exception("Did not find all Media Descriptions");
-
-            if (sd.MediaDescriptions.First().MediaFormat != 96 || sd.MediaDescriptions.First().MediaType != Media.Sdp.MediaType.video) throw new Exception("Did not find correct Media Description Media Format");
-
-            if (sd.MediaDescriptions.Last().MediaFormat != 0 || sd.MediaDescriptions.Last().MediaType != Media.Sdp.MediaType.audio) throw new Exception("Did not find correct Media Description Media Format");
-
-            if (sd.MediaDescriptions.Any(m => m.ControlLine == null)) throw new Exception("Did not find all Control Lines");
-
-            Console.WriteLine(sd);
-
-            //Check time descriptions repeat times
-            if (sd.TimeDescriptions.Count() == 0) throw new Exception("Did not parse TimeDescription");
-
-            if (sd.TimeDescriptions.First().SessionStartTime != 0) throw new Exception("Did not parse SessionStartTime");
-
-            if (sd.TimeDescriptions.First().SessionStopTime != 0) throw new Exception("Did not parse SessionStopTime");
-
-            if (sd.TimeDescriptions.First().RepeatTimes.Count == 0) throw new Exception("Did not parse RepeatTimes");
-
-            //Todo RepeatTimes should be an Object with the properties  (RepeatInterval, ActiveDuration, Offsets[start / stop])
-            //r=<repeat interval> <active duration> <offsets from start-time>
-
-            if (sd.TimeDescriptions.First().RepeatTimes[0] != "604800 3600 0 90000") throw new Exception("Did not parse RepeatTimes");
-
-            if (sd.TimeDescriptions.First().RepeatTimes[1] != "7d 1h 0 25h") throw new Exception("Did not parse RepeatTimes");
-
-            if (sd.Length != sd.ToString().Length) throw new Exception("Did not calculate length correctly");
-
-            /*
-             https://tools.ietf.org/html/rfc4975
-             * 
-               Figure 2: Example MSRP Exchange
-
-   Alice's request begins with the MSRP start line, which contains a
-   transaction identifier that is also used for request framing.  Next
-   she includes the path of URIs to the destination in the To-Path
-   header field, and her own URI in the From-Path header field.  In this
-   typical case, there is just one "hop", so there is only one URI in
-   each path header field.  She also includes a message ID, which she
-   can use to correlate status reports with the original message.  Next
-   she puts the actual content.  Finally, she closes the request with an
-   end-line of seven hyphens, the transaction identifier, and a "$" to
-   indicate that this request contains the end of a complete message.
-             * 
-             * 
-            5.  Key Concepts
-
-5.1.  MSRP Framing and Message Chunking
-
-   Messages sent using MSRP can be very large and can be delivered in
-   several SEND requests, where each SEND request contains one chunk of
-   the overall message.  Long chunks may be interrupted in mid-
-   transmission to ensure fairness across shared transport connections.
-   To support this, MSRP uses a boundary-based framing mechanism.  The
-   start line of an MSRP request contains a unique identifier that is
-   also used to indicate the end of the request.  Included at the end of
-   the end-line, there is a flag that indicates whether this is the last
-   chunk of data for this message or whether the message will be
-   continued in a subsequent chunk.  There is also a Byte-Range header
-   field in the request that indicates the overall position of this
-   chunk inside the complete message.
-
-   For example, the following snippet of two SEND requests demonstrates
-   a message that contains the text "abcdEFGH" being sent as two chunks.
-
-    MSRP dkei38sd SEND
-    Message-ID: 4564dpWd
-    Byte-Range: 1-* /8
-    Content-Type: text/plain
-
-    abcd
-    -------dkei38sd+
-
-    MSRP dkei38ia SEND
-    Message-ID: 4564dpWd
-    Byte-Range: 5-8/8
-    Content-Type: text/plain
-
-    EFGH
-    -------dkei38ia$
-
-             */
-
-            sd = new Media.Sdp.SessionDescription(@"c=IN IP4 atlanta.example.com
-   m=message 7654 TCP/MSRP *
-   a=accept-types:text/plain
-   a=path:msrp://atlanta.example.com:7654/jshA7weztas;tcp");
-
-            if (sd.MediaDescriptions.First().MediaType != Media.Sdp.MediaType.message
-                ||
-                sd.MediaDescriptions.First().MediaProtocol != "TCP/MSRP"
-                ||
-                sd.MediaDescriptions.First().MediaPort != 7654
-                ||
-                sd.Lines.Count() != 4) throw new Exception("Did not parse media line correctly");
-
-            if (sd.Length != sd.ToString().Length) throw new Exception("Did not calculate length correctly");
-
-            Console.WriteLine(sd.ToString());
-
-
-
-        }
-
-        static void TestContainerImplementations()
-        {
-
-            string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
-
-            //Todo allow reletive paths?
-
-            #region BaseMediaReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/mp4/") || System.IO.Directory.Exists(localPath + "/Video/mov/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
-            {
-                using (Media.Containers.BaseMedia.BaseMediaReader reader = new Media.Containers.BaseMedia.BaseMediaReader(fileName))
-                {
-                    Console.WriteLine("Path:" + reader.Source);
-                    Console.WriteLine("Total Size:" + reader.Length);
-
-                    Console.WriteLine("Root Box:" + reader.Root.ToString());
-
-                    Console.WriteLine("Boxes:");
-
-                    foreach (var box in reader)
-                    {
-                        Console.WriteLine("Position:" + reader.Position);
-                        Console.WriteLine("Offset: " + box.Offset);
-                        Console.WriteLine("DataOffset: " + box.DataOffset);
-                        Console.WriteLine("Complete: " + box.IsComplete);
-                        Console.WriteLine("Name: " + box.ToString());
-                        Console.WriteLine("DataSize: " + box.DataSize);
-                        Console.WriteLine("TotalSize: " + box.TotalSize);
-                        Console.WriteLine("ParentBox: " + Media.Containers.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
-                    }
-
-
-                    Console.WriteLine("File Level Properties");
-
-                    Console.WriteLine("Created:" + reader.Created);
-
-                    Console.WriteLine("Last Modified:" + reader.Modified);
-
-                    Console.WriteLine("Movie Duration:" + reader.Duration);
-
-                    Console.WriteLine("Track Information:");
-
-                    foreach (var track in reader.GetTracks()) DumpTrack(track);
-                }
-
-            }
-
-            #endregion
-
-            #region RiffReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/avi/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Containers.Riff.RiffReader reader = new Media.Containers.Riff.RiffReader(fileName))
-            {
-                Console.WriteLine("Path:" + reader.Source);
-                Console.WriteLine("Total Size:" + reader.Length);
-
-                Console.WriteLine("Root Chunk:" + Media.Containers.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
-
-                Console.WriteLine("File Level Information");
-
-                Console.WriteLine("Microseconds Per Frame:" + reader.MicrosecondsPerFrame);
-
-                Console.WriteLine("Max Bytes Per Seconds:" + reader.MaxBytesPerSecond);
-
-                Console.WriteLine("Flags:" + reader.Flags);
-                Console.WriteLine("HasIndex:" + reader.HasIndex);
-                Console.WriteLine("MustUseIndex:" + reader.MustUseIndex);
-                Console.WriteLine("IsInterleaved:" + reader.IsInterleaved);
-                Console.WriteLine("TrustChunkType:" + reader.TrustChunkType);
-                Console.WriteLine("WasCaptureFile:" + reader.WasCaptureFile);
-                Console.WriteLine("Copyrighted:" + reader.Copyrighted);
-
-                Console.WriteLine("Total Frames:" + reader.TotalFrames);
-
-                Console.WriteLine("Initial Frames:" + reader.InitialFrames);
-
-                Console.WriteLine("Streams:" + reader.Streams);
-
-                Console.WriteLine("Suggested Buffer Size:" + reader.SuggestedBufferSize);
-
-                Console.WriteLine("Width:" + reader.Width);
-
-                Console.WriteLine("Height:" + reader.Height);
-
-                Console.WriteLine("Reserved:" + reader.Reserved);
-
-                Console.WriteLine("Duration:" + reader.Duration);
-
-                Console.WriteLine("Created:" + reader.Created);
-
-                Console.WriteLine("Last Modified:" + reader.Modified);
-
-                Console.WriteLine("Chunks:");
-
-                foreach (var chunk in reader)
-                {
-                    Console.WriteLine("Position:" + reader.Position);
-                    Console.WriteLine("Offset: " + chunk.Offset);
-                    Console.WriteLine("DataOffset: " + chunk.DataOffset);
-                    Console.WriteLine("Complete: " + chunk.IsComplete);
-
-                    string name = Media.Containers.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier);
-
-                    Console.WriteLine("Name: " + name);
-
-                    //Show how the common type can be read.
-                    if (Media.Containers.Riff.RiffReader.HasSubType(chunk)) Console.WriteLine("Type: " + Media.Containers.Riff.RiffReader.GetSubType(chunk));
-
-                    Console.WriteLine("DataSize: " + chunk.DataSize);
-                    Console.WriteLine("TotalSize: " + chunk.DataSize);
-                }
-
-                Console.WriteLine("Track Information:");
-
-                foreach (var track in reader.GetTracks()) DumpTrack(track);
-            }
-
-            #endregion
-
-            #region MatroskaReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/mkv/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
-            {
-                using (Media.Containers.Matroska.MatroskaReader reader = new Media.Containers.Matroska.MatroskaReader(fileName))
-                {
-                    Console.WriteLine("Path:" + reader.Source);
-                    Console.WriteLine("Total Size:" + reader.Length);
-
-                    Console.WriteLine("Root Element:" + reader.Root.ToString());
-
-                    Console.WriteLine("File Level Information");
-
-                    Console.WriteLine("EbmlVersion:" + reader.EbmlVersion);
-                    Console.WriteLine("EbmlReadVersion:" + reader.EbmlReadVersion);
-                    Console.WriteLine("DocType:" + reader.DocType);
-                    Console.WriteLine("DocTypeVersion:" + reader.DocTypeVersion);
-                    Console.WriteLine("DocTypeReadVersion:" + reader.DocTypeReadVersion);
-                    Console.WriteLine("EbmlMaxIdLength:" + reader.EbmlMaxIdLength);
-                    Console.WriteLine("EbmlMaxSizeLength:" + reader.EbmlMaxSizeLength);
-
-                    Console.WriteLine("Elements:");
-
-                    foreach (var element in reader)
-                    {
-                        Console.WriteLine("Name: " + element.ToString());
-                        Console.WriteLine("Element Offset: " + element.Offset);
-                        Console.WriteLine("Element Data Offset: " + element.DataOffset);
-                        Console.WriteLine("Element DataSize: " + element.DataSize);
-                        Console.WriteLine("Element TotalSize: " + element.TotalSize);
-                        Console.WriteLine("Element.IsComplete: " + element.IsComplete);
-                    }
-
-                    Console.WriteLine("Movie Muxer Application:" + reader.MuxingApp);
-
-                    Console.WriteLine("Movie Writing Applicatiopn:" + reader.WritingApp);
-
-                    Console.WriteLine("Created:" + reader.Created);
-
-                    Console.WriteLine("Modified:" + reader.Modified);
-
-                    Console.WriteLine("Movie Duration:" + reader.Duration);
-
-                    Console.WriteLine("Track Information:");
-
-                    foreach (var track in reader.GetTracks()) DumpTrack(track);
-
-                }
-
-            }
-
-            #endregion
-
-            #region AsfReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/asf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
-            {
-                using (Media.Containers.Asf.AsfReader reader = new Media.Containers.Asf.AsfReader(fileName))
-                {
-                    Console.WriteLine("Path:" + reader.Source);
-                    Console.WriteLine("Total Size:" + reader.Length);
-
-                    Console.WriteLine("Root Element:" + reader.Root.ToString());
-
-                    Console.WriteLine("File Level Information");
-
-                    Console.WriteLine("Created: " + reader.Created);
-                    Console.WriteLine("Modified: " + reader.Modified);
-                    Console.WriteLine("FileSize: " + reader.FileSize);
-                    Console.WriteLine("NumberOfPackets: " + reader.NumberOfPackets);
-                    Console.WriteLine("MinimumPacketSize: " + reader.MinimumPacketSize);
-                    Console.WriteLine("MaximumPacketSize: " + reader.MaximumPacketSize);
-                    Console.WriteLine("Duration: " + reader.Duration);
-                    Console.WriteLine("PlayTime: " + reader.PlayTime);
-                    Console.WriteLine("SendTime: " + reader.SendTime);
-                    Console.WriteLine("PreRoll: " + reader.PreRoll);
-                    Console.WriteLine("Flags: " + reader.Flags);
-                    Console.WriteLine("IsBroadcast: " + reader.IsBroadcast);
-                    Console.WriteLine("IsSeekable: " + reader.IsSeekable);
-
-                    Console.WriteLine("Content Description");
-
-                    Console.WriteLine("Title: " + reader.Title);
-                    Console.WriteLine("Author: " + reader.Author);
-                    Console.WriteLine("Copyright: " + reader.Copyright);
-                    Console.WriteLine("Comment: " + reader.Comment);
-
-                    Console.WriteLine("Objects:");
-
-                    foreach (var asfObject in reader)
-                    {
-                        Console.WriteLine("Identifier:" + BitConverter.ToString(asfObject.Identifier));
-                        Console.WriteLine("Name: " + asfObject.ToString());
-                        Console.WriteLine("Position:" + reader.Position);
-                        Console.WriteLine("Offset: " + asfObject.Offset);
-                        Console.WriteLine("DataOffset: " + asfObject.DataOffset);
-                        Console.WriteLine("Complete: " + asfObject.IsComplete);
-                        Console.WriteLine("TotalSize: " + asfObject.TotalSize);
-                        Console.WriteLine("DataSize: " + asfObject.DataSize);
-                    }
-
-                    Console.WriteLine("Track Information:");
-
-                    foreach (var track in reader.GetTracks()) DumpTrack(track);
-                }
-
-            }
-
-            #endregion
-
-            #region MxfReader
-
-            if(System.IO.Directory.Exists(localPath + "/Video/mxf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mxf/"))
-            {
-                using (Media.Containers.Mxf.MxfReader reader = new Media.Containers.Mxf.MxfReader(fileName))
-                {
-                    Console.WriteLine("Path:" + reader.Source);
-                    Console.WriteLine("Total Size:" + reader.Length);
-
-                    Console.WriteLine("Root Object:" + reader.Root.ToString());
-
-                    Console.WriteLine("Objects:");
-
-                    foreach (var mxfObject in reader)
-                    {
-                        Console.WriteLine("Position:" + reader.Position);
-                        Console.WriteLine("Offset: " + mxfObject.Offset);
-                        Console.WriteLine("DataOffset: " + mxfObject.DataOffset);
-                        Console.WriteLine("Complete: " + mxfObject.IsComplete);
-
-                        string name = Media.Containers.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
-
-                        Console.WriteLine("Identifier: " + BitConverter.ToString(mxfObject.Identifier));
-
-                        Console.WriteLine("Category: " + Media.Containers.Mxf.MxfReader.GetCategory(mxfObject));
-
-                        Console.WriteLine("Name: " + name);
-
-                        Console.WriteLine("TotalSize: " + mxfObject.TotalSize);
-                        Console.WriteLine("DataSize: " + mxfObject.DataSize);
-
-                        if (name == "PartitionPack")
-                        {
-                            Console.WriteLine("Partition Type: " + Media.Containers.Mxf.MxfReader.GetPartitionKind(mxfObject));
-                            Console.WriteLine("Partition Status: " + Media.Containers.Mxf.MxfReader.GetPartitionStatus(mxfObject));
-                        }
-                    }
-
-                    Console.WriteLine("File Level Properties");
-
-                    Console.WriteLine("Created: " + reader.Created);
-
-                    Console.WriteLine("Modified: " + reader.Modified);
-
-                    Console.WriteLine("HasRunIn:" + reader.HasRunIn);
-                    
-                    Console.WriteLine("RunInSize:" + reader.RunInSize);
-
-                    Console.WriteLine("HeaderVersion:" + reader.HeaderVersion);
-
-                    Console.WriteLine("AlignmentGrid:" + reader.AlignmentGridByteSize);
-
-                    Console.WriteLine("IndexByteCount:" + reader.IndexByteCount);
-
-                    Console.WriteLine("OperationalPattern:" + reader.OperationalPattern);
-
-                    Console.WriteLine("ItemComplexity:" + reader.ItemComplexity);
-
-                    Console.WriteLine("PrefaceLastModifiedDate:" + reader.PrefaceLastModifiedDate);
-
-                    Console.WriteLine("PrefaceVersion:" + reader.PrefaceVersion);
-
-                    Console.WriteLine("Platform:" + reader.Platform);
-
-                    Console.WriteLine("CompanyName:" + reader.CompanyName);
-
-                    Console.WriteLine("ProductName:" + reader.ProductName);
-
-                    Console.WriteLine("ProductVersion:" + reader.ProductVersion);
-
-                    Console.WriteLine("ProductUID:" + reader.ProductUID);
-
-                    Console.WriteLine("IdentificationModificationDate:" + reader.IdentificationModificationDate);
-
-                    Console.WriteLine("MaterialCreationDate:" + reader.Created);
-
-                    Console.WriteLine("MaterialModifiedDate:" + reader.Modified);
-
-                    Console.WriteLine("Track Information:");
-
-                    foreach (var track in reader.GetTracks()) DumpTrack(track);
-                }
-
-            }
-
-            #endregion
-
-            #region OggReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/ogg/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ogg/"))
-                {
-                    using (Media.Containers.Ogg.OggReader reader = new Media.Containers.Ogg.OggReader(fileName))
-                    {
-                        Console.WriteLine("Path:" + reader.Source);
-                        Console.WriteLine("Total Size:" + reader.Length);
-
-                        Console.WriteLine("Root Page:" + reader.Root.ToString());
-
-                        Console.WriteLine("Pages:");
-
-                        foreach (var page in reader)
-                        {
-                            Console.WriteLine("Position:" + reader.Position);
-                            Console.WriteLine("Offset: " + page.Offset);
-                            Console.WriteLine("DataOffset: " + page.DataOffset);
-                            Console.WriteLine("Complete: " + page.IsComplete);
-                            Console.WriteLine("Name: " + page.ToString());
-                            Console.WriteLine("HeaderFlags: " + Media.Containers.Ogg.OggReader.GetHeaderType(page));
-                            Console.WriteLine("Size: " + page.TotalSize);
-                        }
-
-
-                        Console.WriteLine("File Level Properties");
-
-                        Console.WriteLine("Created: " + reader.Created);
-
-                        Console.WriteLine("Modified: " + reader.Modified);
-
-                        Console.WriteLine("Track Information:");
-
-                        foreach (var track in reader.GetTracks()) DumpTrack(track);
-                    }
-
-                }
-
-            #endregion
-
-            #region NutReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/nut/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/nut/"))
-                {
-                    using (Media.Containers.Nut.NutReader reader = new Media.Containers.Nut.NutReader(fileName))
-                    {
-                        Console.WriteLine("Path:" + reader.Source);
-                        Console.WriteLine("Total Size:" + reader.Length);
-
-                        Console.WriteLine("Root Tag:" + Media.Containers.Nut.NutReader.ToTextualConvention(reader.Root.Identifier));
-
-                        Console.WriteLine("Tags:");
-
-                        foreach (var tag in reader)
-                        {
-                            Console.WriteLine("Position:" + reader.Position);
-                            Console.WriteLine("Offset: " + tag.Offset);
-                            Console.WriteLine("DataOffset: " + tag.DataOffset);
-                            Console.WriteLine("Complete: " + tag.IsComplete);
-
-                            if (Media.Containers.Nut.NutReader.IsFrame(tag))
-                            {
-                                Console.WriteLine("Frame:");
-                                Console.WriteLine("FrameFlags: " + Media.Containers.Nut.NutReader.GetFrameFlags(reader, tag));
-                                int streamId = Media.Containers.Nut.NutReader.GetStreamId(tag);
-                                Console.WriteLine("StreamId: " + streamId);
-                                Console.WriteLine("HeaderOptions: " + reader.HeaderOptions[streamId]);
-                                Console.WriteLine("FrameHeader: " + BitConverter.ToString(Media.Containers.Nut.NutReader.GetFrameHeader(reader, tag)));
-                            }
-                            else
-                                Console.WriteLine("Name: " + Media.Containers.Nut.NutReader.ToTextualConvention(tag.Identifier));
-
-                            Console.WriteLine("TotalSize: " + tag.TotalSize);
-                            Console.WriteLine("DataSize: " + tag.DataSize);
-                        }
-
-                        Console.WriteLine("File Level Properties");
-
-                        Console.WriteLine("File Id String:" + reader.FileIdString);
-
-                        Console.WriteLine("Created: " + reader.Created);
-
-                        Console.WriteLine("Modified: " + reader.Modified);
-
-                        Console.WriteLine("Version:" + reader.Version);
-
-                        Console.WriteLine("IsStableVersion:" + reader.IsStableVersion);
-
-                        if (reader.HasMainHeaderFlags) Console.WriteLine("HeaderFlags:" + reader.MainHeaderFlags);
-
-                        Console.WriteLine("Stream Count:" + reader.StreamCount);
-
-                        Console.WriteLine("MaximumDistance:" + reader.MaximumDistance);
-
-                        Console.WriteLine("TimeBases:" + reader.TimeBases.Count());
-
-                        Console.WriteLine("EllisionHeaderCount:" + reader.EllisionHeaderCount);
-
-                        Console.WriteLine("HeaderOptions:" + reader.HeaderOptions.Count());
-
-                        Console.WriteLine("Track Information:");
-
-                        foreach (var track in reader.GetTracks()) DumpTrack(track);
-                    }
-
-                }
-
-            #endregion
-
-            #region McfReader
-
-            #endregion
-
-            #region PacketizedElementaryStreamReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/pes/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/pes/"))
-                {
-                    using (Media.Containers.Mpeg.PacketizedElementaryStreamReader reader = new Media.Containers.Mpeg.PacketizedElementaryStreamReader(fileName))
-                    {
-                        Console.WriteLine("Path:" + reader.Source);
-                        Console.WriteLine("Total Size:" + reader.Length);
-
-                        Console.WriteLine("Root Element:" + reader.Root.ToString());
-
-                        Console.WriteLine("Packets:");
-
-                        foreach (var pesPacket in reader)
-                        {
-                            Console.WriteLine(pesPacket.ToString());
-                            Console.WriteLine("Packets Offset: " + pesPacket.Offset);
-                            Console.WriteLine("Packets Data Offset: " + pesPacket.DataOffset);
-                            Console.WriteLine("Packets DataSize: " + pesPacket.DataSize);
-                            Console.WriteLine("Packets TotalSize: " + pesPacket.TotalSize);
-                            Console.WriteLine("Packet.IsComplete: " + pesPacket.IsComplete);
-                        }
-
-                        Console.WriteLine("Track Information:");
-
-                        foreach (var track in reader.GetTracks()) DumpTrack(track);
-
-                    }
-
-                }
-
-            #endregion
-
-            #region ProgramStreamReader
-
-            if (System.IO.Directory.Exists(localPath + "/Video/ps/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ps/"))
-                {
-                    using (Media.Containers.Mpeg.ProgramStreamReader reader = new Media.Containers.Mpeg.ProgramStreamReader(fileName))
-                    {
-                        Console.WriteLine("Path:" + reader.Source);
-                        Console.WriteLine("Total Size:" + reader.Length);
-
-                        Console.WriteLine("Root Element:" + reader.Root.ToString());
-
-                        Console.WriteLine("System Clock Rate:" + reader.SystemClockRate);
-
-                        Console.WriteLine("Packets:");
-
-                        foreach (var packet in reader)
-                        {
-                            Console.WriteLine(packet.ToString());
-                            Console.WriteLine("Element Offset: " + packet.Offset);
-                            Console.WriteLine("Element Data Offset: " + packet.DataOffset);
-                            Console.WriteLine("Element DataSize: " + packet.DataSize);
-                            Console.WriteLine("Element TotalSize: " + packet.TotalSize);
-                            Console.WriteLine("Element.IsComplete: " + packet.IsComplete);
-                        }
-
-                        Console.WriteLine("Track Information:");
-
-                        foreach (var track in reader.GetTracks()) DumpTrack(track);
-
-                    }
-
-                }
-
-            #endregion
-
-            #region TransportStreamReader
-            
-            if (System.IO.Directory.Exists(localPath + "/Video/ts/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ts/"))
-                {
-                    using (Media.Containers.Mpeg.TransportStreamReader reader = new Media.Containers.Mpeg.TransportStreamReader(fileName))
-                    {
-                        Console.WriteLine("Path:" + reader.Source);
-                        Console.WriteLine("Total Size:" + reader.Length);
-
-                        Console.WriteLine("Root Element:" + reader.Root.ToString());
-
-                        Console.WriteLine("Packets:");
-
-                        foreach (var tsUnit in reader)
-                        {
-                            Console.WriteLine("Unit Type:" + tsUnit.ToString());
-                            Console.WriteLine("Unit Offset: " + tsUnit.Offset);
-                            Console.WriteLine("Unit Data Offset: " + tsUnit.DataOffset);
-                            Console.WriteLine("Unit DataSize: " + tsUnit.DataSize);
-                            Console.WriteLine("Unit TotalSize: " + tsUnit.TotalSize);
-                            Console.WriteLine("Unit.IsComplete: " + tsUnit.IsComplete);
-                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(reader, tsUnit.Identifier));
-                            Console.WriteLine("Has Payload: " + Media.Containers.Mpeg.TransportStreamReader.HasPayload(reader, tsUnit));
-                            Console.WriteLine("HasTransportPriority: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportPriority(reader, tsUnit));
-                            Console.WriteLine("HasTransportErrorIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportErrorIndicator(reader, tsUnit));
-                            Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(reader, tsUnit));
-                            Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(reader, tsUnit));
-                            Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(reader, tsUnit));
-                            // See section 2.4.3.3 of 13818-1
-                            Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl adaptationFieldControl = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldControl(reader, tsUnit);
-                            Console.WriteLine("AdaptationFieldControl: " + adaptationFieldControl);
-                            if (adaptationFieldControl >= Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl.AdaptationFieldOnly)
-                            {
-                                Console.WriteLine("AdaptationField Flags: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldFlags(reader, tsUnit));
-                                Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(reader, tsUnit)));
-                            }
-                            
-                        }
-
-                        Console.WriteLine("Track Information:");
-
-                        foreach (var track in reader.GetTracks()) DumpTrack(track);
-
-                    }
-
-                }
-
-            #endregion
-        }
-
-        static void DumpTrack(Media.Container.Track track)
-        {
-            Console.WriteLine("Id: " + track.Id);
-
-            Console.WriteLine("Name: " + track.Name);
-            Console.WriteLine("Duration: " + track.Duration);
-
-            Console.WriteLine("Type: " + track.MediaType);
-            Console.WriteLine("Samples: " + track.SampleCount);
-
-            if (track.MediaType == Media.Sdp.MediaType.audio)
-            {
-                Console.WriteLine("Codec: " + (track.CodecIndication.Length > 2 ? Encoding.UTF8.GetString(track.CodecIndication) : ((Media.Utility.WaveFormatId)Media.Common.Binary.ReadU16(track.CodecIndication, 0, false)).ToString()));
-                Console.WriteLine("Channels: " + track.Channels);
-                Console.WriteLine("Sampling Rate: " + track.Rate);
-                Console.WriteLine("Bits Per Sample: " + track.BitDepth);
-            }
-            else
-            {
-                Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
-                Console.WriteLine("Frame Rate: " + track.Rate);
-                Console.WriteLine("Width: " + track.Width);
-                Console.WriteLine("Height: " + track.Height);
-                Console.WriteLine("BitsPerPixel: " + track.BitDepth);
-            }
-        }
-
         /// <summary>
         /// Tests the Media.RtspServer by creating a server, loading/exposing a stream and waiting for a keypress to terminate
         /// </summary>
         static void TestServer()
         {
             //Setup a Media.RtspServer on port 554
-            using(Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
+            using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
             {
                 //new Media.Rtsp.Server.RtspServerDebuggingLogger() 
                 Logger = new Media.Rtsp.Server.RtspServerConsoleLogger()
@@ -4440,7 +3293,7 @@ a=control:track2");
                 server.Stop();
             }
         }
-        
+
         /// <summary>
         /// Tests the Rtp and Media.RtspClient in various modes (Against the server)
         /// </summary>
@@ -4451,7 +3304,7 @@ a=control:track2");
             //Get the Degrees Of Parallelism (Shuld be based on ProcessorCount)
             int dop = Environment.ProcessorCount;
 
-            if(server != null)
+            if (server != null)
             {
                 if (server.HttpEnabled) dop /= 2;
                 if (server.UdpEnabled) dop /= 2;
@@ -4462,7 +3315,7 @@ a=control:track2");
             ParallelEnumerable.Range(1, 100).AsParallel().WithDegreeOfParallelism(dop).ForAll(i =>
             {
                 //Create a client
-                if (server != null && server.HttpEnabled && i % 2 == 0) 
+                if (server != null && server.HttpEnabled && i % 2 == 0)
                 {
                     //Use Media.Rtsp / Http
                     using (Media.Rtsp.RtspClient httpClient = new Media.Rtsp.RtspClient("http://127.0.0.1/live/PicsTcp"))
@@ -4479,7 +3332,7 @@ a=control:track2");
 
                             return;
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
                             Console.BackgroundColor = ConsoleColor.Red;
                             Console.WriteLine("Rtp / Http Test Failed: " + ex.Message);
@@ -4488,7 +3341,7 @@ a=control:track2");
                         }
                     }
                 }
-                else if (server != null && server.UdpEnabled && i % 3 == 0) 
+                else if (server != null && server.UdpEnabled && i % 3 == 0)
                 {
                     //Use Media.Rtsp / Udp
                     using (Media.Rtsp.RtspClient udpClient = new Media.Rtsp.RtspClient("rtspu://127.0.0.1/live/PicsTcp"))
@@ -4556,14 +3409,14 @@ a=control:track2");
 
                             return;
                         }
-                        catch(Exception ex)
-                        {                            
+                        catch (Exception ex)
+                        {
                             Console.BackgroundColor = ConsoleColor.Red;
                             Console.WriteLine("Rtp / Tcp Test Failed: " + ex.Message);
                             Console.BackgroundColor = ConsoleColor.Black;
                         }
                     }
-                }                
+                }
             });
         }
 
@@ -4629,7 +3482,7 @@ a=control:track2");
                     Media.Rtp.RtpPacket interpreted = new Media.Rtp.RtpPacket(binary, 0);
                     restartFrame.Add(interpreted);
                 }
-                
+
                 //Draw the frame
                 using (System.Drawing.Image jpeg = restartFrame) jpeg.Save("result.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
 
@@ -4735,7 +3588,7 @@ a=control:track2");
                 {
 
                     if (f != null) if (!f.IsDisposed) f.Dispose();
-                        
+
                     f = null;
 
                     //Create a JpegFrame from the stream knowing the quality the image was encoded at (No Encoding performed, only Packetization With Quant Tables)
@@ -4837,7 +3690,7 @@ a=control:track2");
                 }
             }
 
-            
+
         }
 
         static void TestRFC3640Frame()
@@ -4854,7 +3707,7 @@ a=control:track2");
                         //Example of Media Description
                         //a=rtpmap:97 mpeg4-generic/8000/1
                         //a=fmtp:97 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=1588; sizeLength=13; indexLength=3; indexDeltaLength=3; profile=1; bitrate=32000;
-                        
+
                         profileFrame.Depacketize(true, //This is specified by the profile (SDP)
                             2, 1, 11,  //These values come from the config = portion
                             13, 3, 3); //These values from from the profile
@@ -4866,6 +3719,690 @@ a=control:track2");
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Performs the Unit Tests for the SessionDescriptionProtocol classes
+        /// </summary>
+        static void TestSdp()
+        {
+            #region Old Way of `testing`
+
+            //Test parsing a ssp.
+            Media.Sdp.SessionDescription sd = new Media.Sdp.SessionDescription(@"v=0
+o=jdoe 2890844526 2890842807 IN IP4 10.47.16.5
+s=SDP Seminar
+i=A Seminar on the session description protocol
+u=http://www.example.com/seminars/sdp.pdf
+e=j.doe@example.com (Jane Doe)
+c=IN IP4 224.2.17.12/127
+t=2873397496 2873404696
+a=recvonly
+m=audio 49170 RTP/AVP 0
+m=video 51372 RTP/AVP 99
+a=rtpmap:99 h263-1998/90000");
+
+            Console.WriteLine(sd.ToString());
+
+            Media.Sdp.SessionDescriptionLine connectionLine = sd.ConnectionLine;
+
+            if (connectionLine == null) throw new Exception("Cannot find Connection Line");
+
+            //make a new Sdp using the media descriptions from the old but a new name
+
+            sd = new Media.Sdp.SessionDescription(0)
+            {
+                //OriginatorAndSessionIdentifier = sd.OriginatorAndSessionIdentifier,
+                SessionName = sd.SessionName,
+                MediaDescriptions = sd.MediaDescriptions,
+                TimeDescriptions = sd.TimeDescriptions,
+
+            };
+
+            //Test another one
+            sd = new Media.Sdp.SessionDescription("v=0\r\no=StreamingServer 3219006789 1223277283000 IN IP4 10.8.127.4\r\ns=/sample_100kbit.mp4\r\nu=http:///\r\ne=admin@\r\nc=IN IP4 0.0.0.0\r\nb=AS:96\r\nt=0 0\r\na=control:*\r\na=mpeg4-iod:\"data:application/mpeg4-iod;base64,AoJrAE///w/z/wOBdgABQNhkYXRhOmF\"");
+
+            Console.WriteLine(sd);
+
+            /*
+             https://tools.ietf.org/html/rfc4975
+             * 
+               Figure 2: Example MSRP Exchange
+
+   Alice's request begins with the MSRP start line, which contains a
+   transaction identifier that is also used for request framing.  Next
+   she includes the path of URIs to the destination in the To-Path
+   header field, and her own URI in the From-Path header field.  In this
+   typical case, there is just one "hop", so there is only one URI in
+   each path header field.  She also includes a message ID, which she
+   can use to correlate status reports with the original message.  Next
+   she puts the actual content.  Finally, she closes the request with an
+   end-line of seven hyphens, the transaction identifier, and a "$" to
+   indicate that this request contains the end of a complete message.
+             * 
+             * 
+            5.  Key Concepts
+
+5.1.  MSRP Framing and Message Chunking
+
+   Messages sent using MSRP can be very large and can be delivered in
+   several SEND requests, where each SEND request contains one chunk of
+   the overall message.  Long chunks may be interrupted in mid-
+   transmission to ensure fairness across shared transport connections.
+   To support this, MSRP uses a boundary-based framing mechanism.  The
+   start line of an MSRP request contains a unique identifier that is
+   also used to indicate the end of the request.  Included at the end of
+   the end-line, there is a flag that indicates whether this is the last
+   chunk of data for this message or whether the message will be
+   continued in a subsequent chunk.  There is also a Byte-Range header
+   field in the request that indicates the overall position of this
+   chunk inside the complete message.
+
+   For example, the following snippet of two SEND requests demonstrates
+   a message that contains the text "abcdEFGH" being sent as two chunks.
+
+    MSRP dkei38sd SEND
+    Message-ID: 4564dpWd
+    Byte-Range: 1-* /8
+    Content-Type: text/plain
+
+    abcd
+    -------dkei38sd+
+
+    MSRP dkei38ia SEND
+    Message-ID: 4564dpWd
+    Byte-Range: 5-8/8
+    Content-Type: text/plain
+
+    EFGH
+    -------dkei38ia$
+
+             */
+
+            sd = new Media.Sdp.SessionDescription(@"c=IN IP4 atlanta.example.com
+   m=message 7654 TCP/MSRP *
+   a=accept-types:text/plain
+   a=path:msrp://atlanta.example.com:7654/jshA7weztas;tcp");
+
+            if (sd.MediaDescriptions.First().MediaType != Media.Sdp.MediaType.message
+                ||
+                sd.MediaDescriptions.First().MediaProtocol != "TCP/MSRP"
+                ||
+                sd.MediaDescriptions.First().MediaPort != 7654
+                ||
+                sd.Lines.Count() != 4) throw new Exception("Did not parse media line correctly");
+
+            if (sd.Length != sd.ToString().Length) throw new Exception("Did not calculate length correctly");
+
+            Console.WriteLine(sd.ToString());
+
+            #endregion
+
+            SDPUnitTests testClass = new SDPUnitTests();
+
+            Type typeOfVoid = typeof(void);
+
+            TypeCode voidTypeCode = Type.GetTypeCode(typeOfVoid);
+
+            //Get the methods of the class
+            foreach (var method in testClass.GetType().GetMethods())
+            {
+                //Ensure for the void type
+                if (Type.GetTypeCode(method.ReturnType) != voidTypeCode) continue;
+
+                //Invoke the void with (no parameters)
+                method.Invoke(testClass, null);
+            }
+
+            testClass = null;
+        }
+
+        static void TestContainerImplementations()
+        {
+
+            string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
+
+            //Todo allow reletive paths?
+
+            #region BaseMediaReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/mp4/") || System.IO.Directory.Exists(localPath + "/Video/mov/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mp4/").Concat(System.IO.Directory.GetFiles(localPath + "/Video/mov/")))
+                {
+                    using (Media.Containers.BaseMedia.BaseMediaReader reader = new Media.Containers.BaseMedia.BaseMediaReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Box:" + reader.Root.ToString());
+
+                        Console.WriteLine("Boxes:");
+
+                        foreach (var box in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + box.Offset);
+                            Console.WriteLine("DataOffset: " + box.DataOffset);
+                            Console.WriteLine("Complete: " + box.IsComplete);
+                            Console.WriteLine("Name: " + box.ToString());
+                            Console.WriteLine("DataSize: " + box.DataSize);
+                            Console.WriteLine("TotalSize: " + box.TotalSize);
+                            Console.WriteLine("ParentBox: " + Media.Containers.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Containers.BaseMedia.BaseMediaReader.ToFourCharacterCode(box.Identifier)));
+                        }
+
+
+                        Console.WriteLine("File Level Properties");
+
+                        Console.WriteLine("Created:" + reader.Created);
+
+                        Console.WriteLine("Last Modified:" + reader.Modified);
+
+                        Console.WriteLine("Movie Duration:" + reader.Duration);
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region RiffReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/avi/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/avi/")) using (Media.Containers.Riff.RiffReader reader = new Media.Containers.Riff.RiffReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Chunk:" + Media.Containers.Riff.RiffReader.ToFourCharacterCode(reader.Root.Identifier));
+
+                        Console.WriteLine("File Level Information");
+
+                        Console.WriteLine("Microseconds Per Frame:" + reader.MicrosecondsPerFrame);
+
+                        Console.WriteLine("Max Bytes Per Seconds:" + reader.MaxBytesPerSecond);
+
+                        Console.WriteLine("Flags:" + reader.Flags);
+                        Console.WriteLine("HasIndex:" + reader.HasIndex);
+                        Console.WriteLine("MustUseIndex:" + reader.MustUseIndex);
+                        Console.WriteLine("IsInterleaved:" + reader.IsInterleaved);
+                        Console.WriteLine("TrustChunkType:" + reader.TrustChunkType);
+                        Console.WriteLine("WasCaptureFile:" + reader.WasCaptureFile);
+                        Console.WriteLine("Copyrighted:" + reader.Copyrighted);
+
+                        Console.WriteLine("Total Frames:" + reader.TotalFrames);
+
+                        Console.WriteLine("Initial Frames:" + reader.InitialFrames);
+
+                        Console.WriteLine("Streams:" + reader.Streams);
+
+                        Console.WriteLine("Suggested Buffer Size:" + reader.SuggestedBufferSize);
+
+                        Console.WriteLine("Width:" + reader.Width);
+
+                        Console.WriteLine("Height:" + reader.Height);
+
+                        Console.WriteLine("Reserved:" + reader.Reserved);
+
+                        Console.WriteLine("Duration:" + reader.Duration);
+
+                        Console.WriteLine("Created:" + reader.Created);
+
+                        Console.WriteLine("Last Modified:" + reader.Modified);
+
+                        Console.WriteLine("Chunks:");
+
+                        foreach (var chunk in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + chunk.Offset);
+                            Console.WriteLine("DataOffset: " + chunk.DataOffset);
+                            Console.WriteLine("Complete: " + chunk.IsComplete);
+
+                            string name = Media.Containers.Riff.RiffReader.ToFourCharacterCode(chunk.Identifier);
+
+                            Console.WriteLine("Name: " + name);
+
+                            //Show how the common type can be read.
+                            if (Media.Containers.Riff.RiffReader.HasSubType(chunk)) Console.WriteLine("Type: " + Media.Containers.Riff.RiffReader.GetSubType(chunk));
+
+                            Console.WriteLine("DataSize: " + chunk.DataSize);
+                            Console.WriteLine("TotalSize: " + chunk.DataSize);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+            #endregion
+
+            #region MatroskaReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/mkv/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mkv/"))
+                {
+                    using (Media.Containers.Matroska.MatroskaReader reader = new Media.Containers.Matroska.MatroskaReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
+
+                        Console.WriteLine("File Level Information");
+
+                        Console.WriteLine("EbmlVersion:" + reader.EbmlVersion);
+                        Console.WriteLine("EbmlReadVersion:" + reader.EbmlReadVersion);
+                        Console.WriteLine("DocType:" + reader.DocType);
+                        Console.WriteLine("DocTypeVersion:" + reader.DocTypeVersion);
+                        Console.WriteLine("DocTypeReadVersion:" + reader.DocTypeReadVersion);
+                        Console.WriteLine("EbmlMaxIdLength:" + reader.EbmlMaxIdLength);
+                        Console.WriteLine("EbmlMaxSizeLength:" + reader.EbmlMaxSizeLength);
+
+                        Console.WriteLine("Elements:");
+
+                        foreach (var element in reader)
+                        {
+                            Console.WriteLine("Name: " + element.ToString());
+                            Console.WriteLine("Element Offset: " + element.Offset);
+                            Console.WriteLine("Element Data Offset: " + element.DataOffset);
+                            Console.WriteLine("Element DataSize: " + element.DataSize);
+                            Console.WriteLine("Element TotalSize: " + element.TotalSize);
+                            Console.WriteLine("Element.IsComplete: " + element.IsComplete);
+                        }
+
+                        Console.WriteLine("Movie Muxer Application:" + reader.MuxingApp);
+
+                        Console.WriteLine("Movie Writing Applicatiopn:" + reader.WritingApp);
+
+                        Console.WriteLine("Created:" + reader.Created);
+
+                        Console.WriteLine("Modified:" + reader.Modified);
+
+                        Console.WriteLine("Movie Duration:" + reader.Duration);
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
+
+            #region AsfReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/asf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/asf/"))
+                {
+                    using (Media.Containers.Asf.AsfReader reader = new Media.Containers.Asf.AsfReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
+
+                        Console.WriteLine("File Level Information");
+
+                        Console.WriteLine("Created: " + reader.Created);
+                        Console.WriteLine("Modified: " + reader.Modified);
+                        Console.WriteLine("FileSize: " + reader.FileSize);
+                        Console.WriteLine("NumberOfPackets: " + reader.NumberOfPackets);
+                        Console.WriteLine("MinimumPacketSize: " + reader.MinimumPacketSize);
+                        Console.WriteLine("MaximumPacketSize: " + reader.MaximumPacketSize);
+                        Console.WriteLine("Duration: " + reader.Duration);
+                        Console.WriteLine("PlayTime: " + reader.PlayTime);
+                        Console.WriteLine("SendTime: " + reader.SendTime);
+                        Console.WriteLine("PreRoll: " + reader.PreRoll);
+                        Console.WriteLine("Flags: " + reader.Flags);
+                        Console.WriteLine("IsBroadcast: " + reader.IsBroadcast);
+                        Console.WriteLine("IsSeekable: " + reader.IsSeekable);
+
+                        Console.WriteLine("Content Description");
+
+                        Console.WriteLine("Title: " + reader.Title);
+                        Console.WriteLine("Author: " + reader.Author);
+                        Console.WriteLine("Copyright: " + reader.Copyright);
+                        Console.WriteLine("Comment: " + reader.Comment);
+
+                        Console.WriteLine("Objects:");
+
+                        foreach (var asfObject in reader)
+                        {
+                            Console.WriteLine("Identifier:" + BitConverter.ToString(asfObject.Identifier));
+                            Console.WriteLine("Name: " + asfObject.ToString());
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + asfObject.Offset);
+                            Console.WriteLine("DataOffset: " + asfObject.DataOffset);
+                            Console.WriteLine("Complete: " + asfObject.IsComplete);
+                            Console.WriteLine("TotalSize: " + asfObject.TotalSize);
+                            Console.WriteLine("DataSize: " + asfObject.DataSize);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region MxfReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/mxf/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/mxf/"))
+                {
+                    using (Media.Containers.Mxf.MxfReader reader = new Media.Containers.Mxf.MxfReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Object:" + reader.Root.ToString());
+
+                        Console.WriteLine("Objects:");
+
+                        foreach (var mxfObject in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + mxfObject.Offset);
+                            Console.WriteLine("DataOffset: " + mxfObject.DataOffset);
+                            Console.WriteLine("Complete: " + mxfObject.IsComplete);
+
+                            string name = Media.Containers.Mxf.MxfReader.ToTextualConvention(mxfObject.Identifier);
+
+                            Console.WriteLine("Identifier: " + BitConverter.ToString(mxfObject.Identifier));
+
+                            Console.WriteLine("Category: " + Media.Containers.Mxf.MxfReader.GetCategory(mxfObject));
+
+                            Console.WriteLine("Name: " + name);
+
+                            Console.WriteLine("TotalSize: " + mxfObject.TotalSize);
+                            Console.WriteLine("DataSize: " + mxfObject.DataSize);
+
+                            if (name == "PartitionPack")
+                            {
+                                Console.WriteLine("Partition Type: " + Media.Containers.Mxf.MxfReader.GetPartitionKind(mxfObject));
+                                Console.WriteLine("Partition Status: " + Media.Containers.Mxf.MxfReader.GetPartitionStatus(mxfObject));
+                            }
+                        }
+
+                        Console.WriteLine("File Level Properties");
+
+                        Console.WriteLine("Created: " + reader.Created);
+
+                        Console.WriteLine("Modified: " + reader.Modified);
+
+                        Console.WriteLine("HasRunIn:" + reader.HasRunIn);
+
+                        Console.WriteLine("RunInSize:" + reader.RunInSize);
+
+                        Console.WriteLine("HeaderVersion:" + reader.HeaderVersion);
+
+                        Console.WriteLine("AlignmentGrid:" + reader.AlignmentGridByteSize);
+
+                        Console.WriteLine("IndexByteCount:" + reader.IndexByteCount);
+
+                        Console.WriteLine("OperationalPattern:" + reader.OperationalPattern);
+
+                        Console.WriteLine("ItemComplexity:" + reader.ItemComplexity);
+
+                        Console.WriteLine("PrefaceLastModifiedDate:" + reader.PrefaceLastModifiedDate);
+
+                        Console.WriteLine("PrefaceVersion:" + reader.PrefaceVersion);
+
+                        Console.WriteLine("Platform:" + reader.Platform);
+
+                        Console.WriteLine("CompanyName:" + reader.CompanyName);
+
+                        Console.WriteLine("ProductName:" + reader.ProductName);
+
+                        Console.WriteLine("ProductVersion:" + reader.ProductVersion);
+
+                        Console.WriteLine("ProductUID:" + reader.ProductUID);
+
+                        Console.WriteLine("IdentificationModificationDate:" + reader.IdentificationModificationDate);
+
+                        Console.WriteLine("MaterialCreationDate:" + reader.Created);
+
+                        Console.WriteLine("MaterialModifiedDate:" + reader.Modified);
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region OggReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/ogg/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ogg/"))
+                {
+                    using (Media.Containers.Ogg.OggReader reader = new Media.Containers.Ogg.OggReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Page:" + reader.Root.ToString());
+
+                        Console.WriteLine("Pages:");
+
+                        foreach (var page in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + page.Offset);
+                            Console.WriteLine("DataOffset: " + page.DataOffset);
+                            Console.WriteLine("Complete: " + page.IsComplete);
+                            Console.WriteLine("Name: " + page.ToString());
+                            Console.WriteLine("HeaderFlags: " + Media.Containers.Ogg.OggReader.GetHeaderType(page));
+                            Console.WriteLine("Size: " + page.TotalSize);
+                        }
+
+
+                        Console.WriteLine("File Level Properties");
+
+                        Console.WriteLine("Created: " + reader.Created);
+
+                        Console.WriteLine("Modified: " + reader.Modified);
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region NutReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/nut/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/nut/"))
+                {
+                    using (Media.Containers.Nut.NutReader reader = new Media.Containers.Nut.NutReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Tag:" + Media.Containers.Nut.NutReader.ToTextualConvention(reader.Root.Identifier));
+
+                        Console.WriteLine("Tags:");
+
+                        foreach (var tag in reader)
+                        {
+                            Console.WriteLine("Position:" + reader.Position);
+                            Console.WriteLine("Offset: " + tag.Offset);
+                            Console.WriteLine("DataOffset: " + tag.DataOffset);
+                            Console.WriteLine("Complete: " + tag.IsComplete);
+
+                            if (Media.Containers.Nut.NutReader.IsFrame(tag))
+                            {
+                                Console.WriteLine("Frame:");
+                                Console.WriteLine("FrameFlags: " + Media.Containers.Nut.NutReader.GetFrameFlags(reader, tag));
+                                int streamId = Media.Containers.Nut.NutReader.GetStreamId(tag);
+                                Console.WriteLine("StreamId: " + streamId);
+                                Console.WriteLine("HeaderOptions: " + reader.HeaderOptions[streamId]);
+                                Console.WriteLine("FrameHeader: " + BitConverter.ToString(Media.Containers.Nut.NutReader.GetFrameHeader(reader, tag)));
+                            }
+                            else
+                                Console.WriteLine("Name: " + Media.Containers.Nut.NutReader.ToTextualConvention(tag.Identifier));
+
+                            Console.WriteLine("TotalSize: " + tag.TotalSize);
+                            Console.WriteLine("DataSize: " + tag.DataSize);
+                        }
+
+                        Console.WriteLine("File Level Properties");
+
+                        Console.WriteLine("File Id String:" + reader.FileIdString);
+
+                        Console.WriteLine("Created: " + reader.Created);
+
+                        Console.WriteLine("Modified: " + reader.Modified);
+
+                        Console.WriteLine("Version:" + reader.Version);
+
+                        Console.WriteLine("IsStableVersion:" + reader.IsStableVersion);
+
+                        if (reader.HasMainHeaderFlags) Console.WriteLine("HeaderFlags:" + reader.MainHeaderFlags);
+
+                        Console.WriteLine("Stream Count:" + reader.StreamCount);
+
+                        Console.WriteLine("MaximumDistance:" + reader.MaximumDistance);
+
+                        Console.WriteLine("TimeBases:" + reader.TimeBases.Count());
+
+                        Console.WriteLine("EllisionHeaderCount:" + reader.EllisionHeaderCount);
+
+                        Console.WriteLine("HeaderOptions:" + reader.HeaderOptions.Count());
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+                    }
+
+                }
+
+            #endregion
+
+            #region McfReader
+
+            #endregion
+
+            #region PacketizedElementaryStreamReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/pes/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/pes/"))
+                {
+                    using (Media.Containers.Mpeg.PacketizedElementaryStreamReader reader = new Media.Containers.Mpeg.PacketizedElementaryStreamReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
+
+                        Console.WriteLine("Packets:");
+
+                        foreach (var pesPacket in reader)
+                        {
+                            Console.WriteLine(pesPacket.ToString());
+                            Console.WriteLine("Packets Offset: " + pesPacket.Offset);
+                            Console.WriteLine("Packets Data Offset: " + pesPacket.DataOffset);
+                            Console.WriteLine("Packets DataSize: " + pesPacket.DataSize);
+                            Console.WriteLine("Packets TotalSize: " + pesPacket.TotalSize);
+                            Console.WriteLine("Packet.IsComplete: " + pesPacket.IsComplete);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
+
+            #region ProgramStreamReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/ps/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ps/"))
+                {
+                    using (Media.Containers.Mpeg.ProgramStreamReader reader = new Media.Containers.Mpeg.ProgramStreamReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
+
+                        Console.WriteLine("System Clock Rate:" + reader.SystemClockRate);
+
+                        Console.WriteLine("Packets:");
+
+                        foreach (var packet in reader)
+                        {
+                            Console.WriteLine(packet.ToString());
+                            Console.WriteLine("Element Offset: " + packet.Offset);
+                            Console.WriteLine("Element Data Offset: " + packet.DataOffset);
+                            Console.WriteLine("Element DataSize: " + packet.DataSize);
+                            Console.WriteLine("Element TotalSize: " + packet.TotalSize);
+                            Console.WriteLine("Element.IsComplete: " + packet.IsComplete);
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
+
+            #region TransportStreamReader
+
+            if (System.IO.Directory.Exists(localPath + "/Video/ts/")) foreach (string fileName in System.IO.Directory.GetFiles(localPath + "/Video/ts/"))
+                {
+                    using (Media.Containers.Mpeg.TransportStreamReader reader = new Media.Containers.Mpeg.TransportStreamReader(fileName))
+                    {
+                        Console.WriteLine("Path:" + reader.Source);
+                        Console.WriteLine("Total Size:" + reader.Length);
+
+                        Console.WriteLine("Root Element:" + reader.Root.ToString());
+
+                        Console.WriteLine("Packets:");
+
+                        foreach (var tsUnit in reader)
+                        {
+                            Console.WriteLine("Unit Type:" + tsUnit.ToString());
+                            Console.WriteLine("Unit Offset: " + tsUnit.Offset);
+                            Console.WriteLine("Unit Data Offset: " + tsUnit.DataOffset);
+                            Console.WriteLine("Unit DataSize: " + tsUnit.DataSize);
+                            Console.WriteLine("Unit TotalSize: " + tsUnit.TotalSize);
+                            Console.WriteLine("Unit.IsComplete: " + tsUnit.IsComplete);
+                            Console.WriteLine("PacketIdentifier: " + Media.Containers.Mpeg.TransportStreamReader.GetPacketIdentifier(reader, tsUnit.Identifier));
+                            Console.WriteLine("Has Payload: " + Media.Containers.Mpeg.TransportStreamReader.HasPayload(reader, tsUnit));
+                            Console.WriteLine("HasTransportPriority: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportPriority(reader, tsUnit));
+                            Console.WriteLine("HasTransportErrorIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasTransportErrorIndicator(reader, tsUnit));
+                            Console.WriteLine("HasPayloadUnitStartIndicator: " + Media.Containers.Mpeg.TransportStreamReader.HasPayloadUnitStartIndicator(reader, tsUnit));
+                            Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(reader, tsUnit));
+                            Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(reader, tsUnit));
+                            // See section 2.4.3.3 of 13818-1
+                            Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl adaptationFieldControl = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldControl(reader, tsUnit);
+                            Console.WriteLine("AdaptationFieldControl: " + adaptationFieldControl);
+                            if (adaptationFieldControl >= Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl.AdaptationFieldOnly)
+                            {
+                                Console.WriteLine("AdaptationField Flags: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldFlags(reader, tsUnit));
+                                Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(reader, tsUnit)));
+                            }
+
+                        }
+
+                        Console.WriteLine("Track Information:");
+
+                        foreach (var track in reader.GetTracks()) DumpTrack(track);
+
+                    }
+
+                }
+
+            #endregion
         }
 
         static void RtspInspector()
@@ -4881,5 +4418,684 @@ a=control:track2");
 
             Application.Run(f);
         }
+
+        #endregion
+
+        #region Nested Types
+
+        /// <summary>
+        /// Defines a class which verifies the intended functionality by providing tests to the logical units of work related to the <see cref="Media.Sdp"/> namespace.
+        /// </summary>
+        public class SDPUnitTests
+        {
+            /// <summary>
+            /// Test the constructor
+            /// </summary>
+            public void ATestSessionDescriptionConstructor()
+            {
+
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+                //Get the characters which make the NewLine string.
+                char[] newLineCharacters = Media.Sdp.SessionDescription.NewLine.ToArray();
+
+                //Check for two characters
+                System.Diagnostics.Debug.Assert(2 == newLineCharacters.Length, "Media.Sdp.SessionDescription.NewLine Must Have 2 Characters");
+
+                //Check for '\r'
+                System.Diagnostics.Debug.Assert('\r' == newLineCharacters[0], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\r'");
+
+                //Check for '\n'
+                System.Diagnostics.Debug.Assert('\n' == newLineCharacters[0], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\n'");
+            }
+
+            public void ParseSDPUnitTest()
+            {
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+                string sdpStr =
+                    "v=0" + Media.Sdp.SessionDescription.NewLine +
+                    "o=root 3285 3285 IN IP4 10.0.0.4" + Media.Sdp.SessionDescription.NewLine +
+                    "s=session" + Media.Sdp.SessionDescription.NewLine +
+                    "c=IN IP4 10.0.0.4" + Media.Sdp.SessionDescription.NewLine +
+                    "t=0 0" + Media.Sdp.SessionDescription.NewLine +
+                    "m=audio 12228 RTP/AVP 0 101" + Media.Sdp.SessionDescription.NewLine +
+                    "a=rtpmap:0 PCMU/8000" + Media.Sdp.SessionDescription.NewLine +
+                    "a=rtpmap:101 telephone-event/8000" + Media.Sdp.SessionDescription.NewLine +
+                    "a=fmtp:101 0-16" + Media.Sdp.SessionDescription.NewLine +
+                    "a=silenceSupp:off - - - -" + Media.Sdp.SessionDescription.NewLine +
+                    "a=ptime:20" + Media.Sdp.SessionDescription.NewLine +
+                    "a=sendrecv";
+
+                Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(sdpStr);
+
+                System.Diagnostics.Debug.WriteLine(sdp.ToString());
+
+                System.Diagnostics.Debug.Assert("10.0.0.4" == sdp.ConnectionLine.Parts[3], "The connection address was not parsed  correctly.");  // ToDo: Be better if "Part[3]" was referred to by ConnectionAddress.
+                System.Diagnostics.Debug.Assert(Media.Sdp.MediaType.audio == sdp.MediaDescriptions.First().MediaType, "The media type not parsed correctly.");
+                System.Diagnostics.Debug.Assert(12228 == sdp.MediaDescriptions.First().MediaPort, "The connection port was not parsed correctly.");
+                System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().MediaFormat, "The first media format was incorrect.");         // ToDo: Can't cope with multiple media formats?
+                //Assert.IsTrue(sdp.Media[0].MediaFormats[0].FormatID == 0, "The highest priority media format ID was incorrect.");
+                //Assert.IsTrue(sdp.Media[0].MediaFormats[0].Name == "PCMU", "The highest priority media format name was incorrect.");
+                //Assert.IsTrue(sdp.Media[0].MediaFormats[0].ClockRate == 8000, "The highest priority media format clockrate was incorrect.");
+                System.Diagnostics.Debug.Assert("PCMU/8000" == sdp.MediaDescriptions.First().RtpMapLine.Parts[1], "The rtpmap line for the PCM format was not parsed correctly.");  // ToDo "Parts" should be put into named properties where possible.  
+            }
+
+            public void ParseBriaSDPUnitTest()
+            {
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+                string sdpStr = "v=0\r\no=- 5 2 IN IP4 10.1.1.2\r\ns=CounterPath Bria\r\nc=IN IP4 144.137.16.240\r\nt=0 0\r\nm=audio 34640 RTP/AVP 0 8 101\r\na=sendrecv\r\na=rtpmap:101 telephone-event/8000\r\na=fmtp:101 0-15\r\na=alt:1 1 : STu/ZtOu 7hiLQmUp 10.1.1.2 34640\r\n";
+
+                Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(sdpStr);
+
+                System.Diagnostics.Debug.WriteLine(sdp.ToString());
+
+                System.Diagnostics.Debug.Assert("144.137.16.240" == sdp.ConnectionLine.Parts[3], "The connection address was not parsed correctly.");
+                System.Diagnostics.Debug.Assert(34640 == sdp.MediaDescriptions.First().MediaPort, "The connection port was not parsed correctly.");
+                System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().MediaFormat, "The highest priority media format ID was incorrect.");
+            }
+
+            public void ParseICESessionAttributesUnitTest()
+            {
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+                string sdpStr =
+                  "v=0" + Media.Sdp.SessionDescription.NewLine +
+                  "o=jdoe 2890844526 2890842807 IN IP4 10.0.1.1" + Media.Sdp.SessionDescription.NewLine +
+                  "s=" + Media.Sdp.SessionDescription.NewLine +
+                  "c=IN IP4 192.0.2.3" + Media.Sdp.SessionDescription.NewLine +
+                  "t=0 0" + Media.Sdp.SessionDescription.NewLine +
+                  "a=ice-pwd:asd88fgpdd777uzjYhagZg" + Media.Sdp.SessionDescription.NewLine +
+                  "a=ice-ufrag:8hhY" + Media.Sdp.SessionDescription.NewLine +
+                  "m=audio 45664 RTP/AVP 0" + Media.Sdp.SessionDescription.NewLine +
+                  "b=RS:0" + Media.Sdp.SessionDescription.NewLine +
+                  "b=RR:0" + Media.Sdp.SessionDescription.NewLine +
+                  "a=rtpmap:0 PCMU/8000" + Media.Sdp.SessionDescription.NewLine +
+                  "a=candidate:1 1 UDP 2130706431 10.0.1.1 8998 typ host" + Media.Sdp.SessionDescription.NewLine +
+                  "a=candidate:2 1 UDP 1694498815 192.0.2.3 45664 typ srflx raddr 10.0.1.1 rport 8998";
+
+                Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(sdpStr);
+
+                System.Diagnostics.Debug.WriteLine(sdp.ToString());
+
+                //ToDo: Add ICE attributes.
+                //System.Diagnostics.Debug.Assert("8hhY" == sdp.IceUfrag, "The ICE username was not parsed correctly.");
+                //System.Diagnostics.Debug.Assert("asd88fgpdd777uzjYhagZg" == sdp.IcePwd, "The ICE password was not parsed correctly.");
+            }
+
+            /// <summary>
+            /// Test that an SDP payload with multiple media announcements (in this test audio and video) are correctly
+            /// parsed.
+            /// </summary>
+            public void ParseMultipleMediaAnnouncementsUnitTest()
+            {
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+                string sdpStr = "v=0" + Media.Sdp.SessionDescription.NewLine +
+                    "o=- 13064410510996677 3 IN IP4 10.1.1.2" + Media.Sdp.SessionDescription.NewLine +
+                    "s=Bria 4 release 4.1.1 stamp 74246" + Media.Sdp.SessionDescription.NewLine +
+                    "c=IN IP4 10.1.1.2" + Media.Sdp.SessionDescription.NewLine +
+                    "b=AS:2064" + Media.Sdp.SessionDescription.NewLine +
+                    "t=0 0" + Media.Sdp.SessionDescription.NewLine +
+                    "m=audio 49290 RTP/AVP 0" + Media.Sdp.SessionDescription.NewLine +
+                    "a=sendrecv" + Media.Sdp.SessionDescription.NewLine +
+                    "m=video 56674 RTP/AVP 96" + Media.Sdp.SessionDescription.NewLine +
+                    "b=TIAS:2000000" + Media.Sdp.SessionDescription.NewLine +
+                    "a=rtpmap:96 VP8/90000" + Media.Sdp.SessionDescription.NewLine +
+                    "a=sendrecv" + Media.Sdp.SessionDescription.NewLine +
+                    "a=rtcp-fb:* nack pli";
+
+                Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(sdpStr);
+
+                System.Diagnostics.Debug.WriteLine(sdp.ToString());
+
+                System.Diagnostics.Debug.Assert(2 == sdp.MediaDescriptions.Count());
+                System.Diagnostics.Debug.Assert(49290 == sdp.MediaDescriptions.Where(x => x.MediaType == Media.Sdp.MediaType.audio).First().MediaPort);
+                System.Diagnostics.Debug.Assert(56674 == sdp.MediaDescriptions.Where(x => x.MediaType == Media.Sdp.MediaType.video).First().MediaPort);
+            }
+
+            /// <summary>
+            /// Tests various attributes of the <see cref="Media.Sdp.MediaDescription"/> class.
+            /// </summary>
+            public void TestMediaDescription()
+            {
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+                string testVector = @"v=0
+o=- 1419841619185835 1 IN IP4 192.168.1.208
+s=IP Camera Video
+i=videoMain
+a=tool:LIVE555 Streaming Media v2014.02.10
+a=type:broadcast
+a=control:*
+a=range:npt=0-
+a=x-qt-text-nam:IP Camera Video
+a=x-qt-text-inf:videoMain
+t=0
+r=604800 3600 0 90000
+r=7d 1h 0 25h
+m=video 0 RTP/AVP 96
+c=IN IP4 0.0.0.0
+b=AS:96
+a=rtpmap:96 H264/90000
+a=fmtp:96 packetization-mode=1;profile-level-id=000000;sprop-parameter-sets=Z0IAHpWoKA9k,aM48gA==
+a=control:track1
+m=audio 0 RTP/AVP 0
+c=IN IP4 0.0.0.0
+b=AS:64
+a=control:track2";
+
+                Media.Sdp.SessionDescription sessionDescription = new Media.Sdp.SessionDescription(testVector);
+
+                //Ensure 2 media descriptions were found
+                System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Count() == 2, "Did not find all Media Descriptions '2'");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.First().MediaFormat == 96, "Did not find correct MediaFormat '96'");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.First().MediaType == Media.Sdp.MediaType.video, "Did not find correct MediaType 'video'");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Last().MediaFormat == 0, "Did not find correct MediaFormat '0'");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Last().MediaType == Media.Sdp.MediaType.audio, "Did not find correct MediaType 'audio;");
+
+                System.Diagnostics.Debug.Assert(false == sessionDescription.MediaDescriptions.Any(m => m.ControlLine == null), "All MediaDescriptons must have a ControlLine which is not null.");
+
+                //Check time descriptions repeat times
+                System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.Count() == 1, "Must have 1 TimeDescription");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().SessionStartTime == 0, "Did not parse SessionStartTime");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().SessionStopTime == 0, "Did not parse SessionStopTime");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatTimes.Count == 2, "First TimeDescription must have 2 RepeatTime entries.");
+
+                //Todo RepeatTimes should be an Object with the properties  (RepeatInterval, ActiveDuration, Offsets[start / stop])
+                //r=<repeat interval> <active duration> <offsets from start-time>
+
+                System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatTimes[0] == "604800 3600 0 90000", "Did not parse RepeatTimes");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.TimeDescriptions.First().RepeatTimes[1] == "7d 1h 0 25h", "Did not parse RepeatTimes");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.Length == sessionDescription.ToString().Length, "Did not calculate length correctly");
+
+                System.Diagnostics.Debug.Assert(sessionDescription.ToString() == testVector, "Did not output exactly same string");
+            }
+
+            public void TestInitialObjectDescriptor()
+            {
+                Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+                string testVector = @"v=0
+o=- 1183588701 6 IN IP4 10.3.1.221
+s=Elecard NWRenderer
+i=Elecard streaming
+u=http://www.elecard.com
+e=tsup@elecard.net.ru
+c=IN IP4 239.255.0.1/64
+b=CT:0
+a=ISMA-compliance:2,2.0,2
+a=mpeg4-iod: ""data:application/mpeg4-iod;base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA""
+m=video 10202 RTP/AVP 98
+a=rtpmap:98 H264/90000
+a=control:trackID=1
+a=fmtp:98 packetization-mode=1; profile-level-id=4D001E; sprop-parameter-sets=Z00AHp5SAWh7IA==,aOuPIAAA
+a=mpeg4-esid:201
+m=audio 10302 RTP/AVP 96
+a=rtpmap:96 mpeg4-generic/48000/2
+a=control:trackID=2
+a=fmtp:96 streamtype=5; profile-level-id=255; mode=AAC-hbr; config=11900000000000000000; objectType=64; sizeLength=13; indexLength=3; indexDeltaLength=3
+a=mpeg4-esid:101";
+
+                Media.Sdp.SessionDescription sd = new Media.Sdp.SessionDescription(testVector);
+
+                Console.WriteLine(sd.ToString());
+
+                //Get the inital object descriptor line
+                Media.Sdp.SessionDescriptionLine mpeg4IodLine = sd.Lines.Where(l => l.Type == 'a' && l.Parts.Any(p => p.Contains("mpeg4-iod"))).FirstOrDefault();
+
+                System.Diagnostics.Debug.Assert(mpeg4IodLine != null, "Cannot find InitialObjectDescriptor Line");
+
+                System.Diagnostics.Debug.Assert(mpeg4IodLine.Parts.Last() == "\"data:application/mpeg4-iod;base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA\"", "InitialObjectDescriptor Line Contents invalid.");
+            }
+
+        }
+
+        #endregion
+
+        #region Methods (To Support Unit Tests)
+
+        static void writeError(Exception ex)
+        {
+            Console.BackgroundColor = ConsoleColor.Red;
+            Console.WriteLine("Test Failed!");
+            Console.WriteLine("Exception.Message: " + ex.Message);
+            Console.WriteLine("Press (W) to try again or any other key to continue.");
+            Console.BackgroundColor = ConsoleColor.Black;
+        }
+
+        static void writeInfo(string message, ConsoleColor? backgroundColor, ConsoleColor? foregroundColor)
+        {
+
+            ConsoleColor? previousBackgroundColor = null, previousForegroundColor = null;
+
+            if (backgroundColor.HasValue)
+            {
+                previousBackgroundColor = Console.BackgroundColor;
+                Console.BackgroundColor = backgroundColor.Value;
+            }
+
+            if (foregroundColor.HasValue)
+            {
+                previousForegroundColor = Console.ForegroundColor;
+                Console.ForegroundColor = foregroundColor.Value;
+            }
+
+            Console.WriteLine(message);
+
+            if (previousBackgroundColor.HasValue)
+            {
+                Console.BackgroundColor = previousBackgroundColor.Value;
+            }
+
+            if (previousForegroundColor.HasValue)
+            {
+                Console.ForegroundColor = previousForegroundColor.Value;
+            }
+        }
+
+        static void TraceMessage(string message,
+      string memberName = "",
+      [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = "",
+      [System.Runtime.CompilerServices.CallerLineNumber] int sourceLineNumber = 0)
+        {
+            Console.WriteLine(string.Format(TestingFormat, message, memberName ?? "No MethodName Provided"));
+        }
+
+        static void RunTest(Action test, int count = 1, bool waitForGoAhead = true)
+        {
+            System.Console.Clear();
+            ConsoleColor pForeGround = Console.ForegroundColor,
+                        pBackGound = Console.BackgroundColor;
+            Console.BackgroundColor = ConsoleColor.Blue;
+            Console.WriteLine("About to run test: " + test.Method.Name);
+            Console.WriteLine("Press Q to skip or any other key to continue.");
+            Console.BackgroundColor = ConsoleColor.Black;
+
+            //If the debugger is attached get a ConsoleKey, the key is Q return.
+            if (waitForGoAhead && System.Diagnostics.Debugger.IsAttached && Console.ReadKey(true).Key == ConsoleKey.Q) return;
+            else
+            {
+                Dictionary<int, Exception> log = null;
+
+                int remaining = count, failures = 0, successes = 0; bool multipleTests = count > 1;
+
+                if (multipleTests) log = new Dictionary<int, Exception>();
+
+                foreach (var testIndex in Enumerable.Range(0, count).AsParallel())
+                {
+                    try
+                    {
+
+                        //Decrement remaining
+                        --remaining;
+
+                        TraceMessage("Beginning Test '" + testIndex + "'", test.Method.Name);
+
+                        //Run the test
+                        test();
+
+                        TraceMessage("Completed Test'" + testIndex + "'", test.Method.Name);
+
+                        //Increment the success counter
+                        ++successes;
+                    }
+                    catch (Exception ex)
+                    {
+                        //Incrment the exception counter
+                        ++failures;
+
+                        //Only break if the debugger is attached
+                        if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
+
+                        //Write the exception to the console
+                        writeError(ex);
+
+                        //If there were multiple tests
+                        if (multipleTests)
+                        {
+                            //Add the exception to the log
+                            log.Add(remaining, ex);
+                        }
+                    }
+                }
+
+                //Write the amount of failures and successes unless all tests passed
+                if (failures == 0) writeInfo("\tAll '" + count + "' Tests Passed!\r\n\tPress (W) To Run Again, (D) to Debug or any other key to continue.", null, ConsoleColor.Green);
+                else writeInfo("\t" + failures + " Failures, " + successes + " Successes", null, failures > 0 ? ConsoleColor.Red : ConsoleColor.Green);
+
+                //Oops core lib
+                //var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation) + "*.log.txt")
+
+                //Delete log.txt files.
+                foreach (var logFile in System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(executingAssemblyLocation), "*.log.txt"))
+                {
+                    try { System.IO.File.Delete(logFile); }
+                    catch (Exception)
+                    {
+                        if (System.Diagnostics.Debugger.IsAttached) System.Diagnostics.Debugger.Break();
+                        continue;
+                    }
+                }
+
+                //If the debugger is attached Read a ConsoleKey. (intercepting the key so it does not appear on the console)
+                if (System.Diagnostics.Debugger.IsAttached)
+                {
+                    ConsoleKey input = Console.ReadKey(true).Key;
+                    switch (input)
+                    {
+                        case ConsoleKey.W:
+                            {
+                                RunTest(test, 1, false);
+                                return;
+                            }
+                        case ConsoleKey.D: System.Diagnostics.Debugger.Break(); goto default;
+                        default: break;
+                    }
+                }
+            }
+
+
+            Console.BackgroundColor = pBackGound;
+
+            Console.ForegroundColor = pForeGround;
+
+        }
+
+        internal static void TryPrintPacket(bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false) { TryPrintClientPacket(null, incomingFlag, packet, writePayload); }
+
+        internal static void TryPrintClientPacket(object sender, bool incomingFlag, Media.Common.IPacket packet, bool writePayload = false)
+        {
+            if (sender is Media.Rtp.RtpClient && (sender as Media.Rtp.RtpClient).IsDisposed) return;
+
+            ConsoleColor previousForegroundColor = Console.ForegroundColor,
+                    previousBackgroundColor = Console.BackgroundColor;
+
+            string format = "{0} a {1} {2}";
+
+            Type packetType = packet.GetType();
+
+            if (packet is Media.Rtp.RtpPacket)
+            {
+                Media.Rtp.RtpPacket rtpPacket = packet as Media.Rtp.RtpPacket;
+
+                if (packet == null || packet.IsDisposed) return;
+
+                if (packet.IsComplete) Console.ForegroundColor = ConsoleColor.Blue;
+                else Console.ForegroundColor = ConsoleColor.Red;
+
+                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
+
+                Media.Rtp.RtpClient.TransportContext matched = null;
+
+                if (client != null) matched = client.GetContextForPacket(rtpPacket);
+
+                if (matched == null)
+                {
+                    Console.WriteLine("****Unknown RtpPacket context: " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + '-' + rtpPacket.PayloadType + " Length = " + rtpPacket.Length + (rtpPacket.Header.IsCompressed ? string.Empty : "Ssrc " + rtpPacket.SynchronizationSourceIdentifier.ToString()) + " \nAvailables Contexts:", "*******\n\t***********");
+                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
+                        {
+                            Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                            Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                            Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                            Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
+                        }
+                }
+                else
+                {
+                    Console.WriteLine(string.Format(TestingFormat, "Matches Context (By PayloadType):", "*******\n\t***********Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier));
+                    Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSequenceNo = " + rtpPacket.SequenceNumber + " Timestamp=" + rtpPacket.Timestamp + " PayloadType = " + rtpPacket.PayloadType + " " + Media.RtpTools.RtpSendExtensions.PayloadDescription(rtpPacket) + " Length = " +
+                        rtpPacket.Length + "\nContributingSourceCount = " + rtpPacket.ContributingSourceCount
+                        + "\n Version = " + rtpPacket.Version + "\tSynchronizationSourceIdentifier = " + rtpPacket.SynchronizationSourceIdentifier);
+                }
+                if (rtpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtpPacket.Payload.Array, rtpPacket.Payload.Offset, rtpPacket.Payload.Count)));
+            }
+            else
+            {
+                if (packet == null || packet.IsDisposed) return;
+
+                Media.Rtcp.RtcpPacket rtcpPacket = packet as Media.Rtcp.RtcpPacket;
+
+                if (packet.IsComplete) if (packet.Transferred.HasValue) Console.ForegroundColor = ConsoleColor.Green; else Console.ForegroundColor = ConsoleColor.DarkGreen;
+                else Console.ForegroundColor = ConsoleColor.Yellow;
+
+                Media.Rtp.RtpClient client = ((Media.Rtp.RtpClient)sender);
+
+                Media.Rtp.RtpClient.TransportContext matched = null;
+
+                if (client != null) matched = client.GetContextForPacket(rtcpPacket);
+
+                Type implemented = Media.Rtcp.RtcpPacket.GetImplementationForPayloadType(rtcpPacket.PayloadType);
+
+                if (implemented != null) packetType = implemented;
+
+                Console.WriteLine(string.Format(format, incomingFlag ? "\tReceieved" : "\tSent", (packet.IsComplete ? "Complete" : "Incomplete"), packetType.Name) + "\tSynchronizationSourceIdentifier=" + rtcpPacket.SynchronizationSourceIdentifier + "\nType=" + rtcpPacket.PayloadType + " Length=" + rtcpPacket.Length + "\n Bytes = " + rtcpPacket.Payload.Count + " BlockCount = " + rtcpPacket.BlockCount + "\n Version = " + rtcpPacket.Version);
+
+                if (rtcpPacket.Payload.Count > 0 && writePayload) Console.WriteLine(string.Format(TestingFormat, "Payload", BitConverter.ToString(rtcpPacket.Payload.Array, rtcpPacket.Payload.Offset, rtcpPacket.Payload.Count)));
+
+                if (matched != null) Console.WriteLine(string.Format(TestingFormat, "Context:", "*******\n\t*********** Local Id: " + matched.SynchronizationSourceIdentifier + " Remote Id:" + matched.RemoteSynchronizationSourceIdentifier + " - Channel = " + matched.ControlChannel));
+                else
+                {
+                    Console.WriteLine(string.Format(TestingFormat, "Unknown RTCP Packet context -> " + rtcpPacket.PayloadType + " \nAvailables Contexts:", "*******\n\t***********"));
+                    if (client != null) foreach (Media.Rtp.RtpClient.TransportContext tc in client.GetTransportContexts())
+                        {
+                            Console.WriteLine(string.Format(TestingFormat, "\tDataChannel", tc.DataChannel));
+                            Console.WriteLine(string.Format(TestingFormat, "\tControlChannel", tc.ControlChannel));
+                            Console.WriteLine(string.Format(TestingFormat, "\tLocalSourceId", tc.SynchronizationSourceIdentifier));
+                            Console.WriteLine(string.Format(TestingFormat, "\tRemoteSourceId", tc.RemoteSynchronizationSourceIdentifier));
+                        }
+                }
+
+                if (implemented != null)
+                {
+                    //Could dump the packet contents here.
+                    Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, rtcpPacket));
+                }
+
+
+            }
+
+            Console.ForegroundColor = previousForegroundColor;
+            Console.BackgroundColor = previousBackgroundColor;
+
+        }
+
+        static void PrintRtcpInformation(Media.Rtcp.RtcpPacket p)
+        {
+            Console.BackgroundColor = ConsoleColor.Blue;
+            TryPrintPacket(true, p);
+            //Console.WriteLine("RTCP Packet Version:" + p.Version + "Length =" + p.Length + " Bytes: " + BitConverter.ToString(p.Prepare().ToArray(), 0, Math.Min(Console.BufferWidth, p.Length)));
+            Console.BackgroundColor = ConsoleColor.Black;
+
+            //Dissect the packet
+            switch (p.PayloadType)
+            {
+                case Media.Rtcp.SendersReport.PayloadType:
+                    {
+                        Console.WriteLine(string.Format(TestingFormat, "SendersReport From", p.SynchronizationSourceIdentifier));
+                        Console.WriteLine(string.Format(TestingFormat, "Length", p.Length));
+
+                        using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(p, false))
+                        {
+                            Console.WriteLine(string.Format(TestingFormat, "NtpTime", sr.NtpTime));
+
+                            Console.WriteLine(string.Format(TestingFormat, "RtpTimestamp", sr.RtpTimestamp));
+
+                            Console.WriteLine(string.Format(TestingFormat, "SendersOctetCount", sr.SendersOctetCount));
+
+                            Console.WriteLine(string.Format(TestingFormat, "SendersPacketCount", sr.SendersPacketCount));
+
+                            //Enumerate any blocks in the senders report
+                            using (var enumerator = sr.GetEnumerator())
+                            {
+                                while (enumerator.MoveNext())
+                                {
+                                    Media.Rtcp.ReportBlock asReportBlock = enumerator.Current as Media.Rtcp.ReportBlock;
+
+                                    Console.WriteLine("Found a ReportBlock");
+
+                                    Console.WriteLine("FractionsLost: " + asReportBlock.FractionsLost);
+                                    Console.WriteLine("CumulativePacketsLost: " + asReportBlock.CumulativePacketsLost);
+                                    Console.WriteLine("ExtendedHighestSequenceNumberReceived: " + asReportBlock.ExtendedHighestSequenceNumberReceived);
+                                    Console.WriteLine("InterarrivalJitterEstimate: " + asReportBlock.InterarrivalJitterEstimate);
+                                    Console.WriteLine("LastSendersReportTimestamp: " + asReportBlock.LastSendersReportTimestamp);
+                                }
+                            }
+                        }
+
+                        break;
+                    }
+                case Media.Rtcp.SourceDescriptionReport.PayloadType:
+                    {
+                        //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
+                        using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(p, false))
+                        {
+
+                            Console.WriteLine(string.Format(TestingFormat, "SourceDescription From", sourceDescription.SynchronizationSourceIdentifier));
+                            Console.WriteLine(string.Format(TestingFormat, "Length", p.Length));
+
+                            foreach (var chunk in sourceDescription.GetChunkIterator())
+                            {
+                                Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
+                                //Use a SourceDescriptionItemList to access the items within the Chunk
+                                //This is performed auto magically when using the foreach pattern
+                                foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
+                                {
+                                    Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
+                                    Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
+                                    Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.Data.ToArray())));
+                                }
+                            }
+                        }
+                        break;
+                    }
+                default: Console.WriteLine(Media.RtpTools.RtpSend.ToTextualConvention(Media.RtpTools.FileFormat.Ascii, p)); break;
+
+            }
+        }
+
+        internal static void SendKeepAlive(Media.Rtsp.RtspClient client, object state = null)
+        {
+            if (client == null || client.IsDisposed) return;
+
+            Console.WriteLine(client.InternalId + " - Sending KeepAlive");
+
+            client.SendKeepAlive(state);
+        }
+
+        internal static void SendRandomPartial(Media.Rtsp.RtspClient client, Media.Rtsp.RtspMethod method = Media.Rtsp.RtspMethod.GET_PARAMETER, Uri location = null, string contentType = null, byte[] data = null)
+        {
+            if (client == null || client.IsDisposed) return;
+
+            if (false == client.IsConnected)
+            {
+                Console.WriteLine(client.InternalId + " - Client Not Connected, Connect First!");
+
+                return;
+            }
+
+            Console.WriteLine(client.InternalId + " - Sending Partial " + method);
+
+            using (Media.Rtsp.RtspMessage message = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request)
+            {
+                Method = method,
+                Location = location ?? Media.Rtsp.RtspMessage.Wildcard
+            })
+            {
+
+                message.SetHeader(Media.Rtsp.RtspHeaders.Session, client.SessionId);
+
+                message.SetHeader(Media.Rtsp.RtspHeaders.CSeq, client.NextClientSequenceNumber().ToString());
+
+                byte[] buffer;
+
+                if (data == null)
+                {
+                    buffer = new byte[Utility.Random.Next(0, Media.Rtsp.RtspMessage.MaximumLength)];
+
+                    Utility.Random.NextBytes(buffer);
+
+                    message.Body = message.Encoding.GetString(buffer);
+
+                    message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, "application/octet-string");
+                }
+                else
+                {
+                    buffer = data;
+
+                    message.Encoding.GetString(data);
+
+                    message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, contentType ?? "application/octet-string");
+                }
+
+
+                Media.Rtsp.RtspMessage parsed = Media.Rtsp.RtspMessage.FromString(message.ToString());
+
+                int max = message.Length, toSend = Utility.Random.Next(client.Buffer.Count);
+
+                if (toSend == max) using (client.SendRtspMessage(message)) ;
+                else
+                {
+                    int sent = 0;
+                    //Send only some of the data
+                    do sent = client.RtspSocket.Send(buffer);
+                    while (sent == 0);
+
+                    string output = message.Encoding.GetString(message.ToBytes(), 0, sent);
+
+                    Console.WriteLine(client.InternalId + " - Sent Partial(" + sent + "/" + message.Length + "): " + output);
+
+                    parsed.Dispose();
+
+                    parsed = Media.Rtsp.RtspMessage.FromString(output);
+
+                    Console.WriteLine(client.InternalId + " - Parsed: " + parsed);
+
+                    //Send the real request with the same data
+                    using (client.SendRtspMessage(message)) ;
+
+                    parsed.Dispose();
+
+                }
+            }
+        }
+
+        internal static void DumpTrack(Media.Container.Track track)
+        {
+            Console.WriteLine("Id: " + track.Id);
+
+            Console.WriteLine("Name: " + track.Name);
+            Console.WriteLine("Duration: " + track.Duration);
+
+            Console.WriteLine("Type: " + track.MediaType);
+            Console.WriteLine("Samples: " + track.SampleCount);
+
+            if (track.MediaType == Media.Sdp.MediaType.audio)
+            {
+                Console.WriteLine("Codec: " + (track.CodecIndication.Length > 2 ? Encoding.UTF8.GetString(track.CodecIndication) : ((Media.Utility.WaveFormatId)Media.Common.Binary.ReadU16(track.CodecIndication, 0, false)).ToString()));
+                Console.WriteLine("Channels: " + track.Channels);
+                Console.WriteLine("Sampling Rate: " + track.Rate);
+                Console.WriteLine("Bits Per Sample: " + track.BitDepth);
+            }
+            else
+            {
+                Console.WriteLine("Codec: " + Encoding.UTF8.GetString(track.CodecIndication));
+                Console.WriteLine("Frame Rate: " + track.Rate);
+                Console.WriteLine("Width: " + track.Width);
+                Console.WriteLine("Height: " + track.Height);
+                Console.WriteLine("BitsPerPixel: " + track.BitDepth);
+            }
+        }
+
+        #endregion
     }
 }
