@@ -1791,9 +1791,9 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription = new Sdp.SessionDescription(0, "v√ƒ", Name );
             SessionDescription.Add(new Sdp.Lines.SessionConnectionLine()
             {
-                NetworkType = "IN",
-                AddressType = "*",
-                Address = "0.0.0.0"
+                ConnectionNetworkType = "IN",
+                ConnectionAddressType = "*",
+                ConnectionAddress = "0.0.0.0"
             });
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
@@ -1866,10 +1866,7 @@ namespace Media.Rtsp.Server.MediaTypes
 #if DEBUG
             System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Stopped");
 #endif
-
-            Ready = false;
-
-            if (m_RtpClient != null) Utility.TryAbort(ref m_RtpClient.m_WorkerThread);
+            Ready = false;            
 
             if (m_Watcher != null)
             {

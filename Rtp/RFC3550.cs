@@ -861,7 +861,7 @@ namespace Media
 
             public SourceList(IEnumerable<uint> sources, int start = 0)
             {
-                m_SourceCount = Math.Max(Common.Binary.FourBitMaxValue, sources.Count());
+                m_SourceCount = Math.Min(Common.Binary.FourBitMaxValue, sources.Count());
 
                 IEnumerable<byte> binary = Utility.Empty;
 
@@ -941,7 +941,7 @@ namespace Media
             /// <summary>
             /// Indicates if there is enough data in the given binary to read the complete source list.
             /// </summary>
-            public bool IsComplete { get { return !IsDisposed && m_SourceCount * 4 == m_Binary.Count; } }
+            public bool IsComplete { get { return false == IsDisposed && m_SourceCount * 4 == m_Binary.Count; } }
 
             uint IEnumerator<uint>.Current
             {

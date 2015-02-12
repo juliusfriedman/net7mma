@@ -1509,12 +1509,12 @@ namespace Media.Rtsp
                         session.m_Sent += sent;
 
                         m_Sent += sent;
+
+                        //start receiving again
+                        session.StartReceive();
+
+                        return;
                     }
-
-                    //start receiving again
-                    session.StartReceive();
-
-                    return;
 
                 }                
                 else

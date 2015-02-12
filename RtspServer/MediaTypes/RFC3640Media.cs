@@ -70,7 +70,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
             }
 
-            //not the data needed as parameters comes from the SDP.
+            //note the data needed as parameters comes from the SDP `config=`
             //Could have a ParseConfig function.
 
             /// <summary>
@@ -99,11 +99,13 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 header[2] = (byte)(((profileId - 1) << 6) + (frequencyIndex << 2) + (channelConfiguration >> 2));
 
-                header[3] = (byte)(((channelConfiguration & 0x3) << 6) + (packetLen >> 11));
+                header[3] = (byte)(((channelConfiguration & 0x3) << 6) + (nFinalLength >> 11));
 
                 header[4] = (byte)((nFinalLength & 0x7FF) >> 3);
 
                 header[5] = (byte)(((nFinalLength & 7) << 5) + 0x1F);
+
+                //http://blog.olivierlanglois.net/index.php/2008/09/12/aac_adts_header_buffer_fullness_field
 
                 header[6] = (byte)0xFC;
 
@@ -306,12 +308,6 @@ namespace Media.Rtsp.Server.MediaTypes
 
                         //Check enough bytes are available
                         if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Au Headers?");
-
-                        //May need to keep the auHeader for each unit
-
-                        //Then give the header then the unit to the buffer (in that order)
-
-                        //(header, au, header aui)
 
                         //Skip the Au Headers Section
                         offset += auHeaderLengthBytes;
