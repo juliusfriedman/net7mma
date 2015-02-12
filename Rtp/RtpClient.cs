@@ -3804,7 +3804,8 @@ namespace Media.Rtp
                                 //Check the version...
                                 incompatible = common.Version != relevent.Version;
 
-                                //If this is a valid data backer there must be at least a RtpHeader's worth of data in the buffer. If this was a RtcpPacket with only 4 bytes it wouldn't have a ssrc and wouldn't be valid to be sent.
+                                //If this is a valid context there must be at least a RtpHeader's worth of data in the buffer. 
+                                //If this was a RtcpPacket with only 4 bytes it wouldn't have a ssrc and wouldn't be valid to be sent.
                                 if (false == incompatible && 
                                     (frameChannel == relevent.DataChannel && 
                                     remainingInBuffer <= Rtp.RtpHeader.Length + sessionRequired)
@@ -3872,8 +3873,10 @@ namespace Media.Rtp
                                             incompatible = (rtcpLen = (ushort)header.LengthInWordsMinusOne) != 0 && 
                                                 ((rtcpLen + 1) * 4) >= frameLength;
 
-                                            //If the packet was not ruled incompatible check the SSRC if not discovering
-                                            if (false == incompatible && false == relevent.InDiscovery)
+                                            //If the packet was not ruled incompatible check the SSRC if not discovering and it is present
+                                            if (false == incompatible && 
+                                                false == relevent.InDiscovery && 
+                                                header.Size > Rtcp.RtcpHeader.Length)
                                             {
                                                 incompatible = (relevent = GetContextBySourceId(header.SendersSynchronizationSourceIdentifier)) == null;
                                             }
