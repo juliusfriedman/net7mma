@@ -102,6 +102,11 @@ namespace Media.Rtcp
 
         #region Properties
 
+        public bool IsCompressed
+        {
+            get { return Size < Length; }
+        } 
+
         /// <summary>
         /// Creates a 32 bit value which can be used to detect validity of the RtcpHeader when used in conjunction with the CreateRtcpValidMask function.
         /// </summary>

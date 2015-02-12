@@ -740,6 +740,11 @@ namespace Media.Rtp
 
             #region Properties
 
+            /// <summary>
+            /// Sets or gets the applications-specific state associated with the TransportContext.
+            /// </summary>
+            public Object ApplicationContext { get; set; }
+
             public int MinimumPacketSize
             {
                 get { return (int)m_MimumPacketSize; }
@@ -2067,12 +2072,14 @@ namespace Media.Rtp
                                     }
                                 }
                             }
+
+                            //might not have checked anything if the list was 'incomplete'..
                         }
                     }
                 }
             }
 
-            //Handle Goodbyes?
+            //Handle Goodbyes with a positive blockcount but no  sourcelist...?
 
         NoContext:
 
@@ -3704,7 +3711,7 @@ namespace Media.Rtp
                 //The indicates length of the data
                 frameLength = 0,
                 //The amount of data remaining in the buffer
-                remainingInBuffer = Utility.Clamp(count, count, bufferLength), 
+                remainingInBuffer = Utility.Clamp(count, count, bufferLength - offset), 
                 //The amount of data received (which is already equal to what is remaining in the buffer)
                 recievedTotal = remainingInBuffer;
 
@@ -3770,12 +3777,14 @@ namespace Media.Rtp
                         //If there WAS a context
                         if (relevent != null)
                         {                           
-                            //Verify minimum and maximum packet sizes allowed by context.
+                            //Verify minimum and maximum packet sizes allowed by context. (taking into account the amount of bytes in the ALF)
                             if (frameLength < relevent.MinimumPacketSize + sessionRequired || 
                                 frameLength > relevent.MaximumPacketSize + sessionRequired)
                             {
                                 //mark as incompatible
                                 incompatible = true;
+
+                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Irregular Packet of " + frameLength + " for Channel " + frameChannel + " remainingInBuffer=" + remainingInBuffer);
 
                                 //jump
                                 goto CheckPacketAttributes;
@@ -3816,7 +3825,7 @@ namespace Media.Rtp
                                     //Remove the context
                                     relevent = null;
 
-                                    goto CheckRemainingData;
+                                    goto EndUsingHeader;
 
                                     ////Only receive this many more bytes for now.
                                     //remainingOnSocket = 16 - remainingInBuffer;
@@ -3883,81 +3892,72 @@ namespace Media.Rtp
                                         }
                                     } //Not Rtp or Rtcp
                                     //else incompatible = true;
-                                }                                                               
-                            }
+                                }
+                            EndUsingHeader:
+                                ;
+                            }                        
                         }
 
                     CheckPacketAttributes:
 
                         //Handle null packets or large packet as well as incompatible packets
 
-                        //Log for no context.
-                        if (relevent == null && false == raisedEvent) Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - No Context for Channel " + frameChannel);
+                        //Log for no context
+                        if (relevent == null) Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - No Context for Channel " + frameChannel);
 
-                        if (incompatible)
+                    if (incompatible)
+                    {
+                        //If there was a context then incrment for failed receptions
+                        if (relevent != null)
                         {
-                            //If there was a context then incrment for failed receptions
-                            if (relevent != null)
-                            {
-                                if (expectRtp) ++relevent.m_FailedRtpReceptions;
+                            if (expectRtp) ++relevent.m_FailedRtpReceptions;
 
-                                if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
-
-                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Incompatible Packet of " + frameLength + " for Channel " + frameChannel);
-                            }
-                            
-                            //Determine how much we can move
-                            int toMove = Math.Min(remainingInBuffer, sessionRequired);
-
-                            //TODO It may be possible to let the event reiever known how much is available here.
-
-                            //Indicate what was received if not already done
-                            if (false == raisedEvent) OnInterleavedData(buffer, offset, toMove);
-
-                            //Move the offset
-                            offset += toMove;
-
-                            //Decrease by the length
-                            remainingInBuffer -= toMove;
-
-                            //Do another pass
-                            continue;
+                            if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
                         }
 
-                        //If frameLength was 0 or the frame was larger than we can store then interleave the header for handling if required   
-                        //incompatible may not be true here.
-                        if (frameLength == 0 || frameLength > bufferLength) 
+                        Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Incompatible Packet of " + frameLength + " for Channel " + frameChannel);
+                    }
+
+                    //If frameLength was 0 or the frame was larger than we can store then interleave the header for handling if required   
+                    //incompatible may not be true here.
+                    else if (frameLength == 0 || frameLength > bufferLength)
+                    {
+                        //Could check incompatible to determine if to should move further.
+
+                        //Just because there is no assoicated context on the client does not mean the packet is not useful elsewhere in Transport.
+
+                        //TODO It may be possible to let the event reiever known how much is available here.
+                        if (frameLength == 0)
                         {
-                            //Could check incompatible to determine if to should move further.
+                            Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Null Packet for Channel " + frameChannel);
+                        }
+                        else //If there was a context then increment for failed receptions only for large packets
+                        {
+                            if (expectRtp) ++relevent.m_FailedRtpReceptions;
 
-                            //Just because there is no assoicated context on the client does not mean the packet is not useful elsewhere in Transport.
+                            if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
 
-                            //TODO It may be possible to let the event reiever known how much is available here.
-                            if (frameLength == 0)
-                            {
-                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Null Packet for Channel " + frameChannel);
-                            }
-                            else //If there was a context then increment for failed receptions only for large packets
-                            {
-                                if (expectRtp) ++relevent.m_FailedRtpReceptions;
+                            Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Large Packet of " + frameLength + " for Channel " + frameChannel + " remainingInBuffer=" + remainingInBuffer);
+                        }
+                    }
+                    else goto CheckRemainingData;
 
-                                if (expectRtcp) ++relevent.m_FailedRtcpReceptions;
+                        //Determine how much we can move
+                        int toMove = Math.Min(remainingInBuffer, sessionRequired);
 
-                                Media.Common.ILoggingExtensions.Log(Logger, "ProcessFrameData - Large Packet of " + frameLength + " for Channel " + frameChannel);
-                            }
+                        //TODO It may be possible to let the event reiever known how much is available here.
 
-                            //if an event was not already raised then raise one.
-                            if(false == raisedEvent) OnInterleavedData(buffer, offset, InterleavedOverhead);
+                        //Indicate what was received if not already done
+                        if (false == raisedEvent) OnInterleavedData(buffer, offset, toMove);
 
-                            //Move the offset into the data section
-                            offset += InterleavedOverhead;
+                        //Move the offset
+                        offset += toMove;
 
-                            //Decrease by a word.
-                            remainingInBuffer -= InterleavedOverhead;                            
+                        //Decrease by the length
+                        remainingInBuffer -= toMove;
 
-                            //Do another pass
-                            continue;
-                        } 
+                        //Do another pass
+                        continue;
                         
                     }//else there was a frameLength of -1 this indicates there is not enough bytes for a header.
                 }

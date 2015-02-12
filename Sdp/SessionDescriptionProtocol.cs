@@ -364,9 +364,10 @@ namespace Media.Sdp
                 return (m_Originator == null ? 0 : m_Originator.Length) +
                     (m_SessionName == null ? 0 : m_SessionName.Length) +
                     (m_SessionVersion == null ? 0 : m_SessionVersion.Length) +
+                    (m_SessionConnection == null ? 0 : m_SessionConnection.Length) +
                     m_Lines.Sum(l => l.Length) +
                     m_MediaDescriptions.Sum(md => md.Length) +
-                    m_TimeDescriptions.Sum(td => td.Length); //+ 2; //CRLF
+                    m_TimeDescriptions.Sum(td => td.Length);
             }
         }
 
@@ -573,6 +574,8 @@ namespace Media.Sdp
 
             if (m_SessionName != null) buffer.Append(m_SessionName.ToString());
 
+            if (m_SessionConnection != null) buffer.Append(m_SessionConnection.ToString());
+
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.SessionDescription.BandwidthType && l.Type != Sdp.SessionDescription.AttributeType))
             {
                 buffer.Append(l.ToString());
@@ -743,8 +746,7 @@ namespace Media.Sdp
         {
             get
             {
-                //(m=)X(\r\n)
-                return (4 + (string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString(), MediaProtocol, MediaFormat)).Length) + m_Lines.Sum(l => l.Length);
+                return MediaDescriptionLine.Length + m_Lines.Sum(l => l.Length);
             }
         }
 
@@ -783,12 +785,27 @@ namespace Media.Sdp
 
             MediaProtocol = parts[2];
 
-            //Notes that this can apparently be a * or something besides 3 digits, rightnow ("*" turns into 43)
-            //Maybe should allow to be int or string?
-            byte temp;
+            if (false == string.IsNullOrWhiteSpace(parts[3]))
+            {
+                //Notes that this can apparently be a * or something besides 3 digits, rightnow ("*" turns into 43)
+                //Maybe should allow to be int or string?
+                byte temp;
 
-            if (byte.TryParse(SessionDescription.TrimLineValue(parts[3]), out temp)) MediaFormat = temp;
-            else MediaFormat = (byte)parts[3].FirstOrDefault();
+                if (byte.TryParse(SessionDescription.TrimLineValue(parts[3]), out temp)) MediaFormat = temp;
+                else
+                {
+                    char c = parts[3][0];
+
+                    if (Utility.IsHexDigit(ref c))
+                    {
+                        MediaFormat = Utility.HexCharToByte(parts[3].FirstOrDefault());
+                    }
+                    else
+                    {
+                        MediaFormat = (byte)c;
+                    }
+                }
+            }
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e;)
@@ -878,12 +895,16 @@ namespace Media.Sdp
         {
             get
             {
+                char mediaFormat = (char)MediaFormat;
+
+                string theMediaFormat = mediaFormat != default(char) && mediaFormat != 42 ?  MediaFormat.ToString() : mediaFormat.ToString();
+
                 return new SessionDescriptionLine(MediaDescriptionType, ((char)Common.ASCII.Space).ToString())
                 {
                     MediaType.ToString(),
                     MediaPort.ToString(),
                     MediaProtocol,
-                    MediaFormat.ToString()
+                    theMediaFormat
                 };
             }
         }
@@ -1304,8 +1325,8 @@ namespace Media.Sdp
         /// </summary>
         public int Length
         {
-            //Each part gets a type, =, all parts are joined with ';' and lines are ended with `\r\n\`.
-            get { return 2 + m_Parts.Sum(p => p.Length) + ( m_Parts.Count > 0 ? m_Parts.Count - 1 : 0) + 2; }
+            //Each part gets a type, =, all parts are joined with 'm_Seperator' and lines are ended with `\r\n\`.
+            get { return 2 + m_Parts.Sum(p => p.Length) + ( m_Parts.Count > 0 ? m_Seperator.Length * m_Parts.Count - 1 : 0) + 2; }
         }
 
         internal string GetPart(int index) { return m_Parts.Count > index ? m_Parts[index] : string.Empty; }
@@ -1389,7 +1410,7 @@ namespace Media.Sdp
             {
                 yield return part;
 
-                yield return SessionDescription.SemiColon.ToString();
+                yield return m_Seperator;
             }
 
             yield return SessionDescription.NewLine;

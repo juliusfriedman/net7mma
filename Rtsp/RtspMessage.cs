@@ -1730,7 +1730,7 @@ namespace Media.Rtsp
                 if (string.IsNullOrWhiteSpace(headerValue)) goto ReadLine;
 
                 //This seems to be a valid header
-                SetHeader(headerName, headerValue);
+                SetHeader(headerName, headerValue);                
 
                 //Todo Handle Duplicate headers as HTTP would. (Will required a change in the collection used).
 
@@ -1747,6 +1747,8 @@ namespace Media.Rtsp
 
             UpdatePosition:
 
+                headerName = headerValue = null;
+
                 readingValue = false;
 
                 //Empty line count must be reset to include the end line we have already obtained when reading the header
@@ -1756,6 +1758,12 @@ namespace Media.Rtsp
 
                 //Could peek at the buffer of the memory stream to determine if the next char is related to the header...
 
+            }
+
+            //If the value was possibly not yet read then assume its empty
+            if (false == string.IsNullOrWhiteSpace(headerName))
+            {
+                SetHeader(headerName, Encoding.GetString(SemiColonByte));
             }
 
             //There may be control characters from the last header still in the buffer, (ParseBody handles this)            
@@ -2242,6 +2250,8 @@ namespace Media.Rtsp
         #endregion
 
         #region IPacket
+
+        public virtual bool IsCompressed { get { return false; } }
 
         DateTime Common.IPacket.Created
         {

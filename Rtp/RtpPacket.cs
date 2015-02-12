@@ -445,7 +445,7 @@ namespace Media.Rtp
             }
         }
 
-        public bool IsReadOnly { get { return !m_OwnsHeader || m_OwnedOctets == null; } }
+        public bool IsReadOnly { get { return false == m_OwnsHeader || m_OwnedOctets == null; } }
 
         #endregion
 
@@ -745,6 +745,8 @@ namespace Media.Rtp
         public DateTime? Transferred { get; set; }
 
         long Common.IPacket.Length { get { return (long)Length; } }
+
+        public virtual bool IsCompressed { get { return Header.IsCompressed; } }
 
         #endregion
 
