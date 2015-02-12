@@ -66,6 +66,11 @@ namespace Media.Common
         bool IsComplete { get; }
 
         /// <summary>
+        /// Indicates if the IPacket is compressed
+        /// </summary>
+        bool IsCompressed { get; }
+
+        /// <summary>
         /// Determines if the IPacket can be modified.
         /// </summary>
         bool IsReadOnly { get; }

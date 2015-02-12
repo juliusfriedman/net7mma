@@ -296,7 +296,7 @@ namespace Media.Rtcp
         /// </summary>
         public MemorySegment Payload { get; protected set; }
 
-        public bool IsReadOnly { get { return !m_OwnsHeader; } }
+        public bool IsReadOnly { get { return false == m_OwnsHeader; } }
 
         /// <summary>
         /// Indicates if there is data past the Payload which is not accounted for by the <see cref="Header"/>
@@ -580,6 +580,8 @@ namespace Media.Rtcp
         #endregion
 
         #region IPacket
+
+        public virtual bool IsCompressed { get { return Header.IsCompressed; } }
 
         public readonly DateTime Created = DateTime.UtcNow;
 

@@ -622,8 +622,6 @@ namespace Media.Rtsp
             {
                 //Use it
                 RtspSocket = existing;
-
-                
             }
 
             //If no socket is given a new socket will be created
@@ -642,7 +640,7 @@ namespace Media.Rtsp
             //Set the protocol version to use in requests.
             ProtocolVersion = DefaultProtocolVersion;
             
-            //Hopefully the Location doensn't have a UserInfo at this point.
+            //Could create a RtpClient to prevent accidental errors, (would be easier for attaching logger)
         }
 
         /// <summary>

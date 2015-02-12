@@ -106,10 +106,12 @@ namespace Media.Rtmp
             get { return Transferred; }
         }
 
-        public bool IsComplete
+        public virtual bool IsComplete
         {
             get { return m_Packet.Length >= HeaderLength + MessageLength; }
         }
+
+        public virtual bool IsCompressed { get { return false; } }
 
         public bool IsReadOnly
         {

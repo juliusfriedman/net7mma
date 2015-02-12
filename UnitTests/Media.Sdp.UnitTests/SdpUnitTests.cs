@@ -53,6 +53,10 @@ namespace Media.Sdp.UnitTests
         [TestMethod]
         public void TestSessionDescriptionConstructor()
         {
+            Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+            Assert.IsNotNull(Media.Sdp.SessionDescription.NewLine);
+
             //Get the characters which make the NewLine string.
             char[] newLineCharacters = Media.Sdp.SessionDescription.NewLine.ToArray();
 

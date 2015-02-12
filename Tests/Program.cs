@@ -45,371 +45,6 @@ using System.Windows.Forms;
 
 namespace Tests
 {
-
-    #region Issue 17245
-
-    public static class TestProcessFrameData
-    {
-        private const int _senderSSRC = 0x53535243; //  "SSRC"
-        private const int _timeStamp = 0x54494d45;  //  "TIME"
-
-        private class TestFramework
-        {
-            private static System.Net.EndPoint _rtspServer;
-
-            private static System.Net.Sockets.Socket _listenSocket;
-
-            private System.Net.Sockets.Socket _sender,
-                           _receiving;
-
-            private Media.Rtp.RtpClient _client;
-
-            static TestFramework()
-            {
-                _rtspServer = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 10554);
-
-                //  Create a (single) listening socket.
-                _listenSocket = new System.Net.Sockets.Socket(_rtspServer.AddressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-                _listenSocket.Bind(_rtspServer);
-                _listenSocket.Listen(1);
-            }
-
-            public TestFramework()
-            {
-                //  Create a receiving socket.
-                _receiving = new System.Net.Sockets.Socket(_rtspServer.AddressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
-
-                //  Connect to the server.
-                IAsyncResult connectResult = null;
-                connectResult = _receiving.BeginConnect(_rtspServer, new AsyncCallback((iar) =>
-                {
-                    try { _receiving.EndConnect(iar); }
-                    catch { }
-                }), null);
-
-                //  Get the sender socket to be used by the "server".
-                _sender = _listenSocket.Accept();
-
-                //  RtspClient default size
-                byte[] buffer = new byte[8192];
-
-                _client = new Media.Rtp.RtpClient(new Media.Common.MemorySegment(buffer, Media.Rtsp.RtspMessage.MaximumLength, buffer.Length - Media.Rtsp.RtspMessage.MaximumLength));
-                _client.InterleavedData += ProcessInterleaveData;
-                _client.RtpPacketReceieved += ProcessRtpPacket;
-
-                Media.Sdp.MediaDescription md = new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 999, "H.264", 0);
-
-                Media.Rtp.RtpClient.TransportContext tc = new Media.Rtp.RtpClient.TransportContext(0, 1,
-                    RFC3550.Random32(9876), md, false, _senderSSRC);
-                //  Create a Duplexed reciever using the RtspClient socket.
-                tc.Initialize(_receiving);
-
-                _client.Add(tc);
-            }
-
-            Media.Rtsp.RtspMessage lastInterleaved;
-
-            void ProcessInterleaveData(object sender, byte[] data, int offset, int length)
-            {
-                ConsoleColor previousForegroundColor = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("ProcessInterleaveData(): offset = " + offset + ", length = :" + length);
-
-                byte[] buffer = new byte[length];
-                Array.Copy(data, offset, buffer, 0, length);
-                //  Using ASCII instead of UTF8 to get all bytes printed.
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
-                Console.WriteLine("'" + Encoding.ASCII.GetString(buffer) + "'");
-
-
-            GetMessage:
-
-                try
-                {
-                    Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, length);
-
-                    if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
-                    {
-
-                        interleaved.Dispose();
-
-                        interleaved = null;
-
-                        int lastLength = lastInterleaved.Length;
-
-                        using (var memory = new Media.Common.MemorySegment(data, offset, length))
-                        {
-                            lastInterleaved.CompleteFrom(null, memory);
-
-                            if (lastLength == lastInterleaved.Length) return;
-                        }
-
-                    }
-                    else lastInterleaved = interleaved;
-
-                    //If the last message was complete then show it in green
-                    if (lastInterleaved.IsComplete) Console.ForegroundColor = ConsoleColor.Green;
-
-                    Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + lastInterleaved.MessageType.ToString());
-                    Console.WriteLine("ProcessInterleaveData() RtspMessage.CSeq = " + lastInterleaved.CSeq);
-                    Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + lastInterleaved.ToString() + "'");
-
-                    Console.ForegroundColor = previousForegroundColor;
-
-                    int totalLength = lastInterleaved.Length;
-
-                    if (totalLength < length)
-                    {
-                        offset += totalLength;
-                        length -= totalLength;
-                        goto GetMessage;
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("ProcessInterleaveData() exception:" + ex.ToString());
-                    Console.WriteLine("");
-                    //throw;
-                }
-            }
-
-            void ProcessRtpPacket(object sender, Media.Rtp.RtpPacket packet)
-            {
-                ConsoleColor previousForegroundColor = Console.ForegroundColor;
-                Console.ForegroundColor = ConsoleColor.Magenta;
-                Console.WriteLine("ProcessRtpPacket(): SequenceNumber = " + packet.SequenceNumber +
-                    ", Payload.Offset = " + packet.Payload.Offset + ", Payload.Count = " + packet.Payload.Count);
-                Console.ForegroundColor = previousForegroundColor;
-            }
-
-            public int Send(byte[] data)
-            {
-                return _sender.Send(data);
-            }
-
-            public void HaveRtpClientWorkerThreadProcessSocketData()
-            {
-                _client.Connect();
-
-                System.Threading.Thread.Sleep(200);   //  To make the prompt appear after the output
-
-                //if (System.Diagnostics.Debugger.IsAttached)
-                {
-                    Console.WriteLine("Press any key to 'dicsonnect' RtpClient work thread and continue with next test.");
-                    Console.ReadKey(true);
-                }
-
-                _client.Disconnect();
-            }
-        }
-
-        private static byte[] GeneratePayload(int size)
-        {
-            int partNumber = 0;
-
-            StringBuilder sb = new StringBuilder();
-            while (sb.Length < size)
-            {
-                sb.Append("EncapsulatedPacketPayloadContentPartNumber" + ++partNumber + "$");
-            }
-
-            //  Using ASCII as it is not intended to be interpreted as RTSP request/response text.
-            byte[] encoded = Encoding.ASCII.GetBytes(sb.ToString());
-
-            byte[] buffer = new byte[size];
-            Array.Copy(encoded, buffer, size);
-
-            return buffer;
-        }
-
-        private static byte[] GenerateEncapsulatingHeader(int length)
-        {
-            byte[] header = new byte[4];
-            header[0] = 0x24;   //  '$'
-            header[1] = 0;      //  Channel 0
-            Media.Common.Binary.Write16(header, 2, BitConverter.IsLittleEndian, (short)length);
-            return header;
-        }
-
-        private static void Issue17245_Case1(int breakingPaketLength)
-        {
-            int sequenceNumber = 0x3030;   //  "00"
-            string line = "Case1(): SequenceNumber = ";
-
-            System.Console.Clear();
-            Console.WriteLine("TestProcessFrameData Issue17245_Case1(): Discarding of Encapsulating Frame Header");
-            Console.WriteLine("breakingPaketLength = " + breakingPaketLength);
-            Console.WriteLine("Correct output is 5 rows saying 'Case1()...' and 5 rows 'ProcessRtpPacket()...'");
-            Console.WriteLine("No yellow rows!!!");
-            Console.WriteLine("");
-
-            TestFramework tf = new TestFramework();
-
-            Console.WriteLine(line + sequenceNumber);
-            byte[] buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p1 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p1.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p2 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p2.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(breakingPaketLength); //  Length 1245 to 1247 looses packets and it does not recover
-            Media.Rtp.RtpPacket p3 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p3.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p4 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p4.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p5 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p5.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
-            tf.HaveRtpClientWorkerThreadProcessSocketData();
-        }
-
-        /// <summary>
-        /// This test demonstrates the first point in issue report #17245.
-        /// </summary>
-        public static void Issue17245_Case1_Iteration()
-        {
-            //  Length 1245 to 1247 looses packets and erronyously triggers ProcessInterleaveData().
-            for (int size = 1244; size <= 1248; size++)
-            {
-                Issue17245_Case1(size);
-            }
-        }
-
-        private static void Issue17245_Case2(int breakingPaketLength)
-        {
-            int sequenceNumber = 0x3030;   //  "00"
-
-            System.Console.Clear();
-            Console.WriteLine("TestProcessFrameData Issue17245_Case2(): Interleaved RTSPResponse");
-            Console.WriteLine("breakingPaketLength = " + breakingPaketLength);
-            Console.WriteLine("Correct output is 3 rows saying 'ProcessRtpPacket()...', 1 yellow row, and finaly a single row 'ProcessRtpPacket()...':");
-            Console.WriteLine("");
-
-            TestFramework tf = new TestFramework();
-            //Console.WriteLine(line + sequenceNumber);
-            byte[] buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p1 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p1.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            //Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p2 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p2.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            //Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(breakingPaketLength);
-            Media.Rtp.RtpPacket p3 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p3.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
-            keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
-            keepAlive.CSeq = 34;
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
-            keepAlive.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aRTSP/1.0");
-            keepAlive.SetHeader("$", string.Empty);
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
-            buffer = keepAlive.Prepare().ToArray();
-            tf.Send(buffer);
-
-            //Console.WriteLine(line + sequenceNumber);
-            buffer = GeneratePayload(1400);
-            Media.Rtp.RtpPacket p4 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
-            buffer = p4.Prepare().ToArray();
-            tf.Send(GenerateEncapsulatingHeader(buffer.Length));
-            tf.Send(buffer);
-
-            //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
-            tf.HaveRtpClientWorkerThreadProcessSocketData();
-        }
-
-        /// <summary>
-        /// This test demonstrates the first point in issue report #17245.
-        /// 
-        /// This test will not produce valid RtspMessage objects until the issue
-        /// report #17276 also is fixed.
-        /// 
-        /// If the RtspMessage defect is attended to first this test can also be used to
-        /// extensivelly validate the correctnes of the fixing of the constructor
-        /// RtspMessage(byte[] data, int offset, int length).
-        /// </summary>
-        public static void Issue17245_Case2_Iteration()
-        {
-            //  First and last iteration is a complete response.
-            //  All iterations inbetween are broken in two calls to ProcessInterleaveData().
-            for (int size = 1500; size >= 0; --size)
-            {
-                Issue17245_Case2(size);
-            }
-        }
-
-        /// <summary>
-        /// This test case is added to demonstrate the risk of handing a byte array to a constructor.
-        /// A ctor can only return a single object even if the byte array it is given may contain more
-        /// than one object.
-        /// This violates OO as the caller is burdened with having to now about what should be a feature
-        /// of using the class it is calling.
-        /// </summary>
-        public static void BackToBackRtspMessages()
-        {
-            System.Console.Clear();
-            Console.WriteLine("TestProcessFrameData Case3(): Two back to back RTSP Responses");
-            Console.WriteLine("Correct output would be 2 'ProcessInterleaveData():...' detailing RTSP responses CSeq 34 and 35:");
-            Console.WriteLine("");
-
-            TestFramework tf = new TestFramework();
-
-            Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
-            keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
-            keepAlive.CSeq = 34;
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
-            byte[] buffer = keepAlive.Prepare().ToArray();
-            tf.Send(buffer);
-
-            keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
-            keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
-            keepAlive.CSeq = 35;
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
-            keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
-            buffer = keepAlive.Prepare().ToArray();
-            tf.Send(buffer);
-
-            //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
-            tf.HaveRtpClientWorkerThreadProcessSocketData();
-        }
-    }
-
-    #endregion
-
     public class Program
     {
         /// <summary>
@@ -423,21 +58,24 @@ namespace Tests
         static Action[] LogicTests = new Action[] { 
             TestUtility, 
             TestBinary, 
-            //Rtp
-            TestRtpPacket, TestRtpExtension, TestRtpFrame, TestRFC2435Frame, TestRFC3640Frame, 
-            //Rtcp
-            TestRtcpPacket, TestRtcpPacketExamples, 
+            //Rtp / Rtcp
+            TestRtpRtcp, 
+            // Frame Level
+            TestRtpFrame, 
+            TestRFC2435Frame, TestRFC3640Frame, 
+            //Tools 
             TestRtpTools, 
+            //Containers
             TestContainerImplementations, 
             //Sdp
             TestSdp, 
             //RtspMessage
             TestRtspMessage, 
             //RtpClient ProcessFrameData
-            TestRtspInterleavedFraming,
             TestProcessFrameData.BackToBackRtspMessages, 
             TestProcessFrameData.Issue17245_Case1_Iteration, 
-            TestProcessFrameData.Issue17245_Case2_Iteration
+            TestProcessFrameData.Issue17245_Case2_Iteration,
+            TestRtspInterleavedFraming            
         };
 
         /// <summary>
@@ -931,8 +569,8 @@ namespace Tests
                             {
                                 StatusCode = Media.Rtsp.RtspStatusCode.OK,
                                 CSeq = Utility.Random.Next(byte.MinValue, int.MaxValue),
-                                UserAgent = "$UserAgent $009\r\n$\0\0\aRTSP/1.0",
-                                Body = "$009\r\n$\0:\0"
+                                UserAgent = "$UserAgent $007\r\n$\0\0\aRTSP/1.0",
+                                Body = "$00Q\r\n$\0:\0"
                             }.Prepare();
 
                         byte[] data = new byte[Utility.Random.Next(1, length)];
@@ -984,25 +622,38 @@ namespace Tests
 
                     byte[] buffer = allData.ToArray();
 
-                    int max = buffer.Length, remains = max - offset;
+                    int max = buffer.Length, remains = actualLength;
 
                     //Enumerate the buffer looking for data to parse
 
                     //TODO Improve test by setting expections of packets to receive
 
-                    while (remains >= Media.Rtp.RtpClient.InterleavedOverhead)
+                    while (remains > 0)
                     {
                         //Parse the data "received" which should always be 4 bytes longer then what was actually present.
-                        int foundLen = test.ProcessFrameData(buffer, offset, offset == 0 ? length : remains, null);
+                        int foundLen = test.ProcessFrameData(buffer, offset, remains, null);
 
                         Console.WriteLine("Indicated: " + actualLength + " Actual: " + max + " Found: " + foundLen);
 
-                        //Move the offset
-                        offset += foundLen;
+                        System.Diagnostics.Debug.Assert(foundLen <= max);
 
-                        max -= foundLen;
+                        if (foundLen > 0)
+                        {
+                            //Move the offset
+                            offset += foundLen;
 
-                        remains = max - offset;
+                            max -= foundLen;
+
+                            remains -= foundLen;
+                        }
+                        else
+                        {
+                            ++offset;
+
+                            --max;
+
+                            --remains;
+                        }
                     }
 
                     //Some Rtsp messages may have been hidden by invalid tcp frames which indicated a longer length then they actually had.
@@ -1199,314 +850,7 @@ namespace Tests
                 }//Disposes the sender
                 consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Exit");
             }
-        }
-
-        static void TestRtcpPacketExamples()
-        {
-
-            byte[] output;
-
-            //Keep a copy of these exceptions to throw in case some error occurs.
-            Exception invalidLength = new Exception("Invalid Length"), invalidData = new Exception("Invalid Data in packet"), invalidPadding = new Exception("Invalid Padding"), incompleteFalse = new Exception("Packet IsComplete is false");
-
-            //Create a Media.RtcpPacket with only a header (results in 8 octets of 0x00 which make up the header)
-            Media.Rtcp.RtcpPacket rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, 0, 0, 0, 0);
-
-            //Prepare a sequence which contains the data in the packet including the header
-            IEnumerable<byte> preparedPacket = rtcpPacket.Prepare();
-
-            //Check for an invlaid length
-            if (rtcpPacket.Payload.Count > 0 || rtcpPacket.Header.LengthInWordsMinusOne != 0 && rtcpPacket.Length != Media.Rtcp.RtcpHeader.Length || preparedPacket.Count() != Media.Rtcp.RtcpHeader.Length) throw invalidLength;
-
-            //Check for any data in the packet binary
-            if (preparedPacket.Any(o => o != default(byte))) throw invalidData;
-
-            //Set padding in the header
-            rtcpPacket.Padding = true;
-
-            //Check for some invalid valid
-            if (rtcpPacket.PaddingOctets > 0) throw invalidPadding;
-
-            //Ensure the packet is complete
-            if (rtcpPacket.IsComplete == false) throw incompleteFalse;
-
-            //Add nothing to the payload
-            rtcpPacket.AddBytesToPayload(Media.RFC3550.CreatePadding(0), 0, 0);
-
-            //Ensure the packet is complete
-            if (rtcpPacket.IsComplete == false) throw incompleteFalse;
-
-            //Check for some invalid value
-            if (rtcpPacket.PaddingOctets > 0) throw invalidPadding;
-
-            //Make a bunch of packets with padding
-            for (int paddingAmount = 1, e = byte.MaxValue; paddingAmount <= e; ++paddingAmount)
-            {
-
-                //Write information for the test to the console
-                Console.WriteLine(string.Format(TestingFormat, "Making Media.RtcpPacket with Padding", paddingAmount));
-
-                //Try to make a padded packet with the given amount
-                rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
-
-                //A a 4 bytes which are not padding related
-                rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4), 0, 1);
-
-                //Check ReadPadding works after adding bytes to the payload
-                if (rtcpPacket.PaddingOctets != paddingAmount) throw invalidPadding;
-
-                //Ensure the packet is complete
-                if (rtcpPacket.IsComplete == false) throw incompleteFalse;
-
-                //Write information for the test to the console
-                Console.WriteLine(string.Format(TestingFormat, "Packet Length", rtcpPacket.Length));
-
-                //Write information for the test to the console
-                Console.WriteLine(string.Format(TestingFormat, "Packet Padding", rtcpPacket.PaddingOctets));
-            }
-
-            //Create a new SendersReport with no blocks
-            using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, false, 0, 7))
-            {
-                //The Media.RtcpData property contains all data which in the Media.RtcpPacket without padding
-                if (testReport.RtcpData.Count() != 20 && testReport.Length != 20) throw invalidLength;
-
-                output = testReport.Prepare().ToArray();//should be exactly equal to example
-            }
-
-            //Example of a Senders Report
-            byte[] example = new byte[]
-                         {
-                            0x81,0xc8,0x00,0x0c,0xa3,0x36,0x84,0x36,0xd4,0xa6,0xaf,0x65,0x00,0x00,0x00,0x0,
-                            0xcb,0xf9,0x44,0xd0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa3,0x36,0x84,0x36,
-                            0x00,0xff,0xff,0xff,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-                            0x00,0x00,0x00,0x00
-                         };
-
-            rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0);
-            if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Length.");
-
-            //Make a SendersReport to access the SendersInformation and ReportBlocks, do not dispose the packet when done with the report
-            using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(rtcpPacket, false))
-            {
-                //Check the invalid block count
-                if (sr.BlockCount != 1) throw new Exception("Invalid Block Count!");
-                else Console.WriteLine(sr.BlockCount);//16, should be 1
-
-                if ((uint)sr.SynchronizationSourceIdentifier != (uint)2738258998) throw new Exception("Invalid Senders SSRC!");
-                else Console.WriteLine(sr.SynchronizationSourceIdentifier);//0xa3368436
-
-                //Ensure setting the value through a setter is correct
-                sr.NtpTimestamp = sr.NtpTimestamp;//14697854519044210688
-                if ((ulong)sr.NtpTimestamp != 3567693669) throw new Exception("Invalid NtpTimestamp!");
-                else Console.WriteLine(sr.NtpTimestamp);
-
-                //Timestamp
-                if ((uint)sr.RtpTimestamp != 3422110928) throw new Exception("Invalid RtpTimestamp!");
-                else Console.WriteLine(sr.RtpTimestamp);//0
-
-                //Data in report (Should only be 1)
-                foreach (Media.Rtcp.IReportBlock rb in sr)
-                {
-                    if ((uint)rb.BlockIdentifier != 2738258998) throw new Exception("Invalid Source SSRC");
-                    else if (rb is Media.Rtcp.ReportBlock)
-                    {
-                        Media.Rtcp.ReportBlock asReportBlock = (Media.Rtcp.ReportBlock)rb;
-
-                        Console.WriteLine(asReportBlock.SendersSynchronizationSourceIdentifier);//0
-                        Console.WriteLine(asReportBlock.FractionsLost);//0
-                        Console.WriteLine(asReportBlock.CumulativePacketsLost);//0
-                        Console.WriteLine(asReportBlock.ExtendedHighestSequenceNumberReceived);//0
-                        Console.WriteLine(asReportBlock.InterarrivalJitterEstimate);//0
-                        Console.WriteLine(asReportBlock.LastSendersReportTimestamp);//0
-                    }
-                }
-
-                //Check the length to be exactly the same as the example 
-                if (sr.Length != example.Length) throw new Exception("Invalid Length");
-
-                //Verify SendersReport byte for byte
-                output = sr.Prepare().ToArray();//should be exactly equal to example
-                for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
-            }
-
-            if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
-
-            //Now the packet can be disposed
-            rtcpPacket.Dispose();
-            rtcpPacket = null;
-
-            rtcpPacket = new Media.Rtcp.SendersReport(2, false, 0, 7);
-            example = rtcpPacket.Prepare().ToArray();
-
-            foreach (Media.Rtcp.IReportBlock rb in rtcpPacket as Media.Rtcp.RtcpReport)
-                Console.WriteLine(rb);
-
-            //Next Sub Test
-            /////
-
-            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7))
-            {
-                output = testReport.Prepare().ToArray();
-
-                if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 1 || testReport.Length != 8) throw new Exception("Invalid Length");
-
-                if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
-            }
-
-
-
-            //Add a Reason For Leaving
-
-            using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, Encoding.ASCII.GetBytes("v")))
-            {
-                output = testReport.Prepare().ToArray();
-
-                if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 2 || testReport.Length != 12) throw new Exception("Invalid Length");
-
-                if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
-            }
-
-            //Next Sub Test
-            /////
-
-            //Recievers Report and Source Description
-            example = new byte[] { 0x81,0xc9,0x00,0x07,
-                                   0x69,0xf2,0x79,0x50,
-                                   0x61,0x37,0x94,0x50,
-                                   0xff,0xff,0xff,0xff,
-                                   0x00,0x01,0x00,0x52,
-                                   0x00,0x00,0x0e,0xbb,
-                                   0xce,0xd4,0xc8,0xf5,
-                                   0x00,0x00,0x84,0x28,
-                                   
-                                   0x81,0xca,0x00,0x04,
-                                   0x69,0xf2,0x79,0x50,
-                                   0x01,0x06,0x4a,0x61,
-                                   0x79,0x2d,0x50,0x43,
-                                   0x00,0x00,0x00,0x00
-            };
-
-
-            //Could check for multiple packets with a function without having to keep track of the offset with the Media.RtcpPacket.GetPackets Function
-            Media.Rtcp.RtcpPacket[] foundPackets = Media.Rtcp.RtcpPacket.GetPackets(example, 0, example.Length).ToArray();
-            Console.WriteLine(foundPackets.Length);
-
-            //Or manually for some reason
-            rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0); // The same as foundPackets[0]
-            using (Media.Rtcp.ReceiversReport rr = new Media.Rtcp.ReceiversReport(rtcpPacket, false))
-            {
-                Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
-
-                //Check the invalid block count
-                if (rr.BlockCount != 1) throw new Exception("Invalid Block Count!");
-                else Console.WriteLine(rr.BlockCount);//16, should be 1
-
-                using (var enumerator = rr.GetEnumerator())
-                {
-                    while (enumerator.MoveNext())
-                    {
-                        Console.WriteLine("Current IReportBlock Identifier: " + enumerator.Current.BlockIdentifier);//1631032400
-
-                        //If the instance boxed in the Interface is a ReportBlock
-                        if (enumerator.Current is Media.Rtcp.ReportBlock)
-                        {
-                            //Unbox the Interface as it's ReportBlock Instance
-                            Media.Rtcp.ReportBlock asReportBlock = enumerator.Current as Media.Rtcp.ReportBlock;
-
-                            Console.WriteLine("Found a ReportBlock");
-
-                            //Print the instance information
-                            Console.WriteLine("FractionsLost: " + asReportBlock.FractionsLost);//255/256 0xff
-                            Console.WriteLine("CumulativePacketsLost: " + asReportBlock.CumulativePacketsLost);//-1, 0xff,0xff,0xff
-                            Console.WriteLine("ExtendedHighestSequenceNumberReceived: " + asReportBlock.ExtendedHighestSequenceNumberReceived);//65618, 00, 01, 00, 52
-                            Console.WriteLine("InterarrivalJitterEstimate: " + asReportBlock.InterarrivalJitterEstimate);//3771
-                            Console.WriteLine("LastSendersReportTimestamp: " + asReportBlock.LastSendersReportTimestamp);//3470000128
-                        }
-                        else //Not a ReportBlock
-                        {
-                            Console.WriteLine("Current IReportBlock TypeName: " + enumerator.Current.GetType().Name);
-                            Console.WriteLine("Current IReportBlock Data: " + BitConverter.ToString(enumerator.Current.BlockData.ToArray()));
-                        }
-                    }
-                }
-
-                //Verify RecieversReport byte for byte
-                output = rr.Prepare().ToArray();//should be exactly equal to example
-                for (int i = 0, e = rr.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
-
-            }
-
-            if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
-
-            //Now the packet can be disposed
-            rtcpPacket.Dispose();
-            rtcpPacket = null;
-
-            //Make another packet instance from the rest of the example data.
-            rtcpPacket = new Media.Rtcp.RtcpPacket(example, output.Length);
-
-            //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
-            using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false))
-            {
-
-                foreach (var chunk in sourceDescription.GetChunkIterator())
-                {
-                    Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
-                    //Use a SourceDescriptionItemList to access the items within the Chunk
-                    //This is performed auto magically when using the foreach pattern
-                    foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
-                    {
-                        Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
-                        Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
-                        Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.Data.ToArray())));
-                    }
-                }
-
-                //Verify SourceDescriptionReport byte for byte
-                output = sourceDescription.Prepare().ToArray();//should be exactly equal to example
-                for (int i = output.Length, e = sourceDescription.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
-
-            }
-
-            //ApplicationSpecific - qtsi
-
-            example = new byte[] { 0x81, 0xcc, 0x00, 0x06, 0x4e, 0xc8, 0x79, 0x50, 0x71, 0x74, 0x73, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x61, 0x74, 0x00, 0x04, 0x00, 0x00, 0x00, 0x14 };
-
-            rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0);
-
-            //Make a ApplicationSpecificReport instance
-            Media.Rtcp.ApplicationSpecificReport app = new Media.Rtcp.ApplicationSpecificReport(rtcpPacket);
-
-            //Check the name to be equal to qtsi
-            if (!app.Name.SequenceEqual(Encoding.UTF8.GetBytes("qtsi"))) throw new Exception("Invalid App Packet Type");
-
-            //Check the length
-            if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Legnth");
-
-            //Verify ApplicationSpecificReport byte for byte
-            output = rtcpPacket.Prepare().ToArray();//should be exactly equal to example
-            for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
-
-            //Test making a packet with a known length in bytes
-            Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2);
-            byte[] sdOut = sd.Prepare().ToArray();
-
-            //1 word when the ssrc is present but would be an invalid sdes because blockCount = 0
-            if (!sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
-
-            sd = new Media.Rtcp.SourceDescriptionReport(2);
-            byte[] itemData = Encoding.UTF8.GetBytes("FLABIA-PC");
-            sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
-            rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
-            //asPacket now contains 11 octets in the payload.
-            //asPacket now has 1 block (1 chunk of 15 bytes)
-            //asPacket is 19 octets long, 11 octets in the payload and 8 octets in the header
-            //asPacket would have a LengthInWordsMinusOne of 3 because 19 / 4 = 4 - 1 = 3
-            //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
-            //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
-            if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
-        }
+        }        
 
         static void TestRtpDumpReader(string path, Media.RtpTools.FileFormat? knownFormat = null)
         {
@@ -1780,465 +1124,27 @@ namespace Tests
             System.IO.File.Delete(currentPath + @"\Header.rtpdump");
 
             System.IO.File.Delete(currentPath + @"\ShortDump.rtpdump");
-        }        
-
-        static void TestRtpPacket()
-        {
-
-
-            //Declare a few exceptions
-            Exception versionException = new Exception("Unable to set the version"),
-            extensionException = new Exception("Incorrectly set the Extensions Bit"),
-            contributingSourceException = new Exception("Incorrectly set the ContributingSource nibble"),
-            inValidHeaderException = new Exception("Invalid header."),
-            reportBlockException = new Exception("Incorrectly set the ReportBlock 7 bits"),
-            paddingException = new Exception("Incorreclty set the Padding Bit"),
-            timestampException = new Exception("Incorrect Timestamp value"),
-            sequenceNumberException = new Exception("Sequence Number Incorrect"),
-            markerException = new Exception("Marker is not set"),
-            payloadException = new Exception("Incorreclty set PayloadType bits");
-
-            //Create a RtpPacket instance
-            Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(new Media.Rtp.RtpHeader(0, false, false), Enumerable.Empty<byte>());
-
-            //Set a few values
-            p.Timestamp = 987654321;
-            p.SequenceNumber = 7;
-            p.ContributingSourceCount = 7;
-            if (p.SequenceNumber != 7) throw sequenceNumberException;
-
-            if (p.Timestamp != 987654321) throw timestampException;
-
-            if (p.ContributingSourceCount != 7) throw contributingSourceException;
-
-            //Recreate the packet from the bytes of the result of calling the methods ToArray on the Prepare instance method.
-            p = new Media.Rtp.RtpPacket(p.Prepare().ToArray(), 0);
-
-            //Perform the same tests. (Todo condense tests into seperate functions)
-
-            if (p.SequenceNumber != 7) throw sequenceNumberException;
-
-            if (p.ContributingSourceCount != 7) throw contributingSourceException;
-
-            if (p.Timestamp != 987654321) throw timestampException;
-
-            //Cache a bitValue
-            bool bitValue = false;
-
-            //Permute every possible bit packed value that can be valid in the first and second octet
-            for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
-            {
-                //Make a bitValue after the 0th iteration
-                if (ibitValue > 0) bitValue = Convert.ToBoolean(bitValue);
-
-                //Complete tested the first and second octets with the current bitValue
-                if (ibitValue <= 1) Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
-
-                //Permute every possible value within the 2 bit Version
-                for (int VersionCounter = 0; VersionCounter < 4; ++VersionCounter)
-                {
-                    //Set the version
-                    p.Version = VersionCounter;
-
-                    //Write the version information to the console.
-                    Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
-                    Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
-
-                    //Set the bit values in the first octet
-                    p.Extension = p.Padding = bitValue;
-
-                    //Check the version bits after modification
-                    if (p.Version != VersionCounter) throw versionException;
-
-                    //Check the Padding bit after modification
-                    if (p.Padding != bitValue) throw paddingException;
-
-                    //Check the Extension bit after modification
-                    if (p.Extension != bitValue) throw extensionException;
-
-                    //Permute every possible value in the 7 bit PayloadCounter
-                    for (int PayloadCounter = 0; PayloadCounter <= sbyte.MaxValue; ++PayloadCounter)
-                    {
-                        //Set the 7 bit value in the second octet.
-                        p.PayloadType = (byte)PayloadCounter;
-
-                        //Write the value of the PayloadCounter to the console and the packet value to the Console.
-                        Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
-                        Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
-
-                        //Check the PayloadType
-                        if (p.PayloadType != PayloadCounter) throw payloadException;
-
-                        //Check the Padding bit after setting the PayloadType
-                        if (p.Padding != bitValue) throw paddingException;
-
-                        //Check the Extensions bit after setting the PayloadType
-                        if (p.Extension != bitValue) throw extensionException;
-
-                        //Permute every combination for a nybble
-                        for (int ContributingSourceCounter = byte.MinValue; ContributingSourceCounter <= 15; ++ContributingSourceCounter)
-                        {
-                            ///////////////Set the CC nibble in the first Octet
-                            p.ContributingSourceCount = (byte)ContributingSourceCounter;
-                            /////////////
-
-                            //Identify the Contributing Source Counter and the Packet's value
-                            Console.Write(string.Format(TestingFormat, "\tContributingSourceCounter", ContributingSourceCounter));
-                            Console.Write(string.Format(TestingFormat, " ContributingSourceCount", p.ContributingSourceCount + "\r\n"));
-
-                            //Check the CC nibble in the first octet.
-                            if (p.ContributingSourceCount != ContributingSourceCounter) throw contributingSourceException;
-
-                            //Ensure the Version after modification
-                            if (p.Version != VersionCounter) throw versionException;
-
-                            //Check the Padding after modification
-                            if (p.Padding != bitValue) throw paddingException;
-
-                            //Check the Extensions after modification
-                            if (p.Extension != bitValue) throw extensionException;
-
-                            ///////////////Serialize the packet
-                            p = new Media.Rtp.RtpPacket(p.Prepare().ToArray(), 0);
-                            /////////////
-
-                            //Ensure the version remains after modification
-                            if (p.Version != VersionCounter) throw versionException;
-
-                            //Ensure the Padding bit after modification
-                            if (p.Padding != bitValue) throw paddingException;
-
-                            //Ensure the Extension bit after modification
-                            if (p.Extension != bitValue) throw extensionException;
-
-                            //Ensure the ContributingSourceCount after modification
-                            if (p.ContributingSourceCount != ContributingSourceCounter) throw contributingSourceException;
-                        }
-                    }
-                }
-                Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
-            }
-
         }
 
-        static void TestRtpExtension()
+        static void TestRtpRtcp()
         {
-            //Test TestOnvifRTPExtensionHeader (Thanks to Wuffles@codeplex)
+            RtpRtcpTests testClass = new RtpRtcpTests();
 
-            byte[] m_SamplePacketBytes = new byte[]
-                                      {
-                                          0x90, 0x60, 0x94, 0x63, // RTP Header
-                                          0x0D, 0x19, 0x60, 0xC9, // .
-                                          0xA6, 0x20, 0x13, 0x44, // .
+            Type typeOfVoid = typeof(void);
 
-                                          0xAB, 0xAC, 0x00, 0x03, // Extension Header   
-                                          0xD4, 0xBB, 0x8A, 0x43, // Extension Data     
-                                          0xFE, 0x7A, 0xC8, 0x1E, // Extension Data     
-                                          0x00, 0xD3, 0x00, 0x00, // Extension Data     
+            TypeCode voidTypeCode = Type.GetTypeCode(typeOfVoid);
 
-                                          0x5C, 0x81, 0x9B, 0xC0, // RTP Payload start
-                                          0x1C, 0x02, 0x38, 0x8E, // .
-                                          0x2B, 0xC0, 0x01, 0x09, // .
-                                          0x55, 0x77, 0x49, 0x99, // .
-                                          0x62, 0xFF, 0xBA, 0xC9, // .
-                                          0x8E, 0xCE, 0x23, 0x96, // .
-                                          0x6A, 0xCC, 0xF5, 0x5F, // .
-                                          0xA0, 0x08, 0xD9, 0x37, // .
-                                          0xCF, 0xFA, 0xA5, 0x4D, // .
-                                          0x16, 0x6C, 0x78, 0x61, // .
-                                          0xFA, 0x7F, 0xC8, 0x7E, // .
-                                          0xA1, 0x15, 0xF6, 0x5F, // .
-                                          0xA3, 0x2F, 0x82, 0xC7, // .
-                                          0x45, 0x0A, 0x87, 0x75, // .
-                                          0xEC, 0x5B, 0x7D, 0xDE, // .
-                                          0x82, 0x31, 0xD0, 0xE9, // .
-                                          0xBE, 0xE5, 0x39, 0x8D, // etc. 
-                                      };
-
-            Media.Rtp.RtpPacket testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
-
-            if (testPacket.Extension)
+            //Get the methods of the class
+            foreach (var method in testClass.GetType().GetMethods())
             {
-                using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
-                {
+                //Ensure for the void type
+                if (Type.GetTypeCode(method.ReturnType) != voidTypeCode) continue;
 
-                    if (rtpExtension == null) throw new Exception("Extension is null");
-
-                    if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
-
-                    // The extension data length is (3 words / 12 bytes) 
-                    // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
-                    //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
-                    if (rtpExtension.Size != 16) throw new Exception("Expected ExtensionLength not found");
-                    else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
-
-                    // Check extension values are what we expected.
-                    if (rtpExtension.Flags != 0xABAC) throw new Exception("Expected Extension Flags Not Found");
-                    else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
-
-                    // Test the extension data is correct
-                    byte[] expected = { 0xD4, 0xBB, 0x8A, 0x43, 0xFE, 0x7A, 0xC8, 0x1E, 0x00, 0xD3, 0x00, 0x00 };
-                    if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
-                    else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
-                }
+                //Invoke the void with (no parameters)
+                method.Invoke(testClass, null);
             }
 
-            byte[] output = testPacket.Prepare().ToArray();
-
-            if (output.Length != m_SamplePacketBytes.Length) throw new Exception("Packet was not the same");
-
-            for (int i = 0, e = testPacket.Length; i < e; ++i) if (output[i] != m_SamplePacketBytes[i]) throw new Exception("Packet was not the same");
-
-
-            Console.WriteLine();
-
-            m_SamplePacketBytes = new byte[]
-                                      {
-                                          //RTP Header
-                                             0x90,0x1a,0x01,0x6d,0xf3,0xff,0x40,0x58,0xf0,0x00,0x9c,0x5b,
-                                             //Extension FF FF, Length = 0
-                                             0xff,0xff,0x00,0x00
-
-                                            ,0x00,0x00,0x15,0x1c,0x01,0xff,0xa0,0x5a,0x13,0xd2,0xa9,0xf5,0xeb,0x49,0x52,0xdb
-                                            ,0x65,0xa8,0xd8,0x40,0x36,0xa8,0x03,0x81,0x41,0xf7,0xa5,0x34,0x52,0x28,0x4f,0x7a
-                                            ,0x29,0x79,0xf5,0xa4,0xa0,0x02,0x8a,0x5a,0x4a,0x00,0x28,0xed,0x45,0x14,0x0c,0x28
-                                            ,0xef,0x45,0x1c,0xd0,0x20,0xa3,0x34,0x51,0x40,0xc4,0xcd,0x2d,0x14,0x7e,0x34,0x00
-                                            ,0x7f,0x5a,0x4a,0x5a,0x29,0x00,0x94,0x52,0xd0,0x72,0x69,0x88,0x4e,0x68,0xa3,0x9a
-                                            ,0x5a,0x43,0x12,0x8a,0x39,0xa0,0x73,0x4c,0x02,0x8a,0x5a,0x29,0x00,0x63,0x8e,0x28
-                                            ,0xa5,0xcf,0x14,0x94,0x00,0x51,0x45,0x14,0x08,0x4a,0x51,0x9a,0x5c,0x52,0x00,0x68
-                                            ,0x01,0x40,0xa4,0xa7,0x04,0x62,0x78,0xa9,0x52,0x06,0x6e,0xd4,0x01,0x12,0x8e,0x7d
-                                            ,0x69,0x36,0x92,0x71,0x8a,0xd0,0x83,0x4f,0x91,0xfa,0x29,0x35,0x7a,0x1d,0x25,0xb3
-                                            ,0xf3,0xfc,0xa3,0xde,0x9d,0x85,0x73,0x11,0x62,0x63,0x56,0x63,0xb3,0x76,0xc6,0x14
-                                            ,0xd6,0xc9,0x86,0xca,0xd8,0x66,0x49,0x41,0x3e,0x82,0xaa,0x4f,0xad,0xdb,0xdb,0xf1
-                                            ,0x12,0x8e,0x3b,0x9a,0x05,0x71,0xb1,0x69,0x72,0x1e,0x48,0xc0,0xf7,0xa9,0x8d,0xa5
-                                            ,0xbc,0x03,0x32,0x48,0x3f,0x0a,0xc4,0xbd,0xf1,0x2c,0x8f,0x90,0x1f,0x03,0xd0,0x56
-                                            ,0x35,0xce,0xaf,0x2c,0x87,0xef,0x53,0xb0,0x1d,0x54,0xd7,0xf6,0xb0,0x70,0x80,0x1f
-                                            ,0x73,0x59,0xb7,0x9a,0xde,0x54,0x85,0x60,0x3e,0x95,0xcc,0x4d,0x79,0x23,0xf5,0x63
-                                            ,0x55,0xda,0x56,0x27,0x92,0x69,0xf2,0xdc,0x2e,0x5f,0x97,0x54,0x91,0xdc,0xe5,0x89
-                                            ,0xaa,0x57,0x77,0x4e,0xea,0x70,0x6a,0x0e,0x73,0x9a,0x8d,0xbe,0xb5,0x56,0x44,0xb6
-                                            ,0x46,0x8e,0x59,0xdb,0x2d,0x9c,0x76,0xf4,0xa7,0xfe,0x95,0x1a,0x9c,0x12,0x79,0xa7
-                                            ,0x82,0x4d,0x50,0x8f,0x41,0xa0,0x52,0xd2,0x71,0x59,0x1a,0x00,0x34,0xef,0x73,0x49
-                                            ,0x9a,0x3e,0xa6,0x80,0x0a,0x28,0xe2,0x8e,0xf4,0x00,0x01,0x4b,0x41,0x22,0x90,0x30
-                                            ,0xcf,0x51,0x45,0xc4,0x07,0x9a,0x51,0xd6,0x93,0x7a,0xff,0x00,0x78,0x7e,0x74,0x82
-                                            ,0x44,0x1d,0x58,0x50,0x31,0xc3,0x39,0x39,0xa3,0x34,0x82,0x58,0xc7,0xf1,0x8f,0xce
-                                            ,0x93,0xcf,0x8b,0xfb,0xe2,0x8b,0x88,0x7d,0x2e,0x0d,0x45,0xf6,0x88,0xfb,0xb8,0xfc
-                                            ,0xe8,0xfb,0x54,0x3f,0xf3,0xd0,0x51,0x70,0x25,0xa2,0xa1,0xfb,0x5c,0x3d,0xdc,0x50
-                                            ,0x2e,0xe1,0xcf,0xdf,0x14,0x5c,0x64,0xe0,0x51,0xc8,0xa4,0x57,0x57,0xe4,0x10,0x69
-                                            ,0xc7,0x91,0x40,0x84,0xa5,0xa0,0x76,0x34,0x50,0x01,0x8c,0x9a,0x29,0x7a,0x52,0xfb
-                                            ,0xd0,0x03,0x40,0xce,0x73,0x4b,0xb7,0x8a,0x5e,0x94,0x84,0xd0,0x03,0x31,0xcd,0x14
-                                            ,0xe3,0x49,0x8c,0xd0,0x31,0x41,0xa7,0x0f,0x5a,0x8f,0xbd,0x3d,0x78,0x34,0x08,0x7f
-                                            ,0x5e,0xb4,0x62,0x8c,0x64,0xd2,0xe3,0xd6,0x80,0x12,0x81,0x4b,0x8c,0xfb,0x51,0xc5
-                                            ,0x00,0x14,0x87,0x91,0x4a,0x4d,0x1e,0xbc,0xd0,0x21,0xb9,0xcd,0x3b,0xde,0x8f,0xad
-                                            ,0x28,0xa0,0x05,0xf4,0xa3,0xa9,0xa3,0x14,0x94,0x80,0x05,0x07,0xda,0x8a,0x5a,0x60
-                                            ,0x27,0x7a,0x3b,0xe6,0x96,0x8e,0xb4,0x80,0x4e,0xb4,0x84,0x77,0xa5,0xe4,0x52,0x1a
-                                            ,0x00,0x6e,0xda,0x8c,0x8e,0xb5,0x2d,0x30,0xe7,0xad,0x03,0x18,0x6a,0x39,0x33,0x52
-                                            ,0x53,0x25,0xe9,0xd6,0x81,0x94,0xe5,0xe9,0x55,0x24,0xfb,0xc3,0xeb,0x56,0xe4,0xe9
-                                            ,0x55,0x1b,0xef,0x0a,0x68,0x0b,0x30,0xf2,0xcb,0xf5,0xae,0x93,0x53,0xe3,0x4a,0x1f
-                                            ,0x85,0x73,0x90,0x0f,0xde,0x2f,0xd6,0xba,0x4d,0x57,0x8d,0x2c,0x1f,0xa5,0x0f,0x63
-                                            ,0x2a,0xbf,0x09,0x8d,0x6b,0x7d,0x2d,0xba,0xed,0x5c,0x11,0x5a,0xb6,0x9a,0xcb,0xa9
-                                            ,0x1b,0x93,0x35,0x84,0xbe,0xb5,0x62,0x2e,0xbc,0x57,0x34,0x99,0xca,0xa7,0x25,0xb1
-                                            ,0xdb,0xd8,0x6b,0xaa,0x17,0xee,0x10,0xd5,0xbb,0xa3,0x6a,0xcc,0x26,0xcc,0x8d,0x95
-                                            ,0x6e,0xa2,0xbc,0xfe,0xd1,0xb6,0xe3,0x9a,0xdc,0xb2,0x9f,0x18,0xe6,0xb8,0xaa,0x26
-                                            ,0x3f,0xac,0x4e,0xeb,0x53,0xd3,0x81,0x59,0x10,0x11,0x82,0xa6,0xa1,0x91,0x30,0xd8
-                                            ,0x27,0x22,0xa9,0xf8,0x7e,0x7f,0x36,0xc8,0x6e,0x39,0xc1,0xa4,0xbe,0xbb,0x09,0x70
-                                            ,0x57,0x3d,0x2a,0x66,0xd3,0x8a,0xee,0x74,0xd6,0xd6,0x0a,0x45,0xcf,0x2d,0x4d,0x21
-                                            ,0x88,0x55,0x05,0xbd,0x1e,0xb5,0x28,0xbc,0x07,0xbd,0x61,0x76,0x71,0x68,0x5b,0xfb
-                                            ,0x28,0x23,0x34,0xf8,0x20,0x11,0x12,0x7d,0x6a,0x18,0x2e,0xd4,0xf0,0xc6,0xae,0x03
-                                            ,0x9e,0x6b,0xb7,0x0f,0x0a,0x73,0xdd,0xea,0x8e,0xca,0x50,0x83,0xf7,0x96,0xe4,0x77
-                                            ,0x11,0xf9,0xb1,0x32,0xd6,0x4c,0x96,0x27,0xba,0x9a,0xda,0xa6,0x4b,0x22,0xc6,0x3e
-                                            ,0x63,0xf8,0x56,0x98,0x9a,0x51,0x4d,0xce,0xe3,0xad,0x4a,0x32,0xd5,0xb3,0x9e,0x96
-                                            ,0xcf,0xda,0xa8,0xdc,0x59,0xe3,0x27,0x15,0xd0,0x3b,0x2b,0x12,0x6a,0xad,0xc0,0x52
-                                            ,0x0d,0x79,0xe9,0x9e,0x7b,0x8a,0x28,0xe9,0xb6,0xf8,0xb5,0x6e,0x3b,0xd5,0x5b,0xc4
-                                            ,0xc6,0x45,0x6e,0x59,0x28,0xfb,0x23,0x1f,0x7a,0xc8,0xd4,0x78,0x26,0xbb,0xe9,0x3b
-                                            ,0xa3,0xd8,0xa4,0xad,0x49,0x18,0x53,0x8e,0x6b,0x1b,0x59,0x1f,0xe8,0xad,0x5b,0x33
-                                            ,0x9e,0x6b,0x1b,0x59,0x39,0xb5,0x35,0xd9,0xd0,0xc6,0xaf,0xc2,0xca,0x9e,0x1d,0x1c
-                                            ,0xc9,0xf5,0xab,0x77,0x03,0x13,0xb7,0xd7,0xad,0x56,0xf0,0xef,0x59,0x3e,0xb5,0x6e
-                                            ,0xe0,0x66,0x67,0xf5,0xcd,0x69,0x1d,0x8c,0xa1,0xb2,0x22,0x23,0xde,0x9b,0x4e,0xa3
-                                            ,0x03,0xad,0x05,0x89,0x40,0xcf,0x7a,0x5e,0xd9,0xa4,0xef,0x40,0x06,0x38,0x34,0x63
-                                            ,0x1e,0xf4,0x1e,0x07,0xd6,0x8f,0x4a,0x63,0x0f,0xeb,0x48,0x07,0xad,0x3b,0x81,0x4b
-                                            ,0xd7,0x14,0x80,0x6f,0x4c,0xe6,0x93,0x8c,0x75,0xa5,0x23,0xae,0x68,0xc7,0x38,0xa6
-                                            ,0x21,0x31,0xda,0x93,0x18,0xa7,0xe0,0x77,0x34,0x98,0xcd,0x00,0x34,0xf7,0xed,0x49
-                                            ,0x8a,0x7e,0x33,0x48,0x45,0x00,0x34,0x77,0xa3,0x93,0x4b,0x4a,0x7d,0x28,0x01,0x33
-                                            ,0x8a,0x30,0x71,0xcf,0x39,0xa2,0x97,0x1e,0xd4,0x00,0x2f,0xd2,0x9e,0x29,0x00,0xa7
-                                            ,0x7b,0x66,0x81,0x09,0x8f,0x6a,0x43,0x9c,0x1e,0x29,0xe4,0x66,0x9a,0x72,0x38,0xa4
-                                            ,0x52,0x2b,0xc8,0x0f,0x3d,0xaa,0xb4,0xb9,0x1f,0x4a,0xb5,0x27,0x7a,0xad,0x21,0xea
-                                            ,0x2a,0x59,0x48,0xa8,0xfe,0xb5,0x03,0x70,0x6a,0xc4,0x83,0x15,0x5c,0xf5,0xa0,0xa1
-                                            ,0x56,0xb6,0x3c,0x3d,0xff,0x00,0x1f,0xa9,0x58,0xe3,0xde,0xb6,0x7c,0x3d,0xff,0x00
-                                            ,0x1f,0x89,0x42,0x14,0xb6,0x3b,0x1a,0x43,0x41,0x6e,0x29,0x33,0x56,0x66,0x14,0xbf
-                                            ,0x53,0x4d,0xcd,0x26,0xf1,0xeb,0x40,0x0e,0x34,0xdf,0xad,0x30,0xca,0xa3,0xa9,0xa8
-                                            ,0x24,0xbc,0x8d,0x7a,0x9a,0x57,0x0b,0x12,0xc9,0x55,0x49,0x1d,0xcd,0x55,0xbb,0xd5
-                                            ,0x02,0xa9,0xd8,0xb9,0xfa,0xd6,0x3c,0xd7,0xf3,0x4d,0x9c,0xb6,0x07,0xa0,0xa3,0x98
-                                            ,0x7c,0xac,0xda,0x9a,0xea,0x18,0xb3,0xb9,0xc7,0xe1,0x59,0xd3,0xea,0xc3,0x27,0xca
-                                            ,0x4e,0x7d,0x4d,0x66,0x33,0x13,0xc9,0x24,0xd3,0x0f,0xeb,0x4b,0x99,0xb1,0xa8,0xa2
-                                            ,0x69,0xee,0xe7,0x9b,0xef,0x39,0xc7,0xa0,0xaa,0xc7,0x9e,0xf4,0xa6,0x9a,0x69,0x17
-                                            ,0x61,0x0d,0x25,0x2f,0xd6,0x83,0x40,0xc6,0x9a,0x28,0xeb,0x41,0x14,0x00,0x94,0x1a
-                                            ,0x28,0xa0,0x04,0xf7,0xa5,0xa2,0x92,0x90,0x05,0x1d,0x28,0xa5,0xa0,0x62,0x73,0x45
-                                            ,0x14,0x62,0x80,0x0a,0x3d,0x68,0xa2,0x80,0x0a,0x28,0xc5,0x2d,0x30,0x0e,0x94,0x7d
-                                            ,0x69,0x69,0x29,0x00,0x94,0xb8,0xcf,0x5a,0x31,0x4b,0xed,0x40,0x08,0x0d,0x18,0xe2
-                                            ,0x8a,0x28,0x10,0x9c,0xd1,0x4b,0x46,0x28,0x01,0x39,0xcd,0x14,0x51,0x8a,0x00,0x31
-                                            ,0x49,0x9e,0x69,0xe4,0x52,0x00,0x73,0xcd,0x03,0x12,0x8a,0x90,0x46,0xc7,0xb5,0x4f
-                                            ,0x1d,0xa3,0xb9,0xc0,0x52,0x68,0x11,0x57,0x06,0x9c,0xa8,0xc6,0xb5,0xe0,0xd1,0xe5
-                                            ,0x6e,0x59,0x71,0xf5,0xab,0x8b,0x63,0x69,0x6e,0x33,0x34,0xcb,0xc7,0x61,0x4e,0xc2
-                                            ,0xb9,0x84,0x96,0xce,0xc7,0xa1,0xab,0x90,0x69,0x72,0xbf,0x45,0x38,0xab,0xd2,0x6a
-                                            ,0x76,0x36,0xdc,0x46,0x81,0x8f,0xa9,0xac,0xeb,0xbf,0x11,0xb6,0x08,0x56,0x0a,0x3d
-                                            ,0xa9,0x0b,0x53,0x4a,0x3d,0x29,0x13,0xfd,0x6b,0xaa,0x8f,0xad,0x2b,0xcf,0xa7,0xda
-                                            ,0xf7,0xde,0xc2,0xb9,0x1b,0x9d,0x71,0xdf,0x3f,0x39,0x3f,0x8d,0x66,0x4f,0xa8,0xca
-                                            ,0xfd,0x0d,0x52,0xb8,0x1d,0xa5,0xc7,0x88,0xd2,0x20,0x44,0x4a,0xab,0x58,0x97,0x7e
-                                            ,0x23,0x95,0xc9,0xc3,0x93,0x5c,0xdb,0xca,0xef,0xc9,0x63,0x4c,0xc9,0x34,0xf9,0x3b
-                                            ,0x8a,0xe8,0xd0,0xb8,0xd5,0x66,0x94,0x9c,0xb1,0xaa,0x6f,0x71,0x23,0xe7,0x2c,0x6a
-                                      };
-
-            testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
-
-            if (testPacket.Extension)
-            {
-                using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
-                {
-
-                    if (rtpExtension == null) throw new Exception("Extension is null");
-
-                    if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
-
-                    // The extension data length is (3 words / 12 bytes) 
-                    // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
-                    //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
-                    if (rtpExtension.Size != 4) throw new Exception("Expected ExtensionLength not found");
-                    else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
-
-                    // Check extension values are what we expected.
-                    if (rtpExtension.Flags != 0xFFFF) throw new Exception("Expected Extension Flags Not Found");
-                    else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
-
-                    // Test the extension data is correct
-                    byte[] expected = Utility.Empty;
-                    if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
-                    else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
-                }
-            }
-
-        }
-
-        static void TestRtcpPacket()
-        {
-            //Declare a few exceptions
-            Exception versionException = new Exception("Unable to set the version"),
-            extensionException = new Exception("Incorrectly set the Extensions Bit"),
-            contributingSourceException = new Exception("Incorrectly set the ContributingSource nibble"),
-            inValidHeaderException = new Exception("Invalid header."),
-            reportBlockException = new Exception("Incorrectly set the ReportBlock 7 bits"),
-            paddingException = new Exception("Incorreclty set the Padding Bit"),
-            timestampException = new Exception("Incorrect Timestamp value"),
-            sequenceNumberException = new Exception("Sequence Number Incorrect"),
-            markerException = new Exception("Marker is not set"),
-            payloadException = new Exception("Incorreclty set PayloadType bits");
-
-            //Write all Abstrractions to the console
-            foreach (var abstraction in Media.Rtcp.RtcpPacket.GetImplementedAbstractions())
-                Console.WriteLine(string.Format(TestingFormat, "\tFound Abstraction", "Implemented By" + abstraction.Name));
-
-            //Write all Implementations to the console
-            foreach (var implementation in Media.Rtcp.RtcpPacket.GetImplementations())
-                Console.WriteLine(string.Format(TestingFormat, "\tPayloadType " + implementation.Key, "Implemented By" + implementation.Value.Name));
-
-            //Create a RtpPacket instance
-            Media.Rtcp.RtcpPacket p = new Media.Rtcp.RtcpPacket(new Media.Rtcp.RtcpHeader(0, 0, false, 0), Enumerable.Empty<byte>());
-
-            //Set a values
-            p.SynchronizationSourceIdentifier = 7;
-
-            if (p.SynchronizationSourceIdentifier != 7) throw sequenceNumberException; //Should be ssrc
-
-            //Cache a bitValue
-            bool bitValue = false;
-
-            //Test every possible bit packed value that can be valid in the first and second octet
-            for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
-            {
-                //Make a bitValue after the 0th iteration
-                if (ibitValue > 0) bitValue = Convert.ToBoolean(ibitValue);
-
-                //Complete tested the first and second octets with the current bitValue
-                Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
-
-                //Permute every possible value within the 2 bit Version
-                for (int VersionCounter = 0; VersionCounter < 4; ++VersionCounter)
-                {
-                    //Set the version
-                    p.Version = VersionCounter;
-
-                    //Write the version information to the console.
-                    Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
-                    Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
-
-                    //Set the bit values in the first octet
-                    p.Padding = bitValue;
-
-                    //Check the version bits after modification
-                    if (p.Version != VersionCounter) throw versionException;
-
-                    //Check the Padding bit after modification
-                    if (p.Padding != bitValue) throw paddingException;
-
-                    //Permute every possible value in the 7 bit PayloadCounter
-                    for (int PayloadCounter = 0; PayloadCounter <= byte.MaxValue; ++PayloadCounter)
-                    {
-                        //Set the 7 bit value in the second octet.
-                        p.PayloadType = (byte)PayloadCounter;
-
-                        //Write the value of the PayloadCounter to the console and the packet value to the Console.
-                        Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
-                        Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
-
-                        //Check the PayloadType
-                        if (p.PayloadType != PayloadCounter) throw payloadException;
-
-                        //Check the Padding bit after setting the PayloadType
-                        if (p.Padding != bitValue) throw paddingException;
-
-                        //Permute every combination for a nybble
-                        for (int ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
-                        {
-                            ///////////////Set the CC nibble in the first Octet
-                            p.BlockCount = (byte)ReportBlockCounter;
-                            /////////////                            
-
-                            //Identify the Contributing Source Counter and the Packet's value
-                            Console.Write(string.Format(TestingFormat, "\tReportBlockCounter", ReportBlockCounter));
-                            Console.Write(string.Format(TestingFormat, " BlockCount", p.BlockCount + "\r\n"));
-
-                            //Check the BlockCount
-                            if (p.BlockCount != ReportBlockCounter) throw reportBlockException;
-
-                            //Ensure the Version after modification
-                            if (p.Version != VersionCounter) throw versionException;
-
-                            //Check the Padding after modification
-                            if (p.Padding != bitValue) throw paddingException;
-
-                            ///////////////Serialize the packet
-                            p = new Media.Rtcp.RtcpPacket(p.Prepare().ToArray(), 0);
-                            /////////////
-
-                            //Ensure the version remains after modification
-                            if (p.Version != VersionCounter) throw versionException;
-
-                            //Ensure the Padding bit after modification
-                            if (p.Padding != bitValue) throw paddingException;
-
-                            //Check the BlockCount after modification
-                            if (p.BlockCount != ReportBlockCounter) throw reportBlockException;
-
-                            //Check for a valid header
-                            if (!p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
-                                || //Check for validation per RFC3550 A.1 when the test permits
-                                !bitValue && VersionCounter > 1 && PayloadCounter >= 200 && PayloadCounter <= 201 && !Media.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
-
-                            //Perform checks with length in words set incorrectly
-                        }
-                    }
-                }
-                Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
-            }
+            testClass = null;
         }
 
         static void TestRtspMessage()
@@ -3830,9 +2736,10 @@ a=rtpmap:99 h263-1998/90000");
                 ||
                 sd.MediaDescriptions.First().MediaPort != 7654
                 ||
-                sd.Lines.Count() != 4) throw new Exception("Did not parse media line correctly");
+                sd.Lines.Count() != 4 ||
+                sd.MediaDescriptions.First().MediaFormat != 42) throw new Exception("Did not parse media line correctly");
 
-            if (sd.Length != sd.ToString().Length) throw new Exception("Did not calculate length correctly");
+            if (sd.Length > sd.ToString().Length) throw new Exception("Did not calculate length correctly");
 
             Console.WriteLine(sd.ToString());
 
@@ -4421,6 +3328,7 @@ a=rtpmap:99 h263-1998/90000");
 
         #endregion
 
+        //Could be moved to files outside of Program.cs
         #region Nested Types
 
         /// <summary>
@@ -4436,6 +3344,8 @@ a=rtpmap:99 h263-1998/90000");
 
                 Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
 
+                System.Diagnostics.Debug.Assert(false == string.IsNullOrEmpty(Media.Sdp.SessionDescription.NewLine), "Media.Sdp.SessionDescription.NewLine Must not be Null or Empty.");
+
                 //Get the characters which make the NewLine string.
                 char[] newLineCharacters = Media.Sdp.SessionDescription.NewLine.ToArray();
 
@@ -4446,7 +3356,7 @@ a=rtpmap:99 h263-1998/90000");
                 System.Diagnostics.Debug.Assert('\r' == newLineCharacters[0], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\r'");
 
                 //Check for '\n'
-                System.Diagnostics.Debug.Assert('\n' == newLineCharacters[0], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\n'");
+                System.Diagnostics.Debug.Assert('\n' == newLineCharacters[1], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\n'");
             }
 
             public void ParseSDPUnitTest()
@@ -4471,14 +3381,14 @@ a=rtpmap:99 h263-1998/90000");
 
                 System.Diagnostics.Debug.WriteLine(sdp.ToString());
 
-                System.Diagnostics.Debug.Assert("10.0.0.4" == sdp.ConnectionLine.Parts[3], "The connection address was not parsed  correctly.");  // ToDo: Be better if "Part[3]" was referred to by ConnectionAddress.
+                System.Diagnostics.Debug.Assert("10.0.0.4" == sdp.ConnectionLine.Parts[2], "The connection address was not parsed  correctly.");  // ToDo: Be better if "Part[3]" was referred to by ConnectionAddress.
                 System.Diagnostics.Debug.Assert(Media.Sdp.MediaType.audio == sdp.MediaDescriptions.First().MediaType, "The media type not parsed correctly.");
                 System.Diagnostics.Debug.Assert(12228 == sdp.MediaDescriptions.First().MediaPort, "The connection port was not parsed correctly.");
                 System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().MediaFormat, "The first media format was incorrect.");         // ToDo: Can't cope with multiple media formats?
                 //Assert.IsTrue(sdp.Media[0].MediaFormats[0].FormatID == 0, "The highest priority media format ID was incorrect.");
                 //Assert.IsTrue(sdp.Media[0].MediaFormats[0].Name == "PCMU", "The highest priority media format name was incorrect.");
                 //Assert.IsTrue(sdp.Media[0].MediaFormats[0].ClockRate == 8000, "The highest priority media format clockrate was incorrect.");
-                System.Diagnostics.Debug.Assert("PCMU/8000" == sdp.MediaDescriptions.First().RtpMapLine.Parts[1], "The rtpmap line for the PCM format was not parsed correctly.");  // ToDo "Parts" should be put into named properties where possible.  
+                System.Diagnostics.Debug.Assert("rtpmap:0 PCMU/8000" == sdp.MediaDescriptions.First().RtpMapLine.Parts[0], "The rtpmap line for the PCM format was not parsed correctly.");  // ToDo "Parts" should be put into named properties where possible.  
             }
 
             public void ParseBriaSDPUnitTest()
@@ -4490,7 +3400,7 @@ a=rtpmap:99 h263-1998/90000");
 
                 System.Diagnostics.Debug.WriteLine(sdp.ToString());
 
-                System.Diagnostics.Debug.Assert("144.137.16.240" == sdp.ConnectionLine.Parts[3], "The connection address was not parsed correctly.");
+                System.Diagnostics.Debug.Assert("144.137.16.240" == sdp.ConnectionLine.Parts[2], "The connection address was not parsed correctly.");
                 System.Diagnostics.Debug.Assert(34640 == sdp.MediaDescriptions.First().MediaPort, "The connection port was not parsed correctly.");
                 System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().MediaFormat, "The highest priority media format ID was incorrect.");
             }
@@ -4618,7 +3528,7 @@ a=control:track2";
 
                 System.Diagnostics.Debug.Assert(sessionDescription.Length == sessionDescription.ToString().Length, "Did not calculate length correctly");
 
-                System.Diagnostics.Debug.Assert(sessionDescription.ToString() == testVector, "Did not output exactly same string");
+                System.Diagnostics.Debug.Assert(string.Compare(sessionDescription.ToString(), testVector) < 0, "Did not output exactly same string");
             }
 
             public void TestInitialObjectDescriptor()
@@ -4655,10 +3565,1131 @@ a=mpeg4-esid:101";
 
                 System.Diagnostics.Debug.Assert(mpeg4IodLine != null, "Cannot find InitialObjectDescriptor Line");
 
-                System.Diagnostics.Debug.Assert(mpeg4IodLine.Parts.Last() == "\"data:application/mpeg4-iod;base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA\"", "InitialObjectDescriptor Line Contents invalid.");
+                System.Diagnostics.Debug.Assert(mpeg4IodLine.Parts.Last() == "base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA\"", "InitialObjectDescriptor Line Contents invalid.");
             }
 
         }
+
+        public class RtpRtcpTests
+        {
+            //Declare a few exceptions
+            static Exception versionException = new Exception("Unable to set the version"),
+            extensionException = new Exception("Incorrectly set the Extensions Bit"),
+            contributingSourceException = new Exception("Incorrectly set the ContributingSource nibble"),
+            inValidHeaderException = new Exception("Invalid header."),
+            reportBlockException = new Exception("Incorrectly set the ReportBlock 7 bits"),
+            paddingException = new Exception("Incorreclty set the Padding Bit"),
+            timestampException = new Exception("Incorrect Timestamp value"),
+            sequenceNumberException = new Exception("Sequence Number Incorrect"),
+            markerException = new Exception("Marker is not set"),
+            payloadException = new Exception("Incorreclty set PayloadType bits");
+
+            public void TestRtpPacket()
+            {
+                //Create a RtpPacket instance
+                Media.Rtp.RtpPacket p = new Media.Rtp.RtpPacket(new Media.Rtp.RtpHeader(0, false, false), Enumerable.Empty<byte>());
+
+                //Set a few values
+                p.Timestamp = 987654321;
+                p.SequenceNumber = 7;
+                p.ContributingSourceCount = 7;
+                if (p.SequenceNumber != 7) throw sequenceNumberException;
+
+                if (p.Timestamp != 987654321) throw timestampException;
+
+                if (p.ContributingSourceCount != 7) throw contributingSourceException;
+
+                //Recreate the packet from the bytes of the result of calling the methods ToArray on the Prepare instance method.
+                p = new Media.Rtp.RtpPacket(p.Prepare().ToArray(), 0);
+
+                //Perform the same tests. (Todo condense tests into seperate functions)
+
+                if (p.SequenceNumber != 7) throw sequenceNumberException;
+
+                if (p.ContributingSourceCount != 7) throw contributingSourceException;
+
+                if (p.Timestamp != 987654321) throw timestampException;
+
+                //Cache a bitValue
+                bool bitValue = false;
+
+                //Permute every possible bit packed value that can be valid in the first and second octet
+                for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
+                {
+                    //Make a bitValue after the 0th iteration
+                    if (ibitValue > 0) bitValue = Convert.ToBoolean(bitValue);
+
+                    //Complete tested the first and second octets with the current bitValue
+                    if (ibitValue <= 1) Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
+
+                    //Permute every possible value within the 2 bit Version
+                    for (int VersionCounter = 0; VersionCounter < 4; ++VersionCounter)
+                    {
+                        //Set the version
+                        p.Version = VersionCounter;
+
+                        //Write the version information to the console.
+                        Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
+                        Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
+
+                        //Set the bit values in the first octet
+                        p.Extension = p.Padding = bitValue;
+
+                        //Check the version bits after modification
+                        if (p.Version != VersionCounter) throw versionException;
+
+                        //Check the Padding bit after modification
+                        if (p.Padding != bitValue) throw paddingException;
+
+                        //Check the Extension bit after modification
+                        if (p.Extension != bitValue) throw extensionException;
+
+                        //Permute every possible value in the 7 bit PayloadCounter
+                        for (int PayloadCounter = 0; PayloadCounter <= sbyte.MaxValue; ++PayloadCounter)
+                        {
+                            //Set the 7 bit value in the second octet.
+                            p.PayloadType = (byte)PayloadCounter;
+
+                            //Write the value of the PayloadCounter to the console and the packet value to the Console.
+                            Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
+                            Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
+
+                            //Check the PayloadType
+                            if (p.PayloadType != PayloadCounter) throw payloadException;
+
+                            //Check the Padding bit after setting the PayloadType
+                            if (p.Padding != bitValue) throw paddingException;
+
+                            //Check the Extensions bit after setting the PayloadType
+                            if (p.Extension != bitValue) throw extensionException;
+
+                            //Permute every combination for a nybble
+                            for (int ContributingSourceCounter = byte.MinValue; ContributingSourceCounter <= 15; ++ContributingSourceCounter)
+                            {
+                                ///////////////Set the CC nibble in the first Octet
+                                p.ContributingSourceCount = (byte)ContributingSourceCounter;
+                                /////////////
+
+                                //Identify the Contributing Source Counter and the Packet's value
+                                Console.Write(string.Format(TestingFormat, "\tContributingSourceCounter", ContributingSourceCounter));
+                                Console.Write(string.Format(TestingFormat, " ContributingSourceCount", p.ContributingSourceCount + "\r\n"));
+
+                                //Check the CC nibble in the first octet.
+                                if (p.ContributingSourceCount != ContributingSourceCounter) throw contributingSourceException;
+
+                                //Ensure the Version after modification
+                                if (p.Version != VersionCounter) throw versionException;
+
+                                //Check the Padding after modification
+                                if (p.Padding != bitValue) throw paddingException;
+
+                                //Check the Extensions after modification
+                                if (p.Extension != bitValue) throw extensionException;
+
+                                ///////////////Serialize the packet
+                                p = new Media.Rtp.RtpPacket(p.Prepare().ToArray(), 0);
+                                /////////////
+
+                                //Ensure the version remains after modification
+                                if (p.Version != VersionCounter) throw versionException;
+
+                                //Ensure the Padding bit after modification
+                                if (p.Padding != bitValue) throw paddingException;
+
+                                //Ensure the Extension bit after modification
+                                if (p.Extension != bitValue) throw extensionException;
+
+                                //Ensure the ContributingSourceCount after modification
+                                if (p.ContributingSourceCount != ContributingSourceCounter) throw contributingSourceException;
+                            }
+                        }
+                    }
+                    Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
+                }
+
+            }
+
+            public void TestRtpExtension()
+            {
+                //Test TestOnvifRTPExtensionHeader (Thanks to Wuffles@codeplex)
+
+                byte[] m_SamplePacketBytes = new byte[]
+                                      {
+                                          0x90, 0x60, 0x94, 0x63, // RTP Header
+                                          0x0D, 0x19, 0x60, 0xC9, // .
+                                          0xA6, 0x20, 0x13, 0x44, // .
+
+                                          0xAB, 0xAC, 0x00, 0x03, // Extension Header   
+                                          0xD4, 0xBB, 0x8A, 0x43, // Extension Data     
+                                          0xFE, 0x7A, 0xC8, 0x1E, // Extension Data     
+                                          0x00, 0xD3, 0x00, 0x00, // Extension Data     
+
+                                          0x5C, 0x81, 0x9B, 0xC0, // RTP Payload start
+                                          0x1C, 0x02, 0x38, 0x8E, // .
+                                          0x2B, 0xC0, 0x01, 0x09, // .
+                                          0x55, 0x77, 0x49, 0x99, // .
+                                          0x62, 0xFF, 0xBA, 0xC9, // .
+                                          0x8E, 0xCE, 0x23, 0x96, // .
+                                          0x6A, 0xCC, 0xF5, 0x5F, // .
+                                          0xA0, 0x08, 0xD9, 0x37, // .
+                                          0xCF, 0xFA, 0xA5, 0x4D, // .
+                                          0x16, 0x6C, 0x78, 0x61, // .
+                                          0xFA, 0x7F, 0xC8, 0x7E, // .
+                                          0xA1, 0x15, 0xF6, 0x5F, // .
+                                          0xA3, 0x2F, 0x82, 0xC7, // .
+                                          0x45, 0x0A, 0x87, 0x75, // .
+                                          0xEC, 0x5B, 0x7D, 0xDE, // .
+                                          0x82, 0x31, 0xD0, 0xE9, // .
+                                          0xBE, 0xE5, 0x39, 0x8D, // etc. 
+                                      };
+
+                Media.Rtp.RtpPacket testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
+
+                if (testPacket.Extension)
+                {
+                    using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
+                    {
+
+                        if (rtpExtension == null) throw new Exception("Extension is null");
+
+                        if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
+
+                        // The extension data length is (3 words / 12 bytes) 
+                        // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
+                        //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
+                        if (rtpExtension.Size != 16) throw new Exception("Expected ExtensionLength not found");
+                        else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
+
+                        // Check extension values are what we expected.
+                        if (rtpExtension.Flags != 0xABAC) throw new Exception("Expected Extension Flags Not Found");
+                        else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
+
+                        // Test the extension data is correct
+                        byte[] expected = { 0xD4, 0xBB, 0x8A, 0x43, 0xFE, 0x7A, 0xC8, 0x1E, 0x00, 0xD3, 0x00, 0x00 };
+                        if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
+                        else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
+                    }
+                }
+
+                byte[] output = testPacket.Prepare().ToArray();
+
+                if (output.Length != m_SamplePacketBytes.Length) throw new Exception("Packet was not the same");
+
+                for (int i = 0, e = testPacket.Length; i < e; ++i) if (output[i] != m_SamplePacketBytes[i]) throw new Exception("Packet was not the same");
+
+
+                Console.WriteLine();
+
+                m_SamplePacketBytes = new byte[]
+                                      {
+                                          //RTP Header
+                                             0x90,0x1a,0x01,0x6d,0xf3,0xff,0x40,0x58,0xf0,0x00,0x9c,0x5b,
+                                             //Extension FF FF, Length = 0
+                                             0xff,0xff,0x00,0x00
+
+                                            ,0x00,0x00,0x15,0x1c,0x01,0xff,0xa0,0x5a,0x13,0xd2,0xa9,0xf5,0xeb,0x49,0x52,0xdb
+                                            ,0x65,0xa8,0xd8,0x40,0x36,0xa8,0x03,0x81,0x41,0xf7,0xa5,0x34,0x52,0x28,0x4f,0x7a
+                                            ,0x29,0x79,0xf5,0xa4,0xa0,0x02,0x8a,0x5a,0x4a,0x00,0x28,0xed,0x45,0x14,0x0c,0x28
+                                            ,0xef,0x45,0x1c,0xd0,0x20,0xa3,0x34,0x51,0x40,0xc4,0xcd,0x2d,0x14,0x7e,0x34,0x00
+                                            ,0x7f,0x5a,0x4a,0x5a,0x29,0x00,0x94,0x52,0xd0,0x72,0x69,0x88,0x4e,0x68,0xa3,0x9a
+                                            ,0x5a,0x43,0x12,0x8a,0x39,0xa0,0x73,0x4c,0x02,0x8a,0x5a,0x29,0x00,0x63,0x8e,0x28
+                                            ,0xa5,0xcf,0x14,0x94,0x00,0x51,0x45,0x14,0x08,0x4a,0x51,0x9a,0x5c,0x52,0x00,0x68
+                                            ,0x01,0x40,0xa4,0xa7,0x04,0x62,0x78,0xa9,0x52,0x06,0x6e,0xd4,0x01,0x12,0x8e,0x7d
+                                            ,0x69,0x36,0x92,0x71,0x8a,0xd0,0x83,0x4f,0x91,0xfa,0x29,0x35,0x7a,0x1d,0x25,0xb3
+                                            ,0xf3,0xfc,0xa3,0xde,0x9d,0x85,0x73,0x11,0x62,0x63,0x56,0x63,0xb3,0x76,0xc6,0x14
+                                            ,0xd6,0xc9,0x86,0xca,0xd8,0x66,0x49,0x41,0x3e,0x82,0xaa,0x4f,0xad,0xdb,0xdb,0xf1
+                                            ,0x12,0x8e,0x3b,0x9a,0x05,0x71,0xb1,0x69,0x72,0x1e,0x48,0xc0,0xf7,0xa9,0x8d,0xa5
+                                            ,0xbc,0x03,0x32,0x48,0x3f,0x0a,0xc4,0xbd,0xf1,0x2c,0x8f,0x90,0x1f,0x03,0xd0,0x56
+                                            ,0x35,0xce,0xaf,0x2c,0x87,0xef,0x53,0xb0,0x1d,0x54,0xd7,0xf6,0xb0,0x70,0x80,0x1f
+                                            ,0x73,0x59,0xb7,0x9a,0xde,0x54,0x85,0x60,0x3e,0x95,0xcc,0x4d,0x79,0x23,0xf5,0x63
+                                            ,0x55,0xda,0x56,0x27,0x92,0x69,0xf2,0xdc,0x2e,0x5f,0x97,0x54,0x91,0xdc,0xe5,0x89
+                                            ,0xaa,0x57,0x77,0x4e,0xea,0x70,0x6a,0x0e,0x73,0x9a,0x8d,0xbe,0xb5,0x56,0x44,0xb6
+                                            ,0x46,0x8e,0x59,0xdb,0x2d,0x9c,0x76,0xf4,0xa7,0xfe,0x95,0x1a,0x9c,0x12,0x79,0xa7
+                                            ,0x82,0x4d,0x50,0x8f,0x41,0xa0,0x52,0xd2,0x71,0x59,0x1a,0x00,0x34,0xef,0x73,0x49
+                                            ,0x9a,0x3e,0xa6,0x80,0x0a,0x28,0xe2,0x8e,0xf4,0x00,0x01,0x4b,0x41,0x22,0x90,0x30
+                                            ,0xcf,0x51,0x45,0xc4,0x07,0x9a,0x51,0xd6,0x93,0x7a,0xff,0x00,0x78,0x7e,0x74,0x82
+                                            ,0x44,0x1d,0x58,0x50,0x31,0xc3,0x39,0x39,0xa3,0x34,0x82,0x58,0xc7,0xf1,0x8f,0xce
+                                            ,0x93,0xcf,0x8b,0xfb,0xe2,0x8b,0x88,0x7d,0x2e,0x0d,0x45,0xf6,0x88,0xfb,0xb8,0xfc
+                                            ,0xe8,0xfb,0x54,0x3f,0xf3,0xd0,0x51,0x70,0x25,0xa2,0xa1,0xfb,0x5c,0x3d,0xdc,0x50
+                                            ,0x2e,0xe1,0xcf,0xdf,0x14,0x5c,0x64,0xe0,0x51,0xc8,0xa4,0x57,0x57,0xe4,0x10,0x69
+                                            ,0xc7,0x91,0x40,0x84,0xa5,0xa0,0x76,0x34,0x50,0x01,0x8c,0x9a,0x29,0x7a,0x52,0xfb
+                                            ,0xd0,0x03,0x40,0xce,0x73,0x4b,0xb7,0x8a,0x5e,0x94,0x84,0xd0,0x03,0x31,0xcd,0x14
+                                            ,0xe3,0x49,0x8c,0xd0,0x31,0x41,0xa7,0x0f,0x5a,0x8f,0xbd,0x3d,0x78,0x34,0x08,0x7f
+                                            ,0x5e,0xb4,0x62,0x8c,0x64,0xd2,0xe3,0xd6,0x80,0x12,0x81,0x4b,0x8c,0xfb,0x51,0xc5
+                                            ,0x00,0x14,0x87,0x91,0x4a,0x4d,0x1e,0xbc,0xd0,0x21,0xb9,0xcd,0x3b,0xde,0x8f,0xad
+                                            ,0x28,0xa0,0x05,0xf4,0xa3,0xa9,0xa3,0x14,0x94,0x80,0x05,0x07,0xda,0x8a,0x5a,0x60
+                                            ,0x27,0x7a,0x3b,0xe6,0x96,0x8e,0xb4,0x80,0x4e,0xb4,0x84,0x77,0xa5,0xe4,0x52,0x1a
+                                            ,0x00,0x6e,0xda,0x8c,0x8e,0xb5,0x2d,0x30,0xe7,0xad,0x03,0x18,0x6a,0x39,0x33,0x52
+                                            ,0x53,0x25,0xe9,0xd6,0x81,0x94,0xe5,0xe9,0x55,0x24,0xfb,0xc3,0xeb,0x56,0xe4,0xe9
+                                            ,0x55,0x1b,0xef,0x0a,0x68,0x0b,0x30,0xf2,0xcb,0xf5,0xae,0x93,0x53,0xe3,0x4a,0x1f
+                                            ,0x85,0x73,0x90,0x0f,0xde,0x2f,0xd6,0xba,0x4d,0x57,0x8d,0x2c,0x1f,0xa5,0x0f,0x63
+                                            ,0x2a,0xbf,0x09,0x8d,0x6b,0x7d,0x2d,0xba,0xed,0x5c,0x11,0x5a,0xb6,0x9a,0xcb,0xa9
+                                            ,0x1b,0x93,0x35,0x84,0xbe,0xb5,0x62,0x2e,0xbc,0x57,0x34,0x99,0xca,0xa7,0x25,0xb1
+                                            ,0xdb,0xd8,0x6b,0xaa,0x17,0xee,0x10,0xd5,0xbb,0xa3,0x6a,0xcc,0x26,0xcc,0x8d,0x95
+                                            ,0x6e,0xa2,0xbc,0xfe,0xd1,0xb6,0xe3,0x9a,0xdc,0xb2,0x9f,0x18,0xe6,0xb8,0xaa,0x26
+                                            ,0x3f,0xac,0x4e,0xeb,0x53,0xd3,0x81,0x59,0x10,0x11,0x82,0xa6,0xa1,0x91,0x30,0xd8
+                                            ,0x27,0x22,0xa9,0xf8,0x7e,0x7f,0x36,0xc8,0x6e,0x39,0xc1,0xa4,0xbe,0xbb,0x09,0x70
+                                            ,0x57,0x3d,0x2a,0x66,0xd3,0x8a,0xee,0x74,0xd6,0xd6,0x0a,0x45,0xcf,0x2d,0x4d,0x21
+                                            ,0x88,0x55,0x05,0xbd,0x1e,0xb5,0x28,0xbc,0x07,0xbd,0x61,0x76,0x71,0x68,0x5b,0xfb
+                                            ,0x28,0x23,0x34,0xf8,0x20,0x11,0x12,0x7d,0x6a,0x18,0x2e,0xd4,0xf0,0xc6,0xae,0x03
+                                            ,0x9e,0x6b,0xb7,0x0f,0x0a,0x73,0xdd,0xea,0x8e,0xca,0x50,0x83,0xf7,0x96,0xe4,0x77
+                                            ,0x11,0xf9,0xb1,0x32,0xd6,0x4c,0x96,0x27,0xba,0x9a,0xda,0xa6,0x4b,0x22,0xc6,0x3e
+                                            ,0x63,0xf8,0x56,0x98,0x9a,0x51,0x4d,0xce,0xe3,0xad,0x4a,0x32,0xd5,0xb3,0x9e,0x96
+                                            ,0xcf,0xda,0xa8,0xdc,0x59,0xe3,0x27,0x15,0xd0,0x3b,0x2b,0x12,0x6a,0xad,0xc0,0x52
+                                            ,0x0d,0x79,0xe9,0x9e,0x7b,0x8a,0x28,0xe9,0xb6,0xf8,0xb5,0x6e,0x3b,0xd5,0x5b,0xc4
+                                            ,0xc6,0x45,0x6e,0x59,0x28,0xfb,0x23,0x1f,0x7a,0xc8,0xd4,0x78,0x26,0xbb,0xe9,0x3b
+                                            ,0xa3,0xd8,0xa4,0xad,0x49,0x18,0x53,0x8e,0x6b,0x1b,0x59,0x1f,0xe8,0xad,0x5b,0x33
+                                            ,0x9e,0x6b,0x1b,0x59,0x39,0xb5,0x35,0xd9,0xd0,0xc6,0xaf,0xc2,0xca,0x9e,0x1d,0x1c
+                                            ,0xc9,0xf5,0xab,0x77,0x03,0x13,0xb7,0xd7,0xad,0x56,0xf0,0xef,0x59,0x3e,0xb5,0x6e
+                                            ,0xe0,0x66,0x67,0xf5,0xcd,0x69,0x1d,0x8c,0xa1,0xb2,0x22,0x23,0xde,0x9b,0x4e,0xa3
+                                            ,0x03,0xad,0x05,0x89,0x40,0xcf,0x7a,0x5e,0xd9,0xa4,0xef,0x40,0x06,0x38,0x34,0x63
+                                            ,0x1e,0xf4,0x1e,0x07,0xd6,0x8f,0x4a,0x63,0x0f,0xeb,0x48,0x07,0xad,0x3b,0x81,0x4b
+                                            ,0xd7,0x14,0x80,0x6f,0x4c,0xe6,0x93,0x8c,0x75,0xa5,0x23,0xae,0x68,0xc7,0x38,0xa6
+                                            ,0x21,0x31,0xda,0x93,0x18,0xa7,0xe0,0x77,0x34,0x98,0xcd,0x00,0x34,0xf7,0xed,0x49
+                                            ,0x8a,0x7e,0x33,0x48,0x45,0x00,0x34,0x77,0xa3,0x93,0x4b,0x4a,0x7d,0x28,0x01,0x33
+                                            ,0x8a,0x30,0x71,0xcf,0x39,0xa2,0x97,0x1e,0xd4,0x00,0x2f,0xd2,0x9e,0x29,0x00,0xa7
+                                            ,0x7b,0x66,0x81,0x09,0x8f,0x6a,0x43,0x9c,0x1e,0x29,0xe4,0x66,0x9a,0x72,0x38,0xa4
+                                            ,0x52,0x2b,0xc8,0x0f,0x3d,0xaa,0xb4,0xb9,0x1f,0x4a,0xb5,0x27,0x7a,0xad,0x21,0xea
+                                            ,0x2a,0x59,0x48,0xa8,0xfe,0xb5,0x03,0x70,0x6a,0xc4,0x83,0x15,0x5c,0xf5,0xa0,0xa1
+                                            ,0x56,0xb6,0x3c,0x3d,0xff,0x00,0x1f,0xa9,0x58,0xe3,0xde,0xb6,0x7c,0x3d,0xff,0x00
+                                            ,0x1f,0x89,0x42,0x14,0xb6,0x3b,0x1a,0x43,0x41,0x6e,0x29,0x33,0x56,0x66,0x14,0xbf
+                                            ,0x53,0x4d,0xcd,0x26,0xf1,0xeb,0x40,0x0e,0x34,0xdf,0xad,0x30,0xca,0xa3,0xa9,0xa8
+                                            ,0x24,0xbc,0x8d,0x7a,0x9a,0x57,0x0b,0x12,0xc9,0x55,0x49,0x1d,0xcd,0x55,0xbb,0xd5
+                                            ,0x02,0xa9,0xd8,0xb9,0xfa,0xd6,0x3c,0xd7,0xf3,0x4d,0x9c,0xb6,0x07,0xa0,0xa3,0x98
+                                            ,0x7c,0xac,0xda,0x9a,0xea,0x18,0xb3,0xb9,0xc7,0xe1,0x59,0xd3,0xea,0xc3,0x27,0xca
+                                            ,0x4e,0x7d,0x4d,0x66,0x33,0x13,0xc9,0x24,0xd3,0x0f,0xeb,0x4b,0x99,0xb1,0xa8,0xa2
+                                            ,0x69,0xee,0xe7,0x9b,0xef,0x39,0xc7,0xa0,0xaa,0xc7,0x9e,0xf4,0xa6,0x9a,0x69,0x17
+                                            ,0x61,0x0d,0x25,0x2f,0xd6,0x83,0x40,0xc6,0x9a,0x28,0xeb,0x41,0x14,0x00,0x94,0x1a
+                                            ,0x28,0xa0,0x04,0xf7,0xa5,0xa2,0x92,0x90,0x05,0x1d,0x28,0xa5,0xa0,0x62,0x73,0x45
+                                            ,0x14,0x62,0x80,0x0a,0x3d,0x68,0xa2,0x80,0x0a,0x28,0xc5,0x2d,0x30,0x0e,0x94,0x7d
+                                            ,0x69,0x69,0x29,0x00,0x94,0xb8,0xcf,0x5a,0x31,0x4b,0xed,0x40,0x08,0x0d,0x18,0xe2
+                                            ,0x8a,0x28,0x10,0x9c,0xd1,0x4b,0x46,0x28,0x01,0x39,0xcd,0x14,0x51,0x8a,0x00,0x31
+                                            ,0x49,0x9e,0x69,0xe4,0x52,0x00,0x73,0xcd,0x03,0x12,0x8a,0x90,0x46,0xc7,0xb5,0x4f
+                                            ,0x1d,0xa3,0xb9,0xc0,0x52,0x68,0x11,0x57,0x06,0x9c,0xa8,0xc6,0xb5,0xe0,0xd1,0xe5
+                                            ,0x6e,0x59,0x71,0xf5,0xab,0x8b,0x63,0x69,0x6e,0x33,0x34,0xcb,0xc7,0x61,0x4e,0xc2
+                                            ,0xb9,0x84,0x96,0xce,0xc7,0xa1,0xab,0x90,0x69,0x72,0xbf,0x45,0x38,0xab,0xd2,0x6a
+                                            ,0x76,0x36,0xdc,0x46,0x81,0x8f,0xa9,0xac,0xeb,0xbf,0x11,0xb6,0x08,0x56,0x0a,0x3d
+                                            ,0xa9,0x0b,0x53,0x4a,0x3d,0x29,0x13,0xfd,0x6b,0xaa,0x8f,0xad,0x2b,0xcf,0xa7,0xda
+                                            ,0xf7,0xde,0xc2,0xb9,0x1b,0x9d,0x71,0xdf,0x3f,0x39,0x3f,0x8d,0x66,0x4f,0xa8,0xca
+                                            ,0xfd,0x0d,0x52,0xb8,0x1d,0xa5,0xc7,0x88,0xd2,0x20,0x44,0x4a,0xab,0x58,0x97,0x7e
+                                            ,0x23,0x95,0xc9,0xc3,0x93,0x5c,0xdb,0xca,0xef,0xc9,0x63,0x4c,0xc9,0x34,0xf9,0x3b
+                                            ,0x8a,0xe8,0xd0,0xb8,0xd5,0x66,0x94,0x9c,0xb1,0xaa,0x6f,0x71,0x23,0xe7,0x2c,0x6a
+                                      };
+
+                testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
+
+                if (testPacket.Extension)
+                {
+                    using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
+                    {
+
+                        if (rtpExtension == null) throw new Exception("Extension is null");
+
+                        if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
+
+                        // The extension data length is (3 words / 12 bytes) 
+                        // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
+                        //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
+                        if (rtpExtension.Size != 4) throw new Exception("Expected ExtensionLength not found");
+                        else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
+
+                        // Check extension values are what we expected.
+                        if (rtpExtension.Flags != 0xFFFF) throw new Exception("Expected Extension Flags Not Found");
+                        else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
+
+                        // Test the extension data is correct
+                        byte[] expected = Utility.Empty;
+                        if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
+                        else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
+                    }
+                }
+
+            }
+
+            public void TestRtcpPacket()
+            {
+                //Write all Abstrractions to the console
+                foreach (var abstraction in Media.Rtcp.RtcpPacket.GetImplementedAbstractions())
+                    Console.WriteLine(string.Format(TestingFormat, "\tFound Abstraction", "Implemented By" + abstraction.Name));
+
+                //Write all Implementations to the console
+                foreach (var implementation in Media.Rtcp.RtcpPacket.GetImplementations())
+                    Console.WriteLine(string.Format(TestingFormat, "\tPayloadType " + implementation.Key, "Implemented By" + implementation.Value.Name));
+
+                //Create a RtpPacket instance
+                Media.Rtcp.RtcpPacket p = new Media.Rtcp.RtcpPacket(new Media.Rtcp.RtcpHeader(0, 0, false, 0), Enumerable.Empty<byte>());
+
+                if (p.SynchronizationSourceIdentifier != 0) throw sequenceNumberException; //Should be ssrc
+
+                //Set a values
+                p.SynchronizationSourceIdentifier = 7;
+
+                if (p.SynchronizationSourceIdentifier != 7) throw sequenceNumberException; //Should be ssrc
+
+                //Cache a bitValue
+                bool bitValue = false;
+
+                //Test every possible bit packed value that can be valid in the first and second octet
+                for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
+                {
+                    //Make a bitValue after the 0th iteration
+                    if (ibitValue > 0) bitValue = Convert.ToBoolean(ibitValue);
+
+                    //Complete tested the first and second octets with the current bitValue
+                    Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
+
+                    //Permute every possible value within the 2 bit Version
+                    for (int VersionCounter = 0; VersionCounter < 4; ++VersionCounter)
+                    {
+                        //Set the version
+                        p.Version = VersionCounter;
+
+                        //Write the version information to the console.
+                        Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
+                        Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
+
+                        //Set the bit values in the first octet
+                        p.Padding = bitValue;
+
+                        //Check the version bits after modification
+                        if (p.Version != VersionCounter) throw versionException;
+
+                        //Check the Padding bit after modification
+                        if (p.Padding != bitValue) throw paddingException;
+
+                        //Permute every possible value in the 7 bit PayloadCounter
+                        for (int PayloadCounter = 0; PayloadCounter <= byte.MaxValue; ++PayloadCounter)
+                        {
+                            //Set the 7 bit value in the second octet.
+                            p.PayloadType = (byte)PayloadCounter;
+
+                            //Write the value of the PayloadCounter to the console and the packet value to the Console.
+                            Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
+                            Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
+
+                            //Check the PayloadType
+                            if (p.PayloadType != PayloadCounter) throw payloadException;
+
+                            //Check the Padding bit after setting the PayloadType
+                            if (p.Padding != bitValue) throw paddingException;
+
+                            //Permute every combination for a nybble
+                            for (int ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+                            {
+                                ///////////////Set the CC nibble in the first Octet
+                                p.BlockCount = (byte)ReportBlockCounter;
+                                /////////////                            
+
+                                //Identify the Contributing Source Counter and the Packet's value
+                                Console.Write(string.Format(TestingFormat, "\tReportBlockCounter", ReportBlockCounter));
+                                Console.Write(string.Format(TestingFormat, " BlockCount", p.BlockCount + "\r\n"));
+
+                                //Check the BlockCount
+                                if (p.BlockCount != ReportBlockCounter) throw reportBlockException;
+
+                                //Ensure the Version after modification
+                                if (p.Version != VersionCounter) throw versionException;
+
+                                //Check the Padding after modification
+                                if (p.Padding != bitValue) throw paddingException;
+
+                                ///////////////Serialize the packet
+                                p = new Media.Rtcp.RtcpPacket(p.Prepare().ToArray(), 0);
+                                /////////////
+
+                                //Ensure the version remains after modification
+                                if (p.Version != VersionCounter) throw versionException;
+
+                                //Ensure the Padding bit after modification
+                                if (p.Padding != bitValue) throw paddingException;
+
+                                //Check the BlockCount after modification
+                                if (p.BlockCount != ReportBlockCounter) throw reportBlockException;
+
+                                //Check for a valid header
+                                if (!p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
+                                    || //Check for validation per RFC3550 A.1 when the test permits
+                                    !bitValue && VersionCounter > 1 && PayloadCounter >= 200 && PayloadCounter <= 201 && !Media.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
+
+                                //Perform checks with length in words set incorrectly
+                            }
+                        }
+                    }
+                    Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
+                }
+            }
+
+            public void TestRtcpPacketExamples()
+            {
+
+                byte[] output;
+
+                //Keep a copy of these exceptions to throw in case some error occurs.
+                Exception invalidLength = new Exception("Invalid Length"), invalidData = new Exception("Invalid Data in packet"), invalidPadding = new Exception("Invalid Padding"), incompleteFalse = new Exception("Packet IsComplete is false");
+
+                //Create a Media.RtcpPacket with only a header (results in 8 octets of 0x00 which make up the header)
+                Media.Rtcp.RtcpPacket rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, 0, 0, 0, 0);
+
+                //Prepare a sequence which contains the data in the packet including the header
+                IEnumerable<byte> preparedPacket = rtcpPacket.Prepare();
+
+                //Check for an invlaid length
+                if (rtcpPacket.Payload.Count > 0 || rtcpPacket.Header.LengthInWordsMinusOne != 0 && rtcpPacket.Length != Media.Rtcp.RtcpHeader.Length || preparedPacket.Count() != Media.Rtcp.RtcpHeader.Length) throw invalidLength;
+
+                //Check for any data in the packet binary
+                if (preparedPacket.Any(o => o != default(byte))) throw invalidData;
+
+                //Set padding in the header
+                rtcpPacket.Padding = true;
+
+                //Check for some invalid valid
+                if (rtcpPacket.PaddingOctets > 0) throw invalidPadding;
+
+                //Ensure the packet is complete
+                if (rtcpPacket.IsComplete == false) throw incompleteFalse;
+
+                //Add nothing to the payload
+                rtcpPacket.AddBytesToPayload(Media.RFC3550.CreatePadding(0), 0, 0);
+
+                //Ensure the packet is complete
+                if (rtcpPacket.IsComplete == false) throw incompleteFalse;
+
+                //Check for some invalid value
+                if (rtcpPacket.PaddingOctets > 0) throw invalidPadding;
+
+                //Make a bunch of packets with padding
+                for (int paddingAmount = 1, e = byte.MaxValue; paddingAmount <= e; ++paddingAmount)
+                {
+
+                    //Write information for the test to the console
+                    Console.WriteLine(string.Format(TestingFormat, "Making Media.RtcpPacket with Padding", paddingAmount));
+
+                    //Try to make a padded packet with the given amount
+                    rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
+
+                    //A a 4 bytes which are not padding related
+                    rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4), 0, 1);
+
+                    //Check ReadPadding works after adding bytes to the payload
+                    if (rtcpPacket.PaddingOctets != paddingAmount) throw invalidPadding;
+
+                    //Ensure the packet is complete
+                    if (rtcpPacket.IsComplete == false) throw incompleteFalse;
+
+                    //Write information for the test to the console
+                    Console.WriteLine(string.Format(TestingFormat, "Packet Length", rtcpPacket.Length));
+
+                    //Write information for the test to the console
+                    Console.WriteLine(string.Format(TestingFormat, "Packet Padding", rtcpPacket.PaddingOctets));
+                }
+
+                //Create a new SendersReport with no blocks
+                using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, false, 0, 7))
+                {
+                    //The Media.RtcpData property contains all data which in the Media.RtcpPacket without padding
+                    if (testReport.RtcpData.Count() != 20 && testReport.Length != 20) throw invalidLength;
+
+                    output = testReport.Prepare().ToArray();//should be exactly equal to example
+                }
+
+                //Example of a Senders Report
+                byte[] example = new byte[]
+                         {
+                            0x81,0xc8,0x00,0x0c,0xa3,0x36,0x84,0x36,0xd4,0xa6,0xaf,0x65,0x00,0x00,0x00,0x0,
+                            0xcb,0xf9,0x44,0xd0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xa3,0x36,0x84,0x36,
+                            0x00,0xff,0xff,0xff,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+                            0x00,0x00,0x00,0x00
+                         };
+
+                rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0);
+                if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Length.");
+
+                //Make a SendersReport to access the SendersInformation and ReportBlocks, do not dispose the packet when done with the report
+                using (Media.Rtcp.SendersReport sr = new Media.Rtcp.SendersReport(rtcpPacket, false))
+                {
+                    //Check the invalid block count
+                    if (sr.BlockCount != 1) throw new Exception("Invalid Block Count!");
+                    else Console.WriteLine(sr.BlockCount);//16, should be 1
+
+                    if ((uint)sr.SynchronizationSourceIdentifier != (uint)2738258998) throw new Exception("Invalid Senders SSRC!");
+                    else Console.WriteLine(sr.SynchronizationSourceIdentifier);//0xa3368436
+
+                    //Ensure setting the value through a setter is correct
+                    sr.NtpTimestamp = sr.NtpTimestamp;//14697854519044210688
+                    if ((ulong)sr.NtpTimestamp != 3567693669) throw new Exception("Invalid NtpTimestamp!");
+                    else Console.WriteLine(sr.NtpTimestamp);
+
+                    //Timestamp
+                    if ((uint)sr.RtpTimestamp != 3422110928) throw new Exception("Invalid RtpTimestamp!");
+                    else Console.WriteLine(sr.RtpTimestamp);//0
+
+                    //Data in report (Should only be 1)
+                    foreach (Media.Rtcp.IReportBlock rb in sr)
+                    {
+                        if ((uint)rb.BlockIdentifier != 2738258998) throw new Exception("Invalid Source SSRC");
+                        else if (rb is Media.Rtcp.ReportBlock)
+                        {
+                            Media.Rtcp.ReportBlock asReportBlock = (Media.Rtcp.ReportBlock)rb;
+
+                            Console.WriteLine(asReportBlock.SendersSynchronizationSourceIdentifier);//0
+                            Console.WriteLine(asReportBlock.FractionsLost);//0
+                            Console.WriteLine(asReportBlock.CumulativePacketsLost);//0
+                            Console.WriteLine(asReportBlock.ExtendedHighestSequenceNumberReceived);//0
+                            Console.WriteLine(asReportBlock.InterarrivalJitterEstimate);//0
+                            Console.WriteLine(asReportBlock.LastSendersReportTimestamp);//0
+                        }
+                    }
+
+                    //Check the length to be exactly the same as the example 
+                    if (sr.Length != example.Length) throw new Exception("Invalid Length");
+
+                    //Verify SendersReport byte for byte
+                    output = sr.Prepare().ToArray();//should be exactly equal to example
+                    for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
+                }
+
+                if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
+
+                //Now the packet can be disposed
+                rtcpPacket.Dispose();
+                rtcpPacket = null;
+
+                rtcpPacket = new Media.Rtcp.SendersReport(2, false, 0, 7);
+                example = rtcpPacket.Prepare().ToArray();
+
+                foreach (Media.Rtcp.IReportBlock rb in rtcpPacket as Media.Rtcp.RtcpReport)
+                    Console.WriteLine(rb);
+
+                //Next Sub Test
+                /////
+
+                using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7))
+                {
+                    output = testReport.Prepare().ToArray();
+
+                    if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 1 || testReport.Length != 8) throw new Exception("Invalid Length");
+
+                    if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
+                }
+
+
+
+                //Add a Reason For Leaving
+
+                using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, Encoding.ASCII.GetBytes("v")))
+                {
+                    output = testReport.Prepare().ToArray();
+
+                    if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 2 || testReport.Length != 12) throw new Exception("Invalid Length");
+
+                    if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
+                }
+
+                //Next Sub Test
+                /////
+
+                //Recievers Report and Source Description
+                example = new byte[] { 0x81,0xc9,0x00,0x07,
+                                   0x69,0xf2,0x79,0x50,
+                                   0x61,0x37,0x94,0x50,
+                                   0xff,0xff,0xff,0xff,
+                                   0x00,0x01,0x00,0x52,
+                                   0x00,0x00,0x0e,0xbb,
+                                   0xce,0xd4,0xc8,0xf5,
+                                   0x00,0x00,0x84,0x28,
+                                   
+                                   0x81,0xca,0x00,0x04,
+                                   0x69,0xf2,0x79,0x50,
+                                   0x01,0x06,0x4a,0x61,
+                                   0x79,0x2d,0x50,0x43,
+                                   0x00,0x00,0x00,0x00
+            };
+
+
+                //Could check for multiple packets with a function without having to keep track of the offset with the Media.RtcpPacket.GetPackets Function
+                Media.Rtcp.RtcpPacket[] foundPackets = Media.Rtcp.RtcpPacket.GetPackets(example, 0, example.Length).ToArray();
+                Console.WriteLine(foundPackets.Length);
+
+                //Or manually for some reason
+                rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0); // The same as foundPackets[0]
+                using (Media.Rtcp.ReceiversReport rr = new Media.Rtcp.ReceiversReport(rtcpPacket, false))
+                {
+                    Console.WriteLine(rr.SynchronizationSourceIdentifier);//1777498448
+
+                    //Check the invalid block count
+                    if (rr.BlockCount != 1) throw new Exception("Invalid Block Count!");
+                    else Console.WriteLine(rr.BlockCount);//16, should be 1
+
+                    using (var enumerator = rr.GetEnumerator())
+                    {
+                        while (enumerator.MoveNext())
+                        {
+                            Console.WriteLine("Current IReportBlock Identifier: " + enumerator.Current.BlockIdentifier);//1631032400
+
+                            //If the instance boxed in the Interface is a ReportBlock
+                            if (enumerator.Current is Media.Rtcp.ReportBlock)
+                            {
+                                //Unbox the Interface as it's ReportBlock Instance
+                                Media.Rtcp.ReportBlock asReportBlock = enumerator.Current as Media.Rtcp.ReportBlock;
+
+                                Console.WriteLine("Found a ReportBlock");
+
+                                //Print the instance information
+                                Console.WriteLine("FractionsLost: " + asReportBlock.FractionsLost);//255/256 0xff
+                                Console.WriteLine("CumulativePacketsLost: " + asReportBlock.CumulativePacketsLost);//-1, 0xff,0xff,0xff
+                                Console.WriteLine("ExtendedHighestSequenceNumberReceived: " + asReportBlock.ExtendedHighestSequenceNumberReceived);//65618, 00, 01, 00, 52
+                                Console.WriteLine("InterarrivalJitterEstimate: " + asReportBlock.InterarrivalJitterEstimate);//3771
+                                Console.WriteLine("LastSendersReportTimestamp: " + asReportBlock.LastSendersReportTimestamp);//3470000128
+                            }
+                            else //Not a ReportBlock
+                            {
+                                Console.WriteLine("Current IReportBlock TypeName: " + enumerator.Current.GetType().Name);
+                                Console.WriteLine("Current IReportBlock Data: " + BitConverter.ToString(enumerator.Current.BlockData.ToArray()));
+                            }
+                        }
+                    }
+
+                    //Verify RecieversReport byte for byte
+                    output = rr.Prepare().ToArray();//should be exactly equal to example
+                    for (int i = 0, e = rr.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
+
+                }
+
+                if (rtcpPacket.Header.IsDisposed || rtcpPacket.IsDisposed) throw new Exception("Disposed the Media.RtcpPacket");
+
+                //Now the packet can be disposed
+                rtcpPacket.Dispose();
+                rtcpPacket = null;
+
+                //Make another packet instance from the rest of the example data.
+                rtcpPacket = new Media.Rtcp.RtcpPacket(example, output.Length);
+
+                //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
+                using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false))
+                {
+
+                    foreach (var chunk in sourceDescription.GetChunkIterator())
+                    {
+                        Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
+                        //Use a SourceDescriptionItemList to access the items within the Chunk
+                        //This is performed auto magically when using the foreach pattern
+                        foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
+                        {
+                            Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
+                            Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
+                            Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.Data.ToArray())));
+                        }
+                    }
+
+                    //Verify SourceDescriptionReport byte for byte
+                    output = sourceDescription.Prepare().ToArray();//should be exactly equal to example
+                    for (int i = output.Length, e = sourceDescription.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
+
+                }
+
+                //ApplicationSpecific - qtsi
+
+                example = new byte[] { 0x81, 0xcc, 0x00, 0x06, 0x4e, 0xc8, 0x79, 0x50, 0x71, 0x74, 0x73, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x61, 0x74, 0x00, 0x04, 0x00, 0x00, 0x00, 0x14 };
+
+                rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0);
+
+                //Make a ApplicationSpecificReport instance
+                Media.Rtcp.ApplicationSpecificReport app = new Media.Rtcp.ApplicationSpecificReport(rtcpPacket);
+
+                //Check the name to be equal to qtsi
+                if (!app.Name.SequenceEqual(Encoding.UTF8.GetBytes("qtsi"))) throw new Exception("Invalid App Packet Type");
+
+                //Check the length
+                if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Legnth");
+
+                //Verify ApplicationSpecificReport byte for byte
+                output = rtcpPacket.Prepare().ToArray();//should be exactly equal to example
+                for (int i = 0, e = example.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
+
+                //Test making a packet with a known length in bytes
+                Media.Rtcp.SourceDescriptionReport sd = new Media.Rtcp.SourceDescriptionReport(2);
+                byte[] sdOut = sd.Prepare().ToArray();
+
+                //1 word when the ssrc is present but would be an invalid sdes because blockCount = 0
+                if (!sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
+
+                sd = new Media.Rtcp.SourceDescriptionReport(2);
+                byte[] itemData = Encoding.UTF8.GetBytes("FLABIA-PC");
+                sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
+                rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
+                //asPacket now contains 11 octets in the payload.
+                //asPacket now has 1 block (1 chunk of 15 bytes)
+                //asPacket is 19 octets long, 11 octets in the payload and 8 octets in the header
+                //asPacket would have a LengthInWordsMinusOne of 3 because 19 / 4 = 4 - 1 = 3
+                //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
+                //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
+                if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
+            }
+        }
+
+        #region Issue 17245
+
+        public static class TestProcessFrameData
+        {
+            private const int _senderSSRC = 0x53535243; //  "SSRC"
+            private const int _timeStamp = 0x54494d45;  //  "TIME"
+
+            private class TestFramework
+            {
+                private static System.Net.EndPoint _rtspServer;
+
+                private static System.Net.Sockets.Socket _listenSocket;
+
+                private System.Net.Sockets.Socket _sender,
+                               _receiving;
+
+                private Media.Rtp.RtpClient _client;
+
+                static TestFramework()
+                {
+                    _rtspServer = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 10554);
+
+                    //  Create a (single) listening socket.
+                    _listenSocket = new System.Net.Sockets.Socket(_rtspServer.AddressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+                    _listenSocket.Bind(_rtspServer);
+                    _listenSocket.Listen(1);
+                }
+
+                public TestFramework()
+                {
+                    //  Create a receiving socket.
+                    _receiving = new System.Net.Sockets.Socket(_rtspServer.AddressFamily, System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp);
+
+                    //  Connect to the server.
+                    IAsyncResult connectResult = null;
+                    connectResult = _receiving.BeginConnect(_rtspServer, new AsyncCallback((iar) =>
+                    {
+                        try { _receiving.EndConnect(iar); }
+                        catch { }
+                    }), null);
+
+                    //  Get the sender socket to be used by the "server".
+                    _sender = _listenSocket.Accept();
+
+                    //  RtspClient default size
+                    byte[] buffer = new byte[8192];
+
+                    _client = new Media.Rtp.RtpClient(new Media.Common.MemorySegment(buffer, Media.Rtsp.RtspMessage.MaximumLength, buffer.Length - Media.Rtsp.RtspMessage.MaximumLength));
+                    _client.InterleavedData += ProcessInterleaveData;
+                    _client.RtpPacketReceieved += ProcessRtpPacket;
+
+                    Media.Sdp.MediaDescription md = new Media.Sdp.MediaDescription(Media.Sdp.MediaType.video, 999, "H.264", 0);
+
+                    Media.Rtp.RtpClient.TransportContext tc = new Media.Rtp.RtpClient.TransportContext(0, 1,
+                        RFC3550.Random32(9876), md, false, _senderSSRC);
+                    //  Create a Duplexed reciever using the RtspClient socket.
+                    tc.Initialize(_receiving);
+
+                    _client.Add(tc);
+                }
+
+                Media.Rtsp.RtspMessage lastInterleaved;
+
+                void ProcessInterleaveData(object sender, byte[] data, int offset, int length)
+                {
+                    ConsoleColor previousForegroundColor = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine("ProcessInterleaveData(): offset = " + offset + ", length = :" + length);
+
+                    byte[] buffer = new byte[length];
+                    Array.Copy(data, offset, buffer, 0, length);
+                    //  Using ASCII instead of UTF8 to get all bytes printed.
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    Console.WriteLine("'" + Encoding.ASCII.GetString(buffer) + "'");
+
+
+                GetMessage:
+
+                    try
+                    {
+                        Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, length);
+
+                        if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
+                        {
+
+                            interleaved.Dispose();
+
+                            interleaved = null;
+
+                            int lastLength = lastInterleaved.Length;
+
+                            using (var memory = new Media.Common.MemorySegment(data, offset, length))
+                            {
+                                lastInterleaved.CompleteFrom(null, memory);
+
+                                if (lastLength == lastInterleaved.Length) return;
+                            }
+
+                        }
+                        else lastInterleaved = interleaved;
+
+                        //If the last message was complete then show it in green
+                        if (lastInterleaved.IsComplete) Console.ForegroundColor = ConsoleColor.Green;
+
+                        Console.WriteLine("ProcessInterleaveData() RtspMessage.MessageType = " + lastInterleaved.MessageType.ToString());
+                        Console.WriteLine("ProcessInterleaveData() RtspMessage.CSeq = " + lastInterleaved.CSeq);
+                        Console.WriteLine("ProcessInterleaveData() RtspMessage = '" + lastInterleaved.ToString() + "'");
+
+                        Console.ForegroundColor = previousForegroundColor;
+
+                        int totalLength = lastInterleaved.Length;
+
+                        if (totalLength < length)
+                        {
+                            offset += totalLength;
+                            length -= totalLength;
+                            goto GetMessage;
+                        }
+
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("ProcessInterleaveData() exception:" + ex.ToString());
+                        Console.WriteLine("");
+                        //throw;
+                    }
+                }
+
+                void ProcessRtpPacket(object sender, Media.Rtp.RtpPacket packet)
+                {
+                    ConsoleColor previousForegroundColor = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    Console.WriteLine("ProcessRtpPacket(): SequenceNumber = " + packet.SequenceNumber +
+                        ", Payload.Offset = " + packet.Payload.Offset + ", Payload.Count = " + packet.Payload.Count);
+                    Console.ForegroundColor = previousForegroundColor;
+                }
+
+                public int Send(byte[] data)
+                {
+                    return _sender.Send(data);
+                }
+
+                public void HaveRtpClientWorkerThreadProcessSocketData()
+                {
+                    _client.Connect();
+
+                    System.Threading.Thread.Sleep(200);   //  To make the prompt appear after the output
+
+                    //if (System.Diagnostics.Debugger.IsAttached)
+                    {
+                        Console.WriteLine("Press any key to 'dicsonnect' RtpClient work thread and continue with next test.");
+                        Console.ReadKey(true);
+                    }
+
+                    _client.Disconnect();
+                }
+            }
+
+            private static byte[] GeneratePayload(int size)
+            {
+                int partNumber = 0;
+
+                StringBuilder sb = new StringBuilder();
+                while (sb.Length < size)
+                {
+                    sb.Append("EncapsulatedPacketPayloadContentPartNumber" + ++partNumber + "$");
+                }
+
+                //  Using ASCII as it is not intended to be interpreted as RTSP request/response text.
+                byte[] encoded = Encoding.ASCII.GetBytes(sb.ToString());
+
+                byte[] buffer = new byte[size];
+                Array.Copy(encoded, buffer, size);
+
+                return buffer;
+            }
+
+            private static byte[] GenerateEncapsulatingHeader(int length)
+            {
+                byte[] header = new byte[4];
+                header[0] = 0x24;   //  '$'
+                header[1] = 0;      //  Channel 0
+                Media.Common.Binary.Write16(header, 2, BitConverter.IsLittleEndian, (short)length);
+                return header;
+            }
+
+            private static void Issue17245_Case1(int breakingPaketLength)
+            {
+                int sequenceNumber = 0x3030;   //  "00"
+                string line = "Case1(): SequenceNumber = ";
+
+                System.Console.Clear();
+                Console.WriteLine("TestProcessFrameData Issue17245_Case1(): Discarding of Encapsulating Frame Header");
+                Console.WriteLine("breakingPaketLength = " + breakingPaketLength);
+                Console.WriteLine("Correct output is 5 rows saying 'Case1()...' and 5 rows 'ProcessRtpPacket()...'");
+                Console.WriteLine("No yellow rows!!!");
+                Console.WriteLine("");
+
+                TestFramework tf = new TestFramework();
+
+                Console.WriteLine(line + sequenceNumber);
+                byte[] buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p1 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p1.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p2 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p2.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(breakingPaketLength); //  Length 1245 to 1247 looses packets and it does not recover
+                Media.Rtp.RtpPacket p3 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p3.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p4 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p4.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p5 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p5.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
+                tf.HaveRtpClientWorkerThreadProcessSocketData();
+            }
+
+            /// <summary>
+            /// This test demonstrates the first point in issue report #17245.
+            /// </summary>
+            public static void Issue17245_Case1_Iteration()
+            {
+                //  Length 1245 to 1247 looses packets and erronyously triggers ProcessInterleaveData().
+                for (int size = 1244; size <= 1248; size++)
+                {
+                    Issue17245_Case1(size);
+                }
+            }
+
+            private static void Issue17245_Case2(int breakingPaketLength)
+            {
+                int sequenceNumber = 0x3030;   //  "00"
+
+                System.Console.Clear();
+                Console.WriteLine("TestProcessFrameData Issue17245_Case2(): Interleaved RTSPResponse");
+                Console.WriteLine("breakingPaketLength = " + breakingPaketLength);
+                Console.WriteLine("Correct output is 3 rows saying 'ProcessRtpPacket()...', 1 yellow row, and finaly a single row 'ProcessRtpPacket()...':");
+                Console.WriteLine("");
+
+                TestFramework tf = new TestFramework();
+                //Console.WriteLine(line + sequenceNumber);
+                byte[] buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p1 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p1.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                //Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p2 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p2.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                //Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(breakingPaketLength);
+                Media.Rtp.RtpPacket p3 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p3.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
+                keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+                keepAlive.CSeq = 34;
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
+                keepAlive.SetHeader("Ignore", "$UserAgent $009\r\n$\0\0\aRTSP/1.0");
+                keepAlive.SetHeader("$", string.Empty);
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+                buffer = keepAlive.Prepare().ToArray();
+                tf.Send(buffer);
+
+                //Console.WriteLine(line + sequenceNumber);
+                buffer = GeneratePayload(1400);
+                Media.Rtp.RtpPacket p4 = new Media.Rtp.RtpPacket(2, false, false, false, 0, 0, _senderSSRC, sequenceNumber++, _timeStamp, buffer);
+                buffer = p4.Prepare().ToArray();
+                tf.Send(GenerateEncapsulatingHeader(buffer.Length));
+                tf.Send(buffer);
+
+                //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
+                tf.HaveRtpClientWorkerThreadProcessSocketData();
+            }
+
+            /// <summary>
+            /// This test demonstrates the first point in issue report #17245.
+            /// 
+            /// This test will not produce valid RtspMessage objects until the issue
+            /// report #17276 also is fixed.
+            /// 
+            /// If the RtspMessage defect is attended to first this test can also be used to
+            /// extensivelly validate the correctnes of the fixing of the constructor
+            /// RtspMessage(byte[] data, int offset, int length).
+            /// </summary>
+            public static void Issue17245_Case2_Iteration()
+            {
+                //  First and last iteration is a complete response.
+                //  All iterations inbetween are broken in two calls to ProcessInterleaveData().
+                for (int size = 1500; size >= 0; --size)
+                {
+                    Issue17245_Case2(size);
+                }
+            }
+
+            /// <summary>
+            /// This test case is added to demonstrate the risk of handing a byte array to a constructor.
+            /// A ctor can only return a single object even if the byte array it is given may contain more
+            /// than one object.
+            /// This violates OO as the caller is burdened with having to now about what should be a feature
+            /// of using the class it is calling.
+            /// </summary>
+            public static void BackToBackRtspMessages()
+            {
+                System.Console.Clear();
+                Console.WriteLine("TestProcessFrameData Case3(): Two back to back RTSP Responses");
+                Console.WriteLine("Correct output would be 2 'ProcessInterleaveData():...' detailing RTSP responses CSeq 34 and 35:");
+                Console.WriteLine("");
+
+                TestFramework tf = new TestFramework();
+
+                Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
+                keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+                keepAlive.CSeq = 34;
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+                byte[] buffer = keepAlive.Prepare().ToArray();
+                tf.Send(buffer);
+
+                keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
+                keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+                keepAlive.CSeq = 35;
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
+                keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
+                buffer = keepAlive.Prepare().ToArray();
+                tf.Send(buffer);
+
+                //  Kick of the processing eventually ending up in RtpClient.ProcessFrameData()
+                tf.HaveRtpClientWorkerThreadProcessSocketData();
+            }
+        }
+
+        #endregion
 
         #endregion
 
