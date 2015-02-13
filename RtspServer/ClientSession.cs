@@ -999,7 +999,7 @@ namespace Media.Rtsp
                 //}
 
                 //Add the transportChannel
-                m_RtpClient.Add(setupContext);
+                m_RtpClient.TryAddContext(setupContext);
 
                 //Create the returnTransportHeader (Should be setupContext.SynchronizationSourceIdentifier)
                 returnTransportHeader = RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier, localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort, true, false, null, false, 0, 0);
@@ -1042,7 +1042,7 @@ namespace Media.Rtsp
                     setupContext = new RtpClient.TransportContext((byte)(dataChannel = 0), (byte)(controlChannel = 1), localSsrc, mediaDescription, m_RtspSocket, false == rtcpDisabled, remoteSsrc, 0);
 
                     //Add the transportChannel the client requested
-                    m_RtpClient.Add(setupContext);
+                    m_RtpClient.TryAddContext(setupContext);
 
                     //Initialize the Interleaved Socket
                     setupContext.Initialize(m_RtspSocket);
@@ -1057,7 +1057,7 @@ namespace Media.Rtsp
                     else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, localSsrc, mediaDescription, false == rtcpDisabled, remoteSsrc, 0);
 
                     //Add the transportChannel the client requested
-                    m_RtpClient.Add(setupContext);
+                    m_RtpClient.TryAddContext(setupContext);
 
                     //Initialize the current TransportChannel with the interleaved Socket
                     setupContext.Initialize(m_RtspSocket);
