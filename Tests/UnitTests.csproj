@@ -18,6 +18,21 @@
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -78,149 +93,153 @@
     <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
       <Link>MediaAssemblyVersionInfo.cs</Link>
     </Compile>
-    <Compile Include="ContainerInspector.cs">
+    <Compile Include="Forms\ContainerInspector.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="ContainerInspector.Designer.cs">
+    <Compile Include="Forms\ContainerInspector.Designer.cs">
       <DependentUpon>ContainerInspector.cs</DependentUpon>
     </Compile>
-    <Compile Include="RtspInspector.cs">
+    <Compile Include="Forms\RtspInspector.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="RtspInspector.Designer.cs">
+    <Compile Include="Forms\RtspInspector.Designer.cs">
       <DependentUpon>RtspInspector.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Code\RtpClientUnitTests.cs" />
+    <Compile Include="Code\RtpRtcpUnitTests.cs" />
+    <Compile Include="Code\RtspClientUnitTests.cs" />
+    <Compile Include="Code\SDPUnitTests.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Bandit\20130707_083611.jpg">
+    <Content Include="Media\Bandit\20130707_083611.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131022_171308.jpg">
+    <Content Include="Media\Bandit\20131022_171308.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131031_121028.jpg">
+    <Content Include="Media\Bandit\20131031_121028.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131031_121032.jpg">
+    <Content Include="Media\Bandit\20131031_121032.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131211_103924.jpg">
+    <Content Include="Media\Bandit\20131211_103924.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131211_104757.jpg">
+    <Content Include="Media\Bandit\20131211_104757.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131225_232429.jpg">
+    <Content Include="Media\Bandit\20131225_232429.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\20131225_232530_HDR.jpg">
+    <Content Include="Media\Bandit\20131225_232530_HDR.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Bandit\IMG_20130421_140022.jpg">
+    <Content Include="Media\Bandit\IMG_20130421_140022.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\Channel_digital_image_CMYK_color.jpg">
+    <Content Include="Media\JpegTest\Channel_digital_image_CMYK_color.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\croinbw.jpg">
+    <Content Include="Media\JpegTest\croinbw.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\m00905argb.jpg">
+    <Content Include="Media\JpegTest\m00905argb.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\m00905srgb.jpg">
+    <Content Include="Media\JpegTest\m00905srgb.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\testimg.jpg">
+    <Content Include="Media\JpegTest\testimg.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\testimgp.jpg">
+    <Content Include="Media\JpegTest\testimgp.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\testorig.jpg">
+    <Content Include="Media\JpegTest\testorig.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\testprog.jpg">
+    <Content Include="Media\JpegTest\testprog.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\videoflipalt.jpg">
+    <Content Include="Media\JpegTest\videoflipalt.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\camera.jpg">
+    <Content Include="Media\JpegTest\camera.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\jpeg400jfif.jpg">
+    <Content Include="Media\JpegTest\jpeg400jfif.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\jpeg420exif.jpg">
+    <Content Include="Media\JpegTest\jpeg420exif.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\jpeg422jfif.jpg">
+    <Content Include="Media\JpegTest\jpeg422jfif.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\jpeg444.jpg">
+    <Content Include="Media\JpegTest\jpeg444.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\Untitled.jpg">
+    <Content Include="Media\JpegTest\Untitled.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\video.jpg">
+    <Content Include="Media\JpegTest\video.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\videoalt.jpg">
+    <Content Include="Media\JpegTest\videoalt.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\yh9r01459argbsmall.jpg">
+    <Content Include="Media\JpegTest\yh9r01459argbsmall.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\yh9r01459srgbsmall.jpg">
+    <Content Include="Media\JpegTest\yh9r01459srgbsmall.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="JpegTest\yuvj422.jpg">
+    <Content Include="Media\JpegTest\yuvj422.jpg">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\asf\pages.asf">
+    <Content Include="Media\Video\asf\pages.asf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\avi\MVI_3572.AVI">
+    <Content Include="Media\Video\avi\MVI_3572.AVI">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\avi\turning_pages_mjpeg.avi">
+    <Content Include="Media\Video\avi\turning_pages_mjpeg.avi">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\mov\pages.mov">
+    <Content Include="Media\Video\mov\pages.mov">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\mp4\mvi.mp4">
+    <Content Include="Media\Video\mp4\mvi.mp4">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\mp4\pages.mp4">
+    <Content Include="Media\Video\mp4\pages.mp4">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Video\mp4\pages_ogg.mp4">
+    <Content Include="Media\Video\mp4\pages_ogg.mp4">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <None Include="bark.rtp">
+    <None Include="Media\bark.rtp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Video\mkv\mvi.mkv">
+    <None Include="Media\Video\mkv\mvi.mkv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Video\mkv\pages.mkv">
+    <None Include="Media\Video\mkv\pages.mkv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="Video\mxf\freeMXF-mxf1.mxf">
+    <None Include="Media\Video\mxf\freeMXF-mxf1.mxf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Video\nut\Akon_cut.nut">
+    <None Include="Media\Video\nut\Akon_cut.nut">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Video\ogg\small.ogv">
+    <None Include="Media\Video\ogg\small.ogv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
@@ -331,14 +350,25 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="ContainerInspector.resx">
+    <EmbeddedResource Include="Forms\ContainerInspector.resx">
       <DependentUpon>ContainerInspector.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="RtspInspector.resx">
+    <EmbeddedResource Include="Forms\RtspInspector.resx">
       <DependentUpon>RtspInspector.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

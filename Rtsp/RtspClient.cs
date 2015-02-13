@@ -1540,7 +1540,7 @@ namespace Media.Rtsp
                         if (context.TimeReceiving == context.TimeSending && context.TimeSending == Utility.InfiniteTimeSpan)
                         {
                             //Remove the context
-                            Client.Remove(context);
+                            Client.TryRemoveContext(context);
 
                             //Dispose it
                             context.Dispose();
@@ -3300,7 +3300,7 @@ namespace Media.Rtsp
                         //Care should be taken that the SDP is not directing us to connect to some unknown resource....
 
                         //try to add the TransportContext
-                        m_RtpClient.Add(created);
+                        m_RtpClient.TryAddContext(created);
                     }
                     else
                     {
@@ -3358,7 +3358,7 @@ namespace Media.Rtsp
                             rtcpTemp = null;
                         }
 
-                        m_RtpClient.Add(created);
+                        m_RtpClient.TryAddContext(created);
                     }
 
                     //Setup Complete
@@ -3760,7 +3760,7 @@ namespace Media.Rtsp
                             //if(context.LeaveOpen)
 
                             //Remove the context from the rtp client.
-                            Client.Remove(context);
+                            Client.TryRemoveContext(context);
 
                             //Dispose of it.
                             context.Dispose();

@@ -160,12 +160,15 @@ namespace Media.Common
         /// <summary>
         /// An equivalent to C's `signbit`
         /// </summary>
-        /// <param name="d">The value</param>
-        /// <returns>true if arg is negative, false otherwise</returns>
-        public unsafe static bool signbit(double d)
+        /// <param name="d">The reference to the value</param>
+        /// <returns>Hopefully true if arg is negative, false otherwise</returns>
+        public unsafe static bool signbit(ref double d)
         {
-            ushort* pd = (ushort*)&d;
-            return (pd[3] & 0x8000) != 0;
+            fixed (double* pRef = &d)
+            {
+                ushort* pd = (ushort*)pRef;
+                return (pd[3] & 0x8000) != 0;
+            }
         }
 
         /// <summary>
@@ -282,6 +285,11 @@ namespace Media.Common
         /// The amount of bits it a single octet
         /// </summary>
         public const byte BitSize = 8;
+
+        /// <summary>
+        /// (000000)11 in Binary
+        /// </summary>
+        public const byte TwoBitMaxValue = 3;
 
         /// <summary>
         /// (0000)1111 in Binary

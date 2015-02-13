@@ -300,7 +300,7 @@ namespace Media.Rtsp.Server.MediaTypes
             //A/U law and WideBand should be a field set in constructor.
             //mode-set=4,3
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " PCMA/" + clockRate));
-            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
+            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
         }
         
         #endregion
