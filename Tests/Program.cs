@@ -75,8 +75,8 @@ namespace Tests
             RtpClientUnitTests.TestProcessFrameData.BackToBackRtspMessages, 
             RtpClientUnitTests.TestProcessFrameData.Issue17245_Case1_Iteration, 
             RtpClientUnitTests.TestProcessFrameData.Issue17245_Case2_Iteration,
+            RtpClientUnitTests.TestInterleavedFraming,           
             //RtspClient
-            RtspClientUnitTests.TestRtspInterleavedFraming            
         };
 
         /// <summary>
@@ -334,7 +334,7 @@ namespace Tests
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
 
                 },
-                //GoogleStreamer IPv6 if available
+                //GoogleStreamer (Udp only) IPv6 if available
                 new
                 {
                     Uri = "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp", //Single media item
@@ -354,6 +354,7 @@ namespace Tests
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
+                //Unknown 
                 new
                 {
                     Uri = "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", //Continious Media
@@ -1987,6 +1988,8 @@ namespace Tests
                 Console.WriteLine("Stopping Server");
 
                 server.Stop();
+
+                Console.WriteLine("Server Stopped");
             }
         }
 
@@ -2527,7 +2530,7 @@ a=rtpmap:99 h263-1998/90000");
                 sd.MediaDescriptions.First().MediaPort != 7654
                 ||
                 sd.Lines.Count() != 4 ||
-                sd.MediaDescriptions.First().MediaFormat != 42) throw new Exception("Did not parse media line correctly");
+                sd.MediaDescriptions.First().MediaFormat != "*") throw new Exception("Did not parse media line correctly");
 
             if (sd.Length > sd.ToString().Length) throw new Exception("Did not calculate length correctly");
 
@@ -3110,7 +3113,7 @@ a=rtpmap:99 h263-1998/90000");
 
         static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, TypeCode returnType)
         {
-            var typedInstance = Activator.CreateInstance(instanceType);
+            Object typedInstance = Activator.CreateInstance(instanceType);
 
             //Get the methods of the class
             foreach (var method in instanceType.GetMethods())
@@ -3118,7 +3121,7 @@ a=rtpmap:99 h263-1998/90000");
                 //Ensure for the void type
                 if (Type.GetTypeCode(method.ReturnType) != returnType) continue;
 
-                //Invoke the void with (no parameters)
+                //Invoke the void with (no parameters) on the created instance
                 method.Invoke(typedInstance, null);
             }
 

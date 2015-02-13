@@ -314,6 +314,11 @@ namespace Media.Common
         /// </summary>
         public const int U24MaxValue = 16777215;
 
+        /// <summary>
+        /// Needs no summary.
+        /// </summary>
+        internal const uint TheAnswerToEverything = 42;
+
         #endregion
 
         #region Sizes

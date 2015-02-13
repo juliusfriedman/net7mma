@@ -1612,6 +1612,8 @@ namespace Media.Rtsp
                     foreach (var media in setupMedia) if (false == m_Playing.Contains(media)) m_Playing.Add(media);
 
                     OnPlaying();
+
+                    //Set EndTime
                 }
             }
 
@@ -1625,8 +1627,10 @@ namespace Media.Rtsp
             //Subtract against the connection time... the averge rtt would be better
             if (m_KeepAliveTimer == null) m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, halfSessionTimeWithConnection, Utility.InfiniteTimeSpan);
 
+            TimeSpan protocolSwitchTime = halfSessionTimeWithConnection.Subtract(m_RtpClient.GetTransportContexts().Max(tc => tc.ReceiveInterval));
+
             //If the protocol switch feature is enabled.
-            if (AllowAlternateTransport) m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, halfSessionTimeWithConnection.Subtract(m_RtpClient.GetTransportContexts().Max(tc => tc.ReceiveInterval)), Utility.InfiniteTimeSpan);
+            if (AllowAlternateTransport) m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, protocolSwitchTime, Utility.InfiniteTimeSpan);
 
             //Don't keep the tcp socket open when not required under Udp.
             //if (m_RtpProtocol == ProtocolType.Udp) DisconnectSocket();
@@ -2930,6 +2934,9 @@ namespace Media.Rtsp
             //This will allow for non RTP transports to be used such as MPEG-TS.
             //Must de-coulple the RtpClient and replace it
 
+            ////Determine if a rtcp datum should be sent in the Transport header.
+            bool needsRtcp = true;
+
             #region [WMS Notes / Log]
 
             //Some sources indicate that rtx must be or must not be setup
@@ -2972,10 +2979,7 @@ namespace Media.Rtsp
             Transport:
             RTP/AVP/UDP;unicast;server_port=5004;client_port=1208;ssrc=8873c0cf;mode
             =PLAY
-             */            
-
-            ////Determine if a rtcp datum should be sent in the Transport header.
-            bool needsRtcp = true;
+             */                        
 
             ////Keep the values parsed from the description
             //int rr, rs, a;
@@ -2994,7 +2998,7 @@ namespace Media.Rtsp
             ////Possible check server header in m_LastTransmitted
             //if (location.AbsoluteUri.EndsWith("rtx", StringComparison.OrdinalIgnoreCase)) needsRtcp = true;
 
-            #endregion
+            #endregion            
 
             try
             {
@@ -3072,21 +3076,35 @@ namespace Media.Rtsp
                         m_RtpProtocol = ProtocolType.Udp;
 
                         //Could send 0 to have server pick port?                        
-                        int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000, true); //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort
+
+                        //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
+                        int openPort = Utility.FindOpenPort(ProtocolType.Udp, 10000, true); 
 
                         rtpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort = openPort);
+
+                        //Check for muxing of rtp and rtcp on the same physical port
+                        if (mediaDescription.Where(l => l.Type == Sdp.SessionDescription.AttributeType && l.Parts.Any(p => p.ToLowerInvariant() == "rtcp-mux")).Any())
+                        {
+                            //Might not 'need' it
+                            needsRtcp = true;
+
+                            //Use the same port
+                            clientRtcpPort = clientRtpPort;
+                        }
+                        else if (needsRtcp) rtcpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = openPort + 1));
                         
-                        if(needsRtcp) rtcpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = openPort + 1));
 
                         if (openPort == -1) Common.ExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
                         //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
                         //{
                         //    Common.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
                         //}    
-
+                        //Supposedly
                         //WMS Server will complain if there is a RTCP port and no RTCP is allowed.
 
-                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc != 0 ? localSsrc : (int?)null, null, openPort, (needsRtcp ? (int?)(openPort + 1) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
+
+                        //Should allow a Rtcp only setup? would be a different profile...
+                        setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/UDP", localSsrc != 0 ? localSsrc : (int?)null, null, clientRtpPort, (needsRtcp ? (int?)(clientRtcpPort) : null), null, null, true, false, null, false, 0, 0, RtspMethod.PLAY.ToString()));
                     }
                     else throw new NotSupportedException("The required Transport is not yet supported.");
 
@@ -3382,15 +3400,17 @@ namespace Media.Rtsp
 
         protected virtual void SwitchProtocols(object state = null)
         {
-            //If there is no socket or the protocol was not already specified as TCP
-            if (false == IsDisposed && IsPlaying && m_RtspProtocol != ClientProtocolType.Tcp)
+
+            if (AllowAlternateTransport && //If protocol switch is still allowed AND
+                false == IsDisposed && m_RtpProtocol != ProtocolType.Tcp &&  //If not already Disposed and the protocol was not already specified as or configured to TCP
+                IsPlaying) //AND the RtspClient IsPlaying Media
             {
 
-                var contextsWithoutFlow = Client.GetTransportContexts().Where(tc=> false == tc.IsDisposed);
+                //Filter any context which is not playing, disposed or has activity
+                var contextsWithoutFlow = Client.GetTransportContexts().Where(tc => m_Playing.Contains(tc.MediaDescription) && false == tc.IsDisposed && false == tc.HasAnyActivity);
 
-                if (contextsWithoutFlow.Any() && 
-                    contextsWithoutFlow.All(tc => tc.IsRtcpEnabled ? tc.TotalRtcpPacketsReceieved == 0 : true &&  //Enforce that Rtcp is working AND
-                        tc.IsRtpEnabled && (tc.RtpPacketsSent == 0 || tc.RtpPacketsReceived == 0))) //Allow sending clients to not be considered inactive
+                //If there are any context's which are not flowing
+                if (contextsWithoutFlow.Any())
                 {
                     try
                     {
@@ -3421,7 +3441,7 @@ namespace Media.Rtsp
                 }
             }
             
-            //If there is still a timer dispose of it at this point.
+            //If there is still a timer dispose of it at this point as it will no longer be required
             if(m_ProtocolSwitchTimer != null)
             {
                 m_ProtocolSwitchTimer.Dispose();
@@ -3515,6 +3535,11 @@ namespace Media.Rtsp
                         }
                         else if (response.StatusCode == RtspStatusCode.OK)
                         {
+
+                            //Set EndTime based on Range
+
+                            //string rangeHeader = response[RtspHeaders.Range];
+
                             //Should really only get the RtpInfo header if its needed....
 
                             //Get the rtp-info header
@@ -3990,8 +4015,30 @@ namespace Media.Rtsp
 
         #endregion
 
+        #region Overloads
+
+        public override string ToString()
+        {
+            return string.Join(((char)Common.ASCII.HyphenSign).ToString(), base.ToString(), InternalId);
+        }
+
+        #endregion
+
         #region IDisposable
 
+        /// <summary>
+        /// Stops sending any Keep Alive Immediately and calls <see cref="StopPlaying"/>.
+        /// If the <see cref="RtpClient"/> is not null:
+        /// Removes the <see cref="ProcessInterleaveData"/> event
+        /// Disposes the RtpClient and sets it to null.
+        /// Disposes and sets the Buffer to null.
+        /// Disposes and sets the InterleavedEvent to null.
+        /// Disposes and sets the m_LastTransmitted to null.
+        /// Disposes and sets the <see cref="RtspSocket"/> to null if <see cref="LeaveOpen"/> allows.
+        /// Removes connection times so <see cref="IsConnected"/> is false.
+        /// Stops raising any events.
+        /// Removes any <see cref="Logger"/>
+        /// </summary>
         public override void Dispose()
         {
             if (IsDisposed) return;
@@ -4012,7 +4059,7 @@ namespace Media.Rtsp
             if (m_RtpClient != null)
             {
                 m_RtpClient.InterleavedData -= ProcessInterleaveData;
-                if (!m_RtpClient.IsDisposed) m_RtpClient.Dispose();
+                if (false == m_RtpClient.IsDisposed) m_RtpClient.Dispose();
                 m_RtpClient = null;
             }
 
@@ -4036,7 +4083,7 @@ namespace Media.Rtsp
 
             if (m_RtspSocket != null)
             {
-                if (!LeaveOpen) m_RtspSocket.Dispose();
+                if (false == LeaveOpen) m_RtspSocket.Dispose();
                 m_RtspSocket = null;
             }
 

@@ -215,6 +215,7 @@ namespace Media.Rtsp
             {
                 return false == IsDisposed &&
                     false == m_StopRequested &&
+                    m_Started.HasValue &&
                      m_ServerThread != null;
 
                 #region Unused IsRunning
@@ -233,9 +234,13 @@ namespace Media.Rtsp
         public int ServerPort { get { return m_ServerPort; } }
 
         /// <summary>
-        /// The local endpoint for this RtspServer (The endpoint on which requests are recieved)
+        /// If <see cref="IsRunning"/> is true and the server's socket is Bound.
+        /// The local endpoint for this RtspServer (The endpoint on which requests are recieved)        
         /// </summary>
-        public IPEndPoint LocalEndPoint { get { return m_TcpServerSocket.LocalEndPoint as IPEndPoint; } }
+        public IPEndPoint LocalEndPoint
+        {
+            get { return IsRunning && m_TcpServerSocket != null && m_TcpServerSocket.IsBound ? m_TcpServerSocket.LocalEndPoint as IPEndPoint : null; }
+        }
 
         //Todo make sure name is correct.
 
@@ -381,7 +386,10 @@ namespace Media.Rtsp
 
         #region Methods
 
+        #region Enable and Disable Alternate Transport Protocols
+
         int m_HttpPort = -1;
+
         public void EnableHttpTransport(int port = 80) 
         {
             if (m_HttpListner == null)
@@ -458,29 +466,7 @@ namespace Media.Rtsp
             }
         }
 
-        /// <summary>
-        /// Stops the server and removes all streams
-        /// </summary>
-        public override void Dispose()
-        {
-            if (IsDisposed) return;
-
-            base.Dispose();
-         
-            Stop();
-
-            foreach (var stream in m_MediaStreams.ToList())
-            {
-                stream.Value.Dispose();
-                m_MediaStreams.Remove(stream.Key);
-            }
-
-            //Clear streams
-            m_MediaStreams.Clear();
-
-            //Clear custom handlers
-            m_RequestHandlers.Clear();
-        }
+        #endregion
 
         #region Session Collection
 
@@ -861,6 +847,9 @@ namespace Media.Rtsp
             //If we already have a thread return
             if (IsRunning) return;
 
+            //Allowed to run
+            m_StopRequested = false;
+
             //Indicate start was called
             Common.ILoggingExtensions.Log(Logger, "Server Started @ " + DateTime.UtcNow);
 
@@ -893,6 +882,9 @@ namespace Media.Rtsp
             //Start it
             m_ServerThread.Start();
 
+            //Indicate when start was finished.
+            m_Started = DateTime.UtcNow;
+
             //Timer for maintaince
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 4), Utility.InfiniteTimeSpan);
 
@@ -904,9 +896,6 @@ namespace Media.Rtsp
 
             //Erase any prior stats
             m_Sent = m_Recieved = 0;
-
-            //Indicate when start was finished.
-            m_Started = DateTime.UtcNow;
         }
 
         /// <summary>
@@ -980,7 +969,7 @@ namespace Media.Rtsp
         public virtual void Stop()
         {
             //If there is not a server thread return
-            if (IsDisposed || m_StopRequested || false == IsRunning) return;
+            if (IsRunning) return;
 
             //Stop listening for new clients
             m_StopRequested = true;
@@ -1002,12 +991,11 @@ namespace Media.Rtsp
                 m_Maintainer.Dispose();
                 m_Maintainer = null;
             }
+
+            m_Maintaining = false;
             
             //Stop listening to source streams
             StopStreams();
-
-            //Wait for the thread maintaining the server to complete (should store thread not m_Maintaining)
-            while (m_Maintaining) System.Threading.Thread.Sleep(0);
 
             //Remove all clients
             foreach (ClientSession session in Clients)
@@ -1017,14 +1005,7 @@ namespace Media.Rtsp
             }
 
             //Abort the worker from receiving clients
-            if (IsRunning)
-            {
-                Thread serverThread = m_ServerThread;
-
-                m_ServerThread = null;
-
-                Utility.TryAbort(ref m_ServerThread);
-            }
+            Utility.TryAbort(ref m_ServerThread);
 
             //Dispose the server socket
             if (m_TcpServerSocket != null)
@@ -1036,9 +1017,6 @@ namespace Media.Rtsp
           
             //Erase statistics
             m_Started = null;            
-
-            //Allow restart
-            m_StopRequested = false;
         }
 
         /// <summary>
@@ -2730,6 +2708,36 @@ namespace Media.Rtsp
 
         #endregion        
     
+        #region IDisposable
+
+        /// <summary>
+        /// Calls <see cref="Stop"/> 
+        /// Removes and Disposes all contained streams
+        /// Removes all custom request handlers
+        /// </summary>
+        public override void Dispose()
+        {
+            if (IsDisposed) return;
+
+            base.Dispose();
+
+            Stop();
+
+            foreach (var stream in m_MediaStreams.ToList())
+            {
+                stream.Value.Dispose();
+                m_MediaStreams.Remove(stream.Key);
+            }
+
+            //Clear streams
+            m_MediaStreams.Clear();
+
+            //Clear custom handlers
+            m_RequestHandlers.Clear();
+        }
+
+        #endregion
+
         IEnumerable<Socket> Common.ISocketReference.GetReferencedSockets()
         {
             yield return m_TcpServerSocket;
