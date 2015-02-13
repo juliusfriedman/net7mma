@@ -158,7 +158,7 @@ public class RtpRtcpTests
                         Console.Write(string.Format(TestingFormat, " ContributingSourceCount", p.ContributingSourceCount + "\r\n"));
 
                         //Check the CC nibble in the first octet.
-                        System.Diagnostics.Debug.Assert(p.ContributingSourceCount == ContributingSourceCounter, contributingSourceException.Message); 
+                        System.Diagnostics.Debug.Assert(p.ContributingSourceCount == ContributingSourceCounter, contributingSourceException.Message);
 
                         //Ensure the Version after modification
                         System.Diagnostics.Debug.Assert(p.Version == VersionCounter, versionException.Message);
@@ -500,9 +500,9 @@ public class RtpRtcpTests
                         if (false == p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
                             || //Check for validation per RFC3550 A.1 when the test permits
                             false == bitValue &&
-                            VersionCounter > 1 && 
-                            PayloadCounter >= 200 && 
-                            PayloadCounter <= 201 && 
+                            VersionCounter > 1 &&
+                            PayloadCounter >= 200 &&
+                            PayloadCounter <= 201 &&
                             false == Media.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
 
                         //Perform checks with length in words set incorrectly
@@ -656,7 +656,7 @@ public class RtpRtcpTests
             Console.WriteLine(rb);
 
         //Next Sub Test
-        
+
         //Create a GoodbyeReport with no block count
         using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7))
         {

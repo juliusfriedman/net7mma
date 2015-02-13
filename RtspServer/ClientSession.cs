@@ -1396,6 +1396,9 @@ namespace Media.Rtsp
                 //Make the new SessionDescription
                 sdp = new Sdp.SessionDescription(rtpSource.SessionDescription.ToString());
 
+                //Remove the old connection line
+                if (sdp.ConnectionLine != null) sdp.Remove(sdp.ConnectionLine, false);
+
                 sourceClient = rtpSource.RtpClient;
             }
             else
@@ -1424,12 +1427,6 @@ namespace Media.Rtsp
             }
             //Determine if session level control line should be present
             
-            //Find an existing connection line
-            Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;
-
-            //Remove the old connection line
-            if (connectionLine != null) sdp.Remove(connectionLine, false);
-
             //Rewrite a new connection line
             string addressString = LocalEndPoint.Address.ToString();// +"/127/2";
 
@@ -1441,15 +1438,14 @@ namespace Media.Rtsp
             //else 
                 //addressString += + ((IPEndPoint)RemoteEndPoint).Port;
 
-            connectionLine = new Sdp.Lines.SessionConnectionLine()
-            {
-                ConnectionAddress = addressString,
-                ConnectionAddressType = m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6" : "IP4",
-                ConnectionNetworkType = "IN",
-            };
-
             //Add the new line
-            sdp.Add(connectionLine, false);
+            Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;
+
+            connectionLine.ConnectionAddress = addressString;
+
+            connectionLine.ConnectionAddressType = m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6" : "IP4";
+
+            connectionLine.ConnectionNetworkType = "IN";
 
             //Add the information line if not present
             //Could also overwrite it.
@@ -1474,7 +1470,7 @@ namespace Media.Rtsp
                 //Rewrite it if present to reflect the appropriate MediaDescription
                 while (controlLine != null)
                 {
-                    md.RemoveLine(md.Lines.IndexOf(controlLine));
+                    md.Remove(controlLine);
                     controlLine = md.ControlLine;
                 }
 
@@ -1482,11 +1478,11 @@ namespace Media.Rtsp
                 bandwithLines = md.BandwidthLines;
 
                 //Remove existing bandwidth information, should check for AS
-                if(stream.m_DisableQOS) foreach (Sdp.SessionDescriptionLine line in bandwithLines) md.RemoveLine(md.Lines.IndexOf(line));
+                if(stream.m_DisableQOS) foreach (Sdp.SessionDescriptionLine line in bandwithLines) md.Remove(line);
 
                 //Remove all other alternate information
                 //Should probably only remove certain ones.
-                foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.RemoveLine(md.Lines.IndexOf(line));
+                foreach (Sdp.SessionDescriptionLine line in md.Lines.Where(l => l.Parts.Any(p => p.Contains("alt"))).ToArray()) md.Remove(line);
 
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
                 //Should be a TrackId and not the media type to allow more then one media type to be controlled.

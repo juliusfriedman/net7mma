@@ -70,6 +70,33 @@ public class SDPUnitTests
         System.Diagnostics.Debug.Assert('\n' == newLineCharacters[1], "Media.Sdp.SessionDescription.NewLine[0] Must Equal '\n'");
     }
 
+    public void ParseMediaDescriptionUnitTest()
+    {
+        string testVector = @" m=audio 49230 RTP/AVP 96 97 98
+            a=rtpmap:96 L8/8000
+            a=rtpmap:97 L16/8000
+            a=rtpmap:98 L16/11025/2";
+
+        using (var md = new Media.Sdp.MediaDescription(testVector))
+        {
+            System.Diagnostics.Debug.Assert(md.Lines.Count() == 4, "MediaDescription must have 4 lines");
+
+            //CLR not assert correctly with == ....
+            //md.MediaDescriptionLine.ToString() == "m=audio 49230 RTP/AVP 96 97 98"
+
+            System.Diagnostics.Debug.Assert(md.PayloadTypes.Count() == 3, "Could not read the Payload List");
+
+            System.Diagnostics.Debug.Assert(md.PayloadTypes.First() == 96, "Could not read the Payload List");
+
+            System.Diagnostics.Debug.Assert(md.PayloadTypes.ToArray()[1] == 97, "Could not read the Payload List");
+
+            System.Diagnostics.Debug.Assert(md.PayloadTypes.Last() == 98, "Could not read the Payload List");
+
+            System.Diagnostics.Debug.Assert(string.Compare(md.MediaDescriptionLine.ToString(), "m=audio 49230 RTP/AVP 96 97 98\r\n") == 0, "Did not handle Payload List Correct");
+
+        }
+    }
+
     public void ParseSDPUnitTest()
     {
         Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
@@ -95,11 +122,76 @@ public class SDPUnitTests
         System.Diagnostics.Debug.Assert("10.0.0.4" == sdp.ConnectionLine.Parts[2], "The connection address was not parsed  correctly.");  // ToDo: Be better if "Part[3]" was referred to by ConnectionAddress.
         System.Diagnostics.Debug.Assert(Media.Sdp.MediaType.audio == sdp.MediaDescriptions.First().MediaType, "The media type not parsed correctly.");
         System.Diagnostics.Debug.Assert(12228 == sdp.MediaDescriptions.First().MediaPort, "The connection port was not parsed correctly.");
-        System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().MediaFormat, "The first media format was incorrect.");         // ToDo: Can't cope with multiple media formats?
+        System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().PayloadTypes.First(), "The first media format was incorrect.");         // ToDo: Can't cope with multiple media formats?
         //Assert.IsTrue(sdp.Media[0].MediaFormats[0].FormatID == 0, "The highest priority media format ID was incorrect.");
         //Assert.IsTrue(sdp.Media[0].MediaFormats[0].Name == "PCMU", "The highest priority media format name was incorrect.");
         //Assert.IsTrue(sdp.Media[0].MediaFormats[0].ClockRate == 8000, "The highest priority media format clockrate was incorrect.");
         System.Diagnostics.Debug.Assert("rtpmap:0 PCMU/8000" == sdp.MediaDescriptions.First().RtpMapLine.Parts[0], "The rtpmap line for the PCM format was not parsed correctly.");  // ToDo "Parts" should be put into named properties where possible.  
+    }
+
+    public void CreateMediaDesciptionTest()
+    {
+        //RtpClient has the following property
+        //Media.Rtp.RtpClient.AvpProfileIdentifier
+        //I don't think it should be specified in the SDP Classes but I can figure out something else if desired.
+
+        string profile = "RTP/AVP";
+
+        Media.Sdp.MediaType mediaType = Media.Sdp.MediaType.audio;
+
+        int mediaPort = 15000;
+
+        //Iterate all possible byte values (should do a seperate test for the list of values?)
+        for (int mediaFormat = 0; mediaFormat <= 999; ++mediaFormat)
+        {
+            //Create a MediaDescription
+            using (var mediaDescription = new Media.Sdp.MediaDescription(mediaType, mediaPort, profile, mediaFormat))
+            {
+                System.Diagnostics.Debug.Assert(mediaDescription.MediaProtocol == profile, "Did not find MediaProtocol '" + profile + "'");
+
+                System.Diagnostics.Debug.Assert(mediaDescription.PayloadTypes.Count() == 1, "Found more then 1 payload type in the PayloadTypes List");
+
+                System.Diagnostics.Debug.Assert(mediaDescription.PayloadTypes.First() == mediaFormat, "Did not find correct MediaFormat");
+
+                System.Diagnostics.Debug.Assert(mediaDescription.ToString() == string.Format("m={0} {1} RTP/AVP {2}\r\n", mediaType, mediaPort, mediaFormat), "Did not output correct result");
+            }
+        }
+    }
+
+    public void CreateSessionDescriptionUnitTest()
+    {
+        string originatorAndSession = String.Format("{0} {1} {2} {3} {4} {5}", "-", "62464", "0", "IN", "IP4", "10.1.1.2");
+
+        string profile = "RTP/AVP";
+
+        Media.Sdp.MediaType mediaType = Media.Sdp.MediaType.audio;
+
+        int mediaPort = 15000;
+
+        int mediaFormat = 0;
+
+        string sessionName = "MySessionName";
+
+        using (var audioDescription = new Media.Sdp.SessionDescription(mediaFormat, originatorAndSession, sessionName))
+        {
+            //Ensure the correct version was set
+            System.Diagnostics.Debug.Assert(audioDescription.SessionVersion == 0, "Did not find Correct SessionVersion");
+
+            //Add the MediaDescription
+            audioDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.audio, mediaPort, profile, 0), false);
+
+            //Ensure the correct version is still set
+            System.Diagnostics.Debug.Assert(audioDescription.SessionVersion == 0, "Did not find Correct SessionVersion");
+
+            //Determine what the output should look like
+            string expected = string.Format("v=0\r\no={0}\r\ns={1}\r\nm={2} {3} RTP/AVP {4}\r\n", originatorAndSession, sessionName, mediaType, mediaPort, mediaFormat);
+
+            //Make a string from the instance
+            string actual = audioDescription.ToString();
+
+            //Check the result of the comparsion
+            System.Diagnostics.Debug.Assert(string.Compare(expected, actual) == 0, "Did not output expected result");
+        }
     }
 
     public void ParseBriaSDPUnitTest()
@@ -114,7 +206,7 @@ public class SDPUnitTests
 
         System.Diagnostics.Debug.Assert("144.137.16.240" == sdp.ConnectionLine.Parts[2], "The connection address was not parsed correctly.");
         System.Diagnostics.Debug.Assert(34640 == sdp.MediaDescriptions.First().MediaPort, "The connection port was not parsed correctly.");
-        System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().MediaFormat, "The highest priority media format ID was incorrect.");
+        System.Diagnostics.Debug.Assert(0 == sdp.MediaDescriptions.First().PayloadTypes.First(), "The highest priority media format ID was incorrect.");
     }
 
     public void ParseICESessionAttributesUnitTest()
@@ -212,11 +304,11 @@ a=control:track2";
         //Ensure 2 media descriptions were found
         System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Count() == 2, "Did not find all Media Descriptions '2'");
 
-        System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.First().MediaFormat == 96, "Did not find correct MediaFormat '96'");
+        System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.First().MediaFormat == "96", "Did not find correct MediaFormat '96'");
 
         System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.First().MediaType == Media.Sdp.MediaType.video, "Did not find correct MediaType 'video'");
 
-        System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Last().MediaFormat == 0, "Did not find correct MediaFormat '0'");
+        System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Last().MediaFormat == "0", "Did not find correct MediaFormat '0'");
 
         System.Diagnostics.Debug.Assert(sessionDescription.MediaDescriptions.Last().MediaType == Media.Sdp.MediaType.audio, "Did not find correct MediaType 'audio;");
 

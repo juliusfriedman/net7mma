@@ -81,6 +81,8 @@ namespace Media.Sdp
 
         public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
 
+        public const char Wildcard = (char)Common.ASCII.Asterisk;
+
         public static string LineFeed = new string((char)Common.ASCII.LineFeed, 1), CarriageReturn = new string((char)Common.ASCII.NewLine, 1), NewLine = CarriageReturn + LineFeed;
 
         internal static string[] ColonSplit = new string[] { Colon.ToString() }, CRLFSplit = new string[] { NewLine };
@@ -304,7 +306,7 @@ namespace Media.Sdp
                 {
                     m_SessionName = new Lines.SessionNameLine(value); 
                     
-                    ++m_Originator.SessionVersion;
+                    //++m_Originator.SessionVersion;
                 }
             }
         }
@@ -697,7 +699,7 @@ namespace Media.Sdp
     /// Represents the MediaDescription in a Session Description.
     /// Parses and Creates.
     /// </summary>
-    public class MediaDescription : IEnumerable<SessionDescriptionLine>
+    public class MediaDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
     {
         public const char MediaDescriptionType = 'm';
 
@@ -723,7 +725,7 @@ namespace Media.Sdp
         /// <summary>
         /// The MediaFormat of the MediaDescription
         /// </summary>
-        public byte MediaFormat { get; set; }
+        public string MediaFormat { get; set; }
 
         //Maybe add a few Computed properties such as SampleRate
         //OR
@@ -734,10 +736,25 @@ namespace Media.Sdp
         //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
         internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
+        internal List<int> m_PayloadList = new List<int>();
+
         #endregion
 
-        public System.Collections.ObjectModel.ReadOnlyCollection<SessionDescriptionLine> Lines { get { return m_Lines.AsReadOnly(); } }
+        /// <summary>
+        /// The types of payloads which can be found in the MediaDescription
+        /// </summary>
+        public IEnumerable<int> PayloadTypes
+        {
+            get
+            {
+                return m_PayloadList;
+            }
+        }
 
+        public IEnumerable<SessionDescriptionLine> Lines
+        {
+            get { return ((IEnumerable<SessionDescriptionLine>)this); }
+        }
 
         /// <summary>
         /// Calculates the length in bytes of this MediaDescription.
@@ -752,14 +769,24 @@ namespace Media.Sdp
 
         #region Constructor
 
-        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, byte mediaFormat)
+        public MediaDescription(string mediaDescription) : this(mediaDescription.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries), 0)
+        {
+
+        }
+
+        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, int mediaFormat)
         {
             MediaType = mediaType;
             MediaPort = mediaPort;
             MediaProtocol = mediaProtocol;
-            MediaFormat = mediaFormat;
+            MediaFormat = mediaFormat.ToString();
+            m_PayloadList.Add(mediaFormat);
         }
 
+        public MediaDescription(string[] sdpLines, int index) : 
+            this(sdpLines, ref index){}
+
+        [CLSCompliant(false)]
         public MediaDescription(string[] sdpLines, ref int index)
         {
             string sdpLine = sdpLines[index++].Trim();
@@ -785,25 +812,15 @@ namespace Media.Sdp
 
             MediaProtocol = parts[2];
 
-            if (false == string.IsNullOrWhiteSpace(parts[3]))
+            MediaFormat = parts[3];
+
+            if(false == string.IsNullOrWhiteSpace(MediaFormat)) foreach (var payloadType in MediaFormat.Split(SessionDescription.SpaceSplit, StringSplitOptions.RemoveEmptyEntries))
             {
-                //Notes that this can apparently be a * or something besides 3 digits, rightnow ("*" turns into 43)
-                //Maybe should allow to be int or string?
-                byte temp;
+                int found;
 
-                if (byte.TryParse(SessionDescription.TrimLineValue(parts[3]), out temp)) MediaFormat = temp;
-                else
+                if (int.TryParse(payloadType, out found))
                 {
-                    char c = parts[3][0];
-
-                    if (Utility.IsHexDigit(ref c))
-                    {
-                        MediaFormat = Utility.HexCharToByte(parts[3].FirstOrDefault());
-                    }
-                    else
-                    {
-                        MediaFormat = (byte)c;
-                    }
+                    m_PayloadList.Add(found);
                 }
             }
 
@@ -829,13 +846,18 @@ namespace Media.Sdp
 
         #endregion
 
-        internal void Add(SessionDescriptionLine line)
+        public void Add(SessionDescriptionLine line)
         {
             if (line == null) return;
             m_Lines.Add(line);
         }
 
-        internal void RemoveLine(int index)
+        public bool Remove(SessionDescriptionLine line)
+        {
+            return m_Lines.Remove(line);
+        }
+
+        public void RemoveLine(int index)
         {
             m_Lines.RemoveAt(index);
         }
@@ -895,16 +917,12 @@ namespace Media.Sdp
         {
             get
             {
-                char mediaFormat = (char)MediaFormat;
-
-                string theMediaFormat = mediaFormat != default(char) && mediaFormat != 42 ?  MediaFormat.ToString() : mediaFormat.ToString();
-
                 return new SessionDescriptionLine(MediaDescriptionType, ((char)Common.ASCII.Space).ToString())
                 {
                     MediaType.ToString(),
                     MediaPort.ToString(),
                     MediaProtocol,
-                    theMediaFormat
+                    MediaFormat
                 };
             }
         }
@@ -1018,7 +1036,7 @@ namespace Media.Sdp
     /// Represents a TimeDescription with optional Repeat times.
     /// Parses and Creates.
     /// </summary>
-    public class TimeDescription : IEnumerable<SessionDescriptionLine>
+    public class TimeDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
     {
 
         public const char TimeDescriptionType = 't', RepeatTimeType = 'r';
@@ -1507,7 +1525,6 @@ namespace Media.Sdp
             {
                 while (m_Parts.Count < 6) m_Parts.Add(string.Empty);
                 Username = string.Empty;
-                SessionVersion = 1;
             }
 
             public SessionOriginatorLine(SessionDescriptionLine line)
@@ -1532,7 +1549,7 @@ namespace Media.Sdp
                     EnsureParts(6);
 
                     //Make a new version if anything was added.
-                    SessionVersion++;
+                    //SessionVersion++;
                 }
             }
 

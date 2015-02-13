@@ -23,6 +23,7 @@ namespace Media.Common
             R = 0x52, // 'R' = 82 Decimal
             BackSlash = 0x5C, // '\'
             DoubleQuote = (byte)'"',
-            SingleQuote = (byte)'\'';
+            SingleQuote = (byte)'\'',
+            Asterisk = (byte)Common.Binary.TheAnswerToEverything;
     }
 }

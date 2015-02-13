@@ -145,7 +145,7 @@ namespace Media
             int firstPayloadType = first.PayloadType, ssrc = first.SynchronizationSourceIdentifier, totalLength = (int)first.Length;
 
             //When respecting RFC3550 the first packet must be a SendersReport or Receivers report with the version of 2, the version is implicit from the header at this point.
-            if (!IsValidRtcpHeader(first.Header, first.Version)) throw new InvalidOperationException("A Compound packet must start with either a SendersReport or a ReceiversReport.");
+            if (false == IsValidRtcpHeader(first.Header, first.Version)) throw new InvalidOperationException("A Compound packet must start with either a SendersReport or a ReceiversReport.");
 
             //Each Compound RtcpPacket must have a SourceDescription with a CName and may have a goodbye
             bool hasSourceDescription = false, hasCName = false;
@@ -166,7 +166,7 @@ namespace Media
                     hasSourceDescription = true;
 
                     //if not already checked for a cname check now
-                    if (!hasCName && packet.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(packet, false)) if ((hasCName = asReport.HasCName)) break;
+                    if (false == hasCName && packet.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(packet, false)) if ((hasCName = asReport.HasCName)) break;
                 }                
             }
 
