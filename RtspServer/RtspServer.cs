@@ -848,7 +848,7 @@ namespace Media.Rtsp
             if (IsRunning) return;
 
             //Allowed to run
-            m_StopRequested = false;
+            m_Maintaining = m_StopRequested = false;
 
             //Indicate start was called
             Common.ILoggingExtensions.Log(Logger, "Server Started @ " + DateTime.UtcNow);
@@ -856,8 +856,8 @@ namespace Media.Rtsp
             //Create the server Socket
             m_TcpServerSocket = new Socket(m_ServerIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-            //If multiple instances can bind then this should be set
-            //m_TcpServerSocket.ExclusiveAddressUse = false;
+            //If multiple instances cannot bind then this should be set to true
+            m_TcpServerSocket.ExclusiveAddressUse = false;
 
             //Bind the server Socket to the server EndPoint
             m_TcpServerSocket.Bind(m_ServerEndPoint);
@@ -990,9 +990,8 @@ namespace Media.Rtsp
             {
                 m_Maintainer.Dispose();
                 m_Maintainer = null;
-            }
-
-            m_Maintaining = false;
+                //m_Maintaining = false;
+            }            
             
             //Stop listening to source streams
             StopStreams();
@@ -1165,7 +1164,7 @@ namespace Media.Rtsp
         /// <param name="ar">IAsyncResult with a Socket object in the AsyncState property</param>
         internal void ProcessAccept(IAsyncResult ar)
         {
-            if (ar == null) return;
+            if (ar == null || ar.CompletedSynchronously) return;
             
             //The ClientSession created
             try
@@ -1249,7 +1248,7 @@ namespace Media.Rtsp
         internal void ProcessReceive(IAsyncResult ar)
         {
 
-            if (ar == null || false == ar.IsCompleted) return;
+            if (ar == null || ar.CompletedSynchronously) return;
 
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
@@ -1462,7 +1461,7 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSendComplete(IAsyncResult ar)
         {
-            if (ar == null) return;
+            if (ar == null || ar.CompletedSynchronously) return;
 
             ClientSession session = (ClientSession)ar.AsyncState;
 
@@ -1872,6 +1871,9 @@ namespace Media.Rtsp
         /// <param name="ci">The session to send the response on</param>
         internal void ProcessSendRtspMessage(RtspMessage message, ClientSession session, bool sendResponse = true)
         {
+
+            //Todo have a SupportedFeatures and RequiredFeatures HashSet.
+
             //Check Require Header
             //       And
             /* Add Unsupported Header if needed

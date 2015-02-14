@@ -1244,18 +1244,18 @@ namespace Tests
 
                         try
                         {
-                            Console.WriteLine("\t*****************\nConnected to :" + client.Location);
+                            Console.WriteLine("\t*****************\nConnected to :" + client.CurrentLocation);
                             Console.WriteLine("\t*****************\nConnectionTime:" + client.ConnectionTime);
 
                             //If the client is not already playing, and the client hasn't received any messages yet then start playing
                             if (false == client.IsPlaying && client.MessagesReceived == 0)
                             {
-                                Console.WriteLine("\t*****************\nStarting Playback of :" + client.Location);
+                                Console.WriteLine("\t*****************\nStarting Playback of :" + client.CurrentLocation);
 
                                 //Try to start listening
                                 client.StartPlaying();
 
-                                Console.WriteLine("\t*****************\nStartedListening to :" + client.Location);
+                                Console.WriteLine("\t*****************\nStartedListening to :" + client.CurrentLocation);
                             }
                         }
                         catch (Exception ex) { writeError(ex); shouldStop = true; }
@@ -1360,7 +1360,7 @@ namespace Tests
                     };
 
                     //Define an event to handle Disconnection from the RtspClient.
-                    client.OnDisconnect += (sender, args) => Console.WriteLine("\t*****************Disconnected from :" + client.Location);
+                    client.OnDisconnect += (sender, args) => Console.WriteLine("\t*****************Disconnected from :" + client.CurrentLocation);
 
                     //Define an event to handle Rtsp Response events
                     //Note that this event is also used to handle `pushed` responses which the server sent to the RtspClient without a request.
@@ -1894,20 +1894,30 @@ namespace Tests
                             //Forever
                             while (server.IsRunning)
                             {
-                                // Take the screenshot from the upper left corner to the right bottom corner.
-                                gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
-                                                            Screen.PrimaryScreen.Bounds.Y,
-                                                            0,
-                                                            0,
-                                                            Screen.PrimaryScreen.Bounds.Size,
-                                                            System.Drawing.CopyPixelOperation.SourceCopy);
+                                try
+                                {
+                                    // Take the screenshot from the upper left corner to the right bottom corner.
+                                    gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
+                                                                Screen.PrimaryScreen.Bounds.Y,
+                                                                0,
+                                                                0,
+                                                                Screen.PrimaryScreen.Bounds.Size,
+                                                                System.Drawing.CopyPixelOperation.SourceCopy);
 
-                                //Convert to JPEG and put in packets
-                                mirror.Packetize(bmpScreenshot);
+                                    //Convert to JPEG and put in packets
+                                    mirror.Packetize(bmpScreenshot);
 
-                                //REST
-                                System.Threading.Thread.Sleep(50);
+                                    //REST
+                                    System.Threading.Thread.Sleep(50);
+                                }
+                                catch(Exception ex)
+                                {
+                                    server.Logger.LogException(ex);
+                                }
                             }
+
+                            int exit = 1;
+
                         }
                     }
                 }));

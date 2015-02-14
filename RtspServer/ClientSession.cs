@@ -860,7 +860,7 @@ namespace Media.Rtsp
 
             string mode;
 
-            bool unicast, multicast, interleaved;
+            bool unicast, multicast, interleaved, multiplexing;
 
             byte dataChannel = 0, controlChannel = 1;
 
@@ -876,6 +876,8 @@ namespace Media.Rtsp
             {
                 return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Invalid Transport Header");
             }
+
+            //RTCP-mux: when RTSP 2.0 is official... (Along with Server Sent Messages)
 
             //Check if the ssrc was 0 which indicates any id
             if (localSsrc == 0) localSsrc = RFC3550.Random32((int)sourceContext.MediaDescription.MediaType);
@@ -939,6 +941,8 @@ namespace Media.Rtsp
 
                     return result;
                 }
+
+                //QuickTime debug
 
                 if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
 
@@ -1493,12 +1497,13 @@ namespace Media.Rtsp
 
                 if (stream.m_DisableQOS)
                 {
-                    md.Add(new Sdp.SessionDescriptionLine("b=RS:0"));
-                    md.Add(new Sdp.SessionDescriptionLine("b=RR:0"));
-                    md.Add(new Sdp.SessionDescriptionLine("b=AS:0"));
+                    md.Add(RtpClient.TransportContext.DisabledSendLine);
+                    md.Add(RtpClient.TransportContext.DisabledReceiveLine);
+                    md.Add(RtpClient.TransportContext.DisabledApplicationSpecificLine);
                 }
-                //else//Should not be hardcoded
+                //else
                 //{
+                //    //ToDo use whatever values are defined for the session's bandwidth atp
                 //    md.Add(new Sdp.SessionDescriptionLine("b=RS:140"));
                 //    md.Add(new Sdp.SessionDescriptionLine("b=RR:140"));
 
@@ -1516,7 +1521,6 @@ namespace Media.Rtsp
                     if (context != null) md.MediaPort = ((IPEndPoint)context.RemoteRtp).Port;
 
                     //Set any other variables which may be been changed in the session
-
                 }
 
                 #region Independent TCP
