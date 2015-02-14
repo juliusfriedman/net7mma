@@ -306,10 +306,9 @@ namespace Media.Rtsp
                                 string ssrcPart = subParts[1].Trim();
 
                                 if (false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out ssrc) &&
-                                    false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out ssrc) &&
-                                    System.Diagnostics.Debugger.IsAttached)
+                                    false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out ssrc))
                                 {
-                                    System.Diagnostics.Debugger.Break();
+                                    Common.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                 }
 
                                 continue;
@@ -324,6 +323,22 @@ namespace Media.Rtsp
                                 {
                                     clientRtpPort = int.Parse(clientPorts[0], System.Globalization.CultureInfo.InvariantCulture);
                                     if (clientPortsLength > 1) clientRtcpPort = int.Parse(clientPorts[1], System.Globalization.CultureInfo.InvariantCulture);
+                                    else clientRtcpPort = clientRtpPort; //multiplexing
+                                }
+
+                                continue;
+                            }
+                        case "server_port":
+                            {
+                                string[] serverPorts = subParts[1].Split(HyphenSign);
+
+                                int serverPortsLength = serverPorts.Length;
+
+                                if (serverPortsLength > 0)
+                                {
+                                    serverRtpPort = int.Parse(serverPorts[0], System.Globalization.CultureInfo.InvariantCulture);
+                                    if (serverPortsLength > 1) serverRtcpPort = int.Parse(serverPorts[1], System.Globalization.CultureInfo.InvariantCulture);
+                                    else serverRtcpPort = serverRtpPort; //multiplexing
                                 }
 
                                 continue;
@@ -347,20 +362,20 @@ namespace Media.Rtsp
 
                                 continue;
                             }
-                        case "server_port":
-                            {
-                                string[] serverPorts = subParts[1].Split(HyphenSign);
+                        //case "connection":
+                        //    {
+                        //        continue;
+                        //    }
+                        //case "setup":
+                        //    {
+                        //        continue;
+                        //    }
+                        //case "rtcp-mux":
+                        //    {
+                        //        //C.2.2.  RTP over independent TCP
 
-                                int serverPortsLength = serverPorts.Length;
-
-                                if (serverPortsLength > 0)
-                                {
-                                    serverRtpPort = int.Parse(serverPorts[0], System.Globalization.CultureInfo.InvariantCulture);
-                                    if (serverPortsLength > 1) serverRtcpPort = int.Parse(serverPorts[1], System.Globalization.CultureInfo.InvariantCulture);
-                                }
-
-                                continue;
-                            }
+                        //        continue;
+                        //    }                        
                         default: continue;
                     }
                 }
@@ -599,10 +614,9 @@ namespace Media.Rtsp
                                     int id;
 
                                     if (false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out id) &&
-                                        false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out id) &&
-                                        System.Diagnostics.Debugger.IsAttached)
+                                        false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out id))
                                     {
-                                        System.Diagnostics.Debugger.Break();
+                                        Common.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                     }
                                     
                                     continue;

@@ -125,7 +125,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     if (wasConnected) Stop();
 
-                    RtspClient.Location = base.Source;
+                    RtspClient.CurrentLocation = base.Source;
 
                     if (wasConnected) Start();
                 }
@@ -153,7 +153,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 RtspClient.Credential = Utility.ParseUserInfo(m_Source);
 
                 //Remove the user info from the location
-                RtspClient.Location = new Uri(RtspClient.Location.AbsoluteUri.Replace(RtspClient.Location.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(RtspClient.Location.UserInfo, string.Empty));
+                RtspClient.CurrentLocation = new Uri(RtspClient.CurrentLocation.AbsoluteUri.Replace(RtspClient.CurrentLocation.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(RtspClient.CurrentLocation.UserInfo, string.Empty));
             }
         }
 

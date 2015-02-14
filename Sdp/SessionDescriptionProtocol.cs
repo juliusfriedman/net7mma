@@ -79,17 +79,21 @@ namespace Media.Sdp
 
         public const string MimeType = "application/sdp";
 
-        public const char AttributeType = 'a', BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
+        public const char AttributeType = 'a', 
+            BandwidthType = 'b', EqualsSign = (char)Common.ASCII.EqualsSign, 
+            HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, 
+            Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
 
-        public const char Wildcard = (char)Common.ASCII.Asterisk;
-
-        public static string LineFeed = new string((char)Common.ASCII.LineFeed, 1), CarriageReturn = new string((char)Common.ASCII.NewLine, 1), NewLine = CarriageReturn + LineFeed;
+        public static string SpaceString = new string((char)Common.ASCII.Space, 1),
+            WildcardString = new string((char)Common.ASCII.Asterisk, 1),
+            LineFeedString = new string((char)Common.ASCII.LineFeed, 1), 
+            CarriageReturnString = new string((char)Common.ASCII.NewLine, 1), 
+            NewLine = CarriageReturnString + LineFeedString;
 
         internal static string[] ColonSplit = new string[] { Colon.ToString() }, CRLFSplit = new string[] { NewLine };
 
-        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
-
-        internal static char[] SlashSplit = new char[] { (char)Common.ASCII.ForwardSlash };
+        internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space },
+            SlashSplit = new char[] { (char)Common.ASCII.ForwardSlash };
 
         internal static string TrimLineValue(string value) { return string.IsNullOrWhiteSpace(value) ? value : value.Trim(); }
 
@@ -664,35 +668,69 @@ namespace Media.Sdp
 
     public static class SessionDescriptionExtensions
     {
-        public static bool SupportsAggregateControl(this SessionDescription sdp)
+        
+        public static bool SupportsAggregateMediaControl(this SessionDescription sdp, Uri baseUri = null)
         {
+            Uri result;
+            return SupportsAggregateMediaControl(sdp, out result, baseUri);
+        }
+
+        /// <summary>
+        /// <see fref="https://tools.ietf.org/html/rfc2326#page-80">Use of SDP for RTSP Session Descriptions</see>
+        /// In brief an the given <see cref="SessionDescription"/> must contain a <see cref="Sdp.Lines.ConnectionLine"/> in the <see cref="Sdp.MediaDescription"/>
+        /// </summary>
+        /// <param name="sdp"></param>
+        /// <param name="controlUri"></param>
+        /// <param name="baseUri"></param>
+        /// <returns></returns>
+        public static bool SupportsAggregateMediaControl(this SessionDescription sdp, out Uri controlUri, Uri baseUri = null)
+        {
+            controlUri = null;
+
             SessionDescriptionLine controlLine = sdp.ControlLine;
 
             //If there is a control line in the SDP it contains the URI used to setup and control the media
             if (controlLine == null) return false;
-            
+
             //Get the control token
             string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
 
             //If there is a controlPart in the controlLine
             if (false == string.IsNullOrWhiteSpace(controlPart))
             {
-                //Prepare the part
+                /*
+                    If this attribute contains only an asterisk (*), then the URL is
+                    treated as if it were an empty embedded URL, and thus inherits the
+                    entire base URL.
+                 */
                 controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
 
                 //if unqualified then there is no aggregate control.
-                if (controlPart == "*") return false;
+                if (controlPart == SessionDescription.WildcardString && baseUri == null) return false;
 
-                //Create a uri
-                Uri controlUri = new Uri(controlPart, UriKind.RelativeOrAbsolute);
+                //The control uri may be in the control part
 
-                //Determine if its a Absolute Uri
-                if (controlUri.IsAbsoluteUri) return true;
+                //Try to parse it
+                if (Uri.TryCreate(controlPart, UriKind.RelativeOrAbsolute, out controlUri))
+                {
+
+                    //If parsing suceeded then the result is true only if the controlUri is absolute
+                    if (controlUri.IsAbsoluteUri) return true;
+
+                }
+
+                //Try to create a uri relative to the base uri given
+                if (Uri.TryCreate(baseUri, controlUri, out controlUri))
+                {
+                    //If the operation succeeded then the result is true.
+                    return true;
+                }
             }
 
             //Another type of control line is present.
             return false;
         }
+
     }
 
     /// <summary>
@@ -720,12 +758,37 @@ namespace Media.Sdp
         /// <summary>
         /// The MediaProtocol of the MediaDescription
         /// </summary>
-        public string MediaProtocol { get; set; }
+        public string MediaProtocol { get; set; }        
 
         /// <summary>
         /// The MediaFormat of the MediaDescription
         /// </summary>
-        public string MediaFormat { get; set; }
+        public virtual string MediaFormat
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(MediaFormatString)) return MediaFormat = string.Join(SessionDescription.SpaceString, m_PayloadList);
+                return MediaFormatString;
+            }
+            set
+            {
+                m_PayloadList.Clear();
+
+                foreach (var payloadType in value.Split(SessionDescription.SpaceSplit, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    int found;
+
+                    if (int.TryParse(payloadType, out found))
+                    {
+                        m_PayloadList.Add(found);
+
+                        continue;
+                    }
+
+                    MediaFormatString = string.Join(SessionDescription.SpaceString, payloadType);
+                }
+            }
+        }
 
         //Maybe add a few Computed properties such as SampleRate
         //OR
@@ -734,9 +797,14 @@ namespace Media.Sdp
         //LinesByType etc...
 
         //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
-        internal List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
+        List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
-        internal List<int> m_PayloadList = new List<int>();
+        List<int> m_PayloadList = new List<int>();
+
+        /// <summary>
+        /// The field which has been generated as a result of parsing or modifying the MediaFormat
+        /// </summary>
+        string MediaFormatString;
 
         #endregion
 
@@ -775,12 +843,17 @@ namespace Media.Sdp
         }
 
         public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, int mediaFormat)
+            : this(mediaType, mediaPort, mediaProtocol, mediaFormat.ToString())
+        {
+
+        }
+
+        public MediaDescription(MediaType mediaType, int mediaPort, string mediaProtocol, string mediaFormat)
         {
             MediaType = mediaType;
             MediaPort = mediaPort;
             MediaProtocol = mediaProtocol;
-            MediaFormat = mediaFormat.ToString();
-            m_PayloadList.Add(mediaFormat);
+            MediaFormat = mediaFormat;
         }
 
         public MediaDescription(string[] sdpLines, int index) : 
@@ -812,17 +885,7 @@ namespace Media.Sdp
 
             MediaProtocol = parts[2];
 
-            MediaFormat = parts[3];
-
-            if(false == string.IsNullOrWhiteSpace(MediaFormat)) foreach (var payloadType in MediaFormat.Split(SessionDescription.SpaceSplit, StringSplitOptions.RemoveEmptyEntries))
-            {
-                int found;
-
-                if (int.TryParse(payloadType, out found))
-                {
-                    m_PayloadList.Add(found);
-                }
-            }
+            MediaFormat = parts[3];            
 
             //Parse remaining optional entries
             for (int e = sdpLines.Length; index < e;)
@@ -992,7 +1055,7 @@ namespace Media.Sdp
         /// <param name="mediaDescription"></param>
         /// <param name="source"></param>
         /// <returns></returns>
-        public static Uri GetAbsoluteControlUri(this MediaDescription mediaDescription, Uri source)
+        public static Uri GetAbsoluteControlUri(this MediaDescription mediaDescription, Uri source, SessionDescription sessionDescription = null)
         {
             if (source == null) throw new ArgumentNullException("source");
 
@@ -1008,7 +1071,7 @@ namespace Media.Sdp
                 string controlPart = controlLine.Parts.Where(p => p.Contains("control")).FirstOrDefault();
 
                 //If there is a controlPart in the controlLine
-                if (!string.IsNullOrWhiteSpace(controlPart))
+                if (false == string.IsNullOrWhiteSpace(controlPart))
                 {
                     //Prepare the part
                     controlPart = controlPart.Split(Media.Sdp.SessionDescription.ColonSplit, 2, StringSplitOptions.RemoveEmptyEntries).Last();
@@ -1019,13 +1082,27 @@ namespace Media.Sdp
                     //Determine if its a Absolute Uri
                     if (controlUri.IsAbsoluteUri) return controlUri;
 
-                    //hmm  - Determines the difference between two Uri instances.
-                    //return controlUri.MakeRelativeUri(source);
-
                     //Return a new uri using the original string and the controlUri relative path.
-                    return new Uri(source.OriginalString + '/' + controlUri.OriginalString);
+                    //Hopefully the direction of the braces matched
+                    return new Uri(string.Join(((char)Common.ASCII.ForwardSlash).ToString(), source.OriginalString, controlUri.OriginalString));
+
+                    #region Explination
+                    //I wonder if Mr./(Dr) Fielding is happy...
+                    //Let source = 
+                    //rtsp://alt1.v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/1/video.3gp/trackID=0
+                    //Call
+                    //return new Uri(source, controlUri);
+                    //Result = 
+                    //rtsp://alt1.v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/1/trackID=0
+                    #endregion
                 }
             }
+
+            //Try to take the session level control uri
+            Uri sessionControlUri;
+
+            //If there was a session description given and it supports aggregate media control then return that uri
+            if (sessionDescription != null && sessionDescription.SupportsAggregateMediaControl(out sessionControlUri, source)) return sessionControlUri;
 
             //There is no control line, just return the source.
             return source;

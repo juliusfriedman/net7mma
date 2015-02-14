@@ -352,6 +352,12 @@ namespace Media.Rtp
 
             const string RecieveBandwidthToken = "RR", SendBandwdithToken = "RS", ApplicationSpecificBandwidthToken = "AS";
 
+            internal static Sdp.SessionDescriptionLine DisabledReceiveLine = new Sdp.SessionDescriptionLine("b=RR:0");
+
+            internal static Sdp.SessionDescriptionLine DisabledSendLine = new Sdp.SessionDescriptionLine("b=RS:0");
+
+            internal static Sdp.SessionDescriptionLine DisabledApplicationSpecificLine = new Sdp.SessionDescriptionLine("b=AS:0");
+
             public static bool TryParseBandwidthLine(Media.Sdp.SessionDescriptionLine line, out int result)
             {
                 string token;
@@ -508,6 +514,8 @@ namespace Media.Rtp
                     string type;
                     Media.Sdp.SessionDescription.TryParseRange(rangeInfo.Parts[0], out type, out tc.m_StartTime, out tc.m_EndTime);
                 }
+
+                //rtcp-mux is handled in the Initialize call
 
                 return tc;
             }
@@ -1051,17 +1059,32 @@ namespace Media.Rtp
             /// <summary>
             /// Indicates if the Rtcp is enabled and the LocalRtp is equal to the LocalRtcp
             /// </summary>
-            public bool LocalMultiplexing { get { return IsDisposed || IsRtcpEnabled == false || LocalRtp == null ? false : LocalRtp.Equals(LocalRtcp); } }
+            public bool LocalMultiplexing
+            {
+                get { return IsDisposed || IsRtcpEnabled == false || LocalRtp == null ? false : LocalRtp.Equals(LocalRtcp); }
+            }
 
             /// <summary>
             /// Indicates if the Rtcp is enabled and the RemoteRtp is equal to the RemoteRtcp
             /// </summary>
-            public bool RemoteMultiplexing { get { return IsDisposed || IsRtcpEnabled == false || RemoteRtp == null ? false : RemoteRtp.Equals(RemoteRtcp); } }
+            public bool RemoteMultiplexing
+            {
+                get { return IsDisposed || IsRtcpEnabled == false || RemoteRtp == null ? false : RemoteRtp.Equals(RemoteRtcp); }
+            }
             
             /// <summary>
             /// <c>false</c> if NOT [RtpEnabled AND RtcpEnabled] AND [LocalMultiplexing OR RemoteMultiplexing]
             /// </summary>
-            public bool Duplexing { get { try { return IsDisposed ?  false : (IsRtpEnabled && IsRtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); } catch { return false; } } }
+            public bool IsDuplexing
+            {
+                get
+                {
+                    if (IsDisposed) return false;
+
+                    try { return (IsRtpEnabled && IsRtcpEnabled) && (LocalMultiplexing || RemoteMultiplexing); }
+                    catch { return false; }
+                }
+            }
 
             /// <summary>
             /// The last <see cref="ReceiversReport"/> sent or received by this RtpClient.
@@ -1671,6 +1694,8 @@ namespace Media.Rtp
 
                     RtpSocket.SendBufferSize = 0;
 
+                    AssignIdentity();
+
                 }
                 catch
                 {
@@ -1738,6 +1763,8 @@ namespace Media.Rtp
                     try { RtcpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
                     catch (SocketException) { }//We don't care about the response or any issues during the holePunch
                 }
+
+                AssignIdentity();
 
             }            
 
@@ -1837,7 +1864,7 @@ namespace Media.Rtp
                 {
                     yield return RtpSocket;
 
-                    if (RtpSocket.ProtocolType == ProtocolType.Tcp || Duplexing) yield break;
+                    if (RtpSocket.ProtocolType == ProtocolType.Tcp || IsDuplexing) yield break;
                 }
 
                 if (RtcpSocket != null) yield return RtcpSocket;
@@ -2889,6 +2916,8 @@ namespace Media.Rtp
             }
         ReturnFalse: return false;
         }
+
+        public virtual void AddContext(TransportContext context) { TryAddContext(context); }
 
         /// <summary>
         /// Removes the given <see cref="TransportContext"/>
@@ -4309,7 +4338,7 @@ namespace Media.Rtp
 
                             int receivedRtp = 0, receivedRtcp = 0;
 
-                            bool duplexing = tc.Duplexing, rtpEnabled = tc.IsRtpEnabled, rtcpEnabled = tc.IsRtcpEnabled;
+                            bool duplexing = tc.IsDuplexing, rtpEnabled = tc.IsRtpEnabled, rtcpEnabled = tc.IsRtcpEnabled;
 
                             //If receiving Rtp and the socket is able to read
                             if (false == m_StopRequested && rtpEnabled

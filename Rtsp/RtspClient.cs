@@ -90,9 +90,9 @@ namespace Media.Rtsp
         AuthenticationSchemes m_AuthenticationScheme;
 
         /// <summary>
-        /// The location the media
+        /// The current location the media
         /// </summary>
-        Uri m_Location;
+        Uri m_InitialLocation, m_CurrentLocation;
 
         /// <summary>
         /// The buffer this client uses for all requests 4MB * 2
@@ -314,6 +314,16 @@ namespace Media.Rtsp
         public string SessionId { get { return m_SessionId; } }
 
         /// <summary>
+        /// As given by the OPTIONS response or set otherwise.
+        /// </summary>
+        public readonly HashSet<string> SupportedFeatures = new HashSet<string>();
+
+        /// <summary>
+        /// Values which will be set in the Required tag.
+        /// </summary>
+        public readonly HashSet<string> RequiredFeatures = new HashSet<string>();
+
+        /// <summary>
         /// Any additional headers which may be required by the RtspClient.
         /// </summary>
         public readonly Dictionary<string, string> AdditionalHeaders = new Dictionary<string, string>();
@@ -394,33 +404,35 @@ namespace Media.Rtsp
         public ProtocolType RtpProtocol { get { return m_RtpProtocol; } }
 
         /// <summary>
-        /// Gets or sets location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change.
+        /// Gets or sets the current location to the Media on the Rtsp Server and updates Remote information and ClientProtocol if required by the change.
         /// If the RtspClient was listening then it will be stopped and started again
         /// </summary>
-        public Uri Location
+        public Uri CurrentLocation
         {
-            get { return m_Location; }
+            get { return m_CurrentLocation; }
             set
             {
                 try
                 {
                     //If Different
-                    if (m_Location != value)
+                    if (m_CurrentLocation != value)
                     {
+
+                        m_InitialLocation = m_CurrentLocation;
 
                         bool wasPlaying = IsPlaying;
 
                         if (wasPlaying) StopPlaying();
 
-                        m_Location = value;
+                        m_CurrentLocation = value;
 
 
-                        switch (m_Location.HostNameType)
+                        switch (m_CurrentLocation.HostNameType)
                         {
                             case UriHostNameType.IPv4:
                             case UriHostNameType.IPv6:
 
-                                m_RemoteIP = IPAddress.Parse(m_Location.DnsSafeHost);
+                                m_RemoteIP = IPAddress.Parse(m_CurrentLocation.DnsSafeHost);
 
                                 break;
                             case UriHostNameType.Dns:
@@ -430,29 +442,29 @@ namespace Media.Rtsp
                                 if (m_RtspSocket != null)
                                 {
                                     //Will use IPv6 by default if possible.
-                                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.DnsSafeHost).FirstOrDefault(a=> a.AddressFamily == m_RtspSocket.AddressFamily);
+                                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_CurrentLocation.DnsSafeHost).FirstOrDefault(a=> a.AddressFamily == m_RtspSocket.AddressFamily);
 
-                                    if (m_RemoteIP == null) throw new NotSupportedException("The given Location uses a HostNameType which is not the same as the underlying socket's address family. " + m_Location.HostNameType + ", " + m_RtspSocket.AddressFamily + " And as a result no remote IP could be obtained to complete the connection." );
+                                    if (m_RemoteIP == null) throw new NotSupportedException("The given Location uses a HostNameType which is not the same as the underlying socket's address family. " + m_CurrentLocation.HostNameType + ", " + m_RtspSocket.AddressFamily + " And as a result no remote IP could be obtained to complete the connection." );
                                 }
                                 else
                                 {
                                     //Will use IPv6 by default if possible.
-                                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_Location.DnsSafeHost).FirstOrDefault();
+                                    m_RemoteIP = System.Net.Dns.GetHostAddresses(m_CurrentLocation.DnsSafeHost).FirstOrDefault();
                                 }
 
                                 break;
 
-                            default: throw new NotSupportedException("The given Location uses a HostNameType which is not supported. " + m_Location.HostNameType);
+                            default: throw new NotSupportedException("The given Location uses a HostNameType which is not supported. " + m_CurrentLocation.HostNameType);
                         }
 
-                        m_RtspPort = m_Location.Port;
+                        m_RtspPort = m_CurrentLocation.Port;
 
                         //Validate ports, should throw?
                         if (m_RtspPort <= ushort.MinValue || m_RtspPort > ushort.MaxValue) m_RtspPort = 554;
 
                         //Determine protocol
-                        if (m_Location.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocolType.Tcp;
-                        else if (m_Location.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocolType.Udp;
+                        if (m_CurrentLocation.Scheme == RtspMessage.ReliableTransport) m_RtspProtocol = ClientProtocolType.Tcp;
+                        else if (m_CurrentLocation.Scheme == RtspMessage.UnreliableTransport) m_RtspProtocol = ClientProtocolType.Udp;
                         else m_RtspProtocol = ClientProtocolType.Http;
 
                         //Make a IPEndPoint 
@@ -468,7 +480,7 @@ namespace Media.Rtsp
                 }
             }
         }
-
+        
         /// <summary>
         /// Indicates if the RtspClient is connected to the remote host
         /// </summary>
@@ -511,7 +523,7 @@ namespace Media.Rtsp
         public IEnumerable<MediaDescription> PlayingMedia { get { return m_Playing.AsEnumerable(); } }
 
         /// <summary>
-        /// Gets or Sets the <see cref="SessionDescription"/> describing the media at <see cref="Location"/>.
+        /// Gets or Sets the <see cref="SessionDescription"/> describing the media at <see cref="CurrentLocation"/>.
         /// </summary>
         public SessionDescription SessionDescription
         {
@@ -600,7 +612,7 @@ namespace Media.Rtsp
             if (false == (location.Scheme.StartsWith(RtspMessage.MessageIdentifier, StringComparison.InvariantCultureIgnoreCase) || location.Scheme != System.Uri.UriSchemeHttp)) throw new ArgumentException("Uri Scheme must be rtsp or rtspu or http", "location");
 
             //Set the location and determines the m_RtspProtocol and IP Protocol.
-            Location = location;
+            CurrentLocation = location;
 
             //If the client has specified a Protcol to use then use it
             if (rtpProtocolType.HasValue)
@@ -654,13 +666,13 @@ namespace Media.Rtsp
             : this(new Uri(location), rtpProtocolType, bufferSize) //UriDecode?
         {
             //Check for a null Credential and UserInfo in the Location given.
-            if (Credential == null && false == string.IsNullOrWhiteSpace(Location.UserInfo))
+            if (Credential == null && false == string.IsNullOrWhiteSpace(CurrentLocation.UserInfo))
             {
                 //Parse the given cred from the location
-                Credential = Utility.ParseUserInfo(Location);
+                Credential = Utility.ParseUserInfo(CurrentLocation);
 
                 //Remove the user info from the location (may not have @?)
-                Location = new Uri(Location.AbsoluteUri.Replace(Location.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(Location.UserInfo, string.Empty));
+                CurrentLocation = new Uri(CurrentLocation.AbsoluteUri.Replace(CurrentLocation.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(CurrentLocation.UserInfo, string.Empty));
             }
         }
 
@@ -944,7 +956,7 @@ namespace Media.Rtsp
                                                 //uri = rtsp://abc.com/live/movie/trackId=2
 
                                                 //Get the context created with from the media description with the same resulting control uri
-                                                RtpClient.TransportContext context = m_RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.GetAbsoluteControlUri(Location) == uri);
+                                                RtpClient.TransportContext context = m_RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) == uri);
 
                                                 //If that context is not null then allow it's ssrc to change now.
                                                 if (context != null)
@@ -997,7 +1009,7 @@ namespace Media.Rtsp
 
             //Check that only the rtx media is playing and then remove session if so
 
-            if (effectedMedia && m_Playing.Count == 1 && m_Playing.First().GetAbsoluteControlUri(Location).AbsoluteUri.EndsWith("rtx", StringComparison.OrdinalIgnoreCase))
+            if (effectedMedia && m_Playing.Count == 1 && m_Playing.First().GetAbsoluteControlUri(CurrentLocation, SessionDescription).AbsoluteUri.EndsWith("rtx", StringComparison.OrdinalIgnoreCase))
             {
                 //RemoveSession(m_SessionId);
 
@@ -1093,7 +1105,7 @@ namespace Media.Rtsp
                             //uri = rtsp://abc.com/live/movie/trackId=2
 
                             //Get the context created with from the media description with the same resulting control uri
-                            RtpClient.TransportContext context = m_RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.GetAbsoluteControlUri(Location) == uri);
+                            RtpClient.TransportContext context = m_RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) == uri);
 
                             //If that context is not null then allow it's ssrc to change now.
                             if (context != null)
@@ -1137,7 +1149,7 @@ namespace Media.Rtsp
             if (false == IsPlaying) return;
 
             //Check if everything is stopping
-            if (Uri.Equals(teardown.Location, Location) || teardown.Location == RtspMessage.Wildcard)
+            if (Uri.Equals(teardown.Location, CurrentLocation) || teardown.Location == RtspMessage.Wildcard)
             {
                 OnStopping();
 
@@ -1248,7 +1260,7 @@ namespace Media.Rtsp
                     }
                 case RtspMethod.ANNOUNCE:
                     {
-                        if (Uri.Equals(m_LastTransmitted.Location, Location))
+                        if (Uri.Equals(m_LastTransmitted.Location, CurrentLocation))
                         {
                             //Check for SDP content type and update the SessionDescription
                         }
@@ -1283,7 +1295,7 @@ namespace Media.Rtsp
                          */
 
                         //Use the Uri to determine what is chaning.
-                        if (Uri.Equals(m_LastTransmitted.Location, Location))
+                        if (Uri.Equals(m_LastTransmitted.Location, CurrentLocation))
                         {
                             //See what is being notified.
                         }
@@ -1601,7 +1613,7 @@ namespace Media.Rtsp
             if (false == hasContext) throw new InvalidOperationException("Cannot Start Playing, No Tracks Setup.");
 
             //Send the play request
-            using (RtspMessage play = SendPlay(Location, start ?? StartTime, end ?? EndTime))
+            using (RtspMessage play = SendPlay(CurrentLocation, start ?? StartTime, end ?? EndTime))
             {
                 //If there was a response or not fire a playing event.
                 if (play == null || 
@@ -1907,7 +1919,7 @@ namespace Media.Rtsp
         /// Stops the Protocol Switch Timer.
         /// 
         /// If <see cref="IsPlaying"/> is true AND there is an assigned <see cref="SessionId"/>,
-        /// Stops any playing media by sending a TEARDOWN for the current <see cref="Location"/> 
+        /// Stops any playing media by sending a TEARDOWN for the current <see cref="CurrentLocation"/> 
         /// 
         /// Disconnects any connected Transport which is still connected.
         /// 
@@ -2112,7 +2124,7 @@ namespace Media.Rtsp
                 }
 
                 //Add the content encoding header
-                if (false == message.ContainsHeader(RtspHeaders.ContentEncoding)) message.SetHeader(RtspHeaders.ContentEncoding, message.Encoding.EncodingName);                
+                if (false == message.ContainsHeader(RtspHeaders.ContentEncoding)) message.SetHeader(RtspHeaders.ContentEncoding, message.Encoding.WebName);                
 
                 //Set the date
                 if (false == message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
@@ -2642,14 +2654,14 @@ namespace Media.Rtsp
         /// <summary>
         /// Sends the Rtsp OPTIONS request
         /// </summary>
-        /// <param name="useStar">The OPTIONS * request will be sent rather then one with the <see cref="RtspClient.Location"/></param>
+        /// <param name="useStar">The OPTIONS * request will be sent rather then one with the <see cref="RtspClient.CurrentLocation"/></param>
         /// <returns>The <see cref="RtspMessage"/> as a response to the request</returns>
         public RtspMessage SendOptions(bool useStar = false)
         {
             using(var options = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.OPTIONS,
-                Location = useStar ? null : Location
+                Location = useStar ? null : CurrentLocation
             })
             {
                 RtspMessage response = SendRtspMessage(options);
@@ -2682,7 +2694,19 @@ namespace Media.Rtsp
                         }
                     }
 
-                    //Should also store Supported:
+                    //Some servers only indicate different features at the SETUP level...
+
+                    string supportedFeatures = response[RtspHeaders.Supported];
+
+                    //If there is Not such a header then return the response
+                    if (false == string.IsNullOrWhiteSpace(supportedFeatures))
+                    {
+                        //Process values in the Public header.
+                        foreach (string method in supportedFeatures.Split(RtspHeaders.Comma))
+                        {
+                             SupportedFeatures.Add(method.Trim());
+                        }
+                    }
                 }
 
                 return response;
@@ -2703,7 +2727,7 @@ namespace Media.Rtsp
                 using (RtspMessage describe = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.DESCRIBE,
-                    Location = Location
+                    Location = CurrentLocation
                 })
                 {
                     #region Reference
@@ -2748,20 +2772,43 @@ namespace Media.Rtsp
                         //Determine if there is a new location
                         string newLocation = response.GetHeader(RtspHeaders.Location).Trim();
 
+                        //We start at our location
+                        Uri baseUri = CurrentLocation;
+
+                        //Get the contentBase header
+                        string contentBase = response[RtspHeaders.ContentBase];
+
+                        //If it was present
+                        if (false == string.IsNullOrWhiteSpace(contentBase) && 
+                            //Try to create it from the string
+                            Uri.TryCreate(contentBase, UriKind.RelativeOrAbsolute, out baseUri))
+                        {
+                            //If it was not absolute
+                            if (false == baseUri.IsAbsoluteUri)
+                            {
+                                //Try to make it absolute and if not try to raise an exception
+                                if (false == Uri.TryCreate(CurrentLocation, baseUri, out baseUri))
+                                {
+                                    Common.ExceptionExtensions.TryRaiseTaggedException(contentBase, "See Tag. Can't parse ContentBase header.");
+                                }
+                                
+                            }
+                        }
+
                         Uri parsedLocation;
 
                         //UriDecode?
 
                         //Try to parse it if not null or empty
                         if (false == string.IsNullOrWhiteSpace(newLocation) &&
-                            Uri.TryCreate(newLocation, UriKind.Absolute, out parsedLocation) &&
-                            parsedLocation != Location) // and not equal the existing location
+                            Uri.TryCreate(baseUri, newLocation, out parsedLocation) &&
+                            parsedLocation != CurrentLocation) // and not equal the existing location
                         {
                             //Could only take the different part of the location with the following code
                             //parsedLocation.MakeRelativeUri(Location)
                             
                             //Redirect to the Location by setting Location. (Allows a new host)
-                            Location = parsedLocation;
+                            CurrentLocation = parsedLocation;
 
                             //Send a new describe
                             return SendDescribe();
@@ -2844,7 +2891,7 @@ namespace Media.Rtsp
             RtspMessage response = null;
 
             //Check if the session supports pausing a specific media item
-            if (mediaDescription != null && false == SessionDescription.SupportsAggregateControl()) throw new InvalidOperationException("The SessionDescription does not allow aggregate control.");
+            if (mediaDescription != null && false == SessionDescription.SupportsAggregateMediaControl(CurrentLocation)) throw new InvalidOperationException("The SessionDescription does not allow aggregate control.");
 
             //only send a teardown if not forced and the client is playing
             if (false == force && false == IsPlaying) return response;
@@ -2889,7 +2936,7 @@ namespace Media.Rtsp
                 using (var teardown = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.TEARDOWN,
-                    Location = mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(Location) : Location
+                    Location = mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) : CurrentLocation
                 })
                 {
                     //Set the close header if disconnecting
@@ -2920,7 +2967,7 @@ namespace Media.Rtsp
             if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
 
             //Send the setup
-            return SendSetup(mediaDescription.GetAbsoluteControlUri(Location), mediaDescription);
+            return SendSetup(mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription), mediaDescription);
         }
 
         //Remove unicast...
@@ -2934,8 +2981,8 @@ namespace Media.Rtsp
             //This will allow for non RTP transports to be used such as MPEG-TS.
             //Must de-coulple the RtpClient and replace it
 
-            ////Determine if a rtcp datum should be sent in the Transport header.
-            bool needsRtcp = true;
+            //Determine if a client_port datum should be sent in the Transport header as a set, list or a single entry
+            bool needsRtcp = true, multiplexing = false;
 
             #region [WMS Notes / Log]
 
@@ -3010,9 +3057,19 @@ namespace Media.Rtsp
                 using (RtspMessage setup = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.SETUP,
-                    Location = location ?? Location
+                    Location =  location ?? CurrentLocation
                 })
                 {
+
+
+                    if (m_InitialLocation != null)
+                    {
+                        if (Uri.TryCreate(m_InitialLocation, location, out location))
+                        {
+                            setup.Location = location;
+                        }
+                    }
+
                     //Values in the header we need
                     int clientRtpPort = -1, clientRtcpPort = -1,
                         serverRtpPort = -1, serverRtcpPort = -1,
@@ -3029,7 +3086,7 @@ namespace Media.Rtsp
 
                     byte dataChannel = 0, controlChannel = 1;
 
-                    ushort minimumPacketSize = 8, maximumPacketSize = (ushort)m_Buffer.Count;
+                    int minimumPacketSize = 8, maximumPacketSize = (ushort)m_Buffer.Count;
 
                     //Todo Determine if Unicast or Multicast from mediaDescription ....?
                     string connectionType = unicast ? "unicast;" : "multicast";
@@ -3055,9 +3112,25 @@ namespace Media.Rtsp
                     // IF TCP was specified or the MediaDescription specified we need to use Tcp as specified in RFC4571
                     // DETERMINE if only 1 channel should be sent in the TransportHeader if we know RTCP is not going to be used. (doing so would force RTCP to stay disabled the entire stream unless a SETUP for just the RTCP occured, how does one setup just a RTCP session..)
 
+                    //Send any supported headers?
+
+                    //if (false == setup.ContainsHeader(RtspHeaders.Supported))
+                    //{
+                        //setup.SetHeader(RtspHeaders.Supported, "play.basic, play.scale, play.speed, con.persistent, con.independent, con.transient, rtp.mux, rtcp.mux, ts.mux, raw.mux, mux.*");
+                        //setup.SetHeader(RtspHeaders.Supported, string.Join(Sdp.SessionDescription.SpaceString, SupportedFeatures));
+                    //}
+
+                    //Required: header (RequiredFeatures)
+                    if (false == setup.ContainsHeader(RtspHeaders.Require))
+                    {
+                        setup.SetHeader(RtspHeaders.Require, string.Join(Sdp.SessionDescription.SpaceString, RequiredFeatures));
+                    }
+
                     //Interleaved
                     if (interleaved)
                     {
+                        //RTCP-mux:
+
                         //If there is already a RtpClient with at-least 1 TransportContext
                         if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
                         {
@@ -3068,6 +3141,7 @@ namespace Media.Rtsp
                         {
                             setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
                         }
+
                     }
                     else if (string.Compare(mediaDescription.MediaProtocol, RtpClient.RtpAvpProfileIdentifier, true) == 0) // We need to find an open Udp Port
                     {
@@ -3086,7 +3160,7 @@ namespace Media.Rtsp
                         if (mediaDescription.Where(l => l.Type == Sdp.SessionDescription.AttributeType && l.Parts.Any(p => p.ToLowerInvariant() == "rtcp-mux")).Any())
                         {
                             //Might not 'need' it
-                            needsRtcp = true;
+                            needsRtcp = multiplexing = true;
 
                             //Use the same port
                             clientRtcpPort = clientRtpPort;
@@ -3156,7 +3230,8 @@ namespace Media.Rtsp
                         {
                             goto SetupTcp;
                         }
-                        else if (response.StatusCode == RtspStatusCode.SessionNotFound && false == string.IsNullOrWhiteSpace(m_SessionId) && triedTwoTimes == false)
+                        else if (response.StatusCode == RtspStatusCode.SessionNotFound && false == string.IsNullOrWhiteSpace(m_SessionId) && 
+                            false == triedTwoTimes)
                         {
                             //Erase the old session id
                             m_SessionId = string.Empty;
@@ -3166,6 +3241,19 @@ namespace Media.Rtsp
                         }
                         else
                         {
+                            //If there was an initial location and that location's host is different that the current location's host
+                            if (m_InitialLocation != null && location.Host != m_InitialLocation.Host)
+                            {
+                                //You would have thought that the resource we were directed to would be able to handle it's own DNS routing even when it's not tunneled through IPv4
+
+                                //Try to use the old location
+                                location = mediaDescription.GetAbsoluteControlUri(m_InitialLocation, SessionDescription);
+
+                                triedTwoTimes = true;
+
+                                goto Setup;
+                            }
+
                             Common.ExceptionExtensions.RaiseTaggedException(response.StatusCode, "Unable to setup media. The status code is in the Tag property.");
 
                             return response;
@@ -3181,18 +3269,21 @@ namespace Media.Rtsp
                         //Extract the value (Should account for ';' in some way)
                         blockSize = Utility.ExtractNumber(blockSize.Trim());
 
-                        //Attempt to parse
-                        if (false == ushort.TryParse(blockSize, out maximumPacketSize) &&
-                            System.Diagnostics.Debugger.IsAttached) //Break if debugging and an error occurs.
+                        try
                         {
-                            System.Diagnostics.Debugger.Break();
-                        }
+                            //Parse it...
+                            maximumPacketSize = int.Parse(blockSize, System.Globalization.NumberStyles.Integer);
 
-                        //If the packets cannot fit in the buffer
-                        if (maximumPacketSize > m_Buffer.Count)
+                            //If the packets cannot fit in the buffer
+                            if (maximumPacketSize > m_Buffer.Count)
+                            {
+                                //Try to allow processing
+                                Common.ExceptionExtensions.RaiseTaggedException(maximumPacketSize, "Media Requires a Larger Buffer. (See Tag for value)");
+                            }
+                        }
+                        catch (Exception ex)
                         {
-                            //Try to allow processing
-                            Common.ExceptionExtensions.TryRaiseTaggedException(response.StatusCode, "Media Requires a Larger Buffer.");
+                            Common.ExceptionExtensions.TryRaiseTaggedException(this, "BlockSize of the response needs consideration.", ex);
                         }
                     }
 
@@ -3226,6 +3317,12 @@ namespace Media.Rtsp
                             Common.ExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Invalid Transport Header in Rtsp Response: " + transportHeader);
                     }
 
+                    //If the server returns a channel which is already in use
+                    //it then determines if there is an existing channel already utilized by this client with a different socket.
+                    //If there is, then nothing neeed to be created just updated.
+                    //Todo
+                    //Care should be taken that the SDP is not directing us to connect to some unknown resource....
+
                     //Ensure we are not overlapping context's 
                     if (remoteSsrc != 0)
                     {
@@ -3239,20 +3336,17 @@ namespace Media.Rtsp
                         }
                     }
                    
-                    //Just incase the source was not given
+                    //Just incase the source datum was not given
                     if (sourceIp == IPAddress.Any) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
+
+                    //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
+                    RtpClient.TransportContext created = null;
 
                     //If interleaved was present in the response then use a RTP/AVP/TCP Transport
                     if (interleaved)
                     {
-                        //Create the context (determine if the session rangeLine may also be given here, if it gets parsed once it doesn't need to be parsed again)
-
-                        //If the server returns a channel which is already in use
-                        //it should then be determined if there is an existing channel already utilized by this client with a different socket.
-                        //If there is then nothing neeed to be created just updated.
-
-                        RtpClient.TransportContext created = null;
-
+                        
+                        //No client or disposed
                         if (m_RtpClient != null && false == m_RtpClient.IsDisposed)
                         {
                             //Obtain the context via the given data channel
@@ -3268,15 +3362,15 @@ namespace Media.Rtsp
                                 return response;
                             }
                         }
-
+                        
                         //If a context was not already created
-                        if (created == null)
+                        if (created == null || created.IsDisposed)
                         {
                             //Create the context if required
                             created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
 
                             //Set the identity to what we indicated to the server.
-                            //created.SynchronizationSourceIdentifier = localSsrc;
+                            created.SynchronizationSourceIdentifier = localSsrc;
 
                             //Set the minimum packet size
                             created.MinimumPacketSize = minimumPacketSize;
@@ -3314,11 +3408,6 @@ namespace Media.Rtsp
                             //When the RtspClient is disposed that socket will also be disposed.
                         }
 
-                        //Todo
-                        //Care should be taken that the SDP is not directing us to connect to some unknown resource....
-
-                        //try to add the TransportContext
-                        m_RtpClient.TryAddContext(created);
                     }
                     else
                     {
@@ -3334,50 +3423,59 @@ namespace Media.Rtsp
                             //Attach an event for interleaved data
                             m_RtpClient.InterleavedData += ProcessInterleaveData;
                         }
+                        else if(created == null || created.IsDisposed)
+                        {
+                            //Obtain the context via the given local or remote id
+                            created = localSsrc != 0 ? m_RtpClient.GetContextBySourceId(localSsrc) : remoteSsrc != 0 ? m_RtpClient.GetContextBySourceId(remoteSsrc) : null;
 
-                        RtpClient.TransportContext created;
+                            //If the control channel is the same then just update the client and ensure connected.
+                            if (created != null && created.ControlChannel == controlChannel)
+                            {
+                                created.Initialize(m_RtspSocket);
 
-                        var availableContexts = m_RtpClient.GetTransportContexts();
+                                m_RtpClient.Connect();
 
+                                return response;
+                            }
+                        }
+
+                        //Get the available context's
+                        var availableContexts = m_RtpClient.GetTransportContexts().Where(tc => tc != null && false == tc.IsDisposed);
+
+                        //If there are aren't any then create one using the default values
                         if (false == availableContexts.Any())
                         {
-                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, 1, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+                            created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, 0, (byte)(multiplexing ? 0 : 1), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
                         }
                         else
                         {
                             RtpClient.TransportContext lastContext = availableContexts.LastOrDefault();
 
-                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + 2), (byte)(lastContext.ControlChannel + 2), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
+                            if (lastContext != null) created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)(lastContext.DataChannel + (multiplexing ? 1 : 2)), (byte)(lastContext.ControlChannel + (multiplexing ? 1 : 2)), mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
                             else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
                         }
 
                         created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
 
-                        //Set the identity to what we indicated to the server.
-                        //created.SynchronizationSourceIdentifier = localSsrc;
-
-                        //rtpTemp.Connect(sourceIp, serverRtpPort);
-                        //rtcpTemp.Connect(sourceIp, serverRtcpPort);
-                        //created.Initialize(rtpTemp, rtcpTemp);
-
                         //No longer need the temporary sockets
                         
-                        if (rtcpTemp != null)
+                        if (rtpTemp != null)
                         {
                             rtpTemp.Dispose();
 
                             rtpTemp = null;
                         }
 
-                        if (rtcpTemp != null)
+                        if (false == multiplexing && rtcpTemp != null)
                         {
                             rtcpTemp.Dispose();
 
                             rtcpTemp = null;
                         }
-
-                        m_RtpClient.TryAddContext(created);
                     }
+
+                    //if a context was created add it
+                    if(created != null) m_RtpClient.TryAddContext(created, false == multiplexing, false == multiplexing, true, true);
 
                     //Setup Complete
                     return response;
@@ -3455,7 +3553,7 @@ namespace Media.Rtsp
             if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
 
             //Check if the session supports pausing a specific media item
-            if (false == SessionDescription.SupportsAggregateControl()) throw new InvalidOperationException("The SessionDescription does not allow aggregate control.");
+            if (false == SessionDescription.SupportsAggregateMediaControl(CurrentLocation)) throw new InvalidOperationException("The SessionDescription does not allow aggregate control.");
 
             var context = Client.GetContextForMediaDescription(mediaDescription);
 
@@ -3472,7 +3570,7 @@ namespace Media.Rtsp
             }
 
             //Send the play request
-            return SendPlay(mediaDescription.GetAbsoluteControlUri(Location), startTime ?? context.MediaStartTime, endTime ?? context.MediaEndTime, rangeType);
+            return SendPlay(mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription), startTime ?? context.MediaStartTime, endTime ?? context.MediaEndTime, rangeType);
         }
 
         public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", bool force = false)
@@ -3494,7 +3592,7 @@ namespace Media.Rtsp
                 using(RtspMessage play = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.PLAY,
-                    Location = location ?? Location
+                    Location = location ?? CurrentLocation
                 })
                 {
                     /*
@@ -3597,7 +3695,7 @@ namespace Media.Rtsp
                                             //uri = rtsp://abc.com/live/movie/trackId=2
 
                                             //Get the context created with from the media description with the same resulting control uri
-                                            RtpClient.TransportContext context = m_RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.GetAbsoluteControlUri(Location) == uri);
+                                            RtpClient.TransportContext context = m_RtpClient.GetTransportContexts().FirstOrDefault(tc => tc.MediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) == uri);
 
                                             //If that context is not null then allow it's ssrc to change now.
                                             if (context != null)
@@ -3637,7 +3735,7 @@ namespace Media.Rtsp
             if (mediaDescription != null && false == force)
             {
                 //Check if the session supports pausing a specific media item
-                if (false == SessionDescription.SupportsAggregateControl()) throw new InvalidOperationException("The SessionDescription does not allow aggregate control.");
+                if (false == SessionDescription.SupportsAggregateMediaControl(CurrentLocation)) throw new InvalidOperationException("The SessionDescription does not allow aggregate control.");
 
                 //Get a context for the media
                 var context = Client.GetContextForMediaDescription(mediaDescription);
@@ -3656,7 +3754,7 @@ namespace Media.Rtsp
             OnPausing(mediaDescription);
 
             //Send the pause request, determining if the request is for all media or just one.
-            return SendPause(mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(Location) : Location, force);
+            return SendPause(mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) : CurrentLocation, force);
         }
 
 
@@ -3669,7 +3767,7 @@ namespace Media.Rtsp
             using (RtspMessage pause = new RtspMessage(RtspMessageType.Request)
                 {
                     Method = RtspMethod.PAUSE,
-                    Location = location ?? Location
+                    Location = location ?? CurrentLocation
                 })
             {
                 return SendRtspMessage(pause);                 
@@ -3679,7 +3777,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Sends a ANNOUNCE Request
         /// </summary>
-        /// <param name="location">The location to indicate in the request, otherwise null to use the <see cref="Location"/></param>
+        /// <param name="location">The location to indicate in the request, otherwise null to use the <see cref="CurrentLocation"/></param>
         /// <param name="sdp">The <see cref="SessionDescription"/> to ANNOUNCE</param>
         /// <returns>The response</returns>
         public RtspMessage SendAnnounce(Uri location, SessionDescription sdp, bool force = false)
@@ -3689,7 +3787,7 @@ namespace Media.Rtsp
             using (RtspMessage announce = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.ANNOUNCE,
-                Location = location ?? Location                
+                Location = location ?? CurrentLocation                
             })
             {
                 announce.Body = sdp.ToString();
@@ -3753,7 +3851,7 @@ namespace Media.Rtsp
                         if (m_Playing.Remove(context.MediaDescription)) OnStopping(context.MediaDescription);
                     }
 
-                    bool aggregateControl = SessionDescription.SupportsAggregateControl();
+                    bool aggregateControl = SessionDescription.SupportsAggregateMediaControl(CurrentLocation);
 
                     //Iterate the played items looking for ended media.
                     for (int i = 0, e = m_Playing.Count; i < e; ++i)
@@ -3854,7 +3952,7 @@ namespace Media.Rtsp
                     bool pausedOrStoppedAnything = false;
 
                     //If we cannot stop a single media item we will set this to true.
-                    bool stopAll = false == SessionDescription.SupportsAggregateControl();
+                    bool stopAll = false == SessionDescription.SupportsAggregateMediaControl(CurrentLocation);
 
                     //Iterate all inactive contexts.
                     if(false == stopAll) foreach (var context in contextsWithoutDataFlow.ToArray())
@@ -3985,7 +4083,7 @@ namespace Media.Rtsp
             using (RtspMessage get = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.GET_PARAMETER,
-                Location = Location,
+                Location = CurrentLocation,
                 Body = body ?? string.Empty
             })
             {
@@ -4003,7 +4101,7 @@ namespace Media.Rtsp
             using (RtspMessage set = new RtspMessage(RtspMessageType.Request)
             {
                 Method = RtspMethod.SET_PARAMETER,
-                Location = Location,
+                Location = CurrentLocation,
                 Body = body ?? string.Empty
             })
             {
