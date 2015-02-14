@@ -235,7 +235,7 @@ namespace Tests
                 if (read != testBits) throw new Exception("GetBit Does not Work");
 
                 //Check in reverse
-                //if (Media.Common.Binary.ReadBitsReverse(Octets, 0, 8) != Media.Common.Binary.ReverseU8((byte)read)) throw new Exception("GetBit Does not Work");
+                if (Media.Common.Binary.ReadBits(Octets, 0, 8, true) != Media.Common.Binary.ReverseU8((byte)read)) throw new Exception("GetBit Does not Work");
 
                 Console.WriteLine("Read:" + read);
 
