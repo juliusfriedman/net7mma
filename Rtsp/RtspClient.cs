@@ -3157,7 +3157,7 @@ namespace Media.Rtsp
                         rtpTemp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort = openPort);
 
                         //Check for muxing of rtp and rtcp on the same physical port
-                        if (mediaDescription.Where(l => l.Type == Sdp.SessionDescription.AttributeType && l.Parts.Any(p => p.ToLowerInvariant() == "rtcp-mux")).Any())
+                        if (mediaDescription.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts.Any(p => p.ToLowerInvariant() == "rtcp-mux")).Any())
                         {
                             //Might not 'need' it
                             needsRtcp = multiplexing = true;

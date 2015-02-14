@@ -1497,9 +1497,9 @@ namespace Media.Rtsp
 
                 if (stream.m_DisableQOS)
                 {
-                    md.Add(RtpClient.TransportContext.DisabledSendLine);
-                    md.Add(RtpClient.TransportContext.DisabledReceiveLine);
-                    md.Add(RtpClient.TransportContext.DisabledApplicationSpecificLine);
+                    md.Add(Sdp.Lines.SessionBandwidthLine.DisabledSendLine);
+                    md.Add(Sdp.Lines.SessionBandwidthLine.DisabledReceiveLine);
+                    md.Add(Sdp.Lines.SessionBandwidthLine.DisabledApplicationSpecificLine);
                 }
                 //else
                 //{
