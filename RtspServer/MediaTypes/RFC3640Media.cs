@@ -349,10 +349,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         auxHeaderOffset = offset;
 
                         //Read the size in bits
-                        int auxDataSizeBits = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength);
+                        int auxDataSizeBits = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength, BitConverter.IsLittleEndian);
 
                         //Skip the bits indicated
-                        Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auxDataSizeBits);
+                        Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auxDataSizeBits, BitConverter.IsLittleEndian);
 
                         //Calculate the amount of bytes in the auxillary data section
                         auxLengthBytes = ((auxDataSizeBits + 7) / 8);
@@ -397,7 +397,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (sizeLength > 0)
                         {
                             //In bytes
-                            auSize = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, sizeLength);
+                            auSize = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, sizeLength, BitConverter.IsLittleEndian);
                         }
                         else auSize = defaultAuSize;
 
@@ -418,9 +418,9 @@ namespace Media.Rtsp.Server.MediaTypes
                          */
 
                         if (parsedUnits == 0 && indexLength > 0)
-                            auIndex = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength);
+                            auIndex = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength, BitConverter.IsLittleEndian);
                         else if (indexDeltaLength > 0)
-                            auIndex =  auIndex /* - 1*/ + (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexDeltaLength) /* + 1*/;
+                            auIndex = auIndex /* - 1*/ + (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexDeltaLength, BitConverter.IsLittleEndian); /* + 1*/;
 
                         //Interleaving is applied
                         //if (auIndexDelta > 0) 
@@ -430,36 +430,36 @@ namespace Media.Rtsp.Server.MediaTypes
                         //               be larger than zero."
                         if (0 != CTSDeltaLength)
                         {
-                            bool CTSFlag = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, 1) > 0;
+                            bool CTSFlag = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, 1, BitConverter.IsLittleEndian) > 0;
                             if (CTSFlag)
                             {
                                 //int CTSDelta = getIntFromBitArray(headerBits, bitOffset, CTSDeltaLength);
-                                int CTSDelta = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength);
+                                int CTSDelta = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength, BitConverter.IsLittleEndian); ;
                             }
                         }
 
                         if (0 != DTSDeltaLength)
                         {
-                            bool DTSFlag = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, 1) > 0;
+                            bool DTSFlag = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, 1, BitConverter.IsLittleEndian) > 0;
                             if (DTSFlag)
                             {
                                 //int DTSDelta = getIntFromBitArray(headerBits, bitOffset, CTSDeltaLength);
-                                int DTSDelta = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength);
+                                int DTSDelta = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength, BitConverter.IsLittleEndian);
                             }
                         }
 
                         if (randomAccessIndication)
                         {
-                            bool RAPFlag = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, 1) > 0;
+                            bool RAPFlag = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, 1, BitConverter.IsLittleEndian) > 0;
                         }
 
                         //StreamState
                         //https://www.ietf.org/proceedings/54/slides/avt-6.pdf                      
                         if (0 != streamStateIndication)
                         {
-                            int streamState = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, streamStateIndication);
+                            int streamState = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, streamStateIndication, BitConverter.IsLittleEndian);
 
-                            Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, streamState);
+                            Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, streamState, BitConverter.IsLittleEndian);
                         }
 
                          // as per 3) skip padding

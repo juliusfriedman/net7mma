@@ -486,34 +486,44 @@ namespace Media.Common
 
         //public static int Nand, Nor
 
-        //ReadBits from a byte[]
-
-        public static long ReadBits(byte[] data)
+        public static long ReadBits(byte[] data, bool reverse = false)
         {
+            if (data == null) throw new ArgumentNullException("data");
+
             int byteOffset = 0, bitOffset = 0;
-            return ReadBits(data, ref byteOffset, ref bitOffset, BitSize * data.Length);
+
+            return reverse ? ReadBitsReverse(data, ref byteOffset, ref bitOffset, BitSize * data.Length) : ReadBits(data, ref byteOffset, ref bitOffset, BitSize * data.Length);
         }
 
-        public static long ReadBits(byte[] data, int byteOffset)
+        public static long ReadBits(byte[] data, int byteOffset, bool reverse = false)
         {
+            if (data == null) throw new ArgumentNullException("data");
+
             int bitOffset = 0;
-            return ReadBits(data, ref byteOffset, ref bitOffset, BitSize * data.Length);
+
+            return reverse ? ReadBitsReverse(data, ref byteOffset, ref bitOffset, BitSize * data.Length) : ReadBits(data, ref byteOffset, ref bitOffset, BitSize * data.Length);
         }
 
-        public static long ReadBits(byte[] data, int byteOffset, int count)
+        public static long ReadBits(byte[] data, int byteOffset, int count, bool reverse = false)
         {
+            if (data == null) throw new ArgumentNullException("data");
+
             int bitOffset = 0;
-            return ReadBits(data, ref byteOffset, ref bitOffset, count);
+
+            return reverse ? ReadBitsReverse(data, ref byteOffset, ref bitOffset, count) : ReadBits(data, ref byteOffset, ref bitOffset, count);
         }
 
 
-        //Needs reverse parameter overload
+        public static long ReadBits(byte[] data, ref int byteOffset, ref int bitOffset, int count, bool reverse = false)
+        {
+            if (data == null) throw new ArgumentNullException("data");
+
+            return reverse ? ReadBitsReverse(data, ref byteOffset, ref bitOffset, count) : ReadBits(data, ref byteOffset, ref bitOffset, count);
+        }
 
         public static long ReadBits(byte[] data, ref int byteOffset, ref int bitOffset, int count)
         {
             long value = 0;
-
-            if (data == null || count == 0) return value;
 
             //While there is a byte needed decrement for the bit consumed
             while (count-- > 0)
@@ -546,34 +556,19 @@ namespace Media.Common
         {
             long value = 0;
 
-            if (data == null || count == 0) return value;
-
             //While there is a byte needed decrement for the bit consumed
-            while (count-- > 0)
+            while (count > 0)
             {
-                //Check for the end of bits
-                if (bitOffset >= BitSize)
-                {
-                    //reset
-                    bitOffset = 0;
+                value += ReverseU8((byte)ReadBits(data, ref byteOffset, ref  bitOffset, Math.Min(count, (int)BitSize)));
 
-                    //move the index of the byte
-                    ++byteOffset;
-                }
-
-                //Get a bit from the byte at our offset to determine if the value needs to be incremented
-                if (GetBit(ref data[byteOffset], BitSize - bitOffset))
-                {
-                    value += 1 << bitOffset;
-                }
-
-                //Increment for the bit consumed
-                ++bitOffset;
+                count -= BitSize;
             }
 
             return value;
 
         }
+
+        //Write Bits
 
         public static byte[] SetBit(byte[] self, int index, bool value)
         {
