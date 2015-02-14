@@ -348,109 +348,6 @@ namespace Media.Rtp
         {
             #region Statics
 
-            #region RFC3556 Bandwidth
-
-            const string RecieveBandwidthToken = "RR", SendBandwdithToken = "RS", ApplicationSpecificBandwidthToken = "AS";
-
-            internal static Sdp.SessionDescriptionLine DisabledReceiveLine = new Sdp.SessionDescriptionLine("b=RR:0");
-
-            internal static Sdp.SessionDescriptionLine DisabledSendLine = new Sdp.SessionDescriptionLine("b=RS:0");
-
-            internal static Sdp.SessionDescriptionLine DisabledApplicationSpecificLine = new Sdp.SessionDescriptionLine("b=AS:0");
-
-            public static bool TryParseBandwidthLine(Media.Sdp.SessionDescriptionLine line, out int result)
-            {
-                string token;
-
-                return TryParseBandwidthLine(line, out token, out result);
-            }
-
-            public static bool TryParseBandwidthLine(Media.Sdp.SessionDescriptionLine line, out string token, out int result)
-            {
-                token = string.Empty;
-
-                result = -1;
-
-                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
-
-                string[] tokens = line.Parts[0].Split(Media.Sdp.SessionDescription.ColonSplit, StringSplitOptions.RemoveEmptyEntries);
-
-                if (tokens.Length < 2) return false;
-
-                token = tokens[0];
-
-                return int.TryParse(tokens[1], out result);
-            }
-
-            public static bool TryParseRecieveBandwidth(Media.Sdp.SessionDescriptionLine line, out int result)
-            {
-                result = -1;
-
-                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
-
-                if (false == line.Parts[0].StartsWith(RecieveBandwidthToken, StringComparison.OrdinalIgnoreCase)) return false;
-
-                return TryParseBandwidthLine(line, out result);
-            }
-
-            public static bool TryParseSendBandwidth(Media.Sdp.SessionDescriptionLine line, out int result)
-            {
-                result = -1;
-
-                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
-
-                if (false == line.Parts[0].StartsWith(SendBandwdithToken, StringComparison.OrdinalIgnoreCase)) return false;
-
-                return TryParseBandwidthLine(line, out result);
-            }
-
-            public static bool TryParseGetApplicationSpecificBandwidth(Media.Sdp.SessionDescriptionLine line, out int result)
-            {
-                result = -1;
-
-                if (line == null || line.Type != Sdp.SessionDescription.BandwidthType) return false;
-
-                if (false == line.Parts[0].StartsWith(ApplicationSpecificBandwidthToken, StringComparison.OrdinalIgnoreCase)) return false;
-
-                return TryParseBandwidthLine(line, out result);
-            }
-
-            public static bool TryParseBandwidthDirectives(Media.Sdp.MediaDescription mediaDescription, out int rrDirective, out int rsDirective, out int asDirective)
-            {
-                rrDirective = rsDirective = asDirective = -1;
-
-                if (mediaDescription == null) return false;
-
-                int parsed = -1;
-
-                string token = string.Empty;
-
-                foreach (Media.Sdp.SessionDescriptionLine line in mediaDescription.BandwidthLines)
-                {
-                    if (TryParseBandwidthLine(line, out token, out parsed))
-                    {
-                        switch (token)
-                        {
-                            case RecieveBandwidthToken:
-                                rrDirective = parsed;
-                                continue;
-                            case SendBandwdithToken:
-                                rsDirective = parsed;
-                                continue;
-                            case ApplicationSpecificBandwidthToken:
-                                asDirective = parsed;
-                                continue;
-
-                        }
-                    }
-                }
-
-                //Determine if rtcp is disabled
-                return parsed >= 0;
-            }
-
-            #endregion
-
             public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2)
             {
 
@@ -468,7 +365,7 @@ namespace Media.Rtp
                     reportSendingEvery = reportReceivingEvery = (int)DefaultReportInterval.TotalMilliseconds;
 
                     //If any lines were parsed
-                    if (TryParseBandwidthDirectives(mediaDescription, out reportReceivingEvery, out reportSendingEvery, out asData))
+                    if (Media.Sdp.Lines.SessionBandwidthLine.TryParseBandwidthDirectives(mediaDescription, out reportReceivingEvery, out reportSendingEvery, out asData))
                     {
                         //Determine if rtcp is disabled
                         bool rtcpDisabled = reportReceivingEvery == 0 && reportSendingEvery == 0;
@@ -753,12 +650,18 @@ namespace Media.Rtp
             /// </summary>
             public Object ApplicationContext { get; set; }
 
+            /// <summary>
+            /// The smallest packet which may be sent or recieved on the TransportContext.
+            /// </summary>
             public int MinimumPacketSize
             {
                 get { return (int)m_MimumPacketSize; }
                 set { m_MimumPacketSize = (ushort)value; }
             }
 
+            /// <summary>
+            /// The largest packet which may be sent or recieved on the TransportContext.
+            /// </summary>
             public int MaximumPacketSize
             {
                 get { return (int)m_MaximumPacketSize; }
@@ -3212,7 +3115,6 @@ namespace Media.Rtp
         /// <returns></returns>
         public virtual int SendRtcpPackets(IEnumerable<RtcpPacket> packets, out SocketError error, bool force = false)
         {
-
             error = SocketError.SocketError;
 
             if (IsDisposed || packets == null || packets.Count() == 0) return 0;
@@ -3232,6 +3134,7 @@ namespace Media.Rtp
 
             //Use ToCompoundBytes to ensure that all compound packets are correctly formed.
             //Don't Just `stack` the packets as indicated if sending, assume they are valid.
+
             int sent = SendData(RFC3550.ToCompoundBytes(packets).ToArray(), context.ControlChannel, context.RtcpSocket, context.RemoteRtcp, out error);
 
             //If the compound bytes were completely sent then all packets have been sent
@@ -3445,6 +3348,9 @@ namespace Media.Rtp
             //If we don't have an transportContext to send on or the transportContext has not been identified
             if (transportContext == null) return 0;
             
+            //Ensure not sending too large of a packet
+            if (packet.Length > transportContext.MaximumPacketSize) Common.ExceptionExtensions.TryRaiseTaggedException(transportContext, "See Tag. The given packet must be smaller than the value in the transportContext.MaximumPacketSize.");
+
             //If the mediaDescription of the context does not specify the packets payload type AND
             if (false == transportContext.MediaDescription.PayloadTypes.Contains(packet.PayloadType)
                 && //The packet was addressed from or to a transportContext the client recognizes
@@ -3540,15 +3446,17 @@ namespace Media.Rtp
         }
 
         /// <summary>
-        /// Returns the amount of bytes read to completely read the RFC2326 frame.
+        /// Returns the amount of bytes read to completely read the application layer framed data
         /// Where a negitive return value indicates no more data remains.
         /// </summary>
-        /// <param name="received"></param>
-        /// <param name="context"></param>
-        /// <returns></returns>
-        //http://tools.ietf.org/search/rfc4571
-        //Should be ReadFrameHeader (bool rtsp, ...
-        int ReadRFC2326FrameHeader(int received, out byte frameChannel, out RtpClient.TransportContext context, ref int offset, out bool raisedEvent, byte[] buffer = null)
+        /// <param name="received">How much data was received</param>
+        /// <param name="frameChannel">The output of reading a frameChannel</param>
+        /// <param name="context">The context assoicated with the frameChannel</param>
+        /// <param name="offset">The reference to offset to look for framing data</param>
+        /// <param name="raisedEvent">Indicates if an event was raised</param>
+        /// <param name="buffer">The optional buffer to use.</param>
+        /// <returns>The amount of bytes the frame data SHOULD have</returns>
+        int ReadApplicationLayerFraming(int received, out byte frameChannel, out RtpClient.TransportContext context, ref int offset, out bool raisedEvent, byte[] buffer = null)
         {
 
             //There is no relevant TransportContext assoicated yet.
@@ -3563,10 +3471,10 @@ namespace Media.Rtp
 
             buffer = buffer ?? m_Buffer.Array;
 
-            int bufferLength = buffer.Length;
+            int bufferLength = buffer.Length, bufferOffset = offset;                       
 
             //Look for the frame control octet
-            int mOffset = offset, startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, mOffset, received);
+            int startOfFrame = Array.IndexOf<byte>(buffer, BigEndianFrameControl, bufferOffset, received);
 
             int frameLength = 0;
 
@@ -3574,7 +3482,7 @@ namespace Media.Rtp
             if (startOfFrame == -1)
             {
                 //System.Diagnostics.Debug.WriteLine("Interleaving: " + received);
-                OnInterleavedData(buffer, mOffset, received);
+                OnInterleavedData(buffer, bufferOffset, received);
 
                 raisedEvent = true;
 
@@ -3584,11 +3492,11 @@ namespace Media.Rtp
             else if (startOfFrame > offset) // If the start of the frame is not at the beginning of the buffer
             {
                 //Determine the amount of data which belongs to the upper layer
-                int upperLayerData = startOfFrame - mOffset;
+                int upperLayerData = startOfFrame - bufferOffset;
 
                 //System.Diagnostics.Debug.WriteLine("Moved To = " + startOfFrame + " Of = " + received + " - Bytes = " + upperLayerData + " = " + Encoding.ASCII.GetString(m_Buffer, mOffset, startOfFrame - mOffset));                
 
-                OnInterleavedData(buffer, mOffset, upperLayerData);
+                OnInterleavedData(buffer, bufferOffset, upperLayerData);
 
                 raisedEvent = true;
 
@@ -3599,13 +3507,13 @@ namespace Media.Rtp
             }
 
             //If there is not enough data for a frame header return
-            if (mOffset + InterleavedOverhead > bufferLength) return -1;
+            if (bufferOffset + InterleavedOverhead > bufferLength) return -1;
 
             //Todo Determine from Context to use control channel and length. (Check MediaDescription)
-            //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....
+            //NEEDS TO HANDLE CASES WHERE RFC4571 Framing are in play and no $ or Channel are used....            
 
-            //The amount of data needed for the frame
-            frameLength = TryReadFrameHeader(buffer, mOffset, out frameChannel, true, BigEndianFrameControl, true);
+            //The amount of data needed for the frame comes from TryReadFrameHeader
+            frameLength = TryReadFrameHeader(buffer, bufferOffset, out frameChannel, true, BigEndianFrameControl, true);
 
             //Assign a context if there is a frame of any size
             if (frameLength >= 0)
@@ -3817,6 +3725,12 @@ namespace Media.Rtp
 
             //TODO handle receiving when no $ and Channel is presenent... e.g. RFC4571
             //Would only be 2 then...
+
+            if (GetContextBySocket(socket).MediaDescription.MediaProtocol.StartsWith("TCP", StringComparison.OrdinalIgnoreCase))
+            {
+                //independent = true;
+            }
+
             int sessionRequired = InterleavedOverhead;
 
             //While not disposed and there is data remaining (within the buffer)
@@ -3834,7 +3748,7 @@ namespace Media.Rtp
                     raisedEvent = false;
 
                     //Parse the frameLength from the given buffer, take changes to the offset through the function.
-                    frameLength = ReadRFC2326FrameHeader(remainingInBuffer, out frameChannel, out relevent, ref offset, out raisedEvent, buffer);
+                    frameLength = ReadApplicationLayerFraming(remainingInBuffer, out frameChannel, out relevent, ref offset, out raisedEvent, buffer);
 
                     //If a frame was found (Including the null packet)
                     if (frameLength >= 0)
