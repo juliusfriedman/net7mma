@@ -285,13 +285,15 @@ namespace Media.Sdp
             get { return m_SessionVersionLine == null ? -1 : m_SessionVersionLine.Version; }
             private set
             {
+                if (UnderModification) return;
+
                 if (m_SessionVersionLine == null || value != m_SessionVersionLine.Version)
                 {
                     var token = BeginUpdate();
 
                     m_SessionVersionLine = new Lines.SessionVersionLine(value);
 
-                    EndUpdate(token, m_OriginatorLine != null);
+                    EndUpdate(token, DocumentVersion != 0);
                 }
             }
         }
@@ -304,7 +306,11 @@ namespace Media.Sdp
             get { return m_OriginatorLine.ToString(); }
             set
             {
-                bool hadValueWithSetVersion = m_OriginatorLine != null && m_OriginatorLine.SessionVersion > 0;
+                if (UnderModification) return;
+
+                if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("The SessionOriginatorLine is required to have a non-null and non-empty value.");
+
+                bool hadValueWithSetVersion = m_OriginatorLine != null && m_OriginatorLine.SessionVersion != 0;
 
                 if (hadValueWithSetVersion && string.Compare(value, m_OriginatorLine.ToString(), StringComparison.InvariantCultureIgnoreCase) == 0) return;
 
@@ -325,13 +331,15 @@ namespace Media.Sdp
             get { return m_NameLine.SessionName; }
             set
             {
+                if (UnderModification) return;
+
                 if (m_NameLine == null || string.Compare(value, m_NameLine.SessionName, StringComparison.InvariantCultureIgnoreCase) != 0)
                 {
                     var token = BeginUpdate();
 
                     m_NameLine = new Lines.SessionNameLine(value);
 
-                    EndUpdate(token, m_OriginatorLine != null);
+                    EndUpdate(token, DocumentVersion != 0);
                 }
             }
         }
@@ -348,6 +356,8 @@ namespace Media.Sdp
             }
             set
             {
+                if (UnderModification) return;
+
                 if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException();
 
                 if (string.Compare(value, m_OriginatorLine.SessionId, StringComparison.InvariantCultureIgnoreCase) == 0) return;
@@ -356,7 +366,7 @@ namespace Media.Sdp
 
                 m_OriginatorLine.SessionId = value;
 
-                EndUpdate(token, m_OriginatorLine != null);
+                EndUpdate(token, DocumentVersion != 0);
             }
         }
 
@@ -364,15 +374,17 @@ namespace Media.Sdp
         {
             get
             {
-                return m_OriginatorLine.SessionVersion;
+                return m_OriginatorLine == null ? 0 : m_OriginatorLine.SessionVersion;
             }
             set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
 
                 m_OriginatorLine.SessionVersion = value;
 
-                EndUpdate(token, true);
+                EndUpdate(token, false);
             }
         }
 
@@ -381,6 +393,8 @@ namespace Media.Sdp
             get { return m_TimeDescriptions.AsReadOnly(); }
             set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
 
                 m_TimeDescriptions = value.ToList();
@@ -394,6 +408,8 @@ namespace Media.Sdp
             get { return m_MediaDescriptions.AsReadOnly(); }
             set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
 
                 m_MediaDescriptions = value.ToList();
@@ -407,6 +423,8 @@ namespace Media.Sdp
             get { return m_SessionVersionLine; }
             set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
 
                 m_SessionVersionLine = value;
@@ -421,6 +439,8 @@ namespace Media.Sdp
             get { return m_OriginatorLine; }
             set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
 
                 m_OriginatorLine = value;
@@ -434,6 +454,8 @@ namespace Media.Sdp
             get { return m_NameLine; }
             set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
                 
                 m_NameLine = value;
@@ -452,7 +474,7 @@ namespace Media.Sdp
         /// </summary>
         public bool UnderModification
         {
-            get { return false == m_Update.IsSet && m_UpdateTokenSource.IsCancellationRequested; }
+            get { return false == m_Update.IsSet || m_UpdateTokenSource.IsCancellationRequested; }
         }
 
         /// <summary>
@@ -466,6 +488,8 @@ namespace Media.Sdp
             }
             internal protected set
             {
+                if (UnderModification) return;
+
                 var token = BeginUpdate();
 
                 m_Lines = value.ToList();
@@ -486,10 +510,12 @@ namespace Media.Sdp
                 {
                     throw new InvalidOperationException("The ConnectionList must be a ConnectionLine");
                 }
-
-                var token = BeginUpdate();
+                
+                if (UnderModification) return;
 
                 Remove(ConnectionLine);
+
+                var token = BeginUpdate();
 
                 Add(value);
 
@@ -505,9 +531,11 @@ namespace Media.Sdp
             }
             set
             {
-                var token = BeginUpdate();
+                if (UnderModification) return;
 
                 Remove(RangeLine);
+
+                var token = BeginUpdate();
 
                 Add(value);
 
@@ -523,9 +551,11 @@ namespace Media.Sdp
             }
             set
             {
-                var token = BeginUpdate();
+                if (UnderModification) return;
 
                 Remove(ControlLine);
+
+                var token = BeginUpdate();
 
                 Add(value);
 
@@ -703,7 +733,7 @@ namespace Media.Sdp
 
         public void Add(MediaDescription mediaDescription, bool updateVersion = true)
         {
-            if (mediaDescription == null) return;
+            if (UnderModification || mediaDescription == null) return;
 
             var token = BeginUpdate();
 
@@ -714,7 +744,7 @@ namespace Media.Sdp
 
         public void Add(TimeDescription timeDescription, bool updateVersion = true)
         {
-            if (timeDescription == null) return;
+            if (UnderModification || timeDescription == null) return;
 
             var token = BeginUpdate();
 
@@ -725,7 +755,7 @@ namespace Media.Sdp
 
         public void Add(SessionDescriptionLine line, bool updateVersion = true)
         {
-            if (line == null) return;
+            if (UnderModification || line == null) return;
 
             var token = BeginUpdate();
 
@@ -750,7 +780,7 @@ namespace Media.Sdp
 
         public bool Remove(SessionDescriptionLine line, bool updateVersion = true)
         {
-            if (line == null) return false;
+            if (UnderModification || line == null) return false;
 
             var token = BeginUpdate();
 
@@ -799,7 +829,7 @@ namespace Media.Sdp
         public bool Remove(TimeDescription timeDescription, bool updateVersion = true)
         {
 
-            if (timeDescription == null) return false;
+            if (UnderModification || timeDescription == null) return false;
 
             var token = BeginUpdate();
 
@@ -812,7 +842,7 @@ namespace Media.Sdp
 
         public bool Remove(MediaDescription mediaDescription, bool updateVersion = true)
         {
-            if (mediaDescription == null) return false;
+            if (UnderModification || mediaDescription == null) return false;
 
             var token = BeginUpdate();
 
@@ -826,6 +856,8 @@ namespace Media.Sdp
         public void RemoveLine(int index, bool updateVersion = true)
         {
 
+            if (UnderModification) return;
+
             //Should give backed lines virtual index?
 
             var token = BeginUpdate();
@@ -837,6 +869,9 @@ namespace Media.Sdp
 
         public void RemoveMediaDescription(int index, bool updateVersion = true)
         {
+
+            if (UnderModification) return;
+
             var token = BeginUpdate();
 
             m_MediaDescriptions.RemoveAt(index);
@@ -846,6 +881,8 @@ namespace Media.Sdp
 
         public void RemoveTimeDescription(int index, bool updateVersion = true)
         {
+            if (UnderModification) return;
+
             var token = BeginUpdate();
 
             m_TimeDescriptions.RemoveAt(index);
@@ -2049,6 +2086,13 @@ namespace Media.Sdp
         public class SessionConnectionLine : SessionDescriptionLine
         {
 
+            public const string InConnectionToken = "IN";
+
+            public const string IP6 = "IP6";
+
+            public const string IP4 = "IP4";
+
+
             internal const char ConnectionType = 'c';
 
             internal string ConnectionNetworkType { get { return GetPart(0); } set { SetPart(0, value); } }
@@ -2226,7 +2270,7 @@ namespace Media.Sdp
                 get
                 {
                     string part = GetPart(2);
-                    if(string.IsNullOrWhiteSpace(part)) return unchecked((long)double.NaN);
+                    if (string.IsNullOrWhiteSpace(part)) return 0;
                     return part[0] == Common.ASCII.HyphenSign ? long.Parse(part) : (long)ulong.Parse(part);
                 }
                 set { SetPart(2, value.ToString()); }
@@ -2242,7 +2286,7 @@ namespace Media.Sdp
                 : base(OriginatorType)
             {
                 while (m_Parts.Count < 6) m_Parts.Add(string.Empty);
-                Username = string.Empty;
+                //Username = string.Empty;
             }
 
             public SessionOriginatorLine(SessionDescriptionLine line)

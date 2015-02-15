@@ -497,6 +497,8 @@ namespace Tests
 
         static void TestRtpClient()
         {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpClientUnitTests), VoidTypeCode);
+
             TestRtpClient(DateTime.UtcNow.Second % 2 == 0);
         }
 
