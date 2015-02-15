@@ -258,22 +258,27 @@ namespace Media.Common
 
             //Build Tables.
 
-            BitsSetTable = new byte[256];
-            BitsReverseTable = new byte[256];
+            BitsSetTable = new byte[Binary.TrīgintāDuoBitSize];
+
+            BitsReverseTable = new byte[Binary.TrīgintāDuoBitSize];
 
             //Start at 2, since BitsSetTable[0] = BitsReverseTable[0] = 0 
-            BitsSetTable[1] = BitsReverseTable[128] = 1; 
-            BitsSetTable[128] = BitsReverseTable[1] = 128;
-            BitsSetTable[255] = 8; BitsReverseTable[255] = 255;
+            BitsSetTable[Binary.Unum] = BitsReverseTable[Binary.SedecimBitSize] = Binary.Unum;
+            
+            BitsSetTable[Binary.SedecimBitSize] = BitsReverseTable[Binary.Unum] = Binary.SedecimBitSize;
+            
+            BitsSetTable[byte.MaxValue] = BitSize; 
+
+            BitsReverseTable[byte.MaxValue] = byte.MaxValue;
             
             //253 Operations [2 -> 254]
-            for (int i = 2; i < byte.MaxValue; ++i)
+            for (int i = Binary.Duo; i < byte.MaxValue; ++i)
             {
                 byte reverse = MultiplyReverseU8((byte)i);
 
                 BitsReverseTable[i] = reverse;
 
-                BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & 1) + BitsSetTable[i / 2]);
+                BitsSetTable[reverse] = BitsSetTable[i] = (byte)((i & Binary.Unum) + BitsSetTable[i / Binary.Duo]);
             }
         }
 
@@ -319,18 +324,39 @@ namespace Media.Common
         /// </summary>
         internal const uint TheAnswerToEverything = 42;
 
+        /// <summary>
+        /// Confidimus
+        /// </summary>
+        internal const int Unum = 1;
+
+        //studet?
+        internal const int Duo = 2;
+
         #endregion
 
         #region Sizes
 
         //16
+        //scilicet duo
         public const byte DoubleBitSize = BitSize * 2;
 
         //24
         public const byte TripleBitSize = BitSize * 3;
 
         //32
+        //scilicet duo
         public const byte QuadrupleBitSize = BitSize * 4;
+
+        //64
+        public const byte OctupleBitSize = BitSize * BitSize;
+
+        //128
+        public const byte SedecimBitSize = BitSize * DoubleBitSize;
+
+        //256
+        //Vele multiplica ea sicut predictum est scilicet duo 
+        public const int TrīgintāDuoBitSize = BitSize * QuadrupleBitSize;
+        //implete eam , ut praedictum est , scilicet duo centum et octo
 
         #endregion
 
@@ -523,49 +549,82 @@ namespace Media.Common
 
         public static long ReadBits(byte[] data, ref int byteOffset, ref int bitOffset, int count)
         {
-            long value = 0;
-
-            //While there is a byte needed decrement for the bit consumed
-            while (count-- > 0)
+            unchecked
             {
-                //Check for the end of bits
-                if (bitOffset >= BitSize)
-                {
-                    //reset
-                    bitOffset = 0;
+                //The value and the placeHolder
+                long value = 0, placeHolder = 1;
 
-                    //move the index of the byte
-                    ++byteOffset;
+                //While there is a byte needed decrement for the bit consumed
+                while (count-- > 0)
+                {
+                    //Check for the end of bits
+                    if (bitOffset >= BitSize)
+                    {
+                        //reset
+                        bitOffset = 0;
+
+                        //move the index of the byte
+                        ++byteOffset;
+
+                        //Create the next value
+                        placeHolder <<= BitSize;
+                    }
+
+                    //Get a bit from the byte at our offset to determine if the value needs to be incremented
+                    if (GetBit(ref data[byteOffset], bitOffset))
+                    {
+                        value |= (1 << bitOffset) * placeHolder;
+                        //value += 1 << bitOffset;
+                    }
+
+                    //Increment for the bit consumed
+                    ++bitOffset;
                 }
 
-                //Get a bit from the byte at our offset to determine if the value needs to be incremented
-                if (GetBit(ref data[byteOffset], bitOffset))
-                {
-                    value += 1 << bitOffset;
-                }
-                
-                //Increment for the bit consumed
-                ++bitOffset;
+                return value;
             }
-
-            return value;
-
         }
 
         public static long ReadBitsReverse(byte[] data, ref int byteOffset, ref int bitOffset, int count)
         {
-            long value = 0;
-
-            //While there is a byte needed decrement for the bit consumed
-            while (count > 0)
+            unchecked
             {
-                value += ReverseU8((byte)ReadBits(data, ref byteOffset, ref  bitOffset, Math.Min(count, (int)BitSize)));
+                //The value and the placeHolder
+                long value = 0, placeHolder = 1;
 
-                count -= BitSize;
+                //While there is a byte needed decrement for the bit consumed
+                while (count-- > 0)
+                {
+                    //Check for the end of bits
+                    if (bitOffset >= BitSize)
+                    {
+                        //reset
+                        bitOffset = 0;
+
+                        //move the index of the byte
+                        ++byteOffset;
+
+                        //Create the next value
+                        placeHolder <<= BitSize;
+                    }
+
+                    //Get a bit from the byte at our offset to determine if the value needs to be incremented
+                    if (GetBit(ref data[byteOffset], bitOffset))
+                    {
+                        //value |= (1 << bitOffset) * placeHolder;
+                        //value += 1 << bitOffset;
+
+                        //value |= ReverseU8((byte)(1 << bitOffset)) * placeHolder;
+
+                        value += ReverseU8((byte)(1 << bitOffset));
+                    }
+
+                    //Increment for the bit consumed
+                    ++bitOffset;
+                }
+
+                return value;
             }
-
-            return value;
-
         }
 
         //Write Bits
@@ -615,7 +674,7 @@ namespace Media.Common
             {
                 if (sizeInBytes == 0) throw new ArgumentException("sizeInBytes", "Must be at least 1.");
 
-                if (sizeInBytes > 8) throw new NotSupportedException("Only sizes up to 8 octets are supported.");
+                if (sizeInBytes > BitSize) throw new NotSupportedException("Only sizes up to 8 octets are supported.");
 
                 var integerOctets = octets.Skip(offset).Take(sizeInBytes);
 
@@ -625,10 +684,8 @@ namespace Media.Common
                 //Reverse the seqeuence if indicated.
                 if (reverse) integerOctets = integerOctets.Reverse();
 
-                //Get the first octet, the placeHolder is 0
+                //Get the first octet, the placeHolder is effectively 0
                 ulong result = integerOctets.First();
-
-                //Faster
 
                 //Calulcate the placeHolder value which is equal to the largest size storable in the signed representation plus 1
                 ulong placeHolder = 256;// (byte.MaxValue + 1); // base 2 = 2 * (ulong)(-sbyte.MaxValue) = 256;
@@ -642,6 +699,9 @@ namespace Media.Common
                         //Combine the result of the calculation of the base two value with the binary representation.
                         result |= b * placeHolder;
                     }
+
+                    //Skip the 0 check using the adder
+                    //result += b * placeHolder;
 
                     //Move the placeholder 8 bits left (This equates to a multiply by 4, [where << 4 would be a multiply of 3 etc])
 
@@ -932,7 +992,7 @@ namespace Media.Common
         public static byte MultiplyReverseU8(ref byte source)
         {
             //http://graphics.stanford.edu/~seander/bithacks.html
-            return (byte)(((source * 0x80200802UL) & 0x0884422110UL) * 0x0101010101UL >> 32);
+            return (byte)(((source * 0x80200802UL) & 0x0884422110UL) * 0x0101010101UL >> QuadrupleBitSize);
         }
 
         public static byte MultiplyReverseU8(byte source) { return MultiplyReverseU8(ref source); }
@@ -944,10 +1004,17 @@ namespace Media.Common
         }
 
         [CLSCompliant(false)]
-        public static ushort ReverseUnsignedShort(ref ushort source) { return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF)); }
+        public static ushort ReverseUnsignedShort(ref ushort source)
+        {
+            return (ushort)(((source & 0xFF) << 8) | ((source >> 8) & 0xFF));
+        }
 
         [CLSCompliant(false)]
-        public static uint ReverseUnsignedInt(ref uint source) { return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24))); }
+        public static uint ReverseUnsignedInt(ref uint source)
+        {
+            return (uint)((((source & 0x000000FF) << 24) | ((source & 0x0000FF00) << 8) | ((source & 0x00FF0000) >> 8) | ((source & 0xFF000000) >> 24)));
+        }
+
 
         /// <summary>
         /// Reverses the given unsigned 16 bit value via left and right shift and casting to a unsigned 64 bit value.
@@ -994,7 +1061,10 @@ namespace Media.Common
             return RollU64(source, QuadrupleBitSize);
         }
 
-        public static long Reverse64(long source)
+        public static long Reverse64(long source) { return Reverse64(ref source); }
+
+        [CLSCompliant(false)]
+        public static long Reverse64(ref long source)
         {
             if (source == 0 || source == long.MaxValue) return source;
             return Roll64(source, QuadrupleBitSize);

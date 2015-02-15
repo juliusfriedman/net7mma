@@ -73,7 +73,7 @@ namespace Media.Sdp
     /// </summary>
     /// 
     ///https://msdn.microsoft.com/en-us/library/bb758954(v=office.13).aspx
-    public sealed class SessionDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
+    public class SessionDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
     {
         #region Statics
 
@@ -83,7 +83,9 @@ namespace Media.Sdp
             HyphenSign = (char)Common.ASCII.HyphenSign, SemiColon = (char)Common.ASCII.SemiColon, 
             Colon = (char)Common.ASCII.Colon, Space = (char)Common.ASCII.Space;
 
-        public static string SpaceString = new string((char)Common.ASCII.Space, 1),
+        public static string 
+            ForwardSlashString = new string((char)Common.ASCII.ForwardSlash, 1),
+            SpaceString = new string((char)Common.ASCII.Space, 1),
             WildcardString = new string((char)Common.ASCII.Asterisk, 1),
             LineFeedString = new string((char)Common.ASCII.LineFeed, 1), 
             CarriageReturnString = new string((char)Common.ASCII.NewLine, 1), 
@@ -259,30 +261,37 @@ namespace Media.Sdp
         #region Fields
 
         //Should be done in constructor of a new 
-        Media.Sdp.Lines.SessionVersionLine m_SessionVersion;
-        Media.Sdp.Lines.SessionOriginatorLine m_Originator;
-        Media.Sdp.Lines.SessionNameLine m_SessionName;
-        Media.Sdp.Lines.SessionConnectionLine m_SessionConnection;
-
+        Media.Sdp.Lines.SessionVersionLine m_SessionVersionLine;
+        Media.Sdp.Lines.SessionOriginatorLine m_OriginatorLine;
+        Media.Sdp.Lines.SessionNameLine m_NameLine;
+        
         List<MediaDescription> m_MediaDescriptions = new List<MediaDescription>();
         List<TimeDescription> m_TimeDescriptions = new List<TimeDescription>();
         List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
 
+        System.Threading.ManualResetEventSlim m_Update = new System.Threading.ManualResetEventSlim(true);
+
+        System.Threading.CancellationTokenSource m_UpdateTokenSource = new System.Threading.CancellationTokenSource();
+
         #endregion
 
-        #region Properties
+        #region Properties Backed With Fields
 
         /// <summary>
-        /// Gets or Sets the version as indicated on the `v=` line.
+        /// Gets or Sets the version as indicated on the `v=` line. (-1 if not present)
         /// </summary>
-        public int SessionVersion
+        public int SessionDescriptionVersion
         {
-            get { return m_SessionVersion.Version; }
+            get { return m_SessionVersionLine == null ? -1 : m_SessionVersionLine.Version; }
             private set
             {
-                if (m_SessionVersion == null || value != m_SessionVersion.Version)
+                if (m_SessionVersionLine == null || value != m_SessionVersionLine.Version)
                 {
-                    m_SessionVersion = new Lines.SessionVersionLine(value); ++m_Originator.SessionVersion;
+                    var token = BeginUpdate();
+
+                    m_SessionVersionLine = new Lines.SessionVersionLine(value);
+
+                    EndUpdate(token, m_OriginatorLine != null);
                 }
             }
         }
@@ -292,57 +301,158 @@ namespace Media.Sdp
         /// </summary>
         public string OriginatorAndSessionIdentifier
         {
-            get { return m_Originator.ToString(); }
-            set { m_Originator = new Media.Sdp.Lines.SessionOriginatorLine(value.ToString()); }
+            get { return m_OriginatorLine.ToString(); }
+            set
+            {
+                bool hadValueWithSetVersion = m_OriginatorLine != null && m_OriginatorLine.SessionVersion > 0;
+
+                if (hadValueWithSetVersion && string.Compare(value, m_OriginatorLine.ToString(), StringComparison.InvariantCultureIgnoreCase) == 0) return;
+
+                var token = BeginUpdate();
+
+                m_OriginatorLine = new Media.Sdp.Lines.SessionOriginatorLine(value);
+
+                EndUpdate(token, hadValueWithSetVersion);
+            }
         }
 
         /// <summary>
         /// Gets or sets the value of the 's=' line.
-        /// When setting the version of the document is changed.
+        /// When set the version is updated if the value is not equal to the existing value.
         /// </summary>
         public string SessionName
         {
-            get { return m_SessionName.SessionName; }
+            get { return m_NameLine.SessionName; }
             set
             {
-                if (m_SessionName == null || value != m_SessionName.SessionName)
+                if (m_NameLine == null || string.Compare(value, m_NameLine.SessionName, StringComparison.InvariantCultureIgnoreCase) != 0)
                 {
-                    m_SessionName = new Lines.SessionNameLine(value); 
-                    
-                    //++m_Originator.SessionVersion;
+                    var token = BeginUpdate();
+
+                    m_NameLine = new Lines.SessionNameLine(value);
+
+                    EndUpdate(token, m_OriginatorLine != null);
                 }
             }
         }
 
         /// <summary>
         /// Gets or sets the value assoicated with the SessionId of this SessionDescription as indicated in the 'o=' line.
+        /// When set the version is updated if the value is not equal to the existing value.
         /// </summary>
         public string SessionId
         {
             get
             {
-                return m_Originator == null ? string.Empty : m_Originator.SessionId;
+                return m_OriginatorLine == null ? string.Empty : m_OriginatorLine.SessionId;
             }
             set
             {
                 if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException();
 
-                m_Originator.SessionId = value;
+                if (string.Compare(value, m_OriginatorLine.SessionId, StringComparison.InvariantCultureIgnoreCase) == 0) return;
 
-                ++m_Originator.SessionVersion;
+                var token = BeginUpdate();
+
+                m_OriginatorLine.SessionId = value;
+
+                EndUpdate(token, m_OriginatorLine != null);
+            }
+        }
+
+        public long DocumentVersion
+        {
+            get
+            {
+                return m_OriginatorLine.SessionVersion;
+            }
+            set
+            {
+                var token = BeginUpdate();
+
+                m_OriginatorLine.SessionVersion = value;
+
+                EndUpdate(token, true);
             }
         }
 
         public IEnumerable<TimeDescription> TimeDescriptions
         {
             get { return m_TimeDescriptions.AsReadOnly(); }
-            set { m_TimeDescriptions = value.ToList(); ++m_Originator.SessionVersion; }
+            set
+            {
+                var token = BeginUpdate();
+
+                m_TimeDescriptions = value.ToList();
+
+                EndUpdate(token, true);
+            }
         }
 
         public IEnumerable<MediaDescription> MediaDescriptions
         {
             get { return m_MediaDescriptions.AsReadOnly(); }
-            set { m_MediaDescriptions = value.ToList(); ++m_Originator.SessionVersion; }
+            set
+            {
+                var token = BeginUpdate();
+
+                m_MediaDescriptions = value.ToList();
+
+                EndUpdate(token, true);
+            }
+        }
+
+        public Sdp.Lines.SessionVersionLine SessionVersionLine
+        {
+            get { return m_SessionVersionLine; }
+            set
+            {
+                var token = BeginUpdate();
+
+                m_SessionVersionLine = value;
+
+                EndUpdate(token, true);
+
+            }
+        }
+
+        public Sdp.Lines.SessionOriginatorLine SessionOriginatorLine
+        {
+            get { return m_OriginatorLine; }
+            set
+            {
+                var token = BeginUpdate();
+
+                m_OriginatorLine = value;
+
+                EndUpdate(token, true);
+            }
+        }
+
+        public Sdp.Lines.SessionNameLine SessionNameLine
+        {
+            get { return m_NameLine; }
+            set
+            {
+                var token = BeginUpdate();
+                
+                m_NameLine = value;
+
+                EndUpdate(token, true);
+
+            }
+        }
+
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Indicates if the Session Description is being modified
+        /// </summary>
+        public bool UnderModification
+        {
+            get { return false == m_Update.IsSet && m_UpdateTokenSource.IsCancellationRequested; }
         }
 
         /// <summary>
@@ -354,28 +464,90 @@ namespace Media.Sdp
             {
                 return ((IEnumerable<SessionDescriptionLine>)this);
             }
-            //set
-            //{
-            //    m_Lines = value.ToList(); 
-            //    ++m_Originator.SessionVersion;
-            //}
+            internal protected set
+            {
+                var token = BeginUpdate();
+
+                m_Lines = value.ToList();
+
+                EndUpdate(token, true);
+            }
         }
 
         public SessionDescriptionLine ConnectionLine
         {
-            get { return m_SessionConnection ?? (m_SessionConnection = new Lines.SessionConnectionLine(m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType))); }
+            get
+            {
+                return Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType);
+            }
             set
             {
-                if (value.Type != Sdp.Lines.SessionConnectionLine.ConnectionType) throw new InvalidOperationException("The ConnectionList must be a ConnectionLine");
+                if (value != null && value.Type != Sdp.Lines.SessionConnectionLine.ConnectionType)
+                {
+                    throw new InvalidOperationException("The ConnectionList must be a ConnectionLine");
+                }
 
-                m_SessionConnection = value as Sdp.Lines.SessionConnectionLine;
+                var token = BeginUpdate();
 
+                Remove(ConnectionLine);
+
+                Add(value);
+
+                EndUpdate(token, true);
             }
         }
 
-        public SessionDescriptionLine RangeLine { get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase)); } }
+        public SessionDescriptionLine RangeLine
+        {
+            get
+            {
+                return Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("range:", StringComparison.InvariantCultureIgnoreCase));
+            }
+            set
+            {
+                var token = BeginUpdate();
 
-        public SessionDescriptionLine ControlLine { get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase)); } }
+                Remove(RangeLine);
+
+                Add(value);
+
+                EndUpdate(token, true);
+            }
+        }
+
+        public SessionDescriptionLine ControlLine
+        {
+            get
+            {
+                return Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
+            }
+            set
+            {
+                var token = BeginUpdate();
+
+                Remove(ControlLine);
+
+                Add(value);
+
+                EndUpdate(token, true);
+            }
+        }
+
+        public IEnumerable<SessionDescriptionLine> AttributeLines
+        {
+            get
+            {
+                return Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType);
+            }
+        }
+
+        public IEnumerable<SessionDescriptionLine> BandwidthLines
+        {
+            get
+            {
+                return Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
+            }
+        }
 
         /// <summary>
         /// Calculates the length in bytes of this SessionDescription.
@@ -384,10 +556,11 @@ namespace Media.Sdp
         {
             get
             {
-                return (m_Originator == null ? 0 : m_Originator.Length) +
-                    (m_SessionName == null ? 0 : m_SessionName.Length) +
-                    (m_SessionVersion == null ? 0 : m_SessionVersion.Length) +
-                    (m_SessionConnection == null ? 0 : m_SessionConnection.Length) +
+                var connectionLine = ConnectionLine;
+                return (m_OriginatorLine == null ? 0 : m_OriginatorLine.Length) +
+                    (m_NameLine == null ? 0 : m_NameLine.Length) +
+                    (m_SessionVersionLine == null ? 0 : m_SessionVersionLine.Length) +
+                    (connectionLine == null ? 0 : connectionLine.Length) +
                     m_Lines.Sum(l => l.Length) +
                     m_MediaDescriptions.Sum(md => md.Length) +
                     m_TimeDescriptions.Sum(td => td.Length);
@@ -400,11 +573,11 @@ namespace Media.Sdp
 
         public SessionDescription(int version)
         {
-            m_Originator = new Lines.SessionOriginatorLine();
+            m_OriginatorLine = new Lines.SessionOriginatorLine();
 
-            m_SessionName = new Sdp.Lines.SessionNameLine();
+            m_NameLine = new Sdp.Lines.SessionNameLine();
 
-            SessionVersion = version;
+            SessionDescriptionVersion = version;
         }
 
         public SessionDescription(string originatorString, string sessionName)
@@ -412,7 +585,7 @@ namespace Media.Sdp
         {
             OriginatorAndSessionIdentifier = originatorString;
 
-            SessionName = sessionName;
+            m_NameLine = new Lines.SessionNameLine(sessionName); 
         }
 
         /// <summary>
@@ -426,7 +599,7 @@ namespace Media.Sdp
         {
             OriginatorAndSessionIdentifier = originatorAndSession;
 
-            SessionName = sessionName;
+            m_NameLine = new Lines.SessionNameLine(sessionName); 
         }
 
         /// <summary>
@@ -448,22 +621,17 @@ namespace Media.Sdp
                 {
                     case Media.Sdp.Lines.SessionVersionLine.VersionType:
                         {
-                            m_SessionVersion = new Media.Sdp.Lines.SessionVersionLine(lines, ref lineIndex);
-                            continue;
-                        }
-                    case Media.Sdp.Lines.SessionConnectionLine.ConnectionType:
-                        {
-                            m_SessionConnection = new Lines.SessionConnectionLine(lines, ref lineIndex);
+                            m_SessionVersionLine = new Media.Sdp.Lines.SessionVersionLine(lines, ref lineIndex);
                             continue;
                         }
                     case Media.Sdp.Lines.SessionOriginatorLine.OriginatorType:
                         {
-                            m_Originator = new Media.Sdp.Lines.SessionOriginatorLine(lines, ref lineIndex);
+                            m_OriginatorLine = new Media.Sdp.Lines.SessionOriginatorLine(lines, ref lineIndex);
                             continue;
                         }
                     case Media.Sdp.Lines.SessionNameLine.NameType:
                         {
-                            m_SessionName = new Media.Sdp.Lines.SessionNameLine(lines, ref lineIndex);
+                            m_NameLine = new Media.Sdp.Lines.SessionNameLine(lines, ref lineIndex);
                             continue;
                         }
                     case TimeDescription.TimeDescriptionType:
@@ -476,6 +644,16 @@ namespace Media.Sdp
                             m_MediaDescriptions.Add(new MediaDescription(lines, ref lineIndex));
                             continue;
                         }
+                    //case Media.Sdp.Lines.SessionAttributeLine.AttributeType:
+                    //    {
+                    //        m_Lines.Add(new Media.Sdp.Lines.SessionAttributeLine(lines, ref lineIndex));
+                    //        continue;
+                    //    }
+                    //case Media.Sdp.Lines.SessionBandwidthLine.BandwidthType:
+                    //    {
+                    //        m_Lines.Add(new Media.Sdp.Lines.SessionBandwidthLine(lines, ref lineIndex));
+                    //        continue;
+                    //    }
                     default:
                         {
                             SessionDescriptionLine parsed;
@@ -495,11 +673,11 @@ namespace Media.Sdp
         /// <param name="other">The SessionDescription to copy</param>
         public SessionDescription(SessionDescription other, bool reference = false)
         {
-            SessionVersion = other.SessionVersion;
+            SessionDescriptionVersion = other.SessionDescriptionVersion;
 
             OriginatorAndSessionIdentifier = other.OriginatorAndSessionIdentifier;
 
-            SessionName = other.SessionName;
+            m_NameLine = other.m_NameLine;
 
             if (reference)
             {
@@ -526,62 +704,212 @@ namespace Media.Sdp
         public void Add(MediaDescription mediaDescription, bool updateVersion = true)
         {
             if (mediaDescription == null) return;
+
+            var token = BeginUpdate();
+
             m_MediaDescriptions.Add(mediaDescription);
-            if (updateVersion) ++m_Originator.SessionVersion;
+
+            EndUpdate(token, updateVersion);
         }
 
         public void Add(TimeDescription timeDescription, bool updateVersion = true)
         {
             if (timeDescription == null) return;
+
+            var token = BeginUpdate();
+
             m_TimeDescriptions.Add(timeDescription);
-            if (updateVersion) ++m_Originator.SessionVersion;
+
+            EndUpdate(token, updateVersion);
         }
 
         public void Add(SessionDescriptionLine line, bool updateVersion = true)
         {
             if (line == null) return;
-            m_Lines.Add(line);
-            if (updateVersion) ++m_Originator.SessionVersion;
+
+            var token = BeginUpdate();
+
+            switch (line.Type)
+            {
+                case Sdp.Lines.SessionVersionLine.VersionType:
+                    m_SessionVersionLine = new Lines.SessionVersionLine(line);
+                    break;
+                case Sdp.Lines.SessionOriginatorLine.OriginatorType:
+                    m_OriginatorLine = new Sdp.Lines.SessionOriginatorLine(line);
+                    break;
+                case Sdp.Lines.SessionNameLine.NameType:
+                    m_NameLine = new Sdp.Lines.SessionNameLine(line);
+                    break;
+                default:
+                    m_Lines.Add(line);
+                    break;
+            }
+            
+            EndUpdate(token, updateVersion);
         }
 
         public bool Remove(SessionDescriptionLine line, bool updateVersion = true)
         {
-            bool result = m_Lines.Remove(line);
-            if (updateVersion && result) ++m_Originator.SessionVersion;
+            if (line == null) return false;
+
+            var token = BeginUpdate();
+
+            bool result = false;
+
+            switch (line.Type)
+            {
+                case Sdp.Lines.SessionVersionLine.VersionType:
+                    if (line == m_SessionVersionLine)
+                    {
+                        m_SessionVersionLine = null;
+                        result = true;
+                    }
+                    break;
+                case Sdp.Lines.SessionOriginatorLine.OriginatorType:
+                    if (line == m_OriginatorLine)
+                    {
+                        m_OriginatorLine = null;
+                        result = true;
+                    }
+                    break;
+                case Sdp.Lines.SessionNameLine.NameType:
+                    if (line == m_OriginatorLine)
+                    {
+                        m_NameLine = null;
+                        result = true;
+                    }
+                    break;
+            }
+
+            if (false == result)
+            {
+                result = m_Lines.Remove(line);
+            }
+
+            if (false == result)
+            {
+                foreach (MediaDescription md in MediaDescriptions) if (result = md.Remove(line)) break;
+            }
+
+            EndUpdate(token, updateVersion && result);
+
             return result;
         }
 
         public bool Remove(TimeDescription timeDescription, bool updateVersion = true)
         {
+
+            if (timeDescription == null) return false;
+
+            var token = BeginUpdate();
+
             bool result = m_TimeDescriptions.Remove(timeDescription);
-            if (updateVersion && result) ++m_Originator.SessionVersion;
+
+            EndUpdate(token, updateVersion && result);
+
             return result;
         }
 
         public bool Remove(MediaDescription mediaDescription, bool updateVersion = true)
         {
+            if (mediaDescription == null) return false;
+
+            var token = BeginUpdate();
+
             bool result = m_MediaDescriptions.Remove(mediaDescription);
-            if (updateVersion && result) ++m_Originator.SessionVersion;
+            
+            EndUpdate(token, updateVersion);
+
             return result;
         }
 
         public void RemoveLine(int index, bool updateVersion = true)
         {
+
+            //Should give backed lines virtual index?
+
+            var token = BeginUpdate();
+
             m_Lines.RemoveAt(index);
-            if (updateVersion) ++m_Originator.SessionVersion;
+
+            EndUpdate(token, updateVersion);
         }
 
         public void RemoveMediaDescription(int index, bool updateVersion = true)
         {
+            var token = BeginUpdate();
+
             m_MediaDescriptions.RemoveAt(index);
-            if (updateVersion) ++m_Originator.SessionVersion;
+
+            EndUpdate(token, updateVersion);
         }
 
         public void RemoveTimeDescription(int index, bool updateVersion = true)
         {
+            var token = BeginUpdate();
+
             m_TimeDescriptions.RemoveAt(index);
-            if(updateVersion) ++m_Originator.SessionVersion;
+
+            EndUpdate(token, updateVersion);
         }
+
+        public void UpdateVersion(System.Threading.CancellationToken token)
+        {
+
+            if (token != null && token != m_UpdateTokenSource.Token) throw new InvalidOperationException("Must obtain the CancellationToken from a call to BeginUpdate.");
+
+            if(false == token.IsCancellationRequested
+                &&
+            m_OriginatorLine != null)
+            {
+                ++m_OriginatorLine.SessionVersion;
+            }
+        }
+
+        /// <summary>
+        /// Allows stateful control of the modifications of the Session Description by blocking other updates.
+        /// </summary>
+        /// <returns>The <see cref="System.Threading.CancellationToken"/> which can be used to cancel the update started</returns>
+        public System.Threading.CancellationToken BeginUpdate()
+        {
+            CheckDisposed();
+
+            if (System.Threading.WaitHandle.SignalAndWait(m_UpdateTokenSource.Token.WaitHandle, m_Update.WaitHandle))
+            {
+                m_Update.Reset();
+            }
+
+            return m_UpdateTokenSource.Token;
+        }
+
+        /// <summary>
+        /// Ends a previous started update with <see cref="BeginUpdate"/>
+        /// </summary>
+        /// <param name="token">The token obtained to begin the update</param>
+        public void EndUpdate(System.Threading.CancellationToken token, bool updateVersion)
+        {
+            CheckDisposed();
+
+            if (token == null) return;
+
+            if (token != m_UpdateTokenSource.Token) throw new InvalidOperationException("Must obtain the CancellationToken from a call to BeginUpdate.");
+
+            if (token.IsCancellationRequested) return;
+
+            if (updateVersion) UpdateVersion(token);
+
+            m_Update.Set();
+        }
+
+        #endregion
+
+        #region Events
+
+        //I can see the benefit of making a SessionDescription have events for
+
+        //VersionChanged
+        //etc..
+        //Remarks?
 
         #endregion
 
@@ -591,13 +919,15 @@ namespace Media.Sdp
         {
             StringBuilder buffer = new StringBuilder();
 
-            if(m_SessionVersion != null) buffer.Append(m_SessionVersion.ToString());
+            if(m_SessionVersionLine != null) buffer.Append(m_SessionVersionLine.ToString());
 
-            if (m_Originator != null) buffer.Append(m_Originator.ToString());
+            if (m_OriginatorLine != null) buffer.Append(m_OriginatorLine.ToString());
 
-            if (m_SessionName != null) buffer.Append(m_SessionName.ToString());
+            if (m_NameLine != null) buffer.Append(m_NameLine.ToString());
 
-            if (m_SessionConnection != null) buffer.Append(m_SessionConnection.ToString());
+            var connectionLine = ConnectionLine;
+
+            if (connectionLine != null) buffer.Append(connectionLine.ToString());
 
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.Type != Sdp.Lines.SessionAttributeLine.AttributeType))
             {
@@ -629,11 +959,11 @@ namespace Media.Sdp
 
             base.Dispose();
 
-            m_SessionVersion = null;
+            m_SessionVersionLine = null;
 
-            m_Originator = null;
+            m_OriginatorLine = null;
 
-            m_SessionName = null;
+            m_NameLine = null;
 
             m_MediaDescriptions.Clear();
 
@@ -652,13 +982,11 @@ namespace Media.Sdp
 
         public IEnumerator<SessionDescriptionLine> GetEnumerator()
         {
-            if (m_SessionVersion != null) yield return m_SessionVersion;
+            if (m_SessionVersionLine != null) yield return m_SessionVersionLine;
 
-            if (m_Originator != null) yield return m_Originator;
+            if (m_OriginatorLine != null) yield return m_OriginatorLine;
 
-            if (m_SessionName != null) yield return m_SessionName;
-
-            if (m_SessionConnection != null) yield return m_SessionConnection;
+            if (m_NameLine != null) yield return m_NameLine;
 
             foreach (var mediaDescription in MediaDescriptions)
             {
@@ -778,6 +1106,26 @@ namespace Media.Sdp
         /// </summary>
         public string MediaProtocol { get; set; }        
 
+        //Maybe add a few Computed properties such as SampleRate
+        //OR
+        //Maybe add methods for Get rtpmap, fmtp etc
+
+        //LinesByType etc...
+
+        //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
+        List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
+
+        List<int> m_PayloadList = new List<int>();
+
+        /// <summary>
+        /// The field which has been generated as a result of parsing or modifying the MediaFormat
+        /// </summary>
+        string MediaFormatString;
+
+        #endregion
+
+        #region Properties
+
         /// <summary>
         /// The MediaFormat of the MediaDescription
         /// </summary>
@@ -807,24 +1155,6 @@ namespace Media.Sdp
                 }
             }
         }
-
-        //Maybe add a few Computed properties such as SampleRate
-        //OR
-        //Maybe add methods for Get rtpmap, fmtp etc
-
-        //LinesByType etc...
-
-        //Keep in mind that adding/removing or changing lines should change the version of the parent SessionDescription
-        List<SessionDescriptionLine> m_Lines = new List<SessionDescriptionLine>();
-
-        List<int> m_PayloadList = new List<int>();
-
-        /// <summary>
-        /// The field which has been generated as a result of parsing or modifying the MediaFormat
-        /// </summary>
-        string MediaFormatString;
-
-        #endregion
 
         /// <summary>
         /// Gets or sets the types of payloads which can be found in the MediaDescription
@@ -858,6 +1188,8 @@ namespace Media.Sdp
                 return MediaDescriptionLine.Length + m_Lines.Sum(l => l.Length);
             }
         }
+
+        #endregion
 
         #region Constructor
 
@@ -1000,6 +1332,8 @@ namespace Media.Sdp
             return buffer.ToString();
         }
 
+        #region Named Lines
+
         internal protected SessionDescriptionLine MediaDescriptionLine
         {
             get
@@ -1042,6 +1376,16 @@ namespace Media.Sdp
             get
             {
                 return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType && l.Parts[0].StartsWith("control:", StringComparison.InvariantCultureIgnoreCase));
+            }
+        }
+
+        #endregion
+
+        public IEnumerable<SessionDescriptionLine> AttributeLines
+        {
+            get
+            {
+                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType);
             }
         }
 
@@ -1108,7 +1452,7 @@ namespace Media.Sdp
 
                     //Return a new uri using the original string and the controlUri relative path.
                     //Hopefully the direction of the braces matched
-                    return new Uri(string.Join(((char)Common.ASCII.ForwardSlash).ToString(), source.OriginalString, controlUri.OriginalString));
+                    return new Uri(string.Join(SessionDescription.ForwardSlashString, source.OriginalString, controlUri.OriginalString));                    
 
                     #region Explination
                     //I wonder if Mr./(Dr) Fielding is happy...

@@ -146,6 +146,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 //http://tools.ietf.org/search/rfc2435#section-3.1.2
 
                 //Common.Binary.WriteNetwork24()
+                //Common.Binary.GetBytes(fragmentOffset, BitConverter.IsLittleEndian)
 
                 if (BitConverter.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
                 RtpJpegHeader.AddRange(BitConverter.GetBytes((uint)fragmentOffset), 1, 3);
@@ -1770,11 +1771,11 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             int over;
 
-            Math.DivRem(Width, 8, out over);
+            Math.DivRem(Width, Common.Binary.BitSize, out over);
 
             if (over > 0) Width += over;
 
-            Math.DivRem(Height, 8, out over);
+            Math.DivRem(Height, Common.Binary.BitSize, out over);
 
             if (over > 0) Height += over;
         }

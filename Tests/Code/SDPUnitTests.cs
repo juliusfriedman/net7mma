@@ -174,14 +174,17 @@ public class SDPUnitTests
 
         using (var audioDescription = new Media.Sdp.SessionDescription(mediaFormat, originatorAndSession, sessionName))
         {
-            //Ensure the correct version was set
-            System.Diagnostics.Debug.Assert(audioDescription.SessionVersion == 0, "Did not find Correct SessionVersion");
+            //Ensure the correct SessionDescriptionVersion was set
+            System.Diagnostics.Debug.Assert(audioDescription.SessionDescriptionVersion == 0, "Did not find Correct SessionDescriptionVersion");
+
+            //When created the version of the `o=` line should be 0 (or 1?)
+            System.Diagnostics.Debug.Assert(audioDescription.DocumentVersion == 0, "Did not find Correct SessionVersion");
 
             //Add the MediaDescription
             audioDescription.Add(new Media.Sdp.MediaDescription(Media.Sdp.MediaType.audio, mediaPort, profile, 0), false);
 
-            //Ensure the correct version is still set
-            System.Diagnostics.Debug.Assert(audioDescription.SessionVersion == 0, "Did not find Correct SessionVersion");
+            //update version was specified false so the verison of the document should not change
+            System.Diagnostics.Debug.Assert(audioDescription.DocumentVersion == 0, "Did not find Correct SessionVersion");
 
             //Determine what the output should look like
             string expected = string.Format("v=0\r\no={0}\r\ns={1}\r\nm={2} {3} RTP/AVP {4}\r\n", originatorAndSession, sessionName, mediaType, mediaPort, mediaFormat);
@@ -191,6 +194,25 @@ public class SDPUnitTests
 
             //Check the result of the comparsion
             System.Diagnostics.Debug.Assert(string.Compare(expected, actual) == 0, "Did not output expected result");
+        }
+    }
+
+    public void CreateSessionDescriptionAndSetConnectionLine()
+    {
+        using (Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(0, "v√ƒ", "Bandit"))
+        {
+            sdp.Add(new Media.Sdp.Lines.SessionConnectionLine()
+            {
+                ConnectionNetworkType = "IN",
+                ConnectionAddressType = "*",
+                ConnectionAddress = "0.0.0.0"
+            });
+
+            System.Diagnostics.Debug.Assert(sdp.Lines.Count() == 4, "Did not have correct amount of Lines");
+
+            string expected = "v=0\r\no=v√ƒ  -9223372036854775807   \r\ns=Bandit\r\nc=IN * 0.0.0.0\r\nc=IN * 0.0.0.0\r\n";
+
+            System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), expected) == 0, "Did not output correct result.");
         }
     }
 
