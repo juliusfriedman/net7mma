@@ -412,6 +412,10 @@ namespace Media.Rtp
                     Media.Sdp.SessionDescription.TryParseRange(rangeInfo.Parts[0], out type, out tc.m_StartTime, out tc.m_EndTime);
                 }
 
+                //rtcpAttribute indicates if RTCP should use a special port and not be dervied from the RtpPort algorithmically 
+
+                //"a=rtcp:" 
+
                 //rtcp-mux is handled in the Initialize call
 
                 return tc;
@@ -1674,6 +1678,7 @@ namespace Media.Rtp
                 if (punchHole)
                 {
                     //new RtcpPacket(Version, Rtcp.ReceiversReport.PayloadType, 0, 0, SynchronizationSourceIdentifier, 0);
+
                     try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
                     catch (SocketException) { }//We don't care about the response or any issues during the holePunch
 
@@ -1910,7 +1915,7 @@ namespace Media.Rtp
                                 //Identify the remote party by this id.
                                 transportContext.RemoteSynchronizationSourceIdentifier = partyId;
 
-                                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + "RR blockId=" + blockId);
+                                Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@HandleIncomingRtcpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + "RR blockId=" + blockId);
 
                                 //Stop looking for a context.
                                 break;
@@ -1941,7 +1946,7 @@ namespace Media.Rtp
                                     //Send report now if possible.
                                     bool reportsSent = SendReports(transportContext);
 
-                                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Recieved Goodbye @ " + transportContext.SynchronizationSourceIdentifier + " from=" + partyId + " reportSent=" + reportsSent);
+                                    Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@HandleIncomingRtcpPacket Recieved Goodbye @ " + transportContext.SynchronizationSourceIdentifier + " from=" + partyId + " reportSent=" + reportsSent);
 
                                     //Stop looking for a context.
                                     break;
@@ -1961,7 +1966,7 @@ namespace Media.Rtp
                             //Assign it
                             transportContext.RemoteSynchronizationSourceIdentifier = partyId;
 
-                            Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + " SR=" + partyId);
+                            Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@HandleIncomingRtcpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + " SR=" + partyId);
 
                         } //If the context has been identified by an identity other than the remote party of the packet                    
                         else if (transportContext.RemoteSynchronizationSourceIdentifier != partyId)
@@ -1982,7 +1987,7 @@ namespace Media.Rtp
                                 //Assign it
                                 transportContext.RemoteSynchronizationSourceIdentifier = partyId;
 
-                                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + " SR=" + partyId);
+                                Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@HandleIncomingRtcpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + " SR=" + partyId);
                             }
 
                         }
@@ -2009,7 +2014,7 @@ namespace Media.Rtp
                                         //Identify the remote party by this id.
                                         transportContext.RemoteSynchronizationSourceIdentifier = packet.SynchronizationSourceIdentifier;
 
-                                        Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + "SR blockId=" + blockId);
+                                        Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@HandleIncomingRtcpPacket Set RemoteSynchronizationSourceIdentifier @ " + transportContext.SynchronizationSourceIdentifier + " to=" + transportContext.RemoteSynchronizationSourceIdentifier + "SR blockId=" + blockId);
 
                                         //Remove any reference
                                         context = null;
@@ -2215,10 +2220,11 @@ namespace Media.Rtp
                 &&
                 transportContext.IsValid)
             {
+
                 //Reset the state if not discovering
                 if (false == transportContext.InDiscovery)
                 {
-                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + '-' + transportContext.RemoteSynchronizationSourceIdentifier + " / " + partyId + ". ResetState");
+                    Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket SSRC Mismatch @ " + transportContext.SynchronizationSourceIdentifier + "<->" + transportContext.RemoteSynchronizationSourceIdentifier + "||" + partyId + ". ResetState");
 
                     transportContext.ResetState();
                 }
@@ -3743,10 +3749,10 @@ namespace Media.Rtp
             //TODO handle receiving when no $ and Channel is presenent... e.g. RFC4571
             //Would only be 2 then...
 
-            if (GetContextBySocket(socket).MediaDescription.MediaProtocol.StartsWith("TCP", StringComparison.OrdinalIgnoreCase))
-            {
-                //independent = true;
-            }
+            //if (GetContextBySocket(socket).MediaDescription.MediaProtocol.StartsWith("TCP", StringComparison.OrdinalIgnoreCase))
+            //{
+            //    //independent = true;
+            //}
 
             int sessionRequired = InterleavedOverhead;
 

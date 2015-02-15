@@ -160,6 +160,8 @@ public class SDPUnitTests
 
     public void CreateSessionDescriptionUnitTest()
     {
+        Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
         string originatorAndSession = String.Format("{0} {1} {2} {3} {4} {5}", "-", "62464", "0", "IN", "IP4", "10.1.1.2");
 
         string profile = "RTP/AVP";
@@ -172,12 +174,17 @@ public class SDPUnitTests
 
         string sessionName = "MySessionName";
 
+        //The document will have a DocumentVersion of 0 by default.
+        //Version will be set (v=) which will try to update the version but there is no originator.
+        //Originator is set which causes an update in version but because there was no originator the version is 0
+        //Once the originator is set (which maintains the DocumentVersion)
+        //It can then be increased, the constructor does not do this for you.
         using (var audioDescription = new Media.Sdp.SessionDescription(mediaFormat, originatorAndSession, sessionName))
         {
             //Ensure the correct SessionDescriptionVersion was set
             System.Diagnostics.Debug.Assert(audioDescription.SessionDescriptionVersion == 0, "Did not find Correct SessionDescriptionVersion");
 
-            //When created the version of the `o=` line should be 0 (or 1?)
+            //When created the version of the `o=` line should be 1.
             System.Diagnostics.Debug.Assert(audioDescription.DocumentVersion == 0, "Did not find Correct SessionVersion");
 
             //Add the MediaDescription
@@ -197,10 +204,17 @@ public class SDPUnitTests
         }
     }
 
-    public void CreateSessionDescriptionAndSetConnectionLine()
+    public void CreateSessionDescriptionModifySessionVersionUnitTest()
     {
+        Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
         using (Media.Sdp.SessionDescription sdp = new Media.Sdp.SessionDescription(0, "v√ƒ", "Bandit"))
         {
+
+            //update version was specified false so the verison of the document should have updated.
+            System.Diagnostics.Debug.Assert(sdp.DocumentVersion == 0, "Did not find Correct SessionVersion");
+
+            //Add a connection line, updating the version 
             sdp.Add(new Media.Sdp.Lines.SessionConnectionLine()
             {
                 ConnectionNetworkType = "IN",
@@ -210,9 +224,33 @@ public class SDPUnitTests
 
             System.Diagnostics.Debug.Assert(sdp.Lines.Count() == 4, "Did not have correct amount of Lines");
 
-            string expected = "v=0\r\no=v√ƒ  -9223372036854775807   \r\ns=Bandit\r\nc=IN * 0.0.0.0\r\nc=IN * 0.0.0.0\r\n";
+            long sessionVersion = 9223372036802072014;
+
+            //update version was specified false so the verison of the document should have updated.
+            System.Diagnostics.Debug.Assert(sdp.DocumentVersion == 1, "Did not find Correct SessionVersion");
+
+            sdp.DocumentVersion = sessionVersion;
+
+            string expected = "v=0\r\no=v√ƒ  9223372036802072014   \r\ns=Bandit\r\nc=IN * 0.0.0.0\r\nc=IN * 0.0.0.0\r\n";
 
             System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), expected) == 0, "Did not output correct result.");
+
+            //Try to get a token to update the document
+            var token = sdp.BeginUpdate();
+
+            //Do another update to test modification doesn't freeze?
+            ++sdp.DocumentVersion;
+
+            //End the update
+            sdp.EndUpdate(token, true);
+
+            //update version was specified false so the verison of the document should have updated.
+            System.Diagnostics.Debug.Assert(sdp.DocumentVersion == sessionVersion + 1, "Did not find Correct SessionVersion");
+
+            //Do another update
+            ++sdp.DocumentVersion;
+
+            System.Diagnostics.Debug.Assert(sdp.DocumentVersion == sessionVersion + 2, "Did not find Correct SessionVersion");
         }
     }
 

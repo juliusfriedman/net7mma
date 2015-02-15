@@ -1405,8 +1405,8 @@ namespace Media.Rtsp
                 //Make the new SessionDescription
                 sdp = new Sdp.SessionDescription(rtpSource.SessionDescription.ToString());
 
-                //Remove the old connection line
-                if (sdp.ConnectionLine != null) sdp.Remove(sdp.ConnectionLine, false);
+                //Remove the old connection lines if they exist
+                while(sdp.ConnectionLine != null) sdp.Remove(sdp.ConnectionLine, false);
 
                 sourceClient = rtpSource.RtpClient;
             }
@@ -1415,8 +1415,10 @@ namespace Media.Rtsp
                 sdp = new Sdp.SessionDescription(0);
             }
 
+            //Change the DocumentVersion and update the name
             sdp.SessionName = sessionName;
 
+            //Change the DocumentVersion and update the originator
             sdp.OriginatorAndSessionIdentifier = originatorString;
 
             //Type = broadcast
@@ -1447,24 +1449,23 @@ namespace Media.Rtsp
             //else 
                 //addressString += + ((IPEndPoint)RemoteEndPoint).Port;
 
-            //Add the new line
+            
+            //Check for the existing connectionLine
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;
 
-            if (connectionLine == null) sdp.ConnectionLine = connectionLine = new Sdp.Lines.SessionConnectionLine();
-
-            connectionLine.ConnectionAddress = addressString;
-
-            connectionLine.ConnectionAddressType = m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6" : "IP4";
-
-            connectionLine.ConnectionNetworkType = "IN";
-
-            //Add the information line if not present
-            //Could also overwrite it.
-            if (sdp.SessionName == null) sdp.Add(new Sdp.SessionDescriptionLine("s=" + stream.Name), false);
+            //Add the new line if needed
+            if (connectionLine == null) sdp.ConnectionLine = connectionLine = new Sdp.Lines.SessionConnectionLine()
+            {
+                ConnectionAddress = addressString,
+                ConnectionAddressType = m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? Media.Sdp.Lines.SessionConnectionLine.IP6 : Media.Sdp.Lines.SessionConnectionLine.IP4,
+                ConnectionNetworkType = Media.Sdp.Lines.SessionConnectionLine.InConnectionToken
+            };
 
             IEnumerable<Sdp.SessionDescriptionLine> bandwithLines;
 
             //Indicate that the server will not accept media as input for this session
+            //Put the attribute in the Session Description,
+            //Should check that its not already set?
             sdp.Add(new Sdp.SessionDescriptionLine("a=sendonly"));
 
             //Remove any existing session range lines, don't upate the version
@@ -1499,6 +1500,10 @@ namespace Media.Rtsp
                 //Should be a TrackId and not the media type to allow more then one media type to be controlled.
                 //e.g. Two audio streams or text streams is valid.
                 md.Add(new Sdp.SessionDescriptionLine("a=control:" + "/live/" + stream.Id + '/' + md.MediaType));
+
+
+                //Add the connection line for the media
+                //md.Add(connectionLine);
 
                 //Should check for Timing Info and update for playing streams
 
