@@ -1164,7 +1164,7 @@ namespace Media.Rtsp
         /// <param name="ar">IAsyncResult with a Socket object in the AsyncState property</param>
         internal void ProcessAccept(IAsyncResult ar)
         {
-            if (ar == null || ar.CompletedSynchronously) return;
+            if (ar == null || ar.CompletedSynchronously || false == ar.IsCompleted) return;
             
             //The ClientSession created
             try
@@ -1248,7 +1248,7 @@ namespace Media.Rtsp
         internal void ProcessReceive(IAsyncResult ar)
         {
 
-            if (ar == null || ar.CompletedSynchronously) return;
+            if (ar == null || ar.CompletedSynchronously || false == ar.IsCompleted) return;
 
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
@@ -1461,7 +1461,7 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSendComplete(IAsyncResult ar)
         {
-            if (ar == null || ar.CompletedSynchronously) return;
+            if (ar == null || ar.CompletedSynchronously || false == ar.IsCompleted) return;
 
             ClientSession session = (ClientSession)ar.AsyncState;
 

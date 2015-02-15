@@ -300,6 +300,9 @@ namespace Media.Rtsp
 
                             Utility.TryWaitOnHandleAndDispose(ref wait);
                         }
+
+                        if (length == 0 && SharesSocket) return;
+
                     }
                 }
 
@@ -309,11 +312,11 @@ namespace Media.Rtsp
                 //Assign the buffer
                 m_SendBuffer = data;
 
-                //The state is this session.
-                LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, offset, length, flags, other ?? RemoteEndPoint, new AsyncCallback(m_Server.ProcessSendComplete), this);
-
                 //Mark as not disconnected.
                 IsDisconnected = false;
+
+                //The state is this session.
+                LastSend = m_RtspSocket.BeginSendTo(m_SendBuffer, offset, length, flags, other ?? RemoteEndPoint, new AsyncCallback(m_Server.ProcessSendComplete), this);
             }
             catch (Exception ex)
             {
@@ -899,6 +902,8 @@ namespace Media.Rtsp
                     if (localSsrc != 0 && setupContext.SynchronizationSourceIdentifier != localSsrc)
                     {
                         setupContext.SynchronizationSourceIdentifier = localSsrc;
+
+                        if (remoteSsrc != 0 && setupContext.RemoteSynchronizationSourceIdentifier != remoteSsrc) setupContext.RemoteSynchronizationSourceIdentifier = remoteSsrc;
                     }
 
                     multicast = Utility.IsMulticast(((IPEndPoint)setupContext.RemoteRtp).Address);
@@ -1444,6 +1449,8 @@ namespace Media.Rtsp
 
             //Add the new line
             Sdp.Lines.SessionConnectionLine connectionLine = sdp.ConnectionLine as Sdp.Lines.SessionConnectionLine;
+
+            if (connectionLine == null) sdp.ConnectionLine = connectionLine = new Sdp.Lines.SessionConnectionLine();
 
             connectionLine.ConnectionAddress = addressString;
 

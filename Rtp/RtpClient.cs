@@ -1632,27 +1632,44 @@ namespace Media.Rtp
 
                 RtpSocket = rtpSocket;
 
-                RtpSocket.DontFragment = true;
+                if(RtpSocket.AddressFamily == AddressFamily.InterNetwork) RtpSocket.DontFragment = true;
 
                 RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);
 
-                bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && !Utility.IsOnIntranet(((IPEndPoint)rtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
-
-                RtcpSocket = rtcpSocket;
-
-                RtcpSocket.DontFragment = true;
-
-                LocalRtcp = RtcpSocket.LocalEndPoint;
-                RemoteRtcp = RtcpSocket.RemoteEndPoint;
-
+                bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && false == Utility.IsOnIntranet(((IPEndPoint)RtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
+                
                 LocalRtp = RtpSocket.LocalEndPoint;
+
                 RemoteRtp = RtpSocket.RemoteEndPoint;
 
                 //If a different socket is used for rtcp configure it also
-                if (RtpSocket.Handle != RtcpSocket.Handle)
+                if ((RtcpSocket = rtcpSocket) != null)
                 {
-                    RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);
+                    //If the socket is not the same as the RtcpSocket configure it also
+                    if (RtpSocket.Handle != RtcpSocket.Handle)
+                    {
+                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);
+
+                        if (RtcpSocket.AddressFamily == AddressFamily.InterNetwork) RtcpSocket.DontFragment = true;
+
+                        if (RtpSocket.ProtocolType == ProtocolType.Tcp)
+                        {
+                            //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
+                            RtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+                        }
+
+                        LocalRtcp = RtcpSocket.LocalEndPoint;
+
+                        RemoteRtcp = RtcpSocket.RemoteEndPoint;
+                    }
+                    else
+                    {
+                        LocalRtcp = LocalRtp;
+
+                        RemoteRtcp = RemoteRtp;
+                    }
                 }
+                else RtcpSocket = RtpSocket;
 
                 if (punchHole)
                 {
