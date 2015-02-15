@@ -1449,6 +1449,8 @@ namespace Media.Rtsp
                 return;
             }
 
+            length = Utility.Clamp(length, 0, data.Length);
+
             //Use the static line ends (\r\n)
             m_EncodedLineEnds = LineEnds;
 
@@ -1650,7 +1652,17 @@ namespace Media.Rtsp
                     return false;
                 }
             }
-            else return false; //This is an invalid message
+            else
+            {
+                if (m_Buffer.Length > MaximumLength)
+                {
+                    MessageType = RtspMessageType.Invalid;
+
+                    DisposeBuffer();
+                }
+
+                return false; //This is yet a complete status line or an an invalid message
+            }
 
             //The status line was parsed.
             return true;

@@ -105,7 +105,7 @@ namespace Media.Rtcp
             while (offset + RtcpHeader.Length < upperBound && count >= RtcpHeader.Length)
             {
                 //Get the header of the packet to verify if it is wanted or not
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count <= RtcpHeader.Length ? count :  count - RtcpHeader.Length)))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count)))
                 {
                     //Get the lenth in words
                     int lengthInWords = header.LengthInWordsMinusOne;

@@ -1360,7 +1360,7 @@ namespace Media.Rtsp
            the server MUST NOT include a CSeq in the response.
              */
 
-            if (request.CSeq >= 0) response.CSeq = request.CSeq;
+            if (request != null && request.CSeq != -1) response.CSeq = request.CSeq;
 
             if (statusCode == RtspStatusCode.BadRequest) request.RemoveHeader(RtspHeaders.CSeq);
 
