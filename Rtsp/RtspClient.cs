@@ -148,7 +148,7 @@ namespace Media.Rtsp
 
         internal string m_UserAgent = "ASTI RTP Client", m_SessionId = string.Empty;//, m_TransportMode;
 
-        internal RtpClient m_RtpClient;
+        internal RtpClient m_RtpClient = new RtpClient();
 
         Timer m_KeepAliveTimer, m_ProtocolSwitchTimer;
 
@@ -1630,7 +1630,7 @@ namespace Media.Rtsp
             }
 
             //Connect and wait for Packets
-            if (false == m_RtpClient.IsConnected) m_RtpClient.Connect();
+            if (m_RtpClient != null && false == m_RtpClient.IsConnected) m_RtpClient.Connect();
 
             TimeSpan halfSessionTimeWithConnection = TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_ConnectionTime).Ticks / 2);
 
@@ -2279,9 +2279,16 @@ namespace Media.Rtsp
                         //Right now just pass it to the RtpClient.
                         if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl)
                         {
+                            
+                            //Some people just start sending packets hoping that the context will be created dynamically.
+                            //I guess you could technically skip describe and just receive everything raising events as required...
+                            //White / Black Hole Feature(s)?
+
                             //Deliver any data which was intercepted to the underlying Transport.
                             received -= m_RtpClient.ProcessFrameData(m_Buffer.Array, offset, received, m_RtspSocket);
 
+                            //Should check that received >= 0?
+                            //Then
                             //connect the underlying Transport (RtpClient) now 
                             m_RtpClient.Connect();
 
@@ -2310,7 +2317,7 @@ namespace Media.Rtsp
                     }
 
                 Wait: //Wait for the response unless the method requested is unknown
-                    if (message.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
+                    if (received < RtspMessage.MaximumLength && message.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
                     {
                         //Wait while
                         while (false == IsDisposed //The client connected and is not disposed AND
@@ -2816,7 +2823,7 @@ namespace Media.Rtsp
                     }
 
                     //Handle any not ok response (allow Continue)
-                    if (response.StatusCode > RtspStatusCode.OK || string.Compare(response[RtspHeaders.ContentType].TrimStart(), Sdp.SessionDescription.MimeType, true) != 0)
+                    if (response.StatusCode >= RtspStatusCode.MultipleChoices && string.Compare(response[RtspHeaders.ContentType].TrimStart(), Sdp.SessionDescription.MimeType, true) != 0)
                     {
                         Common.ExceptionExtensions.RaiseTaggedException(response.StatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
                     }
@@ -3135,11 +3142,8 @@ namespace Media.Rtsp
                         if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), RtspMethod.PLAY.ToString()));
-                        }
-                        else
-                        {
-                            setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
+                            if(lastContext != null) setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), RtspMethod.PLAY.ToString()));
+                            else setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
                         }
 
                     }

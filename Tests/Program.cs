@@ -72,6 +72,7 @@ namespace Tests
             //RtspMessage
             TestRtspMessage, 
             //RtpClient
+            TestRtpClient,
             RtpClientUnitTests.TestProcessFrameData.BackToBackRtspMessages, 
             RtpClientUnitTests.TestProcessFrameData.Issue17245_Case1_Iteration, 
             RtpClientUnitTests.TestProcessFrameData.Issue17245_Case2_Iteration,
@@ -97,9 +98,6 @@ namespace Tests
             Console.WriteLine("Logic Tests Complete! Press Q to Exit or any other key to perform the live tests.");
 
             if (Console.ReadKey(true).Key == ConsoleKey.Q) return;
-
-            //Run the live tests
-            RunTest(TestRtpClient, 777);
 
             RunTest(RtspClientTests);
 
@@ -413,13 +411,13 @@ namespace Tests
                 },
                 new
                 {
-                    Uri = "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", //Continious Media (turned off)
+                    Uri = "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", //Continious Media
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", //Continious Media  (turned off)
+                    Uri = "rtsp://private.com/PSIA/Streaming/channels/2?videoCodecType=H.264", //Continious Media  (turned off)
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 }, 
@@ -497,9 +495,15 @@ namespace Tests
 
         static void TestRtpClient()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpClientUnitTests), VoidTypeCode);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpClientUnitTests), typeOfVoid);
 
-            TestRtpClient(DateTime.UtcNow.Second % 2 == 0);
+            TestRtpClient(false);
+
+            TestRtpClient(true);
+
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+
+            Console.BackgroundColor = ConsoleColor.Black;
         }
 
         /// <summary>
@@ -969,7 +973,7 @@ namespace Tests
 
         static void TestRtpRtcp()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), VoidTypeCode);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), typeOfVoid);
         }
 
         static void TestRtspMessage()
@@ -1808,7 +1812,6 @@ namespace Tests
 
                     }
 
-
                     Console.ForegroundColor = ConsoleColor.DarkGray;
 
                     Console.BackgroundColor = ConsoleColor.Black;
@@ -1861,6 +1864,10 @@ namespace Tests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("HHH", "rtsp://private.com:8557/PSIA/Streaming/channels/2?videoCodecType=H.264"));
+            
 
                 //thaibienbac Test Cameras - Thanks!
 
@@ -2582,7 +2589,7 @@ a=rtpmap:99 h263-1998/90000");
 
             #endregion
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SDPUnitTests), VoidTypeCode);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SDPUnitTests), typeOfVoid);
         }
 
         static void TestContainerImplementations()
@@ -3153,9 +3160,7 @@ a=rtpmap:99 h263-1998/90000");
 
         static Type typeOfVoid = typeof(void);
 
-        static TypeCode VoidTypeCode = Type.GetTypeCode(typeOfVoid);
-
-        static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, TypeCode returnType)
+        static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, Type returnType)
         {
             Object typedInstance = Activator.CreateInstance(instanceType);
 
@@ -3163,7 +3168,7 @@ a=rtpmap:99 h263-1998/90000");
             foreach (var method in instanceType.GetMethods())
             {
                 //Ensure for the void type
-                if (Type.GetTypeCode(method.ReturnType) != returnType) continue;
+                if (method.ReturnType != returnType) continue;
 
                 //Invoke the void with (no parameters) on the created instance
                 method.Invoke(typedInstance, null);

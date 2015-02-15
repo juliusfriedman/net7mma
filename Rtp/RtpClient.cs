@@ -1433,6 +1433,7 @@ namespace Media.Rtp
                 {
                     //Setup the RtpSocket
                     RtpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                    RtpSocket.ExclusiveAddressUse = false;
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                     RtpSocket.Bind(LocalRtp = localRtp);
                     RtpSocket.Connect(RemoteRtp = remoteRtp);
@@ -1500,6 +1501,7 @@ namespace Media.Rtp
 
                         //Setup the RtcpSocket
                         RtcpSocket = new Socket(localRtcp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
+                        RtcpSocket.ExclusiveAddressUse = false;
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                         RtcpSocket.Bind(LocalRtcp = localRtcp);
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
@@ -1578,36 +1580,9 @@ namespace Media.Rtp
             /// <param name="remote"></param>
             public void Initialize(IPEndPoint local, IPEndPoint remote)
             {
-                if (IsDisposed || IsConnected) return;
-                if (local.Address.AddressFamily != remote.Address.AddressFamily) Common.ExceptionExtensions.RaiseTaggedException<TransportContext>(this, "localIp and remoteIp AddressFamily must match.");
-                
-                //Erase previously set values on the TransportContext.
-                //RtpBytesRecieved = RtpBytesSent = RtcpBytesRecieved = RtcpBytesSent = 0;
-
-                try
-                {
-                    //Setup the RtcpSocket / RtpSocket
-                    RtcpSocket = RtpSocket = new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                    //Dont fragment
-                    if (RtpSocket.AddressFamily == AddressFamily.InterNetwork) RtpSocket.DontFragment = true;
-
-                    RtpSocket.Connect(RemoteRtp = RemoteRtcp = remote);
-
-                    LocalRtp = LocalRtcp = RtpSocket.LocalEndPoint;
-
-                    //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
-                    RtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
-
-                    RtpSocket.SendBufferSize = 0;
-
-                    AssignIdentity();
-
-                }
-                catch
-                {
-                    throw;
-                }
+                LocalRtp = local;
+                RemoteRtp = remote;
+                Initialize(new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp));
             }
 
             /// <summary>
@@ -1642,9 +1617,9 @@ namespace Media.Rtp
 
                 bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && false == Utility.IsOnIntranet(((IPEndPoint)RtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
                 
-                LocalRtp = RtpSocket.LocalEndPoint;
+                if(LocalRtp == null) LocalRtp = RtpSocket.LocalEndPoint;
 
-                RemoteRtp = RtpSocket.RemoteEndPoint;
+                if (RemoteRtp == null) RemoteRtp = RtpSocket.RemoteEndPoint;
 
                 //If a different socket is used for rtcp configure it also
                 if ((RtcpSocket = rtcpSocket) != null)
@@ -3761,6 +3736,7 @@ namespace Media.Rtp
                 remainingInBuffer > 0 &&
                 offset < bufferLength)
             {
+            TopOfLoop:
                 //Assume not rtp or rtcp and that the data is compatible with the session
                 expectRtp = expectRtcp = incompatible = false;
 
@@ -3808,10 +3784,33 @@ namespace Media.Rtp
                         //If there WAS a context
                         if (relevent != null)
                         {
+                            //TODO Independent framing... (e.g. no $)[ only 4 bytes not 6 ]
+                            //If all that remains is the frame header then receive more data. 6 comes from (InterleavedOverhead + CommonHeaderBits.Size)
+                            //We need more data to be able to verify the frame.
+                            if (remainingInBuffer <= 6)
+                            {
+                                //Remove the context
+                                relevent = null;
+
+                                //mark as incompatible
+                                incompatible = true;
+
+                                goto CheckRemainingData;
+
+                                ////Only receive this many more bytes for now.
+                                //remainingOnSocket = X - remainingInBuffer;
+
+                                ////Receive the rest of the data indicated by frameLength. (Should probably only receive up to X more bytes then make another receive if needed)
+                                //goto GetRemainingData;
+                            }
+
+
                             //Verify minimum and maximum packet sizes allowed by context. (taking into account the amount of bytes in the ALF)
                             if (frameLength < relevent.MinimumPacketSize + sessionRequired ||
                                 frameLength > relevent.MaximumPacketSize + sessionRequired)
                             {
+                                relevent = null;
+
                                 //mark as incompatible
                                 incompatible = true;
 
@@ -3822,23 +3821,6 @@ namespace Media.Rtp
 
                                 //jump
                                 goto CheckPacketAttributes;
-                            }
-
-                            //TODO Independent framing... (e.g. no $)[ only 4 bytes not 6 ]
-                            //If all that remains is the frame header then receive more data. 6 comes from (InterleavedOverhead + CommonHeaderBits.Size)
-                            //We need more data to be able to verify the frame.
-                            if (remainingInBuffer <= 6)
-                            {
-                                //Remove the context
-                                relevent = null;
-
-                                goto CheckRemainingData;
-
-                                ////Only receive this many more bytes for now.
-                                //remainingOnSocket = X - remainingInBuffer;
-
-                                ////Receive the rest of the data indicated by frameLength. (Should probably only receive up to X more bytes then make another receive if needed)
-                                //goto GetRemainingData;
                             }
 
                             //Use CommonHeaderBits on the data after the Interleaved Frame Header
@@ -3858,6 +3840,8 @@ namespace Media.Rtp
                                 {
                                     //Remove the context
                                     relevent = null;
+
+                                    incompatible = true;
 
                                     goto EndUsingHeader;
 
@@ -4063,7 +4047,7 @@ namespace Media.Rtp
                         recievedTotal += recievedFromWire;
 
                         //Incrment remaining in buffer for what was recieved.
-                        remainingInBuffer += recievedFromWire;
+                        remainingInBuffer += recievedFromWire;                        
                     }
 
                     //If a socket error occured remove the context so no parsing occurs
@@ -4073,7 +4057,7 @@ namespace Media.Rtp
                     offset -= remainingInBuffer;
 
                     //Do another pass if we haven't parsed a frame header.
-                    if (relevent == null) continue;
+                    if (relevent == null) goto TopOfLoop;
                 }
 
                 //If there any data in the frame and there is a relevent context

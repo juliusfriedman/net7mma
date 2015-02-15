@@ -8,8 +8,8 @@
     <ProjectGuid>{C7E4C492-D4D7-43F1-ADD8-B82BE00890B3}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Tests</RootNamespace>
-    <AssemblyName>Media.Tests</AssemblyName>
+    <RootNamespace>Media.UnitTests</RootNamespace>
+    <AssemblyName>Media.UnitTests</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>

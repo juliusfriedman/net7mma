@@ -60,10 +60,12 @@
     <Compile Include="IDisposed.cs" />
     <Compile Include="IPEndPointExtensions.cs" />
     <Compile Include="ITaggedException.cs" />
+    <Compile Include="IUpdateable.cs" />
     <Compile Include="Loggers\BaseLogger.cs" />
     <Compile Include="Loggers\ConsoleLogger.cs" />
     <Compile Include="Loggers\DebuggingLogger.cs" />
     <Compile Include="Collections\DictionaryExtensions.cs" />
+    <Compile Include="Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs" />
     <Compile Include="StringExtensions.cs" />
     <Compile Include="TaggedException.cs" />
     <Compile Include="Loggers\FileLogger.cs" />

@@ -859,6 +859,8 @@ namespace Media.Rtsp
             //If multiple instances cannot bind then this should be set to true
             m_TcpServerSocket.ExclusiveAddressUse = false;
 
+            m_TcpServerSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
             //Bind the server Socket to the server EndPoint
             m_TcpServerSocket.Bind(m_ServerEndPoint);
 
@@ -1991,7 +1993,7 @@ namespace Media.Rtsp
         internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, string body = null, bool sendResponse = true)
         {
             //Create and Send the response
-            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code, body) : new RtspMessage(RtspMessageType.Response) { StatusCode = code, Body = body }, session);
+            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code, body) : new RtspMessage(RtspMessageType.Response) { StatusCode = code, Body = body, CSeq = Utility.Random.Next() }, session);
         }
 
         internal void ProcessInvalidRtspRequest(RtspMessage response, ClientSession session, bool sendResponse = true) { ProcessSendRtspMessage(response, session, sendResponse); }
