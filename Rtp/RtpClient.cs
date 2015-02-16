@@ -264,7 +264,7 @@ namespace Media.Rtp
                     //tc.MediaEndTime = TimeSpan.FromMilliseconds();
                     //}
                 }
-                
+
                 //Check for udp if no existing socket was given
                 if (!hasSocket && string.Compare(md.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
                 {
@@ -280,9 +280,16 @@ namespace Media.Rtp
                     tc.Initialize(localIp, remoteIp, rtpPort ?? md.MediaPort);
                 }
 
-                //Add the context
+                //Try to add the context
 
-                participant.TryAddContext(tc);
+                try
+                {
+                    participant.AddContext(tc);
+                }
+                catch (Exception ex)
+                {
+                    Common.ExceptionExtensions.TryRaiseTaggedException(tc, "See Tag, Could not add the created TransportContext.", ex);
+                }
             }
 
             //Return the participant
@@ -2282,7 +2289,7 @@ namespace Media.Rtp
             else if (transportContext.LastFrame != null && packet.Timestamp == transportContext.LastFrame.Timestamp && transportContext.MediaDescription.PayloadTypes.Contains(payloadType))
             {
                 //Create a new packet from the localPacket so it will not be disposed when the packet is disposed.
-                if (false == transportContext.LastFrame.IsComplete) transportContext.LastFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
+                if (false == transportContext.LastFrame.IsComplete) transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0));
 
                 //If the frame is complete then fire an event and make a new frame
                 if (transportContext.LastFrame.IsComplete)
@@ -2326,7 +2333,7 @@ namespace Media.Rtp
             if (transportContext.CurrentFrame != null)
             {
                 //If the payload of the localPacket matched the media description then create a new packet from the localPacket so it will not be disposed when the packet is disposed.
-                if (transportContext.MediaDescription.PayloadTypes.Contains(payloadType)) transportContext.CurrentFrame.Add(new RtpPacket(packet.Prepare().ToArray(), 0));
+                if (transportContext.MediaDescription.PayloadTypes.Contains(payloadType)) transportContext.CurrentFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0));
 
                 //If the frame is complete then fire an event and make a new frame
                 if (transportContext.CurrentFrame.IsComplete)
@@ -3330,13 +3337,11 @@ namespace Media.Rtp
             if (packet.Length > transportContext.MaximumPacketSize) Common.ExceptionExtensions.TryRaiseTaggedException(transportContext, "See Tag. The given packet must be smaller than the value in the transportContext.MaximumPacketSize.");
 
             //If the mediaDescription of the context does not specify the packets payload type AND
-            if (false == transportContext.MediaDescription.PayloadTypes.Contains(packet.PayloadType)
-                && //The packet was addressed from or to a transportContext the client recognizes
-                transportContext.SynchronizationSourceIdentifier == (ssrc ?? packet.SynchronizationSourceIdentifier))
-            {
-                //Throw an exception
-                Common.ExceptionExtensions.RaiseTaggedException<RtpClient>(this, "Packet from '" + ssrc + "' PayloadType is different then the expected MediaDescription.MediaFormat Expected: '" + transportContext.MediaDescription.MediaFormat + "' Found: '" + packet.PayloadType + "'");
-            }
+            //if (transportContext.SynchronizationSourceIdentifier == (ssrc ?? packet.SynchronizationSourceIdentifier))
+            //{
+            //    //Throw an exception
+            //    Common.ExceptionExtensions.RaiseTaggedException<RtpClient>(this, "Packet from '" + ssrc + "' PayloadType is different then the expected MediaDescription.MediaFormat Expected: '" + transportContext.MediaDescription.MediaFormat + "' Found: '" + packet.PayloadType + "'");
+            //}
 
             //How many bytes were sent
             int sent = 0;
@@ -3836,6 +3841,7 @@ namespace Media.Rtp
                                                 //Perform another lookup and check compatibility
                                                 incompatible = (GetContextBySourceId(header.SendersSynchronizationSourceIdentifier)) == null;
                                             }
+                                            else incompatible = false;
                                         }
                                     }
 
@@ -3869,6 +3875,7 @@ namespace Media.Rtp
 
                                             }
                                         }
+                                        else incompatible = false;
                                     }
                                 }
                             EndUsingHeader:
@@ -4082,7 +4089,7 @@ namespace Media.Rtp
             if (memory == null || memory.IsDisposed || memory.Count == 0) return;
 
             //handle demultiplex scenarios e.g. RFC5761
-            if (parseRtcp == parseRtp)
+            if (parseRtcp == parseRtp && memory.Count > RFC3550.CommonHeaderBits.Size)
             {
                 //Double Negitive, Demux based on PayloadType? RFC5761?
 
@@ -4149,6 +4156,8 @@ namespace Media.Rtp
                     }
                 }
             }
+
+            if (mRemaining > 0) OnInterleavedData(memory.Array, offset + index, mRemaining);
 
             return;
         }

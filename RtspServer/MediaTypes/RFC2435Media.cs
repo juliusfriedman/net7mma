@@ -1789,16 +1789,26 @@ namespace Media.Rtsp.Server.MediaTypes
             //If this class was used to send directly to one person it would be setup with the recievers address
             m_RtpClient = new Rtp.RtpClient();
 
-            SessionDescription = new Sdp.SessionDescription(0, "v√ƒ", Name );
+            SessionDescription = new Sdp.SessionDescription(0, "v√ƒ", Name);
             SessionDescription.Add(new Sdp.Lines.SessionConnectionLine()
             {
-                ConnectionNetworkType = "IN",
-                ConnectionAddressType = "*",
-                ConnectionAddress = "0.0.0.0"
+                ConnectionNetworkType = Sdp.Lines.SessionConnectionLine.InConnectionToken,
+                ConnectionAddressType = Sdp.SessionDescription.WildcardString,
+                ConnectionAddress = System.Net.IPAddress.Any.ToString()
             });
 
             //Add a MediaDescription to our Sdp on any available port for RTP/AVP Transport using the RtpJpegPayloadType            
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.video, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, RFC2435Media.RFC2435Frame.RtpJpegPayloadType));
+
+            //Indicate control to each media description contained
+            SessionDescription.Add(new Sdp.SessionDescriptionLine("a=control:*"));
+
+            //Ensure the session members know they can only receive
+            SessionDescription.Add(new Sdp.SessionDescriptionLine("a=sendonly")); //recvonly?
+            
+            //that this a broadcast.
+            SessionDescription.Add(new Sdp.SessionDescriptionLine("a=type:broadcast"));
+            
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
             //See the notes about having a Dictionary to support various tracks

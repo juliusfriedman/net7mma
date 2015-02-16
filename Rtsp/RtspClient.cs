@@ -1438,16 +1438,16 @@ namespace Media.Rtsp
                             //If playing and interleaved stream AND the last transmitted message is NOT null and is NOT Complete then attempt to complete it
                             if (m_LastTransmitted != null)
                             {
-                                RtspMessage local = m_LastTransmitted;
+                                //RtspMessage local = m_LastTransmitted;
 
                                 //Take note of the length of the last transmitted message.
-                                int lastLength = local.Length;
+                                int lastLength = m_LastTransmitted.Length;
 
                                 //Create a memory segment and complete the message as required from the buffer.
                                 using (var memory = new Media.Common.MemorySegment(data, offset, length))
                                 {
                                     //Use the data recieved to complete the message and not the socket
-                                    int justReceived = local.CompleteFrom(null, memory);
+                                    int justReceived = m_LastTransmitted.CompleteFrom(null, memory);
 
                                     //If anything was received
                                     if (justReceived > 0)
@@ -1456,17 +1456,17 @@ namespace Media.Rtsp
                                         received += justReceived;
 
                                         //No data was consumed don't raise another event.
-                                        if (lastLength == local.Length) received = 0;
+                                        if (lastLength == m_LastTransmitted.Length) received = 0;
                                     }
 
                                     //handle the completion of a request sent by the server if allowed.
                                     if (received > 0 &&
-                                        local != null && false == local.IsDisposed &&
-                                        local.MessageType == RtspMessageType.Request && 
+                                        m_LastTransmitted != null && false == m_LastTransmitted.IsDisposed &&
+                                        m_LastTransmitted.MessageType == RtspMessageType.Request && 
                                         m_InterleaveEvent.IsSet) //dont handle if waiting for a resposne...
                                     {
                                         //Process the pushed message
-                                        ProcessServerSentRequest(local);
+                                        ProcessServerSentRequest(m_LastTransmitted);
 
                                         //then continue
                                     }
@@ -2838,8 +2838,10 @@ namespace Media.Rtsp
                         }
                     }
 
+                    string contentType = response[RtspHeaders.ContentType];
+
                     //Handle any not ok response (allow Continue)
-                    if (response.StatusCode >= RtspStatusCode.MultipleChoices && string.Compare(response[RtspHeaders.ContentType].TrimStart(), Sdp.SessionDescription.MimeType, true) != 0)
+                    if (response.StatusCode >= RtspStatusCode.MultipleChoices && false == string.IsNullOrEmpty(contentType) && string.Compare(contentType.TrimStart(), Sdp.SessionDescription.MimeType, true) != 0)
                     {
                         Common.ExceptionExtensions.RaiseTaggedException(response.StatusCode, "Unable to describe media. The StatusCode is in the Tag property.");
                     }
@@ -3606,6 +3608,8 @@ namespace Media.Rtsp
                     m_SupportedMethods.Count > 0 &&  //There are some methods supported
                     false == m_SupportedMethods.Contains(RtspMethod.PLAY.ToString())) throw new InvalidOperationException("Server does not support PLAY.");
             }
+
+            m_RtpClient.Connect();
 
             try
             {

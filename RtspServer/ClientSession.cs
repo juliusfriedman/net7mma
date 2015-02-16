@@ -178,9 +178,7 @@ namespace Media.Rtsp
             {
                 m_RtspSocket = value;
 
-                EndPoint remote = m_RtspSocket.RemoteEndPoint;
-
-                if (m_RtspSocket != null && remote != null) RemoteEndPoint = remote;
+                if (m_RtspSocket != null) RemoteEndPoint = m_RtspSocket.RemoteEndPoint;
             }
         }
 
@@ -207,6 +205,8 @@ namespace Media.Rtsp
 
             //Assign the socket and remote endPoint, IPPacketInformation provides thus for UDP
             RtspSocket = rtspSocket;
+
+            if (m_RtspSocket == null) return;
 
             //Configure TCP Sockets
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
@@ -266,7 +266,7 @@ namespace Media.Rtsp
             }
 
             //Ensure not disposed or marked disconnected
-            if (IsDisposed || IsDisconnected || SharesSocket) return;
+            if (IsDisposed || IsDisconnected || SharesSocket) goto NotDisconnected;
 
             //Begin to receive what is available
             LastRecieve = m_RtspSocket.BeginReceiveFrom(m_Buffer.Array, m_Buffer.Offset, m_Buffer.Count, SocketFlags.None, ref RemoteEndPoint, new AsyncCallback(m_Server.ProcessReceive), this);
@@ -639,6 +639,8 @@ namespace Media.Rtsp
                 return CreateRtspResponse(playRequest, RtspStatusCode.DataTransportNotReadyYet, information);
             }
 
+            //bool allowIncomingRtp = false;
+
             //Attach the packet events if not already attached (E.g. paused)
             if (false == Playing.Contains(source.Id))
             {
@@ -649,6 +651,10 @@ namespace Media.Rtsp
                 //Ensure playing
                 Playing.Add(source.Id);
             }
+
+            m_RtpClient.FrameChangedEventsEnabled = false;
+
+            //m_RtpClient.IncomingPacketEventsEnabled = allowIncomingRtp;
 
             //Prepare a place to hold the response
             RtspMessage playResponse = CreateRtspResponse(playRequest);
@@ -808,7 +814,7 @@ namespace Media.Rtsp
 
         void OnSourceFrameChanged(object sender, RtpFrame frame)
         {
-          if(frame != null && !frame.IsDisposed)  foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
+            if (frame != null && false == frame.IsDisposed) foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
         }
 
         /// <summary>
@@ -1041,6 +1047,8 @@ namespace Media.Rtsp
 
                     //m_RtpClient.RtcpPacketReceieved += m_RtpClient_RecievedRtcp;
 
+                    //m_RtpClient.RtpPacketReceieved += m_RtpClient_RecievedRtp;
+
                     //m_RtpClient.RtcpPacketSent += m_RtpClient_SentRtcp;
 
                     #endregion
@@ -1109,9 +1117,25 @@ namespace Media.Rtsp
             //The session is not disconnected 
             IsDisconnected = false;
 
+            if (data[0] == RtpClient.BigEndianFrameControl) return;
 
             //Process the data received
             m_Server.ProcessClientBuffer(this, length);
+        }
+
+        void m_RtpClient_RecievedRtp(object sender, RtpPacket packet)
+        {
+
+            if (packet == null || packet.IsDisposed) return;
+            else m_Server.Logger.LogException(new Exception("Recieved Rtp PacketType: " + packet.PayloadType + " - " + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+
+            var context = m_RtpClient.GetContextForPacket(packet);
+
+            if (context == null) m_Server.Logger.LogException(new Exception("Unknown Rtp Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else m_Server.Logger.LogException(new Exception("Rtp Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
+
+            //Crash... check bugs in compiler.. emited wrong instruction...
+            //m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
         }
 
         void m_RtpClient_RecievedRtcp(object sender, RtcpPacket packet)
@@ -1123,12 +1147,12 @@ namespace Media.Rtsp
             var implementation = Rtcp.RtcpPacket.GetImplementationForPayloadType((byte)packet.PayloadType);
 
             if (implementation == null) m_Server.Logger.LogException(new Exception("Recieved Unknown PacketType: " + packet.PayloadType + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
-            else m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation.Name + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else m_Server.Logger.LogException(new Exception("Recieved Rtcp PacketType: " + packet.PayloadType + " - " + implementation.Name + " Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
 
             var context = m_RtpClient.GetContextForPacket(packet);
 
-            if (context == null) m_Server.Logger.LogException(new Exception("Unknown Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
-            else m_Server.Logger.LogException(new Exception("Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
+            if (context == null) m_Server.Logger.LogException(new Exception("Unknown Rtcp Packet Ssrc = " + packet.SynchronizationSourceIdentifier));
+            else m_Server.Logger.LogException(new Exception("Rtcp Packet Ssrc = " + packet.SynchronizationSourceIdentifier + " RemoteId = " + context.RemoteSynchronizationSourceIdentifier + " LocalId = " + context.SynchronizationSourceIdentifier));
 
             //Crash... check bugs in compiler.. emited wrong instruction...
             //m_Server.Logger.LogException(new Exception("Recieved PacketType: " + packet.PayloadType + " - " + implementation != null ? implementation.Name : string.Empty));
@@ -1466,7 +1490,7 @@ namespace Media.Rtsp
             //Indicate that the server will not accept media as input for this session
             //Put the attribute in the Session Description,
             //Should check that its not already set?
-            sdp.Add(new Sdp.SessionDescriptionLine("a=sendonly"));
+            //sdp.Add(new Sdp.SessionDescriptionLine("a=recvonly"));
 
             //Remove any existing session range lines, don't upate the version
             while (sdp.RangeLine != null) sdp.Remove(sdp.RangeLine, false);

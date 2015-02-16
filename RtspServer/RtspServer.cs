@@ -390,8 +390,75 @@ namespace Media.Rtsp
 
         int m_HttpPort = -1;
 
+        protected virtual void ProcessHttpRtspRequest(IAsyncResult iar)
+        {
+
+            if (iar == null) return;
+
+            var context = m_HttpListner.EndGetContext(iar);
+
+            m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), null);
+
+            if (context == null) return;
+
+            if (context.Request.AcceptTypes.Any(t => string.Compare(t, "application/x-rtsp-tunnelled") == 0))
+            {
+                if (context.Request.HasEntityBody)
+                {
+                    using (var ips = context.Request.InputStream)
+                    {
+                        long size = context.Request.ContentLength64;
+
+                        byte[] buffer = new byte[size];
+
+                        int offset = 0;
+
+                        while (size > 0)
+                        {
+                            size -= offset += ips.Read(buffer, offset, (int)size);
+                        }
+
+                        //Ensure the message is really Rtsp
+                        RtspMessage request = new RtspMessage(System.Convert.FromBase64String(context.Request.ContentEncoding.GetString(buffer)));
+
+                        //Check for validity
+                        if (request.MessageType != RtspMessageType.Invalid)
+                        {
+                            //Process the request when complete
+                            if (request.IsComplete)
+                            {
+                                ProcessRtspRequest(request, CreateSession(null), false);
+
+                                return;
+                            }
+
+                        }
+                    }
+                }
+                else //No body
+                {
+                    RtspMessage request = new RtspMessage()
+                    {
+                        Location = new Uri(RtspMessage.ReliableTransport + "://" + context.Request.LocalEndPoint.Address.ToString() +  context.Request.RawUrl),
+                        Method = RtspMethod.OPTIONS
+                    };
+
+                    foreach (var header in context.Request.Headers.AllKeys)
+                    {
+                        request.SetHeader(header, context.Request.Headers[header]);
+                    }
+
+                    ProcessRtspRequest(request, CreateSession(null), false);
+                }
+            }
+        }
+
         public void EnableHttpTransport(int port = 80) 
         {
+            throw new NotImplementedException();
+
+            //Must be admin...
+
             if (m_HttpListner == null)
             {
                 try
@@ -400,7 +467,7 @@ namespace Media.Rtsp
                     m_HttpPort = port;
                     m_HttpListner.Prefixes.Add("http://*:" + port + "/");
                     m_HttpListner.Start();
-                    //m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), this);
+                    m_HttpListner.BeginGetContext(new AsyncCallback(ProcessHttpRtspRequest), this);
                 }
                 catch (Exception ex)
                 {
@@ -1323,6 +1390,14 @@ namespace Media.Rtsp
                 //Use a segment around the data received which is already in the buffer.
                 using (Common.MemorySegment data = new Common.MemorySegment(session.m_Buffer.Array, session.m_Buffer.Offset, received))
                 {
+
+                    if (data[0] == RtpClient.BigEndianFrameControl)
+                    {
+                        if (session.m_RtpClient == null) return;
+
+                        received -= session.m_RtpClient.ProcessFrameData(session.m_Buffer.Array, session.m_Buffer.Offset, received, session.m_RtspSocket);
+                    }
+
                     //Ensure the message is really Rtsp
                     RtspMessage request = new RtspMessage(data);
 
