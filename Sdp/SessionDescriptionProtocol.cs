@@ -586,11 +586,9 @@ namespace Media.Sdp
         {
             get
             {
-                var connectionLine = ConnectionLine;
                 return (m_OriginatorLine == null ? 0 : m_OriginatorLine.Length) +
                     (m_NameLine == null ? 0 : m_NameLine.Length) +
                     (m_SessionVersionLine == null ? 0 : m_SessionVersionLine.Length) +
-                    (connectionLine == null ? 0 : connectionLine.Length) +
                     m_Lines.Sum(l => l.Length) +
                     m_MediaDescriptions.Sum(md => md.Length) +
                     m_TimeDescriptions.Sum(td => td.Length);
@@ -971,10 +969,6 @@ namespace Media.Sdp
 
             if (m_NameLine != null) buffer.Append(m_NameLine.ToString());
 
-            var connectionLine = ConnectionLine;
-
-            if (connectionLine != null) buffer.Append(connectionLine.ToString());
-
             foreach (SessionDescriptionLine l in m_Lines.Where(l => l.Type != Sdp.Lines.SessionBandwidthLine.BandwidthType && l.Type != Sdp.Lines.SessionAttributeLine.AttributeType))
             {
                 buffer.Append(l.ToString());
@@ -1037,6 +1031,16 @@ namespace Media.Sdp
             foreach (var mediaDescription in MediaDescriptions)
             {
                 foreach (var line in mediaDescription)
+                {
+                    //Choose if the types which already appear should be skipped...
+
+                    yield return line;
+                }
+            }
+
+            foreach (var timeDescription in TimeDescriptions)
+            {
+                foreach (var line in timeDescription)
                 {
                     //Choose if the types which already appear should be skipped...
 
@@ -1148,6 +1152,11 @@ namespace Media.Sdp
         public int MediaPort { get; set; }
 
         /// <summary>
+        /// Defines an optional value which is a port range that augments the MediaPort definition
+        /// </summary>
+        public int? PortRange { get; set; }
+
+        /// <summary>
         /// The MediaProtocol of the MediaDescription
         /// </summary>
         public string MediaProtocol { get; set; }        
@@ -1173,9 +1182,17 @@ namespace Media.Sdp
         #region Properties
 
         /// <summary>
+        /// Gets the string which is utilized in the Media Field to decribe the port range.
+        /// </summary>
+        internal protected string PortRangeString
+        {
+            get { return PortRange.HasValue ? string.Join(SessionDescription.ForwardSlashString, MediaPort.ToString(), PortRange.Value) : MediaPort.ToString(); }
+        }
+
+        /// <summary>
         /// The MediaFormat of the MediaDescription
         /// </summary>
-        public virtual string MediaFormat
+        public string MediaFormat
         {
             get
             {
@@ -1283,7 +1300,11 @@ namespace Media.Sdp
                 MediaType = Sdp.MediaType.unknown;
             }
 
-            MediaPort = int.Parse(SessionDescription.TrimLineValue(parts[1]), System.Globalization.CultureInfo.InvariantCulture);
+            var mediaPorts = SessionDescription.TrimLineValue(parts[1]).Split(SessionDescription.SlashSplit, 2);
+
+            MediaPort = int.Parse(SessionDescription.TrimLineValue(mediaPorts[0]), System.Globalization.CultureInfo.InvariantCulture);
+
+            if (mediaPorts.Length > 1) PortRange = int.Parse(mediaPorts[1]);
 
             MediaProtocol = parts[2];
 
@@ -1311,6 +1332,8 @@ namespace Media.Sdp
 
         #endregion
 
+        #region Methods
+
         public void Add(SessionDescriptionLine line)
         {
             if (line == null) return;
@@ -1326,6 +1349,10 @@ namespace Media.Sdp
         {
             m_Lines.RemoveAt(index);
         }
+
+        #endregion
+
+        #region Overloads
 
         public override string ToString()
         {
@@ -1378,6 +1405,8 @@ namespace Media.Sdp
             return buffer.ToString();
         }
 
+        #endregion
+
         #region Named Lines
 
         internal protected SessionDescriptionLine MediaDescriptionLine
@@ -1387,7 +1416,7 @@ namespace Media.Sdp
                 return new SessionDescriptionLine(MediaDescriptionType, ((char)Common.ASCII.Space).ToString())
                 {
                     MediaType.ToString(),
-                    MediaPort.ToString(),
+                    PortRangeString,
                     MediaProtocol,
                     MediaFormat
                 };
@@ -1427,6 +1456,8 @@ namespace Media.Sdp
 
         #endregion
 
+        #region Lines
+
         public IEnumerable<SessionDescriptionLine> AttributeLines
         {
             get
@@ -1459,6 +1490,8 @@ namespace Media.Sdp
         {
             return ((IEnumerable<SessionDescriptionLine>)this).GetEnumerator();
         }
+
+        #endregion
     }
 
     public static class MediaDescriptionExtensions
