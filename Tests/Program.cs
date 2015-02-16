@@ -380,7 +380,7 @@ namespace Tests
                 //GrandStream
                 new
                 {
-                    Uri = "rtsp://avollmar.dyndns.org:3030/0", //Continious Media (Turned off?)
+                    Uri = "rtsp://avollmar.dyndns.org:3030/0", //Continious Media
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -414,13 +414,7 @@ namespace Tests
                     Uri = "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", //Continious Media
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                },
-                new
-                {
-                    Uri = "rtsp://private.com/PSIA/Streaming/channels/2?videoCodecType=H.264", //Continious Media  (turned off)
-                    Creds = default(System.Net.NetworkCredential),
-                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                }, 
+                },                
                 //MS-RTSP (MJPEG Video) (WMA2 Audio)
                 new
                 {
@@ -1863,11 +1857,7 @@ namespace Tests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
-
-
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("HHH", "rtsp://private.com:8557/PSIA/Streaming/channels/2?videoCodecType=H.264"));
-            
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));                
 
                 //thaibienbac Test Cameras - Thanks!
 

@@ -16,4 +16,32 @@ namespace Media.Common
             ShouldDispose = shouldDispose;
         }
     }
+
+    //public class DisposableContext : System.Threading.SynchronizationContext, IDisposed
+    //{
+
+    //    public readonly CommonDisposable DisposePoint;
+
+    //    public DisposableContext(bool shouldDispose)
+    //        : base()
+    //    {
+    //        DisposePoint = new CommonDisposable(shouldDispose);
+    //    }
+
+
+    //    bool IDisposed.IsDisposed
+    //    {
+    //        get { return DisposePoint.IsDisposed; }
+    //    }
+
+    //    bool IDisposed.ShouldDispose
+    //    {
+    //        get { return DisposePoint.ShouldDispose; }
+    //    }
+
+    //    void IDisposable.Dispose()
+    //    {
+    //        DisposePoint.Dispose();
+    //    }
+    //}
 }

@@ -71,17 +71,23 @@ namespace Media.Rtcp
         /// <param name="sourcesLeaving">The SourceList which describes the sources who are leaving</param>
         /// <param name="reasonForLeaving">An optional reason for leaving(only the first 255 octets will be used)</param>
         public GoodbyeReport(int version, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
-            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, 0, reasonForLeaving != null ? reasonForLeaving.Length : 0)
+            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, 4, reasonForLeaving != null ? reasonForLeaving.Length : 0)
         {
+
+            int offset = Payload.Offset;
 
             //If a reason was given
             if (reasonForLeaving != null)
             {
+                int reasonForLeavingLength = reasonForLeaving.Length;
+
                 //Ensure it will fit
-                if (reasonForLeaving.Length > byte.MaxValue) throw new InvalidOperationException("Only 255 octets can occupy the ReasonForLeaving in a GoodbyeReport.");
+                if (reasonForLeavingLength > byte.MaxValue) throw new InvalidOperationException("Only 255 octets can occupy the ReasonForLeaving in a GoodbyeReport.");
 
                 //Copy it to the payload
-                reasonForLeaving.CopyTo(Payload.Array, Payload.Offset);
+                reasonForLeaving.CopyTo(Payload.Array, offset);
+
+                offset += reasonForLeavingLength;
 
                 //http://tools.ietf.org/html/rfc3550#section-6.6
                 /*
@@ -97,8 +103,16 @@ namespace Media.Rtcp
                 {
                     //This will allow the data to end on a 32 bit boundary.
                     AddBytesToPayload(Enumerable.Repeat(SourceDescriptionReport.SourceDescriptionItem.Null, nullOctetsRequired), 0, nullOctetsRequired);
+
+                    offset += nullOctetsRequired;
                 }
-            }            
+            }
+
+            if (sourcesLeaving != null)
+            {
+                sourcesLeaving.TryCopyTo(Payload.Array, offset);
+            }
+
         }
 
         public GoodbyeReport(int version, int ssrc, byte[] reasonForLeaving)
