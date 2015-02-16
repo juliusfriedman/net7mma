@@ -242,6 +242,13 @@ namespace Media.Rtp
             m_Packets.Add(seq, packet);
         }
 
+        public bool TryAdd(RtpPacket packet)
+        {
+            try { Add(packet); }
+            catch { return false; }
+            return true;
+        }
+
         /// <summary>
         /// Indicates if the RtpFrame contains a RtpPacket
         /// </summary>

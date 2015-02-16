@@ -1053,7 +1053,7 @@ namespace Media.Rtsp
             return result.ToArray();
         }
 
-        public static RtspMessage FromHttpBytes(byte[] message, int offset, Encoding encoding = null)
+        public static RtspMessage FromHttpBytes(byte[] message, int offset, Encoding encoding = null, bool bodyOnly = false)
         {
             //Sanity
             if (message == null) return null;
@@ -1215,8 +1215,17 @@ namespace Media.Rtsp
 
                     length += 2;
                 }
-                                                                                                                            //m_Headers.Count * 3 means each header has a ':' and \r\n sequence, + 2 for the end header \r\n
-                return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_Encoding.GetByteCount(m_Body)) + ( m_Headers.Count > 0 ? m_Headers.Count * 3 + 2 + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value)) : 0);
+
+                try
+                {                                                                                                             //m_Headers.Count * 3 means each header has a ':' and \r\n sequence, + 2 for the end header \r\n
+                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_Encoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * 3 + 2 + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value)) : 0);
+                }
+                catch (InvalidOperationException)
+                {
+                    return Length;
+                }
+                catch { throw; }
+
             }
         }
 
@@ -1669,133 +1678,133 @@ namespace Media.Rtsp
         }
 
         virtual protected bool ParseHeaders(bool force = false)
-        {
-            if (IsDisposed || MessageType == RtspMessageType.Invalid && false == force) return false;
-
-            //Headers were parsed if there is already a body.
-            if (false == string.IsNullOrWhiteSpace(m_Body) && false == force) return true;
-
-            //Need 2 empty lines to end the header section
-            int emptyLine = 0;
-
-            //Keep track of the position
-            long position = m_Buffer.Position, max = m_Buffer.Length;
-
-            //Ensure at the beginning of the buffer.
-            m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
-
-            //Reparsing should clear headers?
-            //if (force) m_Headers.Clear();
-
-            bool readingValue = false;
-
-            //Store the headerName
-            string headerName = null;
-
-
-            //While we didn't find the end of the header section
-            while (position < max && emptyLine <= 2)
+        {            
+            try
             {
-                //Read a line using the encoding determined so far.
-            ReadLine:
+                if (IsDisposed || MessageType == RtspMessageType.Invalid && false == force) return false;
 
-                //Might want a flag that a newline was read to ensure that we don't try to parse incomplete values.
-                string rawLine = Utility.ReadLine(m_Buffer, Encoding);
+                //Headers were parsed if there is already a body.
+                if (false == string.IsNullOrWhiteSpace(m_Body) && false == force) return true;
 
-                //Check for the empty line
-                if (string.IsNullOrWhiteSpace(rawLine))                
-                {
-                    ////LWS means a new line in the value which can be safely ignored.
-                    if (false == readingValue)
-                    {
-                        //Don't do anything for empty lines (outside of header values)
-                        ++emptyLine;
-                    }
+                //Need 2 empty lines to end the header section
+                int emptyLine = 0;
 
-                    //Do update the position
-                    position = m_Buffer.Position;
+                //Keep track of the position
+                long position = m_Buffer.Position, max = m_Buffer.Length;
 
-                    continue;
-                }      
+                //Ensure at the beginning of the buffer.
+                m_Buffer.Seek(m_HeaderOffset, System.IO.SeekOrigin.Begin);
 
-                string[] parts = null;
-          
-                //Update the value if already read the header name
-                if(readingValue) goto SetValue;
+                //Reparsing should clear headers?
+                //if (force) m_Headers.Clear();
 
-                //We only want the first 2 sub strings to allow for headers which have a ':' in the data
-                //E.g. Rtp-Info: rtsp://....
-                parts = rawLine.Split(HeaderValueSplit, 2);
-
-                //not a valid header
-                if (parts.Length <= 1 || string.IsNullOrWhiteSpace(parts[0]))
-                {
-                    //If there is not a header name and there more data try to read the next line
-                    if (max - m_Buffer.Position > 1) goto UpdatePosition;
-
-                    //When only 1 char is left it could be `\r` or `\n` which is another line end
-                    //Or `$` 'End Delemiter' (Reletive End Support (No RFC Draft [yet]) it indicates an end of section.
-
-                    //back track
-                    m_Buffer.Position = position;
-
-                    break;
-                }
+                bool readingValue = false;
 
                 //Store the headerName
-                headerName = parts[0];
+                string headerName = null;
 
-            SetValue:
 
-                string headerValue = readingValue ? rawLine : parts[1];
+                //While we didn't find the end of the header section
+                while (position < max && emptyLine <= 2)
+                {
+                //Read a line using the encoding determined so far.
+                ReadLine:
 
-                //Have a header name
-                readingValue = true;
+                    //Might want a flag that a newline was read to ensure that we don't try to parse incomplete values.
+                    string rawLine = Utility.ReadLine(m_Buffer, Encoding);
 
-                //If there is LWS read the next line
-                if (string.IsNullOrWhiteSpace(headerValue)) goto ReadLine;
+                    //Check for the empty line
+                    if (string.IsNullOrWhiteSpace(rawLine))
+                    {
+                        ////LWS means a new line in the value which can be safely ignored.
+                        if (false == readingValue)
+                        {
+                            //Don't do anything for empty lines (outside of header values)
+                            ++emptyLine;
+                        }
 
-                //This seems to be a valid header
-                SetHeader(headerName, headerValue);                
+                        //Do update the position
+                        position = m_Buffer.Position;
 
-                //Todo Handle Duplicate headers as HTTP would. (Will required a change in the collection used).
+                        continue;
+                    }
 
-                #region [Todo, Duplicate Headers which should not be merged.]
+                    string[] parts = null;
+
+                    //Update the value if already read the header name
+                    if (readingValue) goto SetValue;
+
+                    //We only want the first 2 sub strings to allow for headers which have a ':' in the data
+                    //E.g. Rtp-Info: rtsp://....
+                    parts = rawLine.Split(HeaderValueSplit, 2);
+
+                    //not a valid header
+                    if (parts.Length <= 1 || string.IsNullOrWhiteSpace(parts[0]))
+                    {
+                        //If there is not a header name and there more data try to read the next line
+                        if (max - m_Buffer.Position > 1) goto UpdatePosition;
+
+                        //When only 1 char is left it could be `\r` or `\n` which is another line end
+                        //Or `$` 'End Delemiter' (Reletive End Support (No RFC Draft [yet]) it indicates an end of section.
+
+                        //back track
+                        m_Buffer.Position = position;
+
+                        break;
+                    }
+
+                    //Store the headerName
+                    headerName = parts[0];
+
+                SetValue:
+
+                    string headerValue = readingValue ? rawLine : parts[1];
+
+                    //Have a header name
+                    readingValue = true;
+
+                    //If there is LWS read the next line
+                    if (string.IsNullOrWhiteSpace(headerValue)) goto ReadLine;
+
+                    //This seems to be a valid header
+                    SetHeader(headerName, headerValue);
+
+                    //Todo Handle Duplicate headers as HTTP would. (Will required a change in the collection used).
+
+                    #region [Todo, Duplicate Headers which should not be merged.]
 
                 //May as well also make a base class and implement Http while im @ it.
 
-                //Could then derive SIP, SessionDescription and the like from it also.
+                    //Could then derive SIP, SessionDescription and the like from it also.
 
-                //if(ContainsHeader(headerName) && CanDuplicate(headerName)) AppendOrSetHeader(parts[0], parts[1]);
+                    //if(ContainsHeader(headerName) && CanDuplicate(headerName)) AppendOrSetHeader(parts[0], parts[1]);
                 //else SetHeader(parts[0], parts[1]);
 
-                #endregion
+                    #endregion
 
-            UpdatePosition:
+                UpdatePosition:
 
-                headerName = headerValue = null;
+                    headerName = headerValue = null;
 
-                readingValue = false;
+                    readingValue = false;
 
-                //Empty line count must be reset to include the end line we have already obtained when reading the header
-                emptyLine = 1;
+                    //Empty line count must be reset to include the end line we have already obtained when reading the header
+                    emptyLine = 1;
 
-                position = m_Buffer.Position;
+                    position = m_Buffer.Position;
 
-                //Could peek at the buffer of the memory stream to determine if the next char is related to the header...
+                    //Could peek at the buffer of the memory stream to determine if the next char is related to the header...
 
-            }
+                }
 
-            //If the value was possibly not yet read then assume its empty
-            if (false == string.IsNullOrWhiteSpace(headerName))
-            {
-                SetHeader(headerName, Encoding.GetString(SemiColonByte));
-            }
+                //If the value was possibly not yet read then assume its empty
+                if (false == string.IsNullOrWhiteSpace(headerName))
+                {
+                    SetHeader(headerName, Encoding.GetString(SemiColonByte));
+                }
 
-            //There may be control characters from the last header still in the buffer, (ParseBody handles this)            
+                //There may be control characters from the last header still in the buffer, (ParseBody handles this)            
 
-            try
-            {
                 //Erroneous responses may not carry the resulting Cseq from responses in some servers.
                 if (MessageType == RtspMessageType.Response && StatusCode <= RtspStatusCode.OK && CSeq <= 0) return false;
 

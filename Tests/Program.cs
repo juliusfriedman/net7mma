@@ -1857,7 +1857,11 @@ namespace Tests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));                
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            
 
                 //thaibienbac Test Cameras - Thanks!
 

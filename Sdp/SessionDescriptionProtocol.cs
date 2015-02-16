@@ -905,6 +905,7 @@ namespace Media.Sdp
 
         /// <summary>
         /// Allows stateful control of the modifications of the Session Description by blocking other updates.
+        /// If called when <see cref="UnderModification"/> the call will block until the update can proceed.
         /// </summary>
         /// <returns>The <see cref="System.Threading.CancellationToken"/> which can be used to cancel the update started</returns>
         public System.Threading.CancellationToken BeginUpdate()
@@ -927,15 +928,23 @@ namespace Media.Sdp
         {
             CheckDisposed();
 
+            //Ensure a token
             if (token == null) return;
 
+            //That came from out cancellation source
             if (token != m_UpdateTokenSource.Token) throw new InvalidOperationException("Must obtain the CancellationToken from a call to BeginUpdate.");
 
-            if (token.IsCancellationRequested) return;
+            // check for manually removed state or a call without an update..
+            //if(m_Update.Wait(1, token)) { would check that the event was manually cleared... }
 
+            // acknowledge cancellation 
+            if (token.IsCancellationRequested) throw new OperationCanceledException(token);
+
+            //if the version should be updated, then do it now.
             if (updateVersion) UpdateVersion(token);
 
-            m_Update.Set();
+            //Allow threads to modify
+            m_Update.Set(); //To unblocked
         }
 
         #endregion
