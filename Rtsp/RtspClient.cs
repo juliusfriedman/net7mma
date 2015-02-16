@@ -653,6 +653,9 @@ namespace Media.Rtsp
             ProtocolVersion = DefaultProtocolVersion;
             
             //Could create a RtpClient to prevent accidental errors, (would be easier for attaching logger)
+
+            m_RtpClient = new RtpClient();
+            m_RtpClient.InterleavedData += ProcessInterleaveData;
         }
 
         /// <summary>
@@ -1214,15 +1217,18 @@ namespace Media.Rtsp
             }
         }
 
-        void ProcessServerSentRequest()
+        protected virtual void ProcessServerSentRequest(RtspMessage toProcess = null)
         {
-            if (false == IgnoreServerSentMessages && 
-                m_LastTransmitted == null || 
-                m_LastTransmitted.MessageType != RtspMessageType.Request || 
-                false == m_LastTransmitted.IsComplete) return;
+
+            if (toProcess == null) return;
+
+            if (false == IgnoreServerSentMessages &&
+                toProcess == null ||
+                toProcess.MessageType != RtspMessageType.Request ||
+                false == toProcess.IsComplete) return;
 
             //Check the sequence number
-            int sequenceNumber = m_LastTransmitted.CSeq;
+            int sequenceNumber = toProcess.CSeq;
 
             //Don't handle a request with an invalid remote sequence number
             if (sequenceNumber < m_RCSeq) return;
@@ -1234,7 +1240,7 @@ namespace Media.Rtsp
             ++m_PushedMessages;
 
             //Raise an event for the request received.
-             Received(m_LastTransmitted, null);
+            Received(toProcess, null);
 
             //Determine 
             string session = m_LastTransmitted[RtspHeaders.Session];
@@ -1250,17 +1256,17 @@ namespace Media.Rtsp
             }
 
             //handle the message received
-            switch (m_LastTransmitted.Method)
+            switch (toProcess.Method)
             {
                 case RtspMethod.TEARDOWN:
                     {
-                        ProcessRemoteTeardown(m_LastTransmitted);
+                        ProcessRemoteTeardown(toProcess);
 
                         return;
                     }
                 case RtspMethod.ANNOUNCE:
                     {
-                        if (Uri.Equals(m_LastTransmitted.Location, CurrentLocation))
+                        if (Uri.Equals(toProcess.Location, CurrentLocation))
                         {
                             //Check for SDP content type and update the SessionDescription
                         }
@@ -1270,13 +1276,13 @@ namespace Media.Rtsp
                 case RtspMethod.GET_PARAMETER:
                     {
 
-                        ProcessRemoteGetParameter(m_LastTransmitted);
+                        ProcessRemoteGetParameter(toProcess);
 
                         return;
                     }
                 case RtspMethod.SET_PARAMETER:
                     {
-                        ProcessRemoteSetParameter(m_LastTransmitted);
+                        ProcessRemoteSetParameter(toProcess);
 
                         break;
                     }
@@ -1295,7 +1301,7 @@ namespace Media.Rtsp
                          */
 
                         //Use the Uri to determine what is chaning.
-                        if (Uri.Equals(m_LastTransmitted.Location, CurrentLocation))
+                        if (Uri.Equals(toProcess.Location, CurrentLocation))
                         {
                             //See what is being notified.
                         }
@@ -1307,23 +1313,23 @@ namespace Media.Rtsp
                         
                         //Something else...
 
-                        
-                        if (m_LastTransmitted.MethodString == "END_OF_STREAM")
+
+                        if (toProcess.MethodString == "END_OF_STREAM")
                         {
 
-                            ProcessRemoteEndOfStream(m_LastTransmitted);
+                            ProcessRemoteEndOfStream(toProcess);
 
                             return;
                         }
 
                          //Make a response to indicate the method is not supported
-                        using (var response = new RtspMessage(RtspMessageType.Response, m_LastTransmitted.Version, m_LastTransmitted.Encoding))
+                        using (var response = new RtspMessage(RtspMessageType.Response, toProcess.Version, toProcess.Encoding))
                         {
                             //Indicate Not Allowed.
                             response.StatusCode = RtspStatusCode.NotImplemented;
 
                             //Set the sequence number
-                            response.CSeq = m_LastTransmitted.CSeq;
+                            response.CSeq = toProcess.CSeq;
 
                             //Send it
                             using (SendRtspMessage(response, false, false)) ;
@@ -1415,7 +1421,7 @@ namespace Media.Rtsp
                                     //Ensure suported methods contains the method requested.
                                     m_SupportedMethods.Add(interleaved.MethodString);
 
-                                    ProcessServerSentRequest();
+                                    ProcessServerSentRequest(m_LastTransmitted);
                                 }
 
                             }
@@ -1432,14 +1438,16 @@ namespace Media.Rtsp
                             //If playing and interleaved stream AND the last transmitted message is NOT null and is NOT Complete then attempt to complete it
                             if (m_LastTransmitted != null)
                             {
+                                RtspMessage local = m_LastTransmitted;
+
                                 //Take note of the length of the last transmitted message.
-                                int lastLength = m_LastTransmitted.Length;
+                                int lastLength = local.Length;
 
                                 //Create a memory segment and complete the message as required from the buffer.
                                 using (var memory = new Media.Common.MemorySegment(data, offset, length))
                                 {
                                     //Use the data recieved to complete the message and not the socket
-                                    int justReceived = m_LastTransmitted.CompleteFrom(null, memory);
+                                    int justReceived = local.CompleteFrom(null, memory);
 
                                     //If anything was received
                                     if (justReceived > 0)
@@ -1448,17 +1456,17 @@ namespace Media.Rtsp
                                         received += justReceived;
 
                                         //No data was consumed don't raise another event.
-                                        if (lastLength == m_LastTransmitted.Length) received = 0;
+                                        if (lastLength == local.Length) received = 0;
                                     }
 
                                     //handle the completion of a request sent by the server if allowed.
                                     if (received > 0 &&
-                                        m_LastTransmitted != null && false == m_LastTransmitted.IsDisposed &&
-                                        m_LastTransmitted.MessageType == RtspMessageType.Request && 
+                                        local != null && false == local.IsDisposed &&
+                                        local.MessageType == RtspMessageType.Request && 
                                         m_InterleaveEvent.IsSet) //dont handle if waiting for a resposne...
                                     {
                                         //Process the pushed message
-                                        ProcessServerSentRequest();
+                                        ProcessServerSentRequest(local);
 
                                         //then continue
                                     }
@@ -1783,6 +1791,10 @@ namespace Media.Rtsp
 
                             //Create the socket
                             m_RtspSocket = new Socket(m_RemoteIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                            m_RtspSocket.ExclusiveAddressUse = false;
+
+                            m_RtspSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
                             // Set option that allows socket to close gracefully without lingering.
                             //e.g. DON'T Linger on close if unsent data is present. (Should be moved to ISocketReference)
@@ -2347,8 +2359,12 @@ namespace Media.Rtsp
                             //If more time has elapsed than allowed by reading
                             if (taken > m_LastMessageRoundTripTime && taken.TotalMilliseconds >= SocketReadTimeout)
                             {
+
+                                int halfTimeout = (int)(m_RtspSessionTimeout.TotalMilliseconds / 2);
+
                                 //Check if we can back off further
-                                if (SocketReadTimeout * 2 < m_RtspSessionTimeout.TotalMilliseconds / 2)
+                                if (taken.TotalMilliseconds > halfTimeout) break;
+                                else if (SocketReadTimeout < halfTimeout)
                                 {
                                     //Backoff
                                     SocketWriteTimeout = SocketReadTimeout *= 2;
@@ -3479,7 +3495,7 @@ namespace Media.Rtsp
                     }
 
                     //if a context was created add it
-                    if(created != null) m_RtpClient.TryAddContext(created, false == multiplexing, false == multiplexing, true, true);
+                    if(created != null) m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing, true, true);
 
                     //Setup Complete
                     return response;

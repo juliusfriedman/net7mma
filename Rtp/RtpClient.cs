@@ -281,6 +281,7 @@ namespace Media.Rtp
                 }
 
                 //Add the context
+
                 participant.TryAddContext(tc);
             }
 
@@ -1898,9 +1899,7 @@ namespace Media.Rtp
                         }
                     }
                 }
-                else if (payloadType == Rtcp.GoodbyeReport.PayloadType
-                    &&
-                    partyId == transportContext.RemoteSynchronizationSourceIdentifier &&
+                else if (payloadType == Rtcp.GoodbyeReport.PayloadType &&
                     packet.BlockCount > 0) //The GoodbyeReport report from a remote party
                 {
                     //Create a wrapper around the packet to access the source list
@@ -2762,63 +2761,44 @@ namespace Media.Rtp
         /// Throws a RtpClientException if the given context conflicts in channel either data or control with that of one which is already owned by the instance.
         /// </summary>
         /// <param name="context">The context to add</param>
-        public virtual bool TryAddContext(TransportContext context, bool checkDataChannel = true, bool checkControlChannel = true, bool checkLocalIdentity = true, bool checkRemoteIdentity = true)
+        public virtual void AddContext(TransportContext context, bool checkDataChannel = true, bool checkControlChannel = true, bool checkLocalIdentity = true, bool checkRemoteIdentity = true)
         {
-            try
-            {
-                //If checking anything, iterate for each context `c` already added
-                if (checkDataChannel || checkControlChannel || checkLocalIdentity || checkRemoteIdentity) foreach (TransportContext c in TransportContexts)
+            if (checkDataChannel || checkControlChannel || checkLocalIdentity || checkRemoteIdentity) foreach (TransportContext c in TransportContexts)
+                {
+                    //If checking channels
+                    if (checkDataChannel || checkControlChannel)
                     {
-                        //If checking channels
-                        if (checkDataChannel || checkControlChannel)
+                        //If checking the data channel
+                        if (checkDataChannel && c.DataChannel == context.DataChannel || c.ControlChannel == context.DataChannel)
                         {
-                            //If checking the data channel
-                            if (checkDataChannel && c.DataChannel == context.DataChannel || c.ControlChannel == context.DataChannel)
-                            {
-                                Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Data Channel is already in use by the context in the Tag");
-
-                                goto ReturnFalse;
-                            }
-
-                            //if checking the control channel
-                            if (checkControlChannel && c.ControlChannel == context.ControlChannel || c.DataChannel == context.ControlChannel)
-                            {
-                                Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Control Channel is already in use by the context in the Tag");
-
-                                goto ReturnFalse;
-                            }
-
+                            Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Data Channel is already in use by the context in the Tag");
                         }
 
-                        //if chekcking local identifier
-                        if (checkLocalIdentity && c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier)
+                        //if checking the control channel
+                        if (checkControlChannel && c.ControlChannel == context.ControlChannel || c.DataChannel == context.ControlChannel)
                         {
-                            Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Local SSRC is already in use by the context in the Tag");
-
-                            goto ReturnFalse;
+                            Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Control Channel is already in use by the context in the Tag");
                         }
 
-                        //if chekcking remote identifier (and it has been defined)
-                        if (checkRemoteIdentity && false == context.InDiscovery && false == c.InDiscovery && c.RemoteSynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier)
-                        {
-                            Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Remote SSRC is already in use by the context in the Tag");
-
-                            goto ReturnFalse;
-                        }
                     }
 
-                TransportContexts.Add(context);
+                    //if chekcking local identifier
+                    if (checkLocalIdentity && c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier)
+                    {
+                        Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Local SSRC is already in use by the context in the Tag");
+                    }
 
-                return true;
-            }
-            catch
-            {
-                goto ReturnFalse;
-            }
-        ReturnFalse: return false;
+                    //if chekcking remote identifier (and it has been defined)
+                    if (checkRemoteIdentity && false == context.InDiscovery && false == c.InDiscovery && c.RemoteSynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier)
+                    {
+                        Common.ExceptionExtensions.RaiseTaggedException(c, "Requested Remote SSRC is already in use by the context in the Tag");
+                    }
+                }
+
+            TransportContexts.Add(context);
         }
 
-        public virtual void AddContext(TransportContext context) { TryAddContext(context); }
+        public virtual bool TryAddContext(TransportContext context) { try { AddContext(context); } catch { return false; } return true; }
 
         /// <summary>
         /// Removes the given <see cref="TransportContext"/>
@@ -3697,6 +3677,8 @@ namespace Media.Rtp
         /// <returns></returns>
         internal protected virtual int ProcessFrameData(byte[] buffer, int offset, int count, Socket socket)
         {
+            if (count == 0) return 0;
+
             //If there is no buffer use our own buffer.
             if (buffer == null) buffer = m_Buffer.Array;
 
@@ -3734,9 +3716,8 @@ namespace Media.Rtp
             //While not disposed and there is data remaining (within the buffer)
             while (false == IsDisposed &&
                 remainingInBuffer > 0 &&
-                offset < bufferLength)
+                offset >= 0)
             {
-            TopOfLoop:
                 //Assume not rtp or rtcp and that the data is compatible with the session
                 expectRtp = expectRtcp = incompatible = false;
 
@@ -3752,38 +3733,25 @@ namespace Media.Rtp
                     //If a frame was found (Including the null packet)
                     if (frameLength >= 0)
                     {
-                        #region Babble
-
-                        //In some cases it appears that some implementations use a context which is not assigned to create "space" in the stream.
-                        //This may happen if Bandwith or Blocksize directives are used from the Client to Server or if the Server is trying to limit bandwith to the client.
-                        //The spec is clear that a Binary Frame Header which corresponds to a context which is not available must be skipped.
-
-                        //If the frame length exceeds the buffer capacity then just attempt to complete it.
-
-                        //If the frameLength is greater than Available on the socket (FIONREAD)
-                        //Then the data MAY HAVE been incorrectly determined to be an interleaved frame
-                        //remainingInBuffer + socket.Available
-
-                        //In the end this doesn't matter because the Extension on the header could be set 
-                        //Padding could be set etc
-                        //This WILL cause InComplete to be false reguardless if the frame was totally receieved or not.
-
-                        //e.g a RtpPacket with an Extension that has a Size > the frameLength recieved here.
-
-                        // For example the header indicates channel 0 with a length of 65535
-                        // The packet indicates 15 CSRC (60 bytes) , 65535 Words in the Extension Length (262140 bytes) Padding bit set.
-                        // The packet must be 12 + 60 + 262140 bytes long + Padding.
-                        // The frame indicates only 65535 bytes are available.....
-
-                        //The same applies for RtcpPackets with a larger LengthInWords then indicates in the frame.
-
-                        //NO MATTER WHAT if a context is found we shall ensure that the Version and Payload type matches.
-
-                        #endregion
-
                         //If there WAS a context
                         if (relevent != null)
                         {
+                            //Verify minimum and maximum packet sizes allowed by context. (taking into account the amount of bytes in the ALF)
+                            if (frameLength < relevent.MinimumPacketSize + sessionRequired ||
+                                frameLength > relevent.MaximumPacketSize + sessionRequired)
+                            {
+                                //mark as incompatible
+                                incompatible = true;
+
+                                //ToDo
+                                //Make CreateLogString function
+
+                                Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@ProcessFrameData - Irregular Packet of " + frameLength + " for Channel " + frameChannel + " remainingInBuffer=" + remainingInBuffer);
+
+                                //jump
+                                goto CheckPacketAttributes;
+                            }
+
                             //TODO Independent framing... (e.g. no $)[ only 4 bytes not 6 ]
                             //If all that remains is the frame header then receive more data. 6 comes from (InterleavedOverhead + CommonHeaderBits.Size)
                             //We need more data to be able to verify the frame.
@@ -3791,9 +3759,6 @@ namespace Media.Rtp
                             {
                                 //Remove the context
                                 relevent = null;
-
-                                //mark as incompatible
-                                incompatible = true;
 
                                 goto CheckRemainingData;
 
@@ -3804,27 +3769,8 @@ namespace Media.Rtp
                                 //goto GetRemainingData;
                             }
 
-
-                            //Verify minimum and maximum packet sizes allowed by context. (taking into account the amount of bytes in the ALF)
-                            if (frameLength < relevent.MinimumPacketSize + sessionRequired ||
-                                frameLength > relevent.MaximumPacketSize + sessionRequired)
-                            {
-                                relevent = null;
-
-                                //mark as incompatible
-                                incompatible = true;
-
-                                //ToDo
-                                //Make CreateLogString function
-
-                                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "ProcessFrameData - Irregular Packet of " + frameLength + " for Channel " + frameChannel + " remainingInBuffer=" + remainingInBuffer);
-
-                                //jump
-                                goto CheckPacketAttributes;
-                            }
-
                             //Use CommonHeaderBits on the data after the Interleaved Frame Header
-                            using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + InterleavedOverhead], buffer[offset + InterleavedOverhead + 1]))
+                            using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + sessionRequired], buffer[offset + sessionRequired + 1]))
                             {
                                 //Check the version...
                                 incompatible = common.Version != relevent.Version;
@@ -3841,6 +3787,7 @@ namespace Media.Rtp
                                     //Remove the context
                                     relevent = null;
 
+                                    //Mark as incompatible
                                     incompatible = true;
 
                                     goto EndUsingHeader;
@@ -3930,9 +3877,9 @@ namespace Media.Rtp
                         }
 
                         //Log state.
-                        //if (relevent == null) Media.Common.ILoggingExtensions.Log(Logger, InternalId + "-ProcessFrameData - No Context for Channel " + frameChannel + " frameLength=" + frameLength + " remainingInBuffer=" + remainingInBuffer);
-                        //else Media.Common.ILoggingExtensions.Log(Logger, InternalId + "ProcessFrameData " + frameChannel + " frameLength=" + frameLength + " remainingInBuffer=" + remainingInBuffer);
-                        
+                    //if (relevent == null) Media.Common.ILoggingExtensions.Log(Logger, InternalId + "-ProcessFrameData - No Context for Channel " + frameChannel + " frameLength=" + frameLength + " remainingInBuffer=" + remainingInBuffer);
+                    //else Media.Common.ILoggingExtensions.Log(Logger, InternalId + "ProcessFrameData " + frameChannel + " frameLength=" + frameLength + " remainingInBuffer=" + remainingInBuffer);
+
                     CheckPacketAttributes:
 
                         if (incompatible)
@@ -4047,28 +3994,37 @@ namespace Media.Rtp
                         recievedTotal += recievedFromWire;
 
                         //Incrment remaining in buffer for what was recieved.
-                        remainingInBuffer += recievedFromWire;                        
+                        remainingInBuffer += recievedFromWire;
                     }
 
                     //If a socket error occured remove the context so no parsing occurs
-                    if (error != SocketError.Success) return recievedTotal;
+                    if (error != SocketError.Success)
+                    {
+                        OnInterleavedData(buffer, offset - remainingInBuffer, remainingInBuffer);
+
+                        return recievedTotal;
+                    }
 
                     //Move back to where the frame started
                     offset -= remainingInBuffer;
-
-                    //Do another pass if we haven't parsed a frame header.
-                    if (relevent == null) goto TopOfLoop;
                 }
 
-                //If there any data in the frame and there is a relevent context
-                if (false == IsDisposed && frameLength > 0)
+                //If there was data unrelated to a frame
+                if (raisedEvent)
                 {
-                    //If there was a context
-                    if (relevent != null)
+                    if (relevent == null)
                     {
-                        //Parse the data in the buffer
-                        using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
+                        offset += frameLength;
+
+                        remainingInBuffer -= frameLength;
                     }
+
+                    continue;
+                }
+                else if(false == IsDisposed && frameLength > 0)
+                {
+                    //Parse the data in the buffer
+                    using (var memory = new Common.MemorySegment(buffer, offset + InterleavedOverhead, frameLength - InterleavedOverhead)) ParseAndCompleteData(memory, expectRtcp, expectRtp, memory.Count);
 
                     //Decrease remaining in buffer
                     remainingInBuffer -= frameLength;
@@ -4113,6 +4069,7 @@ namespace Media.Rtp
             //Return the number of bytes recieved
             return recievedTotal;
         }
+        
 
         /// <summary>
         /// Parses the data in the buffer for valid Rtcp and Rtcp packet instances.
@@ -4121,6 +4078,8 @@ namespace Media.Rtp
         /// <param name="from">The socket which received the data into memory and may be used for packet completion.</param>
         internal protected virtual void ParseAndCompleteData(Common.MemorySegment memory, bool parseRtcp = true, bool parseRtp = true, int? remaining = null)
         {
+
+            if (memory == null || memory.IsDisposed || memory.Count == 0) return;
 
             //handle demultiplex scenarios e.g. RFC5761
             if (parseRtcp == parseRtp)
@@ -4140,7 +4099,7 @@ namespace Media.Rtp
                 using (Media.RFC3550.CommonHeaderBits header = new Media.RFC3550.CommonHeaderBits(memory))
                 {
                     //Just use the payload type to avoid confusion, payload types for Rtcp and Rtp cannot and should not overlap
-                    parseRtcp = !(parseRtcp = GetContextByPayloadType(header.RtpPayloadType) != null);
+                    parseRtcp = !(parseRtp = GetContextByPayloadType(header.RtpPayloadType) != null);
 
                     //Could also lookup the ssrc
                 }
