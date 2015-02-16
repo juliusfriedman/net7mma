@@ -266,7 +266,7 @@ namespace Media.Rtp
                 }
 
                 //Check for udp if no existing socket was given
-                if (!hasSocket && string.Compare(md.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
+                if (false == hasSocket && string.Compare(md.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
                 {
                     int localPort = Utility.FindOpenPort(ProtocolType.Udp);
                     tc.Initialize(localIp, remoteIp, localPort++, localPort++, rtpPort ?? md.MediaPort, rtcpPort ?? md.MediaPort + 1);

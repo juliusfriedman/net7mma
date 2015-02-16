@@ -231,7 +231,7 @@ public class SDPUnitTests
 
             sdp.DocumentVersion = sessionVersion;
 
-            string expected = "v=0\r\no=v√ƒ  9223372036802072014   \r\ns=Bandit\r\nc=IN * 0.0.0.0\r\nc=IN * 0.0.0.0\r\n";
+            string expected = "v=0\r\no=v√ƒ  9223372036802072014   \r\ns=Bandit\r\nc=IN * 0.0.0.0\r\n";
 
             System.Diagnostics.Debug.Assert(string.Compare(sdp.ToString(), expected) == 0, "Did not output correct result.");
 
@@ -430,6 +430,70 @@ a=mpeg4-esid:101";
         System.Diagnostics.Debug.Assert(mpeg4IodLine != null, "Cannot find InitialObjectDescriptor Line");
 
         System.Diagnostics.Debug.Assert(mpeg4IodLine.Parts.Last() == "base64,AoE8AA8BHgEBAQOBDAABQG5kYXRhOmFwcGxpY2F0aW9uL21wZWc0LW9kLWF1O2Jhc2U2NCxBVGdCR3dVZkF4Y0F5U1FBWlFRTklCRUFGM0FBQVBvQUFBRERVQVlCQkE9PQEbAp8DFQBlBQQNQBUAB9AAAD6AAAA+gAYBAwQNAQUAAMgAAAAAAAAAAAYJAQAAAAAAAAAAA2EAAkA+ZGF0YTphcHBsaWNhdGlvbi9tcGVnNC1iaWZzLWF1O2Jhc2U2NCx3QkFTZ1RBcUJYSmhCSWhRUlFVL0FBPT0EEgINAAAUAAAAAAAAAAAFAwAAQAYJAQAAAAAAAAAA\"", "InitialObjectDescriptor Line Contents invalid.");
+    }
+
+    public void IssueSessionDescriptionWithMediaDescriptionWithPortRange()
+    {
+        Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
+
+        string testVector = @"v=0
+o=- 3 8 IN IP4 10.16.1.22
+s=stream1
+i=H264 session of stream1
+u=http://10.16.1.22
+c=IN IP4 239.1.1.22/64/1
+t=0 0
+m=video 5006/1 RTP/AVP 102
+i=Video stream
+c=IN IP4 239.1.1.22/64/1
+a=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;
+a=framerate:30
+a=rtpmap:102 H264/90000";
+
+        using (Media.Sdp.SessionDescription sd = new Media.Sdp.SessionDescription(testVector))
+        {
+            Console.WriteLine(sd.ToString());
+
+            //Verify the line count
+            System.Diagnostics.Debug.Assert(sd.Lines.Count() == 13, "Did not find all lines");
+
+            //Check for the MediaDescription
+            System.Diagnostics.Debug.Assert(sd.MediaDescriptions.Count() == 1, "Cannot find MediaDescription");
+
+            var md = sd.MediaDescriptions.First();
+
+            System.Diagnostics.Debug.Assert(md != null, "Cannot find MediaDescription");
+
+            //Count the line in the media description (including itself)
+            System.Diagnostics.Debug.Assert(md.Lines.Count() == 6, "Cannot find corrent amount of lines in MediaDescription");
+
+            var fmtp = md.FmtpLine;
+
+            System.Diagnostics.Debug.Assert(fmtp != null, "Cannot find fmtp line in MediaDescription");
+
+            var rtpMap = md.FmtpLine;
+
+            System.Diagnostics.Debug.Assert(rtpMap != null, "Cannot find fmtp line in MediaDescription");
+
+            //Verify and set the port range.
+            System.Diagnostics.Debug.Assert(md.PortRange.HasValue, "Cannot find MediaDescription.PortRange");
+
+            System.Diagnostics.Debug.Assert(md.PortRange == 1, "Did not find the correct MediaDescription.PortRange");
+
+            //Remove the port range.
+            md.PortRange = null;
+
+            System.Diagnostics.Debug.Assert(md.PortRange.HasValue == false, "Did not find the correct MediaDescription.PortRange");
+
+            string expectedMediaDescription = "m=video 5006 RTP/AVP 102\r\ni=Video stream\r\nc=IN IP4 239.1.1.22/64/1\r\na=fmtp:102 width=1280;height=720;depth=0;framerate=30000;fieldrate=30000;\r\na=framerate:30\r\na=rtpmap:102 H264/90000\r\n";
+
+            string actualMediaDescription = md.ToString();
+
+            //Check the result of the comparsion
+            System.Diagnostics.Debug.Assert(string.Compare(expectedMediaDescription, actualMediaDescription) == 0, "Did not output expected result");
+
+        }
+
     }
 
 }
