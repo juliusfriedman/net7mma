@@ -442,30 +442,40 @@ namespace Media.RtpTools
         /// <returns>The string</returns>
         internal static string ToTextualConvention(Rtcp.SourceDescriptionReport sdes)
         {
-            string blockString = string.Empty;
+            if (sdes == null || sdes.IsDisposed) return string.Empty;
 
-            if (sdes == null || sdes.IsDisposed) return blockString;
+            StringBuilder blockStringBuilder = new StringBuilder(sdes.BlockCount * Rtcp.SourceDescriptionReport.SourceDescriptionItem.ItemHeaderSize);
 
             //The blockString is formatted per chunk of the sdes
             foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk chunk in sdes)
             {
                 //A SDES packet description requires an item sub description in `QuotedFormat`
-                string itemString = string.Empty;
+                StringBuilder itemStringBuilder = new StringBuilder();                
 
                 //For each item in the chunk build up the item string
                 foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk)
-                    itemString += string.Format(QuotedFormat,
+                {
+
+                    string typedName = Enum.GetName(typeof(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType), item.ItemType);
+
+                    if (string.IsNullOrWhiteSpace(typedName)) typedName = Utility.UnknownString;
+
+                    itemStringBuilder.AppendFormat(QuotedFormat,
                         //0
-                        Enum.GetName(typeof(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType), item.ItemType).ToUpperInvariant(),
+                        typedName,
                         //1
                         Encoding.ASCII.GetString(item.Data.ToArray()));
 
-                blockString += (char)Common.ASCII.LineFeed + string.Format(SourceDescriptionChunkFormat,
+                }
+
+                blockStringBuilder.Append((char)Common.ASCII.LineFeed);
+
+                blockStringBuilder.AppendFormat(SourceDescriptionChunkFormat,
                     chunk.ChunkIdentifer,
-                    itemString);
+                    itemStringBuilder.ToString());
             }
 
-            return blockString;
+            return blockStringBuilder.ToString();
         }
 
         internal static string ToTextualConvention(Rtcp.GoodbyeReport bye) 

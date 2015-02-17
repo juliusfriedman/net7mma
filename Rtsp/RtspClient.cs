@@ -230,7 +230,7 @@ namespace Media.Rtsp
                 if (m_Playing.Count > 0)
                 {
                     // A null or disposed client or one which is no longer connected cannot share the socket
-                    if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsConnected) return false;
+                    if (m_RtpClient == null | m_RtpClient.IsDisposed | false == m_RtpClient.IsConnected) return false;
 
                     //If the transport is not null and the handle is equal to the rtsp socket's handle
                     if (((Common.ISocketReference)m_RtpClient).GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
@@ -351,7 +351,20 @@ namespace Media.Rtsp
         /// True if the RtspClient has received the Playing event, False if the RtspClient has received the Stopping event or otherwise such as the media has finished playing.
         /// </summary>
         //Should take into account if Paused? or Pausing everything should set m_Playing to false...
-        public bool IsPlaying { get { return m_StartedPlaying.HasValue && m_Playing.Count > 0; } } //Should probably not check count? streams may be ended
+        public bool IsPlaying
+        {
+            get
+            {
+
+                if (m_Playing.Count > 0 && m_StartedPlaying.HasValue)
+                {
+                    return true;
+                }
+                try { return SharesSocket || m_RtpClient == null ? false : m_RtpClient.GetTransportContexts().Any(tc => tc != null && tc.IsConnected); }
+                catch { return SharesSocket; }
+                
+            }
+        }
 
         /// <summary>
         /// The DateTime in which the client started playing if playing, otherwise null.
@@ -1637,9 +1650,6 @@ namespace Media.Rtsp
                 }
             }
 
-            //Connect and wait for Packets
-            if (m_RtpClient != null && false == m_RtpClient.IsConnected) m_RtpClient.Connect();
-
             TimeSpan halfSessionTimeWithConnection = TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_ConnectionTime).Ticks / 2);
 
             //If dueTime is zero (0), callback is invoked immediately. If dueTime is negative one (-1) milliseconds, callback is not invoked; the timer is disabled, but can be re-enabled by calling the Change method.
@@ -1735,7 +1745,7 @@ namespace Media.Rtsp
             try
             {
                 //Ensure logic for UDP is correct, may have to store flag.
-                if (false == force && IsConnected) throw new InvalidOperationException("Client already Connected.");
+                if (false == force && IsConnected) throw new InvalidOperationException("Already Connected.");
                 
                 //Disconnect any existing previous socket and erase connect times.
                 if (m_RtspSocket != null) DisconnectSocket();
@@ -2363,7 +2373,7 @@ namespace Media.Rtsp
                                 int halfTimeout = (int)(m_RtspSessionTimeout.TotalMilliseconds / 2);
 
                                 //Check if we can back off further
-                                if (taken.TotalMilliseconds > halfTimeout) break;
+                                if (taken.TotalMilliseconds >= halfTimeout) break;
                                 else if (SocketReadTimeout < halfTimeout)
                                 {
                                     //Backoff
@@ -2778,7 +2788,7 @@ namespace Media.Rtsp
                     //Wait for complete responses
                     if (false == response.IsComplete)
                     {
-                        m_InterleaveEvent.Wait();
+                        m_InterleaveEvent.Wait();                        
                     }
 
                     //Only handle responses for the describe request sent when sharing the socket
@@ -3377,9 +3387,10 @@ namespace Media.Rtsp
                             //If the control channel is the same then just update the client and ensure connected.
                             if (created != null && created.ControlChannel == controlChannel)
                             {
-                                created.Initialize(m_RtspSocket);
+                                //Socket could be changed right here...
+                                if(m_RtspSocket != null) created.Initialize(m_RtspSocket);
 
-                                m_RtpClient.Connect();
+                                if(m_RtpClient != null) m_RtpClient.Connect();
 
                                 return response;
                             }
@@ -3522,12 +3533,14 @@ namespace Media.Rtsp
         {
 
             if (AllowAlternateTransport && //If protocol switch is still allowed AND
-                false == IsDisposed && m_RtpProtocol != ProtocolType.Tcp &&  //If not already Disposed and the protocol was not already specified as or configured to TCP
-                IsPlaying) //AND the RtspClient IsPlaying Media
+                false == IsDisposed && m_RtpProtocol != ProtocolType.Tcp)  //If not already Disposed and the protocol was not already specified as or configured to TCP
             {
 
                 //Filter any context which is not playing, disposed or has activity
-                var contextsWithoutFlow = Client.GetTransportContexts().Where(tc => m_Playing.Contains(tc.MediaDescription) && false == tc.IsDisposed && false == tc.HasAnyActivity);
+                //Todo should have a HasRequiredActivity
+                //To quickly fix this I am just checking that nothing was received
+                //Notes that when sending only that one ALSO needs to determine `should something still be received` ?
+                var contextsWithoutFlow = Client.GetTransportContexts().Where(tc => m_Playing.Contains(tc.MediaDescription) && false == tc.IsDisposed && tc.TotalBytesReceieved == 0);
 
                 //If there are any context's which are not flowing
                 if (contextsWithoutFlow.Any())
@@ -3551,11 +3564,29 @@ namespace Media.Rtsp
                             m_RtpProtocol = ProtocolType.IP;
                         }
 
+                        //Check if overlapping with a keep alive
+                        bool keepAlives = DisableKeepAliveRequest;
+
+                        //Stop sending them for now
+                        if (false == keepAlives) DisableKeepAliveRequest = true;
+
+                        //Wait for any existing request to complete
+                        if (false == m_InterleaveEvent.Wait(m_ResponseTimeoutInterval)) return;
+
                         //Stop all playback
                         StopPlaying();
 
+                        //Wait for any existing request to complete
+                        if (false == m_InterleaveEvent.Wait(m_ResponseTimeoutInterval)) return;
+
+                        //Cache
+                        while (IsPlaying) Thread.Sleep(0);
+
                         //Start again
                         StartPlaying();
+
+                        //Allow keep alives again
+                        if (false == keepAlives) DisableKeepAliveRequest = false;
                     }
                     catch { }
                 }
@@ -3609,8 +3640,6 @@ namespace Media.Rtsp
                     false == m_SupportedMethods.Contains(RtspMethod.PLAY.ToString())) throw new InvalidOperationException("Server does not support PLAY.");
             }
 
-            m_RtpClient.Connect();
-
             try
             {
                 using(RtspMessage play = new RtspMessage(RtspMessageType.Request)
@@ -3657,6 +3686,12 @@ namespace Media.Rtsp
                         }
                         else if (response.StatusCode == RtspStatusCode.OK)
                         {
+                            //If there is transport
+                            if (m_RtpClient != null)
+                            {
+                                //Connect the client now.
+                                m_RtpClient.Connect();                                
+                            }
 
                             //Set EndTime based on Range
 
@@ -3841,12 +3876,16 @@ namespace Media.Rtsp
                     false == DisableKeepAliveRequest &&
                     m_RtspSessionTimeout > TimeSpan.Zero)
                 {
-                    //Don't send a keep alive the stream is ending before the next keep alive
+                    //Don't send a keep alive if the stream is ending before the next keep alive would be sent.
                     if (EndTime.HasValue && EndTime.Value != Utility.InfiniteTimeSpan &&
                         EndTime.Value - ((DateTime.UtcNow - m_StartedPlaying.Value)) <= m_RtspSessionTimeout) return;
 
-                    //Ensure transport is connected.
-                    if (false == m_RtpClient.IsConnected) m_RtpClient.Connect();
+                    //Ensure transport is connected. (will be done in play...)
+                    //if (false == m_RtpClient.IsConnected) m_RtpClient.Connect();
+
+                    if (false == m_InterleaveEvent.Wait(m_ResponseTimeoutInterval)) return;
+
+                    DisableKeepAliveRequest = true;
 
                     //Check if GET_PARAMETER is supported.
                     if (m_SupportedMethods.Contains(RtspMethod.GET_PARAMETER.ToString()))
@@ -3861,6 +3900,8 @@ namespace Media.Rtsp
                     {
                         using (SendPlay()) ;
                     }
+
+                    DisableKeepAliveRequest = false;
                 }
 
                 //Only perform these actions if playing anything.
@@ -3931,22 +3972,25 @@ namespace Media.Rtsp
                     if (m_LastMessageRoundTripTime < m_RtspSessionTimeout) m_KeepAliveTimer.Change(TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_LastMessageRoundTripTime + m_ConnectionTime).Ticks / 2), Utility.InfiniteTimeSpan);
                 }
             }
-            catch (Exception ex) { if (false == IsDisposed) Common.ILoggingExtensions.Log(Logger, "Exception Occured in SendKeepAlive: " + ex.Message); }
-
-            if (IsDisposed) return;
+            catch (Exception ex) { Common.ILoggingExtensions.Log(Logger, ToString() + "@SendKeepAlive: " + ex.Message); }
 
             //Raise the stopping event if not playing anymore
-            if (true == wasPlaying && false == IsPlaying) OnStopping();
+            //if (true == wasPlaying && false == IsPlaying) OnStopping();
 
             //Disconnect if was previously disconnected so long as the ProtocolSwitchTimer is not activated.
             //Might need a flag to see if DisconnectSocket was called.
-            if (m_ProtocolSwitchTimer == null && false == wasConnected && IsPlaying && true == IsConnected) DisconnectSocket();
+            //if (m_ProtocolSwitchTimer == null && false == wasConnected && IsPlaying && true == IsConnected) DisconnectSocket();
         }
 
         public void EnsureMediaFlow()
         {
+
+            if (false == m_InterleaveEvent.Wait(m_ResponseTimeoutInterval)) return;
+
+            DisableKeepAliveRequest = true;
+
             //If not waiting to switch protocols
-            if (m_ProtocolSwitchTimer == null && m_InterleaveEvent.IsSet && IsPlaying)
+            if (m_ProtocolSwitchTimer == null && IsPlaying)
             {
 
                 //If not playing anymore do nothing
@@ -3958,13 +4002,7 @@ namespace Media.Rtsp
                 }
 
                 //Determine if there any are contexts without data flow by findings contexts where a packet has not been received  OR the last packet was received more then the interval ago.
-                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => tc.IsRtpEnabled && 
-                                                                                    tc.RtpPacketsReceived == 0 && tc.RtpPacketsSent == 0 || 
-                                                                                    (tc.LastRtpPacketReceived > tc.ReceiveInterval) && 
-                                                                                    tc.IsRtcpEnabled &&
-                                                                                    tc.Goodbye != null ||
-                                                                                    tc.RtcpPacketsReceived == 0 ||
-                                                                                    tc.LastRtcpReportSent > tc.ReceiveInterval);
+                var contextsWithoutDataFlow = Client.GetTransportContexts().Where(tc => false == tc.HasAnyActivity);
 
                 //If there are such contexts
                 if (m_InterleaveEvent.IsSet && IsPlaying && contextsWithoutDataFlow.Any())
@@ -4037,7 +4075,7 @@ namespace Media.Rtsp
 
                                     //Could move this logic to the SendTeardown method which would check the response status code before returning the response and then wouldn't raise the Pause event.
 
-                                    //Ensure external state is observed
+                                    //Ensure external state is observed, the media is still playing
                                     m_Playing.Add(context.MediaDescription);
 
                                     OnPlaying(context.MediaDescription);
@@ -4053,8 +4091,16 @@ namespace Media.Rtsp
                         {
                             //Ensure the context state allows for sending again.
                             context.Goodbye = null;
+                            
+                            //Try to play the media again
+                            try { Play(context.MediaDescription); }
+                            catch
+                            {
+                                //Ensure external state is observed, the media is still playing
+                                m_Playing.Add(context.MediaDescription);
 
-                            Play(context.MediaDescription);
+                                OnPlaying(context.MediaDescription);
+                            }
                         }
                     }
 
@@ -4095,6 +4141,8 @@ namespace Media.Rtsp
                     } 
                 }
             }
+
+            DisableKeepAliveRequest = false;
         }
 
         public RtspMessage SendGetParameter(string body = null, string contentType = null, bool force = false)

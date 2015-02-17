@@ -1267,11 +1267,13 @@ namespace Tests
                     //Attach the logger to the client
                     client.Logger = logWriter;
 
+                    //Attach the Rtp logger, should possibly have IsShared on ILogger.
+                    client.Client.Logger = client.Logger;
+
                     //Define a connection eventHandler
                     Media.Rtsp.RtspClient.RtspClientAction connectHandler = null;
                     connectHandler = (sender, args) =>
                     {
-
                         if (client == null || client.IsDisposed) return;
 
                         try
@@ -1446,8 +1448,6 @@ namespace Tests
                         {
                             Console.WriteLine("\t*****************Playing `" + args.ToString() + "`");
 
-                            client.Client.Logger = logWriter;
-
                             return;
                         }
 
@@ -1458,8 +1458,7 @@ namespace Tests
                             System.IO.File.WriteAllText("current.sdp", client.SessionDescription.ToString());
                         }
 
-                        //Attach a logger
-                        client.Client.Logger = new Media.Common.Loggers.ConsoleLogger();
+                        
 
                         //Indicate if LivePlay
                         if (client.LivePlay)
@@ -1503,14 +1502,7 @@ namespace Tests
                     client.OnStop += (sender, args) =>
                     {
                         if (args != null) Console.WriteLine("\t*****************Stopping Playback of `" + args.ToString() + "`(Press Q To Exit)");
-                        else Console.WriteLine("\t*****************Stopping All Playback. (Press Q To Exit)");
-
-                        if (false == client.IsPlaying && System.IO.File.Exists("current.sdp"))
-                        {
-                            shouldStop = true;
-
-                            System.IO.File.Delete("current.sdp");
-                        }
+                        else Console.WriteLine("\t*****************Stopping All Playback. (Press Q To Exit)");                        
                     };
 
                     //Attach a logger
@@ -1541,7 +1533,7 @@ namespace Tests
 
                         if (client.IsPlaying)
                         {
-                            playingfor = (DateTime.UtcNow - client.StartedPlaying.Value);
+                            playingfor = (DateTime.UtcNow - (client.StartedPlaying ?? lastNotice));
 
                             if ((DateTime.UtcNow - lastNotice).TotalSeconds > 1)
                             {
@@ -1803,6 +1795,11 @@ namespace Tests
                         Console.WriteLine("Rtsp Last Message Round Trip Time : " + client.LastMessageRoundTripTime);
                         Console.WriteLine("Rtsp Last Server Delay : " + client.LastServerDelay);
                         Console.WriteLine("Rtsp Interleaved: " + rtspInterleaved);
+
+                        if (System.IO.File.Exists("current.sdp"))
+                        {
+                            System.IO.File.Delete("current.sdp");
+                        }
 
                     }
 

@@ -64,7 +64,7 @@ namespace Media.Containers.Gxf
 
         public static string ToTextualConvention(byte[] identifier)
         {
-            if (identifier == null) return Utility.Unknown;
+            if (identifier == null) return Utility.UnknownString;
             return ((Identifier)identifier[0]).ToString();
         }
 
