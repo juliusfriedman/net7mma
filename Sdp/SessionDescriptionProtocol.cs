@@ -111,7 +111,7 @@ namespace Media.Sdp
 
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("value");
 
-            type = Utility.Unknown;
+            type = Utility.UnknownString;
             start = TimeSpan.Zero;
             end = Utility.InfiniteTimeSpan;
 
@@ -1028,6 +1028,13 @@ namespace Media.Sdp
 
             if (m_NameLine != null) yield return m_NameLine;
 
+            foreach (var line in m_Lines)
+            {
+                if (line == null) continue;
+
+                yield return line;
+            }
+
             foreach (var mediaDescription in MediaDescriptions)
             {
                 foreach (var line in mediaDescription)
@@ -1048,12 +1055,7 @@ namespace Media.Sdp
                 }
             }
 
-            foreach (var line in m_Lines)
-            {
-                if (line == null) continue;
-
-                yield return line;
-            }
+           
         }
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
@@ -1423,6 +1425,22 @@ namespace Media.Sdp
             }
         }
 
+          public IEnumerable<SessionDescriptionLine> AttributeLines
+        {
+            get
+            {
+                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType);
+            }
+        }
+
+        public IEnumerable<SessionDescriptionLine> BandwidthLines
+        {
+            get
+            {
+                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
+            }
+        }
+
         public SessionDescriptionLine ConnectionLine { get { return m_Lines.FirstOrDefault(l => l.Type == Sdp.Lines.SessionConnectionLine.ConnectionType); } }
 
         public SessionDescriptionLine RtpMapLine
@@ -1454,25 +1472,11 @@ namespace Media.Sdp
             }
         }
 
+        //Needs tool lines
+
         #endregion
 
         #region Lines
-
-        public IEnumerable<SessionDescriptionLine> AttributeLines
-        {
-            get
-            {
-                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionAttributeLine.AttributeType);
-            }
-        }
-
-        public IEnumerable<SessionDescriptionLine> BandwidthLines
-        {
-            get
-            {
-                return m_Lines.Where(l => l.Type == Sdp.Lines.SessionBandwidthLine.BandwidthType);
-            }
-        }
 
         public IEnumerator<SessionDescriptionLine> GetEnumerator()
         {

@@ -60,7 +60,7 @@ namespace Media
 
         public static byte[] Empty = new byte[0];
 
-        public const String Unknown = "Unknown";
+        public const String UnknownString = "Unknown";
 
         public static TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
 
@@ -391,13 +391,13 @@ namespace Media
 
         #region Static Helper Functions        
 
-        public static void TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Running, int timeout = 1000)
+        public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = 1000)
         {
             //If the worker IsAlive and has the requested state.
             if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
             {
                 //Attempt to join
-                if (!thread.Join(timeout))
+                if (false == thread.Join(timeout))
                 {
                     try
                     {
@@ -405,12 +405,20 @@ namespace Media
                         thread.Abort();
                     }
                     catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
-                    catch { return; } //Cancellation not supported
+                    catch { throw; } //Cancellation not supported
                 }
 
                 //Reset the state of the thread to indicate success
                 thread = null;
             }
+        }
+
+        public static bool TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = 1000)
+        {
+            try { Abort(ref thread, state, timeout); }
+            catch { return false; }
+
+            return thread == null;
         }
 
         /// <summary>

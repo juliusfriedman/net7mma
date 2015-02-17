@@ -352,7 +352,7 @@ namespace Media.Containers.Riff
         {
             get
             {
-                if (!m_Created.HasValue) ParseIdentity();
+                if (false == m_Created.HasValue) ParseIdentity();
                 return m_Created.Value;
             }
         }
@@ -361,7 +361,7 @@ namespace Media.Containers.Riff
         {
             get
             {
-                if (!m_Modified.HasValue) ParseIdentity();
+                if (false == m_Modified.HasValue) ParseIdentity();
                 return m_Modified.Value;
             }
         }
@@ -372,24 +372,55 @@ namespace Media.Containers.Riff
             {
                 if (iditChunk != null)
                 {
-                    int month = 0, day = 0, year = 0;
+                    //Store the creation time.
+                    DateTime createdDateTime = FileInfo.CreationTimeUtc;
+
+                    int day = 0, year = 0;
+
                     TimeSpan time = TimeSpan.Zero;
 
+                    //parts of the date in string form
                     var parts = Encoding.UTF8.GetString(iditChunk.Data).Split((char)Common.ASCII.Space);
 
-                    if (parts.Length > 1) month = DateTime.ParseExact(parts[1], "MMM", System.Globalization.CultureInfo.CurrentCulture).Month;
-                    else month = FileInfo.CreationTimeUtc.Month;
+                    //cache the split length
+                    int partsLength = parts.Length;
 
-                    if (parts.Length > 1) day = int.Parse(parts[2]);
-                    else day = FileInfo.CreationTimeUtc.Day;
+                    //If there are parts
+                    if (partsLength > 0)
+                    {
+                        //Thanks bartmeirens!
 
-                    if (parts.Length > 2) time = TimeSpan.Parse(parts[3]);
-                    else time = FileInfo.CreationTimeUtc.TimeOfDay;
+                        //try parsing with current culture
+                        if (false == DateTime.TryParseExact(parts[1], "MMM", System.Globalization.CultureInfo.CurrentCulture,
+                                System.Globalization.DateTimeStyles.AssumeUniversal, out createdDateTime))
+                        {
+                            //: parse using invariant (en-US)
+                            if(false == DateTime.TryParseExact(parts[1], "MMM", System.Globalization.CultureInfo.CurrentCulture,
+                                System.Globalization.DateTimeStyles.AssumeUniversal, out createdDateTime))
+                            {
+                                //The month portion of the result contains the data, the rest is blank
+                                createdDateTime = FileInfo.CreationTimeUtc;
+                            }
+                        }
 
-                    if (parts.Length > 4) year = int.Parse(parts[4]);
-                    else year = FileInfo.CreationTimeUtc.Year;
+                        if (partsLength > 1) day = int.Parse(parts[2]);
+                        else day = FileInfo.CreationTimeUtc.Day;
 
-                    m_Created = new DateTime(year, month, day, time.Hours, time.Minutes, time.Seconds, DateTimeKind.Utc);
+                        if (partsLength > 2)
+                        {
+                            if (false == TimeSpan.TryParse(parts[3], out time))
+                            {
+                                time = FileInfo.CreationTimeUtc.TimeOfDay;
+                            }
+                        }
+                        else time = FileInfo.CreationTimeUtc.TimeOfDay;
+
+                        if (partsLength > 4) year = int.Parse(parts[4]);
+                        else year = FileInfo.CreationTimeUtc.Year;
+
+                        m_Created = new DateTime(year, createdDateTime.Month, day, time.Hours, time.Minutes, time.Seconds, DateTimeKind.Utc);
+                    }
+                    else m_Created = FileInfo.CreationTimeUtc;
                 }
                 else m_Created = FileInfo.CreationTimeUtc;
             }

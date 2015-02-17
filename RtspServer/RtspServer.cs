@@ -440,7 +440,7 @@ namespace Media.Rtsp
                     RtspMessage request = new RtspMessage()
                     {
                         Location = new Uri(RtspMessage.ReliableTransport + "://" + context.Request.LocalEndPoint.Address.ToString() +  context.Request.RawUrl),
-                        Method = RtspMethod.OPTIONS
+                        Method = RtspMethod.DESCRIBE
                     };
 
                     foreach (var header in context.Request.Headers.AllKeys)

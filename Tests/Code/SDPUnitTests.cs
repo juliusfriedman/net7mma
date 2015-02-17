@@ -469,11 +469,11 @@ a=rtpmap:102 H264/90000";
 
             var fmtp = md.FmtpLine;
 
-            System.Diagnostics.Debug.Assert(fmtp != null, "Cannot find fmtp line in MediaDescription");
+            System.Diagnostics.Debug.Assert(fmtp != null, "Cannot find FmtpLine in MediaDescription");
 
-            var rtpMap = md.FmtpLine;
+            var rtpMap = md.RtpMapLine;
 
-            System.Diagnostics.Debug.Assert(rtpMap != null, "Cannot find fmtp line in MediaDescription");
+            System.Diagnostics.Debug.Assert(rtpMap != null, "Cannot find RtpMapLine in MediaDescription");
 
             //Verify and set the port range.
             System.Diagnostics.Debug.Assert(md.PortRange.HasValue, "Cannot find MediaDescription.PortRange");
@@ -492,6 +492,58 @@ a=rtpmap:102 H264/90000";
             //Check the result of the comparsion
             System.Diagnostics.Debug.Assert(string.Compare(expectedMediaDescription, actualMediaDescription) == 0, "Did not output expected result");
 
+        }
+
+    }
+
+    public void TestSessionDescriptionSpecifyingFeedback()
+    {
+        string testVector = @"v=0
+o=- 1 1 IN IP4 127.0.0.1
+s=Test
+a=type:broadcast
+t=0 0
+c=IN IP4 0.0.0.0
+m=video 0 RTP/AVP 96
+a=rtpmap:96 H264/90000
+a=fmtp:96 packetization-mode=1;profile-level-id=640028;sprop-parameter-sets=Z2QAKKy0BQHv+A0CAAAcIAACvyHsQPoAALQN3//x2IH0AAFoG7//4UA=,aM48bJCRjhwfHDgkEwlzioJgqFA1wx+cVBMFQoGuGPyCoYGjBx5gh+hEICRA48w79CIQEiBx5h38;
+a=control:track0
+a=rtcp-fb:96 nack";
+
+        using (Media.Sdp.SessionDescription sd = new Media.Sdp.SessionDescription(testVector))
+        {
+            Console.WriteLine(sd.ToString());
+
+            //Verify the line count
+            System.Diagnostics.Debug.Assert(sd.Lines.Count() == 11, "Did not find all lines");
+
+            //Check for the MediaDescription
+            System.Diagnostics.Debug.Assert(sd.MediaDescriptions.Count() == 1, "Cannot find MediaDescription");
+
+            var md = sd.MediaDescriptions.First();
+
+            System.Diagnostics.Debug.Assert(md != null, "Cannot find MediaDescription");
+
+            //Count the line in the media description (including itself)
+            System.Diagnostics.Debug.Assert(md.Lines.Count() == 5, "Cannot find corrent amount of lines in MediaDescription");
+
+            var fmtp = md.FmtpLine;
+
+            System.Diagnostics.Debug.Assert(fmtp != null, "Cannot find FmtpLine in MediaDescription");
+
+            string expected = "a=fmtp:96 packetization-mode=1;profile-level-id=640028;sprop-parameter-sets=Z2QAKKy0BQHv+A0CAAAcIAACvyHsQPoAALQN3//x2IH0AAFoG7//4UA=,aM48bJCRjhwfHDgkEwlzioJgqFA1wx+cVBMFQoGuGPyCoYGjBx5gh+hEICRA48w79CIQEiBx5h38;\r\n";
+
+            System.Diagnostics.Debug.Assert(string.Compare(fmtp.ToString(), expected, StringComparison.InvariantCultureIgnoreCase) == 0, "Did not output correct FmtpLine line");
+
+            var rtpMap = md.RtpMapLine;
+
+            System.Diagnostics.Debug.Assert(rtpMap != null, "Cannot find RtpMapLine in MediaDescription");
+
+            expected = "a=rtcp-fb:96 nack\r\n";
+
+            System.Diagnostics.Debug.Assert(string.Compare(sd.AttributeLines.Last().ToString(), expected, StringComparison.InvariantCultureIgnoreCase) == 0, "Did not output correct feedback line");
+
+            System.Diagnostics.Debug.Assert(sd.AttributeLines.Last() == md.AttributeLines.Last(), "Both last attribute lines should be equal to each other");
         }
 
     }

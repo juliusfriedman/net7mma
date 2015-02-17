@@ -146,13 +146,13 @@ namespace Media.Containers.Asf
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
-            if (identifier == null) return Utility.Unknown;
+            if (identifier == null) return Utility.UnknownString;
 
             Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
             string result;
 
-            if (!IdentifierLookup.TryGetValue(id, out result)) result = Utility.Unknown;
+            if (!IdentifierLookup.TryGetValue(id, out result)) result = Utility.UnknownString;
 
             return result;
         }
