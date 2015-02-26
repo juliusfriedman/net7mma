@@ -346,13 +346,15 @@ namespace Media.Rtsp.Server.MediaTypes
                         auHeaderLengthBytes = ((auHeaderLengthBits + 7) / 8);
 
                         //Check enough bytes are available (2 is the site of the RFC Profile Header read above)
-                        if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Au Headers?");
+                        if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Rfc Headers?");
 
                         //Skip the Au Headers Section
                         Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auHeaderLengthBits, BitConverter.IsLittleEndian);
 
                         //This many bits were read
                         int usedBits = sizeLength + indexDeltaLength;
+
+                        if (auHeaderLengthBits != usedBits) throw new InvalidOperationException("Invalid Au Headers?");
 
                         //Determine the amount of AU Headers possibly contained
                         auHeadersAvailable = 1 + (auHeaderLengthBits - usedBits) / usedBits;
