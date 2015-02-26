@@ -1529,16 +1529,16 @@ namespace Media.Rtsp
                 if (remainingBytes > 0 && headerStart + remainingBytes <= count)
                 {
                     //Position the buffer, indicate no headers remain in the buffer
-                    m_Buffer.Position = m_HeaderOffset = 0;
+                    //m_Buffer.Position = m_HeaderOffset = 0;
 
                     //Write that data
-                    m_Buffer.Write(data, start + headerStart, remainingBytes);
+                    //m_Buffer.Write(data, start + headerStart, remainingBytes);
 
                     //Ensure the length is set
-                    m_Buffer.SetLength(remainingBytes);
+                    //m_Buffer.SetLength(remainingBytes);
 
                     //Position the buffer
-                    m_Buffer.Position = 0;
+                    //m_Buffer.Position = 0;
 
                     //Parse the headers and body
                     ParseBody();
