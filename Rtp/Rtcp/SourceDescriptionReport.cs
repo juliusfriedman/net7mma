@@ -796,7 +796,7 @@ namespace Media.Rtcp
                 m_ChunkData = Enumerable.Concat(m_ChunkData, items.SelectMany(i => i));
             }
 
-            public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) : this(chunkIdentifier, item.Yield()) { }
+            public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) : this(chunkIdentifier, Media.Common.Extensions.Linq.LinqExtensions.Yield(item)) { }
 
             public SourceDescriptionChunk(IEnumerable<byte> ChunkData)
             {

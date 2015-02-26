@@ -37,10 +37,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 //http://tools.ietf.org/html/rfc6184
 
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -112,8 +112,11 @@ namespace Media.Rtsp.Server.MediaTypes
                   145: MPEG-4 Visual Advanced Real Time Simple Profile/Level 1
                  */
 
+                
+
                 Buffer = new MemoryStream(Media.Containers.Mpeg.StartCodes.Prefix. //00 00 01
-                    Concat(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence.Yield()).Concat(profileLevelId.Yield()). // B0 XX (ID)
+                    Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.Mpeg4.StartCodes.VisualObjectSequence)).
+                    Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(profileLevelId)). // B0 XX (ID)
                     Concat(Media.Containers.Mpeg.StartCodes.Prefix).Concat(Assemble()).ToArray()); // 00 00 01 XX (DATA)
             }
 

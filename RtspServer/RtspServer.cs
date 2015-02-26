@@ -40,6 +40,7 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Net;
+using Media.Common;
 using Media.Rtp;
 using Media.Rtcp;
 using Media.Rtsp.Server.MediaTypes;
@@ -339,7 +340,7 @@ namespace Media.Rtsp
             Exception any;
             if (false == Common.Collections.DictionaryExtensions.TryAdd(m_RequestHandlers, method, handler, out any))
             {
-                try { Common.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already registered", any); }
+                try { Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already registered", any); }
                 catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
                 return false;
             }
@@ -351,7 +352,7 @@ namespace Media.Rtsp
             Exception any;
             if (false == Common.Collections.DictionaryExtensions.TryRemove(m_RequestHandlers, method, out any))
             {
-                try { Common.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already removed", any); }
+                try { Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already removed", any); }
                 catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
                 return false;
             }
@@ -366,7 +367,7 @@ namespace Media.Rtsp
         //Allow for joining of server instances to support multiple end points.
 
         public RtspServer(AddressFamily addressFamily = AddressFamily.InterNetwork, int listenPort = DefaultPort)
-            : this(new IPEndPoint(Utility.GetFirstIPAddress(addressFamily), listenPort)) { }
+            : this(new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstIPAddress(addressFamily), listenPort)) { }
 
         public RtspServer(IPAddress listenAddress, int listenPort) 
             : this(new IPEndPoint(listenAddress, listenPort)) { }
@@ -497,7 +498,7 @@ namespace Media.Rtsp
                     EndPoint inBound;
 
                     m_UdpServerSocket = new Socket(addressFamily, SocketType.Dgram, ProtocolType.Udp);
-                    m_UdpServerSocket.Bind(inBound = new IPEndPoint(Utility.GetFirstIPAddress(addressFamily), port));
+                    m_UdpServerSocket.Bind(inBound = new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstIPAddress(addressFamily), port));
 
                     //Include the IP Header
                     m_UdpServerSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
@@ -830,7 +831,7 @@ namespace Media.Rtsp
             List<ClientSession> inactive = new List<ClientSession>();
 
             //Allow some small varaince
-            DateTime maintenanceStarted = DateTime.UtcNow + Utility.InfiniteTimeSpan;
+            DateTime maintenanceStarted = DateTime.UtcNow + Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
 
             //Iterate each connected client
             foreach (ClientSession session in Clients)
@@ -955,7 +956,7 @@ namespace Media.Rtsp
             m_Started = DateTime.UtcNow;
 
             //Timer for maintaince
-            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 4), Utility.InfiniteTimeSpan);
+            m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 4), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             if (m_UdpPort != -1) EnableUnreliableTransport(m_UdpPort);
             if (m_HttpPort != -1) EnableHttpTransport(m_HttpPort);
@@ -1029,7 +1030,7 @@ namespace Media.Rtsp
 
             if (IsDisposed) return;
 
-            if (m_Maintainer != null) m_Maintainer.Change(TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Utility.InfiniteTimeSpan);
+            if (m_Maintainer != null) m_Maintainer.Change(TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 2), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
         }
 
         /// <summary>
@@ -1073,7 +1074,7 @@ namespace Media.Rtsp
             }
 
             //Abort the worker from receiving clients
-            Utility.TryAbort(ref m_ServerThread);
+            Media.Common.IThreadReferenceExtensions.TryAbort(ref m_ServerThread);
 
             //Dispose the server socket
             if (m_TcpServerSocket != null)
@@ -2506,6 +2507,16 @@ namespace Media.Rtsp
                 //That is contradictory.
 
                 //if (session.Playing.Count == 0) session.SessionId = null;
+
+                string connectionHeader = request[RtspHeaders.Connection];
+
+                if (false == string.IsNullOrWhiteSpace(connectionHeader))
+                {
+                    if (string.Compare(connectionHeader.Trim(), "close", true) == 0)
+                    {
+                        TryDisposeAndRemoveSession(session);
+                    }
+                }
             }
             else
             {
@@ -2532,6 +2543,16 @@ namespace Media.Rtsp
                 session.SessionId = null;
 
                 resp = null;
+
+                string connectionHeader = request[RtspHeaders.Connection];
+
+                if (false == string.IsNullOrWhiteSpace(connectionHeader))
+                {
+                    if (string.Compare(connectionHeader.Trim(), "close", true) == 0)
+                    {
+                        TryDisposeAndRemoveSession(session);
+                    }
+                }
             }
         }
 
@@ -2829,7 +2850,7 @@ namespace Media.Rtsp
 
         IEnumerable<Thread> Common.IThreadReference.GetReferencedThreads()
         {
-             return Utility.Yield(m_ServerThread);
+             return Media.Common.Extensions.Linq.LinqExtensions.Yield(m_ServerThread);
         }
     }
 }

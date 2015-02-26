@@ -562,12 +562,12 @@ namespace Media.Rtcp
                 //Read from the stream, decrementing from octetsRemaining what was read.
                 while (octetsRemaining > 0)
                 {
-                    int rec = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                    int rec = Media.Common.Extensions.Socket.SocketExtensions.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
                     offset += rec;
                     octetsRemaining -= rec;
                     recieved += rec;
                 }
-
+                
                 //Re-allocate the segment around the received data.
                 Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 

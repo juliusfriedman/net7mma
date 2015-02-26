@@ -537,7 +537,7 @@ namespace Media.Containers.Riff
             get
             {
                 if (!m_TotalFrames.HasValue) ParseAviHeader();
-                return TimeSpan.FromMilliseconds((double)m_TotalFrames.Value * m_MicroSecPerFrame.Value / (double)Utility.MicrosecondsPerMillisecond);
+                return TimeSpan.FromMilliseconds((double)m_TotalFrames.Value * m_MicroSecPerFrame.Value / (double)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
             }
         }
 
@@ -827,7 +827,7 @@ namespace Media.Containers.Riff
                     TimeSpan.FromMilliseconds(startTime / timeScale),
                     mediaType == Sdp.MediaType.audio ?
                         TimeSpan.FromSeconds((double)duration / (double)rate) :
-                        TimeSpan.FromMilliseconds((double)duration * m_MicroSecPerFrame.Value / (double)Utility.MicrosecondsPerMillisecond),
+                        TimeSpan.FromMilliseconds((double)duration * m_MicroSecPerFrame.Value / (double)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond),
                     rate / timeScale, mediaType, codecIndication, channels, bitDepth);
 
                 yield return created;

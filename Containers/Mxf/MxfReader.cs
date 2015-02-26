@@ -1690,9 +1690,9 @@ namespace Media.Containers.Mxf
                 Track created = new Track(timelineTrackObject, trackName, trackId, trackCreated, trackModified, sampleCount, height, width, TimeSpan.FromSeconds(startTime * editRate), 
                     //Duration calculation for Audio
                     (mediaType == Sdp.MediaType.audio ?
-                        TimeSpan.FromMilliseconds(duration * rate / Utility.MicrosecondsPerMillisecond) 
+                        TimeSpan.FromMilliseconds(duration * rate / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond) 
                         : //Video
-                        TimeSpan.FromMilliseconds(duration * (1 / rate) * Utility.MicrosecondsPerMillisecond)), 
+                        TimeSpan.FromMilliseconds(duration * (1 / rate) * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)), 
                     rate, mediaType, codecIndication, channels, bitDepth);
 
                 yield return created;

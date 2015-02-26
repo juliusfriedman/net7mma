@@ -61,34 +61,34 @@ namespace Media.Common
         /// <summary>
         /// An exception utilized when a value larger than allowed is utilized in a quarter bit.
         /// </summary>
-        internal static OverflowException QuarterBitOverflow = new OverflowException("Quarter bits cannot store values larger than 3.");
+        public static OverflowException QuarterBitOverflow = new OverflowException("Quarter bits cannot store values larger than 3.");
 
         /// <summary>
         /// An exception utilized when a value larger than allowed is utilized in a nibble.
         /// </summary>
-        internal static OverflowException NybbleOverflow = new OverflowException("Cannot store a number higher than 15 in a nybble.");
+        public static OverflowException NybbleOverflow = new OverflowException("Cannot store a number higher than 15 in a nybble.");
 
         /// <summary>
         /// An exception utilized when a value larger than allowed is utilized in a 5 bit field.
         /// </summary>
-        internal static OverflowException FiveBitOverflow = new OverflowException("Cannot store a number higher than 31 in 5 bits.");
+        public static OverflowException FiveBitOverflow = new OverflowException("Cannot store a number higher than 31 in 5 bits.");
 
         /// <summary>
         /// An exception utilized when a value larger than allowed is utilized in a 7 bit field (sbyte.MaxValue is not utilized because of the dependence on the value of sign bit)
         /// </summary>
-        internal static OverflowException SevenBitOverflow = new OverflowException("Cannot store a number higher than 127 in a 7 bit structure.");
+        public static OverflowException SevenBitOverflow = new OverflowException("Cannot store a number higher than 127 in a 7 bit structure.");
 
         /// <summary>
         /// An exception utilized when a value larger than allowed is utilized in a 16 bit field.
         /// </summary>
-        internal static OverflowException SixteenBitOverflow = new OverflowException("Cannot store a number higher than 65535 in a 16 bit structue.");
+        public static OverflowException SixteenBitOverflow = new OverflowException("Cannot store a number higher than 65535 in a 16 bit structue.");
 
         /// <summary>
         /// A string which contains has a format in which all Overflow exceptions Readd by the ReadBinaryOverflowException function utilize.
         /// </summary>
         static string OverFlowExceptionFormat = "{0} overflowed. Cannot store a number lower than {1} or higher than {2} in a {3} structure.";
 
-        internal static OverflowException CreateOverflowException<T>(string parameter, T value, string minValue, string maxValue)
+        public static OverflowException CreateOverflowException<T>(string parameter, T value, string minValue, string maxValue)
         {
             return new OverflowException(string.Format(OverFlowExceptionFormat, parameter, value.ToString(), minValue, maxValue));
         }
@@ -187,8 +187,14 @@ namespace Media.Common
         /// </summary>
         public static readonly bool IsLittleEndian = System.BitConverter.IsLittleEndian;
 
+        /// <summary>
+        /// Assumes 8 bits per byte
+        /// </summary>
         internal static readonly byte[] BitsSetTable;
 
+        /// <summary>
+        /// Assumes 8 bits per byte
+        /// </summary>
         internal static readonly byte[] BitsReverseTable;
 
         public static readonly Endian SystemEndian = Endian.Unknown;
@@ -198,6 +204,8 @@ namespace Media.Common
         {
             //ensure not already called.
             if (SystemEndian != Endian.Unknown || BitsSetTable != null || BitsReverseTable != null) return;
+
+            //Todo, Determine MaxBits (BitSize)
 
             //Get the bytes of the little endian value
             //Then read them back as an integer
@@ -214,7 +222,7 @@ namespace Media.Common
                         //If not little endian double check
                         if (false == IsLittleEndian) goto default;
 
-                        MostSignificantBit = 7;
+                        MostSignificantBit = BitSize - 1; //7
 
                         LeastSignificantBit = 0;
 
@@ -227,7 +235,7 @@ namespace Media.Common
 
                         MostSignificantBit = 0;
 
-                        LeastSignificantBit = 7;
+                        LeastSignificantBit = BitSize - 1; //7
                         break;
                     }
                 case Endian.Middle:
@@ -286,6 +294,8 @@ namespace Media.Common
 
         #region Maximum Values
 
+        //Should be BitsPerOctet
+        //BitSize may reflect something else
         /// <summary>
         /// The amount of bits it a single octet
         /// </summary>
@@ -331,6 +341,8 @@ namespace Media.Common
 
         //studet?
         internal const int Duo = 2;
+
+        internal const int Septem = 7;
 
         #endregion
 
@@ -539,7 +551,14 @@ namespace Media.Common
             return reverse ? ReadBitsReverse(data, ref byteOffset, ref bitOffset, count) : ReadBits(data, ref byteOffset, ref bitOffset, count);
         }
 
+        public static long ReadBits(byte[] data, int byteOffset, int count, int bitOffset, bool reverse = false)
+        {
+            if (data == null) throw new ArgumentNullException("data");
 
+            return reverse ? ReadBitsReverse(data, ref byteOffset, ref bitOffset, count) : ReadBits(data, ref byteOffset, ref bitOffset, count);
+        }
+
+        [CLSCompliant(false)]
         public static long ReadBits(byte[] data, ref int byteOffset, ref int bitOffset, int count, bool reverse = false)
         {
             if (data == null) throw new ArgumentNullException("data");

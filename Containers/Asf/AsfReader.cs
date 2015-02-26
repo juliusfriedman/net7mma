@@ -362,7 +362,7 @@ namespace Media.Containers.Asf
             get
             {
                 if (!m_PreRoll.HasValue) ParseFileProperties();
-                return TimeSpan.FromMilliseconds((double)m_PreRoll.Value / (Utility.NanosecondsPerSecond / Utility.MicrosecondsPerMillisecond));
+                return TimeSpan.FromMilliseconds((double)m_PreRoll.Value / (Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond));
             }
         }
 
@@ -833,8 +833,8 @@ namespace Media.Containers.Asf
                 Track created = new Track(asfObject, trackName, trackId, Created, Modified, (int)sampleCount, (int)height, (int)width, TimeSpan.FromMilliseconds(startTime / timeScale), TimeSpan.FromMilliseconds(duration), 
                     //Frames Per Seconds
                     // duration is in milliseconds, converted to seconds, scaled
-                    mediaType == Sdp.MediaType.video ? 
-                    duration * Utility.MicrosecondsPerMillisecond / Utility.NanosecondsPerSecond * Utility.MicrosecondsPerMillisecond
+                    mediaType == Sdp.MediaType.video ?
+                    duration * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
                     : 
                     rate, 
                     ///

@@ -43,7 +43,7 @@ namespace Media.Common//.Binary
 
         #endregion
 
-       #region Constructor / Destructor
+        #region Constructor / Destructor
 
         public BitWriter(System.IO.Stream source, int cacheSize = 32, bool leaveOpen = false)
             : base()
@@ -66,7 +66,7 @@ namespace Media.Common//.Binary
         #endregion
 
         #region Methods
-        
+
         public long Seek(long offset, System.IO.SeekOrigin origin)
         {
             if (IsDisposed || m_Source == null || !m_Source.CanSeek) return -1;
@@ -97,11 +97,11 @@ namespace Media.Common//.Binary
             if (m_BitIndex >= Common.Binary.BitSize)
             {
                 m_BitIndex = 0;
+
                 ++m_ByteIndex;
             }
 
-            //If there is a value then set it (False is already the value so it is not written)
-            if (value) m_Cache[m_ByteIndex] = (byte)(m_Cache[m_ByteIndex] | (byte)(1 << m_BitIndex));
+            Binary.SetBit(m_Cache.Array, m_BitIndex, value);
 
             //Move the bit index
             ++m_BitIndex;

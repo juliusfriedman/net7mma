@@ -77,6 +77,10 @@
       <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
       <Name>Media.Container</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
+      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
+      <Name>Media.Ntp</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Rtp\Media.Rtp.csproj">
       <Project>{fd0101f4-1d22-434c-8025-42cac8176c75}</Project>
       <Name>Media.Rtp</Name>
