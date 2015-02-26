@@ -431,9 +431,9 @@ namespace Media.Containers.BaseMedia
 
                 offset += 4;
 
-                m_Created = IsoBaseDateUtc.AddMilliseconds(created * Utility.MicrosecondsPerMillisecond);
+                m_Created = IsoBaseDateUtc.AddMilliseconds(created * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
 
-                m_Modified = IsoBaseDateUtc.AddMilliseconds(modified * Utility.MicrosecondsPerMillisecond);
+                m_Modified = IsoBaseDateUtc.AddMilliseconds(modified * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
 
                 m_Duration = TimeSpan.FromSeconds((double)duration / (double)m_TimeScale.Value);
             }
@@ -690,9 +690,9 @@ namespace Media.Containers.BaseMedia
 
                     trackDuration = mediaduration;
 
-                    trackCreated = IsoBaseDateUtc.AddMilliseconds(mediaCreated * Utility.MicrosecondsPerMillisecond);
+                    trackCreated = IsoBaseDateUtc.AddMilliseconds(mediaCreated * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
 
-                    trackModified = IsoBaseDateUtc.AddMilliseconds(mediaModified * Utility.MicrosecondsPerMillisecond);
+                    trackModified = IsoBaseDateUtc.AddMilliseconds(mediaModified * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
                 }
 
                 var sampleToTimeBox = ReadBox("stts", trakBox.Offset);

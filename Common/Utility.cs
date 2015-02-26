@@ -56,13 +56,9 @@ namespace Media
     [CLSCompliant(false)]
     public static class Utility
     {
-        public const double MicrosecondsPerMillisecond = 1000, NanosecondsPerMillisecond = MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, NanosecondsPerSecond = 1000000000;
-
-        public static byte[] Empty = new byte[0];
+        public static byte[] Empty = new byte[0];        
 
         public const String UnknownString = "Unknown";
-
-        public static TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
 
         public static void TryWaitOnHandleAndDispose(ref System.Threading.WaitHandle handle)
         {
@@ -79,7 +75,7 @@ namespace Media
             }
             catch(Exception ex)
             {
-                Common.ExceptionExtensions.TryRaiseTaggedException(handle, "An exception occured while waiting.", ex);
+               Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(handle, "An exception occured while waiting.", ex);
             }
             finally
             {
@@ -89,124 +85,10 @@ namespace Media
             handle = null;
         }
 
-        #region Extensions
-
-        public static IEnumerable<T> Yield<T>(this T t) { yield return t; }
-
-        public static double TotalMicroseconds(this TimeSpan ts) { return ts.TotalMilliseconds / MicrosecondsPerMillisecond; }
-
-        private static void CheckIPVersion(IPAddress ipAddress, IPAddress mask, out byte[] addressBytes, out byte[] maskBytes)
+        public static bool TrySignalHandle(System.Threading.WaitHandle handle, int timeoutMsec = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, bool exitContext = false)
         {
-            if (mask == null)
-            {
-                throw new ArgumentException();
-            }
-
-            addressBytes = ipAddress.GetAddressBytes();
-            maskBytes = mask.GetAddressBytes();
-
-            if (addressBytes.Length != maskBytes.Length)
-            {
-                throw new ArgumentException("The address and mask don't use the same IP standard");
-            }
+            return System.Threading.WaitHandle.SignalAndWait(handle, handle, timeoutMsec, exitContext);
         }
-
-        public static IPAddress And(this IPAddress ipAddress, IPAddress mask)
-        {
-            byte[] addressBytes;
-            byte[] maskBytes;
-            CheckIPVersion(ipAddress, mask, out addressBytes, out maskBytes);
-
-            byte[] resultBytes = new byte[addressBytes.Length];
-            for (int i = 0, e = addressBytes.Length; i < e; ++i)
-            {
-                resultBytes[i] = (byte)(addressBytes[i] & maskBytes[i]);
-            }
-
-            return new IPAddress(resultBytes);
-        }
-
-        private static IPAddress emptyIpv4 = IPAddress.Parse("0.0.0.0");
-        private static IPAddress intranetMask1v4 = IPAddress.Parse("10.255.255.255");
-        private static IPAddress intranetMask2v4 = IPAddress.Parse("172.16.0.0");
-        private static IPAddress intranetMask3v4 = IPAddress.Parse("172.31.255.255");
-        private static IPAddress intranetMask4v4 = IPAddress.Parse("192.168.255.255");
-
-        private static IPAddress emptyIpv6 = emptyIpv4.MapToIPv6();
-        private static IPAddress intranetMask1v6 = intranetMask1v4.MapToIPv6();
-        private static IPAddress intranetMask2v6 = intranetMask2v4.MapToIPv6();
-        private static IPAddress intranetMask3v6 = intranetMask3v4.MapToIPv6();
-        private static IPAddress intranetMask4v6 = intranetMask4v4.MapToIPv6();
-
-        /// <summary>
-        /// Retuns true if the ip address is one of the following
-        /// IANA-reserved private IPv4 network ranges (from http://en.wikipedia.org/wiki/IP_address)
-        ///  Start 	      End 	
-        ///  10.0.0.0 	    10.255.255.255 	
-        ///  172.16.0.0 	  172.31.255.255 	
-        ///  192.168.0.0   192.168.255.255 
-        /// </summary>
-        /// <returns></returns>
-        public static bool IsOnIntranet(this IPAddress ipAddress)
-        {
-            if (emptyIpv4.Equals(ipAddress))
-            {
-                return false;
-            }
-
-            bool onIntranet = IPAddress.IsLoopback(ipAddress);
-
-            if (false == onIntranet)
-            {
-                //Handle IPv6 by getting the IPv4 Mapped Address. 
-                if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
-                {
-
-                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1v6)); //10.255.255.255
-                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4v6)); ////192.168.255.255
-
-                    onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v6))
-                      && ipAddress.Equals(ipAddress.And(intranetMask3v6)));
-                }
-                else if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
-                {
-                    onIntranet = ipAddress.Equals(ipAddress.And(intranetMask1v4)); //10.255.255.255
-                    onIntranet = onIntranet || ipAddress.Equals(ipAddress.And(intranetMask4v4)); ////192.168.255.255
-
-                    onIntranet = onIntranet || (intranetMask2v4.Equals(ipAddress.And(intranetMask2v4))
-                      && ipAddress.Equals(ipAddress.And(intranetMask3v4)));
-                }
-                else throw new NotSupportedException("Only InterNetwork and InterNetworkV6 Address Families are supported.");
-            }
-
-            return onIntranet;
-        }
-
-        public static bool IsMulticast(this IPAddress ip)
-        {
-            //Check for a ipv6 multicast address
-            if (ip.IsIPv6Multicast) return true;
-            byte highIP = ip.GetAddressBytes()[0];
-            if (highIP < 224 || highIP > 239)
-            {
-                return false;
-            }
-
-            //Is a multicast address
-            return true;
-        }
-
-        public static void AddRange<T>(this List<T> list, IEnumerable<T> source, int start, int length)
-        {
-            if (list == null) throw new ArgumentNullException("list");
-            if (source == null) throw new ArgumentNullException("source");
-            int count = source.Count<T>();
-            if (start > count || start < 0) throw new ArgumentOutOfRangeException("start");
-            if (length - start > count) throw new ArgumentOutOfRangeException("length");
-            list.AddRange(source.Skip(start).Take(length));
-        }
-
-        #endregion
 
         #region Properties
 
@@ -258,98 +140,6 @@ namespace Media
 
         #endregion
 
-        public static System.Net.NetworkInformation.NetworkInterface GetNetworkInterface(Socket s)
-        {
-            foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
-            {
-                foreach (System.Net.NetworkInformation.UnicastIPAddressInformation ip in networkInterface.GetIPProperties().UnicastAddresses)
-                {
-                    if (ip.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
-                    {
-                        return networkInterface;
-                    }
-                }
-            }
-
-            return default(System.Net.NetworkInformation.NetworkInterface);
-        }       
-
-        public static string ExtractPrecisionNumber(string input, char sign = (char)Common.ASCII.Period)
-        {
-            if (string.IsNullOrWhiteSpace(input)) throw new InvalidOperationException("input cannot be null or consist only of whitespace.");
-
-            return ExtractPrecisionNumber(input, 0, input.Length, sign);
-        }
-
-        public static string ExtractPrecisionNumber(string input, int offset, int length, char sign = (char)Common.ASCII.Period)
-        {
-            return ExtractNumber(input, offset, length, sign);
-        }
-
-        public static string ExtractNumber(string input, char? sign = null)
-        {
-            if (string.IsNullOrWhiteSpace(input)) throw new InvalidOperationException("input cannot be null or consist only of whitespace.");
-
-            return ExtractNumber(input, 0, input.Length, sign);
-        }
-
-        public static string ExtractNumber(string input, int offset, int length, char? sign = null)
-        {
-            if (string.IsNullOrWhiteSpace(input)) throw new InvalidOperationException("input cannot be null or consist only of whitespace.");
-
-            try
-            {
-                //Make a builder to extract the number
-                StringBuilder output = new StringBuilder(input.Length);
-
-                //Keep track of the sign if it was found
-                bool foundSign = false == sign.HasValue;
-
-                //Iterate the characters indicated.
-                for (; offset < length; ++offset)
-                {
-                    //Look at the character
-                    char c = input[offset];
-
-                    //If its the sign
-                    if (sign.HasValue && c == sign)
-                    {
-                        //If it was not found already
-                        if (false == foundSign)
-                        {
-                            //Include it
-                            foundSign = true;
-
-                            output.Append(c);
-                        }
-
-                        //Skip
-                        continue;
-                    }
-
-                    //If the value contains what is possibly realted to the number then append it.
-                    //if (false == char.IsDigit(c)) continue;
-
-                    //If the value is not a hex digit then do not allow it
-                    if(false == IsHexDigit(ref c)) continue;
-                    //if(c > 'f' || c > 'F') continue;
-
-                    //Append the char
-                    output.Append(c);
-                }
-
-                //Return the string.
-                return output.ToString();
-            }
-            catch
-            {
-                throw;
-            }
-        }
-
-                                                            //0 - 9,            A - F,                  a - f
-        public static bool IsHexDigit(ref char c) { return (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102); }
-
         internal static char[] CredentialSplit = new char[] { (char)Common.ASCII.AtSign, (char)Common.ASCII.ForwardSlash, (char)Common.ASCII.BackSlash, (char)Common.ASCII.Colon };
 
         public static NetworkCredential ParseUserInfo(Uri uri)
@@ -383,63 +173,7 @@ namespace Media
 
         public static bool TryParseUserInfo(Uri uri, out NetworkCredential result) { return (result = ParseUserInfo(uri)) != null; }
 
-        //Move to ISocketOwner
-
-        public static void DontLinger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, true); }
-
-        public static void Linger(this Socket socket) { socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.DontLinger, false); }
-
-        #region Static Helper Functions        
-
-        public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = 1000)
-        {
-            //If the worker IsAlive and has the requested state.
-            if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
-            {
-                //Attempt to join
-                if (false == thread.Join(timeout))
-                {
-                    try
-                    {
-                        //Abort
-                        thread.Abort();
-                    }
-                    catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
-                    catch { throw; } //Cancellation not supported
-                }
-
-                //Reset the state of the thread to indicate success
-                thread = null;
-            }
-        }
-
-        public static bool TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = 1000)
-        {
-            try { Abort(ref thread, state, timeout); }
-            catch { return false; }
-
-            return thread == null;
-        }
-
-        /// <summary>
-        /// Checks the first two bits and the last two bits of each byte while moving the count to the correct position while doing so.
-        /// The function does not check array bounds or preserve the stack and prevents math overflow.
-        /// </summary>
-        /// <param name="buffer">The array to check</param>
-        /// <param name="start">The offset to start checking</param>
-        /// <param name="count">The amount of bytes in the buffer</param>
-        /// <param name="reverse">optionally indicates if the bytes being checked should be reversed before being checked</param>
-        /// <returns></returns>
-        /// <remarks>If knew the width did you, faster it could be..</remarks>
-        public static bool FoundValidUniversalTextFormat(byte[] buffer, ref int start, ref int count, bool reverse = false)
-        {
-            unchecked //unaligned
-            {
-                //1100001 1
-                while (((reverse ? (Common.Binary.ReverseU8(buffer[start])) : buffer[start]) & 0xC3) == 0 && start < --count) ++start;
-                return count > 0;
-            }
-        }
+        #region byte Array Helper Functions        
 
         /// <summary>
         /// Indicates the position of the match in a given buffer to a given set of octets.
@@ -556,238 +290,9 @@ namespace Media
             return -1;
         }
 
-        public static string ReadLine(System.IO.Stream stream, Encoding encoding)
-        {
-            if (stream == null || false == stream.CanRead) return null;
-
-            if (encoding == null) encoding = System.Text.Encoding.Default;
-
-            StringBuilder builder = null;
-
-            try
-            {
-                builder = new StringBuilder();
-
-                int readResult = -1;
-
-                byte cache;
-
-                while ((readResult = stream.ReadByte()) != -1)
-                {
-
-                    cache = (byte)readResult;
-
-                    switch (cache)
-                    {
-                        case Common.ASCII.NewLine:
-                        case Common.ASCII.LineFeed:
-                            goto Done;
-                        default:
-                            {
-                                builder.Append((char)cache);
-
-                                continue;
-                            }
-                    }
-                }
-            }
-            catch
-            {
-                goto Done;
-            }
-
-        Done:
-
-            return builder != null ? builder.ToString() : null;
-        }
-
-        public static string ReadToEnd(System.IO.Stream stream, Encoding encoding)
-        {
-            StringBuilder builder = new StringBuilder();
-
-            while (stream.Position < stream.Length)
-            {
-                builder.Append(ReadLine(stream, encoding));
-            }
-
-            return builder.ToString();
-        }
-
-        /// <summary>
-        /// Receives the given amount of bytes into the buffer given a offset and an amount.
-        /// </summary>
-        /// <param name="buffer">The array to receive into</param>
-        /// <param name="offset">The location to receive into</param>
-        /// <param name="amount">The 0 based amount of bytes to receive, 0 will have no result</param>
-        /// <param name="socket">The socket to receive on</param>
-        /// <returns>The amount of bytes recieved which will be equal to the amount paramter unless the data was unable to fit in the given buffer</returns>
-        public static int AlignedReceive(byte[] buffer, int offset, int amount, Socket socket, out SocketError error)
-        {
-            //Store any socket errors here incase non-blocking sockets are being used.
-            error = SocketError.SocketError;
-
-            //Return the amount if its negitive;
-            if (amount <= 0) return amount;
-
-            //To hold what was received and the maximum amount to receive
-            int totalReceived = 0, max = buffer.Length - offset, attempt = 0;
-
-            //Ensure that only max is received
-            if (amount > max) amount = max;
-
-            //While there is something to receive
-            while (amount > 0)
-            {
-                lock (socket)
-                {
-                    //Receive it into the buffer at the given offset taking into account what was already received
-                    int justReceived = socket.Receive(buffer, offset, amount, SocketFlags.None, out error);
-
-                    //decrease the amount by what was received
-                    amount -= justReceived;
-
-                    //Increase the offset by what was received
-                    offset += justReceived;
-
-                    //Increase total received
-                    totalReceived += justReceived;
-
-                    //If nothing was received
-                    if (justReceived == 0)
-                    {
-                        //error = SocketError.TimedOut;
-                        //Try again maybe
-                        ++attempt;
-                        //Only if the attempts in operations were greater then the amount of bytes requried
-                        if (attempt > amount) error = SocketError.TimedOut;
-                    }
-
-                    //Break on offset reaching the max or any error which requires
-                    if (offset >= max || error == SocketError.ConnectionAborted || error == SocketError.TimedOut || error == SocketError.ConnectionReset) break;
-                }
-            }
-
-            return totalReceived;
-        }
-
         #endregion
 
-        #region Port and IPAddress Functions
-
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public static Socket ReservePort(SocketType socketType, ProtocolType protocol, IPAddress localIp, int port)
-        {
-            Socket result = new Socket(localIp.AddressFamily, socketType, protocol);
-            result.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            result.Bind(new IPEndPoint(localIp, port));
-            return result;
-        }
-
-        public static int FindOpenPort(ProtocolType type, int start = 30000, bool even = true)
-        {
-            //Only Tcp or Udp :)
-            if (type != ProtocolType.Udp && type != ProtocolType.Tcp) return -1;
-
-            int port = start;
-
-            //Get the IpGlobalProperties
-            System.Net.NetworkInformation.IPGlobalProperties ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
-
-            //Can't get any information
-            if (ipGlobalProperties == null) return port = -1;
-
-            //We need endpoints to ensure the ports we want are not in use
-            IEnumerable<IPEndPoint> listeners = null;
-
-            //Get the endpoints
-            if (type == ProtocolType.Udp) listeners = ipGlobalProperties.GetActiveUdpListeners();
-            else if (type == ProtocolType.Tcp) listeners = ipGlobalProperties.GetActiveTcpListeners();
-
-            //Enumerate the ones that are = or > then port and increase port along the way
-            foreach (IPEndPoint ep in listeners.Where(ep => ep.Port >= port))
-            {
-                if (port == ep.Port) port++;
-                else if (ep.Port == port + 1) port += 2;
-            }
-
-            int remainder = port % 2;
-
-            //If we only want even ports and we found an even one return it
-            if (even && remainder == 0 || !even && remainder != 0) return port;
-
-            //We found an even and we wanted odd or vice versa
-            return ++port;
-        }
-
-        /// <summary>
-        /// Determine the computers first Ipv4 Address 
-        /// </summary>
-        /// <returns>The First IPV4 Address Found on the Machine</returns>
-        public static IPAddress GetFirstV4IPAddress() { return GetFirstIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); }
-
-        public static IPAddress GetFirstIPAddress(System.Net.Sockets.AddressFamily addressFamily) { foreach (System.Net.IPAddress ip in System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName()).AddressList) if (ip.AddressFamily == addressFamily) return ip; return IPAddress.Loopback; }
-
-        #endregion
-
-        #region Npt
-
-        //Should all be DateTimeOffset
-
-        /// <summary>
-        /// Converts specified DateTime value to short NPT time.
-        /// </summary>
-        /// <param name="value">DateTime value to convert.</param>
-        /// <returns>Returns NPT value.</returns>
-        /// <notes>
-        /// In some fields where a more compact representation is
-        /// appropriate, only the middle 32 bits are used; that is, the low 16
-        /// bits of the integer part and the high 16 bits of the fractional part.
-        /// The high 16 bits of the integer part must be determined independently.
-        /// </notes>
-        public static uint DateTimeToNptTimestamp32(DateTime value) { return (uint)((DateTimeToNptTimestamp(value) << 16) & 0xFFFFFFFF); }
-
-        /// <summary>
-        /// Converts specified DateTime value to long NPT time.
-        /// </summary>
-        /// <param name="value">DateTime value to convert. This value must be in local time.</param>
-        /// <returns>Returns NPT value.</returns>
-        /// <notes>
-        /// Wallclock time (absolute date and time) is represented using the
-        /// timestamp format of the Network Time Protocol (NPT), which is in
-        /// seconds relative to 0h UTC on 1 January 1900 [4].  The full
-        /// resolution NPT timestamp is a 64-bit unsigned fixed-point number with
-        /// the integer part in the first 32 bits and the fractional part in the
-        /// last 32 bits. In some fields where a more compact representation is
-        /// appropriate, only the middle 32 bits are used; that is, the low 16
-        /// bits of the integer part and the high 16 bits of the fractional part.
-        /// The high 16 bits of the integer part must be determined independently.
-        /// </notes>
-        public static ulong DateTimeToNptTimestamp(DateTime value)
-        {
-            DateTime baseDate = value >= UtcEpoch2036 ? UtcEpoch2036 : UtcEpoch1900;
-
-            TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
-
-            return ((ulong)(elapsedTime.Ticks / TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / MicrosecondsPerMillisecond);
-        }
-
-        public static DateTime NptTimestampToDateTime(ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> 32) & 0xFFFFFFFF), (uint)(nptTimestamp & 0xFFFFFFFF)); }
-
-        public static DateTime NptTimestampToDateTime(uint seconds, uint fractions, DateTime? epoch = null)
-        {
-            ulong ticks = (ulong)((seconds * TimeSpan.TicksPerSecond) + ((fractions * TimeSpan.TicksPerSecond) / 0x100000000L));
-            if (epoch.HasValue) return epoch.Value + TimeSpan.FromTicks((Int64)ticks);
-            return (seconds & 0x80000000L) == 0 ? UtcEpoch2036 + TimeSpan.FromTicks((Int64)ticks) : UtcEpoch1900 + TimeSpan.FromTicks((Int64)ticks);
-        }
-
-        //When the First Epoch will wrap (The real Y2k)
-        public static DateTime UtcEpoch2036 = new DateTime(2036, 2, 7, 6, 28, 16, DateTimeKind.Utc);
-
-        public static DateTime UtcEpoch1900 = new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        public static DateTime UtcEpoch1970 = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        #endregion
+        #region Clamp
 
         public static byte Clamp(byte value, byte min, byte max)
         {
@@ -799,10 +304,17 @@ namespace Media
             return Math.Min(Math.Max(min, value), max);
         }
 
+        public static long Clamp(long value, long min, long max)
+        {
+            return Math.Min(Math.Max(min, value), max);
+        }
+
         public static double Clamp(double value, double min, double max)
         {
             return Math.Min(Math.Max(min, value), max);
         }
+
+        #endregion
 
         #region RgbYuv.cs
 
@@ -993,7 +505,7 @@ namespace Media
             }
         }
 
-        internal static unsafe byte[] ABGRA2YUV420Managed(int width, int height, IntPtr scan0)
+        public static unsafe byte[] ABGRA2YUV420Managed(int width, int height, IntPtr scan0)
         {
 
             int frameSize = width * height;

@@ -167,8 +167,8 @@ namespace Media.Rtcp
         /// </summary>
         public DateTime NtpTime
         {
-            get { return Utility.NptTimestampToDateTime((ulong)NtpTimestamp); }
-            internal protected set { NtpTimestamp = (long)Utility.DateTimeToNptTimestamp(value); }
+            get { return Media.Ntp.NetworkTimeProtocol.NptTimestampToDateTime((ulong)NtpTimestamp); }
+            internal protected set { NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(value); }
         }
 
         #endregion

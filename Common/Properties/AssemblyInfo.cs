@@ -15,9 +15,3 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("b9788cdc-7365-4117-9711-2cfa2057e410")]
-
-//Internals
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Media.Rtp")]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Media.Rtsp")]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Media.RtspServer")]
-[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Media.Containers")]

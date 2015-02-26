@@ -60,7 +60,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                yield return Utility.GetNetworkInterface(s);
+                yield return Media.Common.Extensions.Socket.SocketExtensions.GetNetworkInterface(s);
             }
         }
 

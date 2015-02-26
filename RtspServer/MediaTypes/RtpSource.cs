@@ -37,6 +37,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Media.Common;
 using System.Text;
 
 namespace Media.Rtsp.Server.MediaTypes
@@ -152,7 +153,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads()
         {
-            return RtpClient != null ? Utility.Yield(RtpClient.m_WorkerThread) : null;
+            return RtpClient != null ? Media.Common.Extensions.Linq.LinqExtensions.Yield(RtpClient.m_WorkerThread) : null;
         }
     }
 }

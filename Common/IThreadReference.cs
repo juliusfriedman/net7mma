@@ -19,13 +19,43 @@ namespace Media.Common
     /// </summary>
     public static class IThreadReferenceExtensions
     {
-        public static void AbortAll(this IThreadReference reference, int timeoutSec)
+        public static void AbortAll(this IThreadReference reference, int timeoutmSec = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             foreach (var tp in reference.GetReferencedThreads())
             {
                 System.Threading.Thread t = tp;
-                Utility.TryAbort(ref t, System.Threading.ThreadState.Running, timeoutSec);
+                Media.Common.IThreadReferenceExtensions.TryAbort(ref t, System.Threading.ThreadState.Running, timeoutmSec);
             }
+        }
+
+        public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
+        {
+            //If the worker IsAlive and has the requested state.
+            if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
+            {
+                //Attempt to join
+                if (false == thread.Join(timeout))
+                {
+                    try
+                    {
+                        //Abort
+                        thread.Abort();
+                    }
+                    catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
+                    catch { throw; } //Cancellation not supported
+                }
+
+                //Reset the state of the thread to indicate success
+                thread = null;
+            }
+        }
+
+        public static bool TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = 1000)
+        {
+            try { Abort(ref thread, state, timeout); }
+            catch { return false; }
+
+            return thread == null;
         }
     }
 }

@@ -84,6 +84,34 @@ namespace Media.Rtsp.Server.MediaTypes
             public static byte[] CreateADTSHeader(int profileId, int frequencyIndex, int channelConfiguration, int packetLen)
             {
 
+                /*
+                   http://wiki.multimedia.cx/index.php?title=ADTS
+
+		           ADTS Fixed Header: these don't change from frame to frame
+                 * 
+		           syncword                                       12    always: '111111111111'
+		           ID                                              1    0: MPEG-4, 1: MPEG-2
+		           MPEG layer                                      2    If you send AAC in MPEG-TS, set to 0
+		           protection_absent                               1    0: CRC present; 1: no CRC
+		           profile                                         2    0: AAC Main; 1: AAC LC (Low Complexity); 2: AAC SSR (Scalable Sample Rate); 3: AAC LTP (Long Term Prediction)
+		           sampling_frequency_index                        4    15 not allowed
+		           private_bit                                     1    usually 0
+		           channel_configuration                           3
+		           original/copy                                   1    0: original; 1: copy
+		           home                                            1    usually 0
+		           emphasis                                        2    only if ID == 0 (ie MPEG-4)  // not present in some documentation?
+
+		           * ADTS Variable Header: these can change from frame to frame
+		           copyright_identification_bit                    1
+		           copyright_identification_start                  1
+		           aac_frame_length                               13    length of the frame including header (in bytes)
+		           adts_buffer_fullness                           11    0x7FF indicates VBR
+		           no_raw_data_blocks_in_frame                     2
+
+		           * ADTS Error check
+		           crc_check                                      16    only if protection_absent == 0
+                 */
+
                 byte[] header = new byte[7];
 
                 //http://www.p23.nl/projects/aac-header/
@@ -107,6 +135,8 @@ namespace Media.Rtsp.Server.MediaTypes
 
                 //http://blog.olivierlanglois.net/index.php/2008/09/12/aac_adts_header_buffer_fullness_field
 
+                //Should be bit rate
+
                 header[6] = (byte)0xFC;
 
                 return header;
@@ -125,7 +155,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <param name="auxDataSizeLength"></param>
             /// <param name="randomAccessIndication"></param>
             /// <param name="streamStateIndication"></param>
-            public void Depacketize(bool headersPresent = true, int profileId = 0, int channelConfiguration = 0, int frequencyIndex = 0, int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0, int CTSDeltaLength = 0, int DTSDeltaLength = 0, int auxDataSizeLength = 0, bool randomAccessIndication = false, int streamStateIndication = 0, int defaultAuSize = 0, IEnumerable<byte> frameHeader = null, bool addPadding = false) 
+            public void Depacketize(bool headersPresent = true, int profileId = 0, int channelConfiguration = 0, int frequencyIndex = 0, int sizeLength = 0, int indexLength = 0, int indexDeltaLength = 0, int CTSDeltaLength = 0, int DTSDeltaLength = 0, int auxDataSizeLength = 0, bool randomAccessIndication = false, int streamStateIndication = 0, int defaultAuSize = 0, IEnumerable<byte> frameHeader = null, bool addPadding = false, bool includeAuHeaders = false, bool includeAuxData = false) 
             {
                 #region Expired Draft Notes
 
@@ -224,8 +254,10 @@ namespace Media.Rtsp.Server.MediaTypes
                         auIndex = 0, //Indicates the serial number of the associated Access Unit
                         auHeadersAvailable = 0; //The amount of Au Headers in the Au Header section
 
+                    #region  3.2.  RTP Payload Structure
+
                     /*
-                      3.2.  RTP Payload Structure
+                      
 
                     3.2.1.  The AU Header Section
 
@@ -258,6 +290,8 @@ namespace Media.Rtsp.Server.MediaTypes
                         inserted at the end in order to achieve octet-alignment of the AU
                         Header Section.
                     */
+
+                    #endregion
 
                     #region Reference
 
@@ -297,8 +331,13 @@ namespace Media.Rtsp.Server.MediaTypes
                         parsedUnits = 0,
                         auHeaderOffset = offset,
                         auxHeaderOffset = 0,
-                        auxLengthBytes = 0;
+                        auxLengthBytes = 0,     
+                        bitOffset = 0, 
+                        maxBitOffset = max * Media.Common.Binary.BitSize;
 
+                    //Ensure offset of reading bits matches the offset of the memory segment
+                    //Could also have enumerable ReadBits overload
+                    offset += 2 + rtp.Payload.Offset;
                    
                     //If there was any auHeaders
                     if (auHeaderLengthBits > 0)
@@ -306,11 +345,11 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Convert bits to bytes
                         auHeaderLengthBytes = ((auHeaderLengthBits + 7) / 8);
 
-                        //Check enough bytes are available
+                        //Check enough bytes are available (2 is the site of the RFC Profile Header read above)
                         if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Au Headers?");
 
                         //Skip the Au Headers Section
-                        offset += auHeaderLengthBytes;
+                        Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auHeaderLengthBits, BitConverter.IsLittleEndian);
 
                         //This many bits were read
                         int usedBits = sizeLength + indexDeltaLength;
@@ -334,13 +373,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Parse AU Headers should be seperate logic?
 
                     //Create a sorted list to allow the de-interleaving of access units if required.
-                    SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();
-
-                    int bitOffset = 0, maxBitOffset = max * Media.Common.Binary.BitSize;
-
-                    //Ensure offset of reading bits matches the offset of the memory segment
-                    //Could also have enumerable ReadBits overload
-                    offset += rtp.Payload.Offset;
+                    SortedList<int, IEnumerable<byte>> accessUnits = new SortedList<int, IEnumerable<byte>>();               
 
                     //Now skip over the aux data region.
                     if (0 != auxDataSizeLength)
@@ -351,11 +384,13 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Read the size in bits
                         int auxDataSizeBits = (int)Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, indexLength, BitConverter.IsLittleEndian);
 
-                        //Skip the bits indicated
-                        Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auxDataSizeBits, BitConverter.IsLittleEndian);
-
                         //Calculate the amount of bytes in the auxillary data section
                         auxLengthBytes = ((auxDataSizeBits + 7) / 8);
+
+                        if (max - offset < auxLengthBytes) throw new InvalidOperationException("Invalid Au Aux Data?");
+
+                        //Skip the bits indicated
+                        Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auxDataSizeBits, BitConverter.IsLittleEndian);
                     }
 
                     // as per 3) skip padding
@@ -477,36 +512,43 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Used a  auHeader, if there is more then one move the offset to the next header
                         if (--auHeadersAvailable > 0) auHeaderOffset += auHeaderLengthBytes;
 
+                        //Stop for incomplete access units.
+                        //Detected by the length of the buffer being less then the length of all contained data (could have a signal for this)
+                        if (auSize > max - offset) break;
+
                         //Project the data in the payload from the offset of the access unit until its declared size.
                         var accessUnitData = rtp.Payload.Array.Skip(offset).Take(auSize);
                         
                         //Prepend the accessUnitHeaer with the data to create a depacketized au
-                        var depacketizedAccessUnit = Enumerable.Concat(accessUnitHeader, accessUnitData);
+                        var depacketizedAccessUnit = includeAuHeaders ? Enumerable.Concat(accessUnitHeader, accessUnitData) : accessUnitData;
 
                         //If there aux data then add it after the Au header we just added
-                        if (auxLengthBytes > 0)
+                        if (includeAuxData && auxLengthBytes > 0)
                         {
                             //Add the auxillary data
                             depacketizedAccessUnit = Enumerable.Concat(depacketizedAccessUnit, auxillaryData);
                         }
 
                         //If a frameHeader is required for each accessUnit then prepend it here
-                        if (frameHeader != null)
-                        {
-                            //May have to write the length in the frameData
-                            depacketizedAccessUnit = Enumerable.Concat(frameHeader, depacketizedAccessUnit);
-                        }
-                        else
-                        {
-                            //Could just update the length but
-                            //This is a bit field though and needs to have the WriteBits methods available then
-                            //Media.Common.Binary.Write16(adtsHeader, 6, false, (short)auSize);
+                        //if (previouslyIncompleteAccessUnitWithAuxHeaderAndData != null)
+                        //{
+                        //    //May have to write the length in the frameData
+                        //    depacketizedAccessUnit = Enumerable.Concat(frameHeader, depacketizedAccessUnit);
 
-                            //Create the header for the frame, (should only be done once and the length should be updated each time)
-                            depacketizedAccessUnit = Enumerable.Concat(CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, auSize), depacketizedAccessUnit);
-                        }
+                        //    previouslyIncompleteAccessUnitWithAuxHeaderAndData = null;
+                        //}
+                        //else
+                        //{
+                        //    //Could just update the length but
+                        //    //This is a bit field though and needs to have the WriteBits methods available then
+                        //    //Media.Common.Binary.Write16(adtsHeader, 6, false, (short)auSize);
 
-                        //Add padding if required..
+                        //    //Create the header for the frame, (should only be done once and the length should be updated each time)
+                        //    //Should also have the ADTS header only 1 time, and only after the frameLength is known.
+                        //    depacketizedAccessUnit = Enumerable.Concat(CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, auSize), depacketizedAccessUnit);
+                        //}
+
+                        //Add padding if required.. ?Allow custom
                         if(addPadding)
                         { 
                             int required = max - offset;
@@ -525,7 +567,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     }
 
                     //Return the access units in decoding order
-                    return accessUnits.SelectMany(au=> au.Value);
+                    return accessUnits.SelectMany(au=> au.Value); //Enumerable.Concat(CreateADTSHeader(profileId, frequencyIndex, channelConfiguration, accessUnits.Sum(au=> au.Value.Count())), accessUnits.SelectMany(au=> au.Value));
 
                 }).ToArray() : this.Assemble().ToArray());
                 
@@ -543,7 +585,9 @@ namespace Media.Rtsp.Server.MediaTypes
             public override void Dispose()
             {
                 if (IsDisposed) return;
+
                 base.Dispose();
+
                 DisposeBuffer();
             }
         }

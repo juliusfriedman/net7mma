@@ -173,6 +173,10 @@
       <Project>{beaa546e-6c3d-47f4-85d9-6bb598b5d8b8}</Project>
       <Name>Media.Containers.Riff</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
+      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
+      <Name>Media.Ntp</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Rtmp\Media.Rtmp.csproj">
       <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>
       <Name>Media.Rtmp</Name>

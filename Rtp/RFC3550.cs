@@ -284,7 +284,7 @@ namespace Media
                     if (!hasCName && currentPacket.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket, false)) if ((hasCName = asReport.HasCName)) break;
                 }
 
-                if (hasSourceDescription && false == hasCName) Common.ExceptionExtensions.RaiseTaggedException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
+                if (hasSourceDescription && false == hasCName) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
 
                 yield return currentPacket;
             }
@@ -360,7 +360,7 @@ namespace Media
         {
             if (amount <= 0) return Enumerable.Empty<byte>();
             if (amount > byte.MaxValue) Common.Binary.CreateOverflowException("amount", amount, byte.MinValue.ToString(), byte.MinValue.ToString());
-            return Enumerable.Concat(Enumerable.Repeat(default(byte), amount - 1), ((byte)amount).Yield());
+            return Enumerable.Concat(Enumerable.Repeat(default(byte), amount - 1), Media.Common.Extensions.Linq.LinqExtensions.Yield(((byte)amount)));
         }
 
         //Random32 etc
@@ -857,7 +857,7 @@ namespace Media
             #region Constructor
 
             [CLSCompliant(false)]
-            public SourceList(uint ssrc) : this(ssrc.Yield()) { }
+            public SourceList(uint ssrc) : this(Media.Common.Extensions.Linq.LinqExtensions.Yield(ssrc)) { }
 
             public SourceList(IEnumerable<uint> sources, int start = 0)
             {

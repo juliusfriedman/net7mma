@@ -248,9 +248,9 @@
       <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
       <Name>Media.Codecs.Audio</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
-      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
-      <Name>Media.Codecs</Name>
+    <ProjectReference Include="..\Codecs\Audio\Mpeg\Media.Codecs.Audio.Mpeg.csproj">
+      <Project>{4305ddf6-3c8b-4fe6-8de9-3e81c5d9126a}</Project>
+      <Name>Media.Codecs.Audio.Mpeg</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\H264\Media.Codecs.Video.H264.csproj">
       <Project>{ff0ee03e-0a02-40f1-8064-d055ef41f949}</Project>
@@ -268,6 +268,10 @@
       <Project>{6e191592-acc7-4444-a7e3-88258c8709fe}</Project>
       <Name>Media.Codecs.Video.Mpeg4</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Mpeg\Media.Codecs.Video.Mpeg.csproj">
+      <Project>{667cde0b-0ae3-4df5-9d81-d91ef0bdceda}</Project>
+      <Name>Media.Codecs.Video.Mpeg</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
@@ -275,6 +279,10 @@
     <ProjectReference Include="..\Compression\Media.Compression.csproj">
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
       <Name>Media.Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Concepts\Concepts.csproj">
+      <Project>{76d6e405-4048-4588-8fc5-0895701e6d96}</Project>
+      <Name>Concepts</Name>
     </ProjectReference>
     <ProjectReference Include="..\Containers\Asf\Media.Containers.Asf.csproj">
       <Project>{aa92d188-646f-47fe-8fff-bd0b9ca720a0}</Project>
@@ -323,6 +331,10 @@
     <ProjectReference Include="..\Containers\Riff\Media.Containers.Riff.csproj">
       <Project>{beaa546e-6c3d-47f4-85d9-6bb598b5d8b8}</Project>
       <Name>Media.Containers.Riff</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
+      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
+      <Name>Media.Ntp</Name>
     </ProjectReference>
     <ProjectReference Include="..\Rtmp\Media.Rtmp.csproj">
       <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>

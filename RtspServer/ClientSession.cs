@@ -213,7 +213,7 @@ namespace Media.Rtsp
             {
                 m_RtspSocket.NoDelay = true;
 
-                m_RtspSocket.DontLinger();                
+                Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(m_RtspSocket);
             }
 
             if (m_RtspSocket.AddressFamily == AddressFamily.InterNetwork) m_RtspSocket.DontFragment = true;
@@ -242,7 +242,7 @@ namespace Media.Rtsp
         public void StartReceive()
         {
             //while the socket cannot read in 1msec or less 
-            while (false == IsDisposed && false == m_RtspSocket.Poll((int)Utility.MicrosecondsPerMillisecond, SelectMode.SelectRead))
+            while (false == IsDisposed && false == m_RtspSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, SelectMode.SelectRead))
             {
 
                 //Wait for the last recieve to complete
@@ -288,7 +288,7 @@ namespace Media.Rtsp
             try
             {
                 //while the socket cannot write in 1msec or less 
-                while (false == IsDisposed && false == m_RtspSocket.Poll((int)Utility.MicrosecondsPerMillisecond, SelectMode.SelectWrite))
+                while (false == IsDisposed && false == m_RtspSocket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, SelectMode.SelectWrite))
                 {
                     ////Wait for the last send to complete
                     if (LastSend != null)
@@ -697,24 +697,24 @@ namespace Media.Rtsp
 
                     //http://stackoverflow.com/questions/4672359/why-does-timespan-fromsecondsdouble-round-to-milliseconds
 
-                    if(end != Utility.InfiniteTimeSpan
+                    if(end != Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan
                         &&
-                        (end += Utility.InfiniteTimeSpan) > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid End Range");
+                        (end += Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan) > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid End Range");
 
                     //If the given time to start at is > zero
                     if (start > TimeSpan.Zero)
                     {
                         //If the maximum is not infinite and the start exceeds the max indicate this.
-                        if (max != Utility.InfiniteTimeSpan
+                        if (max != Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan
                             &&
                             start > max) return CreateRtspResponse(playRequest, RtspStatusCode.InvalidRange, "Invalid Start Range");
                     }
 
                     //If the end time is infinite and the max is not infinite then the end is the max time.
-                    if (end == Utility.InfiniteTimeSpan && max != Utility.InfiniteTimeSpan) endRange = end = max;
+                    if (end == Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan && max != Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan) endRange = end = max;
 
                     //If the start time is 0 and the end time is not infinite then start the start time to the uptime of the stream (how long it has been playing)
-                    if (start == TimeSpan.Zero && end != Utility.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
+                    if (start == TimeSpan.Zero && end != Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan) startRange = start = source.RtpClient.Uptime;
                     else startRange = null;
                 }
             }
@@ -912,7 +912,7 @@ namespace Media.Rtsp
                         if (remoteSsrc != 0 && setupContext.RemoteSynchronizationSourceIdentifier != remoteSsrc) setupContext.RemoteSynchronizationSourceIdentifier = remoteSsrc;
                     }
 
-                    multicast = Utility.IsMulticast(((IPEndPoint)setupContext.RemoteRtp).Address);
+                    multicast = Media.Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(((IPEndPoint)setupContext.RemoteRtp).Address);
 
                     interleaved = setupContext.RtpSocket.ProtocolType == ProtocolType.Tcp && SharesSocket;
 
@@ -955,11 +955,11 @@ namespace Media.Rtsp
 
                 //QuickTime debug
 
-                if (clientRtpPort == 0) clientRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
+                if (clientRtpPort == 0) clientRtpPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp, 30000, true);                
 
                 if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
 
-                if (serverRtpPort == 0) serverRtpPort = Utility.FindOpenPort(ProtocolType.Udp, 30000, true);
+                if (serverRtpPort == 0) serverRtpPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp, 30000, true);
 
                 if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
 
@@ -972,9 +972,9 @@ namespace Media.Rtsp
 
                 //Create sockets to reserve the ports.
 
-                Socket tempRtp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort);
+                Socket tempRtp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort);
 
-                Socket tempRtcp = Utility.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtcpPort);
+                Socket tempRtcp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtcpPort);
 
                 //Check if the client was already created.
                 if (m_RtpClient == null || m_RtpClient.IsDisposed)
@@ -982,7 +982,11 @@ namespace Media.Rtsp
                     //Create a sender using a new segment on the existing buffer.
                     m_RtpClient = new RtpClient(new Common.MemorySegment(m_Buffer));
 
+                    //Dont handle frame changed events from the client
                     m_RtpClient.FrameChangedEventsEnabled = false;
+
+                    //Dont handle packets from the client
+                    m_RtpClient.HandleIncomingRtpPackets = false;
 
                     m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
 
@@ -1053,7 +1057,11 @@ namespace Media.Rtsp
 
                     #endregion
 
+                    //Dont handle frame changed events from the client
                     m_RtpClient.FrameChangedEventsEnabled = false;
+
+                    //Dont handle packets from the client
+                    m_RtpClient.HandleIncomingRtpPackets = false;
 
                     //Create a new Interleave (don't use what was given as data or control channels)
                     setupContext = new RtpClient.TransportContext((byte)(dataChannel = 0), (byte)(controlChannel = 1), localSsrc, mediaDescription, m_RtspSocket, false == rtcpDisabled, remoteSsrc, 0);
@@ -1305,7 +1313,7 @@ namespace Media.Rtsp
                     //E.g. IsInactive
 
                     //If the context does not have any activity
-                    if (false == context.HasAnyActivity)
+                    if (false == context.HasAnyRecentActivity)
                     {
                         //Session level logger
                         //Context has no activity
@@ -1314,7 +1322,7 @@ namespace Media.Rtsp
                         RtpClient.TransportContext sourceContext = GetSourceContext(context.MediaDescription);
 
                         //If there was a source context with activity
-                        if (sourceContext != null && sourceContext.HasAnyActivity)
+                        if (sourceContext != null && sourceContext.HasAnyRecentActivity)
                         {
                             //Remove the attachment from the source context to the session context
                             RemoveSource(Attached[sourceContext]);
@@ -1413,7 +1421,7 @@ namespace Media.Rtsp
             if (stream == null) throw new ArgumentNullException("stream");
             //else if (SessionDescription != null) throw new NotImplementedException("There is already a m_SessionDescription for this session, updating is not implemented at this time");
 
-            string sessionId = Utility.DateTimeToNptTimestamp(DateTime.UtcNow).ToString(), sessionVersion = Utility.DateTimeToNptTimestamp(DateTime.UtcNow).ToString();
+            string sessionId = Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(DateTime.UtcNow).ToString(), sessionVersion = Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(DateTime.UtcNow).ToString();
 
             string originatorString = "ASTI-Media-Server " + sessionId + " " + sessionVersion + " IN " + (m_RtspSocket.AddressFamily == AddressFamily.InterNetworkV6 ? "IP6 " : "IP4 " ) + ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address.ToString();
 

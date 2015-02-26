@@ -149,7 +149,8 @@ namespace Media.Rtsp.Server.MediaTypes
                 //Common.Binary.GetBytes(fragmentOffset, BitConverter.IsLittleEndian)
 
                 if (BitConverter.IsLittleEndian) fragmentOffset = Common.Binary.ReverseU32((uint)fragmentOffset);
-                RtpJpegHeader.AddRange(BitConverter.GetBytes((uint)fragmentOffset), 1, 3);
+
+                Media.Common.Extensions.List.ListExtensions.AddRange(RtpJpegHeader, BitConverter.GetBytes((uint)fragmentOffset), 1, 3);
 
 
                 //(Jpeg)Type

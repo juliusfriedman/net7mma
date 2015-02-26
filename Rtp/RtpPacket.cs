@@ -600,7 +600,7 @@ namespace Media.Rtp
                 while (octetsRemaining > 0)
                 {
                     //Receive octetsRemaining or less
-                    int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                    int justReceived = Media.Common.Extensions.Socket.SocketExtensions.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                     //Move the offset
                     offset += justReceived;
@@ -636,7 +636,7 @@ namespace Media.Rtp
                     while (octetsRemaining > 0)
                     {
                         //Receive octetsRemaining or less
-                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                        int justReceived = Media.Common.Extensions.Socket.SocketExtensions.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                         //Move the offset
                         offset += justReceived;
@@ -674,7 +674,7 @@ namespace Media.Rtp
                             while (octetsRemaining > 0)
                             {
                                 //Receive octetsRemaining or less
-                                int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                                int justReceived = Media.Common.Extensions.Socket.SocketExtensions.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                                 //Move the offset
                                 offset += justReceived;
@@ -712,7 +712,7 @@ namespace Media.Rtp
 
                         //Receive 1 byte
                         //Receive octetsRemaining or less
-                        int justReceived = Utility.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
+                        int justReceived = Media.Common.Extensions.Socket.SocketExtensions.AlignedReceive(m_OwnedOctets, offset, octetsRemaining, socket, out error);
 
                         //Move the offset
                         offset += justReceived;

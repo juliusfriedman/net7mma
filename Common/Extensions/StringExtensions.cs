@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Media.Common
+namespace Media.Common.Extensions.String
 {
     public static class StringExtensions
     {
@@ -21,18 +21,20 @@ namespace Media.Common
         /// <param name="toModify"></param>
         /// <param name="index"></param>
         /// <param name="newValue"></param>
-        public unsafe static void UnsafeTryModifyString(string toModify, int index, char newValue)
+        public unsafe static bool UnsafeTryModifyString(string toModify, int index, char newValue)
         {
             try
             {
                 fixed (char* str = toModify)
                 {
                     str[index] = newValue;
+
+                    return true;
                 }
             }
             catch
             {
-                throw;
+                return false;
             }
         }
     }

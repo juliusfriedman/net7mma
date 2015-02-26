@@ -86,6 +86,10 @@
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
+      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
+      <Name>Media.Ntp</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Sdp\Media.Sdp.csproj">
       <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
       <Name>Media.Sdp</Name>

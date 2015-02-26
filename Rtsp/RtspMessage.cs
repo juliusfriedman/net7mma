@@ -35,8 +35,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Generic;
 using System.Text;
 
 namespace Media.Rtsp
@@ -150,7 +150,7 @@ namespace Media.Rtsp
         {
             return type + 
                 ((char)Common.ASCII.EqualsSign).ToString() + 
-                (start.HasValue && end.HasValue && end.Value != Utility.InfiniteTimeSpan ? 
+                (start.HasValue && end.HasValue && end.Value != Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan ? 
                 start.Value.TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture) : "now") + 
                 '-' + 
                 (end.HasValue && end.Value > TimeSpan.Zero ? 
@@ -308,7 +308,7 @@ namespace Media.Rtsp
                                 if (false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out ssrc) &&
                                     false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out ssrc))
                                 {
-                                    Common.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
+                                    Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                 }
 
                                 continue;
@@ -616,7 +616,7 @@ namespace Media.Rtsp
                                     if (false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out id) &&
                                         false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out id))
                                     {
-                                        Common.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
+                                        Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                     }
                                     
                                     continue;
@@ -989,15 +989,15 @@ namespace Media.Rtsp
         //String which is used to split Header values of the RtspMessage
         internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
 
-        // \r\n in the encoding of the request (Network Order)
-        internal static byte[] LineEnds = (BitConverter.IsLittleEndian ? Common.ASCII.NewLine.Yield().Concat(Common.ASCII.LineFeed.Yield()) : Common.ASCII.LineFeed.Yield().Concat(Common.ASCII.NewLine.Yield())).ToArray();
-
+        // \r\n in the encoding of the request
+        internal static byte[] UTF8LineEndingBytes = new byte[] { Media.Common.ASCII.NewLine, Media.Common.ASCII.LineFeed };
+        internal static char[] UTF8LineEndingCharacters = System.Text.Encoding.UTF8.GetChars(UTF8LineEndingBytes);
+        
         internal static byte[] SemiColonByte = new byte[] { Common.ASCII.SemiColon };
 
         internal static int MinimumStatusLineSize = 9; //'RTSP/X.X ' 
 
-        public static readonly Encoding DefaultEncoding = System.Text.Encoding.UTF8;
-
+        public static readonly Encoding DefaultEncoding = new System.Text.UTF8Encoding(false, false);
         public static byte[] ToHttpBytes(RtspMessage message, int majorVersion = 1, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
         {
 
@@ -1093,7 +1093,7 @@ namespace Media.Rtsp
         
         #region Fields
 
-        readonly byte[] m_EncodedLineEnds;
+        readonly char[] m_EncodedLineEnds = UTF8LineEndingCharacters;
 
         double m_Version;
 
@@ -1147,6 +1147,8 @@ namespace Media.Rtsp
 
         int m_CSeq = -1;
 
+        //long m_RawLength = 0;
+
         #endregion
 
         #region Properties            
@@ -1154,20 +1156,36 @@ namespace Media.Rtsp
         //Used for GetContentDecoder 
         public bool FallbackToDefaultEncoding { get; set; }
 
+        /// <summary>
+        /// Indicates if invalid headers will be allowed to be added to the message.
+        /// </summary>
         public bool AllowInvalidHeaders { get; set; }
 
         /// <summary>
         /// Indicates the UserAgent of this RtspRquest
         /// </summary>
-        public String UserAgent { get { return GetHeader(RtspHeaders.UserAgent); } set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException(); SetHeader(RtspHeaders.UserAgent, value); } }
+        public String UserAgent
+        {
+            get { return GetHeader(RtspHeaders.UserAgent); }
+            set { if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException(); SetHeader(RtspHeaders.UserAgent, value); }
+        }
 
         /// <summary>
         /// Indicates the StatusCode of the RtspResponse.
         ///  A value of 200 or less usually indicates success.
         /// </summary>
-        public RtspStatusCode StatusCode { get { return (RtspStatusCode)m_StatusCode; } set { m_StatusCode = (int)value; } }
+        public RtspStatusCode StatusCode
+        {
+            get { return (RtspStatusCode)m_StatusCode; }
+            set { m_StatusCode = (int)value; }
+        }
 
-        public double Version { get { return m_Version; } set { m_Version = value; } }
+
+        public double Version
+        {
+            get { return m_Version; }
+            set { m_Version = value; }
+        }
 
         /// <summary>
         /// The length of the RtspMessage in bytes.
@@ -1175,9 +1193,12 @@ namespace Media.Rtsp
         /// </summary>
         public int Length
         {
+
+            //TODO See m_RawLength;
+
             get
             {
-                int length = 0;
+                int length = 0, lineEndsLength = m_EncodedLineEnds.Length;
 
                 if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
                 {
@@ -1195,7 +1216,7 @@ namespace Media.Rtsp
 
                     length += Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
 
-                    length += 2;
+                    length += lineEndsLength;
                 }
                 else if (MessageType == RtspMessageType.Response)
                 {
@@ -1213,12 +1234,12 @@ namespace Media.Rtsp
 
                     length += Encoding.GetByteCount(StatusCode.ToString());
 
-                    length += 2;
+                    length += lineEndsLength;
                 }
 
                 try
-                {                                                                                                             //m_Headers.Count * 3 means each header has a ':' and \r\n sequence, + 2 for the end header \r\n
-                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_Encoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * 3 + 2 + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value)) : 0);
+                {                                                                                                             //m_Headers.Count *  means each header has a ':' and lineEndsLength sequence, + lineEndsLength for the end headersequence
+                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_Encoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * (1 + lineEndsLength) + lineEndsLength + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value)) : 0);
                 }
                 catch (InvalidOperationException)
                 {
@@ -1406,7 +1427,7 @@ namespace Media.Rtsp
         /// Constructs a RtspMessage
         /// </summary>
         /// <param name="messageType">The type of message to construct</param>
-        public RtspMessage(RtspMessageType messageType, double? version = 1.0, Encoding encoding = null) { MessageType = messageType; Version = version ?? 1.0; Encoding = encoding ?? Encoding.UTF8; }
+        public RtspMessage(RtspMessageType messageType, double? version = 1.0, Encoding encoding = null) { MessageType = messageType; Version = version ?? 1.0; Encoding = encoding ?? DefaultEncoding; }
 
         /// <summary>
         /// Creates a RtspMessage from the given bytes
@@ -1460,25 +1481,23 @@ namespace Media.Rtsp
 
             length = Utility.Clamp(length, 0, data.Length);
 
-            //Use the static line ends (\r\n)
-            m_EncodedLineEnds = LineEnds;
-
             //use the supplied encoding if present.
-            if (encoding != null && encoding != Encoding)
+            if (encoding != null &&
+                encoding != Encoding)
             {
                 Encoding = encoding;
 
-                m_EncodedLineEnds = Encoding.Convert(RtspMessage.DefaultEncoding, Encoding, m_EncodedLineEnds);
+                m_EncodedLineEnds = Encoding.GetChars(UTF8LineEndingBytes);
             }
 
             //Syntax, what syntax? there is no syntax ;)
 
-            int start = offset, count = length, firstLineLength = -1;
+            int start = offset, count = length;//, firstLineLength = -1;
 
             //RTSP in the encoding of the request
             //byte[] encodedIdentifier = Encoding.GetBytes(MessageIdentifier); int encodedIdentifierLength = encodedIdentifier.Length;
 
-            int requiredEndLength = 1; //2.0 specifies that CR and LF must be present
+            //int requiredEndLength = 1; //2.0 specifies that CR and LF must be present
 
             //Skip any non character data.
             while (false == char.IsLetter((char)data[start]))
@@ -1487,28 +1506,11 @@ namespace Media.Rtsp
                 ++start;
             }
 
-            //Find the end of the first line first,
-            //If it cannot be found then the message does not contain the end line
-            firstLineLength = Utility.ContainsBytes(data, ref start, ref count, m_EncodedLineEnds, 0, requiredEndLength);
-
-            //Assume everything belongs to the first line.
-            if (firstLineLength - offset > count || firstLineLength == -1 || firstLineLength < 9)
-            {
-                start = offset;
-                firstLineLength = length;
-            }
-            else
-            {
-                //The length of the first line is given by the difference of start
-                firstLineLength -= start;
-            }
-
-
             //Create the buffer
-            m_Buffer = new System.IO.MemoryStream(firstLineLength);
+            m_Buffer = new System.IO.MemoryStream(count);
 
             //Write the data to the buffer
-            m_Buffer.Write(data, start, firstLineLength);
+            m_Buffer.Write(data, start, count);
 
             //Attempt to parse the data given as a StatusLine.
             if (false == ParseStatusLine()) return;
@@ -1595,10 +1597,14 @@ namespace Media.Rtsp
 
             //Get what we believe to be the first line
             //... containing the method to be applied to the resource,the identifier of the resource, and the protocol version in use;
-            string StatusLine = Utility.ReadLine(m_Buffer, Encoding);
+            //Todo, should use EncodingExtensions if the header is allowed to be in an alternate format.
+            //Should store and only parse as needed?
+            string StatusLine;// = Media.Common.ASCII.ReadLine(m_Buffer, Encoding);
+
+            long read;
 
             //If it was not present then do not parse further
-            if (StatusLine.Length < MinimumStatusLineSize)
+            if (false == Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(Encoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out StatusLine, out read, false) && StatusLine.Length < MinimumStatusLineSize)
             {
                 MessageType = RtspMessageType.Invalid;
 
@@ -1640,12 +1646,13 @@ namespace Media.Rtsp
 
                 MethodString = parts[0].Trim();
 
+                //Extract PrecisionNumber should use EncodingExtensions
                 //UriDecode?
 
                 if (string.IsNullOrWhiteSpace(MethodString) ||
                     false == Uri.TryCreate(parts[1], UriKind.RelativeOrAbsolute, out Location) ||
                     parts[2].Length <= 5 ||
-                    false == double.TryParse(Utility.ExtractPrecisionNumber(parts[2].Substring(5)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
+                    false == double.TryParse(Media.Common.ASCII.ExtractPrecisionNumber(parts[2].Substring(5)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
                     return false;
                 }
@@ -1654,9 +1661,10 @@ namespace Media.Rtsp
             {
                 //S->C[0]RTSP/1.0[1]200[2]OK()
 
+                //Extract PrecisionNumber should use EncodingExtensions
                 if (false == int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_StatusCode) ||
                     parts[0].Length <= 5 ||
-                    false == double.TryParse(Utility.ExtractPrecisionNumber(parts[0].Substring(5)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
+                    false == double.TryParse(Media.Common.ASCII.ExtractPrecisionNumber(parts[0].Substring(5)), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out m_Version))
                 {
                     return false;
                 }
@@ -1703,15 +1711,22 @@ namespace Media.Rtsp
                 //Store the headerName
                 string headerName = null;
 
-
                 //While we didn't find the end of the header section
                 while (position < max && emptyLine <= 2)
                 {
                 //Read a line using the encoding determined so far.
                 ReadLine:
 
+                    //Should use EncodingExtensions
                     //Might want a flag that a newline was read to ensure that we don't try to parse incomplete values.
-                    string rawLine = Utility.ReadLine(m_Buffer, Encoding);
+                    string rawLine ;//= Media.Common.ASCII.ReadLine(m_Buffer, Encoding);
+
+                    long read;
+
+                    if (false == Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(Encoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out rawLine, out read, false))
+                    {
+                        break;
+                    }
 
                     //Check for the empty line
                     if (string.IsNullOrWhiteSpace(rawLine))
@@ -1825,7 +1840,8 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(contentLength)) return;
 
             //If there is a header parse it's value.
-            if (false == int.TryParse(Utility.ExtractNumber(contentLength), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_ContentLength))
+            //Should use EncodingExtensions
+            if (false == int.TryParse(Media.Common.ASCII.ExtractNumber(contentLength), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_ContentLength))
             {
                 //There was not a content-length in the format '1234'
 
@@ -1857,7 +1873,7 @@ namespace Media.Rtsp
                 System.Text.EncodingInfo requested = System.Text.Encoding.GetEncodings().FirstOrDefault(e => string.Compare(e.Name, contentEncoding, false, System.Globalization.CultureInfo.InvariantCulture) == 0);
 
                 if (requested != null) contentDecoder = requested.GetEncoding();
-                else if (true == raiseWhenNotFound) Common.ExceptionExtensions.RaiseTaggedException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
+                else if (true == raiseWhenNotFound) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(contentEncoding, "The given message was encoded in a Encoding which is not present on this system and no fallback encoding was acceptible to decode the message. The tag has been set the value of the requested encoding");
                 else contentDecoder = System.Text.Encoding.Default;
             }
 
@@ -1875,7 +1891,8 @@ namespace Media.Rtsp
             if (string.IsNullOrWhiteSpace(sequenceNumber)) return;
 
             //If there is a header parse it's value.
-            if (false == int.TryParse(Utility.ExtractNumber(sequenceNumber), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_CSeq))
+            //Should use EncodingExtensions
+            if (false == int.TryParse(Media.Common.ASCII.ExtractNumber(sequenceNumber), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out m_CSeq))
             {
                 //There was not a content-length in the format '1234'
 
@@ -1924,7 +1941,7 @@ namespace Media.Rtsp
 
                     //Ensure no control characters were left from parsing of the header values if more data is available then remains
                     //only do this one time
-                    if (available > 0 && char.IsControl(((char)buffer[position])))
+                    if (available > 0 && Array.IndexOf<char>(m_EncodedLineEnds, (char)buffer[position]) >= 0)
                     {
                         ++position;
                         --available;
@@ -2108,109 +2125,144 @@ namespace Media.Rtsp
         {
             List<byte> result = new List<byte>(RtspMessage.MaximumLength);
 
-            if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
-            {
-                result.AddRange(Encoding.GetBytes(Method.ToString()));
-                
-                result.Add(Common.ASCII.Space);
-
-                //UriEncode?
-
-                result.AddRange(Encoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString()));
-
-                result.Add(Common.ASCII.Space);
-
-                result.AddRange(Encoding.GetBytes(RtspMessage.MessageIdentifier));
-
-                result.Add(Common.ASCII.ForwardSlash);
-
-                result.AddRange(Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture)));
-
-                result.AddRange(Encoding.GetBytes(CRLF));
-            }
-            else if (MessageType == RtspMessageType.Response)
-            {
-                result.AddRange(Encoding.GetBytes(RtspMessage.MessageIdentifier));
-
-                result.Add(Common.ASCII.ForwardSlash);
-
-                result.AddRange(Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture)));
-
-                result.Add(Common.ASCII.Space);
-
-                result.AddRange(Encoding.GetBytes(((int)StatusCode).ToString()));
-
-                result.Add(Common.ASCII.Space);
-
-                result.AddRange(Encoding.GetBytes(StatusCode.ToString()));
-
-                result.AddRange(Encoding.GetBytes(CRLF));
-            }
+            result.AddRange(PrepareStatusLine().ToArray());
 
             if (MessageType == RtspMessageType.Invalid) return result.ToArray();
 
-            byte[] encodedCRLF = Encoding.GetBytes(CRLF);
+            //Add the header bytes
+            result.AddRange(PrepareHeaders());
 
-            List<byte> headerBytes = new List<byte>();
-
-        CreateHeaders:
-            try
-            {
-                //Write headers
-                foreach (KeyValuePair<string, string> header in m_Headers/*.OrderBy((key) => key.Key).Reverse()*/)
-                {
-                    headerBytes.AddRange(Encoding.GetBytes(header.Key));
-
-                    //Should have a Format which can be specified as desired.
-
-                    //headerBytes.Add(Common.ASCII.Space);
-
-                    headerBytes.Add(Common.ASCII.Colon);
-
-                    #region QuickTime Is the BEST
-
-                    //Welcome to 5 hours of life you can't get back combined with Deja Vu.
-                    //#&#)%& Quick Time Requires that there is a space here.. even in 7.7.7
-                    //How lovely...
-
-                    headerBytes.Add(Common.ASCII.Space);
-
-                    #endregion
-
-                    headerBytes.AddRange(Encoding.GetBytes(header.Value));
-
-                    headerBytes.AddRange(encodedCRLF);
-                }
-            }
-            catch
-            {
-                if (IsDisposed) return Utility.Empty;
-
-                headerBytes.Clear();
-
-                goto CreateHeaders;
-            }
-
-            //Merge the headerBytes
-            result.AddRange(headerBytes);
-
-            //End Header
-            result.AddRange(encodedCRLF);
-
-            //Write body if required 
-            if (false == string.IsNullOrWhiteSpace(m_Body)) result.AddRange(Encoding.GetBytes(m_Body));
-
-            //if (result.Count > RtspMessage.MaximumLength) throw new RtspMessageException("The message cannot be larger than '" + RtspMessage.MaximumLength + "' bytes. The Tag property contains the resulting binary data,", null, this, result);
+            //Add the body bytes
+            result.AddRange(PrepareBody());
 
             return result.ToArray();
         }
 
+        /// <summary>
+        /// Prepares the sequence of bytes which correspond to the options given
+        /// </summary>
+        /// <param name="includeStatusLine"></param>
+        /// <param name="includeHeaders"></param>
+        /// <param name="includeBody"></param>
+        /// <returns></returns>
+        public virtual IEnumerable<byte> Prepare(bool includeStatusLine, bool includeHeaders, bool includeBody)
+        {
+            if (includeStatusLine && includeHeaders && includeBody) return ToBytes();
+
+            IEnumerable<byte> result = Utility.Empty;
+
+            if (includeStatusLine) result = PrepareStatusLine();
+
+            if (includeHeaders) result = Enumerable.Concat(result, PrepareHeaders());
+
+            if (includeBody) result = Enumerable.Concat(result, PrepareBody());
+
+            return result;
+        }
+
+        /// <summary>
+        /// Prepares the sequence of bytes which correspond to the Message in it's current state.
+        /// </summary>
+        /// <returns></returns>
         public virtual IEnumerable<byte> Prepare()
         {
+            return Prepare(true, true, true);
+        }
 
-            //Todo, should yield as created.
+        /// <summary>
+        /// Creates the sequence of bytes which corresponds to the StatusLine
+        /// </summary>
+        /// <param name="includeEmptyLine"></param>
+        /// <returns></returns>
+        public virtual IEnumerable<byte> PrepareStatusLine(bool includeEmptyLine = true)
+        {
+            if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
+            {
+                foreach (byte b in Encoding.GetBytes(MethodString)) yield return b;
 
-            return ToBytes();
+                yield return Common.ASCII.Space;
+
+                //UriEncode?
+
+                foreach (byte b in Encoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString())) yield return b;
+
+                yield return Common.ASCII.Space;
+
+                //Could skip conversion if default encoding.
+                foreach (byte b in Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
+
+                yield return Common.ASCII.ForwardSlash;
+
+                foreach (byte b in Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+            }
+            else if (MessageType == RtspMessageType.Response)
+            {
+                //Could skip conversion if default encoding.
+                foreach (byte b in Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
+
+                yield return Common.ASCII.ForwardSlash;
+
+                foreach (byte b in Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+
+                yield return Common.ASCII.Space;
+
+                foreach (byte b in Encoding.GetBytes(((int)StatusCode).ToString())) yield return b;
+
+                yield return Common.ASCII.Space;
+
+                foreach (byte b in Encoding.GetBytes(StatusCode.ToString())/*.ToString*/) yield return b;
+            }
+
+            if (includeEmptyLine) foreach (byte b in Encoding.GetBytes(CRLF)) yield return b;
+
+        }
+
+        /// <summary>
+        /// Creates the sequence of bytes which correspond to the Headers.
+        /// </summary>
+        /// <param name="includeEmptyLine"></param>
+        /// <returns></returns>
+        public virtual IEnumerable<byte> PrepareHeaders(bool includeEmptyLine = true)
+        {
+            byte[] encodedCRLF = Encoding.GetBytes(CRLF);
+
+            //Write headers
+            foreach (KeyValuePair<string, string> header in m_Headers/*.OrderBy((key) => key.Key).Reverse()*/)
+            {
+                foreach (byte b in Encoding.GetBytes(header.Key)) yield return b;
+
+                //Should have a Format which can be specified as desired.
+
+                //yield return Common.ASCII.Space;
+
+                yield return Common.ASCII.Colon;
+
+                #region QuickTime Is the BEST
+
+                //Welcome to 5 hours of life you can't get back combined with Deja Vu.
+                //#&#)%& Quick Time Requires that there is a space here.. even in 7.7.7
+                //How lovely...
+
+                yield return Common.ASCII.Space;
+
+                #endregion
+
+                foreach (byte b in Encoding.GetBytes(header.Value)) yield return b;
+
+                foreach (byte b in encodedCRLF) yield return b;
+            }
+
+            if (includeEmptyLine) foreach (byte b in encodedCRLF) yield return b;
+
+        }
+
+        /// <summary>
+        /// Creates the sequence of bytes which correspond to the Body.
+        /// </summary>
+        /// <returns></returns>
+        public virtual IEnumerable<byte> PrepareBody()
+        {
+            foreach (byte b in Encoding.GetBytes(m_Body)) yield return b;
         }
 
         #endregion
@@ -2379,7 +2431,7 @@ namespace Media.Rtsp
                 while (remaining > 0)
                 {
                     //Receive remaining more if there is a socket otherwise use the all data in the buffer.
-                    justReceived = socket == null ? buffer.Count : Utility.AlignedReceive(buffer.Array, offset, remaining, socket, out error);
+                    justReceived = socket == null ? buffer.Count : Media.Common.Extensions.Socket.SocketExtensions.AlignedReceive(buffer.Array, offset, remaining, socket, out error);
 
                     //If anything was present then add it to the body.
                     if (justReceived > 0)

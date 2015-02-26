@@ -113,7 +113,7 @@ namespace Media.Sdp
 
             type = Utility.UnknownString;
             start = TimeSpan.Zero;
-            end = Utility.InfiniteTimeSpan;
+            end = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
 
             int offset = 0;
 
@@ -638,7 +638,7 @@ namespace Media.Sdp
         {
             string[] lines = sdpContents.Split(SessionDescription.CRLFSplit, StringSplitOptions.RemoveEmptyEntries);
 
-            if (lines.Length < 3) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid Session Description");
+            if (lines.Length < 3) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid Session Description");
 
             //Parse remaining optional entries
             for (int lineIndex = 0, endIndex = lines.Length; lineIndex < endIndex; /*Advancement of the loop controlled by the corrsponding Lines via ref*/)
@@ -1285,13 +1285,13 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (false == sdpLine.StartsWith("m=")) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Media Description");
+            if (false == sdpLine.StartsWith("m=")) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid Media Description");
             
             sdpLine = sdpLine.Replace("m=", string.Empty);
 
             string[] parts = sdpLine.Split(SessionDescription.SpaceSplit, 4);
 
-            if (parts.Length != 4) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Media Description");
+            if (parts.Length != 4) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid Media Description");
 
             try
             {
@@ -1623,7 +1623,7 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (sdpLine[0] != TimeDescriptionType) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Time Description");
+            if (sdpLine[0] != TimeDescriptionType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid Time Description");
 
             sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1720,7 +1720,7 @@ namespace Media.Sdp
                 }
                 catch (Exception ex)
                 {
-                    Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid Repeat Time", ex);
+                    Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid Repeat Time", ex);
                 }
             }
 
@@ -1924,7 +1924,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line.Length < 2 || line[1] != SessionDescription.EqualsSign) Common.ExceptionExtensions.RaiseTaggedException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line.Length < 2 || line[1] != SessionDescription.EqualsSign) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -2227,7 +2227,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != ConnectionType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionConnectionLine");
+                    if (sdpLine[0] != ConnectionType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionConnectionLine");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -2286,7 +2286,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != VersionType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionVersionLine Line");
+                    if (sdpLine[0] != VersionType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionVersionLine Line");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -2368,7 +2368,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != OriginatorType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionOriginatorLine");
+                    if (sdpLine[0] != OriginatorType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionOriginatorLine");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -2424,7 +2424,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != NameType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionNameLine");
+                    if (sdpLine[0] != NameType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionNameLine");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -2477,7 +2477,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != PhoneType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionPhoneLine");
+                    if (sdpLine[0] != PhoneType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionPhoneLine");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -2529,7 +2529,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != EmailType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionEmailLine");
+                    if (sdpLine[0] != EmailType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionEmailLine");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -2606,7 +2606,7 @@ namespace Media.Sdp
                 {
                     string sdpLine = sdpLines[index++].Trim();
 
-                    if (sdpLine[0] != LocationType) Common.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionUriLine");
+                    if (sdpLine[0] != LocationType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Invalid SessionUriLine");
 
                     sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 

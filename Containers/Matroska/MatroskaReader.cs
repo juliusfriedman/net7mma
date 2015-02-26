@@ -33,11 +33,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  * 
  * v//
  */
-using Media.Container;
+
+
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Collections.Generic;
 using System.Text;
+using Media.Common;
+using Media.Container;
 
 namespace Media.Containers.Matroska
 {
@@ -612,7 +615,7 @@ namespace Media.Containers.Matroska
     /// </summary>
     public class MatroskaReader : MediaFileStream, IMediaContainer
     {
-        const int DefaulTimeCodeScale = (int)Utility.NanosecondsPerMillisecond, DefaultMaxIdSize = 4, DefaultMaxSizeLength = 8;
+        const int DefaulTimeCodeScale = (int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, DefaultMaxIdSize = 4, DefaultMaxSizeLength = 8;
 
         static DateTime BaseDate = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
@@ -646,10 +649,10 @@ namespace Media.Containers.Matroska
                 int left = id_length - 1;
                 byte[] remainder = new byte[left];
                 reader.Read(remainder, 0, left);
-                return header_byte.Yield().Concat(remainder).ToArray();
+                return Media.Common.Extensions.Linq.LinqExtensions.Yield(header_byte).Concat(remainder).ToArray();
             }
 
-            return header_byte.Yield().ToArray();
+            return Media.Common.Extensions.Linq.LinqExtensions.Yield(header_byte).ToArray();
         }
          //
         static byte[] ReadLength(System.IO.Stream reader, out int length)
@@ -683,10 +686,10 @@ namespace Media.Containers.Matroska
                 int left = size_length - 1;
                 byte[] remainder = new byte[left];
                 reader.Read(remainder, 0, left);
-                return header_byte.Yield().Concat(remainder).ToArray();
+                return Media.Common.Extensions.Linq.LinqExtensions.Yield(header_byte).Concat(remainder).ToArray();
             }
 
-            return header_byte.Yield().ToArray();
+            return Media.Common.Extensions.Linq.LinqExtensions.Yield(header_byte).ToArray();
         }
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
@@ -931,7 +934,7 @@ namespace Media.Containers.Matroska
                             case Identifier.DateUTC:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    m_Created = BaseDate.AddMilliseconds(Utility.NanosecondsPerSecond / Common.Binary.ReadInteger(buffer, 0, (int)length, BitConverter.IsLittleEndian));
+                                    m_Created = BaseDate.AddMilliseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond / Common.Binary.ReadInteger(buffer, 0, (int)length, BitConverter.IsLittleEndian));
                                     offset += length;
                                     continue;
                                 }
@@ -1244,7 +1247,7 @@ namespace Media.Containers.Matroska
                                     //Really the sample Rate?
                                     //Number of nanoseconds (not scaled via TimecodeScale) per frame ('frame' in the  sense -- one element put into a (Simple)Block).
                                     stream.Read(buffer, 0, (int)length);
-                                    if (mediaType == Sdp.MediaType.video)rate =  Utility.NanosecondsPerSecond / (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
+                                    if (mediaType == Sdp.MediaType.video)rate =  Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond / (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     else rate = (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
                                     offset += length;
                                     continue;
@@ -1253,7 +1256,7 @@ namespace Media.Containers.Matroska
                                 {
                                     stream.Read(buffer, 0, (int)length);
                                     rate = (double)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);
-                                    trackDuration = (ulong)(Utility.NanosecondsPerSecond * rate);
+                                    trackDuration = (ulong)(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond * rate);
                                     offset += length;
                                     continue;
                                 }
@@ -1382,7 +1385,7 @@ namespace Media.Containers.Matroska
                         }
                     }
 
-                    Track track = new Track(trackEntryElement, trackName, (int)trackId, m_Created.Value, m_Modified.Value, (int)sampleCount, (int)height, (int)width, TimeSpan.Zero, TimeSpan.FromMilliseconds((trackDuration / Utility.NanosecondsPerSecond) * timeCodeScale / TimeSpan.TicksPerMillisecond), rate, mediaType, codecIndication, channels, bitsPerSample);
+                    Track track = new Track(trackEntryElement, trackName, (int)trackId, m_Created.Value, m_Modified.Value, (int)sampleCount, (int)height, (int)width, TimeSpan.Zero, TimeSpan.FromMilliseconds((trackDuration / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond) * timeCodeScale / TimeSpan.TicksPerMillisecond), rate, mediaType, codecIndication, channels, bitsPerSample);
 
                     yield return track;
 

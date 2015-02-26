@@ -640,7 +640,7 @@ namespace Media.Containers.Ogg
                                         //bitrate nominal 4 8 bits in a byte
 
                                         //bitRate
-                                        bitDepth = (byte)((Common.Binary.ReadU32(startPage.Data, 20, !BitConverter.IsLittleEndian) + 7) / Utility.MicrosecondsPerMillisecond);
+                                        bitDepth = (byte)((Common.Binary.ReadU32(startPage.Data, 20, !BitConverter.IsLittleEndian) + 7) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
 
                                         //bitrate lower 4
 
@@ -1056,7 +1056,7 @@ namespace Media.Containers.Ogg
                             //Todo, Double check these calulcations.
                             //Might need to adjust per codec..
 
-                            duration = Math.Max(sampleCount / rate, (duration / Utility.MicrosecondsPerMillisecond) - sampleCount / rate);
+                            duration = Math.Max(sampleCount / rate, (duration / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond) - sampleCount / rate);
 
                             //Usually closer to actual time unless the above was greater
                             //duration /= 1000;
@@ -1157,7 +1157,7 @@ namespace Media.Containers.Ogg
                     //Start Time (Gainule Position from startPage)
                       TimeSpan.FromMilliseconds(Common.Binary.Read64(startPage.Identifier, 6, !BitConverter.IsLittleEndian)), 
                     //Duration
-                      duration < 0 ? Media.Utility.InfiniteTimeSpan : TimeSpan.FromSeconds(duration),
+                      duration < 0 ? Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan : TimeSpan.FromSeconds(duration),
                     //Framerate mediaType
                       rate, mediaType,
                     //Codec, channels bitDepth

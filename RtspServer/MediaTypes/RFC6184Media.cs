@@ -37,12 +37,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 //http://tools.ietf.org/html/rfc6184
 
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 
 namespace Media.Rtsp.Server.MediaTypes
 {
@@ -70,23 +69,14 @@ namespace Media.Rtsp.Server.MediaTypes
                 if (nals == null || nals.Count() == 0) throw new InvalidOperationException("Must have at least one nal");
 
                 //Get the data required which consists of the Length and the nal.
-                IEnumerable<byte> data = nals.SelectMany(n => {
-
-                    byte[] lengthBytes = new byte[2];
-                    Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
-
-                    return lengthBytes.Concat(n);
-                });
+                IEnumerable<byte> data = nals.SelectMany(n => Common.Binary.GetBytes((short)n.Length, BitConverter.IsLittleEndian).Concat(n));
 
                 //STAP - B has DON at the very beginning
                 if (DON.HasValue)
                 {
-                    byte[] DONBytes = new byte[2];
-                    Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
-
-                    data = Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB.Yield().Concat(DONBytes).Concat(data);
+                    data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationB).Concat(Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian)).Concat(data);
                 }//STAP - A
-                else data = Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA.Yield().Concat(data);
+                else data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.SingleTimeAggregationA).Concat(data);
 
                 return data.ToArray();
             }
@@ -109,14 +99,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     Common.Binary.Write24(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
 
-                    return dond.Yield().Concat(lengthBytes).Concat(n);
+                    return Media.Common.Extensions.Linq.LinqExtensions.Yield(dond).Concat(lengthBytes).Concat(n);
                 });
 
                 //MTAP has DON at the very beginning
-                byte[] DONBytes = new byte[2];
-                Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
-
-                data = Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16.Yield().Concat(DONBytes).Concat(data);
+                data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation16).Concat(Media.Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian)).Concat(data);
 
                 return data.ToArray();
             }
@@ -140,14 +127,11 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     Common.Binary.Write16(tsOffsetBytes, 0, BitConverter.IsLittleEndian, tsOffset);
                     
-                    return dond.Yield().Concat(tsOffsetBytes).Concat(lengthBytes).Concat(n);
+                    return Media.Common.Extensions.Linq.LinqExtensions.Yield(dond).Concat(tsOffsetBytes).Concat(lengthBytes).Concat(n);
                 });
 
                 //MTAP has DON at the very beginning
-                byte[] DONBytes = new byte[2];
-                Common.Binary.Write16(DONBytes, 0, BitConverter.IsLittleEndian, (short)DON);
-
-                data = Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24.Yield().Concat(DONBytes).Concat(data);
+                data = Media.Common.Extensions.Linq.LinqExtensions.Yield(Media.Codecs.Video.H264.NalUnitType.MultiTimeAggregation24).Concat(Media.Common.Binary.GetBytes((short)DON, BitConverter.IsLittleEndian)).Concat(data);
 
                 return data.ToArray();
             }
@@ -259,12 +243,13 @@ namespace Media.Rtsp.Server.MediaTypes
                         {
                             //FU (A/B) Indicator with F and NRI
                             //Start Bit Set with Original NalType
-                            data = Enumerable.Concat(fragmentIndicator.Yield(), ((byte)(0x80 | nalType)).Yield());
+
+                            data = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(fragmentIndicator), Media.Common.Extensions.Linq.LinqExtensions.Yield(((byte)(0x80 | nalType))));
                         }
                         else if (offset + mtu > nalLength)
                         {
                             //End Bit Set with Original NalType
-                            data = Enumerable.Concat(fragmentIndicator.Yield(), ((byte)(0x40 | nalType)).Yield());
+                            data = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(fragmentIndicator), Media.Common.Extensions.Linq.LinqExtensions.Yield(((byte)(0x40 | nalType))));
 
                             //Rtp marker bit is also set
                             marker = true;
@@ -272,7 +257,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         else//For packets other than the start or end
                         {
                             //No Start, No End
-                            data = Enumerable.Concat(fragmentIndicator.Yield(), nalType.Yield());
+                            data = Enumerable.Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield(fragmentIndicator), Media.Common.Extensions.Linq.LinqExtensions.Yield(nalType));
                         }
 
                         //Add the data the fragment data from the original nal
