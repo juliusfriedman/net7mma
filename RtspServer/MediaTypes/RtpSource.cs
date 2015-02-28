@@ -114,7 +114,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 if (RtpClient != null)
                 {
-                    RtpClient.Connect();
+                    RtpClient.Activate();
 
                     base.Ready = true;
 

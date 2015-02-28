@@ -156,7 +156,7 @@ namespace Media.Rtsp
                 if (Playing.Count > 0)
                 {
                     // A null or disposed client or one which is no longer connected cannot share the socket
-                    if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsConnected) return false;
+                    if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsActive) return false;
 
                     //If the transport is not null and the handle is equal to the rtsp socket's handle
                     if (((Common.ISocketReference)m_RtpClient).GetReferencedSockets().Any(s => s.Handle == m_RtspSocket.Handle))
@@ -801,9 +801,9 @@ namespace Media.Rtsp
             //Set the MediaProperties header.
 
             //Ensure RtpClient is now connected connected so packets will begin to go out when enqued
-            if (false == m_RtpClient.IsConnected)
+            if (false == m_RtpClient.IsActive)
             {
-                m_RtpClient.Connect();
+                m_RtpClient.Activate();
                 
                 //m_RtpClient.m_WorkerThread.Priority = ThreadPriority.Highest;
             }

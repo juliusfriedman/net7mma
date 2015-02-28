@@ -246,7 +246,9 @@ namespace Media.Rtsp.Server.MediaTypes
                payload MUST be ignored.
                  */
 
-                throw new NotImplementedException();
+                //Assemble all data to the buffer
+
+                Buffer = new System.IO.MemoryStream(Assemble().ToArray());
             }
 
             internal void DisposeBuffer()
@@ -261,7 +263,9 @@ namespace Media.Rtsp.Server.MediaTypes
             public override void Dispose()
             {
                 if (IsDisposed) return;
+
                 base.Dispose();
+
                 DisposeBuffer();
             }
         }

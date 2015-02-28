@@ -1360,7 +1360,7 @@ namespace Media.Rtsp
                 else //Zero  bytes were received either due to consumption of data or lack thereof.
                 {
                     //If there is a rtp client but it was disposed or disconnected
-                    if (session.m_RtpClient == null || session.m_RtpClient.IsDisposed || false == session.m_RtpClient.IsConnected)
+                    if (session.m_RtpClient == null || session.m_RtpClient.IsDisposed || false == session.m_RtpClient.IsActive)
                     {
                         //Mark the session as Disconnected
                         session.IsDisconnected = true;
@@ -2528,7 +2528,7 @@ namespace Media.Rtsp
 
                 //Stop transport level activity if required
                 if (session.m_RtpClient != null &&
-                    session.m_RtpClient.IsConnected) session.m_RtpClient.SendGoodbyes();
+                    session.m_RtpClient.IsActive) session.m_RtpClient.SendGoodbyes();
 
                 //Remove all attachments and clear playing
                 session.RemoveAllAttachmentsAndClearPlaying();

@@ -41,9 +41,6 @@ using System.Text;
 
 namespace Media.Rtsp
 {
-
-    //ContentEncodings...
-
     /// <summary>
     /// Header Definitions from RFC2326
     /// http://www.ietf.org/rfc/rfc2326.txt
@@ -2460,5 +2457,38 @@ namespace Media.Rtsp
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Provides tests which ensure the logic of the RtspMessage class is correct
+    /// </summary>
+    internal class RtspMessgeUnitTests
+    {
+
+        public static void TestRedirect()
+        {
+            Media.Rtsp.RtspMessage request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
+            request.Location = new Uri("rtsp://someServer.com");
+            request.Method = Media.Rtsp.RtspMethod.REDIRECT;
+            request.Version = 7;
+            request.CSeq = 2;
+
+            byte[] bytes = request.ToBytes();
+
+            Media.Rtsp.RtspMessage fromBytes = new Media.Rtsp.RtspMessage(bytes);
+
+            if (!(fromBytes.Method == request.Method && 
+                fromBytes.Location == request.Location && 
+                fromBytes.CSeq == request.CSeq))
+            {
+                throw new Exception("Request Testing Failed!");
+            }
+        }
+
+        public static void TestResponse()
+        {
+           
+        }
+
     }
 }

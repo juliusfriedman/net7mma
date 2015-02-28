@@ -67,6 +67,11 @@ namespace Media.Rtp
 
         //SourceList which should be added to each packet int the frame?
 
+        /// <summary>
+        /// Indicates if the frame will ensure that all packets added have the same <see cref="RtpPacket.PayloadType"/>
+        /// </summary>
+        public bool AllowMultiplePayloadTypes { get; set; }
+
         public readonly DateTime Created;
 
         /// <summary>
@@ -149,11 +154,14 @@ namespace Media.Rtp
 
         #region Constructor
 
-        public RtpFrame(int payloadType)
+        public RtpFrame()
         {
             //Indicate when this instance was created
             Created = DateTime.UtcNow;
+        }
 
+        public RtpFrame(int payloadType) : this()
+        {
             if (payloadType > byte.MaxValue) throw Common.Binary.CreateOverflowException("payloadType", payloadType, byte.MinValue.ToString(), byte.MaxValue.ToString());
 
             //Assign the type of RtpFrame
@@ -214,19 +222,22 @@ namespace Media.Rtp
         {
             if (packet == null) throw new ArgumentNullException("packet");
 
-            //Check payload type
-            if (packet.PayloadType != m_PayloadByte) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
-
-            int count = Count, ssrc = packet.SynchronizationSourceIdentifier, seq = packet.SequenceNumber, ts = packet.Timestamp;
+           
+            int count = Count, ssrc = packet.SynchronizationSourceIdentifier, seq = packet.SequenceNumber, ts = packet.Timestamp, pt = packet.PayloadType;
 
             if (count == 0)
             {
                 if(m_Ssrc != ssrc) m_Ssrc = ssrc;
 
                 if(m_Timestamp != ts) m_Timestamp = ts;
+
+                if (m_PayloadByte != pt) m_PayloadByte = (byte)pt;
             }
             else
             {
+                //Check payload type if indicated
+                if (AllowMultiplePayloadTypes == false && pt != m_PayloadByte) throw new ArgumentException("packet.PayloadType must match frame PayloadType", "packet");
+
                 if (ssrc != m_Ssrc) throw new ArgumentException("packet.SynchronizationSourceIdentifier must match frame SynchronizationSourceIdentifier", "packet");
                 
                 if (ts != Timestamp) throw new ArgumentException("packet.Timestamp must match frame Timestamp", "packet");
