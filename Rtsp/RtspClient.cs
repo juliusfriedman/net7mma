@@ -56,6 +56,8 @@ namespace Media.Rtsp
     /// </summary>
     public class RtspClient : Common.BaseDisposable, Media.Common.ISocketReference
     {
+
+        //Todo use SocketConfiguration
         /// <summary>
         /// Handle the configuration required for the given socket
         /// </summary>
@@ -203,7 +205,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the RtspClient is currently sending or receiving data.
         /// </summary>
-        public bool InOperation { get { return false == m_InterleaveEvent.IsSet && m_InterleaveEvent.Wait((int)((m_RtspSessionTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval)); } }
+        public bool InUse { get { return false == m_InterleaveEvent.IsSet && m_InterleaveEvent.Wait((int)((m_RtspSessionTimeout.TotalMilliseconds + 1) / m_ResponseTimeoutInterval)); } }
 
         /// <summary>
         /// Indicates if the <see cref="StartedPlaying"/> property will be set as a result of handling the Play event.
@@ -313,7 +315,7 @@ namespace Media.Rtsp
                 if (IsDisposed) return true;
 
                 // A null or disposed client or one which is no longer connected cannot share the socket
-                if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsConnected) return false;
+                if (m_RtpClient == null || m_RtpClient.IsDisposed || false == m_RtpClient.IsActive) return false;
 
                 //The socket is shared if there is a context using the same socket
                 var context = m_RtpClient.GetContextBySocket(m_RtspSocket);
@@ -455,7 +457,7 @@ namespace Media.Rtsp
                         }
 
                         //If the media is playing the RtspClient is only playing if the socket is shared or the Transport is connected.
-                        return SharesSocket || m_RtpClient.IsConnected;
+                        return SharesSocket || m_RtpClient.IsActive;
                     }
                     catch (Exception ex)
                     {
@@ -965,7 +967,7 @@ namespace Media.Rtsp
 
             Connect();
 
-            if (reconnectClient && IsPlaying && false == m_RtpClient.IsConnected) m_RtpClient.Connect();
+            if (reconnectClient && IsPlaying && false == m_RtpClient.IsActive) m_RtpClient.Activate();
         }
 
         internal protected virtual void ProcessRemoteGetParameter(RtspMessage get)
@@ -1898,7 +1900,7 @@ namespace Media.Rtsp
 
                 //If there is an RtpClient already connected then attempt to find a socket used by the client with the EndPoint
                 //required to be connected to
-                if (m_RtpClient != null && m_RtpClient.IsConnected)
+                if (m_RtpClient != null && m_RtpClient.IsActive)
                 {
                     foreach (var socket in ((ISocketReference)m_RtpClient).GetReferencedSockets())
                     {
@@ -2144,7 +2146,7 @@ namespace Media.Rtsp
                 }
             }     
        
-            if (Client != null && Client.IsConnected) Client.Disconnect();
+            if (Client != null && Client.IsActive) Client.Disconnect();
 
             DisconnectSocket();
         }
@@ -2392,7 +2394,7 @@ namespace Media.Rtsp
 
 
                 //Wait for any existing requests to finish first
-                wasBlocked = InOperation;
+                wasBlocked = InUse;
 
                 //If was block wait for that to finish
                 //if (wasBlocked) m_InterleaveEvent.Wait();
@@ -2575,7 +2577,7 @@ namespace Media.Rtsp
                             && ++attempt <= m_ResponseTimeoutInterval)
                         {
                             //Wait a small amount of time for the response because the cancellation token was not used...
-                            if (IsDisposed || InOperation)
+                            if (IsDisposed || InUse)
                             {
                                 //There may be a response
                                 continue;
@@ -2608,7 +2610,7 @@ namespace Media.Rtsp
                                     //Ensure the client transport is connected if previously playing and it has since disconnected.
                                     if (IsPlaying && 
                                         m_RtpClient != null &&
-                                        false == m_RtpClient.IsConnected) m_RtpClient.Connect();
+                                        false == m_RtpClient.IsActive) m_RtpClient.Activate();
                                 }
 
                                 //If the client was not disposed re-trasmit the request if there is not a response pending already.
@@ -3850,7 +3852,7 @@ namespace Media.Rtsp
                             if (false == keepAlives) DisableKeepAliveRequest = true;
 
                             //Wait for any existing request to complete
-                            if (InOperation)
+                            if (InUse)
                             {
                                 //Restore value
                                 DisableKeepAliveRequest = keepAlives;
@@ -3864,7 +3866,7 @@ namespace Media.Rtsp
                             StopPlaying();
 
                             //Wait for any existing request to complete
-                            if (InOperation) return;
+                            if (InUse) return;
 
                             //Cache
                             while (IsPlaying)
@@ -4005,7 +4007,7 @@ namespace Media.Rtsp
                             if (m_RtpClient != null)
                             {
                                 //Connect the client now.
-                                m_RtpClient.Connect();                                
+                                m_RtpClient.Activate();                                
                             }
 
                             //Set EndTime based on Range
@@ -4205,7 +4207,7 @@ namespace Media.Rtsp
                     //Ensure transport is connected. (will be done in play...)
                     //if (false == m_RtpClient.IsConnected) m_RtpClient.Connect();
 
-                    if (InOperation) return;
+                    if (InUse) return;
 
                     DisableKeepAliveRequest = true;
 
@@ -4307,7 +4309,7 @@ namespace Media.Rtsp
         public void EnsureMediaFlow()
         {
 
-            if (InOperation) return;
+            if (InUse) return;
 
             DisableKeepAliveRequest = true;
 

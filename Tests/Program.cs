@@ -238,6 +238,8 @@ namespace Tests
 
                 Console.WriteLine("Read:" + read);
 
+                Console.WriteLine("Bits:" + Convert.ToString(read, 2));
+
                 //Test writing and parsing the same value
             }
 
@@ -252,6 +254,8 @@ namespace Tests
                 //int size = 16,
                 //    ops = (int)Math.Pow(2, 16);
 
+                //Todo Seperate into Individual Tests
+
                 //65535 iterations uses 16 bits of a 32 bit integer
                 for (ushort v = ushort.MinValue; v < ushort.MaxValue; ++v)
                 {
@@ -264,15 +268,15 @@ namespace Tests
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
                     else if (Media.Common.Binary.ReadInteger(Octets, 0, 2, reverse) != v) throw new Exception("Can't read back what was written");
 
-                    if (reverse)
-                    {
-                        if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.DoubleBitSize, !reverse)) != reversed)
-                            throw new Exception("GetBit Does not Work");
-                    }
-                    else if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.DoubleBitSize, reverse)) != v)
+                    if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.DoubleBitSize, reverse)) != v)
+                        throw new Exception("GetBit Does not Work");
+
+                    if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.DoubleBitSize, !reverse)) != reversed)
                         throw new Exception("GetBit Does not Work");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                    Console.WriteLine(Convert.ToString(v, 2));
                 }
 
                 //Repeat the test using each permutation of 16 bits not yet tested within the 4 octets which provide an integer of 32 bits
@@ -288,15 +292,15 @@ namespace Tests
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
                     else if (Media.Common.Binary.ReadInteger(Octets, 0, 4, reverse) != v) throw new Exception("Can't read back what was written");
 
-                    if (reverse)
-                    {
-                        if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.QuadrupleBitSize, !reverse)) != reversed)
-                            throw new Exception("GetBit Does not Work");
-                    }
-                    else if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.QuadrupleBitSize, reverse)) != v)
+                    if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.QuadrupleBitSize, reverse)) != v)
+                        throw new Exception("GetBit Does not Work");
+
+                    if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.QuadrupleBitSize, !reverse)) != reversed)
                         throw new Exception("GetBit Does not Work");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                    Console.WriteLine(Convert.ToString(v, 2));
                 }
 
                 //Repeat the test using each permuation of 16 bits within the 8 octets which provide an integer of 64 bits.
@@ -317,15 +321,15 @@ namespace Tests
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
                     else if ((ulong)Media.Common.Binary.ReadInteger(Octets, 0, 8, reverse) != v) throw new Exception("Can't read back what was written");
 
-                    if (reverse)
-                    {
-                        if ((ulong)(read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.OctupleBitSize, !reverse)) != reversed)
-                            throw new Exception("GetBit Does not Work");
-                    }
-                    else if ((read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.OctupleBitSize, reverse)) != (long)v)
-                            throw new Exception("GetBit Does not Work");
+                    if ((ulong)(read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.OctupleBitSize, reverse)) != v)
+                        throw new Exception("GetBit Does not Work");
+
+                    if ((ulong)(read = Media.Common.Binary.ReadBits(Octets, 0, Media.Common.Binary.OctupleBitSize, !reverse)) != reversed)
+                        throw new Exception("GetBit Does not Work");
 
                     Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                    Console.WriteLine(Convert.ToString((long)v, 2));
                 }
 
                 ////Do it again in reverse (without a for)
@@ -604,10 +608,10 @@ namespace Tests
                                 receiversContext.Initialize(acceptedSocket);
 
                                 //Connect the sender
-                                sender.Connect();
+                                sender.Activate();
 
                                 //Connect the reciver (On the `otherside`)
-                                receiver.Connect();
+                                receiver.Activate();
 
                             }), null);
 
@@ -634,10 +638,10 @@ namespace Tests
                             sendersContext.Initialize(localIp, localIp, ougoingRtpPort, xrtcpPort, incomingRtpPort, rtcpPort);
 
                             //Connect the sender
-                            sender.Connect();
+                            sender.Activate();
 
                             //Connect the reciver (On the `otherside`)
-                            receiver.Connect();
+                            receiver.Activate();
 
                         }
 
@@ -652,7 +656,7 @@ namespace Tests
                         sender.SendRtpFrame(testFrame);
 
                         //Wait for the senders report to be sent AND for the frame to be sent at least one time while the sender is connected
-                        while (sender.IsConnected && (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
+                        while (sender.IsActive && (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (sendersContext.SendersReport != null)
@@ -667,7 +671,7 @@ namespace Tests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
                         //Wait for a receivers report to be sent while the receiver is connected
-                        while (receiver.IsConnected && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
+                        while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
 
                         //Print the report information
                         if (receiversContext.ReceiversReport != null)
@@ -987,6 +991,9 @@ namespace Tests
 
         static void TestRtspMessage()
         {
+
+            //CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.Rtsp.RtspMessgeUnitTests), typeOfVoid);
+
             Media.Rtsp.RtspMessage request = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Request);
             request.Location = new Uri("rtsp://someServer.com");
             request.Method = Media.Rtsp.RtspMethod.REDIRECT;
@@ -1912,7 +1919,9 @@ namespace Tests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //Down :(
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
@@ -2463,35 +2472,81 @@ namespace Tests
 
         static void TestRFC3640AudioFrame()//Should be seperate file with more tests with known types, audio and video and also known values in the data e.g. audio unit size and length, video unit size and length.
         {
-
-            byte[] packetBytes = Utility.HexStringToBytes("80e10ff35542be13c1e3b03e00100fc8013a342a10ba0c0a8302a0c19b854cd565d5e55ca96c956de99710011bfb0db6123de23e7cd65294dba992cf62f10cb9599c8da1f50d17efec19cdbc04e62ea37f123a82ee38dfcdb8bf1a316c2d99fcd4e67118993bf3637dbdfca36030952500d53373457e17c0bf2f5fa77ebac84b0b4bf9835081cd60b1dc4e9f7df8810fb194e79790a4bc591635d1a7a6fa12ee9af2abbf279f26e365f89e3221ac6129f9c4eaf733098af520dcebdb7d684eecb9b18d3f0ab9ead21de28a4aac3e4f85c940378eb53f06cb42650eb2e6ab208b59949bfb7910c58aa72b03cf4049b4910c7df5453779584a43afa4ca9d9d0dda38d45e98f90501edfe2e6199ca218635ec2e764086c53c24fb9e5beeafe2221941170e3b153674abc514e0c05c0241bb14d16f252b1aa264200ab1ae887a137325ad73aaaef952811d20c1c9a392844965ae7461c83b6985c278ce2270ca8095fdca11a84b6c142fd1f2a22a7055407790a3a8b1bef5797a57cb09ad5b403129a4e149c1ada451f0deb71a424ba6c3762859c0b22b34901244845a4f774cfa499c9b1957755fe7e388d4bbf2f6559af951cbceb4f95b452f437e4d31275c8a550ff148674b164cfd2b3a900ec3b7a7727b786dfb5bf6fe2e0c36e3cff56755b10fd13adfe3f0a56cefa5a82a7d2ea96bf76a71391bc10000000000000000000000000000000000003c");
-
-            using (Media.Rtp.RtpPacket managedPacket = new Media.Rtp.RtpPacket(packetBytes, 0))
-            {
-                using (Media.Rtp.RtpFrame managedFrame = new Media.Rtp.RtpFrame(managedPacket))
+            //The data contained in x Packets
+            byte[][] packetBytes = new byte[][]
                 {
-                    using (Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame(managedFrame))
+                    //Packet 1
+                    Utility.HexStringToBytes("80e1c48d49d88519b64c592f00100fc801363428f0e62416830944b24a812a5355525454cb84280393acf51e5e0c076d80de6f6f8b6585d71b6790b9414a5577a7dc7e90d59e8161a3dba1d693a06dbb6f270ee682a63115bd8b5dae5d5061db46b889b5155dac5a71aba99ed775778faa677b5f64f49d5ea2aa9bf505ac932621723f779ede5a4aa295f0e5f6d866420ee1052e64d3d42917cab0bfe055f68449110152a6134188f5680054adf0c7d484317e7fa9a7ffb209b7257f905dbcfcdd412744b6e8bfa148aec7054f7a3bd319e2b3bd095196664f5ef5bdd069484c8bfe214faaa71155e56fb337cc497820cb2428497e22418f9c914b4a5c4628b7ab427452aa0e4cbe3254e12fb3f3532ee1cc8cc20cb9b33b6b6668d1cb0704d31a5b38665cc35346da4ae84f54a2922952a85cd06304ba0bc4af7a6c370cb6b12316a3acc0ab0f24a49b955726ca953473e891dce2c5983293a38b1b28896c57010211a17ed3791b57c5b434ed0ad05cdaba3dacbb581d2e5d4e9a6dc508a9ca2df88cd8cc7e284a62d2e27e84314459ed7852ea2a6bd03005ac0dded6a1fd08e623bae1274693126552a46919d954be6dd5d5543fbb75e574b57bf7845676525235d1a7910fde93967db4eaee3d1f85671d9c696e6086eded6d1f56b74d6dc63c8c6639d908ef120000000000000000000000000000000000000000000000000000000000000000f4"),
+                    //Packet 2
+                    Utility.HexStringToBytes("80e1c48e49d88918b64c592f00100fc80132342a30da0c24484914854956254aa99a400113a419efd06aee69faf6c782128adbe064ae373dc53492edbf586c6db29caf956dd881d5a4b063f684c53d92cb301641c348cf42da0d9bc8a38e92454c82c787b867ab99b816b518f7f06d75901be21f57d1a560885541484cfb77cf30a6952e65fb032bd04aab7718cd132f202080ef137e7d46c009e0ed5e43896f2080a6249a2ce04fbef8506002e5a054bbf693ca4ea594404432d94f2110c74d203e0be316f151e790c00a9d2a6ca499176b24016db62467ae55d3a74c1ad3991af4a6290b0badf52f02f7be58e44265a4a4cf872f79a87d7163cd8b47f5c5ba24f84254df46fd7f24700679cfa104f15c1b4ec508cf95c4f5a92c46ebbd6ac1780a278a7e9c4fae2d2ac86857511ef9f47b3d6cb737b5aeaed25f96fc16c968b16d4125f15089374bde88399276e4464751db44a115e84b952f43aabaa45451a65d2ac6988d4bba7a33b3aa6a2b22daf8cb04565be6775b39bd2ba5b48a590b1a99624052a79dc51992edd77e86a286dd746e22714166dd04b92aabede355791391b9b646a3a387b65d6e6dd697289875195735bbf375188c5b353b3645c8954e93fc5a178716d62557fdbf87ccb8b0e862d44dd6e9beee6ef6f4fad9700a76d3322192a49d95aa6d23bc3800000000000000000000000000000000000000000000000000000003ae"),
+                    ////Packet 3
+                    Utility.HexStringToBytes("80e1c48f49d88d18b64c592f00100fc801345429315a0c2282997658a9012544a0cbba254098f396fe440269958e2709aee22965e6bea4f85d4f012799befd0b786ad726b6f761ef8e4736aa0fbf56b126ec52df9f5b33bdaba6abb7aa565f7c48ca7a655d4da6db1b088da2e6596aad2b10560fb9b5a3e3a3c8936a0c6a96712a51b8b76e7e82c2a288d9c20b9d8c4edd22d3a6e59a3ecc988f2ae99fa37b5f0c0fb31ef4b0199962b9b5044b78a9dda382971367262311756d265906cb2e3251d6a7e8c2810768861639a96299896f5b682c8305d564dc7920112c573d66346922c31569ca7e48af20c62d5622c21e40eb4aa60998f42b5b0b10c28c486e69a5a007e867e5a61a9a89a2a3dc2d09ea77cee4c13432f20ba741822aa0c598c68c6bed5215ba28beda33df2249314a605568c05e33093582aed5e654335e2cd73bcda55e5e626de3f13ed4a8970558ed23afb7cc1d66f580e6b916198295e2f32e138815414ae7fea2a4a301b639555893efbe948883df2e88729cf51272a5bd4e94cc8b6263adf93b78e60415d5f14ec5915de49d25f2c467b43a88b6a57df3a54e0df2be895a01cc877ed1bd6bdb6c50dd1148898d230f8cbedf41bbd28d3f92aa2c8df31a65f808737449e9b8a4b5392bb6b2cb6083c0f439d2face45f81b3bcd844d4c84c67788800000000000000000000000000000000000000000000000000000000000007d"),
+                    //Packet 4
+                    Utility.HexStringToBytes("80e1c49049d89118b64c592f0010101801209fb2b98ac60d711cd68e6cd74ca9d9571aa8aaaa5abc71a6ab714ab57297755542ceeeee536a55cd8eb7e53ed9eebd1e753e2be4f2be6fadfd8abec43ed78dcab0fa0691c8b314dc4616b1f2bd1d9c676ae5eeb7e78c2e167ab36c5455acf06dd2a0906f751d85baf9732a9441720d0aa17c536557de41f686b49e44494640c528edcca9f4a995118d2db469ecc1a5798202abc1d947ab29cd169a9f2411ea992ea9e6921eef5a42a05d8cfe80a37345f2c83bea934a926cec4122c1e41a25e3b81647b4994c25d614714e8288b7af2363d373cedf2a975ef92e8c67af782dcfbc739ceea3b7ea9b61dec6cbbbe3ba3fedeb53f9d772177ccc30b61e94ea4167471d877aa58d4b76436ef5641c86aee6bd6d03c4e524c27773f42731ca3331b8e397636801b0d9429095f5be4e82254298ce935b89bf7f5159122b0dc3bc05dfca932eea395356d4c1b11902de2d0b162580290ac4bab661a04308a49a120b8894878d4a95bc4a805969d2aab665f151a7ed39aa567cd0f1d0ebcbc5d1f52300be55bad17b9fb5edfc6efbc4718b46d9e6310e8d1b06262dc9c250126ed2844a3b3fb7d3a13189a40a35a3ec4c789a83646c361b45c9e2baaf8be2f89c95f48eb0f6da3e3be0dad8bdea7bcfb5b5520c700c6746af1b5b22c75108d529689d79da567a95ee3af973834bca2dd00214e9caac1c64a80c362ac071b521749702f49f"),
+                    //Packet 5
+                    Utility.HexStringToBytes("80e1c49149d89518b64c592f00100f78013af420566a4b161ac2a1a7aea6f557b4d5e4b950644941245658186df97e73193658dc1f3b6ece7b9fc1439380e1546aac29ade32d404ecd63babdf793055eba15c506d4166c8755b4730e21f392e0ec70aa6a758b3c60d6841a245b90f01e47c9ea11cfafcb6f9c23407d61eb453ba5bedc8cba50a99ae9aac77fe0f1f9a5879eaecc8f0cdb81e24eae192422f2d9480b8c9163934b77afb3f582328b4b15467142d15f1926a9aa2d53fce3b2ea57ae90de5208609a5f0ec2b21c09a0035321b1ecdbc7c493bb91b789bb4936b1e35f418a3af8135273a128077a83cdedee199f329c8bf6093153225975579f60aa44d7458ceab7a9d441978c1cb82ceab533aa6b53824b64544d04c7a675813528b3797b8dc66f6d323554fd94db622b8f6d688767eb773a2a31f226c721fac4ab33d3fd3c7e2b38e85def11b03cdd9edcba6d99b276ed2618574d683c4b44a4424f4722a82fdc3040e255d28605b6da356fcbd731cb45fe6cabf0a345140460c34932bd76f4ce55ea6bf2ae6563a4dbd196dcfaba8230e959a48c0c2070eae098172e63e138b6f60b44fab82ba19e34583e3f314e4e1a71459f83a31d206cf09ea9d60c41e1ecedea18cbc3dd8ecf272590b055e83309004d9aae7289c8ca1c5d8eec804cab040aa33adab3120a26b76e6e58cc9b2a6c6b3800000000000007"),
+                    //Packet 6
+                    Utility.HexStringToBytes("80e1c49249d89918b64c592f0010118001363420563a63328503b32b1132d797749152520289775ce741705a7c38802af9b99e06e5a60b2983c6ec348d87c9ca333040e731a67dde7f19d6bae3ce778bbd780d5e9940baae9f677784dca48e63a77f5ebca0e174565f5eef1491448571e11d1deeaf0cca718d5e0830a124180498a7f372df8281b2a94e1a919a5dcc7850de1c48005fdb086f1cc72e34bcd35f35352e1cba4a492d4e2538031ce71712bd498da5243db3cf6ec6a69ebc52452869a29cec19b39d66f036db353471e6d260f8ebea89e655e984958508b9927bee4f970b222c6c2bfa9c1c9fef5219466c2905adc38699c126dc244a1a26c6905102ba522b0c15eb98460afe6c96322801bce6a25bd86d371171dba75f42a1b6e9829dd761e46443bbc7e1c9a1d84a15a546f47be3a7bd070b6f66440d2c7149c7d78225a3a529c516bb0d140a78aa5855c7447da1d3a1d8e13c79b416f7df44e5bba05f6c70f9deafe7e7371f9fcf964e38e27ab7bab260ec40fbbf17deeb4acaed977c4e1e54f1106ca37ea7c315149c7158ef1d9c7cd5feb1567567b37a7b5e540e70817d5e63ddbd4d3c7218a46123aa745d9c0aa7ae3885dc1b751f86e101740ec74d424fb87aa619c8ed32d0bd1edd56421fdaaa505980b781794fa19903d3de8bf92dfdf33f9b2d1e5f076c4ba0dfaa9d517973c717f8cf40c65bf633cac0f17b14de713303baa8127b0fcfe762f51e88944dbca4d67f63ddba9242a5e3dca84c53d7fe973b87030fc57a778276af6edd0280ee1eaa5d8dcdd4c73e5b3c"),
+                    // Skip a few and put another packet :)
+                    Utility.HexStringToBytes("80e1c49849d8b118b64c592f00100ed0013ef42056782b1108c4825060d43159699a82c9512a52aa04915902db57e4b12254d4b85fae649c4b340d9dd5b2f9a5ea3280b038ee5c673151079894a12fce4ae42e05a8c503bedf25641ce2e3a475f762f6472f7d768caaa35c10ddcac5333ea755c6c933914ecb71a3a89f171ac58c6a315adbf01b4a140a0998f3a1aa9a543ae9aed42936c3339b616430bdd6ba7dcbc9f8d6aa0133876fd28b457fe1740d1a3cdb64864082143152ce2cf62444db8b45474ba1574e3a0a9ca509de108263865170ec2aaef68398654b994a2d0f0d5c55eb334593497c0a1adb7a51e489f47553ec6be47ecb3b626519e30ed18ecefa1ab503188f5ae1cab3164c651cfa1a9a1092b6d9c3bbb2c45bfb9d764d249324ad3e3ecb41c3f83d5aa9b944ed81a4a9d98a567eb3bf5ab953950504ebea3b195530bc50527e921384474998cf42f0920d817448c932c752857463462605da154ab9f3cb4e93e4459241925043162d10ad45a3098e44359a4bd2d9262ca48ed0d071f57b218bb6559b1acaec2a7c6b23707bf04b26151d1d1c60aba94fac5c40471e6530566969a3878d7985141c36d5e55d6b8d63994f61ac53cc8a929e5468d143494f1a55251ca8e62a4cc157a3aa3eabd06368739ca49051915273b3d018f472800000000074"),
+                };
+
+            //The data from the packets given above will be placed into this file after depacketization
+            string outputFileName = "Test.aac";
+
+            //Create the file every time the test starts
+            using (var fs = new System.IO.FileStream(outputFileName, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite))
+            {
+                //Create managed packets from the binary data
+                foreach (byte[] packet in packetBytes)
+                {
+                    //Create the managed packet from that binary data
+                    using (Media.Rtp.RtpPacket aManagedPacket = new Media.Rtp.RtpPacket(packet, 0))
                     {
-                        //Example of Media Description
-                        //a=rtpmap:97 mpeg4-generic/8000/1
-                        //a=fmtp:97 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=1588; sizeLength=13; indexLength=3; indexDeltaLength=3; profile=1; bitrate=32000;
+                        //Create a RtpFrame from the managed packet
+                        using (Media.Rtp.RtpFrame managedFrame = new Media.Rtp.RtpFrame(aManagedPacket))
+                        {
+                            //The rtp profile contains the logic required to `depacketize` the data.
+                            //E.g take it from it's RtpPacket form and into something a decoder can utilize
+                            using (Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame(managedFrame))
+                            {
+                                //Example of Media Description
+                                //a=rtpmap:97 mpeg4-generic/8000/1
+                                //a=fmtp:97 streamtype=5; profile-level-id=15; mode=AAC-hbr; config=1588; sizeLength=13; indexLength=3; indexDeltaLength=3; profile=1; bitrate=32000;
 
-                        profileFrame.Depacketize(true, //This is specified by the profile (SDP)
-                            2, 1, 11,  //These values come from the config = portion
-                            13, 3, 3); //These values from from the profile
+                                //According to the data contained in the stream this is how many bytes are contained in the complete access unit which did not appear
+                                //In the data being depacketized, while this value is > 0 the file will likely not be playable.
+                                int remainingInNextPacket, unitsParsed;
 
-                        //Should have 3 access units with a total of 
+                                //Depacketize the contained data into a buffer on the managed frame instance.
+                                profileFrame.Depacketize(out unitsParsed, out remainingInNextPacket,  //Keep track of how many access units were contained and how many bytes which were not present in the access unit which were specified by it's size
+                                    true, //This is specified by the profile (SDP)
+                                    2, 1, 11,  //These values come from the config = portion (1588)
+                                    13, 3, 3); //These values from from the profile
 
-                        //Depending on the format of the audio you may required this function to create a header which should precede the data in the buffer when going to a decoder.
-                        
-                        //Write that value (Just the header)
-                        System.Console.WriteLine(BitConverter.ToString(Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame.CreateADTSHeader(2, 11, 1, (int)profileFrame.Buffer.Length)));
+                                //Should have X access units
 
-                        //Write the buffer
-                        System.Console.WriteLine(BitConverter.ToString(profileFrame.Buffer.ToArray()));
+                                Console.WriteLine("Contained Access Units = " + unitsParsed);
+
+                                //The data may require more data from other packets
+
+                                Console.WriteLine("Data remaining in next packet = " + remainingInNextPacket);
+
+                                //Depending on the format of the audio you may required this function to create a header which should precede the data in the buffer when going to a decoder.
+                                byte[] header = Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame.CreateADTSHeader(2, 11, 1, (int)profileFrame.Buffer.Length);
+
+                                //Write the header
+                                fs.Write(header, 0, header.Length);
+
+                                //Write the data in the buffer to the stream directly
+                                profileFrame.Buffer.CopyTo(fs);
+                            }
+                        }
                     }
                 }
             }
+
+            if (System.IO.File.Exists(outputFileName)) System.IO.File.Delete(outputFileName);
         }
 
         /// <summary>
@@ -3183,7 +3238,7 @@ a=rtpmap:99 h263-1998/90000");
         static void TestEncodingExtensions()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.Common.Extensions.Encoding.EncodingExtensionsTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.Common.Extensions.Encoding.EncodingExtensionsUnitTests), typeOfVoid);
         }
 
         #endregion

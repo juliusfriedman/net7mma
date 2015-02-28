@@ -568,6 +568,8 @@ namespace Media.Common
 
         public static long ReadBits(byte[] data, ref int byteOffset, ref int bitOffset, int count)
         {
+            if (count == 0) return 0;
+
             unchecked
             {
                 //The value and the placeHolder
@@ -604,12 +606,40 @@ namespace Media.Common
             }
         }
 
+        //ReadPaddedBits and supporting tests.
+
+        //Could also have Unaligned overloads which can check if alignment is necessary
+
         public static long ReadBitsReverse(byte[] data, ref int byteOffset, ref int bitOffset, int count)
         {
+            if (count == 0) return 0;
+
+            //The offset of the byte being read in reverse
+            int startOffset = byteOffset, 
+                //The offset of the first bit in that byte
+                startBit, 
+                //Calculate the offset to the byte and bit
+                offsetToByte = byteOffset + Math.DivRem(count, BitSize, out startBit);
+
+            //unaligned
+            if (startBit > 0)
+            {
+                //Backup one byte
+                --offsetToByte;
+
+                //Start at the bit which remain in that byte
+               bitOffset = BitSize - startBit;
+            }
+
             unchecked
             {
                 //The value and the placeHolder
                 long value = 0, placeHolder = 1;
+
+                //The offset to the byte is at byteOffset
+
+                //We need to read starting at offsetToByte - 1
+                byte indirect = data[--offsetToByte];
 
                 //While there is a byte needed decrement for the bit consumed
                 while (count-- > 0)
@@ -621,21 +651,21 @@ namespace Media.Common
                         bitOffset = 0;
 
                         //move the index of the byte
-                        ++byteOffset;
-
+                        
                         //Create the next value
                         placeHolder <<= BitSize;
+
+                        //Get the next byte, moving the offset
+                        indirect = data[--offsetToByte];
+
+                        //move the forward offset
+                        ++byteOffset;
                     }
 
                     //Get a bit from the byte at our offset to determine if the value needs to be incremented
-                    if (GetBit(ref data[byteOffset], bitOffset))
+                    if (GetBit(ref indirect, bitOffset))
                     {
-                        //value |= (1 << bitOffset) * placeHolder;
-                        //value += 1 << bitOffset;
-
-                        //value |= ReverseU8((byte)(1 << bitOffset)) * placeHolder;
-
-                        value += ReverseU8((byte)(1 << bitOffset));
+                        value |= (1 << bitOffset) * placeHolder;
                     }
 
                     //Increment for the bit consumed

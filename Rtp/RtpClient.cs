@@ -2694,12 +2694,12 @@ namespace Media.Rtp
         /// <summary>
         /// Gets a value indicating if the RtpClient is not disposed and the WorkerThread is alive.
         /// </summary>
-        public virtual bool IsConnected
+        public virtual bool IsActive
         {
             get
             {
                 return false == IsDisposed && m_WorkerThread != null && m_WorkerThread.IsAlive;
-            }//IsAlive.... could be Stopped, should also check TransportContexts?
+            }//IsAlive.... could be Stopped..
         }
 
         /// <summary>
@@ -3538,29 +3538,28 @@ namespace Media.Rtp
         #endregion
 
         /// <summary>
-        /// Creates a worker thread and resets the stop variable
+        /// Creates and starts a worker thread which will send and receive data as required.
         /// </summary>
-        public void Connect()
+        public virtual void Activate()
         {
             try
             {
                 //If the worker thread is already active then return
-                if (false == m_StopRequested && IsConnected) return;
+                if (false == m_StopRequested && IsActive) return;
 
                 //Create the workers thread and start it.
                 m_WorkerThread = new Thread(new ThreadStart(SendReceieve));
 
-                //Ensure buffer is sized
-                Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), m_Buffer.Count * m_Buffer.Count);
-
                 m_WorkerThread.TrySetApartmentState(ApartmentState.MTA);
-                //m_WorkerThread.Priority = ThreadPriority.AboveNormal;
-                //m_WorkerThread.IsBackground = true;
+
                 m_WorkerThread.Name = "RtpClient-" + InternalId;
+
                 Started = DateTime.UtcNow;
+
                 m_StopRequested = false;
 
                 m_WorkerThread.Start();
+
 
                 //Send the initial senders report
                 //SendSendersReports();
@@ -3582,7 +3581,7 @@ namespace Media.Rtp
         /// </summary>
         public void Disconnect()
         {
-            if (IsDisposed || false == IsConnected) return;
+            if (IsDisposed || false == IsActive) return;
 
             SendGoodbyes();
 

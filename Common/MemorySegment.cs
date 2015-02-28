@@ -11,6 +11,8 @@ namespace Media.Common
     /// </summary>
     public class MemorySegment : BaseDisposable, IEnumerable<byte>
     {
+        public static readonly MemorySegment Empty = new MemorySegment(Utility.Empty, false);
+
         byte[] m_Array;
 
         int m_Offset, m_Length;
@@ -23,7 +25,7 @@ namespace Media.Common
 
         public byte[] Array { get { return m_Array; } protected set { m_Array = value; } }
 
-        public MemorySegment(byte[] reference)  : base()
+        public MemorySegment(byte[] reference, bool shouldDispose = true)  : base()
         {
             if (reference == null) throw new ArgumentNullException("reference");
             
@@ -32,6 +34,8 @@ namespace Media.Common
             m_Length = m_Array.Length;
 
             //Endian = Binary.SystemEndian;
+
+            ShouldDispose = shouldDispose;
         }
 
         public MemorySegment(byte[] reference, int offset): this(reference)

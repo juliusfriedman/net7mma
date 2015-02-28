@@ -1,4 +1,4 @@
-Managed Media Aggregation `Media.Codecs.Audio.Mp3.dll`
+Managed Media Aggregation `Media.Codecs.Audio.Aac.dll`
 
 Copyright 2014
 
