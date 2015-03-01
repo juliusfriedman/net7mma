@@ -269,7 +269,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 this.Buffer = new MemoryStream(headersPresent ? this.SelectMany(rtp =>
                 {                                       
                     //From the beginning of the data in the actual payload
-                    int offset = rtp.HeaderOctets,
+                    int payloadOffset = rtp.Payload.Offset, offset = payloadOffset + rtp.HeaderOctets,
                         max = rtp.Payload.Count - (offset + rtp.PaddingOctets), //until the end of the actual payload
                         auIndex = 0, //Indicates the serial number of the associated Access Unit
                         auHeadersAvailable = 0; //The amount of Au Headers in the Au Header section
@@ -345,7 +345,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     #endregion
 
                     //Determine the AU Headers Length (in bits)
-                    int auHeaderLengthBits = Common.Binary.ReadU16(rtp.Payload, offset, BitConverter.IsLittleEndian),
+                    int auHeaderLengthBits = Common.Binary.ReadU16(rtp.Payload.Array, offset, BitConverter.IsLittleEndian),
                         //It will then be converted to bytes.
                         auHeaderLengthBytes = 0,
                         //AU-Size And the length of the underlying Elementary Stream Data for that access unit      
@@ -363,7 +363,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                     //Ensure offset of reading bits matches the offset of the memory segment
                     //Could also have enumerable ReadBits overload
-                    offset += rtp.Payload.Offset;
+
+                    //Move for the 2 bytes consumed
+                    offset += 2;
                    
                     //If there was any auHeaders
                     if (auHeaderLengthBits > 0)
@@ -375,7 +377,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         if (auHeaderLengthBytes >= max - 2) throw new InvalidOperationException("Invalid Rfc Headers?");
 
                         //Skip the Au Headers Section
-                        Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auHeaderLengthBits, BitConverter.IsLittleEndian);
+                        long headerData = Media.Common.Binary.ReadBits(rtp.Payload.Array, ref offset, ref bitOffset, auHeaderLengthBits, BitConverter.IsLittleEndian);
 
                         //This many bits were read
                         int usedBits = sizeLength + indexDeltaLength;

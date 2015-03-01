@@ -628,8 +628,11 @@ namespace Media.Common
                 --offsetToByte;
 
                 //Start at the bit which remain in that byte
-               bitOffset = BitSize - startBit;
+                bitOffset = BitSize - startBit;
             }
+
+            //Reading only a byte
+            if (count == BitSize) return ReverseU8((byte)ReadBits(data, ref byteOffset, ref bitOffset, BitSize, false));
 
             unchecked
             {
@@ -645,10 +648,11 @@ namespace Media.Common
                 while (count-- > 0)
                 {
                     //Check for the end of bits
-                    if (bitOffset >= BitSize)
+                    //Could do this in reverse to avoid endian issues but then an endian would have to be specified each time also
+                    if (bitOffset >= BitSize) // < 0
                     {
                         //reset
-                        bitOffset = 0;
+                        bitOffset = 0; //BitSize
 
                         //move the index of the byte
                         
@@ -665,11 +669,13 @@ namespace Media.Common
                     //Get a bit from the byte at our offset to determine if the value needs to be incremented
                     if (GetBit(ref indirect, bitOffset))
                     {
+                        //If reversing here then don't need to read in reverse
+                        //value |= ReverseU8((byte)(1 << bitOffset)) * placeHolder;
                         value |= (1 << bitOffset) * placeHolder;
                     }
 
                     //Increment for the bit consumed
-                    ++bitOffset;
+                    ++bitOffset; //--
                 }
 
                 return value;

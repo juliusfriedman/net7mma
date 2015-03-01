@@ -43,7 +43,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 
-namespace Tests
+namespace /*Unit*/ Tests
 {
     public class Program
     {
@@ -202,6 +202,8 @@ namespace Tests
             //The value we read.
             long read;
 
+            //Todo Seperate into Individual Tests
+
             //Test Bit Methods from 0 - 255 inclusive
             //[256] Operations
             for (int test = Octets[0]; test <= byte.MaxValue; Octets[0] = (byte)(++test))
@@ -236,6 +238,11 @@ namespace Tests
                 //Check the result
                 if (read != testBits) throw new Exception("GetBit Does not Work");
 
+                //Test reading and parsing the value in reverse
+                //Todo make ReadEndianBits overload
+                read = Media.Common.Binary.ReadBits(Octets, 0, 8, true);
+                if (read != Media.Common.Binary.ReverseU8(ref testBits)) throw new Exception("GetBit Does not Work");
+
                 Console.WriteLine("Read:" + read);
 
                 Console.WriteLine("Bits:" + Convert.ToString(read, 2));
@@ -252,9 +259,7 @@ namespace Tests
                 bool reverse = i > 0;
 
                 //int size = 16,
-                //    ops = (int)Math.Pow(2, 16);
-
-                //Todo Seperate into Individual Tests
+                //    ops = (int)Math.Pow(2, 16);              
 
                 //65535 iterations uses 16 bits of a 32 bit integer
                 for (ushort v = ushort.MinValue; v < ushort.MaxValue; ++v)
@@ -460,22 +465,7 @@ namespace Tests
                     Uri = "rtsp://127.0.0.1/live/Mirror",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                },
-                new
-                {
-                    Uri = "rtsp://admin:12345@125.21.90.3/Streaming/channels/101",
-                    Creds = default(System.Net.NetworkCredential),
-                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                },
-                //Agilon
-                new
-                {
-                    Uri = "rtsp://admin:admin@110.4.176.89:554/defaultPrimary?streamType=u",
-                    Creds = default(System.Net.NetworkCredential),
-                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
-                },
-               
-                
+                }
             })
             {
                 Media.Rtsp.RtspClient.ClientProtocolType? proto = TestObject.Proto;
@@ -1542,6 +1532,11 @@ namespace Tests
                     //Enable sending blocksize header (sometimes helpful for better bandwidth utilization)
                     //client.SendBlocksize = true;
 
+                    //If UserAgent should be sent.
+                    //client.SendUserAgent = true;
+                    //client.UserAgent = "LibVLC/2.1.5 (LIVE555 Streaming Media v2014.05.27)";
+
+
                 Start:
 
                         //Allow the client to switch protocols if data is not received.
@@ -1890,10 +1885,6 @@ namespace Tests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                //Working stand alone not with server?
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("HiV", "rtsp://admin:12345@125.21.90.3/Streaming/channels/101", Media.Rtsp.RtspClient.ClientProtocolType.Tcp, 0));
-            
-
                 //thaibienbac Test Cameras - Thanks!
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
@@ -1918,7 +1909,7 @@ namespace Tests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("lilin", "rtsp://admin:pass@118.70.125.33:27554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));                
 
                 //Down :(
                 //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
@@ -3238,7 +3229,7 @@ a=rtpmap:99 h263-1998/90000");
         static void TestEncodingExtensions()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.Common.Extensions.Encoding.EncodingExtensionsUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.Common.Extensions.Encoding.EncodingExtensionsTests), typeOfVoid);
         }
 
         #endregion

@@ -1199,37 +1199,37 @@ namespace Media.Rtsp
 
                 if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
                 {
-                    length += Encoding.GetByteCount(Method.ToString());
+                    length += m_Encoding.GetByteCount(Method.ToString());
 
                     ++length;
 
-                    length += Encoding.GetByteCount(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString());
+                    length += m_Encoding.GetByteCount(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString());
 
                     ++length;
 
-                    length += Encoding.GetByteCount(RtspMessage.MessageIdentifier);
+                    length += m_Encoding.GetByteCount(RtspMessage.MessageIdentifier);
 
                     ++length;
 
-                    length += Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
+                    length += m_Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
 
                     length += lineEndsLength;
                 }
                 else if (MessageType == RtspMessageType.Response)
                 {
-                    length += Encoding.GetByteCount(RtspMessage.MessageIdentifier);
+                    length += m_Encoding.GetByteCount(RtspMessage.MessageIdentifier);
 
                     ++length;
 
-                    length += Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
+                    length += m_Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
 
                     ++length;
 
-                    length += Encoding.GetByteCount(((int)StatusCode).ToString());
+                    length += m_Encoding.GetByteCount(((int)StatusCode).ToString());
 
                     ++length;
 
-                    length += Encoding.GetByteCount(StatusCode.ToString());
+                    length += m_Encoding.GetByteCount(StatusCode.ToString());
 
                     length += lineEndsLength;
                 }
@@ -1342,7 +1342,10 @@ namespace Media.Rtsp
             get { return m_Encoding; }
             set
             {
+                if (m_Encoding == value) return;
+
                 m_Encoding = value;
+
                 if(false == string.IsNullOrWhiteSpace(m_Body)) SetHeader(RtspHeaders.ContentEncoding, Encoding.WebName);
             }
         }
@@ -1874,6 +1877,9 @@ namespace Media.Rtsp
                 else contentDecoder = System.Text.Encoding.Default;
             }
 
+            //Use the default encoding if given utf8
+            if (contentDecoder.WebName == m_Encoding.WebName) contentDecoder = m_Encoding;
+
             return m_ContentDecoder = contentDecoder;
         }
 
@@ -2175,42 +2181,47 @@ namespace Media.Rtsp
         {
             if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
             {
-                foreach (byte b in Encoding.GetBytes(MethodString)) yield return b;
+                foreach (byte b in m_Encoding.GetBytes(MethodString)) yield return b;
 
-                yield return Common.ASCII.Space;
+
+                byte[] spaceBytes = m_Encoding.GetBytes(Media.Common.Extensions.Encoding.EncodingExtensions.GetChars(m_Encoding, Media.Common.ASCII.Space));
+
+                foreach (byte b in spaceBytes) yield return b;
 
                 //UriEncode?
 
-                foreach (byte b in Encoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString())) yield return b;
+                foreach (byte b in m_Encoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString())) yield return b;
 
-                yield return Common.ASCII.Space;
+                foreach (byte b in spaceBytes) yield return b;
 
                 //Could skip conversion if default encoding.
-                foreach (byte b in Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
+                foreach (byte b in m_Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
 
-                yield return Common.ASCII.ForwardSlash;
+                foreach (byte b in m_Encoding.GetBytes(Media.Common.Extensions.Encoding.EncodingExtensions.GetChars(m_Encoding, Media.Common.ASCII.ForwardSlash))) yield return b;
 
-                foreach (byte b in Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+                foreach (byte b in m_Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
             }
             else if (MessageType == RtspMessageType.Response)
             {
                 //Could skip conversion if default encoding.
-                foreach (byte b in Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
+                foreach (byte b in m_Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
 
                 yield return Common.ASCII.ForwardSlash;
 
-                foreach (byte b in Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+                foreach (byte b in m_Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
 
-                yield return Common.ASCII.Space;
+                byte[] spaceBytes = m_Encoding.GetBytes(Media.Common.Extensions.Encoding.EncodingExtensions.GetChars(m_Encoding, Media.Common.ASCII.Space));
 
-                foreach (byte b in Encoding.GetBytes(((int)StatusCode).ToString())) yield return b;
+                foreach (byte b in spaceBytes) yield return b;
 
-                yield return Common.ASCII.Space;
+                foreach (byte b in m_Encoding.GetBytes(((int)StatusCode).ToString())) yield return b;
 
-                foreach (byte b in Encoding.GetBytes(StatusCode.ToString())/*.ToString*/) yield return b;
+                foreach (byte b in spaceBytes) yield return b;
+
+                foreach (byte b in m_Encoding.GetBytes(StatusCode.ToString())/*.ToString*/) yield return b;
             }
 
-            if (includeEmptyLine) foreach (byte b in Encoding.GetBytes(CRLF)) yield return b;
+            if (includeEmptyLine) foreach (byte b in m_Encoding.GetBytes(CRLF)) yield return b;
 
         }
 
