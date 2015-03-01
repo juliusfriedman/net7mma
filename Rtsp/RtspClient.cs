@@ -114,7 +114,7 @@ namespace Media.Rtsp
 
         internal readonly Guid InternalId = Guid.NewGuid();
 
-        readonly ManualResetEventSlim m_InterleaveEvent = new ManualResetEventSlim(true);
+        readonly ManualResetEventSlim m_InterleaveEvent;
 
         //Todo
         //readonly List<Uri> m_History = new List<Uri>();
@@ -184,7 +184,7 @@ namespace Media.Rtsp
 
         internal RtpClient m_RtpClient;
 
-        Timer m_KeepAliveTimer, m_ProtocolSwitchTimer;
+        Timer m_KeepAliveTimer, m_ProtocolMonitor;
 
         DateTime? m_BeginConnect, m_EndConnect, m_StartedPlaying;
 
@@ -222,6 +222,8 @@ namespace Media.Rtsp
         /// </summary>
         public Action<IEnumerable<MediaDescription>> SetupOrder { get; set; }
 
+        //Todo make SocketConfiguration
+
         /// <summary>
         /// Gets or Sets the method which is called when the <see cref="RtspSocket"/> is created, 
         /// typically during the call to <see cref="Connect"/>
@@ -249,6 +251,16 @@ namespace Media.Rtsp
         /// The value of which will reflect the <see cref="Buffer.Count"/>
         /// </summary>
         public bool SendBlocksize { get; set; }
+
+        /// <summary>
+        /// Indicates if the Date header should be sent during requests.
+        /// </summary>
+        public bool SendDate { get; set; }
+
+        /// <summary>
+        /// Indicates if the RtspClient will send the UserAgent header.
+        /// </summary>
+        public bool SendUserAgent { get; set; }
 
         /// <summary>
         /// Gets or Sets the socket used for communication
@@ -541,6 +553,9 @@ namespace Media.Rtsp
                     //If Different
                     if (m_CurrentLocation != value)
                     {
+
+                        if (m_InitialLocation == null) m_InitialLocation= value;
+
                         //Backup the current location, (needs history list?)
                         m_PreviousLocation = m_CurrentLocation;
 
@@ -562,6 +577,7 @@ namespace Media.Rtsp
 
                                 if (m_RtspSocket != null)
                                 {
+
                                     //Will use IPv6 by default if possible.
                                     m_RemoteIP = System.Net.Dns.GetHostAddresses(m_CurrentLocation.DnsSafeHost).FirstOrDefault(a=> a.AddressFamily == m_RtspSocket.AddressFamily);
 
@@ -598,6 +614,8 @@ namespace Media.Rtsp
                 catch (Exception ex)
                 {
                     Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not resolve host from the given location. See InnerException.", ex);
+
+                    throw;
                 }
             }
         }
@@ -722,7 +740,7 @@ namespace Media.Rtsp
         /// <param name="rtpProtocolType">The type of protocol the underlying RtpClient will utilize and will not deviate from the protocol is no data is received, if null it will be determined from the location Scheme</param>
         /// <param name="existing">An existing Socket</param>
         /// <param name="leaveOpen"><see cref="LeaveOpen"/></param>
-        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = DefaultBufferSize, Socket existing = null, bool leaveOpen = false)
+        public RtspClient(Uri location, ClientProtocolType? rtpProtocolType = null, int bufferSize = DefaultBufferSize, Socket existing = null, bool leaveOpen = false, int responseTimeoutInterval = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             if (location == null) throw new ArgumentNullException("location");
 
@@ -787,6 +805,10 @@ namespace Media.Rtsp
             ConfigureSocket = ConfigureRtspSocket;
 
             HandlePlayEvent = HandleStopEvent = true;
+
+            m_ResponseTimeoutInterval = responseTimeoutInterval;
+
+            m_InterleaveEvent = new ManualResetEventSlim(true, m_ResponseTimeoutInterval);
         }
 
         /// <summary>
@@ -1356,13 +1378,15 @@ namespace Media.Rtsp
 
         protected virtual void ProcessServerSentRequest(RtspMessage toProcess = null)
         {
-
             if (toProcess == null) return;
 
             if (false == IgnoreServerSentMessages &&
                 toProcess == null ||
                 toProcess.MessageType != RtspMessageType.Request ||
                 false == toProcess.IsComplete) return;
+
+            //Ensure suported methods contains the method requested.
+            SupportedMethods.Add(toProcess.MethodString);
 
             //Check the sequence number
             int sequenceNumber = toProcess.CSeq;
@@ -1552,12 +1576,8 @@ namespace Media.Rtsp
 
                                 //if the message was a request and is complete handle it now.
                                 if (m_LastTransmitted.MessageType == RtspMessageType.Request &&                                    
-                                    m_InterleaveEvent.IsSet && 
-                                    interleaved.IsComplete)
+                                    false == InUse)
                                 {
-                                    //Ensure suported methods contains the method requested.
-                                    SupportedMethods.Add(interleaved.MethodString);
-
                                     ProcessServerSentRequest(m_LastTransmitted);
                                 }
 
@@ -1599,8 +1619,8 @@ namespace Media.Rtsp
                                     //handle the completion of a request sent by the server if allowed.
                                     if (received > 0 &&
                                         m_LastTransmitted != null && false == m_LastTransmitted.IsDisposed &&
-                                        m_LastTransmitted.MessageType == RtspMessageType.Request && 
-                                        m_InterleaveEvent.IsSet) //dont handle if waiting for a resposne...
+                                        m_LastTransmitted.MessageType == RtspMessageType.Request &&
+                                        false == InUse) //dont handle if waiting for a resposne...
                                     {
                                         //Process the pushed message
                                         ProcessServerSentRequest(m_LastTransmitted);
@@ -1785,7 +1805,7 @@ namespace Media.Rtsp
             if (false == hasContext) throw new InvalidOperationException("Cannot Start Playing, No Tracks Setup.");
 
             //Send the play request
-            using (RtspMessage play = SendPlay(CurrentLocation, start ?? StartTime, end ?? EndTime))
+            using (RtspMessage play = SendPlay(InitialLocation, start ?? StartTime, end ?? EndTime))
             {
                 //If there was a response or not fire a playing event.
                 if (play == null || 
@@ -1808,10 +1828,8 @@ namespace Media.Rtsp
             //Subtract against the connection time... the averge rtt would be better
             if (m_KeepAliveTimer == null) m_KeepAliveTimer = new Timer(new TimerCallback(SendKeepAlive), null, halfSessionTimeWithConnection, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
-            TimeSpan protocolSwitchTime = halfSessionTimeWithConnection.Subtract(m_RtpClient.GetTransportContexts().Max(tc => tc.ReceiveInterval));
-
             //If the protocol switch feature is enabled.
-            if (AllowAlternateTransport) m_ProtocolSwitchTimer = new System.Threading.Timer(new TimerCallback(SwitchProtocols), null, protocolSwitchTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
+            m_ProtocolMonitor = new System.Threading.Timer(new TimerCallback(MonitorProtocol), null, LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
 
             //Don't keep the tcp socket open when not required under Udp.
             //if (m_RtpProtocol == ProtocolType.Udp) DisconnectSocket();
@@ -2120,10 +2138,10 @@ namespace Media.Rtsp
                 m_KeepAliveTimer = null;
             }
 
-            if (m_ProtocolSwitchTimer != null)
+            if (m_ProtocolMonitor != null)
             {
-                m_ProtocolSwitchTimer.Dispose();
-                m_ProtocolSwitchTimer = null;
+                m_ProtocolMonitor.Dispose();
+                m_ProtocolMonitor = null;
             }
 
             //Determine if we need to do anything
@@ -2325,105 +2343,119 @@ namespace Media.Rtsp
             CheckDisposed();
 
             bool wasBlocked = false;
-        
-            try
-            {                
-                //Ensure the request version matches the protocol version of the client if enforceVersion is true.
-                if (useClientProtocolVersion && message.Version != ProtocolVersion) message.Version = ProtocolVersion;
 
-                //Use any additional headers if given
-                if (AdditionalHeaders.Count > 0) foreach (var additional in AdditionalHeaders) message.AppendOrSetHeader(additional.Key, additional.Value);
-
-                //Add the user agent
-                if (false == message.ContainsHeader(RtspHeaders.UserAgent))
-                {
-                    message.SetHeader(RtspHeaders.UserAgent, m_UserAgent);
-                }
-
-                //If there not already an Authorization header and there is an AuthenticationScheme utilize the information in the Credential
-                if (false == message.ContainsHeader(RtspHeaders.Authorization) && 
-                    m_AuthenticationScheme != AuthenticationSchemes.None && 
-                    Credential != null)
-                {
-                    //Basic
-                    if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
-                    {
-                        message.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(message.Encoding, Credential));
-                    }
-                    else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
-                    {
-                        //Could get values from m_LastTransmitted.
-                        //Digest
-                        message.SetHeader(RtspHeaders.Authorization,
-                            RtspHeaders.DigestAuthorizationHeader(message.Encoding, message.Method, message.Location, Credential, null, null, null, null, null, false, null, message.Body));
-                    }
-                    else if (m_AuthenticationScheme != AuthenticationSchemes.None)
-                    {
-                        message.SetHeader(RtspHeaders.Authorization, m_AuthenticationScheme.ToString());
-                    }
-                }
-
-                //Add the content encoding header
-                if (false == message.ContainsHeader(RtspHeaders.ContentEncoding)) message.SetHeader(RtspHeaders.ContentEncoding, message.Encoding.WebName);                
-
-                //Set the date
-                if (false == message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
-
-                ///Use the sessionId if present and not already contained.
-                if (false == string.IsNullOrWhiteSpace(m_SessionId) && false == message.ContainsHeader(RtspHeaders.Session)) message.SetHeader(RtspHeaders.Session, m_SessionId);
-
-                //Get the next Sequence Number and set it in the request. (If not already present)
-                if (false == message.ContainsHeader(RtspHeaders.CSeq)) sequenceNumber = message.CSeq = NextClientSequenceNumber();
-                else sequenceNumber = message.CSeq;
-
-            Timestamp:
-                //Set the Timestamp header if not already set to the amount of seconds since the connection started.
-                string timestamp;
-
-                //If requests should be timestamped
-                if (TimestampRequests)
-                {
-                    if (false == message.ContainsHeader(RtspHeaders.Timestamp))
-                    {
-                        timestamp = (DateTime.UtcNow - m_EndConnect ?? TimeSpan.Zero).TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-                        message.SetHeader(RtspHeaders.Timestamp, timestamp);
-                    }
-                    else timestamp = message[RtspHeaders.Timestamp];
-                }
-
-
-                //Wait for any existing requests to finish first
-                wasBlocked = InUse;
-
-                //If was block wait for that to finish
-                //if (wasBlocked) m_InterleaveEvent.Wait();
-
-                //Connect if not connected.
-                bool wasConnected = IsConnected;
-
-                if (false == wasConnected) Connect();
-
-                //If the client is not connected then nothing can be done.
-                if (false == IsConnected) return null;
-
-                //We are connected.
-                wasConnected = true;
-
-                //Get the bytes of the request
-                byte[] buffer = m_RtspProtocol == ClientProtocolType.Http ? RtspMessage.ToHttpBytes(message) : message.ToBytes();
-
-                int retransmits = 0, attempt = 0, //The attempt counter itself
-                    sent = 0, received = 0, //counter for sending and receiving locally
-                    offset = m_Buffer.Offset, length = buffer.Length;
-
-                //Set the block if a response is required.
-                if(hasResponse || false == wasBlocked) m_InterleaveEvent.Reset();                
-
-            Send:
-                unchecked
+            unchecked
+            {
+                try
                 {
 
+                    int retransmits = 0, attempt = 0, //The attempt counter itself
+                        sent = 0, received = 0, //counter for sending and receiving locally
+                        offset = 0, length = 0;
+                    
+                    byte[] buffer = null;
+
+                    bool wasConnected = IsConnected;
+
+                    //If there is no message to send then check for response
+                    if (message == null) goto Connect;
+
+                    //Ensure the request version matches the protocol version of the client if enforceVersion is true.
+                    if (useClientProtocolVersion && message.Version != ProtocolVersion) message.Version = ProtocolVersion;
+
+                    //Use any additional headers if given
+                    if (AdditionalHeaders.Count > 0) foreach (var additional in AdditionalHeaders) message.AppendOrSetHeader(additional.Key, additional.Value);
+
+                    //Get the next Sequence Number and set it in the request. (If not already present)
+                    if (false == message.ContainsHeader(RtspHeaders.CSeq)) sequenceNumber = message.CSeq = NextClientSequenceNumber();
+                    else sequenceNumber = message.CSeq;
+
+                    //Add the user agent if required
+                    if (SendUserAgent &&
+                        false == message.ContainsHeader(RtspHeaders.UserAgent))
+                    {
+                        message.SetHeader(RtspHeaders.UserAgent, m_UserAgent);
+                    }
+
+                    //If there not already an Authorization header and there is an AuthenticationScheme utilize the information in the Credential
+                    if (false == message.ContainsHeader(RtspHeaders.Authorization) &&
+                        m_AuthenticationScheme != AuthenticationSchemes.None &&
+                        Credential != null)
+                    {
+                        //Basic
+                        if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
+                        {
+                            message.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(message.Encoding, Credential));
+                        }
+                        else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
+                        {
+                            //Could get values from m_LastTransmitted.
+                            //Digest
+                            message.SetHeader(RtspHeaders.Authorization,
+                                RtspHeaders.DigestAuthorizationHeader(message.Encoding, message.Method, message.Location, Credential, null, null, null, null, null, false, null, message.Body));
+                        }
+                        else if (m_AuthenticationScheme != AuthenticationSchemes.None)
+                        {
+                            message.SetHeader(RtspHeaders.Authorization, m_AuthenticationScheme.ToString());
+                        }
+                    }
+
+                    //Add the content encoding header if required
+                    if (false == message.ContainsHeader(RtspHeaders.ContentEncoding) &&
+                        message.Encoding.WebName != RtspMessage.DefaultEncoding.WebName) message.SetHeader(RtspHeaders.ContentEncoding, message.Encoding.WebName);
+
+                    //Set the date if required
+                    if (SendDate && false == message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
+
+                    ///Use the sessionId if present and not already contained.
+                    if (false == string.IsNullOrWhiteSpace(m_SessionId) &&
+                        false == message.ContainsHeader(RtspHeaders.Session)) message.SetHeader(RtspHeaders.Session, m_SessionId);
+
+                Timestamp:
+                    //Set the Timestamp header if not already set to the amount of seconds since the connection started.
+                    string timestamp;
+
+                    //If requests should be timestamped
+                    if (TimestampRequests)
+                    {
+                        if (false == message.ContainsHeader(RtspHeaders.Timestamp))
+                        {
+                            timestamp = (DateTime.UtcNow - m_EndConnect ?? TimeSpan.Zero).TotalSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+                            message.SetHeader(RtspHeaders.Timestamp, timestamp);
+                        }
+                        else timestamp = message[RtspHeaders.Timestamp];
+                    }
+
+                    //Get the bytes of the request
+                    buffer = m_RtspProtocol == ClientProtocolType.Http ? RtspMessage.ToHttpBytes(message) : message.ToBytes();
+
+                    offset = m_Buffer.Offset;
+
+                    length = buffer.Length;
+
+                Connect:
+                    //Wait for any existing requests to finish first
+                    wasBlocked = InUse;
+
+                    //If was block wait for that to finish
+                    //if (wasBlocked) m_InterleaveEvent.Wait();
+                
+                    if (false == wasConnected) Connect();
+
+                    //If the client is not connected then nothing can be done.
+                    if (false == IsConnected) return null;
+              
+                    //We are connected.
+                    wasConnected = true;
+
+                    //Set the block if a response is required.
+                    if (hasResponse || false == wasBlocked) m_InterleaveEvent.Reset();
+
+                    //If nothing is being sent this is a receive only operation
+                    if (message == null) goto NothingToSend;
+
+                Send:
                     //If the message was Transferred previously
                     if (message.Transferred.HasValue)
                     {
@@ -2435,7 +2467,7 @@ namespace Media.Rtsp
 
                         ++m_ReTransmits;
                     }
-                    
+
 
                     //If we can write
                     if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout), MidpointRounding.ToEven), SelectMode.SelectWrite))
@@ -2445,7 +2477,8 @@ namespace Media.Rtsp
 
                     #region Auto Reconnect
 
-                    if (AutomaticallyReconnect && error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
+                    if (AutomaticallyReconnect &&
+                        error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
                     {
                         //Check for the host to have dropped the connection
                         if (error == SocketError.ConnectionReset)
@@ -2489,27 +2522,27 @@ namespace Media.Rtsp
                         goto Send;
                     }
 
-                    //If 'hasResponse' was set and the message is not a request, then don't wait.
-                    //if (hasResponse) hasResponse = message.MessageType == RtspMessageType.Request;
-
+                NothingToSend:
                     //Check for no response.
                     if (false == hasResponse) return null;
 
                     //If the socket is shared the response will be propagated via an event.
                     if (SharesSocket) goto Wait;
 
-                    //Receive some data (only referenced by the check for disconnection)
+                        //Receive some data (only referenced by the check for disconnection)
                 Receive:
 
-                    //If we can
-                    if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout), MidpointRounding.ToEven), SelectMode.SelectRead))
+                    //If we can receive 
+                    if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout), MidpointRounding.ToEven), SelectMode.SelectRead))
                     {
+                        //Receive
                         received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);
                     }
 
                     #region Auto Reconnect
 
-                    if (AutomaticallyReconnect && error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
+                    if (AutomaticallyReconnect &&
+                        error == SocketError.ConnectionAborted || error == SocketError.ConnectionReset)
                     {
                         //Check for the host to have dropped the connection
                         if (error == SocketError.ConnectionReset)
@@ -2536,7 +2569,7 @@ namespace Media.Rtsp
                         //Right now just pass it to the RtpClient.
                         if (m_RtpClient != null && m_Buffer.Array[offset] == Media.Rtp.RtpClient.BigEndianFrameControl)
                         {
-                            
+
                             //Some people just start sending packets hoping that the context will be created dynamically.
                             //I guess you could technically skip describe and just receive everything raising events as required...
                             //White / Black Hole Feature(s)?
@@ -2563,24 +2596,24 @@ namespace Media.Rtsp
                         }
 
                         //Raise the exception
-                        throw new SocketException((int)error);
+                        if (message != null) throw new SocketException((int)error);
+                        else return null;
                     }
 
                 Wait: //Wait for the response unless the method requested is unknown
-                    if (received < RtspMessage.MaximumLength && message.Method != RtspMethod.UNKNOWN)// && request.Method != RtspMethod.TEARDOWN)
+                    if (received < RtspMessage.MaximumLength)// && request.Method != RtspMethod.TEARDOWN)
                     {
                         //Wait while
-                        while (false == IsDisposed //The client connected and is not disposed AND
+                        while (false == IsDisposed &&//The client connected and is not disposed AND
                             //There is no last transmitted message assigned AND it has not already been disposed
-                            && (m_LastTransmitted == null || m_LastTransmitted.IsDisposed)
+                            (m_LastTransmitted == null || m_LastTransmitted.IsDisposed)
                             //AND the client is still allowed to wait
                             && ++attempt <= m_ResponseTimeoutInterval)
                         {
                             //Wait a small amount of time for the response because the cancellation token was not used...
-                            if (IsDisposed || InUse)
+                            if (IsDisposed)
                             {
-                                //There may be a response
-                                continue;
+                                return null;
                             }
                             else
                             {
@@ -2608,7 +2641,7 @@ namespace Media.Rtsp
                                     SocketWriteTimeout = SocketReadTimeout *= 2;
 
                                     //Ensure the client transport is connected if previously playing and it has since disconnected.
-                                    if (IsPlaying && 
+                                    if (IsPlaying &&
                                         m_RtpClient != null &&
                                         false == m_RtpClient.IsActive) m_RtpClient.Activate();
                                 }
@@ -2636,7 +2669,7 @@ namespace Media.Rtsp
 
                                         ////Reset the header value
                                         //request.SetHeader(RtspHeaders.Timestamp, timestamp);
-                                     
+
 
                                         //If there was a Timestamp header
                                         if (message.RemoveHeader(RtspHeaders.Timestamp))
@@ -2647,16 +2680,19 @@ namespace Media.Rtsp
 
                                         //Send as is
                                         goto Send;
-                                    }                                    
+                                    }
                                 }
                             }
 
                             //If not playing trying to receive again.
                             if (false == SharesSocket) goto Receive;
                         }
-                    }
+                    } //Received more than 4096 bytes
 
                 GotResponse:
+
+                    if (received == 0 && message == null) return null;
+
                     //Update counters for any data received.
                     m_ReceivedBytes += received;
 
@@ -2665,7 +2701,7 @@ namespace Media.Rtsp
                     {
                         System.Threading.Thread.Sleep(0);
                     }
-                    else //m_LastTransmitted is not null
+                    else if(message != null) //If there was a message sent
                     {
                         //Obtain the CSeq of the response if present.
                         int sequenceNumberSent = message.CSeq, sequenceNumberReceived = m_LastTransmitted.CSeq;
@@ -2675,7 +2711,7 @@ namespace Media.Rtsp
                         {
                             //Check if someone else is transmitting and wait
                             if (m_InterleaveEvent.IsSet) m_InterleaveEvent.Wait();
-                            
+
                             //Check for a new response to have bet set by the event
                             if (sequenceNumberReceived == m_LastTransmitted.CSeq &&
                                 sequenceNumberReceived != sequenceNumberSent)
@@ -2702,241 +2738,239 @@ namespace Media.Rtsp
                         //    //if it's not this is a response to an older request which was retransmitted.
                         //}
                     } // end check m_LastTransmitted == null
-                }//Unchecked
 
-                #region Notes
 
-                //m_LastTransmitted is either null or not
-                //if it is not null it may not be the same response we are looking for. (mostly during threaded sends and receives)
-                //this could be dealt with by using a hash `m_Transactions` which holds requests which are sent and a space for their response if desired.
-                //Then a function GetMessage(message) would be able to use that hash to get the outgoing or incoming message which resulted.
-                //The structure of the hash would allow any response to be stored.
+                    #region Notes
 
-                #endregion
+                    //m_LastTransmitted is either null or not
+                    //if it is not null it may not be the same response we are looking for. (mostly during threaded sends and receives)
+                    //this could be dealt with by using a hash `m_Transactions` which holds requests which are sent and a space for their response if desired.
+                    //Then a function GetMessage(message) would be able to use that hash to get the outgoing or incoming message which resulted.
+                    //The structure of the hash would allow any response to be stored.
 
-                //Check for the response.
-                if (m_LastTransmitted != null && 
-                    m_LastTransmitted.MessageType == RtspMessageType.Response)
-                {
+                    #endregion
 
-                    //Calculate the amount of time taken to receive the message.
-                    TimeSpan lastMessageRoundTripTime = (m_LastTransmitted.Created - (message.Transferred ?? message.Created));
-
-                    //Ensure positive values for the RTT
-                    if (lastMessageRoundTripTime < TimeSpan.Zero) lastMessageRoundTripTime = lastMessageRoundTripTime.Negate();
-
-                    //Assign it
-                    m_LastMessageRoundTripTime = lastMessageRoundTripTime;
-
-                    //TODO
-                    //REDIRECT (Handle loops)
-                    //if(m_LastTransmitted.StatusCode == RtspStatusCode.MovedPermanently)
-
-                    switch (m_LastTransmitted.StatusCode)
+                    //Check for the response.
+                    if (message != null &&
+                        m_LastTransmitted != null &&
+                        m_LastTransmitted.MessageType == RtspMessageType.Response)
                     {
-                        case RtspStatusCode.OK:
-                            {
-                                //Ensure message is added to supported methods.
-                                SupportedMethods.Add(message.MethodString);
 
-                                break;
-                            }
-                        case RtspStatusCode.NotImplemented: SupportedMethods.Remove(m_LastTransmitted.MethodString); break;
-                        case RtspStatusCode.MethodNotValidInThisState: if (m_LastTransmitted.ContainsHeader(RtspHeaders.Allow)) SwitchProtocols(); break;
-                        case RtspStatusCode.Unauthorized:
-                            {
+                        //Calculate the amount of time taken to receive the message.
+                        TimeSpan lastMessageRoundTripTime = (m_LastTransmitted.Created - (message.Transferred ?? message.Created));
 
-                                #region [Vivontek Information]
+                        //Ensure positive values for the RTT
+                        if (lastMessageRoundTripTime < TimeSpan.Zero) lastMessageRoundTripTime = lastMessageRoundTripTime.Negate();
 
-                                //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
-                                //(Note for Vivontek you can still bypass the Auth anyway :)
-                                //http://www.coresecurity.com/advisories/vivotek-ip-cameras-rtsp-authentication-bypass
+                        //Assign it
+                        m_LastMessageRoundTripTime = lastMessageRoundTripTime;
 
-                                #endregion
+                        //TODO
+                        //REDIRECT (Handle loops)
+                        //if(m_LastTransmitted.StatusCode == RtspStatusCode.MovedPermanently)
 
-                                //If there was a WWWAuthenticate header in the response
-                                if (m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) &&
-                                    Credential != null) //And there have been Credentials assigned
-                                {
-                                    Received(message, m_LastTransmitted);
-
-                                    //Return the result of Authenticating with the given request and response (forcing the request if the credentails have not already been tried)
-                                    return Authenticate(message, m_LastTransmitted);
-                                }
-
-                                //break
-                                break;
-                            }
-                        case RtspStatusCode.RtspVersionNotSupported:
-                            {
-                                //if enforcing the version
-                                if (useClientProtocolVersion)
-                                {
-                                    //Read the version from the response
-                                    ProtocolVersion = m_LastTransmitted.Version;
-
-                                    //Send the request again.
-                                    return SendRtspMessage(message, useClientProtocolVersion);
-                                }
-
-                                //break
-                                break;
-                            }
-                        default: break;
-                    }
-
-                    //If the client should echo X headers
-                    if (EchoXHeaders)
-                    {
-                        //iterate for any X headers 
-
-                        foreach (var xHeader in m_LastTransmitted.GetHeaders().Where(h => h.Length > 2 && h[1] == Common.ASCII.HyphenSign && char.ToLower(h[0]) == 'x'))
+                        switch (m_LastTransmitted.StatusCode)
                         {
-                            //If contained already then update
-                            if (AdditionalHeaders.ContainsKey(xHeader))
+                            case RtspStatusCode.OK:
+                                {
+                                    //Ensure message is added to supported methods.
+                                    SupportedMethods.Add(message.MethodString);
+
+                                    break;
+                                }
+                            case RtspStatusCode.NotImplemented: SupportedMethods.Remove(m_LastTransmitted.MethodString); break;
+                            case RtspStatusCode.MethodNotValidInThisState: if (m_LastTransmitted.ContainsHeader(RtspHeaders.Allow)) MonitorProtocol(); break;
+                            case RtspStatusCode.Unauthorized:
+                                {
+
+                                    #region [Vivontek Information]
+
+                                    //If we were not authorized and we did not give a nonce and there was an WWWAuthenticate header given then we will attempt to authenticate using the information in the header
+                                    //(Note for Vivontek you can still bypass the Auth anyway :)
+                                    //http://www.coresecurity.com/advisories/vivotek-ip-cameras-rtsp-authentication-bypass
+
+                                    #endregion
+
+                                    //If there was a WWWAuthenticate header in the response
+                                    if (m_LastTransmitted.ContainsHeader(RtspHeaders.WWWAuthenticate) &&
+                                        Credential != null) //And there have been Credentials assigned
+                                    {
+                                        Received(message, m_LastTransmitted);
+
+                                        //Return the result of Authenticating with the given request and response (forcing the request if the credentails have not already been tried)
+                                        return Authenticate(message, m_LastTransmitted);
+                                    }
+
+                                    //break
+                                    break;
+                                }
+                            case RtspStatusCode.RtspVersionNotSupported:
+                                {
+                                    //if enforcing the version
+                                    if (useClientProtocolVersion)
+                                    {
+                                        //Read the version from the response
+                                        ProtocolVersion = m_LastTransmitted.Version;
+
+                                        //Send the request again.
+                                        return SendRtspMessage(message, useClientProtocolVersion);
+                                    }
+
+                                    //break
+                                    break;
+                                }
+                            default: break;
+                        }
+
+                        //If the client should echo X headers
+                        if (EchoXHeaders)
+                        {
+                            //iterate for any X headers 
+
+                            foreach (var xHeader in m_LastTransmitted.GetHeaders().Where(h => h.Length > 2 && h[1] == Common.ASCII.HyphenSign && char.ToLower(h[0]) == 'x'))
                             {
-                                AdditionalHeaders[xHeader] += ((char)Common.ASCII.SemiColon).ToString() + m_LastTransmitted.GetHeader(xHeader).Trim();
-                            }
-                            else
-                            {
-                                //Add
-                                AdditionalHeaders.Add(xHeader, m_LastTransmitted.GetHeader(xHeader).Trim());
+                                //If contained already then update
+                                if (AdditionalHeaders.ContainsKey(xHeader))
+                                {
+                                    AdditionalHeaders[xHeader] += ((char)Common.ASCII.SemiColon).ToString() + m_LastTransmitted.GetHeader(xHeader).Trim();
+                                }
+                                else
+                                {
+                                    //Add
+                                    AdditionalHeaders.Add(xHeader, m_LastTransmitted.GetHeader(xHeader).Trim());
+                                }
                             }
                         }
-                    }
 
-                    //For any other request besides teardown update the sessionId and timeout
-                    if (message.Method != RtspMethod.TEARDOWN)
-                    {
-                        //Check for a SessionId in the response.
-                        if (m_LastTransmitted.ContainsHeader(RtspHeaders.Session))
+                        //For any other request besides teardown update the sessionId and timeout
+                        if (message.Method != RtspMethod.TEARDOWN)
                         {
-                            //Get the header.
-                            string sessionHeader = m_LastTransmitted[RtspHeaders.Session];
-
-                            //If there is a session header it may contain the option timeout
-                            if (false == string.IsNullOrWhiteSpace(sessionHeader))
+                            //Check for a SessionId in the response.
+                            if (m_LastTransmitted.ContainsHeader(RtspHeaders.Session))
                             {
-                                //Check for session and timeout
+                                //Get the header.
+                                string sessionHeader = m_LastTransmitted[RtspHeaders.Session];
 
-                                //Get the values
-                                string[] sessionHeaderParts = sessionHeader.Split(RtspHeaders.SemiColon);
-
-                                int headerPartsLength = sessionHeaderParts.Length;
-
-                                //Check if a valid value was given
-                                if (headerPartsLength > 0)
+                                //If there is a session header it may contain the option timeout
+                                if (false == string.IsNullOrWhiteSpace(sessionHeader))
                                 {
-                                    //Trim it of whitespace
-                                    string value = sessionHeaderParts.FirstOrDefault(p=> false == string.IsNullOrWhiteSpace(p));
+                                    //Check for session and timeout
 
-                                    //If we dont have an exiting id then this is valid if the header was completely recieved only.
-                                    if (false == string.IsNullOrWhiteSpace(value) &&
-                                        true == string.IsNullOrWhiteSpace(m_SessionId) || 
-                                        value[0] != m_SessionId[0])
+                                    //Get the values
+                                    string[] sessionHeaderParts = sessionHeader.Split(RtspHeaders.SemiColon);
+
+                                    int headerPartsLength = sessionHeaderParts.Length;
+
+                                    //Check if a valid value was given
+                                    if (headerPartsLength > 0)
                                     {
-                                        //Get the SessionId if present
-                                        m_SessionId = sessionHeaderParts[0].Trim();
+                                        //Trim it of whitespace
+                                        string value = sessionHeaderParts.FirstOrDefault(p => false == string.IsNullOrWhiteSpace(p));
 
-                                        //Check for a timeout
-                                        if (sessionHeaderParts.Length > 1)
+                                        //If we dont have an exiting id then this is valid if the header was completely recieved only.
+                                        if (false == string.IsNullOrWhiteSpace(value) &&
+                                            true == string.IsNullOrWhiteSpace(m_SessionId) ||
+                                            value[0] != m_SessionId[0])
                                         {
-                                            int timeoutStart = 1 + sessionHeaderParts[1].IndexOf(Media.Sdp.SessionDescription.EqualsSign);
-                                            if (timeoutStart >= 0 && int.TryParse(sessionHeaderParts[1].Substring(timeoutStart), out timeoutStart))
+                                            //Get the SessionId if present
+                                            m_SessionId = sessionHeaderParts[0].Trim();
+
+                                            //Check for a timeout
+                                            if (sessionHeaderParts.Length > 1)
                                             {
-                                                //Should already be set...
-                                                if (timeoutStart <= 0)
+                                                int timeoutStart = 1 + sessionHeaderParts[1].IndexOf(Media.Sdp.SessionDescription.EqualsSign);
+                                                if (timeoutStart >= 0 && int.TryParse(sessionHeaderParts[1].Substring(timeoutStart), out timeoutStart))
                                                 {
-                                                    m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
-                                                }
-                                                else
-                                                {
-                                                    m_RtspSessionTimeout = TimeSpan.FromSeconds(timeoutStart);
+                                                    //Should already be set...
+                                                    if (timeoutStart <= 0)
+                                                    {
+                                                        m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
+                                                    }
+                                                    else
+                                                    {
+                                                        m_RtspSessionTimeout = TimeSpan.FromSeconds(timeoutStart);
+                                                    }
                                                 }
                                             }
                                         }
+
+                                        //done
                                     }
+                                    else if (string.IsNullOrWhiteSpace(m_SessionId))
+                                    {
+                                        //The timeout was not present
+                                        m_SessionId = sessionHeader.Trim();
 
-                                    //done
-                                }
-                                else if(string.IsNullOrWhiteSpace(m_SessionId))
-                                {
-                                    //The timeout was not present
-                                    m_SessionId = sessionHeader.Trim();
-
-                                    m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
+                                        m_RtspSessionTimeout = TimeSpan.FromSeconds(60);//Default
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (CalculateServerDelay)
-                    {
-                        //Determine if delay was honored.
-                        string timestampHeader = m_LastTransmitted.GetHeader(RtspHeaders.Timestamp);
-
-                        //If there was a Timestamp header
-                        if (false == string.IsNullOrWhiteSpace(timestampHeader))
+                        if (CalculateServerDelay)
                         {
-                            timestampHeader = timestampHeader.Trim();
+                            //Determine if delay was honored.
+                            string timestampHeader = m_LastTransmitted.GetHeader(RtspHeaders.Timestamp);
 
-                            //check for the delay token
-                            int indexOfDelay = timestampHeader.IndexOf("delay=");
-
-                            //if present
-                            if (indexOfDelay >= 0)
+                            //If there was a Timestamp header
+                            if (false == string.IsNullOrWhiteSpace(timestampHeader))
                             {
-                                //attempt to calculate it from the given value
-                                double delay = double.NaN;
+                                timestampHeader = timestampHeader.Trim();
 
-                                if (double.TryParse(timestampHeader.Substring(indexOfDelay + 6).TrimEnd(), out delay))
+                                //check for the delay token
+                                int indexOfDelay = timestampHeader.IndexOf("delay=");
+
+                                //if present
+                                if (indexOfDelay >= 0)
                                 {
-                                    //Set the value of the servers delay
-                                    m_LastServerDelay = TimeSpan.FromSeconds(delay);
-
-                                    //Could add it to the existing SocketReadTimeout and SocketWriteTimeout.
-                                }
-                            }
-                            else
-                            {
-                                //MS servers don't use a ; to indicate delay
-                                string[] parts = timestampHeader.Split(RtspMessage.SpaceSplit, 2);
-
-                                //If there was something after the space
-                                if (parts.Length > 1)
-                                {
-                                    //attempt to calulcate it from the given value
+                                    //attempt to calculate it from the given value
                                     double delay = double.NaN;
 
-                                    if (double.TryParse(parts[1].Trim(), out delay))
+                                    if (double.TryParse(timestampHeader.Substring(indexOfDelay + 6).TrimEnd(), out delay))
                                     {
                                         //Set the value of the servers delay
                                         m_LastServerDelay = TimeSpan.FromSeconds(delay);
+
+                                        //Could add it to the existing SocketReadTimeout and SocketWriteTimeout.
                                     }
                                 }
+                                else
+                                {
+                                    //MS servers don't use a ; to indicate delay
+                                    string[] parts = timestampHeader.Split(RtspMessage.SpaceSplit, 2);
 
+                                    //If there was something after the space
+                                    if (parts.Length > 1)
+                                    {
+                                        //attempt to calulcate it from the given value
+                                        double delay = double.NaN;
+
+                                        if (double.TryParse(parts[1].Trim(), out delay))
+                                        {
+                                            //Set the value of the servers delay
+                                            m_LastServerDelay = TimeSpan.FromSeconds(delay);
+                                        }
+                                    }
+
+                                }
                             }
                         }
+
+                        //Raise an event for the message received
+                        Received(message, m_LastTransmitted);
                     }
-
-                    //Raise an event for the message received
-                    Received(message, m_LastTransmitted);
                 }
-            }
-            catch (Exception ex)
-            {
-                if (IsDisposed || ex is ObjectDisposedException) return null;
+                catch (Exception ex)
+                {
+                    Common.ILoggingExtensions.Log(Logger, ToString() + "@SendRtspMessage: " + ex.Message);
+                }
+                finally
+                {
 
-                if (ex is Common.TaggedException<RtpClient>) return null;
-
-                throw;
-            }
-            finally
-            {
-
-                //Unblock (should not be needed)
-                if (false == wasBlocked) m_InterleaveEvent.Set();
-            }
+                    //Unblock (should not be needed)
+                    if (false == wasBlocked) m_InterleaveEvent.Set();
+                }
+            }//Unchecked
 
             //Return the result
             return m_LastTransmitted;
@@ -3038,6 +3072,8 @@ namespace Media.Rtsp
                     response = SendRtspMessage(describe);                    
 
                     //Handle no response
+                    //If the remote end point is just sending Interleaved Binary Data out of no where it is possible to continue without a SessionDescription
+
                     if (response == null) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(describe, "Unable to describe media, no response to DESCRIBE request. The request is in the Tag property.");
 
                     //Hanlde NotFound
@@ -3046,7 +3082,7 @@ namespace Media.Rtsp
                     //Wait for complete responses
                     if (false == response.IsComplete)
                     {
-                        m_InterleaveEvent.Wait();                        
+                        m_InterleaveEvent.Wait();
                     }
 
                     //Only handle responses for the describe request sent when sharing the socket
@@ -3058,10 +3094,18 @@ namespace Media.Rtsp
                     }
 
                     //Handle Found / Redirect
-                    if (response.StatusCode == RtspStatusCode.Found || response.Method == RtspMethod.REDIRECT)
+                    //When the response is <= OK the content-base header is present it should also be checked for NAT
+                    //If the remote party needs it's NAT Address to be used then uncomment out the check for <= OK 
+                    if (/*response.StatusCode <= Rtsp.RtspStatusCode.OK && */response.StatusCode == RtspStatusCode.Found || 
+                        response.Method == RtspMethod.REDIRECT)
                     {
                         //Determine if there is a new location
-                        string newLocation = response.GetHeader(RtspHeaders.Location).Trim();
+                        string newLocation = response.GetHeader(RtspHeaders.Location);
+
+                        if (false == string.IsNullOrWhiteSpace(newLocation))
+                        {
+                            newLocation = newLocation.Trim();
+                        }
 
                         //We start at our location
                         Uri baseUri = CurrentLocation;
@@ -3082,8 +3126,10 @@ namespace Media.Rtsp
                                 {
                                     Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(contentBase, "See Tag. Can't parse ContentBase header.");
                                 }
-                                
                             }
+
+                            //The new location is given by
+                            newLocation = baseUri.ToString();
                         }
 
                         Uri parsedLocation;
@@ -3095,14 +3141,30 @@ namespace Media.Rtsp
                             Uri.TryCreate(baseUri, newLocation, out parsedLocation) &&
                             parsedLocation != CurrentLocation) // and not equal the existing location
                         {
-                            //Could only take the different part of the location with the following code
-                            //parsedLocation.MakeRelativeUri(Location)
-                            
-                            //Redirect to the Location by setting Location. (Allows a new host)
-                            CurrentLocation = parsedLocation;
+
+                            if (parsedLocation.IsAbsoluteUri && 
+                                parsedLocation.OriginalString.Last() == (char)Common.ASCII.ForwardSlash)
+                            {
+
+                                //Could only take the different part of the location with the following code
+                                //parsedLocation.MakeRelativeUri(Location)
+
+                                //Redirect to the Location by setting Location. (Allows a new host)
+                                m_CurrentLocation = new Uri(parsedLocation.OriginalString.Substring(0, parsedLocation.OriginalString.Length - 1));
+                            }
+                            else
+                            {
+
+                                //Could only take the different part of the location with the following code
+                                //parsedLocation.MakeRelativeUri(Location)
+
+                                //Redirect to the Location by setting Location. (Allows a new host and Connects when using CurrentLoction)
+                                m_CurrentLocation = parsedLocation;
+                            }
+
 
                             //Send a new describe
-                            return SendDescribe();
+                            if(response.StatusCode == RtspStatusCode.Found || response.Method == RtspMethod.REDIRECT) return SendDescribe();
                         }
                     }
 
@@ -3436,8 +3498,8 @@ namespace Media.Rtsp
                         if (m_RtpClient != null && m_RtpClient.GetTransportContexts().Any())
                         {
                             RtpClient.TransportContext lastContext = m_RtpClient.GetTransportContexts().Last();
-                            if(lastContext != null) setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), RtspMethod.PLAY.ToString()));
-                            else setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), RtspMethod.PLAY.ToString()));
+                            if (lastContext != null) setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel = (byte)(lastContext.DataChannel + 2), (needsRtcp ? (byte?)(controlChannel = (byte)(lastContext.ControlChannel + 2)) : null), null));
+                            else setup.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc != 0 ? localSsrc : (int?)null, null, null, null, null, null, true, false, null, true, dataChannel, (needsRtcp ? (byte?)controlChannel : null), null));
                         }
 
                     }
@@ -3781,6 +3843,10 @@ namespace Media.Rtsp
                     //if a context was created add it
                     if(created != null) m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing, true, true);
 
+                    //Ensure that packets are not missed under UDP by using a large receive buffer
+                    Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), m_Buffer.Count * m_Buffer.Count);
+	 
+
                     //Setup Complete
                     return response;
                 }
@@ -3800,7 +3866,7 @@ namespace Media.Rtsp
             }
         }
 
-        protected virtual void SwitchProtocols(object state = null)
+        protected virtual void MonitorProtocol(object state = null)
         {
 
             if (AllowAlternateTransport && //If protocol switch is still allowed AND
@@ -3821,7 +3887,8 @@ namespace Media.Rtsp
                     //Filter the contexts which have received absolutely NO data.
                     var contextsWithoutFlow = Client.GetTransportContexts().Where(tc => tc != null &&
                         m_Playing.Contains(tc.MediaDescription) &&
-                        tc.TotalBytesReceieved == 0);
+                        tc.TotalBytesReceieved == 0 &&
+                        tc.TimeSending > tc.ReceiveInterval);
 
                     //If there are any context's which are not flowing but are playing
                     if (contextsWithoutFlow.Count() >= m_Playing.Count)// and the amount of them is greater than or equal to what the rtsp client is playing
@@ -3860,7 +3927,7 @@ namespace Media.Rtsp
                                 return;
                             }
 
-                            Common.ILoggingExtensions.Log(Logger, ToString() + "@SwitchProtocols: StopPlaying");
+                            Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: StopPlaying");
 
                             //Stop all playback
                             StopPlaying();
@@ -3873,10 +3940,10 @@ namespace Media.Rtsp
                             {
                                 Thread.Sleep(0);
 
-                                Common.ILoggingExtensions.Log(Logger, ToString() + "@SwitchProtocols: Waiting for IsPlaying to be false.");
+                                Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Waiting for IsPlaying to be false.");
                             }
 
-                            Common.ILoggingExtensions.Log(Logger, ToString() + "@SwitchProtocols: StartPlaying");
+                            Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: StartPlaying");
 
                             //Start again
                             StartPlaying();
@@ -3886,24 +3953,25 @@ namespace Media.Rtsp
                         }
                         catch (Exception ex)
                         {
-                            Common.ILoggingExtensions.Log(Logger, ToString() + "@SwitchProtocols: " + ex.Message);
+                            Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: " + ex.Message);
                         }
 
+                    }//End check for contexts activity
+
+                    //Monitor the protocol for incoming messages
+                    if (false == SharesSocket)
+                    {
+                        Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
+
+                        using (SendRtspMessage(null, false, true)) ;
+
+                        Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
                     }
                 }
             }
-                
             
             //If there is still a timer dispose of it at this point as it will no longer be required
-            if(m_ProtocolSwitchTimer != null)
-            {
-                Common.ILoggingExtensions.Log(Logger, ToString() + "@SwitchProtocols: Disposing m_ProtocolSwitchTimer");
-
-                m_ProtocolSwitchTimer.Dispose();
-
-                m_ProtocolSwitchTimer = null;
-            }
-
+            if (m_ProtocolMonitor != null) m_ProtocolMonitor.Change(LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
         }
 
         public RtspMessage SendPlay(MediaDescription mediaDescription, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt")
@@ -4295,6 +4363,7 @@ namespace Media.Rtsp
 
                     if (m_LastMessageRoundTripTime < m_RtspSessionTimeout) m_KeepAliveTimer.Change(TimeSpan.FromTicks(m_RtspSessionTimeout.Subtract(m_LastMessageRoundTripTime + m_ConnectionTime).Ticks / 2), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
                 }
+
             }
             catch (Exception ex) { Common.ILoggingExtensions.Log(Logger, ToString() + "@SendKeepAlive: " + ex.Message); }
 
@@ -4314,7 +4383,7 @@ namespace Media.Rtsp
             DisableKeepAliveRequest = true;
 
             //If not waiting to switch protocols
-            if (m_ProtocolSwitchTimer == null && IsPlaying)
+            if (m_ProtocolMonitor == null && IsPlaying)
             {
 
                 //If not playing anymore do nothing
@@ -4573,6 +4642,13 @@ namespace Media.Rtsp
         public override void Dispose()
         {
             if (IsDisposed) return;
+
+            if (m_ProtocolMonitor != null)
+            {
+                m_ProtocolMonitor.Dispose();
+
+                m_ProtocolMonitor = null;
+            }
 
             DisableKeepAliveRequest = true;
 

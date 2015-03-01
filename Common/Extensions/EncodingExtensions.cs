@@ -91,23 +91,24 @@ namespace Media.Common.Extensions.Encoding
 
             bool sawDelimit = false;
 
-            try
+            //Make the builder
+            builder = new System.Text.StringBuilder();
+
+            long at = stream.Position;
+
+            //Use the BinaryReader on the stream to ensure ReadChar reads in the correct size
+            //This prevents manual conversion from byte to char and uses the encoding's code page.
+            using (var br = new System.IO.BinaryReader(stream, encoding, true))
             {
-                //Make the builder
-                builder = new System.Text.StringBuilder();
-
-                //Use the BinaryReader on the stream to ensure ReadChar reads in the correct size
-                //This prevents manual conversion from byte to char and uses the encoding's code page.
-                using (var br = new System.IO.BinaryReader(stream, encoding, true))
+                //Read a while permitted, check for EOS
+                while (read < count && stream.CanRead)
                 {
-                    //Read a while permitted, check for EOS
-                    while (count-- > 0 && stream.CanRead)
+                    try
                     {
-                        //Increment read
-                        ++read;
-
-                        //Get the Byte
+                        //Get the char in the encoding beging used
                         char cached = br.ReadChar();
+
+                        read = (ulong)(stream.Position - at);
 
                         //If the Byte was a delemit 
                         if (Array.IndexOf<char>(delimits, cached) >= 0)
@@ -125,11 +126,8 @@ namespace Media.Common.Extensions.Encoding
                         //Create a string and append
                         builder.Append(cached);
                     }
+                    catch { break; }
                 }
-            }
-            catch
-            {
-                goto Done;
             }
 
         Done:
@@ -169,6 +167,14 @@ namespace Media.Common.Extensions.Encoding
         }
 
         #endregion
+
+        public static char[] GetChars(this System.Text.Encoding encoding, byte toEncode)
+        {
+            //Use default..
+            if (encoding == null) encoding = System.Text.Encoding.Default;
+
+            return encoding.GetChars(new byte[1] { toEncode });
+        }
     }
 
     internal class EncodingExtensionsTests
