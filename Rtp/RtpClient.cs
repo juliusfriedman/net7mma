@@ -2917,14 +2917,19 @@ namespace Media.Rtp
 
                     }
 
+                    //If the identity will overlap the Payload type CANNOT be the same
+
                     //if chekcking local identifier
-                    if (checkLocalIdentity && c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier)
+                    if (checkLocalIdentity && c.SynchronizationSourceIdentifier == context.SynchronizationSourceIdentifier &&
+                        c.MediaDescription.PayloadTypes.Any(pt=>context.MediaDescription.PayloadTypes.Contains(pt)))
                     {
-                        Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Local SSRC is already in use by the context in the Tag");
+                            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Local SSRC is already in use by the context in the Tag");
                     }
 
                     //if chekcking remote identifier (and it has been defined)
-                    if (checkRemoteIdentity && false == context.InDiscovery && false == c.InDiscovery && c.RemoteSynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier)
+                    if (checkRemoteIdentity && false == context.InDiscovery && false == c.InDiscovery && 
+                        c.RemoteSynchronizationSourceIdentifier == context.RemoteSynchronizationSourceIdentifier &&
+                        c.MediaDescription.PayloadTypes.Any(pt => context.MediaDescription.PayloadTypes.Contains(pt)))
                     {
                         Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(c, "Requested Remote SSRC is already in use by the context in the Tag");
                     }
@@ -3888,7 +3893,7 @@ namespace Media.Rtp
                 //The indicates length of the data
                 frameLength = 0,
                 //The amount of data remaining in the buffer
-                remainingInBuffer = Utility.Clamp(count, count, bufferLength - offset),
+                remainingInBuffer = Media.Common.Extensions.Math.MathExtensions.Clamp(count, count, bufferLength - offset),
                 //The amount of data received (which is already equal to what is remaining in the buffer)
                 recievedTotal = remainingInBuffer;
 

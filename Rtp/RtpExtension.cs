@@ -103,7 +103,7 @@ namespace Media.Rtp
         /// </summary>
         public IEnumerable<byte> Data
         {
-            get { if (IsDisposed) return Utility.Empty; return m_MemorySegment.Array.Skip(m_MemorySegment.Offset + MinimumSize).Take(Math.Min(LengthInWords * 4, m_MemorySegment.Count)); }
+            get { if (IsDisposed) return Media.Common.MemorySegment.EmptyBytes; return m_MemorySegment.Array.Skip(m_MemorySegment.Offset + MinimumSize).Take(Math.Min(LengthInWords * 4, m_MemorySegment.Count)); }
         }
 
         /// <summary>

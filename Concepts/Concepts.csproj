@@ -47,11 +47,17 @@
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="Classes\ArithmeticLogicUnit.cs" />
+    <Compile Include="Classes\CentralProcessingUnit.cs" />
+    <Compile Include="Classes\Clock.cs" />
+    <Compile Include="Classes\Machine.cs" />
     <Compile Include="Classes\MediaConnection.cs" />
     <Compile Include="Classes\SocketConfiguration.cs" />
+    <Compile Include="Classes\Timer.cs" />
     <Compile Include="Interfaces\ITextData.cs" />
     <Compile Include="Interfaces\IUpdateable.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Classes\Unsafe.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

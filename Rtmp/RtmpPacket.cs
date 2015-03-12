@@ -13,7 +13,7 @@ namespace Media.Rtmp
 
         public RtmpPacket(byte[] packet) { m_Packet = packet; }
 
-        byte[] m_Packet = Utility.Empty;
+        byte[] m_Packet = Media.Common.MemorySegment.EmptyBytes;
 
         public byte PacketType
         {

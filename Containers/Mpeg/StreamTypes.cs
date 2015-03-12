@@ -110,7 +110,7 @@ namespace Media.Containers.Mpeg
             if (IsMpeg1or2VideoStream(b)) return "Video";
             if (IsReserverd(b)) return "Reserved";
             if (IsUserPrivate(b)) return "UserPrivate";
-            return Utility.UnknownString;
+            return Media.Common.Extensions.String.StringExtensions.UnknownString;
         }
 
         static StreamTypes()

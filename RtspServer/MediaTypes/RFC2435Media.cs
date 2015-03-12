@@ -96,7 +96,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 data[0] = (byte)((dri >> 8) & 0xFF);
                 data[1] = (byte)dri;
 
-                //Network Endian            
+                //Network ByteOrder            
 
                 Media.Common.Binary.Write16(data, 2, BitConverter.IsLittleEndian, count);
 
@@ -1314,7 +1314,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
 
                 if (IsEmpty) throw new ArgumentException("This Frame IsEmpty. (Contains no packets)");
-                else if (!allowIncomplete && !IsComplete) throw new ArgumentException("This Frame not Complete");
+                else if (false == allowIncomplete && false == IsComplete) throw new ArgumentException("This Frame not Complete");
 
                 byte TypeSpecific, Type, Quality,
                 //A byte which is bit mapped, each bit indicates 16 bit coeffecients for the table .
@@ -1772,11 +1772,11 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             int over;
 
-            Math.DivRem(Width, Common.Binary.BitSize, out over);
+            Math.DivRem(Width, Common.Binary.BitsPerByte, out over);
 
             if (over > 0) Width += over;
 
-            Math.DivRem(Height, Common.Binary.BitSize, out over);
+            Math.DivRem(Height, Common.Binary.BitsPerByte, out over);
 
             if (over > 0) Height += over;
         }
@@ -2006,7 +2006,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             packet.SequenceNumber = ++transportContext.SequenceNumber;
 
                             //Fire an event so the server sends a packet to all clients connected to this source
-                            if(!m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpPacketReceieved(packet);
+                            if(false == m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpPacketReceieved(packet);
                         }
 
                         //Modified packet is no longer complete because SequenceNumbers were modified

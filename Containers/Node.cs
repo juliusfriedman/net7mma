@@ -61,7 +61,7 @@ namespace Media.Container
             get
             {
                 if (m_Data != null) return m_Data;
-                else if (IsDisposed || DataSize <= 0 || Master.BaseStream == null) return Utility.Empty;
+                else if (IsDisposed || DataSize <= 0 || Master.BaseStream == null) return Media.Common.MemorySegment.EmptyBytes;
 
                 //If data is larger then a certain amount then it may just make sense to return the data itself?
                 m_Data = new byte[DataSize];

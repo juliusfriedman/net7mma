@@ -19,7 +19,7 @@ namespace Media.Common//.Binary
 
         int m_ByteIndex = 0, m_BitIndex = 0; long m_StreamPosition, m_StreamLength;
 
-        //Endian?
+        Binary.ByteOrder m_ByteOrder = Binary.SystemByteOrder;
 
         bool m_LeaveOpen;
 
@@ -94,7 +94,7 @@ namespace Media.Common//.Binary
         public void WriteBit(bool value)
         {
 
-            if (m_BitIndex >= Common.Binary.BitSize)
+            if (m_BitIndex >= Common.Binary.BitsPerByte)
             {
                 m_BitIndex = 0;
 
@@ -118,6 +118,37 @@ namespace Media.Common//.Binary
         //Write64
 
         //WriteNBit
+
+        public void WriteEndian(byte[] data, Common.Binary.ByteOrder byteOrder)
+        {
+            m_Source.Write(Common.Binary.ConvertFromBigEndian(data, byteOrder), 0, data.Length);
+        }
+        public void WriteEndian(int data, Common.Binary.ByteOrder byteOrder)
+        {
+            byte[] intBytes = BitConverter.GetBytes(data);
+
+            if (m_ByteOrder == Binary.ByteOrder.Little)
+            {
+                Array.Reverse(intBytes);
+            }
+
+            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.SizeOfInt);
+        }
+        public void WriteEndian(Int64 source, Common.Binary.ByteOrder byteOrder)
+        {
+            byte[] intBytes = BitConverter.GetBytes(source);
+
+            if (m_ByteOrder == Binary.ByteOrder.Little)
+            {
+                Array.Reverse(intBytes);
+            }
+
+            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.SizeOfLong);
+        }
+        public void WriteEndian(string source, Common.Binary.ByteOrder byteOrder)
+        {
+            m_Source.Write(Common.Binary.ConvertFromBigEndian(Encoding.UTF8.GetBytes(source), byteOrder), 0, source.Length);
+        }
 
         #endregion
 

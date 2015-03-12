@@ -328,7 +328,7 @@ namespace Media.Containers.Mpeg
             //E.g when GetAdaptationFieldLength == 0 and there is more then 1 byte in data is there at least 1 byte for the flags? e.f Math.Max(1, size);
 
             //For anything including 0 return nothing, otherwise skip the length and return the amount of bytes indicated by length.
-            return size <= 0 ? Utility.Empty : tsUnit.Data.Skip(1).Take(size).ToArray();
+            return size <= 0 ? Media.Common.MemorySegment.EmptyBytes : tsUnit.Data.Skip(1).Take(size).ToArray();
         }
 
         public static TimeSpan? ProgramClockReference(byte[] adaptationField)
@@ -640,7 +640,7 @@ namespace Media.Containers.Mpeg
         {
             int pointer = node.Data[offset++];
 
-            return pointer > 0 ? offset += pointer * Common.Binary.BitSize : offset;
+            return pointer > 0 ? offset += pointer * Common.Binary.BitsPerByte : offset;
         }
 
         //Static and take reader?

@@ -111,7 +111,7 @@ namespace Media.Sdp
 
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentNullException("value");
 
-            type = Utility.UnknownString;
+            type = Media.Common.Extensions.String.StringExtensions.UnknownString;
             start = TimeSpan.Zero;
             end = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan;
 

@@ -42,24 +42,31 @@ namespace Media.Common
     [System.CLSCompliant(true)]
     public sealed class ASCII
     {
+        /// <summary>
+        /// An instance of <see cref="System.Text.ASCIIEncoding"/>
+        /// </summary>
+        public static readonly System.Text.Encoding ASCIIEncoding = new System.Text.ASCIIEncoding();
+
         public const byte Space = 0x20,// ` `
             LineFeed = 0x0A, // `\n` => 10 Decimal
             NewLine = 0x0D, // `\r` => 13 Decimal
-            EqualsSign = 0x3d, // =
-            HyphenSign = 0x2d, // -
-            Comma = 0x2c, // ,
-            Period = 0x2e, // .
+            EqualsSign = 0x3D, // =
+            HyphenSign = 0x2D, // -
+            Comma = 0x2C, // ,
+            Period = 0x2E, // .
             ForwardSlash = 0x2F, // '/'
-            Colon = 0x3a, // :
-            SemiColon = 0x3b, // ;
+            Colon = 0x3A, // :
+            SemiColon = 0x3B, // ;
             AtSign = 0x40, // @
             R = 0x52, // 'R' = 82 Decimal
             BackSlash = 0x5C, // '\'
-            DoubleQuote = (byte)'"',
-            SingleQuote = (byte)'\'',
-            Asterisk = (byte)Common.Binary.TheAnswerToEverything;
+            DoubleQuote = 0x22,// '"'
+            SingleQuote = 0x27, // '\''
+            Asterisk = 0x2A; // '*'
 
         //static char[] LineEndingCharacters = System.Text.Encoding.ASCII.GetChars(new byte[] { NewLine, LineFeed });
+
+        //WhiteSpaceCharacters ...
 
         /// <summary>
         /// Determines if the given <see cref="char"/> is inclusively within the range of `0-9, A-F and a-f` .

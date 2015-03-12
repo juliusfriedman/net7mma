@@ -50,6 +50,28 @@ namespace Media.Common
             }
         }
 
+        public static void Abort(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
+        {
+            //If the worker IsAlive and has the requested state.
+            if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
+            {
+                //Attempt to join
+                if (false == thread.Join(timeout))
+                {
+                    try
+                    {
+                        //Abort
+                        thread.Abort();
+                    }
+                    catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
+                    catch { throw; } //Cancellation not supported
+                }
+
+                //Reset the state of the thread to indicate success
+                thread = null;
+            }
+        }
+
         public static bool TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = 1000)
         {
             try { Abort(ref thread, state, timeout); }

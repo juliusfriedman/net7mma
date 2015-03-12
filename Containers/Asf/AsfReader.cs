@@ -146,13 +146,13 @@ namespace Media.Containers.Asf
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
-            if (identifier == null) return Utility.UnknownString;
+            if (identifier == null) return Media.Common.Extensions.String.StringExtensions.UnknownString;
 
             Guid id = offset > 0 || identifier.Length > 16 ? new Guid(identifier.Skip(offset).Take(IdentifierSize).ToArray()) : new Guid(identifier);
 
             string result;
 
-            if (!IdentifierLookup.TryGetValue(id, out result)) result = Utility.UnknownString;
+            if (!IdentifierLookup.TryGetValue(id, out result)) result = Media.Common.Extensions.String.StringExtensions.UnknownString;
 
             return result;
         }
@@ -506,7 +506,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 0 && len > 0)
                     {
-                        len = Utility.Clamp(len, 0, remaining);
+                        len = Media.Common.Extensions.Math.MathExtensions.Clamp(len, 0, remaining);
                         m_Title = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
                         remaining -= len;
@@ -523,7 +523,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 0 && len > 0)
                     {
-                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
+                        len = Media.Common.Extensions.Math.MathExtensions.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Author = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
                         remaining -= len;
@@ -540,7 +540,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 0 && len > 0)
                     {
-                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
+                        len = Media.Common.Extensions.Math.MathExtensions.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Copyright = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
                         remaining -= len;
@@ -557,7 +557,7 @@ namespace Media.Containers.Asf
 
                     if (len > 0)
                     {
-                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
+                        len = Media.Common.Extensions.Math.MathExtensions.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Comment = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
                         offset += len;
@@ -575,7 +575,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 0 && len > 0)
                     {
-                        len = Utility.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
+                        len = Media.Common.Extensions.Math.MathExtensions.Clamp(len, 0, (int)(contentDescription.DataSize - offset));
                         m_Rating = Encoding.ASCII.GetString(contentDescription.Data, offset, len);
                         offset += len;
                     }
@@ -616,7 +616,7 @@ namespace Media.Containers.Asf
 
                 Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
-                byte[] codecIndication = Utility.Empty;
+                byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
                 byte channels = 0, bitDepth = 0;
 

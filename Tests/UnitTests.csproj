@@ -244,6 +244,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Codecs\Audio\Aac\Media.Codecs.Audio.Aac.csproj">
+      <Project>{d087a5ba-0e1b-44c2-a739-ad8153edc8c4}</Project>
+      <Name>Media.Codecs.Audio.Aac</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
       <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
       <Name>Media.Codecs.Audio</Name>
@@ -252,13 +256,17 @@
       <Project>{4305ddf6-3c8b-4fe6-8de9-3e81c5d9126a}</Project>
       <Name>Media.Codecs.Audio.Mp3</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Media.Codecs.Image.csproj">
+      <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
+      <Name>Media.Codecs.Image</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\H264\Media.Codecs.Video.H264.csproj">
       <Project>{ff0ee03e-0a02-40f1-8064-d055ef41f949}</Project>
       <Name>Media.Codecs.Video.H264</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Video\Jpeg\Media.Codecs.Video.Jpeg.csproj">
+    <ProjectReference Include="..\Codecs\Video\Jpeg\Media.Codecs.Image.Jpeg.csproj">
       <Project>{a12d2eda-c1ba-4d4e-8e7d-38f8048bc161}</Project>
-      <Name>Media.Codecs.Video.Jpeg</Name>
+      <Name>Media.Codecs.Image.Jpeg</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
       <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>

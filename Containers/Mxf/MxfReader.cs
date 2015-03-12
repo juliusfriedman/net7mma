@@ -484,7 +484,7 @@ namespace Media.Containers.Mxf
 
         public static string ToTextualConvention(byte[] identifier, int offset = 0)
         {
-            if (identifier == null) return Utility.UnknownString;
+            if (identifier == null) return Media.Common.Extensions.String.StringExtensions.UnknownString;
 
             string result;
 
@@ -508,7 +508,7 @@ namespace Media.Containers.Mxf
                 if (CompareUL(UniversalLabel.DataDefinitionAudio.ToByteArray(), identifier, true, true, true)) return "DataDefinitionAudio";
 
                 //Unknown
-                result = Utility.UnknownString;
+                result = Media.Common.Extensions.String.StringExtensions.UnknownString;
             }
 
             return result;
@@ -1401,7 +1401,7 @@ namespace Media.Containers.Mxf
             string trackName = string.Empty;
 
             //Essence?
-            byte[] codecIndication = Utility.Empty;
+            byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
             double startTime = 0, duration = 0, editRate = 0, rate = 0;
 

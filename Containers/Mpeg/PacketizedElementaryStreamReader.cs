@@ -179,7 +179,7 @@ namespace Media.Containers.Mpeg
                 ushort esInfoLength = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian);
 
                 //Get a array containing the info
-                byte[] esData = esInfoLength == 0 ? Utility.Empty : node.Data.Skip(offset).Take(esInfoLength).ToArray();
+                byte[] esData = esInfoLength == 0 ? Media.Common.MemorySegment.EmptyBytes : node.Data.Skip(offset).Take(esInfoLength).ToArray();
 
                 //Create the entry
                 var entry = new Tuple<byte, byte[]>(esType, esData);

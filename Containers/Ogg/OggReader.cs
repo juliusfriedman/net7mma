@@ -420,7 +420,7 @@ namespace Media.Containers.Ogg
 
                 Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
-                byte[] codecIndication = Utility.Empty;
+                byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
                 double rate = 0, duration = 0;
 
@@ -654,10 +654,13 @@ namespace Media.Containers.Ogg
                         {
                             //Assume Media Type
                             mediaType = Sdp.MediaType.audio;
+
                             //Assume Codec
-                            codecIndication = BitConverter.GetBytes((short)Media.Utility.WaveFormatId.Vorbis1);
+                            codecIndication = BitConverter.GetBytes((short)0x674f);//Vorbis 1 from Audio.WaveFormatID
+
                             //Assume rate
                             rate = 8000;
+
                             break;
                         }
                     case 0x80:

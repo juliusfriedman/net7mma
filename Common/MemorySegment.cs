@@ -11,13 +11,15 @@ namespace Media.Common
     /// </summary>
     public class MemorySegment : BaseDisposable, IEnumerable<byte>
     {
-        public static readonly MemorySegment Empty = new MemorySegment(Utility.Empty, false);
+        public static readonly byte[] EmptyBytes = new byte[0];
+
+        public static readonly MemorySegment Empty = new MemorySegment(EmptyBytes, false);
 
         byte[] m_Array;
 
         int m_Offset, m_Length;
 
-        //public readonly Binary.Endian Endian;
+        //public readonly Binary.ByteOrder ByteOrder;
 
         public int Count { get { return m_Length; } protected set { m_Length = value; } }
 
@@ -33,7 +35,7 @@ namespace Media.Common
             
             m_Length = m_Array.Length;
 
-            //Endian = Binary.SystemEndian;
+            //ByteOrder = Binary.SystemEndian;
 
             ShouldDispose = shouldDispose;
         }
@@ -63,7 +65,7 @@ namespace Media.Common
             
             m_Length = size;
 
-            //Endian = Binary.SystemEndian;
+            //ByteOrder = Binary.SystemEndian;
         }
 
         public MemorySegment(MemorySegment other)
@@ -78,7 +80,7 @@ namespace Media.Common
 
             m_Length = other.m_Length;
 
-            //Endian = other.Endian;
+            //ByteOrder = other.ByteOrder;
         }
 
         public override void Dispose()
@@ -87,7 +89,7 @@ namespace Media.Common
 
             base.Dispose();
 
-            //m_Array = Utility.Empty;
+            //m_Array = Media.Common.MemorySegment.EmptyBytes;
             //m_Offset = m_Length = 0;
 
             //Don't remove the reference to the array

@@ -118,7 +118,7 @@ namespace Media
         /// <returns>The value calulcated</returns>
         public static int RtcpValidValue(int version, int payloadType = Rtcp.SendersReport.PayloadType)
         {
-            //Always calulated in Big Endian
+            //Always calulated in Big ByteOrder
             return (version << 14 | payloadType);
         }
 
@@ -402,9 +402,9 @@ namespace Media
             public const byte VersionMask = 192;
 
             /// <summary>
-            /// 1 SHL 7 produces a 8 bit value of 1000000 (127) Decimal
+            /// 1 SHL 7 produces a 8 bit value of 1000000 (128) Decimal
             /// </summary>
-            public const int RtpMarkerMask = Binary.SevenBitMaxValue;
+            public const int RtpMarkerMask = 128;
 
             /// <summary>
             /// 1 SHL 5 produces a 8 bit value of 00100000 (32 Decimal)
@@ -466,7 +466,7 @@ namespace Media
             /// <returns></returns>
             public static byte PackOctet(bool marker, int payloadTypeBits)
             {
-                return ((byte)(marker ? Binary.Or(128, (byte)payloadTypeBits) : payloadTypeBits));
+                return ((byte)(marker ? (RtpMarkerMask | (byte)payloadTypeBits) : payloadTypeBits));
             }
 
             #endregion
@@ -596,7 +596,7 @@ namespace Media
                     if (value > Binary.FiveBitMaxValue)
                         throw Binary.CreateOverflowException("RtcpBlockCount", value, byte.MinValue.ToString(), Binary.FiveBitMaxValue.ToString());
 
-                    //129 - 10000001 Little Endian
+                    //129 - 10000001 Little ByteOrder
                     //Version 2, Padding 0, 00001
 
                     //To make it correct unsigned has to be reversed 10000 = 16
@@ -863,7 +863,7 @@ namespace Media
             {
                 m_SourceCount = Math.Min(Common.Binary.FourBitMaxValue, sources.Count());
 
-                IEnumerable<byte> binary = Utility.Empty;
+                IEnumerable<byte> binary = Media.Common.MemorySegment.EmptyBytes;
 
                 foreach (var ssrc in sources.Skip(start))
                 {

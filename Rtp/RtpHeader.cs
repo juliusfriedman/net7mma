@@ -300,11 +300,11 @@ namespace Media.Rtp
             if (hasMoreThanOnebyte)
             {
 
-                //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
+                //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
                 First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
 
                 //Allocate space for the other 10 octets
-                Last10Bytes = hasMoreThanOnebyte ? new byte[10] : Utility.Empty;
+                Last10Bytes = hasMoreThanOnebyte ? new byte[10] : Media.Common.MemorySegment.EmptyBytes;
 
                 //Copy the remaining bytes of the header which consist of the 
                 //SequenceNumber (2 octets / U16)
@@ -314,11 +314,11 @@ namespace Media.Rtp
             }
             else
             {
-                //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
+                //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
                 First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], default(byte));
 
                 //Allocate space for the other 10 octets
-                Last10Bytes =  Utility.Empty;
+                Last10Bytes =  Media.Common.MemorySegment.EmptyBytes;
             }
 
             PointerToLast10Bytes = new MemorySegment(Last10Bytes, 0, Last10Bytes.Length);

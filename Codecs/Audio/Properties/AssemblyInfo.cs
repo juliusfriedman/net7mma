@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Media.Codecs")]
-[assembly: AssemblyDescription("Implementations of various technologies related to the encoding and decoding of audio media.")]
+[assembly: AssemblyTitle("Media.Codecs.Audio")]
+[assembly: AssemblyDescription("Implementations of various technologies related to the encoding, decoding and other signal processing of audio media.")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
