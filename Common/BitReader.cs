@@ -19,7 +19,7 @@ namespace Media.Common//.Binary
 
         int m_ByteIndex = 0, m_BitIndex = 0; long m_StreamPosition, m_StreamLength;
 
-        //Endian?
+        //ByteOrder?
 
         bool m_LeaveOpen;
 
@@ -92,11 +92,11 @@ namespace Media.Common//.Binary
 
             if (false == HasMoreData) return;
 
-            int bitsRemain = Common.Binary.BitSize - m_BitIndex;
+            int bitsRemain = Common.Binary.BitsPerByte - m_BitIndex;
 
             if (bitsRemain < count) return;
 
-            int bytesToRead = count <= Common.Binary.BitSize ? 1 : count % 8;
+            int bytesToRead = count <= Common.Binary.BitsPerByte ? 1 : count % 8;
 
             if (bytesToRead + m_ByteIndex < m_Cache.Count) return;
 
@@ -118,22 +118,22 @@ namespace Media.Common//.Binary
 
         public bool PeekBit()
         {
-            if (m_BitIndex >= Common.Binary.BitSize)
+            if (m_BitIndex >= Common.Binary.BitsPerByte)
             {
                 m_BitIndex = 0;
 
                 ++m_ByteIndex;
             }
 
-            if (m_ByteIndex >= m_Cache.Count) ReadBitsInternal(m_Cache.Count * Common.Binary.BitSize);
+            if (m_ByteIndex >= m_Cache.Count) ReadBitsInternal(m_Cache.Count * Common.Binary.BitsPerByte);
 
-            return Common.Binary.ReadBits(m_Cache.Array, m_ByteIndex, m_BitIndex, false) > 0;
+            return Common.Binary.ReadBinaryInteger(m_Cache.Array, m_ByteIndex, m_BitIndex, false) > 0;
 
         }
 
         public byte Peek8(bool reverse = false)
         {
-            ReadBitsInternal(Common.Binary.BitSize);
+            ReadBitsInternal(Common.Binary.BitsPerByte);
 
             return reverse ? Common.Binary.ReverseU8(m_Cache[m_ByteIndex]) : m_Cache[m_ByteIndex];
         }
@@ -142,34 +142,34 @@ namespace Media.Common//.Binary
         {
             ReadBitsInternal(Common.Binary.DoubleBitSize);
 
-            return (short)Common.Binary.ReadBits(m_Cache.Array, m_ByteIndex, (int)Binary.DoubleBitSize, reverse);
+            return (short)Common.Binary.ReadBinaryInteger(m_Cache.Array, m_ByteIndex, (int)Binary.DoubleBitSize, reverse);
         }
 
         public int Peek24(bool reverse = false)
         {
             ReadBitsInternal(Binary.TripleBitSize);
 
-            return (int)Common.Binary.ReadBits(m_Cache.Array, m_ByteIndex, (int)Binary.TripleBitSize, reverse);
+            return (int)Common.Binary.ReadBinaryInteger(m_Cache.Array, m_ByteIndex, (int)Binary.TripleBitSize, reverse);
         }
 
         public int Peek32(bool reverse = false)
         {
             ReadBitsInternal(Binary.QuadrupleBitSize);
 
-            return (int)Common.Binary.ReadBits(m_Cache.Array, m_ByteIndex, Binary.QuadrupleBitSize, reverse);
+            return (int)Common.Binary.ReadBinaryInteger(m_Cache.Array, m_ByteIndex, Binary.QuadrupleBitSize, reverse);
         }
 
         public long Peek64(bool reverse = false)
         {
             ReadBitsInternal(Binary.OctupleBitSize);
 
-            return Common.Binary.ReadBits(m_Cache.Array, m_ByteIndex, Binary.OctupleBitSize, reverse);
+            return (long)Common.Binary.ReadBinaryInteger(m_Cache.Array, m_ByteIndex, Binary.OctupleBitSize, reverse);
         }
         
         [CLSCompliant(false)]
         public ulong PeekBits(int count, bool reverse = false)
         {
-            return (ulong)Common.Binary.ReadBits(m_Cache.Array, 0, count, reverse);
+            return (ulong)Common.Binary.ReadBinaryInteger(m_Cache.Array, 0, count, reverse);
         }
 
         public bool ReadBit()
@@ -231,7 +231,7 @@ namespace Media.Common//.Binary
         {
             ulong result = PeekBits(count, reverse);
 
-            if (count > Common.Binary.BitSize) m_ByteIndex += count % Common.Binary.BitSize;
+            if (count > Common.Binary.BitsPerByte) m_ByteIndex += count % Common.Binary.BitsPerByte;
 
             m_BitIndex += count;
 

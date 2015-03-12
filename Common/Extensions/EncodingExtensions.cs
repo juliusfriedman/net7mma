@@ -168,13 +168,48 @@ namespace Media.Common.Extensions.Encoding
 
         #endregion
 
-        public static char[] GetChars(this System.Text.Encoding encoding, byte toEncode)
+        #region GetChars
+
+        /// <summary>
+        /// Encodes the given bytes as <see cref="char"/>'s using the specified options.
+        /// </summary>
+        /// <param name="encoding">The optional encoding to use, if none is specified the Default will be used.</param>
+        /// <param name="toEncode">The data to encode, if null an <see cref="ArgumentNullException"/> will be thrown.</param>
+        /// <returns>The encoded data.</returns>
+        public static char[] GetChars(this System.Text.Encoding encoding, params byte[] toEncode)
+        {
+            if(toEncode == null) throw new ArgumentNullException("toEncode");
+
+            //int firstDimension = toEncode.Rank -1;
+
+            //get the length
+            int toEncodeLength = toEncode.GetUpperBound(0); 
+
+            //If 0 then return the empty char array
+            if (toEncodeLength == 0) return EmptyChar;
+
+            //GetChars using the first element and the length
+            return GetChars(encoding, toEncode, toEncode.GetLowerBound(0), toEncodeLength);
+
+        }
+
+        /// <summary>
+        /// Encodes the given bytes as <see cref="char"/>'s using the specified options using <see cref="System.Text.Encoding.GetChars"/>.
+        /// </summary>
+        /// <param name="encoding">The optional encoding to use, if none is specified the Default will be used.</param>
+        /// <param name="toEncode">The data to encode, if null an <see cref="ArgumentNullException"/> will be thrown.</param>
+        /// <param name="offset">The offset to start at</param>
+        /// <param name="count">The amount of bytes to use in the encoding</param>
+        /// <returns>The encoded data</returns>
+        public static char[] GetChars(this System.Text.Encoding encoding, byte[] toEncode, int offset, int count)
         {
             //Use default..
             if (encoding == null) encoding = System.Text.Encoding.Default;
 
-            return encoding.GetChars(new byte[1] { toEncode });
+            return encoding.GetChars(toEncode, offset, count);
         }
+
+        #endregion
     }
 
     internal class EncodingExtensionsTests

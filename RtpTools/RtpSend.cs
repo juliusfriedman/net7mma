@@ -458,7 +458,7 @@ namespace Media.RtpTools
 
                     string typedName = Enum.GetName(typeof(Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType), item.ItemType);
 
-                    if (string.IsNullOrWhiteSpace(typedName)) typedName = Utility.UnknownString;
+                    if (string.IsNullOrWhiteSpace(typedName)) typedName = Media.Common.Extensions.String.StringExtensions.UnknownString;
 
                     itemStringBuilder.AppendFormat(QuotedFormat,
                         //0
@@ -877,7 +877,7 @@ namespace Media.RtpTools
                                     //The created structure will have a packetLength = 8 + dataLen
                                     rtp = true;
 
-                                    rtpP = new Rtp.RtpPacket(0, false, false, Utility.Empty);
+                                    rtpP = new Rtp.RtpPacket(0, false, false, Media.Common.MemorySegment.EmptyBytes);
 
                                     builtPacket = rtpP;
 

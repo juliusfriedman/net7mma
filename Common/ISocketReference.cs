@@ -27,7 +27,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                s.ReceiveBufferSize = Utility.Clamp(size, 0, int.MaxValue);
+                s.ReceiveBufferSize = Media.Common.Extensions.Math.MathExtensions.Clamp(size, 0, int.MaxValue);
             }
         }
 
@@ -35,7 +35,7 @@ namespace Media.Common
         {
             foreach (System.Net.Sockets.Socket s in reference.GetReferencedSockets())
             {
-                s.SendBufferSize = Utility.Clamp(size, 0, int.MaxValue);
+                s.SendBufferSize = Media.Common.Extensions.Math.MathExtensions.Clamp(size, 0, int.MaxValue);
             }
         }
 

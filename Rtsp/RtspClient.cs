@@ -116,14 +116,16 @@ namespace Media.Rtsp
 
         readonly ManualResetEventSlim m_InterleaveEvent;
 
-        //Todo
-        //readonly List<Uri> m_History = new List<Uri>();
-
         ClientProtocolType m_RtspProtocol;
 
         RtspMessage m_LastTransmitted;
 
         AuthenticationSchemes m_AuthenticationScheme;
+
+        string m_AuthorizationHeader; //could also just store the parts or use a StringCollection
+
+        //Todo
+        //readonly List<Uri> m_History = new List<Uri>();
 
         /// <summary>
         /// The current location the media
@@ -190,9 +192,7 @@ namespace Media.Rtsp
 
         //List<Sdp.MediaDescription> For playing and paused. Could use a List<Tuple<TimeSpan, MediaDescription>>> to allow the timeline when pausing etc..
 
-        List<MediaDescription> m_Playing = new List<MediaDescription>();
-
-        bool m_TriedCredentials;
+        List<MediaDescription> m_Playing = new List<MediaDescription>(); //Each entry should have it's own start time? Created property?
 
         NetworkCredential m_Credential;
 
@@ -357,7 +357,7 @@ namespace Media.Rtsp
         /// <summary>
         /// Indicates if the client has tried to Authenticate using the current <see cref="Credential"/>'s
         /// </summary>
-        public bool TriedCredentials { get { return m_TriedCredentials; } }
+        public bool TriedCredentials { get { return false == string.IsNullOrWhiteSpace(m_AuthorizationHeader); } }
 
         /// <summary>
         /// Indicates if Keep Alive Requests will be sent
@@ -628,18 +628,18 @@ namespace Media.Rtsp
         /// <summary>
         /// Gets the Uri which was used directly before the <see cref="CurrentLocation"/> with this instance.
         /// </summary>
-        public Uri PreviousLocation { get { return m_InitialLocation; } }
+        public Uri PreviousLocation { get { return m_PreviousLocation; } }
 
         /// <summary>
         /// Indicates if the RtspClient is connected to the remote host
         /// </summary>
         /// <notes>May want to do a partial receive for 1 byte which would take longer but indicate if truly connected. Udp may not be Connected.</notes>
-        public bool IsConnected { get { return m_ConnectionTime >= TimeSpan.Zero && m_RtspSocket != null; } }
+        public bool IsConnected { get { return false == IsDisposed && m_ConnectionTime >= TimeSpan.Zero && m_RtspSocket != null; } }
 
         /// <summary>
         /// The network credential to utilize in RtspRequests
         /// </summary>
-        public NetworkCredential Credential { get { return m_Credential; } set { m_Credential = value; m_TriedCredentials = false; } }
+        public NetworkCredential Credential { get { return m_Credential; } set { m_Credential = value; m_AuthorizationHeader = null; } }
 
         /// <summary>
         /// The type of AuthenticationScheme to utilize in RtspRequests
@@ -825,7 +825,7 @@ namespace Media.Rtsp
             if (Credential == null && false == string.IsNullOrWhiteSpace(CurrentLocation.UserInfo))
             {
                 //Parse the given cred from the location
-                Credential = Utility.ParseUserInfo(CurrentLocation);
+                Credential = Media.Common.Extensions.Uri.UriExtensions.ParseUserInfo(CurrentLocation);
 
                 //Remove the user info from the location (may not have @?)
                 m_InitialLocation = CurrentLocation = new Uri(CurrentLocation.AbsoluteUri.Replace(CurrentLocation.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(CurrentLocation.UserInfo, string.Empty));
@@ -834,9 +834,7 @@ namespace Media.Rtsp
 
         ~RtspClient()
         {
-            Dispose();
-
-            m_InterleaveEvent.Dispose();
+            Dispose();            
         }
 
         #endregion
@@ -997,7 +995,7 @@ namespace Media.Rtsp
             //Todo, Handle other parameters
 
             //Make a response
-            using (var response = new RtspMessage(RtspMessageType.Response, get.Version, get.Encoding))
+            using (var response = new RtspMessage(RtspMessageType.Response, get.Version, get.ContentEncoding))
             {
                 //Set the sequence number
                 response.CSeq = get.CSeq;
@@ -1156,7 +1154,7 @@ namespace Media.Rtsp
             //Todo, Handle other parameters in the body
 
             //Make a response
-            using (var response = new RtspMessage(RtspMessageType.Response, set.Version, set.Encoding))
+            using (var response = new RtspMessage(RtspMessageType.Response, set.Version, set.ContentEncoding))
             {
                 //Indicate OK
                 response.StatusCode = RtspStatusCode.OK;
@@ -1288,7 +1286,7 @@ namespace Media.Rtsp
             }
 
             //Make a response
-            using (var response = new RtspMessage(RtspMessageType.Response, message.Version, message.Encoding))
+            using (var response = new RtspMessage(RtspMessageType.Response, message.Version, message.ContentEncoding))
             {
                 //Indicate OK
                 response.StatusCode = RtspStatusCode.OK;
@@ -1347,7 +1345,7 @@ namespace Media.Rtsp
             }
 
             //Make a response
-            using (var response = new RtspMessage(RtspMessageType.Response, teardown.Version, teardown.Encoding))
+            using (var response = new RtspMessage(RtspMessageType.Response, teardown.Version, teardown.ContentEncoding))
             {
                 //Indicate OK
                 response.StatusCode = RtspStatusCode.OK;
@@ -1363,7 +1361,7 @@ namespace Media.Rtsp
         internal protected virtual void ProcessRemotePlayNotify(RtspMessage playNotify)
         {
             //Make a response
-            using (var response = new RtspMessage(RtspMessageType.Response, playNotify.Version, playNotify.Encoding))
+            using (var response = new RtspMessage(RtspMessageType.Response, playNotify.Version, playNotify.ContentEncoding))
             {
                 //Indicate OK
                 response.StatusCode = RtspStatusCode.OK;
@@ -1484,7 +1482,7 @@ namespace Media.Rtsp
                         }
 
                          //Make a response to indicate the method is not supported
-                        using (var response = new RtspMessage(RtspMessageType.Response, toProcess.Version, toProcess.Encoding))
+                        using (var response = new RtspMessage(RtspMessageType.Response, toProcess.Version, toProcess.ContentEncoding))
                         {
                             //Indicate Not Allowed.
                             response.StatusCode = RtspStatusCode.NotImplemented;
@@ -2072,7 +2070,7 @@ namespace Media.Rtsp
             if (false == IsConnected && false == force) return;
 
             //When disconnecting the credentials must be used again when re-connecting.
-            m_TriedCredentials = false;
+            m_AuthorizationHeader = null;
 
             //Raise an event
             OnDisconnected();
@@ -2182,7 +2180,7 @@ namespace Media.Rtsp
         public virtual RtspMessage Authenticate(RtspMessage request, RtspMessage response = null, bool force = false)
         {
             //If not forced and already TriedCredentials then return the response given.
-            if (false == force && m_TriedCredentials && response == null) return response;
+            if (false == force && TriedCredentials && response == null) return response;
 
             //http://tools.ietf.org/html/rfc2617
             //3.2.1 The WWW-Authenticate Response Header
@@ -2193,6 +2191,10 @@ namespace Media.Rtsp
 
             string authenticateHeader = response != null ? response[RtspHeaders.WWWAuthenticate] : string.Empty;
 
+            if (false == string.IsNullOrWhiteSpace(m_AuthorizationHeader) && false == authenticateHeader.Contains("stale")) authenticateHeader = m_AuthorizationHeader;
+
+            //Note should not be using ASCII, the request and response have the characters already encoded.
+
             string[] baseParts = authenticateHeader.Split(Media.Common.Extensions.Linq.LinqExtensions.Yield(((char)Common.ASCII.Space)).ToArray(), 2, StringSplitOptions.RemoveEmptyEntries);
 
             if (baseParts.Length > 1) baseParts = Media.Common.Extensions.Linq.LinqExtensions.Yield(baseParts[0]).Concat(baseParts[1].Split(RtspHeaders.Comma).Select(s => s.Trim())).ToArray();
@@ -2201,10 +2203,7 @@ namespace Media.Rtsp
             {
                 AuthenticationScheme = AuthenticationSchemes.Basic;
 
-                request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.Encoding, Credential));
-
-                //Indicate credentials were tried.
-                m_TriedCredentials = true;
+                request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.ContentEncoding, Credential));
 
                 request.RemoveHeader(RtspHeaders.Timestamp);
                 request.RemoveHeader(RtspHeaders.CSeq);
@@ -2216,29 +2215,6 @@ namespace Media.Rtsp
             else if (string.Compare(baseParts[0].Trim(), "digest", true) == 0 || m_AuthenticationScheme == AuthenticationSchemes.Digest)
             {
                 AuthenticationScheme = AuthenticationSchemes.Digest;
-
-
-                //If the credentials were previously tried
-                if (m_TriedCredentials)
-                {
-                    //Determine if there was a stale datum
-                    string staleDatum = baseParts.Where(p => p.StartsWith("stale", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-
-                    //If there is a stale datum
-                    if (false == string.IsNullOrWhiteSpace(staleDatum))
-                    {
-                        bool stale;
-
-                        //parse it and determine if these credentials were tried
-                        if (Boolean.TryParse(staleDatum.Substring(6), out stale))
-                        {
-                            m_TriedCredentials = true == stale;
-                        }
-                    }
-
-                    //if already tried
-                    if (m_TriedCredentials) return response;
-                }
 
                 //May use a different algorithmm
                 string algorithm = baseParts.Where(p => p.StartsWith("algorithm", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
@@ -2281,7 +2257,16 @@ namespace Media.Rtsp
                 if (false == string.IsNullOrWhiteSpace(nonce)) nonce = nonce.Substring(6).Replace("\"", string.Empty).Replace("\'", string.Empty);
 
                 string cnonce = baseParts.Where(p => p.StartsWith("cnonce", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();//parts.Where(p => string.Compare("cnonce", p, true) == 0).FirstOrDefault();
-                if (false == string.IsNullOrWhiteSpace(cnonce)) cnonce = cnonce.Substring(7).Replace("\"", string.Empty).Replace("\'", string.Empty);//cnonce = cnonce.Replace("cnonce=", string.Empty);
+                if (false == string.IsNullOrWhiteSpace(cnonce))
+                {
+
+                    if (m_LastTransmitted != null)
+                    {
+                        cnonce = "";
+                    }
+
+                    cnonce = cnonce.Substring(7).Replace("\"", string.Empty).Replace("\'", string.Empty);//cnonce = cnonce.Replace("cnonce=", string.Empty);
+                }
 
                 string uri = baseParts.Where(p => p.StartsWith("uri", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault(); //parts.Where(p => p.Contains("uri")).FirstOrDefault();
                 bool rfc2069 = false == string.IsNullOrWhiteSpace(uri) && false == uri.Contains(RtspHeaders.HyphenSign);
@@ -2303,12 +2288,10 @@ namespace Media.Rtsp
                 string opaque = baseParts.Where(p => p.StartsWith("opaque", StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
                 if (false == string.IsNullOrWhiteSpace(opaque)) opaque = opaque.Substring(7);
 
-                request.SetHeader(RtspHeaders.Authorization, RtspHeaders.DigestAuthorizationHeader(request.Encoding, request.Method, request.Location, Credential, qop, nc, nonce, cnonce, opaque, rfc2069, algorithm, request.Body));
+                //Set the header and store it for use later.
+                request.SetHeader(RtspHeaders.Authorization, m_AuthorizationHeader = RtspHeaders.DigestAuthorizationHeader(request.ContentEncoding, request.Method, request.Location, Credential, qop, nc, nonce, cnonce, opaque, rfc2069, algorithm, request.Body));
 
                 //Todo 'Authorization' property?
-
-                //Indicate credentials were tried.
-                m_TriedCredentials = true;
 
                 request.RemoveHeader(RtspHeaders.Timestamp);
                 request.RemoveHeader(RtspHeaders.CSeq);
@@ -2327,7 +2310,9 @@ namespace Media.Rtsp
         public RtspMessage SendRtspMessage(RtspMessage message, bool useClientProtocolVersion = true, bool hasResponse = true)
         {
             SocketError result;
+
             int sequenceNumber;
+
             return SendRtspMessage(message, out result, out sequenceNumber, useClientProtocolVersion, hasResponse);
         }
 
@@ -2385,14 +2370,14 @@ namespace Media.Rtsp
                         //Basic
                         if (m_AuthenticationScheme == AuthenticationSchemes.Basic)
                         {
-                            message.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(message.Encoding, Credential));
+                            message.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(message.ContentEncoding, Credential));
                         }
                         else if (m_AuthenticationScheme == AuthenticationSchemes.Digest)
                         {
                             //Could get values from m_LastTransmitted.
                             //Digest
                             message.SetHeader(RtspHeaders.Authorization,
-                                RtspHeaders.DigestAuthorizationHeader(message.Encoding, message.Method, message.Location, Credential, null, null, null, null, null, false, null, message.Body));
+                                RtspHeaders.DigestAuthorizationHeader(message.ContentEncoding, message.Method, message.Location, Credential, null, null, null, null, null, false, null, message.Body));
                         }
                         else if (m_AuthenticationScheme != AuthenticationSchemes.None)
                         {
@@ -2402,7 +2387,7 @@ namespace Media.Rtsp
 
                     //Add the content encoding header if required
                     if (false == message.ContainsHeader(RtspHeaders.ContentEncoding) &&
-                        message.Encoding.WebName != RtspMessage.DefaultEncoding.WebName) message.SetHeader(RtspHeaders.ContentEncoding, message.Encoding.WebName);
+                        message.ContentEncoding.WebName != RtspMessage.DefaultEncoding.WebName) message.SetHeader(RtspHeaders.ContentEncoding, message.ContentEncoding.WebName);
 
                     //Set the date if required
                     if (SendDate && false == message.ContainsHeader(RtspHeaders.Date)) message.SetHeader(RtspHeaders.Date, DateTime.UtcNow.ToString("r"));
@@ -2467,7 +2452,6 @@ namespace Media.Rtsp
 
                         ++m_ReTransmits;
                     }
-
 
                     //If we can write
                     if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout), MidpointRounding.ToEven), SelectMode.SelectWrite))
@@ -3093,10 +3077,18 @@ namespace Media.Rtsp
                         goto Describe;
                     }
 
+                    //don't handle erroneous responses
+                    if (describe.StatusCode > RtspStatusCode.OK)
+                    {
+                        return describe;
+                    }
+
+
                     //Handle Found / Redirect
                     //When the response is <= OK the content-base header is present it should also be checked for NAT
                     //If the remote party needs it's NAT Address to be used then uncomment out the check for <= OK 
-                    if (/*response.StatusCode <= Rtsp.RtspStatusCode.OK && */response.StatusCode == RtspStatusCode.Found || 
+                    if (/*response.StatusCode <= Rtsp.RtspStatusCode.OK && */
+                        response.StatusCode == RtspStatusCode.Found || 
                         response.Method == RtspMethod.REDIRECT)
                     {
                         //Determine if there is a new location
@@ -3167,7 +3159,7 @@ namespace Media.Rtsp
                             if(response.StatusCode == RtspStatusCode.Found || response.Method == RtspMethod.REDIRECT) return SendDescribe();
                         }
                     }
-
+                    
                     string contentType = response[RtspHeaders.ContentType];
 
                     //Handle any not ok response (allow Continue)
@@ -3434,7 +3426,7 @@ namespace Media.Rtsp
                     //Values in the header we need
                     int clientRtpPort = -1, clientRtcpPort = -1,
                         serverRtpPort = -1, serverRtcpPort = -1,
-                        //Darwin and Wowza uses this ssrc, VLC Gives a Unsupported Transport, WMS and most others seem to ignore it.
+                        //Darwin and Wowza uses this ssrc, VLC/Live Gives a Unsupported Transport, WMS and most others seem to ignore it.
                         localSsrc = 0,//RFC3550.Random32(),  
                         remoteSsrc = 0;
 
@@ -3643,7 +3635,7 @@ namespace Media.Rtsp
                             if (maximumPacketSize > m_Buffer.Count)
                             {
                                 //Try to allow processing
-                                Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(maximumPacketSize, "Media Requires a Larger Buffer. (See Tag for value)");
+                                Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(maximumPacketSize, "Media Requires a Larger Buffer. (See Tag for value)");
                             }
                         }
                         catch (Exception ex)
@@ -3688,19 +3680,6 @@ namespace Media.Rtsp
                     //Todo
                     //Care should be taken that the SDP is not directing us to connect to some unknown resource....
 
-                    //Ensure we are not overlapping context's 
-                    if (remoteSsrc != 0)
-                    {
-                        if (m_RtpClient != null && m_RtpClient.GetContextBySourceId(remoteSsrc) != null)
-                        {
-                            Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Cannot setup media, Identity Collision in `ssrc` datum: " + transportHeader);
-                        }
-                        else if (remoteSsrc == localSsrc) //If there was no indication back then discover the remote party
-                        {
-                            remoteSsrc = 0;
-                        }
-                    }
-                   
                     //Just incase the source datum was not given
                     if (sourceIp == IPAddress.Any) sourceIp = ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address;
 
@@ -3840,12 +3819,11 @@ namespace Media.Rtsp
                         }
                     }
 
-                    //if a context was created add it
+                    //if a context was created add it, don't worry that the context identity may overlap?
                     if(created != null) m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing, true, true);
 
-                    //Ensure that packets are not missed under UDP by using a large receive buffer
+                    //Ensure that packets are not missed under UDP by using a large receive buffer, should be done in Initialize...
                     Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), m_Buffer.Count * m_Buffer.Count);
-	 
 
                     //Setup Complete
                     return response;
@@ -3868,9 +3846,8 @@ namespace Media.Rtsp
 
         protected virtual void MonitorProtocol(object state = null)
         {
-
-            if (AllowAlternateTransport && //If protocol switch is still allowed AND
-                false == IsDisposed && m_RtpProtocol != ProtocolType.Tcp &&  //If not already Disposed and the protocol was not already specified as or configured to TCP
+            //If not already Disposed and the protocol was not already specified as or configured to TCP
+            if (false == IsDisposed && m_RtpProtocol != ProtocolType.Tcp &&  //And
                 IsPlaying) //Still playing
             {
                 //Filter any context which is not playing, disposed or has activity
@@ -3878,17 +3855,26 @@ namespace Media.Rtsp
                 //To quickly fix this I am just checking that nothing was sent or received
                 //Notes that when sending only that one ALSO needs to determine `should something still be received` ?
 
-                //Clear cache
-                Thread.Sleep(0);
+                //Monitor the protocol for incoming messages
+                if (false == SharesSocket && false == InUse)
+                {
+                    Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
 
-                //If no longer playing don't do anything, just dispose the timer.
-                if (IsPlaying)
+                    using (SendRtspMessage(null, false, true)) ;
+
+                    Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
+                }
+
+                //If protocol switch is still allowed AND still playing
+                if (false == IsDisposed && AllowAlternateTransport && IsPlaying)
                 {
                     //Filter the contexts which have received absolutely NO data.
                     var contextsWithoutFlow = Client.GetTransportContexts().Where(tc => tc != null &&
                         m_Playing.Contains(tc.MediaDescription) &&
                         tc.TotalBytesReceieved == 0 &&
                         tc.TimeSending > tc.ReceiveInterval);
+
+                    //InactiveTime or ActiveTime on the tc. (Another value)
 
                     //If there are any context's which are not flowing but are playing
                     if (contextsWithoutFlow.Count() >= m_Playing.Count)// and the amount of them is greater than or equal to what the rtsp client is playing
@@ -3955,23 +3941,14 @@ namespace Media.Rtsp
                         {
                             Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: " + ex.Message);
                         }
-
-                    }//End check for contexts activity
-
-                    //Monitor the protocol for incoming messages
-                    if (false == SharesSocket)
-                    {
-                        Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
-
-                        using (SendRtspMessage(null, false, true)) ;
-
-                        Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
                     }
                 }
             }
             
-            //If there is still a timer dispose of it at this point as it will no longer be required
-            if (m_ProtocolMonitor != null) m_ProtocolMonitor.Change(LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
+            //If there is still a timer change it based on the last messages round trip time.
+            if (false == IsDisposed && m_ProtocolMonitor != null)
+                try { m_ProtocolMonitor.Change(LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan); }
+                catch (Exception ex) { Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: " + ex.Message); }
         }
 
         public RtspMessage SendPlay(MediaDescription mediaDescription, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt")
@@ -4206,7 +4183,6 @@ namespace Media.Rtsp
             //Send the pause request, determining if the request is for all media or just one.
             return SendPause(out sequenceNumber, mediaDescription != null ? mediaDescription.GetAbsoluteControlUri(CurrentLocation, SessionDescription) : CurrentLocation, force);
         }
-
 
         public RtspMessage SendPause(out int sequenceNumber, Uri location = null, bool force = false)
         {
@@ -4641,7 +4617,7 @@ namespace Media.Rtsp
         /// </summary>
         public override void Dispose()
         {
-            if (IsDisposed) return;
+            if (IsDisposed || false == ShouldDispose) return;
 
             if (m_ProtocolMonitor != null)
             {
@@ -4653,13 +4629,6 @@ namespace Media.Rtsp
             DisableKeepAliveRequest = true;
 
             StopPlaying();
-
-            if (m_SessionDescription != null)
-            {
-                m_SessionDescription.Dispose();
-
-                m_SessionDescription = null;
-            }
 
             base.Dispose();
 
@@ -4682,11 +4651,22 @@ namespace Media.Rtsp
                 m_LastTransmitted = null;
             }
 
+            m_InterleaveEvent.Dispose();
+
             if (m_RtspSocket != null)
             {
                 if (false == LeaveOpen) m_RtspSocket.Dispose();
                 m_RtspSocket = null;
             }
+
+            if (m_SessionDescription != null)
+            {
+                m_SessionDescription.Dispose();
+
+                m_SessionDescription = null;
+            }
+
+            m_AuthorizationHeader = null;
 
             m_BeginConnect = m_EndConnect = null;
 

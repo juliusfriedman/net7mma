@@ -67,7 +67,7 @@ namespace Media.Common.Loggers
             {
                 len = 0;
 
-                return Utility.Empty;
+                return Media.Common.MemorySegment.EmptyBytes;
             }
 
             byte[] data = m_Encoding.GetBytes(message + Environment.NewLine);

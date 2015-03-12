@@ -150,7 +150,7 @@ namespace Media.Rtsp.Server.MediaTypes
             //Check for a null Credential and UserInfo in the Location given.
             if (credential == null && !string.IsNullOrWhiteSpace(m_Source.UserInfo))
             {
-                RtspClient.Credential = Utility.ParseUserInfo(m_Source);
+                RtspClient.Credential = Media.Common.Extensions.Uri.UriExtensions.ParseUserInfo(m_Source);
 
                 //Remove the user info from the location
                 RtspClient.CurrentLocation = new Uri(RtspClient.CurrentLocation.AbsoluteUri.Replace(RtspClient.CurrentLocation.UserInfo + (char)Common.ASCII.AtSign, string.Empty).Replace(RtspClient.CurrentLocation.UserInfo, string.Empty));

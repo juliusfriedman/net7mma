@@ -468,7 +468,7 @@ namespace Media.Containers.BaseMedia
 
             bool enabled, inMovie, inPreview;
 
-            byte[] codecIndication = Utility.Empty;
+            byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
             //Get Duration from mdhd, some files have more then one mdhd.
             if (!m_Duration.HasValue) ParseMovieHeader();

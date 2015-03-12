@@ -254,7 +254,7 @@ namespace Media.Rtsp
 
                         WaitHandle wait = LastRecieve.AsyncWaitHandle;
 
-                        Utility.TryWaitOnHandleAndDispose(ref wait);
+                        Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
                     }
                 }
                 
@@ -298,7 +298,7 @@ namespace Media.Rtsp
 
                             WaitHandle wait = LastSend.AsyncWaitHandle;
 
-                            Utility.TryWaitOnHandleAndDispose(ref wait);
+                            Media.Common.Extensions.WaitHandle.WaitHandleExtensions.TryWaitOnHandleAndDispose(ref wait);
                         }
 
                         if (length == 0 && SharesSocket) return;

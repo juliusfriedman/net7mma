@@ -682,7 +682,7 @@ namespace Media.Containers.Riff
 
                 Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
-                byte[] codecIndication = Utility.Empty;
+                byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
                 byte channels = 0, bitDepth = 0;
 

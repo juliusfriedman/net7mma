@@ -41,8 +41,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-
 using Media.Common;
 
 #endregion
@@ -174,7 +172,7 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || Payload.Count == 0) return Utility.Empty;
+                if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.EmptyBytes;
 
                 int nonPayloadOctets = HeaderOctets;
 
@@ -186,7 +184,7 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Utility.Empty;
+                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Media.Common.MemorySegment.EmptyBytes;
 
                 return Payload.Reverse().Take(PaddingOctets).Reverse();
             }
@@ -230,13 +228,13 @@ namespace Media.Rtp
         #region Constructor
 
         public RtpPacket(int version, bool padding, bool extension, byte[] payload)
-            : this(new RtpHeader(version, padding, extension), payload ?? Utility.Empty)
+            : this(new RtpHeader(version, padding, extension), payload ?? Media.Common.MemorySegment.EmptyBytes)
         {
 
         }
 
         public RtpPacket(int version, bool padding, bool extension, bool marker, int payloadType, int csc, int ssrc, int seq, int timestamp, byte[] payload)
-            : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload ?? Utility.Empty)
+            : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload ?? Media.Common.MemorySegment.EmptyBytes)
         {
 
         }
@@ -308,7 +306,7 @@ namespace Media.Rtp
             }
             else
             {                
-                m_OwnedOctets = Utility.Empty; //IsReadOnly should be false
+                m_OwnedOctets = Media.Common.MemorySegment.EmptyBytes; //IsReadOnly should be false
                 //Payload = new MemoryReference(m_OwnedOctets, 0, 0, m_OwnsHeader);
                 Payload = new MemorySegment(0);
             }
@@ -495,7 +493,7 @@ namespace Media.Rtp
                 {
                     binarySequence = GetSourceList().AsBinaryEnumerable();
                 }
-                else binarySequence = Utility.Empty;
+                else binarySequence = Media.Common.MemorySegment.EmptyBytes;
             }
 
             //Determine if the clone should have extenison
@@ -538,7 +536,7 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="other">The optional other RtpHeader to utilize in the preperation</param>
         /// <returns>The sequence created.</returns>
-        public IEnumerable<byte> Prepare(RtpHeader other = null) { return Enumerable.Concat<byte>(other ?? Header, Payload.Count > 0 ? Payload.Array.Skip(Payload.Offset).Take(Payload.Count) : Utility.Empty); }
+        public IEnumerable<byte> Prepare(RtpHeader other = null) { return Enumerable.Concat<byte>(other ?? Header, Payload.Count > 0 ? Payload.Array.Skip(Payload.Offset).Take(Payload.Count) : Media.Common.MemorySegment.EmptyBytes); }
 
         public IEnumerable<byte> Prepare() { return Prepare(null); }
 
@@ -797,7 +795,7 @@ namespace Media.Rtp
                  other.GetHashCode() == GetHashCode();
         }
 
-        public override int GetHashCode() { return Header.GetHashCode(); }
+        public override int GetHashCode() { return Created.GetHashCode() ^ Header.GetHashCode(); }
 
         #endregion
 

@@ -152,7 +152,7 @@ namespace Media.Containers.Nut
         {
             if (node == null) throw new ArgumentNullException("node");
 
-            if (!IsFrame(node)) return Utility.Empty;
+            if (!IsFrame(node)) return Media.Common.MemorySegment.EmptyBytes;
 
             return reader.EllisionHeaders[node.Identifier[5]];
         }
@@ -548,7 +548,7 @@ namespace Media.Containers.Nut
                 */
                 
                 //The first Ellision Header must be 0
-                m_EllisionHeaders = new List<byte[]>((int)m_EllisionHeaderCount + 1) { Utility.Empty };
+                m_EllisionHeaders = new List<byte[]>((int)m_EllisionHeaderCount + 1) { Media.Common.MemorySegment.EmptyBytes };
 
                 long position = stream.Position;
 

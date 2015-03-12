@@ -207,7 +207,7 @@ namespace Media.Rtsp
         public TimeSpan Uptime { get { return m_Started.HasValue ? DateTime.UtcNow - m_Started.Value : TimeSpan.Zero; } }
 
         /// <summary>
-        /// Indicates if the RtspServer has a worker process which is listening for requests on the ServerPort.
+        /// Indicates if the RtspServer has a worker process which is actively listening for requests on the ServerPort.
         /// </summary>
         /// <notes>m_TcpServerSocket.IsBound could also be another check or property.</notes>
         public bool IsRunning
@@ -503,7 +503,7 @@ namespace Media.Rtsp
                     //Include the IP Header
                     m_UdpServerSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
 
-                    m_UdpServerSocket.BeginReceiveFrom(Utility.Empty, 0, 0, SocketFlags.Partial, ref inBound, ProcessAccept, m_UdpServerSocket);
+                    m_UdpServerSocket.BeginReceiveFrom(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ref inBound, ProcessAccept, m_UdpServerSocket);
                 }
                 catch (Exception ex)
                 {
@@ -1155,7 +1155,7 @@ namespace Media.Rtsp
                 //While running
                 while (IsRunning)
                 {
-                    //If we can accept
+                    //If we can accept, should not be checked here
                     if (m_StopRequested == false && m_Clients.Count < m_MaximumConnections)
                     {
                         //Start acceping with a 0 size buffer
@@ -1198,9 +1198,8 @@ namespace Media.Rtsp
                         //    break;
                         //}
                     }
-
                     //Relinquish time slice
-                    //System.Threading.Thread.Sleep(0);
+                    else System.Threading.Thread.Sleep(0);
                 }
             }
             catch (ThreadAbortException)
@@ -1256,7 +1255,7 @@ namespace Media.Rtsp
 
                     //Start receiving again if this was our server
                     if (m_UdpServerSocket.Handle == server.Handle)
-                        m_UdpServerSocket.BeginReceive(Utility.Empty, 0, 0, SocketFlags.Partial, ProcessAccept, m_UdpServerSocket);
+                        m_UdpServerSocket.BeginReceive(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ProcessAccept, m_UdpServerSocket);
 
                     //The client socket is the server socket under Udp
                     clientSocket = server;
@@ -1443,7 +1442,7 @@ namespace Media.Rtsp
                             case RtspMessageType.Invalid:
                                 {
                                     //Ensure the session is still connected.
-                                    session.SendRtspData(Utility.Empty);
+                                    session.SendRtspData(Media.Common.MemorySegment.EmptyBytes);
 
                                     return;
                                 }
@@ -1475,7 +1474,7 @@ namespace Media.Rtsp
                     session.LastRequest = request;
 
                     //Ensure the session is still connected.
-                    session.SendRtspData(Utility.Empty);
+                    session.SendRtspData(Media.Common.MemorySegment.EmptyBytes);
                 }
             }
             catch(Exception ex)
@@ -2048,7 +2047,7 @@ namespace Media.Rtsp
                 else
                 {
                     //Test the connectivity and start another receive
-                    session.SendRtspData(Utility.Empty);
+                    session.SendRtspData(Media.Common.MemorySegment.EmptyBytes);
                 }
             }
             catch (Exception ex)
@@ -2656,7 +2655,7 @@ namespace Media.Rtsp
                     //Basic realm="''" dasfhadfhsaghf
 
                     //Get the decoded value
-                    authHeader = request.Encoding.GetString(Convert.FromBase64String(authHeader));
+                    authHeader = request.ContentEncoding.GetString(Convert.FromBase64String(authHeader));
 
                     //Get the parts
                     parts = authHeader.Split(':');
@@ -2776,20 +2775,20 @@ namespace Media.Rtsp
                     {
                         //http://en.wikipedia.org/wiki/Digest_access_authentication
                         //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                        byte[] HA1 = md5.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", requiredCredential.UserName, realm.Replace("realm=", string.Empty), requiredCredential.Password)));
+                        byte[] HA1 = md5.ComputeHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", requiredCredential.UserName, realm.Replace("realm=", string.Empty), requiredCredential.Password)));
 
                         //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                        byte[] HA2 = md5.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method, uri.Replace("uri=", string.Empty))));
+                        byte[] HA2 = md5.ComputeHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method, uri.Replace("uri=", string.Empty))));
 
                         //No QOP No NC
                         //See http://en.wikipedia.org/wiki/Digest_access_authentication
                         //http://tools.ietf.org/html/rfc2617
 
                         //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                        byte[] ResponseHash = md5.ComputeHash(request.Encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", Convert.ToString(HA1).Replace("-", string.Empty), nonce.Replace("nonce=", string.Empty), nc.Replace("nc=", string.Empty), cnonce.Replace("cnonce=", string.Empty), qop.Replace("qop=", string.Empty), Convert.ToString(HA2).Replace("-", string.Empty))));
+                        byte[] ResponseHash = md5.ComputeHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", Convert.ToString(HA1).Replace("-", string.Empty), nonce.Replace("nonce=", string.Empty), nc.Replace("nc=", string.Empty), cnonce.Replace("cnonce=", string.Empty), qop.Replace("qop=", string.Empty), Convert.ToString(HA2).Replace("-", string.Empty))));
 
                         //return the result of a mutal hash creation via comparison
-                        return ResponseHash.SequenceEqual(Utility.HexStringToBytes(response.Replace("response=", string.Empty)));
+                        return ResponseHash.SequenceEqual(Media.Common.Extensions.String.StringExtensions.HexStringToBytes(response.Replace("response=", string.Empty)));
                     }
                 }
                 //else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.IntegratedWindowsAuthentication && (header.Contains("ntlm") || header.Contains("integrated")))

@@ -212,7 +212,7 @@ namespace Media.Container
         /// <param name="count"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public virtual byte[] ReadBytes(int count) { if (count <= 0) return Utility.Empty; byte[] result = new byte[count]; int i = 0; while ((count -= (i += Read(result, i, count))) > 0);  return result; }
+        public virtual byte[] ReadBytes(int count) { if (count <= 0) return Media.Common.MemorySegment.EmptyBytes; byte[] result = new byte[count]; int i = 0; while ((count -= (i += Read(result, i, count))) > 0);  return result; }
 
         //if(m_Position + count > m_Length) count = (m_Position + count - m_Length) to ensure correct amount of byes read
 

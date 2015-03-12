@@ -7,8 +7,8 @@
     <ProjectGuid>{D087A5BA-0E1B-44C2-A739-AD8153EDC8C4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Aac</RootNamespace>
-    <AssemblyName>Aac</AssemblyName>
+    <RootNamespace>Media.Codecs.Audio.Aac</RootNamespace>
+    <AssemblyName>Media.Codecs.Audio.Aac</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>

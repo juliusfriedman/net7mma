@@ -7,8 +7,8 @@
     <ProjectGuid>{4305DDF6-3C8B-4FE6-8DE9-3E81C5D9126A}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Mpeg</RootNamespace>
-    <AssemblyName>Mpeg</AssemblyName>
+    <RootNamespace>Media.Codecs.Audio.Mp3</RootNamespace>
+    <AssemblyName>Media.Codecs.Audio.Mp3</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>

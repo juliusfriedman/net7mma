@@ -385,7 +385,7 @@ public class RtpRtcpTests
                 else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
 
                 // Test the extension data is correct
-                byte[] expected = Media.Utility.Empty;
+                byte[] expected = Media.Common.MemorySegment.EmptyBytes;
                 if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
                 else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
             }

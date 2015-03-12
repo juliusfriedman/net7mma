@@ -906,7 +906,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="version">The 2 - bit version of the SourceDescription</param>
         public SourceDescriptionReport(int version)
-            : base(new RtcpHeader(version, PayloadType, false, 0), Utility.Empty) //4 null octets occupy Ssrc field
+            : base(new RtcpHeader(version, PayloadType, false, 0), Media.Common.MemorySegment.EmptyBytes) //4 null octets occupy Ssrc field
         {
             //[Page 45] Paragraph 2.
             //A chunk with zero items (four null octets) is valid but useless.

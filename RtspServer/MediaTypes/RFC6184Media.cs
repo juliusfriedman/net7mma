@@ -617,7 +617,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
                         //etc
 
-                        byte[] yuv = Utility.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);
+                        byte[] yuv = Media.Codecs.Image.ColorConversions.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);
 
                         ((System.Drawing.Bitmap)image).UnlockBits(data);
 
@@ -652,7 +652,7 @@ namespace Media.Rtsp.Server.MediaTypes
         IEnumerable<byte> EncodeMacroblock(int i, int j, byte[] yuvData)
         {
 
-            IEnumerable<byte> result = Utility.Empty;
+            IEnumerable<byte> result = Media.Common.MemorySegment.EmptyBytes;
 
             int frameSize = Width * Height;
             int chromasize = frameSize / 4;

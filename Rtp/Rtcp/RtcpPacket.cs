@@ -486,7 +486,7 @@ namespace Media.Rtcp
          {
              get
              {
-                 if (IsDisposed || Payload.Count == 0) return Utility.Empty;
+                 if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.EmptyBytes;
 
                  return Payload.Array.Skip(Payload.Offset).Take(IsComplete ? Payload.Count - PaddingOctets  : -1);
              }
@@ -496,7 +496,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Utility.Empty;
+                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Media.Common.MemorySegment.EmptyBytes;
 
                 return Payload.Reverse().Take(PaddingOctets).Reverse();
             }
@@ -512,7 +512,7 @@ namespace Media.Rtcp
         public RtcpPacket Clone(bool reportBlocks, bool padding, bool selfReference)
         {
             //Get the bytes which correspond to the header
-            IEnumerable<byte> binarySequence = Utility.Empty;
+            IEnumerable<byte> binarySequence = Media.Common.MemorySegment.EmptyBytes;
 
             try
             {
@@ -737,7 +737,7 @@ namespace Media.Rtcp
                 other.GetHashCode() == GetHashCode();
         }
 
-        public override int GetHashCode() { return Header.GetHashCode(); }
+        public override int GetHashCode() { return Created.GetHashCode() ^ Header.GetHashCode(); }
 
         #endregion
 

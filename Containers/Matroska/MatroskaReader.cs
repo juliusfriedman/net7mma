@@ -1155,7 +1155,7 @@ namespace Media.Containers.Matroska
 
             //CodecID, CodecName?
 
-            byte[] codecIndication = Utility.Empty;
+            byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
             var tracks = new List<Track>();
 

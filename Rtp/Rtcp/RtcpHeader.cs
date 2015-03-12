@@ -278,7 +278,7 @@ namespace Media.Rtcp
             //Check for the amount of octets required to build a RtcpHeader given by the delination of the offset
             if (octetsLength == 0 || availableOctets < RtcpHeader.Length) throw new ArgumentException("octets must contain at least 4 elements given the deleniation of the offset parameter.", "octets");
 
-            //Read a managed representation of the first two octets which are stored in Big Endian / Network Byte Order
+            //Read a managed representation of the first two octets which are stored in Big ByteOrder / Network Byte Order
             First16Bits = new Media.RFC3550.CommonHeaderBits(octets[offset + 0], octets[offset + 1]);
 
             //Allocate space for the other 6 octets which consist of the 
@@ -373,7 +373,7 @@ namespace Media.Rtcp
         internal IEnumerable<byte> GetSendersSynchronizationSourceIdentifierSequence()
         {
             int lengthInWords = LengthInWordsMinusOne;
-            return PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes.Skip(2) : Utility.Empty;
+            return PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes.Skip(2) : Media.Common.MemorySegment.EmptyBytes;
         }
 
         /// <summary>

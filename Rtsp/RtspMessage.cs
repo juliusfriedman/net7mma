@@ -195,8 +195,9 @@ namespace Media.Rtsp
                     //Need to look at this again
                     if (false == string.IsNullOrWhiteSpace(qopPart))
                     {
-                        if (!string.IsNullOrWhiteSpace(ncPart)) ncPart = (int.Parse(ncPart) + 1).ToString();
+                        if (false == string.IsNullOrWhiteSpace(ncPart)) ncPart = (int.Parse(ncPart) + 1).ToString();
                         else ncPart = "00000001";
+
                         if (string.IsNullOrWhiteSpace(cnOncePart)) cnOncePart = Utility.Random.Next(int.MaxValue).ToString("X");
                     }
 
@@ -219,7 +220,7 @@ namespace Media.Rtsp
                             //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
                             ResponseHash = md5.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty).ToLowerInvariant(), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty).ToLowerInvariant(), ncPart, cnOncePart, qopPart)));
                             result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", qop=\"{4}\" nc=\"{5} cnonce=\"{6}\"", usernamePart, realmPart, nOncePart, uriPart, qopPart, ncPart, cnOncePart);
-                            if (!string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
+                            if (false == string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
                         }
                         else if (qopPart == "auth-int")
                         {
@@ -227,7 +228,7 @@ namespace Media.Rtsp
                             //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
                             ResponseHash = md5.ComputeHash(encoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", BitConverter.ToString(HA1).Replace("-", string.Empty).ToLowerInvariant(), nOncePart, BitConverter.ToString(HA2).Replace("-", string.Empty).ToLowerInvariant(), ncPart, cnOncePart, qopPart)));
                             result = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username=\"{0}\", realm=\"{1}\", nonce=\"{2}\", uri=\"{3}\", qop=\"{4}\" nc=\"{5} cnonce=\"{6}\"", usernamePart, realmPart, nOncePart, uriPart, qopPart, ncPart, cnOncePart);
-                            if (!string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
+                            if (false == string.IsNullOrWhiteSpace(opaquePart)) result += "opaque=\"" + opaquePart + '"';
                         }
                         else
                         {
@@ -986,15 +987,9 @@ namespace Media.Rtsp
         //String which is used to split Header values of the RtspMessage
         internal static char[] SpaceSplit = new char[] { (char)Common.ASCII.Space };
 
-        // \r\n in the encoding of the request
-        internal static byte[] UTF8LineEndingBytes = new byte[] { Media.Common.ASCII.NewLine, Media.Common.ASCII.LineFeed };
-        internal static char[] UTF8LineEndingCharacters = System.Text.Encoding.UTF8.GetChars(UTF8LineEndingBytes);
-        
-        internal static byte[] SemiColonByte = new byte[] { Common.ASCII.SemiColon };
-
         internal static int MinimumStatusLineSize = 9; //'RTSP/X.X ' 
 
-        public static readonly Encoding DefaultEncoding = new System.Text.UTF8Encoding(false, false);
+        public static readonly Encoding DefaultEncoding = System.Text.Encoding.UTF8;
         public static byte[] ToHttpBytes(RtspMessage message, int majorVersion = 1, int minorVersion = 0, string sessionCookie = null, System.Net.HttpStatusCode statusCode = System.Net.HttpStatusCode.Unused)
         {
 
@@ -1010,39 +1005,39 @@ namespace Media.Rtsp
             if (message.MessageType == RtspMessageType.Request)
             {
                 //Get the body of the HttpRequest
-                messageBytes = message.Encoding.GetBytes(System.Convert.ToBase64String(message.ToBytes()));
+                messageBytes = message.ContentEncoding.GetBytes(System.Convert.ToBase64String(message.ToBytes()));
                 
                 //Form the HttpRequest Should allow POST and MultiPart
-                result.AddRange(message.Encoding.GetBytes("GET " + message.Location + " HTTP " + majorVersion.ToString() + "." + minorVersion.ToString() + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Pragma:no-cache" + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Cache-Control:no-cache" + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("GET " + message.Location + " HTTP " + majorVersion.ToString() + "." + minorVersion.ToString() + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Pragma:no-cache" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Cache-Control:no-cache" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
                 
                 if (!string.IsNullOrWhiteSpace(sessionCookie))
                 {
-                    result.AddRange(message.Encoding.GetBytes("x-sessioncookie: " + System.Convert.ToBase64String(message.Encoding.GetBytes(sessionCookie)) + CRLF));
+                    result.AddRange(message.ContentEncoding.GetBytes("x-sessioncookie: " + System.Convert.ToBase64String(message.ContentEncoding.GetBytes(sessionCookie)) + CRLF));
                 }
 
-                result.AddRange(message.Encoding.GetBytes(CRLF));
-                result.AddRange(message.Encoding.GetBytes(CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes(CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes(CRLF));
 
                 result.AddRange(messageBytes);
             }
             else
             {
                 //Get the body of the HttpResponse
-                messageBytes = message.Encoding.GetBytes(System.Convert.ToBase64String(message.ToBytes()));
+                messageBytes = message.ContentEncoding.GetBytes(System.Convert.ToBase64String(message.ToBytes()));
 
                 //Form the HttpResponse
-                result.AddRange(message.Encoding.GetBytes("HTTP/1." + minorVersion.ToString() + " " + (int)statusCode + " " + statusCode + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Pragma:no-cache" + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Cache-Control:no-cache" + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
-                result.AddRange(message.Encoding.GetBytes("Expires:Sun, 9 Jan 1972 00:00:00 GMT" + CRLF));
-                result.AddRange(message.Encoding.GetBytes(CRLF));
-                result.AddRange(message.Encoding.GetBytes(CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("HTTP/1." + minorVersion.ToString() + " " + (int)statusCode + " " + statusCode + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Accept:application/x-rtsp-tunnelled" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Pragma:no-cache" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Cache-Control:no-cache" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Content-Length:" + messageBytes.Length + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes("Expires:Sun, 9 Jan 1972 00:00:00 GMT" + CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes(CRLF));
+                result.AddRange(message.ContentEncoding.GetBytes(CRLF));
 
                 result.AddRange(messageBytes);
             }
@@ -1090,7 +1085,11 @@ namespace Media.Rtsp
         
         #region Fields
 
-        readonly char[] m_EncodedLineEnds = UTF8LineEndingCharacters;
+        char[] m_EncodedLineEnds = Media.Common.UTF8.LineEndingCharacters,
+            m_EncodedWhiteSpace = Media.Common.UTF8.WhiteSpaceCharacters,
+            m_EncodedForwardSlash = Media.Common.UTF8.ForwardSlashCharacters,
+            m_EncodedColon = Media.Common.UTF8.ColonCharacters,
+            m_EncodedSemiColon = Media.Common.UTF8.SemiColonCharacters;
 
         double m_Version;
 
@@ -1131,7 +1130,7 @@ namespace Media.Rtsp
         /// </summary>
         public Uri Location;
 
-        Encoding m_Encoding = DefaultEncoding, m_ContentDecoder = null;
+        Encoding m_HeaderEncoding = DefaultEncoding, m_ContentDecoder = null;
 
         //Buffer to place data which is not complete
         System.IO.MemoryStream m_Buffer;
@@ -1199,44 +1198,44 @@ namespace Media.Rtsp
 
                 if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
                 {
-                    length += m_Encoding.GetByteCount(Method.ToString());
+                    length += m_HeaderEncoding.GetByteCount(Method.ToString());
 
                     ++length;
 
-                    length += m_Encoding.GetByteCount(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString());
+                    length += m_HeaderEncoding.GetByteCount(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString());
 
                     ++length;
 
-                    length += m_Encoding.GetByteCount(RtspMessage.MessageIdentifier);
+                    length += m_HeaderEncoding.GetByteCount(RtspMessage.MessageIdentifier);
 
                     ++length;
 
-                    length += m_Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
+                    length += m_HeaderEncoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
 
                     length += lineEndsLength;
                 }
                 else if (MessageType == RtspMessageType.Response)
                 {
-                    length += m_Encoding.GetByteCount(RtspMessage.MessageIdentifier);
+                    length += m_HeaderEncoding.GetByteCount(RtspMessage.MessageIdentifier);
 
                     ++length;
 
-                    length += m_Encoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
+                    length += m_HeaderEncoding.GetByteCount(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture));
 
                     ++length;
 
-                    length += m_Encoding.GetByteCount(((int)StatusCode).ToString());
+                    length += m_HeaderEncoding.GetByteCount(((int)StatusCode).ToString());
 
                     ++length;
 
-                    length += m_Encoding.GetByteCount(StatusCode.ToString());
+                    length += m_HeaderEncoding.GetByteCount(StatusCode.ToString());
 
                     length += lineEndsLength;
                 }
 
                 try
                 {                                                                                                             //m_Headers.Count *  means each header has a ':' and lineEndsLength sequence, + lineEndsLength for the end headersequence
-                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_Encoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * (1 + lineEndsLength) + lineEndsLength + m_Headers.Sum(s => m_Encoding.GetByteCount(s.Key) + m_Encoding.GetByteCount(s.Value)) : 0);
+                    return length + (string.IsNullOrEmpty(m_Body) ? 0 : m_HeaderEncoding.GetByteCount(m_Body)) + (m_Headers.Count > 0 ? m_Headers.Count * (1 + lineEndsLength) + lineEndsLength + m_Headers.Sum(s => m_HeaderEncoding.GetByteCount(s.Key) + m_HeaderEncoding.GetByteCount(s.Value)) : 0);
                 }
                 catch (InvalidOperationException)
                 {
@@ -1265,7 +1264,7 @@ namespace Media.Rtsp
                 else
                 {
                     //Get the length of the body
-                    m_ContentLength = Encoding.GetByteCount(m_Body);
+                    m_ContentLength = ContentEncoding.GetByteCount(m_Body);
 
                     //Ensure all requests end with a CRLF
                     if (false == m_Body.EndsWith(CRLF)) m_Body += CRLF;
@@ -1274,7 +1273,7 @@ namespace Media.Rtsp
                     SetHeader(RtspHeaders.ContentLength, m_ContentLength.ToString());
 
                     //Set the Content-Encoding
-                    SetHeader(RtspHeaders.ContentEncoding, Encoding.WebName);
+                    SetHeader(RtspHeaders.ContentEncoding, ContentEncoding.WebName);
                 }
             }
         }       
@@ -1334,19 +1333,48 @@ namespace Media.Rtsp
         }
 
         /// <summary>
+        /// Gets or Sets the encoding of the headers of this RtspMessage. (Defaults to UTF-8).
+        /// When a non-ASCII character set is used the MIME encoded word syntax <see href="https://tools.ietf.org/html/rfc2231">rfc2231</see> shall be used.
+        /// </summary
+        public Encoding HeaderEncoding
+        {
+            get { return m_HeaderEncoding; }
+            set
+            {
+                if (m_HeaderEncoding == value) return;
+
+                m_HeaderEncoding = value;
+
+                //Should set headers to indicate..
+
+                //Re-Encode values used in the header
+
+                m_EncodedLineEnds = m_HeaderEncoding.GetChars(Media.Common.UTF8.LineEndingBytes);
+
+                m_EncodedWhiteSpace = m_HeaderEncoding.GetChars(Media.Common.UTF8.WhiteSpaceBytes);
+
+                m_EncodedColon = m_HeaderEncoding.GetChars(Media.Common.UTF8.ColonBytes);
+
+                m_EncodedSemiColon = m_HeaderEncoding.GetChars(Media.Common.UTF8.SemiColonBytes);
+
+                m_EncodedForwardSlash = m_HeaderEncoding.GetChars(Media.Common.UTF8.ForwardSlashBytes);
+            }
+        }
+
+        /// <summary>
         /// Gets or Sets the encoding of this RtspMessage. (Defaults to UTF-8)
         /// When set the `Content-Encoding` header is also set to the 'WebName' of the given Encoding.
         /// </summary>
-        public Encoding Encoding
+        public Encoding ContentEncoding
         {
-            get { return m_Encoding; }
+            get { return ParseContentEncoding(); }
             set
             {
-                if (m_Encoding == value) return;
+                if (m_ContentDecoder == value) return;
 
-                m_Encoding = value;
+                m_ContentDecoder = value;
 
-                if(false == string.IsNullOrWhiteSpace(m_Body)) SetHeader(RtspHeaders.ContentEncoding, Encoding.WebName);
+                if (false == string.IsNullOrWhiteSpace(m_Body)) SetHeader(RtspHeaders.ContentEncoding, m_ContentDecoder.WebName);
             }
         }
 
@@ -1384,7 +1412,7 @@ namespace Media.Rtsp
                     string.IsNullOrWhiteSpace(m_Body)) return false; 
 
                 //Determine if the count of the octets in the body is greater than or equal to the supposed amount
-                return m_ContentLength <= 0 || (Encoding.GetByteCount(m_Body) >= m_ContentLength);
+                return m_ContentLength <= 0 || (ContentEncoding.GetByteCount(m_Body) >= m_ContentLength);
 
                 //Could trim here if needed. EnsureBody()..
             }
@@ -1427,7 +1455,7 @@ namespace Media.Rtsp
         /// Constructs a RtspMessage
         /// </summary>
         /// <param name="messageType">The type of message to construct</param>
-        public RtspMessage(RtspMessageType messageType, double? version = 1.0, Encoding encoding = null) { MessageType = messageType; Version = version ?? 1.0; Encoding = encoding ?? DefaultEncoding; }
+        public RtspMessage(RtspMessageType messageType, double? version = 1.0, Encoding encoding = null) { MessageType = messageType; Version = version ?? 1.0; ContentEncoding = encoding ?? DefaultEncoding; }
 
         /// <summary>
         /// Creates a RtspMessage from the given bytes
@@ -1470,7 +1498,7 @@ namespace Media.Rtsp
         ///    any entity body, the rules ensure reasonable behavior even if the
         ///    length is not given explicitly.
         /// </reference>        
-        public RtspMessage(byte[] data, int offset, int length, Encoding encoding = null)
+        public RtspMessage(byte[] data, int offset, int length, Encoding contentEncoding = null)
         {
             //Sanely
             //length could be > data.Length or offset could be allowed to be negitive...
@@ -1479,15 +1507,16 @@ namespace Media.Rtsp
                 return;
             }
 
-            length = Utility.Clamp(length, 0, data.Length);
+            length = Media.Common.Extensions.Math.MathExtensions.Clamp(length, 0, data.Length);
 
             //use the supplied encoding if present.
-            if (encoding != null &&
-                encoding != Encoding)
+            if (contentEncoding != null &&
+                contentEncoding != ContentEncoding)
             {
-                Encoding = encoding;
+                //Set the Content-Encoding header
+                ContentEncoding = contentEncoding;
 
-                m_EncodedLineEnds = Encoding.GetChars(UTF8LineEndingBytes);
+                
             }
 
             //Syntax, what syntax? there is no syntax ;)
@@ -1604,7 +1633,7 @@ namespace Media.Rtsp
             long read;
 
             //If it was not present then do not parse further
-            if (false == Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(Encoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out StatusLine, out read, false) && StatusLine.Length < MinimumStatusLineSize)
+            if (false == Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out StatusLine, out read, false) && StatusLine.Length < MinimumStatusLineSize)
             {
                 MessageType = RtspMessageType.Invalid;
 
@@ -1723,7 +1752,7 @@ namespace Media.Rtsp
 
                     long read;
 
-                    if (false == Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(Encoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out rawLine, out read, false))
+                    if (false == Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, m_Buffer.Length, out rawLine, out read, false))
                     {
                         break;
                     }
@@ -1815,7 +1844,7 @@ namespace Media.Rtsp
                 //If the value was possibly not yet read then assume its empty
                 if (false == string.IsNullOrWhiteSpace(headerName))
                 {
-                    SetHeader(headerName, Encoding.GetString(SemiColonByte));
+                    SetHeader(headerName, HeaderEncoding.GetString(Media.Common.UTF8.SemiColonBytes));
                 }
 
                 //There may be control characters from the last header still in the buffer, (ParseBody handles this)            
@@ -1850,7 +1879,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Gets the <see cref="Encoding"/> for the 'Content-Encoding' header if found.
+        /// Gets the <see cref="ContentEncoding"/> for the 'Content-Encoding' header if found.
         /// </summary>
         /// <param name="raiseWhenNotFound">If true and the requested encoding cannot be found an exception will be thrown.</param>
         /// <returns>The <see cref="System.Text.Encoding"/> requested or the <see cref="System.Text.Encoding.Default"/> if the reqeusted could not be found.</returns>
@@ -1862,7 +1891,7 @@ namespace Media.Rtsp
             string contentEncoding = GetHeader(RtspHeaders.ContentEncoding);
 
             //Use the existing content decoder if set.
-            System.Text.Encoding contentDecoder = m_ContentDecoder ?? m_Encoding;
+            System.Text.Encoding contentDecoder = m_ContentDecoder ?? m_HeaderEncoding;
 
             //If there was a content-Encoding header then set it now;
             if (false == string.IsNullOrWhiteSpace(contentEncoding))
@@ -1878,7 +1907,7 @@ namespace Media.Rtsp
             }
 
             //Use the default encoding if given utf8
-            if (contentDecoder.WebName == m_Encoding.WebName) contentDecoder = m_Encoding;
+            if (contentDecoder.WebName == m_HeaderEncoding.WebName) contentDecoder = m_HeaderEncoding;
 
             return m_ContentDecoder = contentDecoder;
         }
@@ -1992,7 +2021,7 @@ namespace Media.Rtsp
         /// <returns>A string which contains the entire message itself in the encoding of the RtspMessage.</returns>
         public override string ToString()
         {
-            return Encoding.GetString(ToBytes());
+            return ContentEncoding.GetString(ToBytes());
         }
 
         /// <summary>
@@ -2070,7 +2099,7 @@ namespace Media.Rtsp
 
             //If not already contained then set, otherwise append...
             if (false == ContainsHeader(name, out containedHeader)) SetHeader(name, value);
-            else m_Headers[containedHeader] += Encoding.GetString(SemiColonByte) + value; //Might be a list header with ,?
+            else m_Headers[containedHeader] += HeaderEncoding.GetString(Media.Common.UTF8.SemiColonBytes) + value; //Might be a list header with ,?
         }
 
         /// <summary>
@@ -2152,7 +2181,7 @@ namespace Media.Rtsp
         {
             if (includeStatusLine && includeHeaders && includeBody) return ToBytes();
 
-            IEnumerable<byte> result = Utility.Empty;
+            IEnumerable<byte> result = Media.Common.MemorySegment.EmptyBytes;
 
             if (includeStatusLine) result = PrepareStatusLine();
 
@@ -2181,47 +2210,42 @@ namespace Media.Rtsp
         {
             if (MessageType == RtspMessageType.Request || MessageType == RtspMessageType.Invalid)
             {
-                foreach (byte b in m_Encoding.GetBytes(MethodString)) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(MethodString)) yield return b;
 
-
-                byte[] spaceBytes = m_Encoding.GetBytes(Media.Common.Extensions.Encoding.EncodingExtensions.GetChars(m_Encoding, Media.Common.ASCII.Space));
-
-                foreach (byte b in spaceBytes) yield return b;
+                foreach (byte b in m_EncodedWhiteSpace) yield return b;
 
                 //UriEncode?
 
-                foreach (byte b in m_Encoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString())) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(Location == null ? RtspMessage.Wildcard.ToString() : Location.ToString())) yield return b;
 
-                foreach (byte b in spaceBytes) yield return b;
+                foreach (byte b in m_EncodedWhiteSpace) yield return b;
 
                 //Could skip conversion if default encoding.
-                foreach (byte b in m_Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
 
-                foreach (byte b in m_Encoding.GetBytes(Media.Common.Extensions.Encoding.EncodingExtensions.GetChars(m_Encoding, Media.Common.ASCII.ForwardSlash))) yield return b;
+                foreach (byte b in m_EncodedForwardSlash) yield return b;
 
-                foreach (byte b in m_Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
             }
             else if (MessageType == RtspMessageType.Response)
             {
                 //Could skip conversion if default encoding.
-                foreach (byte b in m_Encoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(RtspMessage.MessageIdentifier)) yield return b;
 
-                yield return Common.ASCII.ForwardSlash;
+                foreach (byte b in m_EncodedForwardSlash) yield return b;
 
-                foreach (byte b in m_Encoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
 
-                byte[] spaceBytes = m_Encoding.GetBytes(Media.Common.Extensions.Encoding.EncodingExtensions.GetChars(m_Encoding, Media.Common.ASCII.Space));
+                foreach (byte b in m_EncodedWhiteSpace) yield return b;
 
-                foreach (byte b in spaceBytes) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(((int)StatusCode).ToString())) yield return b;
 
-                foreach (byte b in m_Encoding.GetBytes(((int)StatusCode).ToString())) yield return b;
+                foreach (byte b in m_EncodedWhiteSpace) yield return b;
 
-                foreach (byte b in spaceBytes) yield return b;
-
-                foreach (byte b in m_Encoding.GetBytes(StatusCode.ToString())/*.ToString*/) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(StatusCode.ToString())/*.ToString*/) yield return b;
             }
 
-            if (includeEmptyLine) foreach (byte b in m_Encoding.GetBytes(CRLF)) yield return b;
+            if (includeEmptyLine) foreach (byte b in m_EncodedLineEnds) yield return b;
 
         }
 
@@ -2232,18 +2256,18 @@ namespace Media.Rtsp
         /// <returns></returns>
         public virtual IEnumerable<byte> PrepareHeaders(bool includeEmptyLine = true)
         {
-            byte[] encodedCRLF = Encoding.GetBytes(CRLF);
+            if (m_HeaderEncoding.WebName != "utf-8" && m_HeaderEncoding.WebName != "ascii") throw new NotSupportedException("Mime format is not yet supported.");
 
             //Write headers
             foreach (KeyValuePair<string, string> header in m_Headers/*.OrderBy((key) => key.Key).Reverse()*/)
             {
-                foreach (byte b in Encoding.GetBytes(header.Key)) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(header.Key)) yield return b;
 
                 //Should have a Format which can be specified as desired.
 
-                //yield return Common.ASCII.Space;
+                //foreach (byte b in m_EncodedWhiteSpace) yield return b;
 
-                yield return Common.ASCII.Colon;
+                foreach (byte b in m_EncodedColon) yield return b;
 
                 #region QuickTime Is the BEST
 
@@ -2251,16 +2275,16 @@ namespace Media.Rtsp
                 //#&#)%& Quick Time Requires that there is a space here.. even in 7.7.7
                 //How lovely...
 
-                yield return Common.ASCII.Space;
+                foreach (byte b in m_EncodedWhiteSpace) yield return b;
 
                 #endregion
 
-                foreach (byte b in Encoding.GetBytes(header.Value)) yield return b;
+                foreach (byte b in m_HeaderEncoding.GetBytes(header.Value)) yield return b;
 
-                foreach (byte b in encodedCRLF) yield return b;
+                foreach (byte b in m_EncodedLineEnds) yield return b;
             }
 
-            if (includeEmptyLine) foreach (byte b in encodedCRLF) yield return b;
+            if (includeEmptyLine) foreach (byte b in m_EncodedLineEnds) yield return b;
 
         }
 
@@ -2270,7 +2294,7 @@ namespace Media.Rtsp
         /// <returns></returns>
         public virtual IEnumerable<byte> PrepareBody()
         {
-            foreach (byte b in Encoding.GetBytes(m_Body)) yield return b;
+            foreach (byte b in ContentEncoding.GetBytes(m_Body)) yield return b;
         }
 
         #endregion
@@ -2300,7 +2324,7 @@ namespace Media.Rtsp
 
         public override int GetHashCode()
         {
-            return (int)((int)MessageType | (int)Method ^ (int)StatusCode) ^ (string.IsNullOrWhiteSpace(m_Body) ? Length : m_Body.GetHashCode()) ^ (m_Headers.Count ^ CSeq);
+            return Created.GetHashCode() ^ (int)((int)MessageType | (int)Method ^ (int)StatusCode) ^ (string.IsNullOrWhiteSpace(m_Body) ? Length : m_Body.GetHashCode()) ^ (m_Headers.Count ^ CSeq);
         }
 
         public override bool Equals(object obj)
@@ -2421,7 +2445,7 @@ namespace Media.Rtsp
             if (m_ContentLength == 0) return received;
 
             //Calulcate the amount of bytes in the body
-            int encodedBodyCount = Encoding.GetByteCount(m_Body);
+            int encodedBodyCount = ContentEncoding.GetByteCount(m_Body);
 
             //Determine how much remaing
             int remaining = m_ContentLength - encodedBodyCount;

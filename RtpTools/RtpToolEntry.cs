@@ -157,7 +157,7 @@ namespace Media.RtpTools
 
                 int ts = int.Parse(entryParts[1]);
 
-                return new RtpToolEntry(timeBase.AddMilliseconds(time), source, new Rtp.RtpPacket(2, false, false, ts < 0, 0, 0, 0, int.Parse(entryParts[2]), ts, Utility.Empty), offset, fileOffset ?? 0);
+                return new RtpToolEntry(timeBase.AddMilliseconds(time), source, new Rtp.RtpPacket(2, false, false, ts < 0, 0, 0, 0, int.Parse(entryParts[2]), ts, Media.Common.MemorySegment.EmptyBytes), offset, fileOffset ?? 0);
 
             }
             else

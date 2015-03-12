@@ -39,7 +39,7 @@ namespace Media.Rtsp.Server.MediaTypes
             /// <returns></returns>
             internal static byte[] GetDeltaTime(uint delta)
             {
-                if (delta <= 0x0FFFFFFF) return Utility.Empty;
+                if (delta <= 0x0FFFFFFF) return Media.Common.MemorySegment.EmptyBytes;
 
                 if ( /* delta > 0 && */ delta <= 0x7F)
                     return new[]

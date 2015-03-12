@@ -93,9 +93,21 @@
     <Compile Include="RtspStreamArchiver.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Codecs\Audio\Aac\Media.Codecs.Audio.Aac.csproj">
+      <Project>{d087a5ba-0e1b-44c2-a739-ad8153edc8c4}</Project>
+      <Name>Media.Codecs.Audio.Aac</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
       <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
       <Name>Media.Codecs.Audio</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Mpeg\Media.Codecs.Audio.Mp3.csproj">
+      <Project>{4305ddf6-3c8b-4fe6-8de9-3e81c5d9126a}</Project>
+      <Name>Media.Codecs.Audio.Mp3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Media.Codecs.Image.csproj">
+      <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
+      <Name>Media.Codecs.Image</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
@@ -105,9 +117,9 @@
       <Project>{ff0ee03e-0a02-40f1-8064-d055ef41f949}</Project>
       <Name>Media.Codecs.Video.H264</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Video\Jpeg\Media.Codecs.Video.Jpeg.csproj">
+    <ProjectReference Include="..\Codecs\Video\Jpeg\Media.Codecs.Image.Jpeg.csproj">
       <Project>{a12d2eda-c1ba-4d4e-8e7d-38f8048bc161}</Project>
-      <Name>Media.Codecs.Video.Jpeg</Name>
+      <Name>Media.Codecs.Image.Jpeg</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
       <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
@@ -116,6 +128,10 @@
     <ProjectReference Include="..\Codecs\Video\Mpeg4\Media.Codecs.Video.Mpeg4.csproj">
       <Project>{6e191592-acc7-4444-a7e3-88258c8709fe}</Project>
       <Name>Media.Codecs.Video.Mpeg4</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Mpeg\Media.Codecs.Video.Mpeg.csproj">
+      <Project>{667cde0b-0ae3-4df5-9d81-d91ef0bdceda}</Project>
+      <Name>Media.Codecs.Video.Mpeg</Name>
     </ProjectReference>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
