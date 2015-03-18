@@ -46,18 +46,20 @@ namespace Media.Concepts.Classes
     {
         public static bool IsArm()
         {
-            return 0 == 1 << 32; //Should always be BitsPerInteger
+            return 0 == 1 << Media.Common.Binary.BitsPerInteger;
         }
 
         public static bool IsX86()
         {
-            return 1 == (((uint)1) << 32); //Should always be BitsPerInteger
+            return 1 == (((uint)1) << Media.Common.Binary.BitsPerInteger);
         }
 
         public static bool IsX64()
         {
-            return 4294967296 == (((ulong)1) << 96); //Should always be BitsPerInteger * 3
+            return 4294967296 == (((ulong)1) << 96); //Should always be 96
         }
+
+        //Detection? (Model, Speed, Stepping ...)
 
     }
 }

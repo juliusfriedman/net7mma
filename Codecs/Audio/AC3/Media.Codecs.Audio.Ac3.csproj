@@ -35,13 +35,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\..\Common\Properties\MediaAssemblyVersionInfo.cs">
-      <Link>MediaAssemblyVersionInfo.cs</Link>
+      <Link>Properties\MediaAssemblyVersionInfo.cs</Link>
     </Compile>
     <Compile Include="..\..\..\Common\Properties\MediaCLSComplaintInfo.cs">
-      <Link>MediaCLSComplaintInfo.cs</Link>
+      <Link>Properties\MediaCLSComplaintInfo.cs</Link>
     </Compile>
     <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
-      <Link>MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
+      <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
