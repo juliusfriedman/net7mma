@@ -69,7 +69,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>Tests.Program</StartupObject>
+    <StartupObject>Media.UnitTests.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>false</SignAssembly>
@@ -248,6 +248,10 @@
       <Project>{d087a5ba-0e1b-44c2-a739-ad8153edc8c4}</Project>
       <Name>Media.Codecs.Audio.Aac</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\AC3\Media.Codecs.Audio.Ac3.csproj">
+      <Project>{c2628db8-9d97-4655-b861-605a9e9fa6d7}</Project>
+      <Name>Media.Codecs.Audio.Ac3</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
       <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
       <Name>Media.Codecs.Audio</Name>
@@ -339,6 +343,10 @@
     <ProjectReference Include="..\Containers\Riff\Media.Containers.Riff.csproj">
       <Project>{beaa546e-6c3d-47f4-85d9-6bb598b5d8b8}</Project>
       <Name>Media.Containers.Riff</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Cryptography\Media.Cryptography.csproj">
+      <Project>{818bd18e-f1fe-45e3-96d4-984e76fec84d}</Project>
+      <Name>Media.Cryptography</Name>
     </ProjectReference>
     <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
       <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>

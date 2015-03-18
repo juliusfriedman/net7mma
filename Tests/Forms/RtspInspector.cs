@@ -41,7 +41,7 @@ namespace Tests
                     Client = null;
                 }
 
-                Media.Common.IThreadReferenceExtensions.TryAbort(ref ClientThreadProc);
+                Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref ClientThreadProc);
 
                 ClientThreadProc = null;
 
@@ -128,7 +128,7 @@ namespace Tests
                 }
                 else
                 {
-                    textBox2.AppendText(string.Format(Program.TestingFormat, request.ToString()));
+                    textBox2.AppendText(string.Format(Media.UnitTests.Program.TestingFormat, request.ToString()));
                 }
             }
         }
@@ -150,7 +150,7 @@ namespace Tests
                 }
                 else
                 {
-                    textBox2.AppendText(string.Format(Program.TestingFormat, request.ToString(), response.ToString()));
+                    textBox2.AppendText(string.Format(Media.UnitTests.Program.TestingFormat, request.ToString(), response.ToString()));
                 }
             }
         }
