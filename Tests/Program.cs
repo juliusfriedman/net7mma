@@ -51,7 +51,7 @@ namespace Media.UnitTests
         /// <summary>
         /// A format for the output which occurs when unit testing.
         /// </summary>
-        internal static string TestingFormat = "{0}:=>{1}";
+        internal static string TestingFormat = "{0}:=>{1}"; 
 
         /// <summary>
         /// The UnitTests which will be run to test the implemenation logic
