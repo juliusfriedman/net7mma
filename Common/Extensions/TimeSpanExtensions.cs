@@ -38,16 +38,54 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Common.Extensions.TimeSpan
 {
+    /// <summary>
+    /// Defines methods and properties for working with <see cref="System.TimeSpan"/>
+    /// </summary>
     public static class TimeSpanExtensions
     {
-        public const double MicrosecondsPerMillisecond = 1000, NanosecondsPerMillisecond = MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, NanosecondsPerSecond = 1000000000;
-
-        public static System.TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
-
         //TimeSpan.MinValue is already defined as
         //public static System.TimeSpan Undefined = System.TimeSpan.FromTicks(unchecked((long)double.NaN));
 
-        public static double TotalMicroseconds(this System.TimeSpan ts) { return ts.TotalMilliseconds / MicrosecondsPerMillisecond; }
+        public const double MicrosecondsPerMillisecond = 1000, NanosecondsPerMillisecond = MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, NanosecondsPerSecond = 1000000000;
+
+        /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of -1 Millisecond
+        /// </summary>
+        public static readonly System.TimeSpan InfiniteTimeSpan = System.Threading.Timeout.InfiniteTimeSpan;
+
+        /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of 1 Tick (100 ns)
+        /// </summary>
+        public static readonly System.TimeSpan OneTick = System.TimeSpan.FromTicks(1);
+
+        /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of 1 Second
+        /// </summary>
+        public static readonly System.TimeSpan OneSecond = System.TimeSpan.FromSeconds(1);
+
+        /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of 1 Millisecond
+        /// </summary>
+        public static readonly System.TimeSpan OneMillisecond = InfiniteTimeSpan.Negate();
+
+        /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of 1 Microsecond (μs)
+        /// </summary>
+        public static readonly System.TimeSpan OneMicrosecond = System.TimeSpan.FromTicks(10);
+
+        /// <summary>
+        /// Calulcates the total amount of Microseconds (μs) in the given <see cref="TimeSpan"/>
+        /// </summary>
+        /// <param name="ts"></param>
+        /// <returns></returns>
+        public static double TotalMicroseconds(this System.TimeSpan ts) { return ts.TotalMilliseconds * MicrosecondsPerMillisecond; }
+
+        /// <summary>
+        /// Calulcates the total amount of Nanoseconds (ns) in the given <see cref="TimeSpan"/>
+        /// </summary>
+        /// <param name="ts"></param>
+        /// <returns></returns>
+        public static double TotalNanoseconds(this System.TimeSpan ts) { return ts.TotalMilliseconds * NanosecondsPerMillisecond; }
 
     }
 }

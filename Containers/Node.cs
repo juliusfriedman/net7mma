@@ -9,7 +9,7 @@ namespace Media.Container
     /// <summary>
     /// Represents a superset of binary data within a <see cref="IMediaContainer"/>.
     /// </summary>
-    public class Node : Common.BaseDisposable
+    public class /*MediaFile*/ Node : Common.BaseDisposable
     {
         /// <summary>
         /// The <see cref="IMediaContainer"/> from which this instance was created.

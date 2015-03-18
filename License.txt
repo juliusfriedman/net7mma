@@ -1,4 +1,4 @@
-Managed Media Aggregation `Container`
+Managed Media Aggregation `Formats`
 
 Copyright 2014
 

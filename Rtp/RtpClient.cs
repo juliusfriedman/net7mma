@@ -1630,7 +1630,19 @@ namespace Media.Rtp
             /// <param name="duplexed">The socket to use</param>
             public void Initialize(Socket duplexed)
             {
-                Initialize(duplexed, duplexed);
+                //If the socket is not exclusively using the address
+                if (false == duplexed.ExclusiveAddressUse)
+                {
+                    //Duplicte the socket
+                    Socket duplicate = new Socket(duplexed.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                    duplicate.ExclusiveAddressUse = false;
+
+                    duplicate.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+
+                    Initialize(duplexed, duplicate);
+                } //Otherwise use the existing socket twice
+                else Initialize(duplexed, duplexed);
             }
 
             #endregion
@@ -1697,7 +1709,7 @@ namespace Media.Rtp
                 {
                     //new RtcpPacket(Version, Rtcp.ReceiversReport.PayloadType, 0, 0, SynchronizationSourceIdentifier, 0);
 
-                    try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtcp); }
+                    try { RtpSocket.SendTo(WakeUpBytes, 0, WakeUpBytes.Length, SocketFlags.None, RemoteRtp); }
                     catch (SocketException) { }//We don't care about the response or any issues during the holePunch
 
                     //Check for the same socket.
@@ -2350,6 +2362,8 @@ namespace Media.Rtp
                     //Create a new packet from the localPacket so it will not be disposed when the packet is disposed.
                     if (false == transportContext.LastFrame.IsComplete)
                     {
+                        //17333
+
                         //Handle existing frame
                         transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0));
                     }
@@ -2398,6 +2412,8 @@ namespace Media.Rtp
                     //If the payload of the localPacket matched the media description then create a new packet from the localPacket so it will not be disposed when the packet is disposed.
                     if (transportContext.MediaDescription.PayloadTypes.Contains(payloadType))
                     {
+                        //17333
+
                         //Handle existing frame
                         transportContext.CurrentFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0));
                     }
@@ -3262,7 +3278,7 @@ namespace Media.Rtp
             TransportContext context = GetContextForPacket(packets.First());
 
             //If we don't have an transportContext to send on or the transportContext has not been identified or Rtcp is Disabled
-            if (false == force && context == null || context.SynchronizationSourceIdentifier == 0 || false == context.IsRtcpEnabled)
+            if (false == force && context == null || context.SynchronizationSourceIdentifier == 0 || false == context.IsRtcpEnabled || context.RemoteRtcp == null)
             {
                 //Return
                 return 0;
@@ -3594,7 +3610,7 @@ namespace Media.Rtp
 
             foreach (var tc in TransportContexts) if(tc.IsConnected) tc.DisconnectSockets();
 
-            Media.Common.IThreadReferenceExtensions.TryAbort(ref m_WorkerThread);
+            Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref m_WorkerThread);
         }
 
         /// <summary>
@@ -3759,14 +3775,14 @@ namespace Media.Rtp
                     else length = data.Length;
                 }
 
-                //////Check for the socket to be writable in 1 msec or less
-                ////if (false == socket.Poll((int)Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond, SelectMode.SelectRead))
-                ////{
-                ////    //Indicate the operation has timed out
-                ////    error = SocketError.TimedOut;
+                //Check for the socket to be writable in 0.015 sec or less
+                if (false == socket.Poll((int)15000, SelectMode.SelectWrite))
+                {
+                    //Indicate the operation has timed out
+                    error = SocketError.TimedOut;
 
-                ////    return sent;
-                ////}
+                    return sent;
+                }
 
                 //Send the frame keeping track of the bytes sent
                 while (sent < length)
@@ -4416,23 +4432,8 @@ namespace Media.Rtp
                         //See Todo
 
                         //Loop each context, newly added contexts will be seen on each iteration
-                        for (int i = 0, e = TransportContexts.Count; false == shouldStop | IsDisposed | m_StopRequested && i < e; ++i)
+                        for (int i = 0; false == (shouldStop | IsDisposed | m_StopRequested) && i < TransportContexts.Count; ++i)
                         {
-                            //If there are no contexts
-                            if (e == 0)
-                            {
-                                //Relinquish priority
-                                System.Threading.Thread.CurrentThread.Priority = ThreadPriority.Lowest;
-
-                                //yield the time slice
-                                System.Threading.Thread.Sleep(0);
-
-                                //Do another iteration
-                                continue;
-                            }
-
-                            if (i >= TransportContexts.Count) continue;
-
                             //Obtain a context
                             TransportContext tc = TransportContexts[i];
 
@@ -4455,9 +4456,9 @@ namespace Media.Rtp
                             bool duplexing = tc.IsDuplexing, rtpEnabled = tc.IsRtpEnabled, rtcpEnabled = tc.IsRtcpEnabled;
 
                             //If receiving Rtp and the socket is able to read
-                            if (false == shouldStop | IsDisposed | m_StopRequested && rtpEnabled
-                                //Check if the socket can read data
-                                && tc.RtpSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval), MidpointRounding.ToEven), SelectMode.SelectRead))
+                            if (rtpEnabled && false == (shouldStop | IsDisposed | m_StopRequested)
+                            //Check if the socket can read data
+                            && /*tc.RtpSocket.Available > 0 ||*/ tc.RtpSocket.Poll((int)(Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven)  /** 3000*/), SelectMode.SelectRead))
                             {
                                 //Receive RtpData
                                 receivedRtp += ReceiveData(tc.RtpSocket, ref tc.RemoteRtp, out lastError, rtpEnabled, duplexing, tc.ContextMemory);
@@ -4479,12 +4480,12 @@ namespace Media.Rtp
                             }
 
                             //if Rtcp is enabled
-                            if (false == shouldStop | IsDisposed | m_StopRequested && rtcpEnabled)
+                            if (rtcpEnabled && false == (shouldStop | IsDisposed | m_StopRequested))
                             {
                                 if (//The last report was never received or recieved longer ago then required
                                     (tc.LastRtcpReportReceived == TimeSpan.MinValue || tc.LastRtcpReportReceived >= tc.m_ReceiveInterval)
-                                    &&//And the socket can read
-                                    tc.RtcpSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval), MidpointRounding.ToEven), SelectMode.SelectRead))
+                                &&//And the socket can read
+                                    /*tc.RtcpSocket.Available > 0 ||*/ tc.RtcpSocket.Poll((int)(Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven) /** 3000*/), SelectMode.SelectRead))
                                 {
                                     //ReceiveRtcp Data
                                     receivedRtcp += ReceiveData(tc.RtcpSocket, ref tc.RemoteRtcp, out lastError, duplexing, rtcpEnabled, tc.ContextMemory);
@@ -4526,13 +4527,7 @@ namespace Media.Rtp
 
                                 continue;
                             }
-                            else
-                            {
-                                //Waste time
-                                System.Threading.Thread.Sleep(0);
-
-                                continue;
-                            }
+                            //else System.Threading.Thread.Sleep(0);
                         }
 
                         #endregion
@@ -4572,7 +4567,7 @@ namespace Media.Rtp
                             //int? lastTimestamp;
 
                             //Take the array to reduce exceptions
-                            for (int i = 0, e = m_OutgoingRtpPackets.Count; i < e; ++i)
+                            for (int i = 0; i < m_OutgoingRtpPackets.Count; ++i)
                             {
                                 //Get a packet
                                 RtpPacket packet = m_OutgoingRtpPackets[i];
@@ -4605,9 +4600,9 @@ namespace Media.Rtp
                                     //Only do this in TCP to avoid duplicate data retransmission?
 
                                     //Indicate to remove another packet
-                                    //++remove;
+                                    ++remove;
 
-                                    break;
+                                    //break;
                                 }
 
                                 //If this was a marker packet then stop for now
@@ -4675,7 +4670,7 @@ namespace Media.Rtp
             InterleavedData = null;
 
             //Send abort signal
-            Media.Common.IThreadReferenceExtensions.TryAbort(ref m_WorkerThread);
+            Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref m_WorkerThread);
 
             //Send abort signal to all threads contained.
             //Delegate AbortDelegate

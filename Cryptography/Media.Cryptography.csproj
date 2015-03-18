@@ -4,28 +4,26 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{B389B0F4-C788-436E-A108-D01F38FCB3ED}</ProjectGuid>
+    <ProjectGuid>{818BD18E-F1FE-45E3-96D4-984E76FEC84D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Media.Containers.BaseMedia</RootNamespace>
-    <AssemblyName>Media.Containers.BaseMedia</AssemblyName>
+    <RootNamespace>Media.Cryptography</RootNamespace>
+    <AssemblyName>Media.Cryptography</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -37,47 +35,28 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\Common\Properties\MediaAssemblyInfo.cs">
+    <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
       <Link>Properties\MediaAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="..\..\Common\Properties\MediaAssemblyVersionInfo.cs">
+    <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
       <Link>Properties\MediaAssemblyVersionInfo.cs</Link>
     </Compile>
-    <Compile Include="..\..\Common\Properties\MediaCLSComplaintInfo.cs">
+    <Compile Include="..\Common\Properties\MediaCLSComplaintInfo.cs">
       <Link>Properties\MediaCLSComplaintInfo.cs</Link>
     </Compile>
-    <Compile Include="..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
+    <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
-    <Compile Include="BaseMediaReader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\Codecs\Media.Codecs.csproj">
-      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
-      <Name>Media.Codecs</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Common\Media.Common.csproj">
+    <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Compression\Media.Compression.csproj">
-      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
-      <Name>Media.Compression</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\..\Sdp\Media.Sdp.csproj">
-      <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
-      <Name>Media.Sdp</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Media.Container.csproj">
-      <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
-      <Name>Media.Container</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="License.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

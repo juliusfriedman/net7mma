@@ -53,7 +53,7 @@ namespace Media
     /// <summary>
     /// Contains common functions
     /// </summary>
-    [CLSCompliant(false)]
+    [CLSCompliant(true)]
     public static class Utility
     {
         #region Properties
@@ -61,6 +61,8 @@ namespace Media
         //Move to Cryptography
 
         public static System.Security.Cryptography.MD5 CreateMD5HashAlgorithm() { return System.Security.Cryptography.MD5.Create(); }
+
+        //Make a Rng?
 
         public static Random Random = new Random();
 

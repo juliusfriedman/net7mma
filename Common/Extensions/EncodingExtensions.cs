@@ -68,12 +68,16 @@ namespace Media.Common.Extensions.Encoding
         /// <param name="delimits"></param>
         /// <param name="count"></param>
         /// <param name="result"></param>
+        /// <param name="read"></param>
+        /// <param name="any"></param>
         /// <param name="includeDelimits"></param>
-        /// <returns>True if a given delimit was found, otherwise false.</returns>        
+        /// <returns></returns>
         [CLSCompliant(false)]
-        public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, System.IO.Stream stream, char[] delimits, ulong count, out string result, out ulong read, bool includeDelimits = true)
+        public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, System.IO.Stream stream, char[] delimits, ulong count, out string result, out ulong read, out System.Exception any, bool includeDelimits = true)
         {
             read = 0;
+
+            any = null;
 
             if (delimits == null) delimits = EmptyChar;
 
@@ -126,7 +130,14 @@ namespace Media.Common.Extensions.Encoding
                         //Create a string and append
                         builder.Append(cached);
                     }
-                    catch { break; }
+                    catch (System.Exception ex)
+                    {
+                        any = ex;
+
+                        read = (ulong)(stream.Position - at);
+
+                        break;
+                    }
                 }
             }
 
@@ -139,9 +150,38 @@ namespace Media.Common.Extensions.Encoding
                 return sawDelimit;
             }
 
-            result = builder.ToString();
+            result = builder.Length == 0 ? string.Empty : builder.ToString();
 
             return sawDelimit;
+        }
+
+        /// <summary>
+        /// Reads the data in the stream using the given encoding until the first occurance of any of the given delimits are found, count is reached or the end of stream occurs.
+        /// </summary>
+        /// <param name="encoding"></param>
+        /// <param name="stream"></param>
+        /// <param name="delimits"></param>
+        /// <param name="count"></param>
+        /// <param name="result"></param>
+        /// <param name="includeDelimits"></param>
+        /// <returns>True if a given delimit was found, otherwise false.</returns>        
+        [CLSCompliant(false)]
+        public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, System.IO.Stream stream, char[] delimits, ulong count, out string result, out ulong read, bool includeDelimits = true)
+        {
+            System.Exception encountered;
+
+            return ReadDelimitedDataFrom(encoding, stream, delimits, count, out result, out read, out encountered, includeDelimits);
+        }
+
+        public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, System.IO.Stream stream, char[] delimits, long count, out string result, out long read, out System.Exception any, bool includeDelimits = true)
+        {
+            ulong cast;
+
+            bool found = ReadDelimitedDataFrom(encoding, stream, delimits, (ulong)count, out result, out cast, out any, includeDelimits);
+
+            read = (int)cast;
+
+            return found;
         }
 
         public static bool ReadDelimitedDataFrom(this System.Text.Encoding encoding, System.IO.Stream stream, char[] delimits, int count, out string result, out int read, bool includeDelimits = true)
@@ -211,7 +251,11 @@ namespace Media.Common.Extensions.Encoding
 
         #endregion
     }
+}
 
+
+namespace Media.UnitTests
+{
     internal class EncodingExtensionsTests
     {
 
@@ -256,11 +300,11 @@ namespace Media.Common.Extensions.Encoding
 
                         string actual;
 
-                        int read;                        
+                        int read;
 
-                        //Ensure dat was read correctly using the binary length and not the string length
+                        //Ensure that was read correctly using the binary length and not the string length
                         //(should try to over read)
-                        if (false != EncodingExtensions.ReadDelimitedDataFrom(encoding, ms, null, encodedDataLength, out actual, out read))
+                        if (false != Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(encoding, ms, null, encodedDataLength, out actual, out read))
                         {
                             throw new System.Exception("ReadDelimitedDataFrom failed.");
                         }

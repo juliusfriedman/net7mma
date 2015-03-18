@@ -43,8 +43,8 @@
     <Compile Include="..\..\..\Common\Properties\MediaCLSComplaintInfo.cs">
       <Link>Properties\MediaCLSComplaintInfo.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToTestAttribute.cs">
-      <Link>Properties\MediaCLSInternalVisibleToTestAttribute.cs</Link>
+    <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
+      <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

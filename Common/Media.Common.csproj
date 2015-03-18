@@ -63,6 +63,7 @@
     <Compile Include="Extensions\MathExtensions.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
     <Compile Include="Extensions\SocketExtensions.cs" />
+    <Compile Include="Extensions\ThreadExtensions.cs" />
     <Compile Include="Extensions\UriExtensions.cs" />
     <Compile Include="Extensions\WaitHandleExtensions.cs" />
     <Compile Include="IDisposed.cs" />
@@ -85,7 +86,6 @@
     <Compile Include="MemorySegment.cs" />
     <Compile Include="Loggers\NullLogger.cs" />
     <Compile Include="Properties\MediaAssemblyInfo.cs" />
-    <Compile Include="Properties\MediaCLSInternalVisibleToTestAttribute.cs" />
     <Compile Include="Properties\MediaCLSComplaintInfo.cs" />
     <Compile Include="Properties\MediaAssemblyVersionInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

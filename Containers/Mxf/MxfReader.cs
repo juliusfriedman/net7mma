@@ -470,7 +470,7 @@ namespace Media.Containers.Mxf
                     if (compareVersion ? BitConverter.ToInt16(aBytes, 7) == BitConverter.ToInt16(bBytes, 7) : aBytes[7] == bBytes[7])
                     {
                         //9 - 12 should also match
-                        if (!compareKind) return BitConverter.ToInt32(aBytes, 8) == BitConverter.ToInt32(bBytes, 8);
+                        if (false == compareKind) return BitConverter.ToInt32(aBytes, 8) == BitConverter.ToInt32(bBytes, 8);
 
                         //kind usuaully is status
                         return BitConverter.ToInt32(aBytes, 12) == BitConverter.ToInt32(bBytes, 12);
@@ -496,7 +496,7 @@ namespace Media.Containers.Mxf
                 
 
             //If not an exact match
-            if (!IdentifierLookup.TryGetValue(id, out result))
+            if (false == IdentifierLookup.TryGetValue(id, out result))
             {
                 //Attempt by generic compare
                 if (CompareUL(UniversalLabel.PartitionPack.ToByteArray(), identifier, false, false, false)) return "PartitionPack"; //Last 4 bytes is version and open or closed
@@ -592,7 +592,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_MajorVersion.HasValue) ParseHeader();
+                if (false == m_MajorVersion.HasValue) ParseHeader();
                 return new Version(m_MajorVersion.Value, m_MinorVersion.Value);
             }
         }
@@ -601,7 +601,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_KagSize.HasValue) ParseHeader();
+                if (false == m_KagSize.HasValue) ParseHeader();
                 return m_KagSize.Value;
             }
         }
@@ -610,7 +610,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_IndexByteCount.HasValue) ParseHeader();
+                if (false == m_IndexByteCount.HasValue) ParseHeader();
                 return m_IndexByteCount.Value;
             }
         }
@@ -620,7 +620,7 @@ namespace Media.Containers.Mxf
         //6.5 Run-In Sequence
         void ReadRunIn()
         {
-            if (!m_RunInSize.HasValue)
+            if (false == m_RunInSize.HasValue)
             {
                 /*
                 MXF decoders shall ignore the Run-In sequence and parse the data until either the first 11 bytes of the
@@ -665,7 +665,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_RunInSize.HasValue) ReadRunIn();
+                if (false == m_RunInSize.HasValue) ReadRunIn();
                 return m_RunInSize.Value;
             }
         }
@@ -674,7 +674,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_OperationalPattern.HasValue) ParseHeader();
+                if (false == m_OperationalPattern.HasValue) ParseHeader();
                 return m_OperationalPattern.Value;
             }
         }
@@ -684,7 +684,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_OperationalPattern.HasValue) ParseHeader();
+                if (false == m_OperationalPattern.HasValue) ParseHeader();
                 return (OperationalPatternItemComplexity)m_OperationalPattern.Value.ToByteArray()[13];
             }
         }
@@ -857,7 +857,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_PrefaceVersion.HasValue) ParsePreface();
+                if (false == m_PrefaceVersion.HasValue) ParsePreface();
                 return m_PrefaceVersion ?? HeaderVersion.MinorRevision;
             }
         }
@@ -866,7 +866,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_PrefaceLastModifiedDate.HasValue) ParsePreface();
+                if (false == m_PrefaceLastModifiedDate.HasValue) ParsePreface();
                 return m_PrefaceLastModifiedDate ?? Modified;
             }
         }
@@ -957,7 +957,8 @@ namespace Media.Containers.Mxf
                     }
 
                 }
-                if (!m_PrefaceLastModifiedDate.HasValue && !m_PrefaceVersion.HasValue) throw new InvalidOperationException("Invalid Preface Object");
+
+                if (false == m_PrefaceLastModifiedDate.HasValue && false == m_PrefaceVersion.HasValue) throw new InvalidOperationException("Invalid Preface Object");
             }
         }
 
@@ -1005,7 +1006,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_ProductUID.HasValue) ParseIdentification();
+                if (false == m_ProductUID.HasValue) ParseIdentification();
                 return m_ProductUID ?? Guid.Empty;
             }
         }
@@ -1016,7 +1017,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_IdentificationModificationDate.HasValue) ParseIdentification();
+                if (false == m_IdentificationModificationDate.HasValue) ParseIdentification();
                 return m_IdentificationModificationDate ?? FileLastWriteTimeUtc;
             }
         }
@@ -1096,9 +1097,9 @@ namespace Media.Containers.Mxf
 
                 if (m_Platform == null) m_Platform = string.Empty;
 
-                if (!m_IdentificationModificationDate.HasValue
+                if (false == m_IdentificationModificationDate.HasValue
                     //Important?
-                    || !m_ProductUID.HasValue
+                    || false == m_ProductUID.HasValue
                     || null == m_ProductName || null == m_ProductVersion || null == m_CompanyName) throw new InvalidOperationException("Invalid Preface Object");
 
             }
@@ -1110,7 +1111,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_MaterialCreationDate.HasValue) ParseMaterialPackage();
+                if (false == m_MaterialCreationDate.HasValue) ParseMaterialPackage();
                 return m_MaterialCreationDate ?? FileCreationTimeUtc;
             }
         }
@@ -1119,7 +1120,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!m_MaterialModifiedDate.HasValue) ParseMaterialPackage();
+                if (false == m_MaterialModifiedDate.HasValue) ParseMaterialPackage();
                 return m_MaterialModifiedDate ?? FileLastWriteTimeUtc;
             }
         }
@@ -1197,7 +1198,8 @@ namespace Media.Containers.Mxf
                     }
 
                 }
-                if (!m_MaterialModifiedDate.HasValue || !m_MaterialCreationDate.HasValue) throw new InvalidOperationException("Invalid MaterialPackage");
+
+                if (false == m_MaterialModifiedDate.HasValue || false == m_MaterialCreationDate.HasValue) throw new InvalidOperationException("Invalid MaterialPackage");
             }
         }
 
@@ -1261,7 +1263,7 @@ namespace Media.Containers.Mxf
             {
                 Guid objectId = new Guid(mxfObject.Identifier);
 
-                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, !ignoreRegistry, !ignoreVersion, !ignoreType))))
+                if (names == null || names.Count() == 0 || (exact ? names.Contains(objectId) : names.Any(n => CompareUL(n, objectId, false == ignoreRegistry, false == ignoreVersion, false == ignoreType))))
                     yield return mxfObject;
 
                 count -= mxfObject.TotalSize;
@@ -1296,7 +1298,9 @@ namespace Media.Containers.Mxf
             while (Remaining > MinimumSize)
             {
                 Node next = ReadNext();
+                
                 if (next == null) yield break;
+
                 yield return next;
 
                 Skip(next.DataSize);
@@ -1669,7 +1673,7 @@ namespace Media.Containers.Mxf
                 if (trackNumber == 0 || lastTrackNumber == trackNumber) continue;
 
                 //Try to use the trackName if needed and we can
-                if (mediaType == Sdp.MediaType.unknown && !string.IsNullOrWhiteSpace(trackName)) switch (trackName)
+                if (mediaType == Sdp.MediaType.unknown && false == string.IsNullOrWhiteSpace(trackName)) switch (trackName)
                     {
                         case PictureTrack: mediaType = Sdp.MediaType.video; break;
                         case AudioTrack: mediaType = Sdp.MediaType.audio; break;
@@ -1730,7 +1734,7 @@ namespace Media.Containers.Mxf
         {
             get
             {
-                if (!HasIndex) return null;
+                if (false == HasIndex) return null;
                 using (var root = Root) return ReadObject(UniversalLabel.Index, true, root.DataOffset + root.DataSize);
             }
         }

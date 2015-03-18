@@ -48,7 +48,7 @@ namespace Media.Concepts.Classes
         /// <summary>
         /// Provides an API to implement left and right shifting
         /// </summary>
-        public abstract class Shift
+        public abstract class Shift : Common.BaseDisposable
         {
             /// <summary>
             /// Calulcates the Left Shift
@@ -65,6 +65,9 @@ namespace Media.Concepts.Classes
             /// <param name="amount"></param>
             /// <returns></returns>
             public abstract int Right(int value, int amount);
+
+            //Enforce ShiftArray be implemented?
+            //Or have ArrayShift class
         }
 
         /// <summary>
@@ -90,27 +93,29 @@ namespace Media.Concepts.Classes
             /// <returns></returns>
             public static byte[] ShiftLeft(byte[] value, int bitcount)
             {
-                int length = value.Length;
+                int length = value.Length, bits, rem;
+
+                bits = System.Math.DivRem(bitcount, 8, out rem);
+
                 byte[] temp = new byte[length];
                 if (bitcount >= 8)
                 {
-                    System.Array.Copy(value, bitcount / 8, temp, 0, length - (bitcount / 8));
+                    System.Array.Copy(value, bits, temp, 0, length - bits);
                 }
                 else
                 {
                     System.Array.Copy(value, temp, length);
                 }
-                if (bitcount % 8 != 0)
+
+                if (rem != 0)
                 {
-                    for (int i = 0; i < length; i++)
+                    for (int i = 0, e = length - 1; i < e; ++i)
                     {
-                        temp[i] <<= bitcount % 8;
-                        if (i < temp.Length - 1)
-                        {
-                            temp[i] |= (byte)(temp[i + 1] >> 8 - bitcount % 8);
-                        }
+                        temp[i] <<= rem;
+                        temp[i] |= (byte)(temp[i + 1] >> 8 - rem);
                     }
                 }
+
                 return temp;
             }
 
@@ -122,31 +127,32 @@ namespace Media.Concepts.Classes
             /// <returns></returns>
             public static byte[] ShiftRight(byte[] value, int bitcount)
             {
-                int length = value.Length;
+                int length = value.Length, bits, rem;
+
+                bits = System.Math.DivRem(bitcount, 8, out rem);
+
                 byte[] temp = new byte[length];
+
                 if (bitcount >= 8)
                 {
-                    System.Array.Copy(value, 0, temp, bitcount / 8, length - (bitcount / 8));
+                    System.Array.Copy(value, 0, temp, bits, length - bits);
                 }
                 else
                 {
                     System.Array.Copy(value, temp, length);
                 }
 
-                if (bitcount % 8 != 0)
+                if (rem != 0)
                 {
-                    for (int i = length - 1; i >= 0; i--)
+                    for (int i = length - 1; i >= 1; i--)
                     {
-                        temp[i] >>= bitcount % 8;
-                        if (i > 0)
-                        {
-                            temp[i] |= (byte)(temp[i - 1] << 8 - bitcount % 8);
-                        }
+                        temp[i] >>= rem;
+                        temp[i] |= (byte)(temp[i - 1] << 8 - rem);
                     }
                 }
+
                 return temp;
             }
-
         }
 
         /// <summary>
@@ -176,7 +182,7 @@ namespace Media.Concepts.Classes
         }
 
         /// <summary>
-        /// Provides an implementation of CircularShifting
+        /// Provides an implementation of Circular shifting
         /// </summary>
         public class CircularShift : Shift
         {
@@ -200,6 +206,35 @@ namespace Media.Concepts.Classes
             {
                 return (byte)(value >> amount | value << (32 - amount));
             }
+
+            //Array methods?
+        }
+
+        /// <summary>
+        /// Provides a class to perform the reverse of the given shift
+        /// </summary>
+        public class ReverseShift : Shift
+        {
+            //Could just be virtual methods in Shift also...
+
+            public ReverseShift(Shift actualShift)
+            {
+                if (actualShift == null) throw new System.ArgumentNullException("actualShift");
+
+                this.ShiftClass = actualShift;
+            }
+
+            Shift ShiftClass;
+
+            public override int Left(int value, int amount)
+            {
+                return ShiftClass.Right(value, amount);
+            }
+
+            public override int Right(int value, int amount)
+            {
+                return ShiftClass.Left(value, amount);
+            }
         }
 
         #endregion
@@ -209,17 +244,53 @@ namespace Media.Concepts.Classes
         /// </summary>
         public static readonly int BitPatternSize = -1;
 
+        public static bool SupportsWrapAround() { return BitPatternSize > 0; }
+
         static Machine()
         {
-            int test = 1 >> 1;
-
-            BitPatternSize = 0;
-
-            while(1 != test)
+            //No overflow anyway
+            unchecked
             {
-                test = 1 >> ++BitPatternSize;
-            }
+                //Use a local variable to calulcate the pattern size
+                int pattenSize = 0;
 
+                //Caclulcate the pattern size until the value approaches 1 again
+                while (1 >> ++pattenSize != 1) ;
+
+                //Set the value in the field
+                BitPatternSize = pattenSize;
+            }
+        }
+    }
+}
+
+namespace Media.UnitTests
+{
+    internal class MachineTests
+    {
+        public void ShowBitPatternSize()
+        {
+            System.Console.WriteLine("BitPatternSize:" + Media.Concepts.Classes.Machine.BitPatternSize);
+        }
+
+        public void TestMachineShift()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public void TestLogicalShift()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public void TestCircularShift()
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public void TestReverseShift()
+        {
+            throw new System.NotImplementedException();
         }
     }
 }
