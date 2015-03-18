@@ -47,6 +47,14 @@ namespace Media.Containers.Mpeg
     /// </summary>
     public class TransportStreamReader : Media.Container.MediaFileStream, Media.Container.IMediaContainer
     {
+        #region References
+
+        //https://github.com/antiochus/tsremux
+
+        //http://basemedia.Codeplex.com
+
+        #endregion
+
         #region Nested Types
 
         /// <summary>

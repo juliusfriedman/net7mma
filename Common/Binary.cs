@@ -987,7 +987,7 @@ namespace Media.Common
         /// <summary>
         /// The amount of bits available to the <see cref="int"/> type.
         /// </summary>
-        public const int BitsPerInt = QuadrupleBitSize;
+        public const int BitsPerInteger = QuadrupleBitSize;
 
         /// <summary>
         /// The amount of bits available to the <see cref="long"/> type.
@@ -2441,4 +2441,334 @@ namespace Media.Common
     }
 
     #endregion
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the Binary class is correct
+    /// </summary>
+    internal class BinaryUnitTests
+    {
+        public void TestManualBitReversal()
+        {
+
+            //Test reversing 127 which should equal 254
+
+            //127 = 0x7F = 01111111
+
+            //254 = 0xFE = 11111110
+
+            byte testBits = Media.Common.Binary.ReverseU8((byte)sbyte.MaxValue);
+
+            if (testBits != 254 && Media.Common.Binary.ReverseU8(1) != 128) throw new Exception("Bit 0 Not Correct");
+
+            //Get the MostSignificantBit and ensure it is set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.LeastSignificantBit) != true) throw new Exception("GetBit Does not Work");
+
+            //Unset the MostSignificantBit and ensure it was set.
+
+            if (Media.Common.Binary.SetBit(ref testBits, Media.Common.Binary.LeastSignificantBit, false) != true) throw new Exception("SetBit Does not Work");
+
+            //testBits should now equal 126
+
+            //126 = 0x7E = 01111110
+
+            if (testBits != 126) throw new Exception("No idea what we did");
+
+            //Get the MostSignificantBit and ensure it is not set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.LeastSignificantBit) != false) throw new Exception("GetBit Does not Work");
+
+            //Get the LeastSignificantBit and ensure it is not set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.MostSignificantBit) != false) throw new Exception("GetBit Does not Work");
+
+            //Set the LeastSignificantBit and ensure it was not set.
+
+            if (Media.Common.Binary.SetBit(ref testBits, Media.Common.Binary.MostSignificantBit, true) != false) throw new Exception("SetBit Does not Work");
+
+            //Get the LeastSignificantBit and ensure it is was set.
+
+            if (Media.Common.Binary.GetBit(ref testBits, Media.Common.Binary.MostSignificantBit) != true) throw new Exception("GetBit Does not Work");
+
+            //testBits should now equal 127
+
+            //127 = 0x7F = 01111111
+
+            if (testBits != sbyte.MaxValue) throw new Exception("No idea what we did");       
+        }
+
+        public void TestReadingAndWritingUnsignedTypes()
+        {
+            //Use 8 octets, each write over-writes the previous written value
+            byte[] Octets = new byte[Media.Common.Binary.SizeOfLong];
+
+            //The register where the resulting value read during tests is stored.
+            long result;
+
+            //Test is binary, so test both ways, 0 and 1
+            for (int i = 0; i < 2; ++i)
+            {
+
+                //Test:
+                //First test uses system byte order, next test is logical reverse of that order.
+                bool reverse = i > 0;
+
+                //int size = 16,
+                //    ops = (int)Math.Pow(2, 16);              
+
+                #region 8 Bit Values
+
+                //Test Bit Methods from 0 - 255 inclusive
+                //[256] Operations
+                for (int test = Octets[0]; test <= byte.MaxValue; Octets[0] = (byte)(++test))
+                {
+                    //Get the value being tested by casting from the test varible
+                    byte testBits = (byte)test;
+
+                    int bitsSet = 0, bitsNotSet = 0;
+
+                    Console.WriteLine("Bit Testing:" + testBits);
+
+                    //Test each bit in the byte
+                    //[8 Operations]
+                    for (int b = 0; b < Media.Common.Binary.BitsPerByte; ++b)
+                    {
+                        if (Media.Common.Binary.GetBit(ref testBits, b)) ++bitsSet;
+                        else ++bitsNotSet;
+                    }
+
+                    //Test the BitSetTable and verify the result
+                    if (bitsSet != Media.Common.Binary.BitsSet(testBits)) throw new Exception("GetBit Does not Work");
+
+                    //Test the logic of BitsUnSet and verify the result
+                    if (bitsNotSet != Media.Common.Binary.BitsUnSet(testBits)) throw new Exception("GetBit Does not Work");
+
+                    Console.WriteLine("Bits Set:" + bitsSet);
+
+                    Console.WriteLine("Bits Not Set:" + bitsNotSet);
+
+                    //Read the result in binary (host bit order)
+                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerByte, false) != testBits) throw new Exception("GetBit Does not Work");
+
+                    //Read the result in binary (reverse bit order)
+                    if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerByte, true) != Media.Common.Binary.ReverseU8(ref testBits))
+                        throw new Exception("GetBit Does not Work");
+
+                    //Copy the bits and verify the result
+                    if (Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerByte)[0] != Octets[0])
+                        throw new Exception("ReadBits Does not Work");
+
+                    //Copy the bits in reverse and verify the result
+                    if (Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerByte)[0] != Media.Common.Binary.ReverseU8(ref Octets[0]))
+                        throw new Exception("CopyBitsReverse Does not Work");
+
+                    Console.WriteLine("Bits:" + Convert.ToString((long)testBits, 2));
+
+                    //Todo Test writing and parsing the same value
+                }
+                #endregion
+
+                #region 16 Bit Values
+
+                //65535 iterations uses 16 bits of a 32 bit integer
+                for (ushort v = ushort.MinValue; v < ushort.MaxValue; ++v)
+                {
+                    //Write the 16 bit value
+                    Media.Common.Binary.Write16(Octets, 0, reverse, v);
+
+                    //Determine what the reverse byte order would look like
+                    ushort reversed = (ushort)System.Net.IPAddress.HostToNetworkOrder((short)v);
+
+                    //Test the explicit reverse function
+                    if (reversed != Media.Common.Binary.ReverseUnsignedShort(ref v)) throw new Exception("ReverseUnsignedShort Does not Work");
+
+                    //Use the system to get the binary representation of the number
+                    byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
+
+                    //Ensure the bytes are equal to what the system would create
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write16 Does not work");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.SizeOfShort, reverse) != v) throw new Exception("ReadInteger Does not work.");
+
+                    //Read the 16 bits which were set and ensure the value is equal to the input
+                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort)) != (reverse ? reversed : v))
+                        throw new Exception("ReadBinaryInteger Does not Work");
+
+                    //Read the 16 bits which were set and ensure the value is equal to the input
+                    if ((result = Media.Common.Binary.ReadBigEndianInteger(Octets, Media.Common.Binary.BitsPerShort)) != (reverse ? v : reversed))
+                        throw new Exception("ReadBigEndianInteger Does not Work");
+
+                    //Copy the bits in the same order they were set and ensure the result is equal to what the system would also create
+                    if (false == SystemBits.SequenceEqual(Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerShort)))
+                        throw new Exception("CopyBits Does not Work");
+
+                    //Read the 16 bits in reverse bit order of which they were set and ensure that value is equal to what the system would also create
+                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort, true)) != BitConverter.ToUInt16(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerShort), 0))
+                        throw new Exception("CopyBitsReverse Does not Work");
+
+                    //Print the bytes tested
+                    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                    //Print the bits tested
+                    Console.WriteLine(Convert.ToString(v, 2));
+                }
+
+                #endregion
+
+                #region 24 Bit Values
+
+                //Repeat the test using each permutation of 24 bits not yet tested within the 3 octets which provide an integer of 24 bits
+                ////for (uint s = ushort.MinValue, e = Media.Common.Binary.U24MaxValue; s <= e; ++s)
+                ////{
+                ////    uint v = ushort.MaxValue * s;
+
+                ////    Media.Common.Binary.Write32(Octets, 0, reverse, v);
+
+                ////    uint reversed = (uint)System.Net.IPAddress.HostToNetworkOrder((int)v);
+
+                ////    if (reversed != Media.Common.Binary.ReverseUnsignedInt(ref v)) throw new Exception("ReverseUnsignedInt Does not Work");
+
+                ////    byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
+
+                ////    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("Incorrect bits when compared to SystemBits");
+                ////    else if (Media.Common.Binary.ReadInteger(Octets, 0, 4, reverse) != v) throw new Exception("Can't read back what was written");
+
+                ////    if ((read = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.QuadrupleBitsPerByte)) != (reverse ? reversed : v))
+                ////        throw new Exception("GetBit Does not Work");
+
+                ////    //if ((read = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.TripleBitsPerByte, !reverse)) != reversed)
+                ////        //throw new Exception("GetBit Does not Work");
+
+                ////    if ((uint)Media.Common.Binary.ReadInteger(Media.Common.Binary.ReadBits(Octets, Media.Common.Binary.QuadrupleBitsPerByte), 0, 4, reverse) != v)
+                ////        throw new Exception("ReadBits Does not Work");
+
+                ////    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                ////    Console.WriteLine(Convert.ToString(v, 2));
+                ////}
+
+                #endregion
+
+                #region 32 Bit Values
+
+                //Repeat the test using each permutation of 16 bits not yet tested within the 4 octets which provide an integer of 32 bits
+                for (uint s = ushort.MinValue, e = ushort.MaxValue; s <= e; ++s)
+                {
+                    //Create a 32 bit value from the 16 bit value
+                    uint v = s << Media.Common.Binary.BitsPerShort | s;
+
+                    //Write it
+                    Media.Common.Binary.Write32(Octets, 0, reverse, v);
+
+                    //Determine what the reverse byte order would look like
+                    uint reversed = (uint)System.Net.IPAddress.HostToNetworkOrder((int)v);
+
+                    //Test the explicit reverse function
+                    if (reversed != Media.Common.Binary.ReverseUnsignedInt(ref v)) throw new Exception("ReverseUnsignedInt Does not Work");
+
+                    //Use the system to get the binary representation of the number
+                    byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
+
+                    //Ensure the bytes are equal to what the system would create
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write32 Does not work");
+
+                    //Ensure the value read is equal to what the system would read
+                    if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.SizeOfInt, reverse) != v) throw new Exception("ReadInteger Does not work.");
+
+                    //Read the 32 bits which were set and ensure the value is equal to the input
+                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger)) != (reverse ? reversed : v))
+                        throw new Exception("ReadBinaryInteger Does not Work");
+
+                    //Read the 32 bits which were set and ensure the value is equal to the input
+                    if ((result = Media.Common.Binary.ReadBigEndianInteger(Octets, Media.Common.Binary.BitsPerInteger)) != (reverse ? v : reversed))
+                        throw new Exception("ReadBigEndianInteger Does not Work");
+
+                    //Copy the bits in the same order they were set and ensure the result is equal to what the system would also create
+                    if (false == SystemBits.SequenceEqual(Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerInteger)))
+                        throw new Exception("CopyBits Does not Work");
+
+                    //Read the 32 bits in reverse bit order of which they were set and ensure that value is equal to what the system would also create
+                    if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger, true)) != BitConverter.ToUInt32(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerInteger), 0))
+                        throw new Exception("CopyBitsReverse Does not Work");
+
+                    //Print the bytes tested
+                    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                    //Print the bits tested
+                    Console.WriteLine(Convert.ToString(v, 2));
+                }
+
+                #endregion
+
+                #region 64 Bit Values
+
+                //Repeat the test using each permuation of 16 bits within the 8 octets which provide an integer of 64 bits.
+                for (uint s = ushort.MinValue, e = ushort.MaxValue; s <= e; ++s)
+                {
+                    //Create a 32 bit value from the 16 bit value
+                    ulong v = s << Media.Common.Binary.BitsPerShort | s;
+
+                    //Create a 64 bit value from the 32 bit value by duplicating the 32 bits already set
+                    v |= v << Media.Common.Binary.BitsPerInteger;
+
+                    //Write it
+                    Media.Common.Binary.Write64(Octets, 0, reverse, v);
+
+                    //Determine what the reverse byte order would look like
+                    ulong reversed = (ulong)System.Net.IPAddress.HostToNetworkOrder((long)v);
+
+                    //Test the explicit reverse function
+                    if (reversed != Media.Common.Binary.ReverseUnsignedLong(ref v)) throw new Exception("ReverseUnsignedLong Does not Work");
+
+                    //Use the system to get the binary representation of the number
+                    byte[] SystemBits = BitConverter.GetBytes(reverse ? reversed : v);
+
+                    //Ensure the bytes are equal to what the system would create
+                    if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write64 Does not work");
+
+                    //Ensure the value read is equal to what the system would read
+                    if ((ulong)Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.SizeOfLong, reverse) != v) throw new Exception("ReadInteger Does not work.");
+
+                    //Read the 64 bits which were set and ensure the value is equal to the input
+                    if ((ulong)(result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong)) != (reverse ? reversed : v))
+                        throw new Exception("ReadBinaryInteger Does not Work");
+
+                    //Read the 64 bits which were set and ensure the value is equal to the input
+                    if ((ulong)(result = Media.Common.Binary.ReadBigEndianInteger(Octets, Media.Common.Binary.BitsPerLong)) != (reverse ? v : reversed))
+                        throw new Exception("ReadBigEndianInteger Does not Work");
+
+                    //Copy the bits in the same order they were set and ensure the result is equal to what the system would also create
+                    if (false == SystemBits.SequenceEqual(Media.Common.Binary.CopyBits(Octets, Media.Common.Binary.BitsPerLong)))
+                        throw new Exception("CopyBits Does not Work");
+
+                    //Read the 64 bits in reverse bit order of which they were set and ensure that value is equal to what the system would also create
+                    if ((ulong)(result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong, true)) != BitConverter.ToUInt64(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerLong), 0))
+                        throw new Exception("CopyBitsReverse Does not Work");
+
+                    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+
+                    Console.WriteLine(Convert.ToString((long)v, 2));
+                }
+
+                #endregion
+
+                #region Without a For
+
+                ////Do it again in reverse (without a for)
+                //if (reverse)
+                //{
+                //    reverse = false;
+
+                //    goto Test;
+                //}
+
+                #endregion
+            }
+        }
+    }
 }

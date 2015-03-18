@@ -40,16 +40,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\..\Common\Properties\MediaAssemblyInfo.cs">
-      <Link>MediaAssemblyInfo.cs</Link>
+      <Link>Properties\MediaAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="..\..\..\Common\Properties\MediaAssemblyVersionInfo.cs">
-      <Link>MediaAssemblyVersionInfo.cs</Link>
+      <Link>Properties\MediaAssemblyVersionInfo.cs</Link>
     </Compile>
     <Compile Include="..\..\..\Common\Properties\MediaCLSComplaintInfo.cs">
-      <Link>MediaCLSComplaintInfo.cs</Link>
+      <Link>Properties\MediaCLSComplaintInfo.cs</Link>
     </Compile>
-    <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToTestAttribute.cs">
-      <Link>MediaCLSInternalVisibleToTestAttribute.cs</Link>
+    <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
+      <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Markers.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -50,9 +50,10 @@ namespace Media.Common
     #region BaseDisposable
 
     /// <summary>
-    /// Provides an implementation which contains the members required to adhere to the IDisposable implementation
+    /// Provides an implementation which contains the members required to adhere to the IDisposable implementation.
     /// </summary>
     [CLSCompliant(true)]
+    [System.Runtime.InteropServices.ComVisible(true)]
     public abstract class BaseDisposable : IDisposed
     {
         /// <summary>

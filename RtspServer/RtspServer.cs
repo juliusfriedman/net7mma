@@ -754,7 +754,6 @@ namespace Media.Rtsp
             //If either the streamBase or the streamName is null or Whitespace then return null (no stream)
             if (string.IsNullOrWhiteSpace(streamBase) || string.IsNullOrWhiteSpace(streamName)) return null;
 
-
             //handle live streams
             if (streamBase == "live")
             {
@@ -762,7 +761,7 @@ namespace Media.Rtsp
                 {
 
                     //If the name matches the streamName or stream Id then we found it
-                    if (stream.Name.ToLowerInvariant() == streamName || stream.Id.ToString().ToLowerInvariant() == streamName)
+                    if (string.Compare(stream.Name.ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase) == 0 || string.Compare(stream.Id.ToString().ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase) == 0)
                     {
                         found = stream;
                         break;
@@ -773,7 +772,7 @@ namespace Media.Rtsp
                     {
                         foreach (string alias in stream.Aliases)
                         {
-                            if (alias.ToLowerInvariant() == streamName)
+                            if (string.Compare(alias.ToLowerInvariant(), streamName, StringComparison.OrdinalIgnoreCase) == 0)
                             {
                                 found = stream;
                                 break;
@@ -1074,7 +1073,7 @@ namespace Media.Rtsp
             }
 
             //Abort the worker from receiving clients
-            Media.Common.IThreadReferenceExtensions.TryAbort(ref m_ServerThread);
+            Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref m_ServerThread);
 
             //Dispose the server socket
             if (m_TcpServerSocket != null)
@@ -1156,7 +1155,7 @@ namespace Media.Rtsp
                 while (IsRunning)
                 {
                     //If we can accept, should not be checked here
-                    if (m_StopRequested == false && m_Clients.Count < m_MaximumConnections)
+                    if (m_StopRequested == false)
                     {
                         //Start acceping with a 0 size buffer
                         IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
@@ -1191,6 +1190,8 @@ namespace Media.Rtsp
                                 //Should ensure that not waiting more then a certain amount of time here
                             }
                         }
+
+                        //Lots of clients cause load?
 
                         //Dont wait too long
                         //if ((DateTime.UtcNow - lastAcceptStarted).TotalMilliseconds > timeOut)
@@ -1275,10 +1276,10 @@ namespace Media.Rtsp
                 if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
 
                 //If the server is not runing dispose any connected socket
-                if (m_StopRequested)
+                if (m_StopRequested || m_Clients.Count >= m_MaximumConnections)
                 {
                     //If there is a logger then indicate what is happening
-                    Common.ILoggingExtensions.Log(Logger, "Accepted Socket while not running @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing.");
+                    Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
 
                     //Try to dispose the socket
                     try { clientSocket.Dispose(); }
@@ -1991,7 +1992,7 @@ namespace Media.Rtsp
                            delay      =  *(DIGIT) [ "." *(DIGIT) ]
                          */
 
-                    if (!message.ContainsHeader(RtspHeaders.Timestamp)
+                    if (false == message.ContainsHeader(RtspHeaders.Timestamp)
                         &&
                         session.LastRequest != null
                         &&
@@ -2315,7 +2316,7 @@ namespace Media.Rtsp
                 ProcessAuthorizationRequired(found, session, sendResponse);
                 return;
             }
-            else if (!found.Ready)
+            else if (false == found.Ready)
             {
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed, null, sendResponse);
                 return;

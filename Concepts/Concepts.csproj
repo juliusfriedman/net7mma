@@ -33,27 +33,33 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
-      <Link>MediaAssemblyInfo.cs</Link>
+      <Link>Properties\MediaAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
-      <Link>MediaAssemblyVersionInfo.cs</Link>
+      <Link>Properties\MediaAssemblyVersionInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaCLSComplaintInfo.cs">
-      <Link>MediaCLSComplaintInfo.cs</Link>
+      <Link>Properties\MediaCLSComplaintInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
-      <Link>MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
+      <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Classes\ArithmeticLogicUnit.cs" />
+    <Compile Include="Classes\Asm.cs" />
     <Compile Include="Classes\CentralProcessingUnit.cs" />
     <Compile Include="Classes\Clock.cs" />
     <Compile Include="Classes\Machine.cs" />
     <Compile Include="Classes\MediaConnection.cs" />
     <Compile Include="Classes\SocketConfiguration.cs" />
+    <Compile Include="Classes\Stopwatch.cs" />
     <Compile Include="Classes\Timer.cs" />
+    <Compile Include="Classes\Unmanaged.cs" />
+    <Compile Include="Collections\SocketCollection.cs" />
+    <Compile Include="Collections\ThreadCollection.cs" />
     <Compile Include="Interfaces\ITextData.cs" />
     <Compile Include="Interfaces\IUpdateable.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

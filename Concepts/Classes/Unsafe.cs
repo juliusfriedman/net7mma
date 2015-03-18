@@ -43,7 +43,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #else
 
-namespace Media.Concepts
+namespace Media.Concepts.Classes
 {
     /// <summary>
     /// Provides various functionality which can only be achieved with the used of unsafe code.
@@ -162,9 +162,15 @@ namespace Media.Concepts
 
         #region Write
 
-        //Region Todo
+        //public void Write(where, what, offset, length){ }
 
         #endregion
+
+        [System.CLSCompliant(false)]
+        public static unsafe int UInt32ToInt32Bits(uint x)
+        {
+            return *((int*)(void*)&x);
+        }
 
         //Should use Write
 

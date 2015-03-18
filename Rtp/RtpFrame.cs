@@ -255,9 +255,8 @@ namespace Media.Rtp
 
         public bool TryAdd(RtpPacket packet)
         {
-            try { Add(packet); }
+            try { Add(packet); return true; }
             catch { return false; }
-            return true;
         }
 
         //TryAddOrUpdate
@@ -362,6 +361,54 @@ namespace Media.Rtp
             base.Dispose();
 
             RemoveAllPackets();
+        }
+    }
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the RtpFrame class is correct
+    /// </summary>
+    internal class RtpFrameUnitTests
+    {
+        public void TestIsMissingPackets()
+        {
+            //Create a frame
+            using (Media.Rtp.RtpFrame frame = new Media.Rtp.RtpFrame(0))
+            {
+                //Add packets to the frame
+                for (int i = 0; i < 15; ++i)
+                {
+
+                    frame.Add(new Media.Rtp.RtpPacket(2, false, false, Media.Common.MemorySegment.EmptyBytes)
+                    {
+                        SequenceNumber = i,
+                        Marker = i == 14
+                    });
+                }
+
+                if (frame.IsMissingPackets) throw new Exception("Frame is missing packets");
+
+                if (false == frame.IsComplete) throw new Exception("Frame is not complete");
+
+                if (false == frame.HasMarker) throw new Exception("Frame does not have marker");
+
+                //Remove the marker packet
+                frame.Remove(14);
+
+                if (frame.IsComplete) throw new Exception("Frame is complete");
+
+                if (frame.HasMarker) throw new Exception("Frame has marker");
+
+                if (frame.IsMissingPackets) throw new Exception("Frame is missing packets");
+
+                //Remove the first packet
+                frame.Remove(1);
+
+                if (false == frame.IsMissingPackets) throw new Exception("Frame is not missing packets");
+            }
         }
     }
 }

@@ -1392,18 +1392,14 @@ namespace Media.Rtsp
            the server MUST NOT include a CSeq in the response.
              */
 
-            if (request != null && request.CSeq != -1) response.CSeq = request.CSeq;
+            if (request != null)
+            {
+                if (request.ContainsHeader(RtspHeaders.Session)) response.SetHeader(RtspHeaders.Session, request.GetHeader(RtspHeaders.Session));
 
-            if (statusCode == RtspStatusCode.BadRequest) request.RemoveHeader(RtspHeaders.CSeq);
-
-            //If there was a request ensure the same sessionId appears in the response as it does in the request
-            if (request != null && request.ContainsHeader(RtspHeaders.Session)) response.SetHeader(RtspHeaders.Session, request.GetHeader(RtspHeaders.Session));
-            //else if (!string.IsNullOrWhiteSpace(SessionId)) //Otherwise if one has been assigned as a result of the request.
-            //{
-            //    //Then also indicate the value in the response.
-            //    response.SetHeader(RtspHeaders.Session, SessionId);
-            //}
-
+                if (statusCode != RtspStatusCode.BadRequest) response.CSeq = request.CSeq;
+            }
+            else if (statusCode != RtspStatusCode.BadRequest && LastRequest.CSeq >= 0) response.CSeq = LastRequest.CSeq;
+            
             //Include any body.
             if (false == string.IsNullOrWhiteSpace(body)) response.Body = body;
 

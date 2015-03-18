@@ -2454,7 +2454,7 @@ namespace Media.Rtsp
                     }
 
                     //If we can write
-                    if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout), MidpointRounding.ToEven), SelectMode.SelectWrite))
+                    if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond), MidpointRounding.ToEven), SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -3476,7 +3476,7 @@ namespace Media.Rtsp
                     //}
 
                     //Required: header (RequiredFeatures)
-                    if (false == setup.ContainsHeader(RtspHeaders.Require))
+                    if (RequiredFeatures.Count > 0 && false == setup.ContainsHeader(RtspHeaders.Require))
                     {
                         setup.SetHeader(RtspHeaders.Require, string.Join(Sdp.SessionDescription.SpaceString, RequiredFeatures));
                     }
