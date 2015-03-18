@@ -60,6 +60,8 @@ public class RtpRtcpTests
     /// </summary>
     internal static string TestingFormat = "{0}:=>{1}";
 
+    //Todo Seperate
+
     public void TestRtpPacket()
     {
         Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
