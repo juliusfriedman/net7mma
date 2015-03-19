@@ -1689,9 +1689,9 @@ namespace Media.Rtp
                             RtpSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
                         }
 
-                        LocalRtcp = RtcpSocket.LocalEndPoint;
+                        LocalRtcp = RtcpSocket.LocalEndPoint ?? RtpSocket.LocalEndPoint;
 
-                        RemoteRtcp = RtcpSocket.RemoteEndPoint;
+                        RemoteRtcp = RtcpSocket.RemoteEndPoint ?? RtpSocket.RemoteEndPoint;
                     }
                     else
                     {
@@ -4435,9 +4435,10 @@ namespace Media.Rtp
                             TransportContext tc = TransportContexts[i];
 
                             //Check for a context which is able to receive data
-                            if (tc == null || false == tc.IsConnected | tc.IsDisposed
+                            if (tc == null || tc.IsDisposed || false == tc.IsConnected
                                 ||//If the context does not have continious media it must only receive data for the duration of the media.
-                                false == tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero ||
+                                false == tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero 
+                                ||
                                 tc.Goodbye != null) continue;
 
                             //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
