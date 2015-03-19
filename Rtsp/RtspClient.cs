@@ -2454,7 +2454,7 @@ namespace Media.Rtsp
                     }
 
                     //If we can write
-                    if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond), MidpointRounding.ToEven), SelectMode.SelectWrite))
+                if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / 10 * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -2517,7 +2517,7 @@ namespace Media.Rtsp
                 Receive:
 
                     //If we can receive 
-                    if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout), MidpointRounding.ToEven), SelectMode.SelectRead))
+                    if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / 10 * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectRead))
                     {
                         //Receive
                         received += m_RtspSocket.Receive(m_Buffer.Array, offset, m_Buffer.Count, SocketFlags.None, out error);

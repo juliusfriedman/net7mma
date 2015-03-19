@@ -808,7 +808,7 @@ namespace Media.UnitTests
             if (Console.ReadKey().Key == ConsoleKey.Q) return;
 
             //Using a new Media.RtspClient optionally with a specified buffer size (0 indicates use the MTU if possible)
-            using (client = new Media.Rtsp.RtspClient(location, protocol))
+            using (client = new Media.Rtsp.RtspClient(location, protocol, 128 * 1024))
             {
                 //Use the credential specified
                 if (cred != null) client.Credential = cred;
@@ -2696,7 +2696,7 @@ a=rtpmap:99 h263-1998/90000");
             Console.BackgroundColor = ConsoleColor.Black;
 
             //If the debugger is attached get a ConsoleKey, the key is Q return.
-            if (waitForGoAhead && System.Diagnostics.Debugger.IsAttached && Console.ReadKey(true).Key == ConsoleKey.Q) return;
+            if (waitForGoAhead && Console.ReadKey(true).Key == ConsoleKey.Q) return;
             else
             {
                 Dictionary<int, Exception> log = null;

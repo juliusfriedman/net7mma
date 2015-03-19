@@ -777,19 +777,6 @@ namespace Media.Rtp
             {
                 get
                 {
-
-                    if (IsDisposed) return false;
-
-                    if (IsRtpEnabled)
-                    {
-                        return RtpSocket != null && LocalRtp != null;
-                    }
-                    
-                    if (IsRtcpEnabled)
-                    {
-                        return RtcpSocket != null && LocalRtcp != null;
-                    }
-
                     return false == IsDisposed && (IsRtpEnabled ? RtpSocket != null && LocalRtp != null || LocalRtcp != null : true) && (IsRtcpEnabled ? RtcpSocket != null && RemoteRtcp != null : true);
                 }
             }
@@ -1640,9 +1627,19 @@ namespace Media.Rtp
 
                     duplicate.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
+                    duplicate.SendBufferSize = duplexed.SendBufferSize;
+
+                    duplicate.ReceiveBufferSize = duplexed.ReceiveBufferSize;
+
+                    //Set in Initialize
+                    //duplicate.SendTimeout = duplexed.SendTimeout;
+
+                    //Set in Initialize
+                    //duplicate.ReceiveTimeout = duplexed.ReceiveTimeout;
+
                     Initialize(duplexed, duplicate);
-                } //Otherwise use the existing socket twice
-                else Initialize(duplexed, duplexed);
+                }
+                else Initialize(duplexed, duplexed); //Otherwise use the existing socket twice
             }
 
             #endregion

@@ -117,7 +117,7 @@ namespace Media.Rtcp
         /// </summary>
         public bool HasExtensionData
         {
-            get { return IsDisposed ? false : Header.BlockCount > 0 && Length > ReportBlock.ReportBlockSize * Header.BlockCount; }
+            get { return IsDisposed ? false : /*Header.BlockCount > 0 &&*/ Length > ReportBlock.ReportBlockSize * Header.BlockCount; }
         }
 
         /// <summary>
@@ -155,7 +155,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (IsDisposed || !HasExtensionData) return Enumerable.Empty<byte>();
+                if (IsDisposed || false == HasExtensionData) return Enumerable.Empty<byte>();
 
                 return Payload.Array.Skip(Payload.Offset + ReportBlockOctets);
             }
