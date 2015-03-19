@@ -1859,6 +1859,8 @@ namespace Media.Rtsp
                     //Store the line read (without delimits)
                     string rawLine ;
 
+                    //Todo revise to read header name ';' then read value (delemits);
+
                     //Determine if any of the delimits were found
                     sawDelemit = Media.Common.Extensions.Encoding.EncodingExtensions.ReadDelimitedDataFrom(HeaderEncoding, m_Buffer, m_EncodedLineEnds, remains, out rawLine, out justRead, out encountered, false);
 
@@ -1879,7 +1881,7 @@ namespace Media.Rtsp
                         }
 
                         //Do update the position to the position of the buffer
-                        position = m_Buffer.Position; //don't use justRead, BinaryReader and ReadChars is another great function
+                        position = m_Buffer.Position; //don't use justRead, BinaryReader and ReadChars is another great function (Fallback encoder may backtrack)
 
                         //Do another iteration
                         continue;
@@ -3164,11 +3166,15 @@ namespace Media.UnitTests
                 //Create a buffer from the message
                 byte[] buffer = message.Prepare().ToArray();
 
-                int size = buffer.Length, offset = 0;
+                //Cache the size of the buffer and the offset in parsing it.
+                int size = buffer.Length, offset;
 
                 //Test for every possible offset in the message
                 for (int i = 0; i < size; ++i)
                 {
+                    //Reset the offset
+                    offset = 0;
+
                     //Complete a message in chunks
                     using (Media.Rtsp.RtspMessage toComplete = new Rtsp.RtspMessage(Media.Common.MemorySegment.EmptyBytes))
                     {
@@ -3176,22 +3182,28 @@ namespace Media.UnitTests
                         //Store the sizes encountered
                         List<int> chunkSizes = new List<int>();
 
+                        int currentSize = size;
+
                         //While data remains
-                        while (size > 0)
+                        while (currentSize > 0)
                         {
                             //Take a random chunk
-                            int chunkSize = Utility.Random.Next(1, size);
+                            int chunkSize = Utility.Random.Next(1, currentSize);
 
                             //Store it
                             chunkSizes.Add(chunkSize);
 
-                            //Make a segment to that chunk
+                            //Make a segment to that chunk only
                             using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
                             {
-                                //Keep track of how much data was just used to complete that chunk
+                                //Keep track of how much data was just used to complete the message using that chunk
                                 int justUsed = 0;
+                                
+                                //Note that you should make another MemorySegment when calling CompleteFrom subsequent times.
+                                //This test already makes a segment to the chunkSize only.
 
                                 //Use the data in the chunk to complete the message while data remains in the chunk
+                                //(Consume all the bytes in chunkData for this test)
                                 do justUsed += toComplete.CompleteFrom(null, chunkData);
                                 while (justUsed < chunkSize);
 
@@ -3199,7 +3211,7 @@ namespace Media.UnitTests
                                 offset += chunkSize;
 
                                 //Decrese size
-                                size -= chunkSize;
+                                currentSize -= chunkSize;
                             }
                         }
 

@@ -71,8 +71,32 @@ namespace Media.Rtcp
         /// <param name="sourcesLeaving">The SourceList which describes the sources who are leaving</param>
         /// <param name="reasonForLeaving">An optional reason for leaving(only the first 255 octets will be used)</param>
         public GoodbyeReport(int version, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
-            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, 4, reasonForLeaving != null ? reasonForLeaving.Length : 0)
+            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, 4, reasonForLeaving != null ? 1 + reasonForLeaving.Length : 0)
         {
+
+            #region Babble
+
+            /*
+             6.6 BYE: Goodbye RTCP Packet
+
+               0                   1                   2                   3
+               0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+              +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+              |V=2|P|    SC   |   PT=BYE=203  |             length            |
+              +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+              |                           SSRC/CSRC                           |
+              +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+              :                              ...                              : (THIS IS WHERE THE SOURCE LIST GOES FYI)
+              +=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+
+        (opt) |     length    |               reason for leaving            ...
+              +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+             
+             * When SC = 0 the packet is useless.
+             * When SC >= 1 the SourceList appears BEFORE the (opt) Length, The id there may be different from SSRC/CSRC
+             * Length is optional and a 0 value should not HAVE to be present as including a 0 value forces you to inlcude 3 more 0's to octet align the payload
+             */
+
+            #endregion
 
             int offset = Payload.Offset;
 
@@ -83,6 +107,8 @@ namespace Media.Rtcp
 
                 //Ensure it will fit
                 if (reasonForLeavingLength > byte.MaxValue) throw new InvalidOperationException("Only 255 octets can occupy the ReasonForLeaving in a GoodbyeReport.");
+
+                Payload.Array[offset++] = (byte)reasonForLeavingLength;
 
                 //Copy it to the payload
                 reasonForLeaving.CopyTo(Payload.Array, offset);
@@ -99,6 +125,7 @@ namespace Media.Rtcp
                    to the next 32-bit boundary, the string is not null terminated.
                  */
                 int nullOctetsRequired = 4 - (Payload.Count & 0x03);
+
                 if (nullOctetsRequired > 0)
                 {
                     //This will allow the data to end on a 32 bit boundary.
@@ -106,8 +133,10 @@ namespace Media.Rtcp
 
                     offset += nullOctetsRequired;
                 }
-            }
+            } //Ensure OPTIONAL Length (reason) field is 0.
+            else Payload.Array[offset++] = 0; 
 
+            //Copy the source list (IMHO it should be before the reason...)
             if (sourcesLeaving != null)
             {
                 sourcesLeaving.TryCopyTo(Payload.Array, offset);
@@ -171,7 +200,7 @@ namespace Media.Rtcp
         /// <summary>
         /// Indicates if the GoodbyeReport contains a ReasonForLeaving based on the length of SourceList contained in the GoodbyeReport.
         /// </summary>
-        public bool HasReasonForLeaving { get { return false == IsDisposed && ExtensionData.Count() > 1; } }
+        public bool HasReasonForLeaving { get { return false == IsDisposed && ReasonLength > 0; } }
 
         /// <summary>
         /// Gets the data assoicated with the ReasonForLeaving denoted by the length of field if present.
@@ -190,7 +219,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (false == IsDisposed && HasReasonForLeaving) return ExtensionData.Take(1).First();
+                if (false == IsDisposed && HasExtensionData) return ExtensionData.First();
                 return 0;
             }
         }

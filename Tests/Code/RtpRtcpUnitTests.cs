@@ -671,8 +671,6 @@ public class RtpRtcpTests
             if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
         }
 
-
-
         //Add a Reason For Leaving
 
         using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, System.Text.Encoding.ASCII.GetBytes("v")))
@@ -684,6 +682,10 @@ public class RtpRtcpTests
             if (testReport.BlockCount != 0) throw reportBlockException;
 
             if (output[7] != 7 || testReport.SynchronizationSourceIdentifier != 7) throw new Exception("Invalid ssrc");
+
+            if (false == testReport.HasReasonForLeaving) throw new Exception("Has no reason for leaving.");
+
+            if (System.Text.Encoding.ASCII.GetString(testReport.ReasonForLeaving.ToArray()) != "v") throw new Exception("Does not have expected reason for leaving.");
         }
 
         //Next Sub Test
