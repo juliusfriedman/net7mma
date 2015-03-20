@@ -12,15 +12,15 @@ namespace Media.Codecs.Video.H264
 
         public const byte Unknown = 0;
 
-        public const byte Slice = 1;
+        public const byte CodedSlice = 1;
 
-        public const byte PartitionA = 2;
+        public const byte DataPartitionA = 2;
 
-        public const byte PartitionB = 3;
+        public const byte DataPartitionB = 3;
 
-        public const byte PartitionC = 4;
+        public const byte DataPartitionC = 4;
 
-        public const byte IDRSlice = 5;
+        public const byte InstantaneousDecoderRefresh = 5;
 
         public const byte SupplementalEncoderInformation = 6;
 

@@ -2316,7 +2316,7 @@ namespace Media.Rtsp
             return SendRtspMessage(message, out result, out sequenceNumber, useClientProtocolVersion, hasResponse);
         }
 
-        public RtspMessage SendRtspMessage(RtspMessage message, out SocketError error, out int sequenceNumber, bool useClientProtocolVersion = true, bool hasResponse = true)
+        public RtspMessage SendRtspMessage(RtspMessage message, out SocketError error, out int sequenceNumber, bool useClientProtocolVersion = true, bool hasResponse = true, int attempts = 0)
         {
             //Indicate a send has not been attempted
             error = SocketError.SocketError;
@@ -2334,7 +2334,7 @@ namespace Media.Rtsp
                 try
                 {
 
-                    int retransmits = 0, attempt = 0, //The attempt counter itself
+                    int retransmits = 0, attempt = attempts, //The attempt counter itself
                         sent = 0, received = 0, //counter for sending and receiving locally
                         offset = 0, length = 0;
                     
@@ -2454,7 +2454,7 @@ namespace Media.Rtsp
                     }
 
                     //If we can write
-                if (m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / 10 * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
+                if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / 10 * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -3702,6 +3702,9 @@ namespace Media.Rtsp
                                 //Socket could be changed right here...
                                 if(m_RtspSocket != null) created.Initialize(m_RtspSocket);
 
+                                //Test
+                                //if (m_RtspSocket != null) created.Initialize((IPEndPoint)m_RtspSocket.LocalEndPoint, (IPEndPoint)m_RtspSocket.RemoteEndPoint);
+
                                 //if(m_RtpClient != null) m_RtpClient.Connect();
 
                                 return response;
@@ -3742,6 +3745,9 @@ namespace Media.Rtsp
                             //Create from the existing socket
                             created.Initialize(m_RtspSocket);
 
+                            //Test
+                            //if (m_RtspSocket != null) created.Initialize((IPEndPoint)m_RtspSocket.LocalEndPoint, (IPEndPoint)m_RtspSocket.RemoteEndPoint);
+
                             //Don't close this socket when disposing. (The RtpClient will dispose it)
                             //LeaveOpen = true;
                         }
@@ -3756,7 +3762,7 @@ namespace Media.Rtsp
                     }
                     else
                     {
-                        //The server may response with the port used for the request which indicates that TCP should be used?
+                        //The server may responsd with the port used for the request which indicates that TCP should be used?
                         if (serverRtpPort == location.Port) goto SetupTcp;
 
                         //If we need to make a client then do so
@@ -3817,13 +3823,13 @@ namespace Media.Rtsp
 
                             rtcpTemp = null;
                         }
+
+                        //Ensure that packets are not missed under UDP by using a large receive buffer, should be done in Initialize...
+                        Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)m_RtpClient), m_Buffer.Count);
                     }
 
                     //if a context was created add it, don't worry that the context identity may overlap?
                     if(created != null) m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing, true, true);
-
-                    //Ensure that packets are not missed under UDP by using a large receive buffer, should be done in Initialize...
-                    Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)this), m_Buffer.Count * m_Buffer.Count);
 
                     //Setup Complete
                     return response;
@@ -3860,7 +3866,14 @@ namespace Media.Rtsp
                 {
                     Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
 
-                    using (SendRtspMessage(null, false, true)) ;
+                    SocketError error; 
+                    
+                    int cseq;
+
+                    using (var response = SendRtspMessage(null, out error, out cseq, false, true, m_ResponseTimeoutInterval - 1))
+                    {
+                        if(response != null) Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Response Received =>" + response.ToString());
+                    }
 
                     Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
                 }
@@ -3947,7 +3960,7 @@ namespace Media.Rtsp
             
             //If there is still a timer change it based on the last messages round trip time.
             if (false == IsDisposed && m_ProtocolMonitor != null)
-                try { m_ProtocolMonitor.Change(LastMessageRoundTripTime, Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan); }
+                try { m_ProtocolMonitor.Change(ConnectionTime.Add(LastMessageRoundTripTime).Add(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan); }
                 catch (Exception ex) { Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: " + ex.Message); }
         }
 
