@@ -70,24 +70,28 @@ namespace Media.Rtsp
 
             socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
-            // Set option that allows socket to close gracefully without lingering.
-            //e.g. DON'T Linger on close if unsent data is present. (Should be moved to ISocketReference)
-            Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket);
-
-            //Use nagle's sliding window (disables send coalescing) (and receive)
-            socket.NoDelay = true;
-
-            //Dont fragment
-            if (socket.AddressFamily == AddressFamily.InterNetwork) socket.DontFragment = true;
-
-            //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
-            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
-
             //Don't buffer send.
             socket.SendBufferSize = 0;
 
             //Don't buffer receive.
             socket.ReceiveBufferSize = 0;
+
+            //Dont fragment
+            if (socket.AddressFamily == AddressFamily.InterNetwork) socket.DontFragment = true;
+
+            //Rtsp over Tcp
+            if (socket.ProtocolType == ProtocolType.Tcp)
+            {
+                // Set option that allows socket to close gracefully without lingering.
+                //e.g. DON'T Linger on close if unsent data is present. (Should be moved to ISocketReference)
+                Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket);
+
+                //Use nagle's sliding window (disables send coalescing) (and receive)
+                socket.NoDelay = true;
+
+                //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
+                socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+            }
         }
 
         public const int DefaultBufferSize = RtspMessage.MaximumLength * 2;
