@@ -92,6 +92,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     byte[] lengthBytes = new byte[2];
                     Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
 
+                    //GetBytes
+
                     //DOND
                     //TS OFFSET
 
@@ -119,6 +121,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     byte[] lengthBytes = new byte[2];
                     Common.Binary.Write16(lengthBytes, 0, BitConverter.IsLittleEndian, (short)n.Length);
 
+                    //Common.Binary.GetBytes((short)n.Length, BitConverter.IsLittleEndian);
+
                     //DOND
 
                     //TS OFFSET
@@ -144,47 +148,47 @@ namespace Media.Rtsp.Server.MediaTypes
 
             public System.IO.MemoryStream Buffer { get; set; }
 
-            //Keep a list of encountered nal types so it can be augmented when Packetized or vice versa.
+            //Keep a list of encountered nal types so it can be augmented when Packetized or vice versa. Should store offset also?
 
-            List<byte> m_ContainedNals = new List<byte>();
+            List<byte> m_ContainedNalTypes = new List<byte>();
 
-            public bool ContainsSEI
+            public bool ContainsSupplementalEncoderInformation
             {
                 get
                 {
-                    return m_ContainedNals.Any(t => t == 6);
+                    return m_ContainedNalTypes.Any(t => t == Media.Codecs.Video.H264.NalUnitType.SupplementalEncoderInformation);
                 }
             }
 
-            public bool ContainsSPS
+            public bool ContainsSequenceParameterSet
             {
                 get
                 {
-                    return m_ContainedNals.Any(t => t == 7);
+                    return m_ContainedNalTypes.Any(t => t == Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet);
                 }
             }
 
-            public bool ContainsPPS
+            public bool ContainsPictureParameterSet
             {
                 get
                 {
-                    return m_ContainedNals.Any(t => t == 8);
+                    return m_ContainedNalTypes.Any(t => t == Media.Codecs.Video.H264.NalUnitType.PictureParameterSet);
                 }
             }
 
-            public bool ContainsIDR
+            public bool ContainsInstantaneousDecoderRefresh
             {
                 get
                 {
-                    return m_ContainedNals.Any(t => t == 1);
+                    return m_ContainedNalTypes.Any(t => t == Media.Codecs.Video.H264.NalUnitType.InstantaneousDecoderRefresh);
                 }
             }
 
-            public bool ContainsSlice
+            public bool ContainsCodedSlice
             {
                 get
                 {
-                    return m_ContainedNals.Any(t => t == 5);
+                    return m_ContainedNalTypes.Any(t => t == Media.Codecs.Video.H264.NalUnitType.CodedSlice);
                 }
             }
 
@@ -195,7 +199,7 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 get
                 {
-                    return m_ContainedNals.AsReadOnly();
+                    return m_ContainedNalTypes.AsReadOnly();
                 }
             }
 
@@ -222,7 +226,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         fragmentIndicator = (byte)(nalFNRI | fragmentType);//Create the Fragment Indicator Octet
 
                     //Store the nalType contained
-                    m_ContainedNals.Add(nalType);
+                    m_ContainedNalTypes.Add(nalType);
 
                     //No Marker yet
                     bool marker = false;
@@ -372,7 +376,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 {
 
                                     //Store the nalType contained
-                                    m_ContainedNals.Add(nalUnitType);
+                                    m_ContainedNalTypes.Add(nalUnitType);
 
                                     //For DOND and TSOFFSET
                                     switch (nalUnitType)
@@ -395,7 +399,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
 
                                                 //Store the nalType contained
-                                                m_ContainedNals.Add(nalHeader);
+                                                m_ContainedNalTypes.Add(nalHeader);
 
                                                 if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
 
@@ -462,7 +466,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                         byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
                                         //Store the nalType contained
-                                        m_ContainedNals.Add(nalHeader);
+                                        m_ContainedNalTypes.Add(nalHeader);
 
                                         if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
 
@@ -485,7 +489,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     default:
                         {
                             //Store the nalType contained
-                            m_ContainedNals.Add(nalUnitType);
+                            m_ContainedNalTypes.Add(nalUnitType);
 
                             if (nalUnitType == 6 || nalUnitType == 7 || nalUnitType == 8) Buffer.WriteByte(0);
 
@@ -508,7 +512,7 @@ namespace Media.Rtsp.Server.MediaTypes
                     Buffer = null;
                 }
 
-                m_ContainedNals.Clear();
+                m_ContainedNalTypes.Clear();
             }
 
             public override void Dispose()

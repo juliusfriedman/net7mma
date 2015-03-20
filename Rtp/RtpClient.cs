@@ -1665,13 +1665,15 @@ namespace Media.Rtp
 
                 if (RtpSocket.AddressFamily == AddressFamily.InterNetwork) RtpSocket.DontFragment = true;
 
-                RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);
+                RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);                
 
                 bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && false == Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(((IPEndPoint)RtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
 
                 if (LocalRtp == null) LocalRtp = RtpSocket.LocalEndPoint;
 
                 if (RemoteRtp == null) RemoteRtp = RtpSocket.RemoteEndPoint;
+
+                if (false == RtpSocket.Connected) RtpSocket.Connect(RemoteRtp);
 
                 //If a different socket is used for rtcp configure it also
                 if ((RtcpSocket = rtcpSocket) != null)
@@ -1692,6 +1694,8 @@ namespace Media.Rtp
                         LocalRtcp = RtcpSocket.LocalEndPoint ?? RtpSocket.LocalEndPoint;
 
                         RemoteRtcp = RtcpSocket.RemoteEndPoint ?? RtpSocket.RemoteEndPoint;
+
+                        if (false == RtcpSocket.Connected) RtcpSocket.Connect(RemoteRtcp);
                     }
                     else
                     {
@@ -4507,7 +4511,7 @@ namespace Media.Rtp
                                 if (SendReports(tc, out lastError) || SendGoodbyeIfInactive(lastOperation, tc)) lastOperation = DateTime.UtcNow;
 
                                 //Log when not default or success
-                                if (lastError != SocketError.SocketError && lastError != SocketError.Success)
+                                if (lastError != SocketError.SocketError && lastError != SocketError.Success && lastError != SocketError.TimedOut)
                                 {
                                     Media.Common.ILoggingExtensions.Log(Logger, InternalId + "SocketError = " + lastError + " lastOperation = " + lastOperation + " taken = " + taken);
                                 }

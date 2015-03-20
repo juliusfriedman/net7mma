@@ -799,16 +799,34 @@ namespace Media.UnitTests
             }
 
             //Write information about the test to the console
-            Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip");
+            Console.WriteLine("Location = \"" + location + "\" " + (protocol.HasValue ? "Using Rtp Protocol: " + protocol.Value : string.Empty) + "\n Press a key to continue. Press Q to Skip, Press B to set the buffer size.");
 
             //Define a RtspClient
             Media.Rtsp.RtspClient client = null;
 
             //If There was a location given
-            if (Console.ReadKey().Key == ConsoleKey.Q) return;
+
+            ConsoleKey inKey;
+            
+            if ((inKey = Console.ReadKey().Key) == ConsoleKey.Q) return;
+
+            int bufferSize = Media.Rtsp.RtspClient.DefaultBufferSize;
+
+            if (inKey == ConsoleKey.B)
+            {
+                Console.WriteLine("Type the buffer size and press return:");
+                try
+                {
+                    bufferSize = int.Parse(Console.ReadLine());
+                }
+                catch(Exception ex)
+                {
+                    writeError(ex);
+                }
+            }
 
             //Using a new Media.RtspClient optionally with a specified buffer size (0 indicates use the MTU if possible)
-            using (client = new Media.Rtsp.RtspClient(location, protocol, 128 * 1024))
+            using (client = new Media.Rtsp.RtspClient(location, protocol, bufferSize))
             {
                 //Use the credential specified
                 if (cred != null) client.Credential = cred;
