@@ -1712,18 +1712,12 @@ namespace Media.Rtsp
         virtual protected bool ParseStatusLine(bool force = false)
         {
 
-            if (IsDisposed) return IsDisposed;
+            if (IsDisposed) return m_StatusLineParsed;
 
             if (false == force && m_StatusLineParsed) return m_StatusLineParsed;
 
             //Dont rely on the message type obtained previously
             //if (MessageType != RtspMessageType.Invalid) return true;
-
-            //Dont rely on the offset
-            //if (m_HeaderOffset > 0) return true;
-
-            //Check if any headers have been parsed already.
-            if (m_Headers.Count > 0) return true;
 
             //Determine how much data is present.
             int count = (int)m_Buffer.Length, index = -1;
@@ -1813,19 +1807,17 @@ namespace Media.Rtsp
                 MessageType = RtspMessageType.Invalid;
 
                 DisposeBuffer();
-
-                return false;
             }
 
             //The status line was parsed.
-            return m_StatusLineParsed = true;
+            return m_StatusLineParsed = MessageType != RtspMessageType.Invalid;
         }
 
         virtual protected bool ParseHeaders(bool force = false)
         {            
             try
             {
-                if (IsDisposed || MessageType == RtspMessageType.Invalid && false == force) return false;
+                if (IsDisposed) return m_HeadersParsed;
 
                 //Headers were parsed if there is already a body.
                 if (m_HeadersParsed && false == force) return true;
@@ -1880,8 +1872,11 @@ namespace Media.Rtsp
                             ++emptyLine;
                         }
 
+                        //Stop parsing when an exception occurs (even if more data remains)
+                        if (encountered != null) break;
+
                         //Do update the position to the position of the buffer
-                        position = m_Buffer.Position; //don't use justRead, BinaryReader and ReadChars is another great function (Fallback encoder may backtrack)
+                        position = m_Buffer.Position; //don't use justRead, BinaryReader and ReadChars is another great function (Fallback encoder may backtrack, may also decide output buffer is too small based on the same back track)
 
                         //Do another iteration
                         continue;
@@ -1977,6 +1972,8 @@ namespace Media.Rtsp
 
         public virtual void ParseContentLength(bool force = false)
         {
+            if (IsDisposed) return;
+
             if (false == force && m_ContentLength >= 0) return;
 
              //See if there is a Content-Length header
@@ -2613,8 +2610,13 @@ namespace Media.Rtsp
             int received = 0;
 
             //Create the buffer if it was null
-            if (m_Buffer == null || false == m_Buffer.CanWrite) m_Buffer = new System.IO.MemoryStream();
-            else 
+            if (m_Buffer == null || false == m_Buffer.CanWrite)
+            {
+                m_Buffer = new System.IO.MemoryStream();
+
+                m_HeaderOffset = 0;
+            }
+            else
             {
                 //Otherwise prepare to append the buffer
                 m_Buffer.Seek(0, System.IO.SeekOrigin.End);
@@ -3187,25 +3189,20 @@ namespace Media.UnitTests
                         //While data remains
                         while (currentSize > 0)
                         {
-                            //Take a random chunk
+                            //Take a random sized chunk of at least 1 byte
                             int chunkSize = Utility.Random.Next(1, currentSize);
 
-                            //Store it
+                            //Store the size of the chunk
                             chunkSizes.Add(chunkSize);
 
-                            //Make a segment to that chunk only
+                            //Make a segment to that chunk
                             using (Common.MemorySegment chunkData = new Common.MemorySegment(buffer, offset, chunkSize))
                             {
                                 //Keep track of how much data was just used to complete the message using that chunk
-                                int justUsed = 0;
-                                
-                                //Note that you should make another MemorySegment when calling CompleteFrom subsequent times.
-                                //This test already makes a segment to the chunkSize only.
+                                int justUsed = toComplete.CompleteFrom(null, chunkData);
 
-                                //Use the data in the chunk to complete the message while data remains in the chunk
-                                //(Consume all the bytes in chunkData for this test)
-                                do justUsed += toComplete.CompleteFrom(null, chunkData);
-                                while (justUsed < chunkSize);
+                                //Ensure the chunk was totally consumed
+                                if (justUsed != chunkSize) throw new Exception("TestCompleteFrom Failed! Did not consume all chunkData.");
 
                                 //Move the offset
                                 offset += chunkSize;
@@ -3213,6 +3210,8 @@ namespace Media.UnitTests
                                 //Decrese size
                                 currentSize -= chunkSize;
                             }
+
+                            //Do another iteration
                         }
 
                         //Verify the message
@@ -3222,8 +3221,9 @@ namespace Media.UnitTests
                             toComplete.HeaderCount < message.HeaderCount ||
                             toComplete.GetHeaders().Where(h => message.ContainsHeader(h)).All(h => string.Compare(toComplete[h], message[h], false) == 0)) throw new Exception("TestCompleteFrom Failed! ChunkSizes =>" + string.Join(",", chunkSizes));
 
-                        //Notice the ToString is slightly different when viewed in the Debugger...
-                        //if (toComplete != message) throw new Exception("TestCompleteFrom Failed!");
+                        //The header UserAgent should be different as it contains an invalid header in the message
+                        //Todo determine if this should be overlooked in Equals?
+                        //if (toComplete == message) throw new Exception("TestCompleteFrom Failed! Found equal message");
                     }
                 }
             }

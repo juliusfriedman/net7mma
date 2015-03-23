@@ -208,17 +208,26 @@ namespace Media.Rtsp
 
             if (m_RtspSocket == null) return;
 
+            //m_RtspSocket.Blocking = false;
+
+            //m_RtspSocket.ExclusiveAddressUse = true;
+
             //Configure TCP Sockets
             if (m_RtspSocket.ProtocolType == ProtocolType.Tcp)
             {
                 m_RtspSocket.NoDelay = true;
 
+                m_RtspSocket.SendBufferSize = 0;
+
+                m_RtspSocket.ReceiveBufferSize = 0;
+
                 Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(m_RtspSocket);
+
+                //Use expedited data as defined in RFC-1222. This option can be set only once; after it is set, it cannot be turned off.
+                m_RtspSocket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
             }
 
             if (m_RtspSocket.AddressFamily == AddressFamily.InterNetwork) m_RtspSocket.DontFragment = true;
-
-            m_RtspSocket.SendBufferSize = 0;
 
             //m_RtspSocket.SendTimeout = m_RtspSocket.ReceiveTimeout = (int)(m_Server.RtspClientInactivityTimeout.TotalMilliseconds / 3);
 
@@ -814,7 +823,7 @@ namespace Media.Rtsp
 
         void OnSourceFrameChanged(object sender, RtpFrame frame)
         {
-            if (frame != null && false == frame.IsDisposed) foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
+            if (frame != null && false == frame.IsDisposed /*&& frame.IsComplete*/) foreach (var packet in frame) OnSourceRtpPacketRecieved(sender, packet);
         }
 
         /// <summary>
@@ -947,7 +956,7 @@ namespace Media.Rtsp
                     //Return the result
                     var result = CreateRtspResponse(request, RtspStatusCode.UnsupportedTransport);
 
-                    //Indicate interleaved is forced.
+                    //Indicate interleaved is required.
                     result.SetHeader(RtspHeaders.Transport, RtspHeaders.TransportHeader(RtpClient.RtpAvpProfileIdentifier + "/TCP", localSsrc, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, null, null, null, null, null, false, null, true, dataChannel, controlChannel));
 
                     return result;
@@ -964,7 +973,8 @@ namespace Media.Rtsp
                 if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
 
                 //Ensure the ports are allowed to be used.
-                if (m_Server.MaximumUdpPort.HasValue && (clientRtpPort > m_Server.MaximumUdpPort || clientRtcpPort > m_Server.MaximumUdpPort))
+                if (m_Server.MaximumUdpPort.HasValue && 
+                    (clientRtpPort > m_Server.MaximumUdpPort || clientRtcpPort > m_Server.MaximumUdpPort))
                 {
                     //Handle port out of range
                     return CreateRtspResponse(request, RtspStatusCode.BadRequest, "Requested Udp Ports were out of range. Maximum Port = " + m_Server.MaximumUdpPort);
@@ -972,9 +982,11 @@ namespace Media.Rtsp
 
                 //Create sockets to reserve the ports.
 
-                Socket tempRtp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort);
+                var localAddress = ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address;
 
-                Socket tempRtcp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtcpPort);
+                Socket tempRtp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, localAddress, clientRtpPort);
+
+                Socket tempRtcp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, localAddress, clientRtcpPort);
 
                 //Check if the client was already created.
                 if (m_RtpClient == null || m_RtpClient.IsDisposed)
@@ -988,12 +1000,13 @@ namespace Media.Rtsp
                     //Dont handle packets from the client
                     m_RtpClient.HandleIncomingRtpPackets = false;
 
+                    //Attach the Interleaved data event
                     m_RtpClient.InterleavedData += m_RtpClient_InterleavedData;
 
                     //Attach logger (have option?)
                     m_RtpClient.Logger = m_Server.Logger;
 
-                    //Use default data and control channel
+                    //Use default data and control channel (Should be option?)
                     setupContext = new RtpClient.TransportContext(0, 1, localSsrc, mediaDescription, false == rtcpDisabled, remoteSsrc, 0);
                 }
                 else //The client was already created.
@@ -1006,7 +1019,10 @@ namespace Media.Rtsp
                 }
 
                 //Initialize the Udp sockets
-                setupContext.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
+                setupContext.Initialize(localAddress, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
+
+                //Ensure the receive buffer size is updated for that context.
+                Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)setupContext), m_Buffer.Count);
 
                 ////Check if the punch packets made it out.
                 //if ((setupContext.IsRtpEnabled && ((IPEndPoint)setupContext.RemoteRtp).Port == 0) 
@@ -1070,7 +1086,7 @@ namespace Media.Rtsp
                     m_RtpClient.TryAddContext(setupContext);
 
                     //Initialize the Interleaved Socket
-                    setupContext.Initialize(m_RtspSocket);
+                    setupContext.Initialize(m_RtspSocket, m_RtspSocket);
                 }
                 else //The client was already created
                 {
@@ -1085,7 +1101,7 @@ namespace Media.Rtsp
                     m_RtpClient.TryAddContext(setupContext);
 
                     //Initialize the current TransportChannel with the interleaved Socket
-                    setupContext.Initialize(m_RtspSocket);
+                    setupContext.Initialize(m_RtspSocket, m_RtspSocket);
                 }
 
                 //Create the returnTransportHeader
@@ -1124,8 +1140,6 @@ namespace Media.Rtsp
 
             //The session is not disconnected 
             IsDisconnected = false;
-
-            if (data[0] == RtpClient.BigEndianFrameControl) return;
 
             //Process the data received
             m_Server.ProcessClientBuffer(this, length);

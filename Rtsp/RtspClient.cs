@@ -2050,6 +2050,9 @@ namespace Media.Rtsp
                 //Set the read and write timeouts based upon such a time (should include a min of the m_RtspSessionTimeout.)
                 if (m_ConnectionTime > TimeSpan.Zero) SocketWriteTimeout = SocketReadTimeout += (int)(m_ConnectionTime.TotalMilliseconds * 2);
 
+                //Don't block
+                //m_RtspSocket.Blocking = false;
+
                 //Raise the Connected event.
                 OnConnected();
             }
@@ -2332,6 +2335,9 @@ namespace Media.Rtsp
             CheckDisposed();
 
             bool wasBlocked = false;
+
+            //Check for illegal feeding of turtles
+            if (message != null && message.MethodString == "REGISTER" && false == string.IsNullOrWhiteSpace(UserAgent)) throw new InvalidOperationException("Please don't feed the turtles.");
 
             unchecked
             {
@@ -3488,6 +3494,12 @@ namespace Media.Rtsp
                     //Interleaved
                     if (interleaved)
                     {
+
+                        //Check for option UseNewConnectionForEachTrack
+                        //If enabled then create a new socket
+
+                        //else{
+
                         //RTCP-mux:
 
                         //If there is already a RtpClient with at-least 1 TransportContext
@@ -3531,6 +3543,7 @@ namespace Media.Rtsp
                         //}    
                         //Supposedly
                         //WMS Server will complain if there is a RTCP port and no RTCP is allowed.
+                        //More then likely only Ross will complain or his shitty software.
 
 
                         //Should allow a Rtcp only setup? would be a different profile...
@@ -3598,7 +3611,7 @@ namespace Media.Rtsp
                             //Attempt the setup again
                             return SendSetup(location, mediaDescription);
                         }
-                        else
+                        else //Not Ok and not Session Not Found
                         {
                             //If there was an initial location and that location's host is different that the current location's host
                             if (m_InitialLocation != null && location.Host != m_InitialLocation.Host)
@@ -3644,7 +3657,7 @@ namespace Media.Rtsp
                         }
                         catch (Exception ex)
                         {
-                            Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(this, "BlockSize of the response needs consideration.", ex);
+                            Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(response, "BlockSize of the response needs consideration. (See Tag for response)", ex);
                         }
                     }
 
@@ -3696,20 +3709,21 @@ namespace Media.Rtsp
                         //If there is a client which is not disposed
                         if (m_RtpClient != null && false == m_RtpClient.IsDisposed)
                         {
-                            //Obtain the context via the given data channel or control channel
+                            //Obtain a context via the given data channel or control channel
                             created = m_RtpClient.GetContextByChannels(dataChannel, controlChannel);
 
-                            //If the control channel is the same then just update the client and ensure connected.
+                            //If the control channel is the same then just update the socket used by the context.
                             if (created != null && 
                                 false == created.IsDisposed)
                             {
-                                //Socket could be changed right here...
-                                if(m_RtspSocket != null) created.Initialize(m_RtspSocket);
+                                //created's Rtp and Rtcp Socket could be changed right here...
+                                if (m_RtspSocket != null) created.Initialize(m_RtspSocket, m_RtspSocket);
 
-                                //Test
+                                //Test using a new socket
                                 //if (m_RtspSocket != null) created.Initialize((IPEndPoint)m_RtspSocket.LocalEndPoint, (IPEndPoint)m_RtspSocket.RemoteEndPoint);
 
-                                //if(m_RtpClient != null) m_RtpClient.Connect();
+                                //Not using the reference anymore
+                                created = null;
 
                                 return response;
                             }
@@ -3718,7 +3732,7 @@ namespace Media.Rtsp
                         //If a context was not already created
                         if (created == null || created.IsDisposed)
                         {
-                            //Create the context if required
+                            //Create the context if required.. (Will be created with Sdp Address)
                             created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, dataChannel, controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
 
                             //Set the identity to what we indicated to the server.
@@ -3747,9 +3761,9 @@ namespace Media.Rtsp
                             Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(sourceIp))
                         {
                             //Create from the existing socket
-                            created.Initialize(m_RtspSocket);
+                            created.Initialize(m_RtspSocket, m_RtspSocket);
 
-                            //Test
+                            //Test using a new socket
                             //if (m_RtspSocket != null) created.Initialize((IPEndPoint)m_RtspSocket.LocalEndPoint, (IPEndPoint)m_RtspSocket.RemoteEndPoint);
 
                             //Don't close this socket when disposing. (The RtpClient will dispose it)
@@ -3757,7 +3771,7 @@ namespace Media.Rtsp
                         }
                         else
                         {
-                            //Create a new socket
+                            //Create a new socket's
                             created.Initialize(Media.Common.Extensions.Socket.SocketExtensions.GetFirstIPAddress(sourceIp.AddressFamily), sourceIp, serverRtpPort); //Might have to come from source string?
 
                             //When the RtspClient is disposed that socket will also be disposed.
@@ -3812,6 +3826,9 @@ namespace Media.Rtsp
 
                         created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
 
+                        //Ensure the receive buffer size is updated for that context.
+                        Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)created), m_Buffer.Count);
+
                         //No longer need the temporary sockets
                         
                         if (rtpTemp != null)
@@ -3827,13 +3844,13 @@ namespace Media.Rtsp
 
                             rtcpTemp = null;
                         }
-
-                        //Ensure that packets are not missed under UDP by using a large receive buffer, should be done in Initialize...
-                        Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)m_RtpClient), m_Buffer.Count);
                     }
 
-                    //if a context was created add it, don't worry that the context identity may overlap?
-                    if(created != null) m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing, true, true);
+                    //if a context was created add it
+                    if (created != null)
+                    {
+                        m_RtpClient.AddContext(created, false == multiplexing, false == multiplexing);
+                    }
 
                     //Setup Complete
                     return response;
@@ -3857,7 +3874,7 @@ namespace Media.Rtsp
         protected virtual void MonitorProtocol(object state = null)
         {
             //If not already Disposed and the protocol was not already specified as or configured to TCP
-            if (false == IsDisposed && m_RtpProtocol != ProtocolType.Tcp &&  //And
+            if (false == IsDisposed &&  //And
                 IsPlaying) //Still playing
             {
                 //Filter any context which is not playing, disposed or has activity
@@ -3868,7 +3885,7 @@ namespace Media.Rtsp
                 //Monitor the protocol for incoming messages
                 if (false == SharesSocket && false == InUse)
                 {
-                    Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
+                    //Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Receiving Data");
 
                     SocketError error; 
                     
@@ -3876,14 +3893,14 @@ namespace Media.Rtsp
 
                     using (var response = SendRtspMessage(null, out error, out cseq, false, true, m_ResponseTimeoutInterval - 1))
                     {
-                        if(response != null) Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Response Received =>" + response.ToString());
+                        if (error == SocketError.Success && response != null) Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: (" + error + ") Received =>" + response.ToString());
                     }
 
-                    Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
+                    //Common.ILoggingExtensions.Log(Logger, ToString() + "@MonitorProtocol: Data Received");
                 }
 
                 //If protocol switch is still allowed AND still playing
-                if (false == IsDisposed && AllowAlternateTransport && IsPlaying)
+                if (false == IsDisposed && AllowAlternateTransport && IsPlaying && m_RtpProtocol != ProtocolType.Tcp)
                 {
                     //Filter the contexts which have received absolutely NO data.
                     var contextsWithoutFlow = Client.GetTransportContexts().Where(tc => tc != null &&

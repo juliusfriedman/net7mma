@@ -47,6 +47,5 @@ namespace Media.Concepts.Classes
         SocketConfiguration Configuration;
 
         System.Net.IPEndPoint LocalEndPoint, RemoteEndPoint;
-
     }
 }

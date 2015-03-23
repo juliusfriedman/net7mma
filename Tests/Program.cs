@@ -274,6 +274,20 @@ namespace Media.UnitTests
                     Uri = "rtsp://127.0.0.1/live/Mirror",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                //Hikvision
+                new
+                {
+                    Uri = "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                //Anything
+                new
+                {
+                    Uri = "",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 }
             })
             {
@@ -1101,7 +1115,7 @@ namespace Media.UnitTests
                 Start:
 
                         //Allow the client to switch protocols if data is not received.
-                        client.AllowAlternateTransport = true;
+                        //client.AllowAlternateTransport = true;
 
                         //Connect the RtspClient
                         client.Connect();
@@ -1148,7 +1162,7 @@ namespace Media.UnitTests
                                 Console.WriteLine("Client Not Playing");
 
                                 lastNotice = DateTime.UtcNow + TimeSpan.FromSeconds(1);
-                            }
+                            }                            
 
                             //Read a key to determine the stop
                             ConsoleKey read = ConsoleKey.NoName;
@@ -1293,6 +1307,16 @@ namespace Media.UnitTests
                                                 using (client.SendRtspMessage(describe)) ;
 
                                             }
+                                            break;
+                                        }
+                                    case ConsoleKey.W:
+                                        {
+                                            if(client.Client != null) foreach (var tc in client.Client.GetTransportContexts())
+                                            {
+                                                if (tc.RtpSocket != null) Console.WriteLine("RtpReceiveBufferSize" + tc.RtpSocket.ReceiveBufferSize);
+                                                if (tc.RtcpSocket != null) Console.WriteLine("RtcpReceiveBufferSize" + tc.RtcpSocket.ReceiveBufferSize);
+                                            }
+
                                             break;
                                         }
                                     case ConsoleKey.Q:
@@ -1444,8 +1468,6 @@ namespace Media.UnitTests
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-
                 //thaibienbac Test Cameras - Thanks!
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Panasonic", "rtsp://118.70.125.33/mediainput/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)); // h264, 1920x1080, 30 fps
@@ -1471,9 +1493,7 @@ namespace Media.UnitTests
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("arecont", "rtsp://admin:admin@118.70.125.33:28554/h264.sdp?res=full", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision", "rtsp://1:1@118.70.181.233:2134/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));                
-
-                //Down :(
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
@@ -1498,48 +1518,75 @@ namespace Media.UnitTests
                 //Make a 1080p MJPEG Stream
                 Media.Rtsp.Server.MediaTypes.RFC2435Media mirror = new Media.Rtsp.Server.MediaTypes.RFC2435Media("Mirror", null, false, 1920, 1080, false);
 
+                //Add the stream
                 server.TryAddMedia(mirror);
 
-                System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ParameterizedThreadStart((o) =>
+                //Make a thread to take screen shots
+                System.Threading.Thread taker = new System.Threading.Thread(new System.Threading.ThreadStart(() =>
                 {
-                    using (var bmpScreenshot = new System.Drawing.Bitmap(Screen.PrimaryScreen.Bounds.Width,
-                               Screen.PrimaryScreen.Bounds.Height,
-                               System.Drawing.Imaging.PixelFormat.Format32bppArgb))
-                    {
+                    //Get a screen
+                    var screen = Screen.PrimaryScreen;
 
-                        // Create a graphics object from the bitmap.
-                        using (var gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot))
+                    //Make a bitmap
+                    var bmpScreenshot = new System.Drawing.Bitmap(screen.Bounds.Width, screen.Bounds.Height);
+                               
+                    //Make the graphics
+                    var gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot);
+
+                    //Could also use mirror.State once started..
+                    while (server.IsRunning)
+                    {
+                        try
                         {
 
-                            //Could also use mirror.State.
-                            while (server.IsRunning)
+                            //see CopyFromScreen, obtains the data on the screen.
+                            gfxScreenshot.CopyFromScreen(System.Drawing.Point.Empty,
+                                                        System.Drawing.Point.Empty,
+                                                        bmpScreenshot.Size,
+                                                        System.Drawing.CopyPixelOperation.SourceCopy);
+
+                            //Convert to JPEG and put in packets
+                            mirror.Packetize(bmpScreenshot);
+
+                            //REST
+                            System.Threading.Thread.Sleep(50);
+                        }
+                        catch(Exception ex)
+                        {
+                            server.Logger.LogException(ex);
+
+                            bmpScreenshot.Dispose();
+
+                            gfxScreenshot.Dispose();
+
+                            if (ex is System.Threading.ThreadAbortException)
                             {
-                                try
-                                {
-                                    // Take the screenshot from the upper left corner to the right bottom corner.
-                                    gfxScreenshot.CopyFromScreen(Screen.PrimaryScreen.Bounds.X,
-                                                                Screen.PrimaryScreen.Bounds.Y,
-                                                                0,
-                                                                0,
-                                                                Screen.PrimaryScreen.Bounds.Size,
-                                                                System.Drawing.CopyPixelOperation.SourceCopy);
+                                System.Threading.Thread.ResetAbort();
 
-                                    //Convert to JPEG and put in packets
-                                    mirror.Packetize(bmpScreenshot);
-
-                                    //REST
-                                    System.Threading.Thread.Sleep(50);
-                                }
-                                catch(Exception ex)
-                                {
-                                    server.Logger.LogException(ex);
-                                }
+                                break;
                             }
 
-                            int exit = 1;
+                            if (mirror.State == Rtsp.Server.MediaTypes.SourceMedia.StreamState.Started)
+                            {
+                                screen = Screen.PrimaryScreen;
 
+                                bmpScreenshot = new System.Drawing.Bitmap(screen.Bounds.Width, screen.Bounds.Height);
+
+                                gfxScreenshot = System.Drawing.Graphics.FromImage(bmpScreenshot);
+                            }
                         }
                     }
+
+                    mirror.Stop();
+
+                    bmpScreenshot.Dispose();
+
+                    bmpScreenshot = null;
+
+                    gfxScreenshot.Dispose();
+
+                    gfxScreenshot = null;
+
                 }));
 
                 //Start the server
@@ -1551,7 +1598,7 @@ namespace Media.UnitTests
                 //Start taking pictures of the desktop and making packets in a seperate thread.
                 taker.Start();
 
-                //If you add more streams they will be started once the server is started
+                //If you add more streams they will be started when TryAddMedia is called.
 
                 Console.WriteLine("Listening on: " + server.LocalEndPoint);
 
@@ -1561,8 +1608,6 @@ namespace Media.UnitTests
                 Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
                 Console.WriteLine("Press 'C' to See how many clients are connected.");
                 if (sampleStream != null) Console.WriteLine("Press 'F' to See statistics for " + sampleStream.Name);
-
-                //SUB TEST LOAD ON SAME PROC has UNKNOWNS
 
                 while (true)
                 {
