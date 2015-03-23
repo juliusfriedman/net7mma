@@ -1528,7 +1528,7 @@ namespace Media.Rtp
                         RtcpSocket.Bind(LocalRtcp = localRtcp);
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
                         RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(m_ReceiveInterval.TotalMilliseconds / 2);
-                        
+                        //RtcpSocket.Blocking = false;
 
                         //Tell the network stack what we send and receive has an order
                         if (RtpSocket.AddressFamily == AddressFamily.InterNetwork)
@@ -1608,7 +1608,13 @@ namespace Media.Rtp
             {
                 LocalRtp = local;
                 RemoteRtp = remote;
-                Initialize(new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp));
+                Initialize(new Socket(local.Address.AddressFamily, SocketType.Stream, ProtocolType.Tcp)
+                {
+                    Blocking = false,
+                    ReceiveBufferSize = 0,
+                    SendBufferSize = 0,
+                    NoDelay = true
+                });
             }
 
             /// <summary>
@@ -1630,6 +1636,10 @@ namespace Media.Rtp
                     duplicate.SendBufferSize = duplexed.SendBufferSize;
 
                     duplicate.ReceiveBufferSize = duplexed.ReceiveBufferSize;
+
+                    duplicate.Blocking = duplexed.Blocking;
+
+                    duplicate.NoDelay = duplexed.NoDelay;
 
                     //Set in Initialize
                     //duplicate.SendTimeout = duplexed.SendTimeout;
@@ -1673,7 +1683,7 @@ namespace Media.Rtp
 
                 if (RemoteRtp == null) RemoteRtp = RtpSocket.RemoteEndPoint;
 
-                if (false == RtpSocket.Connected) RtpSocket.Connect(RemoteRtp);
+                if (RemoteRtp != null && false == RtpSocket.Connected) RtpSocket.Connect(RemoteRtp);
 
                 //If a different socket is used for rtcp configure it also
                 if ((RtcpSocket = rtcpSocket) != null)
@@ -1695,7 +1705,7 @@ namespace Media.Rtp
 
                         RemoteRtcp = RtcpSocket.RemoteEndPoint ?? RtpSocket.RemoteEndPoint;
 
-                        if (false == RtcpSocket.Connected) RtcpSocket.Connect(RemoteRtcp);
+                        if (RemoteRtcp != null && false == RtcpSocket.Connected) RtcpSocket.Connect(RemoteRtcp);
                     }
                     else
                     {
@@ -2220,6 +2230,8 @@ namespace Media.Rtp
             //Not supported at the moment
             if (packet.Header.IsCompressed)
             {
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Compressed Packet");
+
                 return;
             }
 
@@ -2231,7 +2243,7 @@ namespace Media.Rtp
             //If the context is still null
             if (transportContext == null)
             {
-                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "Unaddressed RTP Packet " + packet.SynchronizationSourceIdentifier + " PT =" + packet.PayloadType + " len =" + packet.Length);
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Unaddressed RTP Packet " + packet.SynchronizationSourceIdentifier + " PT =" + packet.PayloadType + " len =" + packet.Length);
 
                 //Do nothing else.
                 return;
@@ -2243,7 +2255,7 @@ namespace Media.Rtp
             //If the packet payload type has not been
             if (false == transportContext.MediaDescription.PayloadTypes.Contains(payloadType))
             {
-                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "RTP Packet PT =" + packet.PayloadType + " is not in Media Description. (" + transportContext.MediaDescription.MediaDescriptionLine + ") ");
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket RTP Packet PT =" + packet.PayloadType + " is not in Media Description. (" + transportContext.MediaDescription.MediaDescriptionLine + ") ");
 
                 //Do nothing else.
                 return;
@@ -2305,16 +2317,19 @@ namespace Media.Rtp
 
                     Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Failed Reception " +
                              "(= " + transportContext.m_FailedRtpReceptions + ") @" + transportContext.SynchronizationSourceIdentifier +
-                            " seq=" + packet.SequenceNumber + " len= " + packet.Length);
+                             " Context seq=" + transportContext.SequenceNumber +
+                             " Packet pt=" + packet.PayloadType +
+                            " seq=" + packet.SequenceNumber + 
+                            " len= " + packet.Length);
 
                     //Only proceeed further in the context is valid
-                    //if(transportContext.IsValid) return;
+                    //if(false == transportContext.IsValid) return;
                 }
 
                 //Increment RtpPacketsReceived for the context relating to the packet.
                 ++transportContext.RtpPacketsReceived;
 
-                //Ensure the id matches.
+                //If InDiscovery and IsValid then stop InDiscovery by setting the remote id
                 if (transportContext.InDiscovery && transportContext.IsValid) transportContext.RemoteSynchronizationSourceIdentifier = partyId;
 
                 //The counters for the bytes will now be be updated (without the 12 octets of the header)
@@ -2323,7 +2338,7 @@ namespace Media.Rtp
                 transportContext.RtpBytesRecieved += packet.Payload.Count;
 
 
-                //Please not due to the 'consensus' achieved for this standard (RFC 1889 / RFC3550 / RFC3551)
+                //Please note due to the 'consensus' achieved for this standard (RFC 1889 / RFC3550 / RFC3551)
                 //The counters for the rtp bytes sent are specifically counted only to reveal average data rate...
                 //A Senders report may only indicate the values which are allowed in the rfc. (Probably so middle boxes can't be detected)
                 //Otherwise it's not complaint but no one will figure out how or why since its not supposed to effect annex calulcations...
@@ -2422,10 +2437,11 @@ namespace Media.Rtp
                     //If the frame is complete then fire an event and make a new frame
                     if (transportContext.CurrentFrame.IsComplete)
                     {
-                        //Dispose the last frame if available
+                        //Dispose the last frame 
                         if (transportContext.LastFrame != null)
                         {
                             transportContext.LastFrame.Dispose();
+
                             transportContext.LastFrame = null;
                         }
 
@@ -2546,6 +2562,7 @@ namespace Media.Rtp
         protected internal void OnInterleavedData(byte[] data, int offset, int length)
         {
             if (IsDisposed) return;
+
             InterleaveHandler action = InterleavedData;
 
             if (action == null) return;
@@ -2623,6 +2640,7 @@ namespace Media.Rtp
         protected internal void OnRtpPacketSent(RtpPacket packet)
         {
             if (IsDisposed) return;
+
             RtpPacketSent(this, packet);
         }
 
@@ -2633,6 +2651,7 @@ namespace Media.Rtp
         internal void OnRtcpPacketSent(RtcpPacket packet)
         {
             if (IsDisposed) return;
+
             RtcpPacketSent(this, packet);
         }
 
@@ -2716,7 +2735,7 @@ namespace Media.Rtp
             get
             {
                 return false == IsDisposed && m_WorkerThread != null && m_WorkerThread.IsAlive;
-            }//IsAlive.... could be Stopped..
+            }//IsAlive.... could be Stopped.. m_StopRequested could be changed by a quick calls to Disconnect and then Connect
         }
 
         /// <summary>
@@ -3776,8 +3795,11 @@ namespace Media.Rtp
                     else length = data.Length;
                 }
 
-                //Check for the socket to be writable in 0.015 sec or less
-                if (false == socket.Poll((int)15000, SelectMode.SelectWrite))
+                //Just had the context in the previous call in most cases...
+                var tc = GetContextBySocket(socket);
+
+                //Check for the socket to be writable in the receive interval of the context
+                if (false == socket.Poll((int)(Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(tc.m_ReceiveInterval) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven)), SelectMode.SelectWrite))
                 {
                     //Indicate the operation has timed out
                     error = SocketError.TimedOut;

@@ -1248,59 +1248,62 @@ namespace Media.Rtsp
                 //If there is no socket then an accept has cannot be performed
                 if (server == null) return;
 
-                //If this is the inital receive for a Udp or the server given is UDP
-                if (server.ProtocolType == ProtocolType.Udp)
+                if (IsRunning)
                 {
-                    //Should always be 0 for our server any servers passed in
-                    int acceptBytes = server.EndReceive(ar);
+                    //If this is the inital receive for a Udp or the server given is UDP
+                    if (server.ProtocolType == ProtocolType.Udp)
+                    {
+                        //Should always be 0 for our server any servers passed in
+                        int acceptBytes = server.EndReceive(ar);
 
-                    //Start receiving again if this was our server
-                    if (m_UdpServerSocket.Handle == server.Handle)
-                        m_UdpServerSocket.BeginReceive(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ProcessAccept, m_UdpServerSocket);
+                        //Start receiving again if this was our server
+                        if (m_UdpServerSocket.Handle == server.Handle)
+                            m_UdpServerSocket.BeginReceive(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ProcessAccept, m_UdpServerSocket);
 
-                    //The client socket is the server socket under Udp
-                    clientSocket = server;
+                        //The client socket is the server socket under Udp
+                        clientSocket = server;
+                    }
+                    else if (server.ProtocolType == ProtocolType.Tcp) //Tcp
+                    {
+                        //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
+                        //They are not discarded just not receieved until the first receive.
+                        clientSocket = server.EndAccept(ar);
+                    }
+                    else
+                    {
+                        throw new Exception("This server can only accept connections from Tcp or Udp sockets");
+                    }
+
+                    //there must be a client socket.
+                    if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
+
+                    //If the server is not runing dispose any connected socket
+                    if (m_StopRequested || m_Clients.Count >= m_MaximumConnections)
+                    {
+                        //If there is a logger then indicate what is happening
+                        Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
+
+                        //Try to dispose the socket
+                        try { clientSocket.Dispose(); }
+                        catch { }
+
+                        //The server is no longer running.
+                        return;
+                    }
+
+                    //Make a session
+                    ClientSession session = CreateSession(clientSocket);
+
+                    //If there is a logger log the accept
+                    Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created);
+
+                    System.Threading.Thread.Sleep(0);
                 }
-                else if(server.ProtocolType == ProtocolType.Tcp) //Tcp
-                {
-                    //The clientSocket is obtained from the EndAccept call, possibly bytes ready from the accept
-                    //They are not discarded just not receieved until the first receive.
-                    clientSocket = server.EndAccept(ar);
-                }
-                else
-                {
-                    throw new Exception("This server can only accept connections from Tcp or Udp sockets");
-                }
-
-                //there must be a client socket.
-                if (clientSocket == null) throw new InvalidOperationException("clientSocket is null");
-
-                //If the server is not runing dispose any connected socket
-                if (m_StopRequested || m_Clients.Count >= m_MaximumConnections)
-                {
-                    //If there is a logger then indicate what is happening
-                    Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
-
-                    //Try to dispose the socket
-                    try { clientSocket.Dispose(); }
-                    catch { }
-
-                    //The server is no longer running.
-                    return;
-                }
-
-                //Make a session
-                ClientSession session = CreateSession(clientSocket);
-
-                //If there is a logger log the accept
-                Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created);
-
-                System.Threading.Thread.Sleep(0);
             }
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {
                 //If there is a logger log the exception
-                if (IsRunning && Logger != null) Logger.LogException(ex);
+                Logger.LogException(ex);
             }
         }
 
@@ -1627,6 +1630,15 @@ namespace Media.Rtsp
                 
                 //Check for session moved from another process.
                 //else if (session.m_Contained != null && session.m_Contained != this) return;
+
+                //Turtle power!
+                if (request.MethodString == "REGISTER")
+                {
+                    //Send back turtle food.
+                    ProcessInvalidRtspRequest(session, Rtsp.RtspStatusCode.BadRequest, session.RtspSocket.ProtocolType == ProtocolType.Tcp ? "FU_WILL_NEVER_SUPPORT_THIS$00\a" : string.Empty, sendResponse);
+
+                    return;
+                }
 
                 //All requests need the CSeq
                 if (false == request.ContainsHeader(RtspHeaders.CSeq))

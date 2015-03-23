@@ -106,7 +106,7 @@ namespace Media.UnitTests
                     Media.Rtp.RtpClient.TransportContext tc = new Media.Rtp.RtpClient.TransportContext(0, 1,
                         Media.RFC3550.Random32(9876), md, false, _senderSSRC);
                     //  Create a Duplexed reciever using the RtspClient socket.
-                    tc.Initialize(_receiving);
+                    tc.Initialize(_receiving, _receiving);
 
                     _client.TryAddContext(tc);
                 }
@@ -450,7 +450,7 @@ namespace Media.UnitTests
                 test.InterleavedData += (sender, data, offset, count) =>
                 {
                     Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("\tInterleaved (@" + offset + ", count=" + count + ") =>" + System.Text.Encoding.ASCII.GetString(data, offset, count));
+                    //Console.WriteLine("\tInterleaved (@" + offset + ", count=" + count + ") =>" + System.Text.Encoding.ASCII.GetString(data, offset, count));
 
                 GetMessage:
                     Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, count);
@@ -605,25 +605,14 @@ namespace Media.UnitTests
 
                         Console.WriteLine("Indicated: " + actualLength + " Actual: " + max + " Found: " + foundLen);
 
-                        System.Diagnostics.Debug.Assert(foundLen <= max);
+                        if (foundLen > max) throw new Exception("TestInterleavedFraming found an invalid length.");
 
-                        if (foundLen > 0)
-                        {
-                            //Move the offset
-                            offset += foundLen;
+                        //Move the offset
+                        offset += foundLen;
 
-                            max -= foundLen;
+                        max -= foundLen;
 
-                            remains -= foundLen;
-                        }
-                        else
-                        {
-                            ++offset;
-
-                            --max;
-
-                            --remains;
-                        }
+                        remains -= foundLen;
                     }
 
                     //Some Rtsp messages may have been hidden by invalid tcp frames which indicated a longer length then they actually had.
