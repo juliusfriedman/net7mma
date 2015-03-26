@@ -78,33 +78,29 @@ namespace Media
             //char  version[]  current version level of this release
             //char  machine[]  name of the hardware type on which the system is running
 
-            #endregion
-            
-            using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
-            {
-                byte[] structure = BitConverter.GetBytes(type).//int     type;
-                 Concat(BitConverter.GetBytes(DateTime.UtcNow.Ticks)).Concat(BitConverter.GetBytes(Environment.TickCount)).//struct  timeval tv;
-                 Concat(BitConverter.GetBytes(TimeSpan.TicksPerMillisecond)).//clock_t cpu;
-                 Concat(BitConverter.GetBytes(currentProcess.Id)).//pid_t   pid;
-                 Concat(System.Text.Encoding.Default.GetBytes(Environment.MachineName)).//u_long  hid;
-                 Concat(BitConverter.GetBytes(currentProcess.SessionId)).//uid_t   uid;
-                 Concat(Guid.NewGuid().ToByteArray()).//gid_t   gid;
-                 Concat(System.Text.Encoding.Default.GetBytes(Environment.OSVersion.VersionString)).ToArray();//struct  utsname name;
+            #endregion            
 
-                //Perform MD5 on structure per 3550
-                byte[] digest;
+            byte[] structure = Binary.GetBytes(type).//int     type;
+                Concat(Binary.GetBytes(DateTime.UtcNow.Ticks)).Concat(Binary.GetBytes(Environment.TickCount)).//struct  timeval tv;
+                Concat(Binary.GetBytes(TimeSpan.TicksPerMillisecond)).//clock_t cpu;
+                Concat(Binary.GetBytes(System.Threading.Thread.GetDomainID() ^ System.Threading.Thread.CurrentThread.ManagedThreadId)).//pid_t   pid;
+                Concat(System.Text.Encoding.Default.GetBytes(Environment.MachineName)).//u_long  hid;
+                Concat(System.Text.Encoding.Default.GetBytes((Environment.UserName))).//uid_t   uid;
+                Concat(Guid.NewGuid().ToByteArray()).//gid_t   gid;
+                Concat(System.Text.Encoding.Default.GetBytes(Environment.OSVersion.VersionString)).ToArray();//struct  utsname name;
 
-                using (var md5 = Utility.CreateMD5HashAlgorithm()) digest = md5.ComputeHash(structure);
+            //Perform MD5 on structure per 3550
+            byte[] digest;
 
-                //Complete hash
-                uint r = 0;
-                r ^= BitConverter.ToUInt32(digest, 0);
-                r ^= BitConverter.ToUInt32(digest, 4);
-                r ^= BitConverter.ToUInt32(digest, 8);
-                r ^= BitConverter.ToUInt32(digest, 12);
-                return (int)r;
+            using (var md5 = Utility.CreateMD5HashAlgorithm()) digest = md5.ComputeHash(structure);
 
-            }
+            //Complete hash
+            uint r = 0;
+            r ^= BitConverter.ToUInt32(digest, 0);
+            r ^= BitConverter.ToUInt32(digest, 4);
+            r ^= BitConverter.ToUInt32(digest, 8);
+            r ^= BitConverter.ToUInt32(digest, 12);
+            return (int)r;
         }
 
         public const int RtcpValidMask = 0xc000 | 0x2000 | 0xfe;
@@ -821,7 +817,7 @@ namespace Media
         /// for more information see
         /// <see href="http://tools.ietf.org/html/rfc3550">Page 15, paragraph `CSRC list`</see>
         /// </summary>
-        public sealed class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>, IReadOnlyCollection<uint>
+        public sealed class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>/*, IReadOnlyCollection<uint> */ //Only needed if modifications to a SourceList are allowed at run time.
         {
             #region Constants / Statics
 
@@ -867,10 +863,7 @@ namespace Media
 
                 foreach (var ssrc in sources.Skip(start))
                 {
-                    if (BitConverter.IsLittleEndian)
-                        binary = binary.Concat(BitConverter.GetBytes(ssrc).Reverse()).ToArray();
-                    else
-                        binary = binary.Concat(BitConverter.GetBytes(ssrc)).ToArray();
+                    binary = binary.Concat(Binary.GetBytes(ssrc, BitConverter.IsLittleEndian)).ToArray();
                 }
 
                 m_Binary = new Common.MemorySegment(binary.ToArray(), 0, m_SourceCount * 4);
@@ -1128,7 +1121,6 @@ namespace Media
 
                 base.Dispose();
 
-                //Should always happen
                 if (ShouldDispose)
                 {
                     m_OwnedOctets = null;

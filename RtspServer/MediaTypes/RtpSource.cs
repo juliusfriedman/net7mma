@@ -47,8 +47,10 @@ namespace Media.Rtsp.Server.MediaTypes
     /// </summary>
     public class RtpSource : SourceMedia, Common.IThreadReference
     {
-        public RtpSource(string name, Uri source) : base(name, source) { }
-        
+        public RtpSource(string name, Uri source, bool perPacket = false) : base(name, source) { PerPacket = perPacket; }
+
+        public readonly bool PerPacket;
+
         public bool RtcpDisabled { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
 
         public virtual Rtp.RtpClient RtpClient { get; protected set; }
@@ -149,6 +151,8 @@ namespace Media.Rtsp.Server.MediaTypes
             if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
 
             RtpClient = Rtp.RtpClient.FromSessionDescription(SessionDescription = sessionDescription);
+
+            RtpClient.FrameChangedEventsEnabled = PerPacket == false;
         }
 
         IEnumerable<System.Threading.Thread> Common.IThreadReference.GetReferencedThreads()

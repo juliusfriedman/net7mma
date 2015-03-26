@@ -452,32 +452,36 @@ namespace Media.UnitTests
                     Console.ForegroundColor = ConsoleColor.Cyan;
                     //Console.WriteLine("\tInterleaved (@" + offset + ", count=" + count + ") =>" + System.Text.Encoding.ASCII.GetString(data, offset, count));
 
+                    int usedBytes = 0;
+
                 GetMessage:
                     Media.Rtsp.RtspMessage interleaved = new Media.Rtsp.RtspMessage(data, offset, count);
+                    //Todo, revise to create segment then attempt completion
 
-                    if (interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid && lastInterleaved != null)
+                    if ((interleaved.MessageType == Media.Rtsp.RtspMessageType.Invalid  
+                        ||
+                        lastInterleaved != null)
+                        && 
+                        count >= Media.Rtsp.RtspMessage.MinimumStatusLineSize)
                     {
-
                         interleaved.Dispose();
 
                         interleaved = null;
 
-                        int lastLength = lastInterleaved.Length;
-
                         using (var memory = new Media.Common.MemorySegment(data, offset, count))
                         {
-                            int used = lastInterleaved.CompleteFrom(null, memory);
-
-                            if (used == 0 || lastLength == lastInterleaved.Length) return;
+                            usedBytes = lastInterleaved.CompleteFrom(null, memory);
 
                             Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("Added Data (" + used + ") Bytes");
+
+                            Console.WriteLine("Added Data (" + usedBytes + ") Bytes");
                         }
                     }
                     else
                     {
                         lastInterleaved = interleaved;
                         ++rtspIn;
+                        usedBytes = lastInterleaved.Length;
                     }
 
                     if (lastInterleaved.IsComplete)
@@ -493,13 +497,11 @@ namespace Media.UnitTests
                         Console.WriteLine("Incomplete Message: " + lastInterleaved);
                     }
 
-                    int totalLength = lastInterleaved.Length;
-
-                    if (totalLength < count)
+                    if (usedBytes > 0 && usedBytes < count)
                     {
-                        offset += totalLength;
-                        count -= totalLength;
-                        goto GetMessage;
+                        offset += usedBytes;
+                        count -= usedBytes;
+                        if(count > 0) goto GetMessage;
                     }
 
                 };
@@ -592,30 +594,26 @@ namespace Media.UnitTests
 
                     byte[] buffer = allData.ToArray();
 
-                    int max = buffer.Length, remains = actualLength;
+                    int max = buffer.Length;
 
                     //Enumerate the buffer looking for data to parse
 
                     //TODO Improve test by setting expections of packets to receive
 
-                    while (remains > 0)
+                    while (offset < max)
                     {
                         //Parse the data "received" which should always be 4 bytes longer then what was actually present.
-                        int foundLen = test.ProcessFrameData(buffer, offset, remains, null);
-
-                        Console.WriteLine("Indicated: " + actualLength + " Actual: " + max + " Found: " + foundLen);
+                        int foundLen = test.ProcessFrameData(buffer, offset, max - offset, null);
 
                         if (foundLen > max) throw new Exception("TestInterleavedFraming found an invalid length.");
 
                         //Move the offset
                         offset += foundLen;
 
-                        max -= foundLen;
-
-                        remains -= foundLen;
+                        Console.WriteLine(" Found: " + foundLen);
                     }
 
-                    //Some Rtsp messages may have been hidden by invalid tcp frames which indicated a longer length then they actually had.
+                    //Some Rtsp messages may have been hidden by invalid 'tcp' framing which indicated a longer length then they actually had.
                     if (rtspOut > rtspIn)
                     {
                         Console.ForegroundColor = ConsoleColor.Yellow;
@@ -689,15 +687,20 @@ namespace Media.UnitTests
                 // Set up the RTP channel (Step 2).
                 using (var _rtpAudioClient = Media.Rtp.RtpClient.FromSessionDescription(sdp))
                 {
-                    var _audioRTPTransportContext = _rtpAudioClient.GetTransportContexts().FirstOrDefault(); // The tranpsort context is null at this point.
+                    var _audioRTPTransportContext = _rtpAudioClient.GetTransportContexts().FirstOrDefault();
 
                     System.Diagnostics.Debug.Assert(_audioRTPTransportContext != null, "Cannot find the context");
 
-                    System.Diagnostics.Debug.Assert(_audioRTPTransportContext.IsConnected == false, "Found a connected context");
+                    System.Diagnostics.Debug.Assert(_audioRTPTransportContext.IsActive == false, "Found an Active context");
 
+                    //Activate the RtpClient
                     _rtpAudioClient.Activate();
 
-                    System.Diagnostics.Debug.Assert(_audioRTPTransportContext.IsConnected == true, "Found a disconnected context");
+                    System.Diagnostics.Debug.Assert(_audioRTPTransportContext.IsActive == false, "Found an Active context");
+
+                    System.Diagnostics.Debug.Assert(_rtpAudioClient.IsActive == true, "Did not find an Active RtpClient");
+
+                    System.Diagnostics.Debug.Assert(_rtpAudioClient.SendReports() == false, "SendReports cannot be true, context is not active.");
                 }
             }
         }

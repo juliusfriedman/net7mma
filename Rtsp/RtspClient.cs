@@ -336,7 +336,7 @@ namespace Media.Rtsp
                 //The socket is shared if there is a context using the same socket
                 var context = m_RtpClient.GetContextBySocket(m_RtspSocket);
                 
-                return context != null && context.IsConnected && context.HasAnyRecentActivity;
+                return context != null && context.IsActive && context.HasAnyRecentActivity;
             }
         }
 
@@ -1559,7 +1559,7 @@ namespace Media.Rtsp
                                     received += justReceived;
 
                                     //Ensure we are not doing to much receiving
-                                    if (received > RtspMessage.MaximumLength + interleaved.ContentLength) break;
+                                    if (interleaved.ContentLength > 0 && received > RtspMessage.MaximumLength + interleaved.ContentLength) break;
                                 }
 
                                 //Update counters
@@ -1916,7 +1916,7 @@ namespace Media.Rtsp
             try
             {
                 //Ensure logic for UDP is correct, may have to store flag.
-                if (false == force && IsConnected) throw new InvalidOperationException("Already Connected.");
+                if (false == force && IsConnected) return;
 
                 //If there is an RtpClient already connected then attempt to find a socket used by the client with the EndPoint
                 //required to be connected to
@@ -2436,7 +2436,7 @@ namespace Media.Rtsp
                     //If was block wait for that to finish
                     //if (wasBlocked) m_InterleaveEvent.Wait();
                 
-                    if (false == wasConnected) Connect();
+                    if (false == wasConnected && false == (wasConnected = IsConnected)) Connect();
 
                     //If the client is not connected then nothing can be done.
                     if (false == IsConnected) return null;
@@ -2464,7 +2464,7 @@ namespace Media.Rtsp
                     }
 
                     //If we can write
-                if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / 10 * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
+                if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -3073,11 +3073,20 @@ namespace Media.Rtsp
                     //Hanlde NotFound
                     if (response.StatusCode == RtspStatusCode.NotFound) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(describe, "Unable to describe media, NotFound. The response is in the Tag property.");
 
-                    //Wait for complete responses
                     if (false == response.IsComplete)
                     {
-                        m_InterleaveEvent.Wait();
+                        //Wait for complete responses
+                        if (SharesSocket)
+                        {
+                            m_InterleaveEvent.Wait();
+                        }
+                        else
+                        {
+                            response.CompleteFrom(m_RtspSocket, m_Buffer);
+                        }
                     }
+
+                   
 
                     //Only handle responses for the describe request sent when sharing the socket
                     if (SharesSocket && response.CSeq != describe.CSeq)

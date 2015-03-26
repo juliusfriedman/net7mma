@@ -171,36 +171,9 @@ namespace Media.Rtcp
         /// <param name="header">The header to utilize. When Dispose is called this header will be diposed.</param>
         /// <param name="octets">The octets to project</param>
         public RtcpPacket(RtcpHeader header, IEnumerable<byte> octets, bool ownsHeader = true)
+            :this(header.Concat(octets).ToArray(), 0, true)
         {
-            if (header == null) throw new ArgumentNullException("header");
-
-            //The instance owns the header
-            ShouldDispose = m_OwnsHeader = ownsHeader;
-
-            //Assign the header
-            Header = header;
-
-            //Determine the amount of bytes in the header and packet
-            int headerLength = RtcpHeader.Length, packetLength = header.LengthInWordsMinusOne;
-
-            //If there is no words or only 1 word then there is nothing else in this packet.
-            if (packetLength == ushort.MaxValue || packetLength == 0)
-            {
-                Payload = new Common.MemorySegment(0);
-                return;
-            }
-
-            //Header has another word
-            headerLength += RtcpHeader.Length;
-
-            //Packet length if given by
-            packetLength = ((ushort)((header.LengthInWordsMinusOne + 1) * 4)) - headerLength;
-
-            //Project the octets in the sequence taking the minimum of the octets present and the octets required as indicated by the header.
-            m_OwnedOctets = octets.Skip(headerLength).Take(packetLength).ToArray();
-
-            //The Payload property must be assigned otherwise the properties will not function in the instance.
-            Payload = new Common.MemorySegment(m_OwnedOctets, 0, Math.Min(packetLength, m_OwnedOctets.Length));
+           
         }
 
         /// <summary>
@@ -226,9 +199,33 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="buffer">The buffer which contains the binary RtcpPacket to decode</param>
         /// <param name="offset">The offset to start decoding</param>
-        public RtcpPacket(byte[] buffer, int offset) :
-            this(new RtcpHeader(buffer, offset), buffer.Skip(offset))
+        public RtcpPacket(byte[] buffer, int offset, bool shouldDispose = true)
         {
+            //The instance owns the header
+            ShouldDispose = m_OwnsHeader = shouldDispose;
+
+            Header = new RtcpHeader(buffer, offset);
+
+            //Determine the amount of bytes in the header and packet
+            int headerLength = RtcpHeader.Length, packetLength = Header.LengthInWordsMinusOne;
+
+            //If there is no words or only 1 word then there is nothing else in this packet.
+            if (false == (packetLength == ushort.MaxValue || packetLength == 0))
+            {
+                //Header has another word
+                headerLength += RtcpHeader.Length;
+
+                //Packet length is given by the LengthInWordsMinusOne + 1 * 4
+                packetLength = ((ushort)((packetLength + 1) * 4));
+            }
+
+            int nonHeaderBytes = packetLength - headerLength;
+
+            //Project the octets in the sequence taking the minimum of the octets present and the octets required as indicated by the header.
+            m_OwnedOctets = buffer.Skip(offset + headerLength).Take(nonHeaderBytes < 0 ? buffer.Length + nonHeaderBytes : nonHeaderBytes).ToArray();
+
+            //The Payload property must be assigned otherwise the properties will not function in the instance.
+            Payload = new Common.MemorySegment(m_OwnedOctets, shouldDispose);
         }
 
         /// <summary>
@@ -253,7 +250,7 @@ namespace Media.Rtcp
             //If there is no padding return
             if (padding == 0)
             {
-                Payload = new MemorySegment(0);
+                Payload = Common.MemorySegment.Empty;
                 return;
             }
             
@@ -292,9 +289,9 @@ namespace Media.Rtcp
         public readonly RtcpHeader Header;
 
         /// <summary>
-        /// The binary data of the RtcpPacket which may contain ReportBlocks or ApplicationSpecific data.
+        /// The binary data of the RtcpPacket which may contain ReportBlocks and or ExtensionData.
         /// </summary>
-        public MemorySegment Payload { get; protected set; }
+        public MemorySegment Payload { get; protected set; } //should be backe dfield
 
         public bool IsReadOnly { get { return false == m_OwnsHeader; } }
 
@@ -308,25 +305,23 @@ namespace Media.Rtcp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (IsDisposed || !Header.Padding || Payload.Count == 0) return 0; return Media.RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
+        public int PaddingOctets { get { if (IsDisposed || false == Header.Padding || Payload.Count == 0) return 0; return Media.RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
 
         /// <summary>
-        /// The length in bytes of this RtcpPacket including the header and any padding. <see cref="IsCompound"/>
+        /// The length in bytes of this RtcpPacket including the <see cref="Header">Rtcp Header</see> and any <see cref="PaddingOctets"/>.
         /// </summary>
         public int Length
         {
             get
             {
-                int lengthInWords = Header.LengthInWordsMinusOne, headerLength = RtcpHeader.Length;
-                if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) headerLength += RtcpHeader.Length;
-                return headerLength + Payload.Count;
+                return Header.Size + (Payload ?? Common.MemorySegment.Empty).Count;
             }
         }
 
         /// <summary>
-        /// Indicates if the RtcpPacket needs any more data to be considered complete. <see cref="IsCompound"/>
+        /// Indicates if the RtcpPacket needs any more data to be considered complete.
         /// </summary>
-        public bool IsComplete { get { return IsDisposed || Header.IsDisposed ? true : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)) - RtcpHeader.Length; } }
+        public bool IsComplete { get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)) - RtcpHeader.Length; } }
 
         /// <summary>
         /// <see cref="RtpHeader.Version"/>
@@ -401,7 +396,7 @@ namespace Media.Rtcp
         /// Sets the <see cref="RtcpHeader.LengthInWordsMinusOne"/> property based on the Length property.
         /// Throws a <see cref="InvalidOperationException"/> if <see cref="IsReadOnly"/> is true.
         /// </summary>
-        protected void SetLengthInWordsMinusOne()
+        internal protected void SetLengthInWordsMinusOne()
         {
             if (IsReadOnly) throw new InvalidOperationException("An RtcpPacket cannot be modifed when IsReadOnly is true.");
 
@@ -416,7 +411,7 @@ namespace Media.Rtcp
             }
 
             //The length in 32 bit words is equal to Length * 8 / 4 (Might have to round uP?)
-            ushort lengthInWords = (ushort)(lengthInOctets * 8 / 32);
+            ushort lengthInWords = (ushort)(lengthInOctets * Binary.BitsPerByte / Binary.BitsPerInteger);
 
             //Set the LengthInWords property to the lengthInWords minus one
             Header.LengthInWordsMinusOne = lengthInWords - 1;
@@ -443,8 +438,10 @@ namespace Media.Rtcp
         /// <param name="octets">The octets to add</param>
         /// <param name="offset">The offset to start copying</param>
         /// <param name="count">The amount of bytes to copy</param>
-        internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset, int count)
+        internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset = 0, int count = int.MaxValue, bool setLength = true) //overload for padd if necessary?
         {
+            if (IsReadOnly) throw new InvalidOperationException("Can only set the AddBytesToPayload when IsReadOnly is false.");
+
             //Build a seqeuence from the existing octets and the data in the ReportBlock
 
             //If there are existing owned octets (which may include padding)
@@ -458,45 +455,55 @@ namespace Media.Rtcp
                     payloadOctets = payloadCount - paddingOctets;
 
                 //The owned octets is a projection of the Payload existing, without the padding combined with the given octets from offset to count and subsequently the paddingOctets after the payload
-                m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset)).Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
+                m_OwnedOctets = Enumerable.Concat(Payload.Take(payloadOctets), octets.Skip(offset).Take(count - offset))
+                    .Concat(Payload.Skip(payloadOctets).Take(paddingOctets)).ToArray();
             }
             else if (m_OwnedOctets == null) m_OwnedOctets = octets.Skip(offset).Take(count - offset).ToArray();
             else m_OwnedOctets = Enumerable.Concat(m_OwnedOctets, octets.Skip(offset).Take(count - offset)).ToArray();
 
             //Create a pointer to the owned octets.
-            Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+            Payload = new Common.MemorySegment(m_OwnedOctets);
 
             //Set the length in words minus one in the header
-            SetLengthInWordsMinusOne();
-
-            //Return
-            return;
+            if(setLength) SetLengthInWordsMinusOne();
         }
 
         /// <summary>
         /// Generates a sequence of bytes containing the RtcpHeader and any data including Padding contained in the Payload.
         /// </summary>
         /// <returns>The sequence created.</returns>
-         public IEnumerable<byte> Prepare() { return Enumerable.Concat<byte>(Header, Payload != null? Payload : Enumerable.Empty<byte>()); }
+        public IEnumerable<byte> Prepare() { return IsDisposed ? Common.MemorySegment.Empty : Enumerable.Concat<byte>(Header, Payload); }
+
+        public IEnumerable<byte> Prepare(bool includeHeader, bool includeReportData, bool includePadding)
+        {
+            if(includeHeader) foreach (byte b in Header) yield return b;
+
+            if (includeReportData) foreach (byte b in RtcpData) yield return b;
+
+            if (includePadding) foreach (byte b in PaddingData) yield return b;
+        }
 
         /// <summary>
-        /// Gets the data of the RtcpPacket without any padding.
+        /// Gets the data in the <see cref="Payload"/> of the RtcpPacket inluding any <see cref="ExtensionData"/> without any <see cref="PaddingOctets"/> if the packet <see cref="IsComplete"/>.
         /// </summary>
          public IEnumerable<byte> RtcpData
          {
              get
              {
-                 if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.EmptyBytes;
+                 if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
 
-                 return Payload.Array.Skip(Payload.Offset).Take(IsComplete ? Payload.Count - PaddingOctets  : -1);
+                 return Payload.Take(IsComplete ? Payload.Count - PaddingOctets  : int.MaxValue);
              }
          }
 
+        /// <summary>
+        /// The amount of data as specified by RFC3550 if <see cref="IsComplete"/> is true, otherwise an Empty Sequnce
+        /// </summary>
         public IEnumerable<byte> PaddingData
         {
             get
             {
-                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Media.Common.MemorySegment.EmptyBytes;
+                if (IsDisposed || false == IsComplete || Payload.Count == 0 || false == Padding) return Media.Common.MemorySegment.EmptyBytes;
 
                 return Payload.Reverse().Take(PaddingOctets).Reverse();
             }
@@ -697,10 +704,12 @@ namespace Media.Rtcp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (IsDisposed || false == ShouldDispose) return;
+            if (IsDisposed) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
+
+            if (false == ShouldDispose) return;
 
             //If there is a referenced RtpHeader
             if (m_OwnsHeader && Header != null && false == Header.IsDisposed)
@@ -760,4 +769,104 @@ namespace Media.Rtcp
     }
 
     #endregion
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the RtcpPacket class is correct
+    /// </summary>
+    internal class RtcpPacketUnitTests
+    {
+        public static void TestAConstructor_And_Reserialization()
+        {
+            //Cache a bitValue
+            bool bitValue = false;
+            
+            //Test every possible bit packed value that can be valid in the first and second octet
+            for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
+            {
+                //Make a bitValue after the 0th iteration
+                if (ibitValue > 0) bitValue = Convert.ToBoolean(ibitValue);
+
+                //Permute every possible value within the 2 bit Version
+                for (int VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
+                {
+                    //Permute every possible value in the 7 bit PayloadCounter
+                    for (int PayloadCounter = 0; PayloadCounter <= byte.MaxValue; ++PayloadCounter)
+                    {
+                        for (int ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+                        {
+                            for (int PaddingCounter = byte.MinValue; PaddingCounter <= byte.MaxValue; ++PaddingCounter)
+                            {
+                                //Create a RtpPacket instance using the specified options
+                                using (Media.Rtcp.RtcpPacket p = new Rtcp.RtcpPacket(VersionCounter, PayloadCounter, PaddingCounter, ReportBlockCounter, 7, 0))
+                                {
+                                    //Check the Version
+                                    System.Diagnostics.Debug.Assert(p.Version == VersionCounter, "Unexpected Version");
+
+                                    //Check the Padding
+                                    System.Diagnostics.Debug.Assert(p.Padding == PaddingCounter > 0, "Unexpected Padding");
+
+                                    //Check the BlockCount
+                                    System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
+
+                                    //Check the SynchronizationSourceIdentifier
+                                    System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == 0, "Unexpected SynchronizationSourceIdentifier");
+
+                                    //Check the LengthInWordsMinusOne
+                                    System.Diagnostics.Debug.Assert(p.Header.LengthInWordsMinusOne == 0, "Unexpected LengthInWordsMinusOne");
+
+                                    //Check the Length
+                                    System.Diagnostics.Debug.Assert(p.Length == Media.Rtcp.RtcpHeader.Length + PaddingCounter, "Unexpected Length");
+
+                                    //Check the IsComplete
+                                    System.Diagnostics.Debug.Assert(p.IsComplete, "Not Complete");
+
+                                    //Check the result of serialization using padding.
+
+                                    //Another test would be to permute every possible value for the LengthInWords field :)
+                                    //Set the LengthInWordsMinusOne so the correct amount of bytes are serialzed, we specified 0 in the constructor
+                                    //p.SetLengthInWordsMinusOne();
+
+                                    byte[] serialized = p.Prepare().ToArray();
+
+                                    System.Diagnostics.Debug.Assert(serialized.Length == p.Length, "Unexpected Binary Data Serialized");
+
+                                    //Make a managed packet from the serialized data and re-verify
+                                    using (Media.Rtcp.RtcpPacket s = new Rtcp.RtcpPacket(serialized, 0))
+                                    {
+                                        //Check the IsComplete
+                                        System.Diagnostics.Debug.Assert(s.IsComplete, "Not Complete");
+
+                                        //Check the Version
+                                        System.Diagnostics.Debug.Assert(s.Version == VersionCounter, "Unexpected Version");
+
+                                        //Check the Padding
+                                        System.Diagnostics.Debug.Assert(s.Padding == PaddingCounter > 0, "Unexpected Padding");
+
+                                        //Check the BlockCount
+                                        System.Diagnostics.Debug.Assert(s.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
+
+                                        //Check the SynchronizationSourceIdentifier (not serialized)
+                                        System.Diagnostics.Debug.Assert(s.SynchronizationSourceIdentifier == 0, "Unexpected SynchronizationSourceIdentifier");
+
+                                        //Check the LengthInWordsMinusOne
+                                        System.Diagnostics.Debug.Assert(s.Header.LengthInWordsMinusOne == p.Header.LengthInWordsMinusOne, "Unexpected LengthInWordsMinusOne");
+
+                                        //Check the Length
+                                        System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+
+                                        System.Diagnostics.Debug.Assert(s.Prepare().SequenceEqual(serialized), "Unexpected Binary Data Serialized");
+                                    }
+
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

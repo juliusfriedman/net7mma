@@ -692,7 +692,7 @@ public class RtpRtcpTests
         /////
 
         //Recievers Report and Source Description
-        example = new byte[] { 0x81,0xc9,0x00,0x07,
+        example = new byte[] {   0x81,0xc9,0x00,0x07,
                                    0x69,0xf2,0x79,0x50,
                                    0x61,0x37,0x94,0x50,
                                    0xff,0xff,0xff,0xff,
@@ -709,9 +709,18 @@ public class RtpRtcpTests
             };
 
 
-        //Could check for multiple packets with a function without having to keep track of the offset with the Media.RtcpPacket.GetPackets Function
-        Media.Rtcp.RtcpPacket[] foundPackets = Media.Rtcp.RtcpPacket.GetPackets(example, 0, example.Length).ToArray();
-        Console.WriteLine(foundPackets.Length);
+        int foundPackets = 0, foundSize = 0;
+
+        foreach (Media.Rtcp.RtcpPacket packet in Media.Rtcp.RtcpPacket.GetPackets(example, 0, example.Length))
+        {
+            ++foundPackets;
+
+            foundSize += packet.Length;
+        }
+
+        if(foundPackets != 2) throw new Exception("Unexpected amount of packets found");
+
+        if (foundSize != example.Length) throw new Exception("Unexpected total length of packets found");
 
         //Or manually for some reason
         rtcpPacket = new Media.Rtcp.RtcpPacket(example, 0); // The same as foundPackets[0]
@@ -753,8 +762,20 @@ public class RtpRtcpTests
             }
 
             //Verify RecieversReport byte for byte
-            output = rr.Prepare().ToArray();//should be exactly equal to example
-            for (int i = 0, e = rr.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example");
+            output = rr.Prepare().ToArray();//should be exactly equal to example's bytes when extension data is contained in the packet instance
+
+            //Use to get the raw data in the packet including the header
+            //.Take(rr.Length - rr.ExtensionDataOctets) 
+
+            //Or rr.ReportData which omits the header...
+
+            //What other variations are relvent? Please submit examples, even invalid ones will be tolerated!
+
+            //The bytes given here should reflect exactly the bytes in the example array because of how the data is formatted.
+
+            //Yes the data is compound but there is an invalid LengthInWords in the packet which must be exactly copied when deserialized
+            if (rr.HasExtensionData && false == output.SequenceEqual(example)) throw new Exception("Result Packet Does Not Match Example");
+            for (int i = 0, e = output.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example @" + i);
 
         }
 
@@ -825,7 +846,7 @@ public class RtpRtcpTests
         //asPacket is 19 octets long, 11 octets in the payload and 8 octets in the header
         //asPacket would have a LengthInWordsMinusOne of 3 because 19 / 4 = 4 - 1 = 3
         //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
-        //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
-        if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
+        //19 + 1 = 20, 20 / 4 = 5, 5 - 1 = 4.
+        if (false == rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
     }
 }

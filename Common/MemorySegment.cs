@@ -123,9 +123,8 @@ namespace Media.Common
         //ToArray
 
         //ICollection.CopyTo
+
     }
 
-    //Todo Profile using a concrete IEnumerator implementation which can be constructed given another with a start and offset.
-
-    //VirtualEnumerable
+    //MemorySegmentPointer Array is obtained with unsafe or function...
 }
