@@ -1070,12 +1070,12 @@ namespace Media.Common
         public static int BitsUnSet(byte b) { return BitsUnSet(ref b); }
 
         [CLSCompliant(false)]
-        public static int BitsSet(ref int i) { return BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+        public static int BitsSet(ref int i) { return Binary.GetBytes(i).Sum(b => BitsSet(b)); }
 
         public static int BitsSet(int i) { return BitsSet(ref i); }
 
         [CLSCompliant(false)]
-        public static int BitsUnSet(ref int i) { return QuadrupleBitSize - BitConverter.GetBytes(i).Sum(b => BitsSet(b)); }
+        public static int BitsUnSet(ref int i) { return QuadrupleBitSize - Binary.GetBytes(i).Sum(b => BitsSet(b)); }
 
         public static int BitsUnSet(int i) { return BitsUnSet(ref i); }
 
@@ -2085,23 +2085,23 @@ namespace Media.Common
 
         #region GetBytes
 
-        public static byte[] GetBytes(short i, bool reverse)
+        public static byte[] GetBytes(short i, bool reverse = false)
         {
             byte[] result = new byte[Binary.SizeOfShort];
             Write16(result, 0, reverse, i);
             return result;
         }
 
-        public static byte[] GetBytes(int i, bool reverse)
+        public static byte[] GetBytes(int i, bool reverse = false)
         {
             byte[] result = new byte[Binary.SizeOfInt];
             Write32(result, 0, reverse, i);
             return result;
         }
 
-        public static byte[] GetBytes(long i, bool reverse)
+        public static byte[] GetBytes(long i, bool reverse = false)
         {
-            byte[] result = new byte[Binary.SizeOfShort];
+            byte[] result = new byte[Binary.SizeOfLong];
             Write64(result, 0, reverse, i);
             return result;
         }

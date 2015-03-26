@@ -164,8 +164,8 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <param name="sourceLocation">The rtsp uri to the media</param>
         /// <param name="credential">The network credential the stream requires</param>
         /// /// <param name="authType">The AuthenticationSchemes the stream requires</param>
-        public RtspSource(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspClient.DefaultBufferSize, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null)
-            : base(name, sourceLocation)
+        public RtspSource(string name, Uri sourceLocation, NetworkCredential credential = null, AuthenticationSchemes authType = AuthenticationSchemes.None, Rtsp.RtspClient.ClientProtocolType? rtpProtocolType = null, int bufferSize = RtspClient.DefaultBufferSize, Sdp.MediaType? specificMedia = null, TimeSpan? startTime = null, TimeSpan? endTime = null, bool perPacket = false)
+            : base(name, sourceLocation, perPacket)
         {
             //Create the listener if we are the top level stream (Parent)
             if (IsParent)
@@ -236,7 +236,7 @@ namespace Media.Rtsp.Server.MediaTypes
         {
             if ((base.Ready = RtspClient.IsPlaying)) //  && RtspClient.PlayingMedia.Count is equal to what is supposed to be playing
             {
-                RtspClient.Client.FrameChangedEventsEnabled = true;
+                RtspClient.Client.FrameChangedEventsEnabled = PerPacket == false;
             }
         }
 

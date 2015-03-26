@@ -71,12 +71,23 @@ namespace Media.Rtcp
         /// <param name="sourcesLeaving">The SourceList which describes the sources who are leaving</param>
         /// <param name="reasonForLeaving">An optional reason for leaving(only the first 255 octets will be used)</param>
         public GoodbyeReport(int version, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
-            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, 4, reasonForLeaving != null ? 1 + reasonForLeaving.Length : 1)
+            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, Media.RFC3550.SourceList.ItemSize, reasonForLeaving != null ? 1 + reasonForLeaving.Length : 0)
         {
+
+            //The working offset in the payload
+            int offset = Payload.Offset;
+
+            //Copy the source list (IMHO it should be before the reason...)
+            if (sourcesLeaving != null)
+            {
+                sourcesLeaving.TryCopyTo(Payload.Array, offset);
+
+                offset += sourcesLeaving.Size;
+            }
 
             #region Babble
 
-            /*
+            /* If I won't have a participant list then I sure as shit won't make thing as they shouldn't be here just for [Wireshark, et al]
              6.6 BYE: Goodbye RTCP Packet
 
                0                   1                   2                   3
@@ -98,50 +109,24 @@ namespace Media.Rtcp
 
             #endregion
 
-            int offset = Payload.Offset;
+            //If a reason was given there will be extension data
 
-            //If a reason was given
-            if (reasonForLeaving != null)
+            if (HasExtensionData)
             {
-                int reasonForLeavingLength = reasonForLeaving.Length;
+                int extensionLength = reasonForLeaving.Length;
 
-                //Ensure it will fit
-                if (reasonForLeavingLength > byte.MaxValue) throw new InvalidOperationException("Only 255 octets can occupy the ReasonForLeaving in a GoodbyeReport.");
-
-                Payload.Array[offset++] = (byte)reasonForLeavingLength;
-
-                //Copy it to the payload
-                reasonForLeaving.CopyTo(Payload.Array, offset);
-
-                offset += reasonForLeavingLength;
-
-                //http://tools.ietf.org/html/rfc3550#section-6.6
-                /*
-                 Optionally,
-                   the BYE packet MAY include an 8-bit octet count followed by that many
-                   octets of text indicating the reason for leaving, e.g., "camera
-                   malfunction" or "RTP loop detected".  The string has the same
-                   encoding as that described for SDES.  If the string fills the packet
-                   to the next 32-bit boundary, the string is not null terminated.
-                 */
-                int nullOctetsRequired = 4 - (Payload.Count & 0x03);
-
-                if (nullOctetsRequired > 0)
+                if (extensionLength > 0)
                 {
-                    //This will allow the data to end on a 32 bit boundary.
-                    AddBytesToPayload(Enumerable.Repeat(SourceDescriptionReport.SourceDescriptionItem.Null, nullOctetsRequired), 0, nullOctetsRequired);
+                    //Ensure it will fit
+                    if (extensionLength > byte.MaxValue) throw new InvalidOperationException("Only 255 octets can occupy the ReasonForLeaving in a GoodbyeReport.");
 
-                    offset += nullOctetsRequired;
+                    //The length before the string
+                    Payload.Array[offset++] = (byte)extensionLength;
+
+                    //Copy it to the payload
+                    reasonForLeaving.CopyTo(Payload.Array, offset);
                 }
-            } //Ensure OPTIONAL Length (reason) field is 0.
-            else Payload.Array[offset++] = 0; 
-
-            //Copy the source list (IMHO it should be before the reason...)
-            if (sourcesLeaving != null)
-            {
-                sourcesLeaving.TryCopyTo(Payload.Array, offset);
             }
-
         }
 
         public GoodbyeReport(int version, int ssrc, byte[] reasonForLeaving)
@@ -208,7 +193,12 @@ namespace Media.Rtcp
         /// </summary>
         public IEnumerable<byte> ReasonForLeaving
         {
-            get { if (IsDisposed || false == HasReasonForLeaving) return Enumerable.Empty<byte>(); return ExtensionData.Skip(1).Take(ReasonLength); }
+            get
+            {
+                if (IsDisposed || false == HasReasonForLeaving) return Enumerable.Empty<byte>();
+
+                return ExtensionData.Skip(1).Take(ReasonLength);
+            }
         }
 
         /// <summary>

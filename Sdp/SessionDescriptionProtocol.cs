@@ -999,11 +999,15 @@ namespace Media.Sdp
 
             base.Dispose();
 
+            if (false == ShouldDispose) return;
+
             m_SessionVersionLine = null;
 
             m_OriginatorLine = null;
 
             m_NameLine = null;
+
+            //Dispose all
 
             m_MediaDescriptions.Clear();
 
@@ -1355,6 +1359,8 @@ namespace Media.Sdp
         #endregion
 
         #region Overloads
+
+        //Dispose
 
         public override string ToString()
         {

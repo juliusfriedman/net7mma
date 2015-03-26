@@ -196,8 +196,10 @@ namespace Media.Rtp
         /// <param name="octets">The octets to add</param>
         /// <param name="offset">The offset to start copying</param>
         /// <param name="count">The amount of bytes to copy</param>
-        internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset, int count)
+        internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset = 0, int count = int.MaxValue)
         {
+            if (IsReadOnly) throw new InvalidOperationException("Can only set the AddBytesToPayload when IsReadOnly is false.");
+
             //Build a seqeuence from the existing octets and the data in the ReportBlock
 
             //If there are existing owned octets (which may include padding)
@@ -756,13 +758,15 @@ namespace Media.Rtp
         public override void Dispose()
         {
             //If the instance was previously disposed return
-            if (IsDisposed || !ShouldDispose) return;
+            if (IsDisposed) return;
 
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
+            if (false == ShouldDispose) return;
+
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && !Header.IsDisposed)
+            if (m_OwnsHeader && Header != null && false == Header.IsDisposed)
             {
                 //Dispose it
                 Header.Dispose();
@@ -815,10 +819,49 @@ namespace Media.Rtp
         {
             return this.Clone(true, true, true, true, false);
         }
-
-
-
     }
 
     #endregion
+}
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the RtpPacket class is correct
+    /// </summary>
+    internal class RtpPacketUnitTests
+    {
+        public static void TestAConstructor()
+        {
+            //Cache a bitValue
+            bool bitValue = false;
+
+            //Permute every possible bit packed value that can be valid in the first and second octet
+            for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
+            {
+                //Make a bitValue after the 0th iteration
+                if (ibitValue > 0) bitValue = Convert.ToBoolean(bitValue);
+
+                //Permute every possible value within the 2 bit Version
+                for (int VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
+                {
+                    //Create a RtpPacket instance using the specified options
+                    using (Media.Rtp.RtpPacket p = new Rtp.RtpPacket(VersionCounter, bitValue, !bitValue, null))
+                    {
+                        //Check the Version
+                        System.Diagnostics.Debug.Assert(p.Version == VersionCounter, "Unexpected Version");
+
+                        //Check the Padding
+                        System.Diagnostics.Debug.Assert(p.Padding == bitValue, "Unexpected Padding");
+
+                        //Check the Extension
+                        System.Diagnostics.Debug.Assert(p.Extension == !bitValue, "Unexpected Extension");
+
+                        //Check the Length
+                        System.Diagnostics.Debug.Assert(p.Length == Media.Rtp.RtpHeader.Length, "Unexpected Length");
+                    }
+                }
+            }
+        }
+    }
 }

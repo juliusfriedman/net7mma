@@ -321,7 +321,7 @@ namespace Media.UnitTests
 
         static void TestRtpClient()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpClientUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpClientUnitTests));
 
             TestRtpClient(false);
 
@@ -353,8 +353,8 @@ namespace Media.UnitTests
                 //Get the local interface address
                 System.Net.IPAddress localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstV4IPAddress();
 
-                //Using a sender
-                using (var sender = new Media.Rtp.RtpClient(null, false, false))
+                //Using a sender, automatically create memory and fire events
+                using (var sender = new Media.Rtp.RtpClient())
                 {
                     //Create a Session Description
                     Media.Sdp.SessionDescription SessionDescription = new Media.Sdp.SessionDescription(1);
@@ -436,7 +436,7 @@ namespace Media.UnitTests
 
                             //acceptedSocket is now rr
 
-                            while (!acceptResult.IsCompleted) { }
+                            while (false == acceptResult.IsCompleted) { System.Threading.Thread.Sleep(0); }
 
                         }
                         else //For Udp a port should be found unless the MediaDescription indicates a specific port.
@@ -468,8 +468,10 @@ namespace Media.UnitTests
                         //Send it
                         sender.SendRtpFrame(testFrame);
 
+                        sender.SendSendersReports();
+
                         //Wait for the senders report to be sent AND for the frame to be sent at least one time while the sender is connected
-                        while (sender.IsActive && (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Yield();
+                        while (sender.IsActive && (sendersContext.SendersReport == null || false == sendersContext.SendersReport.Transferred.HasValue) || false == testFrame.Transferred) System.Threading.Thread.Sleep(0);
 
                         //Print the report information
                         if (sendersContext.SendersReport != null)
@@ -484,7 +486,7 @@ namespace Media.UnitTests
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
                         //Wait for a receivers report to be sent while the receiver is connected
-                        while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Yield();
+                        while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Sleep(0);
 
                         //Print the report information
                         if (receiversContext.ReceiversReport != null)
@@ -2021,7 +2023,7 @@ a=rtpmap:99 h263-1998/90000");
 
             #endregion
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SDPUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SDPUnitTests));
         }
 
         static void TestContainerImplementations()
@@ -2594,7 +2596,7 @@ a=rtpmap:99 h263-1998/90000");
         static void TestEncodingExtensions()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.EncodingExtensionsTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.EncodingExtensionsTests));
         }
 
         /// <summary>
@@ -2602,7 +2604,7 @@ a=rtpmap:99 h263-1998/90000");
         /// </summary>
         static void TestTimer()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.TimerTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.TimerTests));
         }
 
         /// <summary>
@@ -2610,7 +2612,7 @@ a=rtpmap:99 h263-1998/90000");
         /// </summary>
         static void TestClock()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ClockTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ClockTests));
         }
 
         /// <summary>
@@ -2618,7 +2620,7 @@ a=rtpmap:99 h263-1998/90000");
         /// </summary>
         static void TestStopWatch()
         {
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.StopWatchTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.StopWatchTests));
         }
 
         /// <summary>
@@ -2628,7 +2630,7 @@ a=rtpmap:99 h263-1998/90000");
         {
 
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpFrameUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpFrameUnitTests));
         }
 
         /// <summary>
@@ -2637,7 +2639,7 @@ a=rtpmap:99 h263-1998/90000");
         static void TestRFC2435Frame()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2435UnitTest), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RFC2435UnitTest));
         }
         
         /// <summary>
@@ -2646,7 +2648,13 @@ a=rtpmap:99 h263-1998/90000");
         static void TestRtpRtcp()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests));
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpPacketUnitTests));
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpHeaderUnitTests));
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpPacketUnitTests));
         }
 
         /// <summary>
@@ -2655,7 +2663,7 @@ a=rtpmap:99 h263-1998/90000");
         static void TestRtspMessage()
         {
             //Perform the tests
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtspMessgeUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtspMessgeUnitTests));
         }
 
         /// <summary>
@@ -2670,7 +2678,7 @@ a=rtpmap:99 h263-1998/90000");
 
             Console.WriteLine("Detected a: " + Media.Common.Binary.SystemBitOrder.ToString() + ' ' + Media.Common.Binary.SystemBitOrder.GetType().Name + " System.");
 
-            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests), typeOfVoid);
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests));
         }
 
         #endregion
@@ -2678,6 +2686,11 @@ a=rtpmap:99 h263-1998/90000");
         #region Methods (To Support Unit Tests)
 
         static Type typeOfVoid = typeof(void);
+
+        static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType)
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(instanceType, typeOfVoid, true);
+        }
 
         static void CreateInstanceAndInvokeAllMethodsWithReturnType(Type instanceType, Type returnType, bool writeNames = true)
         {

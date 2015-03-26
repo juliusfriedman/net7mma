@@ -220,18 +220,15 @@ namespace Media.Rtcp
             { 
                 /*CheckDisposed();*/
 
-                if (Size > RtcpHeader.Length)
+                Binary.Write32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value);
+
+                //If there was no words in the packet (other than the header itself) than indicate another word is present.
+                switch (LengthInWordsMinusOne)
                 {
-                    Binary.Write32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian, (uint)value);
-                    
-                    //If there was no words in the packet (other than the header itself) than indicate another word is present.
-                    switch (LengthInWordsMinusOne)
-                    {
-                        case 0:
-                        case ushort.MaxValue:
-                            LengthInWordsMinusOne = 1;
-                            return;
-                    }
+                    case 0:
+                    case ushort.MaxValue:
+                        LengthInWordsMinusOne = 1;
+                        return;
                 }
             }
         }
@@ -244,15 +241,13 @@ namespace Media.Rtcp
             get
             {
 
-                return RFC3550.CommonHeaderBits.Size + PointerToLast6Bytes.Count;
+                //Get the lenth in words
+                int lengthInWords = LengthInWordsMinusOne;
 
-                ////Get the lenth in words
-                //int lengthInWords = LengthInWordsMinusOne;
+                //Account for the Senders SSRC word if present.
+                if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) return Media.Common.Binary.BitsPerByte; //8
 
-                ////Account for the Senders SSRC word if present.
-                //if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) return Media.Common.Binary.BitSize; //8
-
-                //return RtcpHeader.Length;
+                return RtcpHeader.Length;
             }
         }
 
@@ -460,4 +455,27 @@ namespace Media.Rtcp
     }
 
     #endregion
+}
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the RtcpHeader class is correct
+    /// </summary>
+    internal class RtcpHeaderUnitTests
+    {
+        public static void TestLengthInWordsMinusOne()
+        {
+            for (int lengthIn32BitWords = 0; lengthIn32BitWords <= ushort.MaxValue; ++lengthIn32BitWords)
+            {
+                using (Rtcp.RtcpHeader test = new Rtcp.RtcpHeader(0, 0, false, 0, 0, lengthIn32BitWords))
+                {
+                    if (lengthIn32BitWords != test.LengthInWordsMinusOne ||
+                        lengthIn32BitWords + 1 * 4 != test.LengthInWordsMinusOne + 1 * 4) throw new Exception("Invalid LengthInWordsMinusOne");
+
+                    if (test.Count() != test.Size) throw new Exception("Invalid Size");
+                }
+            }
+        }
+    }
 }

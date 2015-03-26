@@ -1155,7 +1155,7 @@ namespace Media.Rtsp
                 while (IsRunning)
                 {
                     //If we can accept, should not be checked here
-                    if (m_StopRequested == false)
+                    if (m_StopRequested == false && m_Clients.Count < m_MaximumConnections)
                     {
                         //Start acceping with a 0 size buffer
                         IAsyncResult iar = m_TcpServerSocket.BeginAccept(0, new AsyncCallback(ProcessAccept), m_TcpServerSocket);
@@ -1294,10 +1294,11 @@ namespace Media.Rtsp
                     //Make a session
                     ClientSession session = CreateSession(clientSocket);
 
-                    //If there is a logger log the accept
-                    Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created);
+                    //Try to add it now
+                    bool added = TryAddSession(session);
 
-                    System.Threading.Thread.Sleep(0);
+                    //If there is a logger log the accept
+                    Common.ILoggingExtensions.Log(Logger, "Accepted Client: " + session.Id + " @ " + session.Created + " Added =" + added);
                 }
             }
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
@@ -1402,6 +1403,8 @@ namespace Media.Rtsp
                         received -= session.m_RtpClient.ProcessFrameData(session.m_Buffer.Array, session.m_Buffer.Offset, received, session.m_RtspSocket);
                     }
 
+                    if (received <= 0) return;
+
                     //Ensure the message is really Rtsp
                     RtspMessage request = new RtspMessage(data);
 
@@ -1463,16 +1466,13 @@ namespace Media.Rtsp
                                     
                                     goto case RtspMessageType.Invalid;
                                 }
-                            //case RtspMessageType.Response:
-                            //    {
-                            //        //A Response was received...
-                            //        goto case RtspMessageType.Invalid;
-                            //    }
                         }
                     }
 
                     //Log the invalid request
                     Media.Common.ILoggingExtensions.Log(Logger, "Received Invalid Message:" + request + " \r\nFor Session:" + session.Id);
+
+                    if (session.LastRequest != null) session.LastRequest.Dispose();
 
                     //Store it for now to allow completion.
                     session.LastRequest = request;

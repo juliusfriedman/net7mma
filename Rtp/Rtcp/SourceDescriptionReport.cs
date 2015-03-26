@@ -112,7 +112,7 @@ namespace Media.Rtcp
         /// <remarks>
         /// In cases where Type = 0 (End Of List) up to 4 null octets may be present in the Data of a SourceDescriptionItem. 
         /// </remarks>
-        public class SourceDescriptionItem : IEnumerable<byte>
+        public class SourceDescriptionItem : Common.BaseDisposable, IEnumerable<byte>
         {
             #region Enumerations and Constants
 
@@ -733,7 +733,7 @@ namespace Media.Rtcp
         /// <remarks>
         /// A SourceDescriptionChunk is a [variable length] 2 Tier Structure which contains an Identifer and a List of <see cref="SourceDescriptionItem"/>.
         /// </remarks>
-        public class SourceDescriptionChunk : IEnumerable<SourceDescriptionItem>, IReportBlock
+        public class SourceDescriptionChunk : Common.BaseDisposable, IEnumerable<SourceDescriptionItem>, IReportBlock
         {
             #region Constants
 
@@ -746,7 +746,7 @@ namespace Media.Rtcp
 
             #region Fields
 
-            protected IEnumerable<byte> m_ChunkData;
+            protected readonly IEnumerable<byte> m_ChunkData;
 
             #endregion
 
@@ -785,15 +785,7 @@ namespace Media.Rtcp
             public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items)
             {
 
-                m_ChunkData = BitConverter.GetBytes(chunkIdentifier);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    m_ChunkData = m_ChunkData.Reverse();
-                }
-
-
-                m_ChunkData = Enumerable.Concat(m_ChunkData, items.SelectMany(i => i));
+                m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, BitConverter.IsLittleEndian), items.SelectMany(i => i));
             }
 
             public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) : this(chunkIdentifier, Media.Common.Extensions.Linq.LinqExtensions.Yield(item)) { }
@@ -887,6 +879,16 @@ namespace Media.Rtcp
             }
 
             #endregion
+
+            //public override void Dispose()
+            //{
+
+            //    if (IsDisposed) return;
+
+            //    base.Dispose();
+
+            //    if(false == ShouldDispose) m_ChunkData = null;
+            //}
         }
 
         #endregion
@@ -940,6 +942,8 @@ namespace Media.Rtcp
         /// </summary>
         public bool HasChunks { get { return Header.BlockCount > 0; } }
 
+        public IEnumerable<SourceDescriptionChunk> Chunks { get { return GetChunkIterator(); } }
+
         /// <summary>
         /// Determines if ANY of the the contained SourceDescriptionChunks has a CName entry.
         /// </summary>
@@ -948,7 +952,7 @@ namespace Media.Rtcp
         {
             get
             {
-                if (!HasChunks) return false;
+                if (false == HasChunks) return false;
                 foreach (SourceDescriptionChunk chunk in GetChunkIterator()) foreach (SourceDescriptionItem item in chunk) if (item.ItemType == SourceDescriptionItem.SourceDescriptionItemType.CName) return true;
                 return false;
             }
@@ -1008,7 +1012,7 @@ namespace Media.Rtcp
             ++BlockCount;
             
             //Add the bytes to the payload
-            AddBytesToPayload(chunkData, 0, chunkData.Count());
+            AddBytesToPayload(chunkData);
 
             //http://tools.ietf.org/html/rfc3550#appendix-A.4
             int nullOctetsRequired = 4 - (Payload.Count & 0x03); 
@@ -1019,7 +1023,7 @@ namespace Media.Rtcp
             {
                 //The amount of octets contained in the End Item is equal to the size of the chunk modulo 32.
                 //This will allow the data to end on a 32 bit boundary.
-                AddBytesToPayload(Enumerable.Concat(Enumerable.Repeat(SourceDescriptionItem.Null, nullOctetsRequired), chunkData), 0, nullOctetsRequired);
+                AddBytesToPayload(Enumerable.Repeat(SourceDescriptionItem.Null, nullOctetsRequired));
             }
 
             //Set the length in words minus one in the header
@@ -1045,9 +1049,8 @@ namespace Media.Rtcp
             foreach (SourceDescriptionChunk currentChunk in GetChunkIterator())
             {
                 //If the chunk yielded in the iterator matches the chunk identifier a match is present.
-                if (chunk.ChunkData == currentChunk.ChunkData)
+                if (contained = chunk.ChunkData == currentChunk.ChunkData)
                 {
-                    contained = true;
                     break;
                 }
 
@@ -1058,9 +1061,8 @@ namespace Media.Rtcp
                 ++chunkIndex;
             }
                 
-
             //If there is no chunk matching by identifer indicate no chunk was removed.
-            if (!contained) return false;
+            if (false == contained) return false;
 
             //If the chunk is overlapped in the header
             if (chunkIndex == 0)
@@ -1103,12 +1105,6 @@ namespace Media.Rtcp
         /// <returns></returns>
         internal IEnumerable<SourceDescriptionChunk> GetChunkIterator()
         {
-            //If no chunks are present break the iteration
-            if (!HasChunks) yield break;
-
-            //Label a chunk
-            SourceDescriptionChunk current;
-
             int logicalChunkIndex = -1,
                 offset = Payload.Offset;
 
@@ -1119,8 +1115,12 @@ namespace Media.Rtcp
             while (++logicalChunkIndex < Header.BlockCount && offset <= Payload.Count)
             {
                 //Instantiate the chunk and return the current item skipping previous data
-                yield return current = logicalChunkIndex == 0 ? new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(ChunkData.Skip(offset))) : new SourceDescriptionChunk(ChunkData.Skip(offset));
-                offset += logicalChunkIndex == 0 ? current.Size - SourceDescriptionChunk.IdentifierSize : current.Size;
+                using (SourceDescriptionChunk current = logicalChunkIndex == 0 ? new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(ChunkData.Skip(offset))) : new SourceDescriptionChunk(ChunkData.Skip(offset)))
+                {
+                    yield return current;
+
+                    offset += logicalChunkIndex == 0 ? current.Size - SourceDescriptionChunk.IdentifierSize : current.Size;
+                }
             }
 
             //Break the iterations all chunks have been iterated.
@@ -1143,7 +1143,51 @@ namespace Media.Rtcp
         }
 
         #endregion
+
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            if(false == ShouldDispose) m_Chunks = null;
+        }
     }
 
     #endregion
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the SourceDescriptionItem class is correct
+    /// </summary>
+    internal class SourceDescriptionItemUnitTests
+    {
+        public static void TestAConstructor()
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Provides tests which ensure the logic of the SourceDescriptionChunk class is correct
+    /// </summary>
+    internal class SourceDescriptionChunkUnitTests
+    {
+        public static void TestAConstructor()
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Provides tests which ensure the logic of the SourceDescriptionReport class is correct
+    /// </summary>
+    internal class SourceDescriptionReportUnitTests
+    {
+        public static void TestAConstructor()
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

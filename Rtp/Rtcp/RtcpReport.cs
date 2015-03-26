@@ -73,13 +73,19 @@ namespace Media.Rtcp
             //Calulcate the size of the Payload Segment
             int payloadSize = blockSize * blockCount + extensionSize;
 
+            //Octet alignment should always be respected when creating the payload, this will avoid a few uncecessary resizes.
+            int nullOctetsRequired = (payloadSize & 0x03);
+
+            //This will allow the data to end on a 32 bit boundary.
+            payloadSize += nullOctetsRequired;
+
             //Allocate an array of byte equal to the size required
             m_OwnedOctets = new byte[payloadSize];
 
             //Segment the array to allow property access.
             Payload = new MemorySegment(m_OwnedOctets, 0, payloadSize);
 
-            //Set the SetLenthInWordsMinusOne property in the Header
+            //Set the SetLenthInWordsMinusOne property in the Header according to the size of the allocated Payload
             SetLengthInWordsMinusOne();
         }
 
@@ -117,7 +123,7 @@ namespace Media.Rtcp
         /// </summary>
         public bool HasExtensionData
         {
-            get { return IsDisposed ? false : /*Header.BlockCount > 0 &&*/ Length > ReportBlock.ReportBlockSize * Header.BlockCount; }
+            get { return IsDisposed ? false : Payload.Count > ReportBlockOctets; }
         }
 
         /// <summary>
@@ -135,7 +141,7 @@ namespace Media.Rtcp
         /// </summary>
         public virtual int ReportBlockOctets
         {
-            get { return !IsDisposed && HasReports ? ReportBlock.ReportBlockSize * Header.BlockCount : 0; }
+            get { return false == IsDisposed && HasReports ? ReportBlock.ReportBlockSize * Header.BlockCount : 0; }
         }
 
         /// <summary>
@@ -143,7 +149,12 @@ namespace Media.Rtcp
         /// </summary>
         public virtual IEnumerable<byte> ReportData
         {
-            get { if (!HasReports || IsDisposed) return Enumerable.Empty<byte>(); return Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets); }
+            get
+            {
+                if (false == HasReports || IsDisposed) return Enumerable.Empty<byte>();
+                
+                return Payload.Take(ReportBlockOctets);
+            }
         }
 
         //Could provide an index based accessor for Reports.
@@ -157,15 +168,42 @@ namespace Media.Rtcp
             {
                 if (IsDisposed || false == HasExtensionData) return Enumerable.Empty<byte>();
 
-                return Payload.Array.Skip(Payload.Offset + ReportBlockOctets);
+                return Payload.Skip(ReportBlockOctets).Take(ExtensionDataOctets);
             }
             //set { }
         }
 
         /// <summary>
+        /// Calulcates the size of the octets which are given by <see cref="ExtensionData"/>, usually not part of the <see cref="ReportData"/>
+        /// </summary>
+        public int ExtensionDataOctets
+        {
+            get { return false == IsDisposed && HasExtensionData ? Payload.Count - ReportBlockOctets : 0; }
+        }
+
+        /// <summary>
         /// Calulcates the amount of blocks remaining in the RtcpReport given the value in the <see cref="RtcpHeaer.BlockCount"/>
         /// </summary>
-        public int ReportBlocksRemaining { get { return IsDisposed ? 0 : Binary.FiveBitMaxValue - Header.BlockCount; } }        
+        public int ReportBlocksRemaining { get { return IsDisposed ? 0 : Binary.FiveBitMaxValue - Header.BlockCount; } }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="includeHeader"></param>
+        /// <param name="includeExtensionData"></param>
+        /// <param name="includeReportData"></param>
+        /// <param name="includePadding"></param>
+        /// <returns></returns>
+        public virtual IEnumerable<byte> Prepare(bool includeHeader, bool includeExtensionData, bool includeReportData, bool includePadding)
+        {
+            if (includeHeader) foreach (byte b in Header) yield return b;
+
+            if (includeReportData) foreach (byte b in ReportData) yield return b;
+
+            if (includeExtensionData) foreach (byte b in ExtensionData) yield return b;
+
+            if (includePadding) foreach (byte b in PaddingData) yield return b;
+        }
 
         #endregion
 
@@ -173,7 +211,7 @@ namespace Media.Rtcp
 
         internal virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
         {
-            if (!IsDisposed && HasReports)
+            if (false == IsDisposed && HasReports)
             {
                 for (int count = Payload.Count - offset; offset <= count; )
                 {
@@ -186,6 +224,7 @@ namespace Media.Rtcp
         }
 
         public virtual IEnumerator<IReportBlock> GetEnumerator() { return GetEnumeratorInternal(); }
+
         #endregion
 
         #region Implementation Methods
@@ -277,7 +316,7 @@ namespace Media.Rtcp
             int result = -1;
             
             //If the index is in bounds, use an enumerator on the data because each report block is potentially sized differently but must always contain an Identifier.
-            if(index >= 0 &&  index <= BlockCount) using (IEnumerator<IReportBlock> blockEnumerator = GetEnumerator())
+            if(index >= 0 && index <= BlockCount) using (IEnumerator<IReportBlock> blockEnumerator = GetEnumerator())
             {
                 //While there is an item in the enumerator
                 while (blockEnumerator.MoveNext())
