@@ -2650,11 +2650,56 @@ a=rtpmap:99 h263-1998/90000");
             //Perform the tests
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests));
 
+            //prerequesite of RtpPacket
+
+            //RtpHeader
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpHeaderUnitTests));
+
+            //RtpExtension
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpExtensionUnitTests));
+
+            //RtpPacket
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpPacketUnitTests));
+
+            //RtcpHeader
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpHeaderUnitTests));
 
+            //RtcpPacket
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpPacketUnitTests));
+
+            //prerequesite of RtcpReport
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpReportBlockUnitTests));
+
+            //SendersReport
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpSendersReportUnitTests));
+
+            //ReceiversReport
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpReceiversReportUnitTests));
+
+            //prerequesite of RtcpSourceDescriptionReportUnitTests
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SourceDescriptionItemUnitTests));
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(SourceDescriptionChunkUnitTests));
+
+            //SourceDescriptionReport
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpSourceDescriptionReportUnitTests));
+
+            //GoodbyeReport
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpGoodbyeReportUnitTests));
+
+            //ApplicationSpecificReport
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtcpApplicationSpecificReportUnitTests));
         }
 
         /// <summary>
@@ -3026,8 +3071,8 @@ a=rtpmap:99 h263-1998/90000");
                                 foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
                                 {
                                     Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
-                                    Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
-                                    Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.Data.ToArray())));
+                                    Console.WriteLine(string.Format(TestingFormat, "Item Length", item.ItemLength));
+                                    Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.ItemData.ToArray())));
                                 }
                             }
                         }

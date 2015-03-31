@@ -64,7 +64,13 @@ namespace Media.Rtcp
 
         #region Constructor
 
-        public SendersReport(int version, bool padding, int reportBlocks, int ssrc)
+        public SendersReport(int version, int reportBlocks, int ssrc)
+            : base(version, PayloadType, 0, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize)
+        {
+
+        }
+
+        public SendersReport(int version, int padding, int reportBlocks, int ssrc)
             : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize, SendersInformationSize)
         {
 
@@ -145,6 +151,7 @@ namespace Media.Rtcp
             get
             {
                 if (BitConverter.IsLittleEndian) return (long)((ulong)NtpLSW << 32 | (uint)NtpMSW);
+
                 return (long)((ulong)NtpMSW << 32 | (uint)NtpLSW);
             }
             internal protected set
@@ -168,7 +175,7 @@ namespace Media.Rtcp
         public DateTime NtpTime
         {
             get { return Media.Ntp.NetworkTimeProtocol.NptTimestampToDateTime((ulong)NtpTimestamp); }
-            internal protected set { NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(value); }
+            internal protected set { NtpTimestamp = (long)Media.Ntp.NetworkTimeProtocol.DateTimeToNptTimestamp(ref value); }
         }
 
         #endregion
@@ -178,7 +185,12 @@ namespace Media.Rtcp
         /// </summary>
         public override IEnumerable<byte> ReportData
         {
-            get { if (!HasReports) return Enumerable.Empty<byte>(); return Payload.Array.Skip(Payload.Offset + 4 + SendersInformationSize).Take(ReportBlockOctets); }
+            get
+            {
+                if (false == HasReports) return Enumerable.Empty<byte>(); 
+                
+                return Payload.Skip(SendersInformationSize).Take(ReportBlockOctets);
+            }
         }
 
         /// <summary>
@@ -187,18 +199,124 @@ namespace Media.Rtcp
         /// </summary>
         public IEnumerable<byte> SendersInformation
         {
-            get { return Payload.Take(SendersInformationSize); }
+            get
+            {
+                return new Common.MemorySegment(Payload.Array, Payload.Offset, SendersInformationSize);
+                // Payload.Take(SendersInformationSize); 
+            }
         }
 
       
         #endregion
 
-        internal override IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
+        internal protected override IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = SendersInformationSize)//, int blockSize = ReportBlock.ReportBlockSize)
         {
-            return base.GetEnumeratorInternal(SendersInformationSize);
+            return base.GetEnumeratorInternal(offset);//, blockSize);
         }
 
     }
 
     #endregion
+}
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the SendersReport class is correct
+    /// </summary>
+    internal class RtcpSendersReportUnitTests
+    {
+
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
+        {
+            //Permute every possible value in the 5 bit BlockCount
+            for (byte ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+            {
+                //Permute every possible value in the Padding field.
+                for (byte PaddingCounter = byte.MinValue; PaddingCounter <= Media.Common.Binary.FiveBitMaxValue; ++PaddingCounter)
+                {
+                    //Create a random id
+                    int RandomId = RFC3550.Random32(Utility.Random.Next());
+
+                    //Create a SendersReport instance using the specified options.
+                    using (Media.Rtcp.SendersReport p = new Rtcp.SendersReport(0, PaddingCounter, ReportBlockCounter, RandomId))
+                    {
+                        //Check SendersInformation
+                        System.Diagnostics.Debug.Assert(p.SendersInformation.Count() == Rtcp.SendersReport.SendersInformationSize && p.SendersInformation.All(s=> s== 0), "Unexpected SendersInformation");
+
+                        //Check IsComplete
+                        System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
+
+                        //Check Length
+                        System.Diagnostics.Debug.Assert(p.Length == Binary.BitsPerByte + Rtcp.ReportBlock.ReportBlockSize * ReportBlockCounter + Rtcp.SendersReport.SendersInformationSize + PaddingCounter, "Unexpected Length");
+
+                        //Check SynchronizationSourceIdentifier
+                        System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == RandomId, "Unexpected SynchronizationSourceIdentifier");
+
+                        //Check the BlockCount count
+                        System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
+
+                        //Check the PaddingOctets count
+                        System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter, "Unexpected PaddingOctets");
+
+                        //Check all data in the padding but not the padding octet itself.
+                        System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
+
+                        //Verify all IReportBlock
+                        foreach (Rtcp.IReportBlock rb in p)
+                        {
+                            System.Diagnostics.Debug.Assert(rb.BlockIdentifier == 0, "Unexpected ChunkIdentifier");
+
+                            System.Diagnostics.Debug.Assert(rb.BlockData.All(b => b == 0), "Unexpected BlockData");
+
+                            System.Diagnostics.Debug.Assert(rb.Size == Media.Rtcp.ReportBlock.ReportBlockSize, "Unexpected Size");
+                        }
+
+                        //Serialize and Deserialize and verify again
+                        using (Rtcp.SendersReport s = new Rtcp.SendersReport(new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0), true))
+                        {
+                            //Check SynchronizationSourceIdentifier
+                            System.Diagnostics.Debug.Assert(s.SynchronizationSourceIdentifier == p.SynchronizationSourceIdentifier, "Unexpected SynchronizationSourceIdentifier");
+
+                            //Check the Payload.Count
+                            System.Diagnostics.Debug.Assert(s.Payload.Count == p.Payload.Count, "Unexpected Payload Count");
+
+                            //Check the Length, 
+                            System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+
+                            //Check the BlockCount count
+                            System.Diagnostics.Debug.Assert(s.BlockCount == p.BlockCount, "Unexpected BlockCount");
+
+                            //Verify all IReportBlock
+                            foreach (Rtcp.IReportBlock rb in s)
+                            {
+                                System.Diagnostics.Debug.Assert(rb.BlockIdentifier == 0, "Unexpected ChunkIdentifier");
+
+                                System.Diagnostics.Debug.Assert(rb.BlockData.All(b => b == 0), "Unexpected BlockData");
+
+                                System.Diagnostics.Debug.Assert(rb.Size == Media.Rtcp.ReportBlock.ReportBlockSize, "Unexpected Size");
+                            }
+
+                            //Check the RtcpData
+                            System.Diagnostics.Debug.Assert(p.RtcpData.SequenceEqual(s.RtcpData), "Unexpected RtcpData");
+
+                            //Check the PaddingOctets
+                            System.Diagnostics.Debug.Assert(s.PaddingOctets == p.PaddingOctets, "Unexpected PaddingOctets");
+
+                            //Check all data in the padding but not the padding octet itself.
+                            System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
+
+                            //Check SendersInformation
+                            System.Diagnostics.Debug.Assert(s.SendersInformation.Count() == Rtcp.SendersReport.SendersInformationSize && s.SendersInformation.All(o => o == 0), "Unexpected SendersInformation");
+                        }
+                    }
+                }
+            }
+        }
+
+        //Test AddReports And Enumerator And Reserialization
+    }
 }

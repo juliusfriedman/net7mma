@@ -112,7 +112,7 @@ namespace Media.Rtp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (IsDisposed || !Header.Padding) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
+        public int PaddingOctets { get { if (IsDisposed || false == Header.Padding) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
 
         /// <summary>
         /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
@@ -235,7 +235,7 @@ namespace Media.Rtp
 
         }
 
-        public RtpPacket(int version, bool padding, bool extension, bool marker, int payloadType, int csc, int ssrc, int seq, int timestamp, byte[] payload)
+        public RtpPacket(int version, bool padding, bool extension, bool marker, int payloadType, int csc, int ssrc, int seq, int timestamp, byte[] payload = null)
             : this(new RtpHeader(version, padding, extension, marker, payloadType, csc, ssrc, seq, timestamp), payload ?? Media.Common.MemorySegment.EmptyBytes)
         {
 
@@ -757,9 +757,6 @@ namespace Media.Rtp
         /// </summary>
         public override void Dispose()
         {
-            //If the instance was previously disposed return
-            if (IsDisposed) return;
-
             //Call base's Dispose method first to set Diposed = true just incase another thread tries to finalze the object or access any properties
             base.Dispose();
 
@@ -811,7 +808,7 @@ namespace Media.Rtp
             return boxA == null ? boxB == null : a.Equals(b);
         }
 
-        public static bool operator !=(RtpPacket a, RtpPacket b) { return !(a == b); }
+        public static bool operator !=(RtpPacket a, RtpPacket b) { return false == (a == b); }
 
         #endregion
 
@@ -831,7 +828,7 @@ namespace Media.UnitTests
     /// </summary>
     internal class RtpPacketUnitTests
     {
-        public static void TestAConstructor()
+        public static void TestAConstructor_And_Reserialization()
         {
             //Cache a bitValue
             bool bitValue = false;
@@ -845,20 +842,48 @@ namespace Media.UnitTests
                 //Permute every possible value within the 2 bit Version
                 for (int VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
                 {
-                    //Create a RtpPacket instance using the specified options
-                    using (Media.Rtp.RtpPacket p = new Rtp.RtpPacket(VersionCounter, bitValue, !bitValue, null))
+                    //Permute every possible value in the 7 bit PayloadCounter
+                    for (int PayloadCounter = 0; PayloadCounter <= sbyte.MaxValue; ++PayloadCounter)
                     {
-                        //Check the Version
-                        System.Diagnostics.Debug.Assert(p.Version == VersionCounter, "Unexpected Version");
+                        //Permute every possible value in the 4 bit ContributingSourceCounter
+                        for (byte ContributingSourceCounter = byte.MinValue; ContributingSourceCounter <= Media.Common.Binary.FourBitMaxValue; ++ContributingSourceCounter)
+                        {
+                            int RandomId = Utility.Random.Next(), RandomSequenceNumber = Utility.Random.Next(ushort.MinValue, ushort.MaxValue), RandomTimestamp = Utility.Random.Next();
 
-                        //Check the Padding
-                        System.Diagnostics.Debug.Assert(p.Padding == bitValue, "Unexpected Padding");
+                            //Create a RtpPacket instance using the specified options
+                            using (Media.Rtp.RtpPacket p = new Rtp.RtpPacket(VersionCounter, 
+                                bitValue, !bitValue, bitValue, 
+                                PayloadCounter, 
+                                ContributingSourceCounter, 
+                                RandomId, 
+                                RandomSequenceNumber,
+                                RandomTimestamp))
+                            {
+                                //Check the Version
+                                System.Diagnostics.Debug.Assert(p.Version == VersionCounter, "Unexpected Version");
 
-                        //Check the Extension
-                        System.Diagnostics.Debug.Assert(p.Extension == !bitValue, "Unexpected Extension");
+                                //Check the Padding
+                                System.Diagnostics.Debug.Assert(p.Padding == bitValue, "Unexpected Padding");
 
-                        //Check the Length
-                        System.Diagnostics.Debug.Assert(p.Length == Media.Rtp.RtpHeader.Length, "Unexpected Length");
+                                //Check the Extension
+                                System.Diagnostics.Debug.Assert(p.Extension == !bitValue, "Unexpected Extension");
+
+                                //Check the PayloadType
+                                System.Diagnostics.Debug.Assert(p.PayloadType == PayloadCounter, "Unexpected PayloadType");
+
+                                //Check the ContributingSourceCount
+                                System.Diagnostics.Debug.Assert(p.ContributingSourceCount == ContributingSourceCounter, "Unexpected ContributingSourceCounter");
+
+                                //Check the Length
+                                System.Diagnostics.Debug.Assert(p.Length == Media.Rtp.RtpHeader.Length, "Unexpected Length");
+
+                                //Serialize, Deserialize and verify again
+                                using (Media.Rtp.RtpPacket s = new Rtp.RtpPacket(p.Prepare().ToArray(), 0))
+                                {
+                                    if (false == s.Prepare().SequenceEqual(p.Prepare())) throw new Exception("Unexpected Data");
+                                }
+                            }
+                        }
                     }
                 }
             }

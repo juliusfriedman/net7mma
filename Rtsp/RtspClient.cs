@@ -1606,7 +1606,7 @@ namespace Media.Rtsp
                                 using (var memory = new Media.Common.MemorySegment(data, offset, length))
                                 {
                                     //Use the data recieved to complete the message and not the socket
-                                    int justReceived = m_LastTransmitted.CompleteFrom(null, memory);
+                                    int justReceived = m_LastTransmitted != null ? m_LastTransmitted.CompleteFrom(null, memory) : 0;
 
                                     //If anything was received
                                     if (justReceived > 0)
@@ -1615,7 +1615,7 @@ namespace Media.Rtsp
                                         received += justReceived;
 
                                         //No data was consumed don't raise another event.
-                                        if (lastLength == m_LastTransmitted.Length) received = 0;
+                                        if (m_LastTransmitted != null && lastLength == m_LastTransmitted.Length) received = 0;
                                     }
 
                                     //handle the completion of a request sent by the server if allowed.
@@ -2439,13 +2439,12 @@ namespace Media.Rtsp
                     if (false == wasConnected && false == (wasConnected = IsConnected)) Connect();
 
                     //If the client is not connected then nothing can be done.
-                    if (false == IsConnected) return null;
-              
-                    //We are connected.
-                    wasConnected = true;
+
+                    //Othewise we are connected
+                    if (false == (wasConnected = IsConnected)) return null;
 
                     //Set the block if a response is required.
-                    if (hasResponse || false == wasBlocked) m_InterleaveEvent.Reset();
+                    if (hasResponse && false == wasBlocked) m_InterleaveEvent.Reset();
 
                     //If nothing is being sent this is a receive only operation
                     if (message == null) goto NothingToSend;
@@ -2464,7 +2463,7 @@ namespace Media.Rtsp
                     }
 
                     //If we can write
-                if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
+                    if (m_RtspSocket != null && m_RtspSocket.Poll((int)Math.Round(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(m_RtspSessionTimeout) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMillisecond, MidpointRounding.ToEven), SelectMode.SelectWrite))
                     {
                         sent += m_RtspSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
                     }
@@ -2595,6 +2594,9 @@ namespace Media.Rtsp
                     }
 
                 Wait: //Wait for the response unless the method requested is unknown
+
+                    DateTime lastAttempt = DateTime.UtcNow;
+
                     if (received < RtspMessage.MaximumLength)// && request.Method != RtspMethod.TEARDOWN)
                     {
                         //Wait while
@@ -2619,7 +2621,7 @@ namespace Media.Rtsp
                             if (m_LastTransmitted != null) goto GotResponse;
 
                             //Calculate how much time has elapsed
-                            TimeSpan taken = DateTime.UtcNow - (message.Transferred ?? message.Created);
+                            TimeSpan taken = DateTime.UtcNow - lastAttempt;
 
                             //If more time has elapsed than allowed by reading
                             if (taken > m_LastMessageRoundTripTime && taken.TotalMilliseconds >= SocketReadTimeout)
@@ -4022,6 +4024,7 @@ namespace Media.Rtsp
         public RtspMessage SendPlay(Uri location = null, TimeSpan? startTime = null, TimeSpan? endTime = null, string rangeType = "npt", bool force = false)
         {
             int sequenceNumber;
+
             return SendPlay(out sequenceNumber, location, startTime, endTime, rangeType, force);
         }
 

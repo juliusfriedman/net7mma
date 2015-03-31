@@ -56,6 +56,7 @@
     <Compile Include="Collections\ConcurrentThesaurus.cs" />
     <Compile Include="Collections\RingBuffer.cs" />
     <Compile Include="CommonDisposable.cs" />
+    <Compile Include="Extensions\ArrayExtensions.cs" />
     <Compile Include="Extensions\EncodingExtensions.cs" />
     <Compile Include="Extensions\ExceptionExtensions.cs" />
     <Compile Include="Extensions\IPAddressExtensions.cs" />

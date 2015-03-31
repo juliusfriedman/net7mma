@@ -467,10 +467,95 @@ namespace Media.Rtp
             return boxA == null ? boxB == null : a.Equals(b);
         }
 
-        public static bool operator !=(RtpHeader a, RtpHeader b) { return !(a == b); }
+        public static bool operator !=(RtpHeader a, RtpHeader b) { return false == (a == b); }
 
         #endregion
     }
 
     #endregion
+}
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the RtpHeader class is correct
+    /// </summary>
+    internal class RtpHeaderUnitTests
+    {
+        public static void TestAConstructor_And_Reserialization()
+        {
+            unchecked
+            {
+                bool bitValue = false;
+
+                //Test every possible bit packed value that can be valid in the first and second octet
+                for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
+                {
+                    //Make a bitValue after the 0th iteration
+                    if (ibitValue > 0) bitValue = Convert.ToBoolean(ibitValue);
+
+                    //Permute every possible value within the 2 bit Version
+                    for (byte VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
+                    {
+                        //Permute every possible value in the 7 bit PayloadCounter
+                        for (int PayloadCounter = 0; PayloadCounter <= sbyte.MaxValue; ++PayloadCounter)
+                        {
+                            //Permute every possible value in the 4 bit ContributingSourceCounter
+                            for (byte ContributingSourceCounter = byte.MinValue; ContributingSourceCounter <= Media.Common.Binary.FourBitMaxValue; ++ContributingSourceCounter)
+                            {
+                                int RandomId = Utility.Random.Next(), RandomSequenceNumber = Utility.Random.Next(ushort.MinValue, ushort.MaxValue), RandomTimestamp = Utility.Random.Next();
+
+                                using (Rtp.RtpHeader test = new Rtp.RtpHeader(VersionCounter,
+                                    !bitValue, !bitValue, !bitValue,
+                                    PayloadCounter,
+                                    ContributingSourceCounter,
+                                    RandomId, RandomSequenceNumber, RandomTimestamp))
+                                {
+                                    if (test.SynchronizationSourceIdentifier != RandomId) throw new Exception("Unexpected SynchronizationSourceIdentifier");
+
+                                    if (test.SequenceNumber != RandomSequenceNumber) throw new Exception("Unexpected SequenceNumber");
+
+                                    if (test.Timestamp != RandomTimestamp) throw new Exception("Unexpected Timestamp");
+
+                                    if (test.Padding != !bitValue) throw new Exception("Unexpected Padding");
+
+                                    if (test.Extension != !bitValue) throw new Exception("Unexpected Extension");
+
+                                    if (test.Version != VersionCounter) throw new Exception("Unexpected Version");
+
+                                    if (test.PayloadType != PayloadCounter) throw new Exception("Unexpected PayloadType");
+
+                                    if (test.ContributingSourceCount != ContributingSourceCounter) throw new Exception("Unexpected ContributingSourceCounter");
+
+                                    if (test.Count() != test.Size) throw new Exception("Invalid Size given Count");
+
+                                    //Test Serialization from an array and Deserialization from the array
+
+                                    using (Rtp.RtpHeader deserialized = new Rtp.RtpHeader(test.ToArray()))
+                                    {
+                                        if (test.Padding != deserialized.Padding) throw new Exception("Unexpected BlockCount");
+
+                                        if (test.Version != deserialized.Version) throw new Exception("Unexpected Version");
+
+                                        if (test.PayloadType != deserialized.PayloadType) throw new Exception("Unexpected PayloadType");
+
+                                        if (test.ContributingSourceCount != deserialized.ContributingSourceCount) throw new Exception("Unexpected ContributingSourceCount");
+
+                                        if (test.Timestamp != deserialized.Timestamp) throw new Exception("Invalid Timestamp");
+
+                                        if (test.Size != deserialized.Size) throw new Exception("Unexpected Size");
+
+                                        if (false == test.SequenceEqual(deserialized)) throw new Exception("Unexpected SequenceEqual");
+                                    }
+
+                                    //Test IEnumerable constructor if added
+
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

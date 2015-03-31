@@ -56,7 +56,7 @@ namespace Media.Rtcp
     /// <remarks>
     /// ReportBlock is a fixed sized structure which must always contain 24 octets.
     /// </remarks>
-    public class ReportBlock : IReportBlock, IEnumerable<byte>, ICloneable
+    public class ReportBlock : Common.BaseDisposable, IReportBlock, IEnumerable<byte>, ICloneable
     {
         #region Constants and Statics
 
@@ -77,13 +77,15 @@ namespace Media.Rtcp
 
         #region Properties
 
+        public virtual bool IsComplete { get { return false == IsDisposed && Memory.Count >= ReportBlockSize; } }
+
         /// <summary>
         /// The size in octets of this ReportBlock instance
         /// </summary>
         public virtual int Size { get { return ReportBlockSize; } }
 
         /// <summary>
-        /// The ID of the participant who sent this ReportBlock
+        /// The identifier or identity to which this ReportBlock corresponds to.
         /// </summary>
         public int SendersSynchronizationSourceIdentifier
         {
@@ -97,8 +99,8 @@ namespace Media.Rtcp
         /// </summary>
         public byte FractionsLost
         {
-            get { return Binary.ReadU8(Memory.Array, Memory.Offset + 4, BitConverter.IsLittleEndian); }
-            protected set { Binary.WriteU8(Memory.Array, Memory.Offset + 4, BitConverter.IsLittleEndian, value); }
+            get { return Binary.ReadU8(Memory.Array, Memory.Offset + 4, false); }
+            protected set { Binary.WriteU8(Memory.Array, Memory.Offset + 4, false, value); }
         }
 
         /// <summary>
@@ -127,7 +129,7 @@ namespace Media.Rtcp
         public int InterarrivalJitterEstimate
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 12, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -136,7 +138,7 @@ namespace Media.Rtcp
         public int LastSendersReportTimestamp
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 16, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         /// <summary>
@@ -145,7 +147,7 @@ namespace Media.Rtcp
         public int DelaySinceLastSendersReport
         {
             get { return (int)Binary.ReadU32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian); }
-            protected set { Binary.Write24(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian, (uint)value); }
+            protected set { Binary.Write32(Memory.Array, Memory.Offset + 20, BitConverter.IsLittleEndian, (uint)value); }
         }
 
         int IReportBlock.BlockIdentifier
@@ -155,7 +157,7 @@ namespace Media.Rtcp
 
         IEnumerable<byte> IReportBlock.BlockData
         {
-            get { return Memory.Array.Skip(Memory.Offset).Take(Memory.Count); }
+            get { return Memory; }
         }
 
         #endregion
@@ -165,13 +167,20 @@ namespace Media.Rtcp
         /// <summary>
         /// Allocates 24 octets to represent this ReportBlock instance.
         /// </summary>
-        ReportBlock() { m_OwnedOctets = new byte[Size]; Memory = new Common.MemorySegment(m_OwnedOctets, 0, Size); }
+        ReportBlock(bool shouldDispose = true)
+        {
+            m_OwnedOctets = new byte[Size]; 
+            
+            Memory = new Common.MemorySegment(m_OwnedOctets, 0, Size);
+
+            ShouldDispose = shouldDispose;
+        }
 
         /// <summary>
         /// Allocates 24 octets of memory and sets the <see cref="ReportBlock.SendersSynchronizationSourceIdentifier"/> property to the value of <paramref name="ssrc"/>.
         /// </summary>
         /// <param name="ssrc">The id of the participant who sent this ReportBlock instance</param>
-        public ReportBlock(int ssrc) : this() { SendersSynchronizationSourceIdentifier = ssrc; }
+        public ReportBlock(int ssrc, bool shouldDispose = true) : this(shouldDispose) { SendersSynchronizationSourceIdentifier = ssrc; }
 
         public ReportBlock(int ssrc, byte fractionsLost) : this(ssrc) { FractionsLost = fractionsLost; }
 
@@ -193,6 +202,7 @@ namespace Media.Rtcp
         public ReportBlock(ReportBlock reference)
         {
             if (reference == null) throw new ArgumentNullException();
+
             Memory = reference.Memory;
         }
 
@@ -208,6 +218,7 @@ namespace Media.Rtcp
         public ReportBlock Clone(bool reference)
         {
             if (reference) return new ReportBlock(this);
+
             return (ReportBlock)this.MemberwiseClone(); //Calls the default constructor and sets each property.
         }
 
@@ -215,9 +226,9 @@ namespace Media.Rtcp
         /// Prepares a sequence containig the octets which represent this instance.
         /// </summary>
         /// <returns>The sequence created</returns>
-        IEnumerable<byte> Prepare()
+        public virtual IEnumerable<byte> Prepare()
         {
-            return Memory.Array.Skip(Memory.Offset).Take(Size);
+            return Memory.Take(Size);
         }
 
         #endregion
@@ -245,7 +256,97 @@ namespace Media.Rtcp
         }
 
         #endregion
+
+        public override void Dispose()
+        {
+            base.Dispose();
+
+            if (ShouldDispose)
+            {
+                IDisposable memory = (IDisposable)Memory;
+
+                if (memory != null)
+                {
+                    memory.Dispose();
+
+                    memory = null;
+                }
+            }
+        }
     }
 
     #endregion
+}
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the ReportBlock class is correct
+    /// </summary>
+    internal class RtcpReportBlockUnitTests
+    {
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
+        {
+            byte FractionsLost = (byte)Utility.Random.Next(byte.MinValue, byte.MaxValue);
+
+            int RandomId = RFC3550.Random32(Utility.Random.Next()),
+                CumulativePacketsLost = RFC3550.Random32(Utility.Random.Next(0, Binary.U24MaxValue)),
+                ExtendedHighestSequenceNumberReceived = RFC3550.Random32(Utility.Random.Next()),
+                InterarrivalJitterEstimate = RFC3550.Random32(Utility.Random.Next()),
+                LastSendersReportTimestamp = RFC3550.Random32(Utility.Random.Next()),
+                DelaySinceLastSendersReport = RFC3550.Random32(Utility.Random.Next());
+
+            //Create the ReportBlock using the random values
+            using (Rtcp.ReportBlock rb = new Rtcp.ReportBlock(RandomId,
+                FractionsLost, CumulativePacketsLost,
+                ExtendedHighestSequenceNumberReceived,
+                InterarrivalJitterEstimate,
+                LastSendersReportTimestamp,
+                DelaySinceLastSendersReport))
+            {
+                //Check IsComplete
+                System.Diagnostics.Debug.Assert(rb.IsComplete, "IsComplete must be true.");
+
+                //Check Size
+                System.Diagnostics.Debug.Assert(rb.Size == Rtcp.ReportBlock.ReportBlockSize, "Unexpected Size");
+
+                //Check SendersSynchronizationSourceIdentifier
+                System.Diagnostics.Debug.Assert(rb.SendersSynchronizationSourceIdentifier == RandomId, "Unexpected SendersSynchronizationSourceIdentifier");
+
+                //Check FractionsLost 8 bit
+                System.Diagnostics.Debug.Assert(rb.FractionsLost == FractionsLost, "Unexpected FractionsLost");
+
+                //Check CumulativePacketsLost 24 bit,
+                //System.Diagnostics.Debug.Assert(rb.CumulativePacketsLost == CumulativePacketsLost, "Unexpected CumulativePacketsLost");
+
+                //Check ExtendedHighestSequenceNumberReceived
+                System.Diagnostics.Debug.Assert(rb.ExtendedHighestSequenceNumberReceived == ExtendedHighestSequenceNumberReceived, "Unexpected ExtendedHighestSequenceNumberReceived");
+
+                //Check InterarrivalJitterEstimate
+                System.Diagnostics.Debug.Assert(rb.InterarrivalJitterEstimate == InterarrivalJitterEstimate, "Unexpected InterarrivalJitterEstimate");
+
+                //Check LastSendersReportTimestamp
+                System.Diagnostics.Debug.Assert(rb.LastSendersReportTimestamp == LastSendersReportTimestamp, "Unexpected LastSendersReportTimestamp");
+
+                //Check DelaySinceLastSendersReport
+                System.Diagnostics.Debug.Assert(rb.DelaySinceLastSendersReport == DelaySinceLastSendersReport, "Unexpected DelaySinceLastSendersReport");
+
+                //Serialize, Deserialize and verify again
+                using (Rtcp.ReportBlock s = new Rtcp.ReportBlock(new Common.MemorySegment(rb.Prepare().ToArray())))
+                {
+                    //Check IsComplete
+                    System.Diagnostics.Debug.Assert(s.IsComplete, "IsComplete must be true.");
+
+                    //Check IsComplete
+                    System.Diagnostics.Debug.Assert(rb.SequenceEqual(s), "Unexpected results from Prepare");
+
+                }
+
+            }
+
+        }
+    }
 }

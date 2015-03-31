@@ -93,13 +93,13 @@ namespace Media.Concepts.Classes
 
         #endregion
 
-        #region SizeOf
+        #region BytesPer
 
         //http://stackoverflow.com/questions/4764573/why-is-typedreference-behind-the-scenes-its-so-fast-and-safe-almost-magical
 
         internal static class ArrayOfTwoElements<T> { internal static readonly T[] Value = new T[2]; }
 
-        internal static uint SizeOf<T>()
+        internal static uint BytesPer<T>()
         {
             System.TypedReference
                     elem1 = __makeref(ArrayOfTwoElements<T>.Value[0] ),

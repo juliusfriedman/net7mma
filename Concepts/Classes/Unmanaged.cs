@@ -45,7 +45,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 //http://www.codeproject.com/Articles/32125/Unmanaged-Arrays-in-C-No-Problem
 
-//Used Unsafe.SizeOf to fix issues with pointer sizes
+//Used Unsafe.BytesPer to fix issues with pointer sizes
 
 namespace Media.Concepts.Classes
 {
@@ -57,13 +57,13 @@ namespace Media.Concepts.Classes
         public static void* New<T>(int elementCount)
             where T : struct
         {
-            return System.Runtime.InteropServices.Marshal.AllocHGlobal((int)(Unsafe.SizeOf<T>() * elementCount)).ToPointer();
+            return System.Runtime.InteropServices.Marshal.AllocHGlobal((int)(Unsafe.BytesPer<T>() * elementCount)).ToPointer();
         }
 
         public static void* NewAndInit<T>(int elementCount)
             where T : struct
         {
-            int newSizeInBytes = (int)(Unsafe.SizeOf<T>() * elementCount);
+            int newSizeInBytes = (int)(Unsafe.BytesPer<T>() * elementCount);
 
             byte* newArrayPointer = (byte*)System.Runtime.InteropServices.Marshal.AllocHGlobal(newSizeInBytes).ToPointer();
 
@@ -82,7 +82,7 @@ namespace Media.Concepts.Classes
             where T : struct
         {
             return (System.Runtime.InteropServices.Marshal.ReAllocHGlobal(new System.IntPtr(oldPointer),
-                new System.IntPtr(Unsafe.SizeOf<T>() * newElementCount))).ToPointer();
+                new System.IntPtr(Unsafe.BytesPer<T>() * newElementCount))).ToPointer();
         }
     }
 }

@@ -62,8 +62,11 @@ namespace Media.Rtcp
 
             #region Constructor
 
-            public ReceiversReport(int version, bool padding, int reportBlocks, int ssrc)
-                : base(version, PayloadType, padding, ssrc, reportBlocks, reportBlocks * ReportBlock.ReportBlockSize) { }
+            public ReceiversReport(int version, int padding, int reportBlocks, int ssrc)
+                : base(version, PayloadType, padding, ssrc, reportBlocks, ReportBlock.ReportBlockSize) { }
+
+            public ReceiversReport(int version, int reportBlocks, int ssrc)
+                : base(version, PayloadType, 0, ssrc, reportBlocks, ReportBlock.ReportBlockSize) { }
 
             public ReceiversReport(RtcpPacket reference, bool shouldDispose)
                 : base(reference.Header, reference.Payload, shouldDispose)
@@ -76,4 +79,102 @@ namespace Media.Rtcp
         }
 
         #endregion
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the ReceiversReport class is correct
+    /// </summary>
+    internal class RtcpReceiversReportUnitTests
+    {
+
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
+        {            
+            //Permute every possible value in the 5 bit BlockCount
+            for (byte ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+            {
+                //Permute every possible value in the Padding field.
+                for (byte PaddingCounter = byte.MinValue; PaddingCounter <= Media.Common.Binary.FiveBitMaxValue; ++PaddingCounter)
+                {
+                    //Create a random id
+                    int RandomId = RFC3550.Random32(Utility.Random.Next());
+
+                    //Create a SendersReport instance using the specified options.
+                    using (Media.Rtcp.ReceiversReport p = new Rtcp.ReceiversReport(0, PaddingCounter, ReportBlockCounter, RandomId))
+                    {
+                        //Check IsComplete
+                        System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
+
+                        //Check Length
+                        System.Diagnostics.Debug.Assert(p.Length == Binary.BitsPerByte + Rtcp.ReportBlock.ReportBlockSize * ReportBlockCounter + PaddingCounter, "Unexpected Length");
+
+                        //Check SynchronizationSourceIdentifier
+                        System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == RandomId, "Unexpected SynchronizationSourceIdentifier");
+
+                        //Check the BlockCount count
+                        System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
+
+                        //Check the PaddingOctets count
+                        System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter, "Unexpected PaddingOctets");
+
+                        //Check all data in the padding but not the padding octet itself.
+                        System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
+
+                        //Verify all IReportBlock
+                        foreach (Rtcp.IReportBlock rb in p)
+                        {
+                            System.Diagnostics.Debug.Assert(rb.BlockIdentifier == 0, "Unexpected ChunkIdentifier");
+
+                            System.Diagnostics.Debug.Assert(rb.BlockData.All(b => b == 0), "Unexpected BlockData");
+
+                            System.Diagnostics.Debug.Assert(rb.Size == Media.Rtcp.ReportBlock.ReportBlockSize, "Unexpected Size");
+                        }
+
+                        //Serialize and Deserialize and verify again
+                        using (Rtcp.ReceiversReport s = new Rtcp.ReceiversReport(new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0), true))
+                        {
+                            //Check SynchronizationSourceIdentifier
+                            System.Diagnostics.Debug.Assert(s.SynchronizationSourceIdentifier == p.SynchronizationSourceIdentifier, "Unexpected SynchronizationSourceIdentifier");
+
+                            //Check the Payload.Count
+                            System.Diagnostics.Debug.Assert(s.Payload.Count == p.Payload.Count, "Unexpected Payload Count");
+
+                            //Check the Length, 
+                            System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+
+                            //Check the BlockCount count
+                            System.Diagnostics.Debug.Assert(s.BlockCount == p.BlockCount, "Unexpected BlockCount");
+
+                            //Verify all IReportBlock
+                            foreach (Rtcp.IReportBlock rb in s)
+                            {
+                                System.Diagnostics.Debug.Assert(rb.BlockIdentifier == 0, "Unexpected ChunkIdentifier");
+
+                                System.Diagnostics.Debug.Assert(rb.BlockData.All(b => b == 0), "Unexpected BlockData");
+
+                                System.Diagnostics.Debug.Assert(rb.Size == Media.Rtcp.ReportBlock.ReportBlockSize, "Unexpected Size");
+                            }
+
+                            //Check the RtcpData
+                            System.Diagnostics.Debug.Assert(p.RtcpData.SequenceEqual(s.RtcpData), "Unexpected RtcpData");
+
+                            //Check the PaddingOctets
+                            System.Diagnostics.Debug.Assert(s.PaddingOctets == p.PaddingOctets, "Unexpected PaddingOctets");
+
+                            //Check all data in the padding but not the padding octet itself.
+                            System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
+                        }
+
+                    }
+                }
+            }
+        }
+
+        //Test AddReports And Enumerator And Reserialization
+    }
 }

@@ -17,13 +17,13 @@ namespace Media.Common
 
         byte[] m_Array;
 
-        int m_Offset, m_Length;
+        uint m_Offset, m_Length;
 
         //public readonly Binary.ByteOrder ByteOrder;
 
-        public int Count { get { return m_Length; } protected set { m_Length = value; } }
+        public int Count { get { return (int)m_Length; } protected set { m_Length = (uint)value; } }
 
-        public int Offset { get { return m_Offset; } protected set { m_Offset = value; } }
+        public int Offset { get { return (int)m_Offset; } protected set { m_Offset = (uint)value; } }
 
         public byte[] Array { get { return m_Array; } protected set { m_Array = value; } }
 
@@ -33,29 +33,30 @@ namespace Media.Common
             
             m_Array = reference;
             
-            m_Length = m_Array.Length;
+            m_Length = (uint)m_Array.Length;
 
             //ByteOrder = Binary.SystemEndian;
 
             ShouldDispose = shouldDispose;
         }
 
-        public MemorySegment(byte[] reference, int offset): this(reference)
+        public MemorySegment(byte[] reference, int offset, bool shouldDispose = true)
+            : this(reference, shouldDispose)
         {
-            m_Offset = offset;
+            m_Offset = (uint)offset;
 
             if (m_Offset > m_Length) throw new ArgumentOutOfRangeException("offset");
         }
 
-        public MemorySegment(byte[] reference, int offset, int length)
-            : this(reference, offset)
+        public MemorySegment(byte[] reference, int offset, int length, bool shouldDispose = true)
+            : this(reference, offset, shouldDispose)
         {
-            m_Length = length;
+            m_Length = (uint)length;
 
             if (m_Offset + m_Length > m_Array.Length) throw new ArgumentOutOfRangeException("length");
         }
 
-        public MemorySegment(int size)
+        public MemorySegment(int size, bool shouldDispose = true)
         {
             if (size < 0) throw new ArgumentException("size");
             
@@ -63,7 +64,9 @@ namespace Media.Common
             
             m_Offset = 0;
             
-            m_Length = size;
+            m_Length = (uint)size;
+
+            ShouldDispose = shouldDispose;
 
             //ByteOrder = Binary.SystemEndian;
         }
@@ -76,7 +79,7 @@ namespace Media.Common
 
             m_Array = other.Array;
 
-            m_Offset = other.Offset;
+            m_Offset = other.m_Offset;
 
             m_Length = other.m_Length;
 
@@ -85,8 +88,6 @@ namespace Media.Common
 
         public override void Dispose()
         {
-            if (IsDisposed) return;
-
             base.Dispose();
 
             //m_Array = Media.Common.MemorySegment.EmptyBytes;
@@ -99,13 +100,23 @@ namespace Media.Common
             //m_Offset = m_Length = -1;
         }
 
+        //Make an Enumerator implementation to help with Skip and Copy?
+
         IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
         {
-            for (int i = 0;  i < m_Length; ++i)
+            for (int i = 0; i < m_Length; ++i)
             {
                 yield return m_Array[m_Offset + i]; //this[i]
             }
         }
+
+        //IEnumerator<byte> GetReverseEnumerator()
+        //{
+        //    for (uint i = m_Length - 1; i <= 0; --i)
+        //    {
+        //        yield return m_Array[m_Offset + i]; //this[i]
+        //    }
+        //}
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {

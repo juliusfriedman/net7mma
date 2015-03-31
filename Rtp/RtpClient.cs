@@ -447,7 +447,7 @@ namespace Media.Rtp
             public static SendersReport CreateSendersReport(TransportContext context, bool empty, bool rfc = true)
             {
                 //Create a SendersReport
-                SendersReport result = new SendersReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
+                SendersReport result = new SendersReport(context.Version, 0, context.SynchronizationSourceIdentifier);
 
                 //Use the values from the TransportChannel (Use .NtpTimestamp = 0 to Disable NTP)[Should allow for this to be disabled]
                 result.NtpTimestamp = context.NtpTimestamp;
@@ -517,7 +517,7 @@ namespace Media.Rtp
             /// <returns>The report created</returns>
             public static ReceiversReport CreateReceiversReport(TransportContext context, bool empty)
             {
-                ReceiversReport result = new ReceiversReport(context.Version, false, 0, context.SynchronizationSourceIdentifier);
+                ReceiversReport result = new ReceiversReport(context.Version, 0, context.SynchronizationSourceIdentifier);
 
                 if (false == empty && context.RemoteSynchronizationSourceIdentifier != null && context.RemoteSynchronizationSourceIdentifier.Value != 0 && context.TotalRtpPacketsReceieved > 0)
                 {
@@ -2108,7 +2108,8 @@ namespace Media.Rtp
                 {
                     Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket - Incoming RtcpPacket actually was Rtp. Ssrc= " + partyId + " Type=" + rtpPayloadType + " Len=" + packet.Length);
 
-                    //Raise an event for the 'RtpPacket' received.
+                    //Raise an event for the 'RtpPacket' received. 
+                    //Todo Use the existing reference / memory of the RtcpPacket)
                     OnRtpPacketReceieved(new RtpPacket(packet.Prepare().ToArray(), 0));
 
                     //Don't do anything else
@@ -4394,7 +4395,6 @@ namespace Media.Rtp
 
                     mRemaining -= rtcp.Length;
                 }
-
             }
 
             //If rtp is parsed
@@ -4421,6 +4421,7 @@ namespace Media.Rtp
             {
                 Media.Common.ILoggingExtensions.Log(Logger, ToString() + "@ParseAndCompleteData - Remaining= " + mRemaining);
 
+                //Only handle when not in TCP?
                 //OnInterleavedData(memory.Array, offset + index, mRemaining);
             }
 
