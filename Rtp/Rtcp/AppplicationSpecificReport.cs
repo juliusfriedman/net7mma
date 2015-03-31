@@ -60,7 +60,12 @@ namespace Media.Rtcp
     {
         #region Constants and Statics
 
-        public const int PayloadType = 204;
+        public new const int PayloadType = 204;
+
+        /// <summary>
+        /// The amount of bytes which occupy the <see cref="Name"/> field in any ApplicationSpecificReport.
+        /// </summary>
+        public const int NameSize = 4;
 
         #endregion
 
@@ -72,9 +77,32 @@ namespace Media.Rtcp
         /// <param name="version">The version of the report</param>
         /// <param name="padding">Indicates if the Padding bit should be set in the header</param>
         /// <param name="subType">The subType of the ApplicationSpecificReport</param>
+        /// <param name="name">The name of the ApplicationSpecificReport</param>
         /// <param name="applicationDependentData">Optional Application specific data.</param>
-        public ApplicationSpecificReport(int version, bool padding, int subType, byte[] applicationDependentData)
-            : base(version, PayloadType, padding, subType, 8, applicationDependentData != null ? applicationDependentData.Length : 0)
+        public ApplicationSpecificReport(int version, int padding, int ssrc, int subType, byte[] name, byte[] applicationDependentData)
+            : base(version, PayloadType, padding, ssrc, 
+            subType, //BlockCount
+            0, //BlockSize
+            Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(applicationDependentData) ? NameSize : NameSize + applicationDependentData.Length + 1) //Extension size in bytes
+        {
+            //Copy the given name
+            if (false == Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(name)) Array.Copy(name, 0, Payload.Array, Payload.Offset, NameSize);
+
+            //Copy the ApplicationDependentData
+            if (HasExtensionData)
+            {
+                applicationDependentData.CopyTo(Payload.Array, Payload.Offset + NameSize);
+            }
+        }
+
+        public ApplicationSpecificReport(int version, int ssrc, int subType, byte[] name, byte[] applicationDependentData)
+            : this(version, 0, ssrc, subType, name, applicationDependentData)
+        {
+
+        }
+
+        public ApplicationSpecificReport(int version, int ssrc, int subType, string name, byte[] applicationDependentData)
+            : this(version, 0, ssrc, subType, Encoding.UTF8.GetBytes(name), applicationDependentData)
         {
 
         }
@@ -114,17 +142,18 @@ namespace Media.Rtcp
 
         #region Properties
 
-        public override int ReportBlockOctets { get { return 8; } }
+        public override int ReportBlockOctets { get { return NameSize; } }
 
         /// <summary>
         /// The subtype of the Application-Defined RTCP Packet
         /// </summary>
-        public int Subtype
+        public virtual int Subtype
         {
             get { return Header.BlockCount; }
             protected set
             {
                 if (IsReadOnly) throw new InvalidOperationException("Can only set the Subtype property when IsReadOnly is false.");
+
                 Header.BlockCount = value;
             }
         }
@@ -132,34 +161,53 @@ namespace Media.Rtcp
         /// <summary>
         /// Gets the 32 bit name assoicted with the ApplicationSpecificReport.
         /// </summary>
-        public byte[] Name
+        public virtual byte[] Name
         {
-            get { return Payload.Array.Skip(Payload.Offset).Take(4).ToArray(); }
-            protected set
-            {
-                if (IsReadOnly) throw new InvalidOperationException("Can only set the Name property when IsReadOnly is false.");
-                Array.Copy(value, 0, Payload.Array, Payload.Offset, 4);
-            }
+            get { return Payload.Take(NameSize).ToArray(); }
+            //set
+            //{
+            //    if (IsReadOnly) throw new InvalidOperationException("Can only set the Name property when IsReadOnly is false.");
+
+            //    if (HasExtensionData)
+            //    {
+
+            //    }
+
+            //    Array.Copy(value, 0, Payload.Array, Payload.Offset, NameSize);
+            //    //value.Take(NameSize).ToArray().CopyTo(Payload.Array, Payload.Offset);
+            //}
         }
 
         /// <summary>
         /// Indicates if any ApplicationDependentData is present.
         /// </summary>
-        public bool HasApplicationDependentData
+        public virtual bool HasApplicationDependentData
         {
             get { return HasExtensionData; }
+        }
+
+        public virtual int ApplicationDependentOctets
+        {
+            get
+            {
+                return ExtensionDataOctets;
+            }
         }
 
         /// <summary>
         /// Gets the ApplicationDependentData defined in the ApplicationSpecificReport.
         /// If HasApplicationDependentData is false an Empty sequence is returned.
         /// </summary>
-        public IEnumerable<byte> ApplicationDependentData
+        public virtual IEnumerable<byte> ApplicationDependentData
         {
             get
             {
-                return ExtensionData;
+                return Payload.Skip(NameSize).Take(ExtensionDataOctets);
             }
+            //set
+            //{
+            //    ExtensionData = value;
+            //}
         }
 
         #endregion
@@ -175,11 +223,113 @@ namespace Media.Rtcp
         public ApplicationSpecificReport Clone(bool reference)
         {
             if (reference) return new ApplicationSpecificReport(Header, Payload);
+
             return new ApplicationSpecificReport(Header.Clone(), Prepare().ToArray());
         }
 
         #endregion
+
+        public override IEnumerator<IReportBlock> GetEnumerator()
+        {
+            yield break;
+        }
     }
 
     #endregion
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the ApplicationSpecificReport class is correct
+    /// </summary>
+    internal class RtcpApplicationSpecificReportUnitTests
+    {
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
+        {
+            //Permute every possible value in the 5 bit BlockCount
+            for (byte SubTypeCounter = byte.MinValue; SubTypeCounter <= Media.Common.Binary.FiveBitMaxValue; ++SubTypeCounter)
+            {
+                //Permute every possible value in the Padding field.
+                for (byte PaddingCounter = byte.MinValue; PaddingCounter <= Media.Common.Binary.FiveBitMaxValue; ++PaddingCounter)
+                {
+                    //Enumerate every possible reason length
+                    for (byte ApplicationSpecificDataLength = byte.MinValue; ApplicationSpecificDataLength <= Media.Common.Binary.FiveBitMaxValue; ++ApplicationSpecificDataLength)
+                    {
+                        //Create a random id
+                        int RandomId = RFC3550.Random32(Utility.Random.Next());
+
+                        //Create the Name and ApplicationDependentData
+                        IEnumerable<byte> NameData = Array.ConvertAll(Enumerable.Range(1, (int)Rtcp.ApplicationSpecificReport.NameSize).ToArray(), Convert.ToByte),
+                            ApplicationDependentData = Array.ConvertAll(Enumerable.Range(1, (int)ApplicationSpecificDataLength).ToArray(), Convert.ToByte);
+
+                        //Create a GoodbyeReport instance using the specified options.
+                        using (Media.Rtcp.ApplicationSpecificReport p = new Rtcp.ApplicationSpecificReport(0, PaddingCounter, RandomId, SubTypeCounter, NameData.ToArray(), ApplicationDependentData.ToArray()))
+                        {
+                            //Check IsComplete
+                            System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
+
+                            //Calculate the length of the ReasonForLeaving, should always be padded to 32 bits for octet alignment.
+                            int expectedApplicationSpecificDataLength = ApplicationSpecificDataLength > 0 ? Binary.BytesToMachineWords(ApplicationSpecificDataLength + 1) * Binary.BytesPerInteger : 0;
+
+                            //Check HasApplicationDependentData
+                            System.Diagnostics.Debug.Assert(expectedApplicationSpecificDataLength > 0 == p.HasApplicationDependentData, "Unexpected HasApplicationDependentData");
+
+                            //Check the Payload.Count
+                            System.Diagnostics.Debug.Assert(p.Payload.Count == Rtcp.ApplicationSpecificReport.NameSize + PaddingCounter + expectedApplicationSpecificDataLength, "Unexpected Payload Count");
+
+                            //Check the Length, 
+                            System.Diagnostics.Debug.Assert(p.Length == Rtcp.RtcpHeader.Length + Binary.BytesPerInteger + Rtcp.ApplicationSpecificReport.NameSize + PaddingCounter + expectedApplicationSpecificDataLength, "Unexpected Length");
+
+                            //Check the BlockCount and SubType
+                            System.Diagnostics.Debug.Assert(p.BlockCount == SubTypeCounter && p.Subtype == SubTypeCounter, "Unexpected SubType");
+
+                            //Check the RtcpData, Name and ApplicationDependentData
+                            System.Diagnostics.Debug.Assert(p.RtcpData.Take(Rtcp.ApplicationSpecificReport.NameSize + ApplicationSpecificDataLength).SequenceEqual(NameData.Concat(ApplicationDependentData))
+                                && p.Name.SequenceEqual(NameData)
+                                && p.ApplicationDependentData.Count() == expectedApplicationSpecificDataLength
+                                && p.ApplicationDependentData.Take(ApplicationSpecificDataLength).SequenceEqual(ApplicationDependentData), "Unexpected ApplicationDependentData data");
+
+                            //Check the PaddingOctets count
+                            System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter, "Unexpected PaddingOctets");
+
+                            //Check all data in the padding but not the padding octet itself.
+                            System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
+
+                            //Serialize and Deserialize the packet and verify again
+                            using (Media.Rtcp.ApplicationSpecificReport s = new Rtcp.ApplicationSpecificReport(new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0)))
+                            {
+                                //Check the Payload.Count
+                                System.Diagnostics.Debug.Assert(s.Payload.Count == p.Payload.Count, "Unexpected Payload Count");
+
+                                //Check the Length, 
+                                System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+
+                                //Check the BlockCount and SubType
+                                System.Diagnostics.Debug.Assert(p.BlockCount == SubTypeCounter && p.Subtype == SubTypeCounter, "Unexpected BlockCount");
+
+                                //Check the RtcpData, Name and ApplicationDependentData
+                                System.Diagnostics.Debug.Assert(s.RtcpData.Take(Rtcp.ApplicationSpecificReport.NameSize + ApplicationSpecificDataLength).SequenceEqual(NameData.Concat(ApplicationDependentData)) &&
+                                    p.Name.SequenceEqual(NameData) &&
+                                    s.ApplicationDependentData.Count() == expectedApplicationSpecificDataLength &&
+                                    s.ApplicationDependentData.Take(ApplicationSpecificDataLength).SequenceEqual(ApplicationDependentData) &&
+                                s.ApplicationDependentData.SequenceEqual(p.ApplicationDependentData), "Unexpected ApplicationDependentData data");
+
+                                //Check the PaddingOctets count
+                                System.Diagnostics.Debug.Assert(s.PaddingOctets == p.PaddingOctets, "Unexpected PaddingOctets");
+
+                                //Check all data in the padding but not the padding octet itself.
+                                System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

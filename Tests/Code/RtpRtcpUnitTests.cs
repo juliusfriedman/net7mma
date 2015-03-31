@@ -105,7 +105,7 @@ public class RtpRtcpTests
             if (ibitValue > 0) bitValue = Convert.ToBoolean(bitValue);
 
             //Show the bitValue 0 or 1
-            if (ibitValue <= 1) Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
+            //if (ibitValue <= 1) Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
 
             //Permute every possible value within the 2 bit Version
             for (int VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
@@ -114,8 +114,8 @@ public class RtpRtcpTests
                 p.Version = VersionCounter;
 
                 //Write the version information to the console.
-                Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
-                Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
+                //Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
+                //Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
 
                 //Set the bit values in the first octet
                 p.Extension = p.Padding = bitValue;
@@ -136,8 +136,8 @@ public class RtpRtcpTests
                     p.PayloadType = (byte)PayloadCounter;
 
                     //Write the value of the PayloadCounter to the console and the packet value to the Console.
-                    Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
-                    Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
+                    //Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
+                    //Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
 
                     //Check the PayloadType
                     System.Diagnostics.Debug.Assert(p.PayloadType == PayloadCounter, payloadException.Message);
@@ -156,8 +156,8 @@ public class RtpRtcpTests
                         /////////////
 
                         //Identify the Contributing Source Counter and the Packet's value
-                        Console.Write(string.Format(TestingFormat, "\tContributingSourceCounter", ContributingSourceCounter));
-                        Console.Write(string.Format(TestingFormat, " ContributingSourceCount", p.ContributingSourceCount + "\r\n"));
+                        //Console.Write(string.Format(TestingFormat, "\tContributingSourceCounter", ContributingSourceCounter));
+                        //Console.Write(string.Format(TestingFormat, " ContributingSourceCount", p.ContributingSourceCount + "\r\n"));
 
                         //Check the CC nibble in the first octet.
                         System.Diagnostics.Debug.Assert(p.ContributingSourceCount == ContributingSourceCounter, contributingSourceException.Message);
@@ -191,206 +191,7 @@ public class RtpRtcpTests
                 }
             }
 
-            Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
-        }
-
-    }
-
-    public void TestRtpExtension()
-    {
-        Console.WriteLine(System.Reflection.MethodBase.GetCurrentMethod().Name);
-
-        //Test TestOnvifRTPExtensionHeader (Thanks to Wuffles@codeplex)
-
-        byte[] m_SamplePacketBytes = new byte[]
-                                      {
-                                          0x90, 0x60, 0x94, 0x63, // RTP Header
-                                          0x0D, 0x19, 0x60, 0xC9, // .
-                                          0xA6, 0x20, 0x13, 0x44, // .
-
-                                          0xAB, 0xAC, 0x00, 0x03, // Extension Header   
-                                          0xD4, 0xBB, 0x8A, 0x43, // Extension Data     
-                                          0xFE, 0x7A, 0xC8, 0x1E, // Extension Data     
-                                          0x00, 0xD3, 0x00, 0x00, // Extension Data     
-
-                                          0x5C, 0x81, 0x9B, 0xC0, // RTP Payload start
-                                          0x1C, 0x02, 0x38, 0x8E, // .
-                                          0x2B, 0xC0, 0x01, 0x09, // .
-                                          0x55, 0x77, 0x49, 0x99, // .
-                                          0x62, 0xFF, 0xBA, 0xC9, // .
-                                          0x8E, 0xCE, 0x23, 0x96, // .
-                                          0x6A, 0xCC, 0xF5, 0x5F, // .
-                                          0xA0, 0x08, 0xD9, 0x37, // .
-                                          0xCF, 0xFA, 0xA5, 0x4D, // .
-                                          0x16, 0x6C, 0x78, 0x61, // .
-                                          0xFA, 0x7F, 0xC8, 0x7E, // .
-                                          0xA1, 0x15, 0xF6, 0x5F, // .
-                                          0xA3, 0x2F, 0x82, 0xC7, // .
-                                          0x45, 0x0A, 0x87, 0x75, // .
-                                          0xEC, 0x5B, 0x7D, 0xDE, // .
-                                          0x82, 0x31, 0xD0, 0xE9, // .
-                                          0xBE, 0xE5, 0x39, 0x8D, // etc. 
-                                      };
-
-        Media.Rtp.RtpPacket testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
-
-        if (testPacket.Extension)
-        {
-            using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
-            {
-
-                if (rtpExtension == null) throw new Exception("Extension is null");
-
-                if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
-
-                // The extension data length is (3 words / 12 bytes) 
-                // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
-                //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
-                if (rtpExtension.Size != 16) throw new Exception("Expected ExtensionLength not found");
-                else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
-
-                // Check extension values are what we expected.
-                if (rtpExtension.Flags != 0xABAC) throw new Exception("Expected Extension Flags Not Found");
-                else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
-
-                // Test the extension data is correct
-                byte[] expected = { 0xD4, 0xBB, 0x8A, 0x43, 0xFE, 0x7A, 0xC8, 0x1E, 0x00, 0xD3, 0x00, 0x00 };
-                if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
-                else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
-            }
-        }
-
-        byte[] output = testPacket.Prepare().ToArray();
-
-        if (output.Length != m_SamplePacketBytes.Length) throw new Exception("Packet was not the same");
-
-        for (int i = 0, e = testPacket.Length; i < e; ++i) if (output[i] != m_SamplePacketBytes[i]) throw new Exception("Packet was not the same");
-
-
-        Console.WriteLine();
-
-        m_SamplePacketBytes = new byte[]
-                                      {
-                                          //RTP Header
-                                             0x90,0x1a,0x01,0x6d,0xf3,0xff,0x40,0x58,0xf0,0x00,0x9c,0x5b,
-                                             //Extension FF FF, Length = 0
-                                             0xff,0xff,0x00,0x00
-
-                                            ,0x00,0x00,0x15,0x1c,0x01,0xff,0xa0,0x5a,0x13,0xd2,0xa9,0xf5,0xeb,0x49,0x52,0xdb
-                                            ,0x65,0xa8,0xd8,0x40,0x36,0xa8,0x03,0x81,0x41,0xf7,0xa5,0x34,0x52,0x28,0x4f,0x7a
-                                            ,0x29,0x79,0xf5,0xa4,0xa0,0x02,0x8a,0x5a,0x4a,0x00,0x28,0xed,0x45,0x14,0x0c,0x28
-                                            ,0xef,0x45,0x1c,0xd0,0x20,0xa3,0x34,0x51,0x40,0xc4,0xcd,0x2d,0x14,0x7e,0x34,0x00
-                                            ,0x7f,0x5a,0x4a,0x5a,0x29,0x00,0x94,0x52,0xd0,0x72,0x69,0x88,0x4e,0x68,0xa3,0x9a
-                                            ,0x5a,0x43,0x12,0x8a,0x39,0xa0,0x73,0x4c,0x02,0x8a,0x5a,0x29,0x00,0x63,0x8e,0x28
-                                            ,0xa5,0xcf,0x14,0x94,0x00,0x51,0x45,0x14,0x08,0x4a,0x51,0x9a,0x5c,0x52,0x00,0x68
-                                            ,0x01,0x40,0xa4,0xa7,0x04,0x62,0x78,0xa9,0x52,0x06,0x6e,0xd4,0x01,0x12,0x8e,0x7d
-                                            ,0x69,0x36,0x92,0x71,0x8a,0xd0,0x83,0x4f,0x91,0xfa,0x29,0x35,0x7a,0x1d,0x25,0xb3
-                                            ,0xf3,0xfc,0xa3,0xde,0x9d,0x85,0x73,0x11,0x62,0x63,0x56,0x63,0xb3,0x76,0xc6,0x14
-                                            ,0xd6,0xc9,0x86,0xca,0xd8,0x66,0x49,0x41,0x3e,0x82,0xaa,0x4f,0xad,0xdb,0xdb,0xf1
-                                            ,0x12,0x8e,0x3b,0x9a,0x05,0x71,0xb1,0x69,0x72,0x1e,0x48,0xc0,0xf7,0xa9,0x8d,0xa5
-                                            ,0xbc,0x03,0x32,0x48,0x3f,0x0a,0xc4,0xbd,0xf1,0x2c,0x8f,0x90,0x1f,0x03,0xd0,0x56
-                                            ,0x35,0xce,0xaf,0x2c,0x87,0xef,0x53,0xb0,0x1d,0x54,0xd7,0xf6,0xb0,0x70,0x80,0x1f
-                                            ,0x73,0x59,0xb7,0x9a,0xde,0x54,0x85,0x60,0x3e,0x95,0xcc,0x4d,0x79,0x23,0xf5,0x63
-                                            ,0x55,0xda,0x56,0x27,0x92,0x69,0xf2,0xdc,0x2e,0x5f,0x97,0x54,0x91,0xdc,0xe5,0x89
-                                            ,0xaa,0x57,0x77,0x4e,0xea,0x70,0x6a,0x0e,0x73,0x9a,0x8d,0xbe,0xb5,0x56,0x44,0xb6
-                                            ,0x46,0x8e,0x59,0xdb,0x2d,0x9c,0x76,0xf4,0xa7,0xfe,0x95,0x1a,0x9c,0x12,0x79,0xa7
-                                            ,0x82,0x4d,0x50,0x8f,0x41,0xa0,0x52,0xd2,0x71,0x59,0x1a,0x00,0x34,0xef,0x73,0x49
-                                            ,0x9a,0x3e,0xa6,0x80,0x0a,0x28,0xe2,0x8e,0xf4,0x00,0x01,0x4b,0x41,0x22,0x90,0x30
-                                            ,0xcf,0x51,0x45,0xc4,0x07,0x9a,0x51,0xd6,0x93,0x7a,0xff,0x00,0x78,0x7e,0x74,0x82
-                                            ,0x44,0x1d,0x58,0x50,0x31,0xc3,0x39,0x39,0xa3,0x34,0x82,0x58,0xc7,0xf1,0x8f,0xce
-                                            ,0x93,0xcf,0x8b,0xfb,0xe2,0x8b,0x88,0x7d,0x2e,0x0d,0x45,0xf6,0x88,0xfb,0xb8,0xfc
-                                            ,0xe8,0xfb,0x54,0x3f,0xf3,0xd0,0x51,0x70,0x25,0xa2,0xa1,0xfb,0x5c,0x3d,0xdc,0x50
-                                            ,0x2e,0xe1,0xcf,0xdf,0x14,0x5c,0x64,0xe0,0x51,0xc8,0xa4,0x57,0x57,0xe4,0x10,0x69
-                                            ,0xc7,0x91,0x40,0x84,0xa5,0xa0,0x76,0x34,0x50,0x01,0x8c,0x9a,0x29,0x7a,0x52,0xfb
-                                            ,0xd0,0x03,0x40,0xce,0x73,0x4b,0xb7,0x8a,0x5e,0x94,0x84,0xd0,0x03,0x31,0xcd,0x14
-                                            ,0xe3,0x49,0x8c,0xd0,0x31,0x41,0xa7,0x0f,0x5a,0x8f,0xbd,0x3d,0x78,0x34,0x08,0x7f
-                                            ,0x5e,0xb4,0x62,0x8c,0x64,0xd2,0xe3,0xd6,0x80,0x12,0x81,0x4b,0x8c,0xfb,0x51,0xc5
-                                            ,0x00,0x14,0x87,0x91,0x4a,0x4d,0x1e,0xbc,0xd0,0x21,0xb9,0xcd,0x3b,0xde,0x8f,0xad
-                                            ,0x28,0xa0,0x05,0xf4,0xa3,0xa9,0xa3,0x14,0x94,0x80,0x05,0x07,0xda,0x8a,0x5a,0x60
-                                            ,0x27,0x7a,0x3b,0xe6,0x96,0x8e,0xb4,0x80,0x4e,0xb4,0x84,0x77,0xa5,0xe4,0x52,0x1a
-                                            ,0x00,0x6e,0xda,0x8c,0x8e,0xb5,0x2d,0x30,0xe7,0xad,0x03,0x18,0x6a,0x39,0x33,0x52
-                                            ,0x53,0x25,0xe9,0xd6,0x81,0x94,0xe5,0xe9,0x55,0x24,0xfb,0xc3,0xeb,0x56,0xe4,0xe9
-                                            ,0x55,0x1b,0xef,0x0a,0x68,0x0b,0x30,0xf2,0xcb,0xf5,0xae,0x93,0x53,0xe3,0x4a,0x1f
-                                            ,0x85,0x73,0x90,0x0f,0xde,0x2f,0xd6,0xba,0x4d,0x57,0x8d,0x2c,0x1f,0xa5,0x0f,0x63
-                                            ,0x2a,0xbf,0x09,0x8d,0x6b,0x7d,0x2d,0xba,0xed,0x5c,0x11,0x5a,0xb6,0x9a,0xcb,0xa9
-                                            ,0x1b,0x93,0x35,0x84,0xbe,0xb5,0x62,0x2e,0xbc,0x57,0x34,0x99,0xca,0xa7,0x25,0xb1
-                                            ,0xdb,0xd8,0x6b,0xaa,0x17,0xee,0x10,0xd5,0xbb,0xa3,0x6a,0xcc,0x26,0xcc,0x8d,0x95
-                                            ,0x6e,0xa2,0xbc,0xfe,0xd1,0xb6,0xe3,0x9a,0xdc,0xb2,0x9f,0x18,0xe6,0xb8,0xaa,0x26
-                                            ,0x3f,0xac,0x4e,0xeb,0x53,0xd3,0x81,0x59,0x10,0x11,0x82,0xa6,0xa1,0x91,0x30,0xd8
-                                            ,0x27,0x22,0xa9,0xf8,0x7e,0x7f,0x36,0xc8,0x6e,0x39,0xc1,0xa4,0xbe,0xbb,0x09,0x70
-                                            ,0x57,0x3d,0x2a,0x66,0xd3,0x8a,0xee,0x74,0xd6,0xd6,0x0a,0x45,0xcf,0x2d,0x4d,0x21
-                                            ,0x88,0x55,0x05,0xbd,0x1e,0xb5,0x28,0xbc,0x07,0xbd,0x61,0x76,0x71,0x68,0x5b,0xfb
-                                            ,0x28,0x23,0x34,0xf8,0x20,0x11,0x12,0x7d,0x6a,0x18,0x2e,0xd4,0xf0,0xc6,0xae,0x03
-                                            ,0x9e,0x6b,0xb7,0x0f,0x0a,0x73,0xdd,0xea,0x8e,0xca,0x50,0x83,0xf7,0x96,0xe4,0x77
-                                            ,0x11,0xf9,0xb1,0x32,0xd6,0x4c,0x96,0x27,0xba,0x9a,0xda,0xa6,0x4b,0x22,0xc6,0x3e
-                                            ,0x63,0xf8,0x56,0x98,0x9a,0x51,0x4d,0xce,0xe3,0xad,0x4a,0x32,0xd5,0xb3,0x9e,0x96
-                                            ,0xcf,0xda,0xa8,0xdc,0x59,0xe3,0x27,0x15,0xd0,0x3b,0x2b,0x12,0x6a,0xad,0xc0,0x52
-                                            ,0x0d,0x79,0xe9,0x9e,0x7b,0x8a,0x28,0xe9,0xb6,0xf8,0xb5,0x6e,0x3b,0xd5,0x5b,0xc4
-                                            ,0xc6,0x45,0x6e,0x59,0x28,0xfb,0x23,0x1f,0x7a,0xc8,0xd4,0x78,0x26,0xbb,0xe9,0x3b
-                                            ,0xa3,0xd8,0xa4,0xad,0x49,0x18,0x53,0x8e,0x6b,0x1b,0x59,0x1f,0xe8,0xad,0x5b,0x33
-                                            ,0x9e,0x6b,0x1b,0x59,0x39,0xb5,0x35,0xd9,0xd0,0xc6,0xaf,0xc2,0xca,0x9e,0x1d,0x1c
-                                            ,0xc9,0xf5,0xab,0x77,0x03,0x13,0xb7,0xd7,0xad,0x56,0xf0,0xef,0x59,0x3e,0xb5,0x6e
-                                            ,0xe0,0x66,0x67,0xf5,0xcd,0x69,0x1d,0x8c,0xa1,0xb2,0x22,0x23,0xde,0x9b,0x4e,0xa3
-                                            ,0x03,0xad,0x05,0x89,0x40,0xcf,0x7a,0x5e,0xd9,0xa4,0xef,0x40,0x06,0x38,0x34,0x63
-                                            ,0x1e,0xf4,0x1e,0x07,0xd6,0x8f,0x4a,0x63,0x0f,0xeb,0x48,0x07,0xad,0x3b,0x81,0x4b
-                                            ,0xd7,0x14,0x80,0x6f,0x4c,0xe6,0x93,0x8c,0x75,0xa5,0x23,0xae,0x68,0xc7,0x38,0xa6
-                                            ,0x21,0x31,0xda,0x93,0x18,0xa7,0xe0,0x77,0x34,0x98,0xcd,0x00,0x34,0xf7,0xed,0x49
-                                            ,0x8a,0x7e,0x33,0x48,0x45,0x00,0x34,0x77,0xa3,0x93,0x4b,0x4a,0x7d,0x28,0x01,0x33
-                                            ,0x8a,0x30,0x71,0xcf,0x39,0xa2,0x97,0x1e,0xd4,0x00,0x2f,0xd2,0x9e,0x29,0x00,0xa7
-                                            ,0x7b,0x66,0x81,0x09,0x8f,0x6a,0x43,0x9c,0x1e,0x29,0xe4,0x66,0x9a,0x72,0x38,0xa4
-                                            ,0x52,0x2b,0xc8,0x0f,0x3d,0xaa,0xb4,0xb9,0x1f,0x4a,0xb5,0x27,0x7a,0xad,0x21,0xea
-                                            ,0x2a,0x59,0x48,0xa8,0xfe,0xb5,0x03,0x70,0x6a,0xc4,0x83,0x15,0x5c,0xf5,0xa0,0xa1
-                                            ,0x56,0xb6,0x3c,0x3d,0xff,0x00,0x1f,0xa9,0x58,0xe3,0xde,0xb6,0x7c,0x3d,0xff,0x00
-                                            ,0x1f,0x89,0x42,0x14,0xb6,0x3b,0x1a,0x43,0x41,0x6e,0x29,0x33,0x56,0x66,0x14,0xbf
-                                            ,0x53,0x4d,0xcd,0x26,0xf1,0xeb,0x40,0x0e,0x34,0xdf,0xad,0x30,0xca,0xa3,0xa9,0xa8
-                                            ,0x24,0xbc,0x8d,0x7a,0x9a,0x57,0x0b,0x12,0xc9,0x55,0x49,0x1d,0xcd,0x55,0xbb,0xd5
-                                            ,0x02,0xa9,0xd8,0xb9,0xfa,0xd6,0x3c,0xd7,0xf3,0x4d,0x9c,0xb6,0x07,0xa0,0xa3,0x98
-                                            ,0x7c,0xac,0xda,0x9a,0xea,0x18,0xb3,0xb9,0xc7,0xe1,0x59,0xd3,0xea,0xc3,0x27,0xca
-                                            ,0x4e,0x7d,0x4d,0x66,0x33,0x13,0xc9,0x24,0xd3,0x0f,0xeb,0x4b,0x99,0xb1,0xa8,0xa2
-                                            ,0x69,0xee,0xe7,0x9b,0xef,0x39,0xc7,0xa0,0xaa,0xc7,0x9e,0xf4,0xa6,0x9a,0x69,0x17
-                                            ,0x61,0x0d,0x25,0x2f,0xd6,0x83,0x40,0xc6,0x9a,0x28,0xeb,0x41,0x14,0x00,0x94,0x1a
-                                            ,0x28,0xa0,0x04,0xf7,0xa5,0xa2,0x92,0x90,0x05,0x1d,0x28,0xa5,0xa0,0x62,0x73,0x45
-                                            ,0x14,0x62,0x80,0x0a,0x3d,0x68,0xa2,0x80,0x0a,0x28,0xc5,0x2d,0x30,0x0e,0x94,0x7d
-                                            ,0x69,0x69,0x29,0x00,0x94,0xb8,0xcf,0x5a,0x31,0x4b,0xed,0x40,0x08,0x0d,0x18,0xe2
-                                            ,0x8a,0x28,0x10,0x9c,0xd1,0x4b,0x46,0x28,0x01,0x39,0xcd,0x14,0x51,0x8a,0x00,0x31
-                                            ,0x49,0x9e,0x69,0xe4,0x52,0x00,0x73,0xcd,0x03,0x12,0x8a,0x90,0x46,0xc7,0xb5,0x4f
-                                            ,0x1d,0xa3,0xb9,0xc0,0x52,0x68,0x11,0x57,0x06,0x9c,0xa8,0xc6,0xb5,0xe0,0xd1,0xe5
-                                            ,0x6e,0x59,0x71,0xf5,0xab,0x8b,0x63,0x69,0x6e,0x33,0x34,0xcb,0xc7,0x61,0x4e,0xc2
-                                            ,0xb9,0x84,0x96,0xce,0xc7,0xa1,0xab,0x90,0x69,0x72,0xbf,0x45,0x38,0xab,0xd2,0x6a
-                                            ,0x76,0x36,0xdc,0x46,0x81,0x8f,0xa9,0xac,0xeb,0xbf,0x11,0xb6,0x08,0x56,0x0a,0x3d
-                                            ,0xa9,0x0b,0x53,0x4a,0x3d,0x29,0x13,0xfd,0x6b,0xaa,0x8f,0xad,0x2b,0xcf,0xa7,0xda
-                                            ,0xf7,0xde,0xc2,0xb9,0x1b,0x9d,0x71,0xdf,0x3f,0x39,0x3f,0x8d,0x66,0x4f,0xa8,0xca
-                                            ,0xfd,0x0d,0x52,0xb8,0x1d,0xa5,0xc7,0x88,0xd2,0x20,0x44,0x4a,0xab,0x58,0x97,0x7e
-                                            ,0x23,0x95,0xc9,0xc3,0x93,0x5c,0xdb,0xca,0xef,0xc9,0x63,0x4c,0xc9,0x34,0xf9,0x3b
-                                            ,0x8a,0xe8,0xd0,0xb8,0xd5,0x66,0x94,0x9c,0xb1,0xaa,0x6f,0x71,0x23,0xe7,0x2c,0x6a
-                                      };
-
-        testPacket = new Media.Rtp.RtpPacket(m_SamplePacketBytes, 0);
-
-        if (testPacket.Extension)
-        {
-            using (Media.Rtp.RtpExtension rtpExtension = testPacket.GetExtension())
-            {
-
-                if (rtpExtension == null) throw new Exception("Extension is null");
-
-                if (!rtpExtension.IsComplete) throw new Exception("Extension is not complete");
-
-                // The extension data length is (3 words / 12 bytes) 
-                // This property exposes the length of the ExtensionData in bytes including the flags and length bytes themselves
-                //In cases where the ExtensionLength = 4 the ExtensionFlags should contain the only needed information
-                if (rtpExtension.Size != 4) throw new Exception("Expected ExtensionLength not found");
-                else Console.WriteLine("Found LengthInWords: " + rtpExtension.LengthInWords);
-
-                // Check extension values are what we expected.
-                if (rtpExtension.Flags != 0xFFFF) throw new Exception("Expected Extension Flags Not Found");
-                else Console.WriteLine("Found ExtensionFlags: " + rtpExtension.Flags.ToString("X"));
-
-                // Test the extension data is correct
-                byte[] expected = Media.Common.MemorySegment.EmptyBytes;
-                if (!rtpExtension.Data.SequenceEqual(expected)) throw new Exception("Extension data was not as expected");
-                else Console.WriteLine("Found ExtensionData: " + BitConverter.ToString(rtpExtension.Data.ToArray()));
-            }
+            //Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
         }
 
     }
@@ -428,7 +229,7 @@ public class RtpRtcpTests
             if (ibitValue > 0) bitValue = Convert.ToBoolean(ibitValue);
 
             //Complete tested the first and second octets with the current bitValue
-            Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
+            //Console.WriteLine(string.Format(TestingFormat, "\tbitValue", bitValue + "\r\n"));
 
             //Permute every possible value within the 2 bit Version
             for (int VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
@@ -437,8 +238,8 @@ public class RtpRtcpTests
                 p.Version = VersionCounter;
 
                 //Write the version information to the console.
-                Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
-                Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
+                //Console.Write(string.Format(TestingFormat, "\tVersionCounter", VersionCounter));
+                //Console.Write(string.Format(TestingFormat, " Version", p.Version + "\r\n"));
 
                 //Set the bit values in the first octet
                 p.Padding = bitValue;
@@ -456,8 +257,8 @@ public class RtpRtcpTests
                     p.PayloadType = (byte)PayloadCounter;
 
                     //Write the value of the PayloadCounter to the console and the packet value to the Console.
-                    Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
-                    Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
+                    //Console.Write(string.Format(TestingFormat, "\tPayloadCounter", PayloadCounter));
+                    //Console.Write(string.Format(TestingFormat, " PayloadType", p.PayloadType + "\r\n"));
 
                     //Check the PayloadType
                     System.Diagnostics.Debug.Assert(p.PayloadType == PayloadCounter, payloadException.Message);
@@ -473,8 +274,8 @@ public class RtpRtcpTests
                         /////////////                            
 
                         //Identify the Contributing Source Counter and the Packet's value
-                        Console.Write(string.Format(TestingFormat, "\tReportBlockCounter", ReportBlockCounter));
-                        Console.Write(string.Format(TestingFormat, " BlockCount", p.BlockCount + "\r\n"));
+                        //Console.Write(string.Format(TestingFormat, "\tReportBlockCounter", ReportBlockCounter));
+                        //Console.Write(string.Format(TestingFormat, " BlockCount", p.BlockCount + "\r\n"));
 
                         //Check the BlockCount
                         System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, reportBlockException.Message);
@@ -486,32 +287,35 @@ public class RtpRtcpTests
                         System.Diagnostics.Debug.Assert(p.Padding == bitValue, paddingException.Message);
 
                         ///////////////Serialize the packet
-                        p = new Media.Rtcp.RtcpPacket(p.Prepare().ToArray(), 0);
-                        /////////////
+                        using (p = new Media.Rtcp.RtcpPacket(p.Prepare().ToArray(), 0))
+                        {
+                            /////////////
 
-                        //Ensure the version remains after modification
-                        System.Diagnostics.Debug.Assert(p.Version == VersionCounter, versionException.Message);
+                            //Ensure the version remains after modification
+                            System.Diagnostics.Debug.Assert(p.Version == VersionCounter, versionException.Message);
 
-                        //Ensure the Padding bit after modification
-                        System.Diagnostics.Debug.Assert(p.Padding == bitValue, paddingException.Message);
+                            //Ensure the Padding bit after modification
+                            System.Diagnostics.Debug.Assert(p.Padding == bitValue, paddingException.Message);
 
-                        //Check the BlockCount after modification
-                        System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, reportBlockException.Message);
+                            //Check the BlockCount after modification
+                            System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, reportBlockException.Message);
 
-                        //Check for a valid header
-                        if (false == p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
-                            || //Check for validation per RFC3550 A.1 when the test permits
-                            false == bitValue &&
-                            VersionCounter > 1 &&
-                            PayloadCounter >= 200 &&
-                            PayloadCounter <= 201 &&
-                            false == Media.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
+                            //Check for a valid header
+                            if (false == p.Header.IsValid(VersionCounter, PayloadCounter, bitValue)
+                                || //Check for validation per RFC3550 A.1 when the test permits
+                                false == bitValue &&
+                                VersionCounter > 1 &&
+                                PayloadCounter >= 200 &&
+                                PayloadCounter <= 201 &&
+                                false == Media.RFC3550.IsValidRtcpHeader(p.Header, VersionCounter)) throw inValidHeaderException;
+                        }
 
                         //Perform checks with length in words set incorrectly
                     }
                 }
             }
-            Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
+            
+            //Console.WriteLine(string.Format(TestingFormat, "\t*****Completed an iteration wih bitValue", bitValue + "*****"));
         }
     }
 
@@ -565,7 +369,7 @@ public class RtpRtcpTests
             rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
 
             //A a 4 bytes which are not padding related
-            rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4), 0, 1);
+            rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4));
 
             //Check ReadPadding works after adding bytes to the payload
             if (rtcpPacket.PaddingOctets != paddingAmount) throw invalidPadding;
@@ -581,7 +385,7 @@ public class RtpRtcpTests
         }
 
         //Create a new SendersReport with no blocks
-        using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, false, 0, 7))
+        using (Media.Rtcp.RtcpReport testReport = new Media.Rtcp.SendersReport(2, 0, 7))
         {
             //The Media.RtcpData property contains all data which in the Media.RtcpPacket without padding
             if (testReport.RtcpData.Count() != 20 && testReport.Length != 20) throw invalidLength;
@@ -623,18 +427,22 @@ public class RtpRtcpTests
             //Data in report (Should only be 1)
             foreach (Media.Rtcp.IReportBlock rb in sr)
             {
-                if ((uint)rb.BlockIdentifier != 2738258998) throw new Exception("Invalid Source SSRC");
-                else if (rb is Media.Rtcp.ReportBlock)
-                {
-                    Media.Rtcp.ReportBlock asReportBlock = (Media.Rtcp.ReportBlock)rb;
+                //if ((uint)rb.BlockIdentifier != 2738258998) throw new Exception("Invalid BlockIdentifier");
+                //else if (rb is Media.Rtcp.ReportBlock)
+                //{
+                Media.Rtcp.ReportBlock asReportBlock = (Media.Rtcp.ReportBlock)rb;
 
-                    Console.WriteLine(asReportBlock.SendersSynchronizationSourceIdentifier);//0
-                    Console.WriteLine(asReportBlock.FractionsLost);//0
-                    Console.WriteLine(asReportBlock.CumulativePacketsLost);//0
-                    Console.WriteLine(asReportBlock.ExtendedHighestSequenceNumberReceived);//0
-                    Console.WriteLine(asReportBlock.InterarrivalJitterEstimate);//0
-                    Console.WriteLine(asReportBlock.LastSendersReportTimestamp);//0
-                }
+                if (rb.BlockIdentifier != asReportBlock.SendersSynchronizationSourceIdentifier) throw new Exception("Invalid SendersSynchronizationSourceIdentifier");
+
+                Console.WriteLine(asReportBlock.SendersSynchronizationSourceIdentifier);//0
+                Console.WriteLine(asReportBlock.FractionsLost);//0
+                Console.WriteLine(asReportBlock.CumulativePacketsLost);//0
+                Console.WriteLine(asReportBlock.ExtendedHighestSequenceNumberReceived);//0
+                Console.WriteLine(asReportBlock.InterarrivalJitterEstimate);//0
+                Console.WriteLine(asReportBlock.LastSendersReportTimestamp);//0
+                //}
+
+
             }
 
             //Check the length to be exactly the same as the example 
@@ -651,15 +459,30 @@ public class RtpRtcpTests
         rtcpPacket.Dispose();
         rtcpPacket = null;
 
-        rtcpPacket = new Media.Rtcp.SendersReport(2, false, 0, 7);
+        rtcpPacket = new Media.Rtcp.SendersReport(2, 0, 7);
+
         example = rtcpPacket.Prepare().ToArray();
 
+        if (rtcpPacket.SynchronizationSourceIdentifier != 7) throw new Exception("Unexpected SynchronizationSourceIdentifier");
+
+        if (rtcpPacket.BlockCount != 0) throw new Exception("Unexpected BlockCount");
+
+        //Check the Length, 8 Byte Header, 20 Byte SendersInformation
+        if (rtcpPacket.Length != Media.Rtcp.RtcpHeader.Length + Media.Rtcp.ReportBlock.ReportBlockSize) throw new Exception("Unexpected BlockCount");
+
+        //Iterate each IReportBlock in the RtcpReport representation of the rtcpPacket instance
         foreach (Media.Rtcp.IReportBlock rb in rtcpPacket as Media.Rtcp.RtcpReport)
+        {
             Console.WriteLine(rb);
+
+            throw new Exception("Unexpected BlockCount");
+        }
 
         //Next Sub Test
 
-        //Create a GoodbyeReport with no block count
+        //Create a GoodbyeReport with no SourceList, e.g. a BlockCount of 0.
+        //There should be 8 bytes, 4 for the RtcpHeader and 4 for the SynchronizationSourceIdentifier
+        //The LengthInWordsMinusOne should equal 1 (1 + 1 = 2, 2 * 4 = 8)
         using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7))
         {
             output = testReport.Prepare().ToArray();
@@ -673,10 +496,12 @@ public class RtpRtcpTests
 
         //Add a Reason For Leaving
 
+        //Should now have 4 words... Header, SSRC, Block, Reason
         using (var testReport = new Media.Rtcp.GoodbyeReport(2, 7, System.Text.Encoding.ASCII.GetBytes("v")))
         {
             output = testReport.Prepare().ToArray();
 
+            //3
             if (output.Length != testReport.Length || testReport.Header.LengthInWordsMinusOne != 2 || testReport.Length != 12) throw new Exception("Invalid Length");
 
             if (testReport.BlockCount != 0) throw reportBlockException;
@@ -775,6 +600,7 @@ public class RtpRtcpTests
 
             //Yes the data is compound but there is an invalid LengthInWords in the packet which must be exactly copied when deserialized
             if (rr.HasExtensionData && false == output.SequenceEqual(example)) throw new Exception("Result Packet Does Not Match Example");
+            else output = rr.Prepare(true, true, false, true).ToArray();
             for (int i = 0, e = output.Length; i < e; ++i) if (example[i] != output[i]) throw new Exception("Result Packet Does Not Match Example @" + i);
 
         }
@@ -791,17 +617,37 @@ public class RtpRtcpTests
         //Create a SourceDescriptionReport from the packet instance to access the SourceDescriptionChunks
         using (Media.Rtcp.SourceDescriptionReport sourceDescription = new Media.Rtcp.SourceDescriptionReport(rtcpPacket, false))
         {
+            if (false == sourceDescription.HasCName) throw new Exception("Unexpected HasCName");
 
-            foreach (var chunk in sourceDescription.GetChunkIterator())
+            if (sourceDescription.BlockCount != 1) throw new Exception("Unexpected BlockCount");
+
+            if (sourceDescription.Chunks.First().ChunkIdentifer != 1777498448) throw new Exception("Chunks.ChunkIdentifer");
+
+            if (false == sourceDescription.Chunks.First().HasItems) throw new Exception("Chunks.HasItems");
+
+            if (sourceDescription.Chunks.First().Items.First().ItemType != Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName) throw new Exception("Unexpected ItemType");
+
+            if (sourceDescription.Chunks.First().Items.First().ItemLength != 6) throw new Exception("Unexpected ItemLength");
+
+            foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk chunk in sourceDescription.GetChunkIterator())
             {
+                if (chunk.ChunkIdentifer != 1777498448) throw new Exception("Chunks.ChunkIdentifer");
+
                 Console.WriteLine(string.Format(TestingFormat, "Chunk Identifier", chunk.ChunkIdentifer));
+
                 //Use a SourceDescriptionItemList to access the items within the Chunk
                 //This is performed auto magically when using the foreach pattern
                 foreach (Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem item in chunk /*.AsEnumerable<Rtcp.SourceDescriptionItem>()*/)
                 {
+                    //if (item.ItemType != Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName) throw new Exception("Unexpected ItemType");
+
+                    //if (item.ItemLength != 6) throw new Exception("Unexpected ItemLength");
+
                     Console.WriteLine(string.Format(TestingFormat, "Item Type", item.ItemType));
-                    Console.WriteLine(string.Format(TestingFormat, "Item Length", item.Length));
-                    Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.Data.ToArray())));
+
+                    Console.WriteLine(string.Format(TestingFormat, "Item Length", item.ItemLength));
+
+                    Console.WriteLine(string.Format(TestingFormat, "Item Data", BitConverter.ToString(item.ItemData.ToArray())));
                 }
             }
 
@@ -821,7 +667,7 @@ public class RtpRtcpTests
         Media.Rtcp.ApplicationSpecificReport app = new Media.Rtcp.ApplicationSpecificReport(rtcpPacket);
 
         //Check the name to be equal to qtsi
-        if (!app.Name.SequenceEqual(System.Text.Encoding.UTF8.GetBytes("qtsi"))) throw new Exception("Invalid App Packet Type");
+        if (false == app.Name.SequenceEqual(System.Text.Encoding.UTF8.GetBytes("qtsi"))) throw new Exception("Invalid App Packet Type");
 
         //Check the length
         if (rtcpPacket.Length != example.Length) throw new Exception("Invalid Legnth");
@@ -835,12 +681,57 @@ public class RtpRtcpTests
         byte[] sdOut = sd.Prepare().ToArray();
 
         //1 word when the ssrc is present but would be an invalid sdes because blockCount = 0
-        if (!sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
+        if (false == sd.IsComplete || sd.Length != Media.Rtcp.RtcpHeader.Length || sd.Header.LengthInWordsMinusOne != ushort.MaxValue) throw new Exception("Invalid Length");
 
-        sd = new Media.Rtcp.SourceDescriptionReport(2);
+        //Create 9 bytes of data to add to the existing SourceDescriptionReport
         byte[] itemData = System.Text.Encoding.UTF8.GetBytes("FLABIA-PC");
-        sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk((int)0x1AB7C080, new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName, itemData.Length, itemData, 0))); // SSRC(4) ItemType(1), Length(1), ItemValue(9) = 15 Bytes
-        rtcpPacket = sd; // Header = 4 Bytes in a SourceDescription, The First Chunk is `Overlapped` in the header.
+
+        int KnownId = 0x1AB7C080;
+
+        //Point the rtcpPacket at the SourceDescription instance
+        rtcpPacket = sd;
+
+        //Create a Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk containing a Known Identifier
+        //Which Contains a Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem with the Type 'CName' containing the itemData
+        //Add the Media.Rtcp.IReportBlock to the RtcpReport
+        sd.Add((Media.Rtcp.IReportBlock)new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk(KnownId,
+            new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName,
+                itemData.Length, itemData, 0))); // ItemType(End) = 1, ItemLength(9) = 1, ItemData(9) = 11 Bytes in the Item, ChunkIdentifier(0x1AB7C080) = 4, 15 total bytes
+
+        //Add an unpadded item for a 19 byte packet.
+        //sd.Add(new Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk(KnownId,
+        //    new Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName,
+        //        itemData.Length, itemData, 0)), false); // ItemType(End) = 1, ItemLength(9) = 1, ItemData(9) = 11 Bytes in the Item, ChunkIdentifier(0x1AB7C080) = 4, 15 total bytes
+
+        //Ensure the data is present where it is supposed to be, more data may be present to respect octet alignment
+        if (false == sd.RtcpData.Skip(Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.ItemHeaderSize).Take(itemData.Length).SequenceEqual(itemData)) throw new Exception("Invalid ItemData");
+
+        if (false == sd.Chunks.First().HasItems) throw new Exception("Unexpected HasItems");
+
+        if (sd.Chunks.First().ChunkIdentifer != KnownId) throw new Exception("Unexpected Chunks.ChunkIdentifer");
+
+        if (sd.Chunks.First().Items.Count() != 2) throw new Exception("Unexpected Chunks.Items.Count");
+
+        if (sd.Chunks.First().Items.First().ItemType != Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.CName) throw new Exception("Unexpected Items.ItemType");
+
+        if (sd.Chunks.First().Items.First().ItemLength != 9) throw new Exception("Unexpected Chunks.Items.ItemLength");
+
+        if (false == sd.Chunks.First().Items.First().ItemData.SequenceEqual(itemData)) throw new Exception("Unexpected Chunks.Items.ItemData");
+
+        if (sd.Chunks.First().Items.Last().ItemType != Media.Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType.End) throw new Exception("Unexpected Items.ItemType");
+
+        if (sd.Chunks.First().Items.Last().ItemLength != 1) throw new Exception("Unexpected Chunks.Items.ItemLength");
+
+        if (false == sd.Chunks.First().Items.Last().ItemData.All(b => b == 0)) throw new Exception("Unexpected Chunks.Items.ItemData");
+
+        //
+        // Header = 4 Bytes, 1 Word
+        // There is a SSRC which occupies 1 Word
+        //in a SourceDescription, The First Chunk is `Overlapped` in the header and the BlockIdentifier is shared with the SSRC
+
+        //Ensure the data is present where it is supposed to be
+        if (sd.SynchronizationSourceIdentifier != KnownId) throw new Exception("Invalid SynchronizationSourceIdentifier");
+
         //asPacket now contains 11 octets in the payload.
         //asPacket now has 1 block (1 chunk of 15 bytes)
         //asPacket is 19 octets long, 11 octets in the payload and 8 octets in the header

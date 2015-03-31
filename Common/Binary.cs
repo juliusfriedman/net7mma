@@ -505,7 +505,7 @@ namespace Media.Common
 
         #endregion
 
-        #region BitsToBytes, BytesToBits
+        #region BitsToBytes
 
         public static int BitsToBytes(int bitCount, int bitsPerByte = Binary.BitsPerByte) { return (int)BitsToBytes((uint)bitCount, (uint) bitsPerByte); }
 
@@ -522,6 +522,10 @@ namespace Media.Common
             return (uint)(bits > Binary.Nihil ? ++bytes : bytes);
         }
 
+        #endregion
+
+        #region BytesToBits
+
         public static int BytesToBits(int byteCount) { return (int)BytesToBits((uint)byteCount); }
 
         [CLSCompliant(false)]
@@ -535,6 +539,41 @@ namespace Media.Common
         /// <returns></returns>
         [CLSCompliant(false)]
         public static uint BytesToBits(ref uint byteCount, uint bitSize = Binary.BitsPerByte) { return byteCount * bitSize; }
+
+        #endregion
+
+        #region BytesToMachineWords
+
+        public static int BytesToMachineWords(int byteCount, int bytesPerMachineWord = Binary.BytesPerInteger) { return (int)BytesToMachineWords((uint)byteCount, (uint)bytesPerMachineWord); }
+
+        [CLSCompliant(false)]
+        public static uint BytesToMachineWords(uint byteCount, uint bytesPerMachineWord = Binary.BytesPerInteger) { return BytesToMachineWords(ref byteCount, bytesPerMachineWord); }
+
+        [CLSCompliant(false)]
+        public static uint BytesToMachineWords(ref uint byteCount, uint bytesPerMachineWord = Binary.BytesPerInteger)
+        {
+            if (byteCount == Binary.Nihil) return Binary.Nihil;
+
+            long remainder, bytes = Math.DivRem(byteCount, bytesPerMachineWord, out remainder);
+
+            return (uint)(remainder > Binary.Nihil ? ++bytes : bytes);
+        }
+
+        #endregion
+
+        #region MachineWordsToBits
+
+        public static int MachineWordsToBytes(int machineWords, int bytesPerMachineWord = Binary.BytesPerInteger) { return (int)MachineWordsToBytes((uint)machineWords, (uint)bytesPerMachineWord); }
+
+        [CLSCompliant(false)]
+        public static uint MachineWordsToBytes(uint machineWords, uint bytesPerMachineWord = Binary.BytesPerInteger) { return MachineWordsToBytes(ref machineWords, bytesPerMachineWord); }
+
+
+        [CLSCompliant(false)]
+        public static uint MachineWordsToBytes(ref uint machineWords, uint bytesPerMachineWord = Binary.BytesPerInteger)
+        {
+            return machineWords * bytesPerMachineWord;
+        }
 
         #endregion
 
@@ -809,7 +848,7 @@ namespace Media.Common
                 byte[] memoryOf = BitConverter.GetBytes((int)Binary.SedecimBitSize); //Use ByteOrder
 
                 //Iterate the memory looking for a non 0 value
-                for (int offset = 0, endOffset = SizeOfInt; offset < endOffset; ++endOffset)
+                for (int offset = 0, endOffset = BytesPerInteger; offset < endOffset; ++endOffset)
                 {
                     //Take a copy of the byte at the offset in memory
                     byte atOffset = memoryOf[offset];
@@ -867,7 +906,7 @@ namespace Media.Common
                     }
                 }
 
-                if ((int)SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.SizeOfInt, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
+                if ((int)SystemByteOrder != ReadInteger(BitConverter.GetBytes((int)ByteOrder.Little), Binary.Nihil, Binary.BytesPerInteger, false)) throw new InvalidOperationException("Did not correctly detect ByteOrder");
 
                 if (GetBit((byte)SystemBitOrder, MostSignificantBit)) throw new InvalidOperationException("Did not correctly detect BitOrder");
 
@@ -1011,37 +1050,37 @@ namespace Media.Common
         /// <summary>
         /// The size in bytes of values of the type <see cref="byte"/>
         /// </summary>
-        public const int SizeOfByte = sizeof(byte);
+        public const int BytesPerByte = sizeof(byte);
 
         /// <summary>
         /// The size in bytes of values of the type <see cref="short"/>
         /// </summary>
-        public const int SizeOfShort = sizeof(short);
+        public const int BytesPerShort = sizeof(short);
 
         /// <summary>
         /// The size in bytes of values of the type <see cref="char"/>
         /// </summary>
-        public const int SizeOfChar = sizeof(char);
+        public const int BytesPerChar = sizeof(char);
 
         /// <summary>
         /// The size in bytes of values of the type <see cref="int"/>
         /// </summary>
-        public const int SizeOfInt = sizeof(int);
+        public const int BytesPerInteger = sizeof(int);
 
         /// <summary>
         /// The size in bytes of values of the type <see cref="long"/>
         /// </summary>
-        public const int SizeOfLong = sizeof(long);
+        public const int BytesPerLong = sizeof(long);
 
         /// <summary>
         /// The size in bytes of values of the type <see cref="double"/>
         /// </summary>
-        public const int SizeOfDouble = sizeof(double);
+        public const int BytesPerDouble = sizeof(double);
 
         /// <summary>
         /// The size in bytes of values of the type <see cref="long"/>
         /// </summary>
-        public const int SizeOfDecimal = sizeof(decimal);
+        public const int BytesPerDecimal = sizeof(decimal);
 
         #endregion
 
@@ -2023,12 +2062,12 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static ushort ReadU16(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (ushort)Binary.ReadInteger(buffer, index, Binary.SizeOfShort, reverse);
+            return (ushort)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
         }
 
         public static short Read16(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (short)Binary.ReadInteger(buffer, index, Binary.SizeOfShort, reverse);
+            return (short)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
         }
 
         /// <summary>
@@ -2062,23 +2101,23 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static uint ReadU32(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (uint)Binary.ReadInteger(buffer, index, Binary.SizeOfInt, reverse);
+            return (uint)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
         }
 
         public static int Read32(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (int)Binary.ReadInteger(buffer, index, Binary.SizeOfInt, reverse);
+            return (int)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
         }
 
         [CLSCompliant(false)]
         public static ulong ReadU64(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (ulong)Binary.ReadInteger(buffer, index, Binary.SizeOfLong, reverse);
+            return (ulong)Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
         }
 
         public static long Read64(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (long)Binary.ReadInteger(buffer, index, Binary.SizeOfLong, reverse);
+            return (long)Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
         }
 
         #endregion
@@ -2087,21 +2126,21 @@ namespace Media.Common
 
         public static byte[] GetBytes(short i, bool reverse = false)
         {
-            byte[] result = new byte[Binary.SizeOfShort];
+            byte[] result = new byte[Binary.BytesPerShort];
             Write16(result, 0, reverse, i);
             return result;
         }
 
         public static byte[] GetBytes(int i, bool reverse = false)
         {
-            byte[] result = new byte[Binary.SizeOfInt];
+            byte[] result = new byte[Binary.BytesPerInteger];
             Write32(result, 0, reverse, i);
             return result;
         }
 
         public static byte[] GetBytes(long i, bool reverse = false)
         {
-            byte[] result = new byte[Binary.SizeOfLong];
+            byte[] result = new byte[Binary.BytesPerLong];
             Write64(result, 0, reverse, i);
             return result;
         }
@@ -2160,7 +2199,7 @@ namespace Media.Common
             unchecked
             {
                 //While something remains
-                while(count > 0)
+                while(count/*--*/ > 0)
                 {
                     //Write the byte at the reversed index
                     buffer[index + --count] = (byte)(value);
@@ -2186,13 +2225,13 @@ namespace Media.Common
         /// <param name="value"></param>
         public static void Write16(byte[] buffer, int index, bool reverse, short value)
         {
-            WriteInteger(buffer, index, Binary.SizeOfShort, value, reverse);
+            WriteInteger(buffer, index, Binary.BytesPerShort, value, reverse);
         }
 
         [CLSCompliant(false)]
         public static void Write16(byte[] buffer, int index, bool reverse, ushort value)
         {
-            WriteInteger(buffer, index, Binary.SizeOfShort, (short)value, reverse);
+            WriteInteger(buffer, index, Binary.BytesPerShort, (short)value, reverse);
         }
 
         [CLSCompliant(false)]
@@ -2209,13 +2248,13 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static void Write32(byte[] buffer, int index, bool reverse, uint value)
         {
-            WriteInteger(buffer, index, Binary.SizeOfInt, (int)value, reverse);
+            WriteInteger(buffer, index, Binary.BytesPerInteger, (int)value, reverse);
         }
 
         //Todo
         public static void Write32(byte[] buffer, int index, bool reverse, int value)
         {
-            WriteInteger(buffer, index, Binary.SizeOfInt, (int)value, reverse);
+            WriteInteger(buffer, index, Binary.BytesPerInteger, (int)value, reverse);
         }
 
         /// <summary>
@@ -2228,13 +2267,13 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static void Write64(byte[] buffer, int index, bool reverse, ulong value)
         {
-            WriteInteger(buffer, index, Binary.SizeOfLong, value, reverse);
+            WriteInteger(buffer, index, Binary.BytesPerLong, value, reverse);
         }
 
         //Todo
         public static void Write64(byte[] buffer, int index, bool reverse, long value)
         {
-            WriteInteger(buffer, index, Binary.SizeOfLong, value, reverse);
+            WriteInteger(buffer, index, Binary.BytesPerLong, value, reverse);
         }
 
         #endregion
@@ -2504,7 +2543,7 @@ namespace Media.UnitTests
         public void TestReadingAndWritingUnsignedTypes()
         {
             //Use 8 octets, each write over-writes the previous written value
-            byte[] Octets = new byte[Media.Common.Binary.SizeOfLong];
+            byte[] Octets = new byte[Media.Common.Binary.BytesPerLong];
 
             //The register where the resulting value read during tests is stored.
             long result;
@@ -2531,7 +2570,7 @@ namespace Media.UnitTests
 
                     int bitsSet = 0, bitsNotSet = 0;
 
-                    Console.WriteLine("Bit Testing:" + testBits);
+                    //Console.WriteLine("Bit Testing:" + testBits);
 
                     //Test each bit in the byte
                     //[8 Operations]
@@ -2547,9 +2586,9 @@ namespace Media.UnitTests
                     //Test the logic of BitsUnSet and verify the result
                     if (bitsNotSet != Media.Common.Binary.BitsUnSet(testBits)) throw new Exception("GetBit Does not Work");
 
-                    Console.WriteLine("Bits Set:" + bitsSet);
+                    //Console.WriteLine("Bits Set:" + bitsSet);
 
-                    Console.WriteLine("Bits Not Set:" + bitsNotSet);
+                    //Console.WriteLine("Bits Not Set:" + bitsNotSet);
 
                     //Read the result in binary (host bit order)
                     if (Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerByte, false) != testBits) throw new Exception("GetBit Does not Work");
@@ -2566,7 +2605,7 @@ namespace Media.UnitTests
                     if (Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerByte)[0] != Media.Common.Binary.ReverseU8(ref Octets[0]))
                         throw new Exception("CopyBitsReverse Does not Work");
 
-                    Console.WriteLine("Bits:" + Convert.ToString((long)testBits, 2));
+                    //Console.WriteLine("Bits:" + Convert.ToString((long)testBits, 2));
 
                     //Todo Test writing and parsing the same value
                 }
@@ -2593,7 +2632,7 @@ namespace Media.UnitTests
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write16 Does not work");
 
                     //Ensure the value read is equal to what the system would read
-                    if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.SizeOfShort, reverse) != v) throw new Exception("ReadInteger Does not work.");
+                    if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.BytesPerShort, reverse) != v) throw new Exception("ReadInteger Does not work.");
 
                     //Read the 16 bits which were set and ensure the value is equal to the input
                     if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerShort)) != (reverse ? reversed : v))
@@ -2612,10 +2651,10 @@ namespace Media.UnitTests
                         throw new Exception("CopyBitsReverse Does not Work");
 
                     //Print the bytes tested
-                    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+                    //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
                     //Print the bits tested
-                    Console.WriteLine(Convert.ToString(v, 2));
+                    //Console.WriteLine(Convert.ToString(v, 2));
                 }
 
                 #endregion
@@ -2678,7 +2717,7 @@ namespace Media.UnitTests
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write32 Does not work");
 
                     //Ensure the value read is equal to what the system would read
-                    if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.SizeOfInt, reverse) != v) throw new Exception("ReadInteger Does not work.");
+                    if (Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.BytesPerInteger, reverse) != v) throw new Exception("ReadInteger Does not work.");
 
                     //Read the 32 bits which were set and ensure the value is equal to the input
                     if ((result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerInteger)) != (reverse ? reversed : v))
@@ -2697,10 +2736,10 @@ namespace Media.UnitTests
                         throw new Exception("CopyBitsReverse Does not Work");
 
                     //Print the bytes tested
-                    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+                    //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
                     //Print the bits tested
-                    Console.WriteLine(Convert.ToString(v, 2));
+                    //Console.WriteLine(Convert.ToString(v, 2));
                 }
 
                 #endregion
@@ -2732,7 +2771,7 @@ namespace Media.UnitTests
                     if (false == SystemBits.SequenceEqual(Octets.Take(SystemBits.Length))) throw new Exception("WriteInteger->Write64 Does not work");
 
                     //Ensure the value read is equal to what the system would read
-                    if ((ulong)Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.SizeOfLong, reverse) != v) throw new Exception("ReadInteger Does not work.");
+                    if ((ulong)Media.Common.Binary.ReadInteger(Octets, 0, Media.Common.Binary.BytesPerLong, reverse) != v) throw new Exception("ReadInteger Does not work.");
 
                     //Read the 64 bits which were set and ensure the value is equal to the input
                     if ((ulong)(result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong)) != (reverse ? reversed : v))
@@ -2750,9 +2789,9 @@ namespace Media.UnitTests
                     if ((ulong)(result = Media.Common.Binary.ReadBinaryInteger(Octets, 0, Media.Common.Binary.BitsPerLong, true)) != BitConverter.ToUInt64(Media.Common.Binary.CopyBitsReverse(Octets, Media.Common.Binary.BitsPerLong), 0))
                         throw new Exception("CopyBitsReverse Does not Work");
 
-                    Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
+                    //Console.WriteLine(BitConverter.ToString(Octets, 0, SystemBits.Length));
 
-                    Console.WriteLine(Convert.ToString((long)v, 2));
+                    //Console.WriteLine(Convert.ToString((long)v, 2));
                 }
 
                 #endregion
@@ -2768,6 +2807,29 @@ namespace Media.UnitTests
                 //}
 
                 #endregion
+            }
+        }
+
+        //Consider adding the Conversion type eventually
+        public void TestConversions()
+        {
+            //Iterate 65536 times
+            for (int i = 0; i <= ushort.MaxValue; ++i)
+            {
+                int inBits = i, 
+                    inBytes = Binary.BitsToBytes(i),
+                    inWords = Binary.BytesToMachineWords(inBytes);
+
+                if (Binary.BitsToBytes(inBits) != inBytes) throw new Exception("BitsToBytes Unexpected Result");
+
+                if (Binary.BytesToBits(inBytes) != inBytes * Binary.BitsPerByte) throw new Exception("BytesToBits Unexpected Result");
+
+                if (Binary.BytesToMachineWords(inBytes) != inWords) throw new Exception("BytesToMachineWords Unexpected Result");
+                 
+                int bytesInWords = Binary.MachineWordsToBytes(inWords);
+
+                if (bytesInWords > Binary.BytesPerInteger * inBytes || 
+                    bytesInWords % Binary.BytesPerInteger != 0) throw new Exception("MachineWordsToBytes Unexpected Result");
             }
         }
     }

@@ -25,7 +25,7 @@ namespace Media.Codecs.Audio
         /// <summary>
         /// The size of the basic structure
         /// </summary>
-        public const uint SizeOf = 18;
+        public const uint BytesPer = 18;
 
         /// <summary>
         /// The different formats allowable. For now PCM is the only one we support
@@ -176,7 +176,7 @@ namespace Media.Codecs.Audio
         /// <param name="byteArray">The array used as input to the stucture</param>
         public void SetFromByteArray(byte[] byteArray)
         {
-            if ((byteArray.Length + 2) < SizeOf)
+            if ((byteArray.Length + 2) < BytesPer)
             {
                 throw new ArgumentException("Byte array is too small");
             }
@@ -187,7 +187,7 @@ namespace Media.Codecs.Audio
             this.AvgBytesPerSec = BitConverter.ToInt32(byteArray, 8);
             this.BlockAlign = BitConverter.ToInt16(byteArray, 12);
             this.BitsPerSample = BitConverter.ToInt16(byteArray, 14);
-            if (byteArray.Length >= SizeOf)
+            if (byteArray.Length >= BytesPer)
             {
                 this.Size = BitConverter.ToInt16(byteArray, 16);
             }
@@ -196,10 +196,10 @@ namespace Media.Codecs.Audio
                 this.Size = 0;
             }
 
-            if (byteArray.Length > WAVEFORMATEX.SizeOf)
+            if (byteArray.Length > WAVEFORMATEX.BytesPer)
             {
-                this.Ext = new byte[byteArray.Length - WAVEFORMATEX.SizeOf];
-                Array.Copy(byteArray, (int)WAVEFORMATEX.SizeOf, this.Ext, 0, this.Ext.Length);
+                this.Ext = new byte[byteArray.Length - WAVEFORMATEX.BytesPer];
+                Array.Copy(byteArray, (int)WAVEFORMATEX.BytesPer, this.Ext, 0, this.Ext.Length);
             }
             else
             {

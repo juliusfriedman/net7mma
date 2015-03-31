@@ -464,7 +464,7 @@ namespace Media.RtpTools
                         //0
                         typedName,
                         //1
-                        Encoding.ASCII.GetString(item.Data.ToArray()));
+                        Encoding.ASCII.GetString(item.ItemData.ToArray()));
 
                 }
 

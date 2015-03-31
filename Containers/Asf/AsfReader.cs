@@ -671,7 +671,7 @@ namespace Media.Containers.Asf
                             //Read 32
                             //Read 8
                             //Read 16 SizeX
-                            //Read 32 SizeOf BitmapInfoHeader
+                            //Read 32 BytesPer BitmapInfoHeader
                             offset += 15;
 
                             mediaType = Sdp.MediaType.video;

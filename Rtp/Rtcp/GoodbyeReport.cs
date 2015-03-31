@@ -67,11 +67,15 @@ namespace Media.Rtcp
         /// Constructs a new GoodbyeReport from the given values.
         /// </summary>
         /// <param name="version">The version of the report</param>
+        /// <param name="padding"></param>
         /// <param name="ssrc">The id of the senders of the report</param>
         /// <param name="sourcesLeaving">The SourceList which describes the sources who are leaving</param>
         /// <param name="reasonForLeaving">An optional reason for leaving(only the first 255 octets will be used)</param>
-        public GoodbyeReport(int version, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
-            : base(version, PayloadType, false, ssrc, sourcesLeaving != null ? sourcesLeaving.Count : 0, Media.RFC3550.SourceList.ItemSize, reasonForLeaving != null ? 1 + reasonForLeaving.Length : 0)
+        public GoodbyeReport(int version, int padding, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
+            : base(version, PayloadType, padding, ssrc, 
+            sourcesLeaving != null ? sourcesLeaving.Count : 0,  //BlockCount
+            Media.RFC3550.SourceList.ItemSize, //Size in bytes of each block
+            Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(reasonForLeaving) ? 0 : 1 + reasonForLeaving.Length) //Extension size in bytes
         {
 
             //The working offset in the payload
@@ -113,7 +117,7 @@ namespace Media.Rtcp
 
             if (HasExtensionData)
             {
-                int extensionLength = reasonForLeaving.Length;
+                int extensionLength = Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(reasonForLeaving) ? 0 : reasonForLeaving.Length;
 
                 if (extensionLength > 0)
                 {
@@ -129,17 +133,44 @@ namespace Media.Rtcp
             }
         }
 
+        public GoodbyeReport(int version, int ssrc, Media.RFC3550.SourceList sourcesLeaving, byte[] reasonForLeaving)
+            : this(version, 0, ssrc, sourcesLeaving, reasonForLeaving)
+        {
+
+        }
+
         public GoodbyeReport(int version, int ssrc, byte[] reasonForLeaving)
-            : this(version, ssrc, null, reasonForLeaving) { }
+        //    : this(version, ssrc, null, reasonForLeaving) { } //Todo chain?
+            : base(version, PayloadType, 0, ssrc, 0, 0, RtcpHeader.DefaultLengthInWords + 1, Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(reasonForLeaving) ? 0 : 1 + reasonForLeaving.Length)
+        {
+            int offset = Payload.Offset;
+
+            if (HasExtensionData)
+            {
+                int extensionLength = Media.Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(reasonForLeaving) ? 0 : reasonForLeaving.Length;
+
+                if (extensionLength > 0)
+                {
+                    //Ensure it will fit
+                    if (extensionLength > byte.MaxValue) throw new InvalidOperationException("Only 255 octets can occupy the ReasonForLeaving in a GoodbyeReport.");
+
+                    //The length before the string
+                    Payload.Array[offset++] = (byte)extensionLength;
+
+                    //Copy it to the payload
+                    reasonForLeaving.CopyTo(Payload.Array, offset);
+                }
+            }
+        }
 
         /// <summary>
         /// Constructs a new GoodbyeReport from the given values.
         /// </summary>
         /// <param name="version">The version of the report</param>
         /// <param name="ssrc">The id of the senders of the report</param>
-        public GoodbyeReport(int version, int ssrc) : base(version, PayloadType, false, ssrc, 0, 0, 0) { }
-
-        public GoodbyeReport(int version, bool padding, int ssrc) : base(version, PayloadType, padding, ssrc, 0, 0, 0) { }
+        public GoodbyeReport(int version, int ssrc)
+            //: base(new RtcpHeader(version, PayloadType, false, 0, ssrc), Common.MemorySegment.Empty) { }
+            : base(version, PayloadType, 0, ssrc, 0, 0, RtcpHeader.DefaultLengthInWords, 0) { }
 
         /// <summary>
         /// Constructs a new GoodbyeReport from the given <see cref="RtcpHeader"/> and payload.
@@ -180,18 +211,18 @@ namespace Media.Rtcp
         /// Calculates the amount of octets contained in the Payload which belong to the SourceList.
         /// The BlockCount is obtained from the Header.
         /// </summary>
-        public override int ReportBlockOctets { get { return false == IsDisposed && HasReports ? 4 * Header.BlockCount : 0; } }
+        public override int ReportBlockOctets { get { return RFC3550.SourceList.ItemSize * Header.BlockCount; } }
 
         /// <summary>
         /// Indicates if the GoodbyeReport contains a ReasonForLeaving based on the length of SourceList contained in the GoodbyeReport.
         /// </summary>
-        public bool HasReasonForLeaving { get { return false == IsDisposed && ReasonLength > 0; } }
+        public bool HasReasonForLeaving { get { return ReasonLength > 0; } }
 
         /// <summary>
         /// Gets the data assoicated with the ReasonForLeaving denoted by the length of field if present.
         /// If no reason for leaving is present then an empty sequence is returned.
         /// </summary>
-        public IEnumerable<byte> ReasonForLeaving
+        public virtual IEnumerable<byte> ReasonForLeaving
         {
             get
             {
@@ -205,12 +236,11 @@ namespace Media.Rtcp
         /// Returns the length of the ReasonForLeaving field as indicated by the length of the field if present.
         /// If no reason for leaving is present 0 is returned.
         /// </summary>
-        public int ReasonLength
+        public virtual int ReasonLength
         {
             get
             {
-                if (false == IsDisposed && HasExtensionData) return ExtensionData.First();
-                return 0;
+                return HasExtensionData ? ExtensionData.First() : 0;
             }
         }
 
@@ -220,7 +250,7 @@ namespace Media.Rtcp
         /// Creates a <see cref="SourceList"/> from the information contained in the GoodbyeReport.
         /// </summary>
         /// <returns>The <see cref="SourceList"/> created.</returns>
-        public Media.RFC3550.SourceList GetSourceList() { if (IsDisposed) return null; return new Media.RFC3550.SourceList(this); }
+        public Media.RFC3550.SourceList GetSourceList() { return new Media.RFC3550.SourceList(this); }
 
         /// <summary>
         /// Clones this GoodbyeReport instance.
@@ -237,8 +267,137 @@ namespace Media.Rtcp
 
         #endregion
 
+        public override void Add(IReportBlock reportBlock)
+        {
+            //Will throw an InvalidCastException is the given reportBlock is not a RFC3550.SourceList
+            if (reportBlock is RFC3550.SourceList) Add(reportBlock as RFC3550.SourceList);
+            else base.Add(reportBlock);
+        }
 
+        internal virtual protected void Add(RFC3550.SourceList sourceList, int offset, int count)
+        {
+            if (sourceList == null) return;
+
+            if (IsReadOnly) throw new InvalidOperationException("A SourceDescription Chunk cannot be added when IsReadOnly is true.");
+
+            int reportBlocksRemaining = ReportBlocksRemaining;
+
+            if (reportBlocksRemaining == 0) throw new InvalidOperationException("A RtcpReport can only hold 31 ReportBlocks");
+
+            //Add the bytes to the payload and set the LengthInWordsMinusOne and increase the BlockCount
+            AddBytesToPayload(sourceList.AsBinaryEnumerable(offset, BlockCount += Binary.Min(reportBlocksRemaining, count)));
+        }
+
+        public virtual void Add(RFC3550.SourceList sourceList)
+        {
+            Add(sourceList, 0, sourceList.Count);
+        }
+
+        public override IEnumerator<IReportBlock> GetEnumerator()
+        {
+            using (RFC3550.SourceList sl = GetSourceList())
+            {
+                foreach (uint ssrc in GetSourceList())
+                {
+                    using (ReportBlock rb = new ReportBlock((int)ssrc))
+                    {
+                        yield return rb;
+                    }
+                }
+            }
+        }
     }
 
     #endregion
+}
+
+
+namespace Media.UnitTests
+{
+    /// <summary>
+    /// Provides tests which ensure the logic of the GoodbyeReport class is correct
+    /// </summary>
+    internal class RtcpGoodbyeReportUnitTests
+    {
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
+        {
+            //Permute every possible value in the 5 bit BlockCount
+            for (byte ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+            {
+                //Permute every possible value in the Padding field.
+                for (byte PaddingCounter = byte.MinValue; PaddingCounter <= Media.Common.Binary.FiveBitMaxValue; ++PaddingCounter)
+                {
+                    //Enumerate every possible reason length
+                    for (byte ReasonLength = byte.MinValue; ReasonLength <= Media.Common.Binary.FiveBitMaxValue; ++ReasonLength)
+                    {
+                        //Create the RandomId and ReasonForLeaving
+                        
+                        int RandomId = RFC3550.Random32(Utility.Random.Next());
+                        
+                        IEnumerable<byte> ReasonForLeaving = Array.ConvertAll(Enumerable.Range(1, (int)ReasonLength).ToArray(), Convert.ToByte);
+
+                        //Create a GoodbyeReport instance using the specified options.
+                        using (Media.Rtcp.GoodbyeReport p = new Rtcp.GoodbyeReport(0, PaddingCounter, RandomId, new RFC3550.SourceList(ReportBlockCounter), ReasonForLeaving.ToArray()))
+                        {
+                            //Check IsComplete
+                            System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
+
+                            //Check SynchronizationSourceIdentifier
+                            System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == RandomId, "Unexpected SynchronizationSourceIdentifier");
+
+                            //Calculate the length of the ReasonForLeaving, should always be padded to 32 bits for octet alignment.
+                            int expectedReasonLength = ReasonLength > 0 ? Binary.BytesToMachineWords(ReasonLength + 1) * Binary.BytesPerInteger : 0;
+
+                            //Check HasReasonForLeaving
+                            System.Diagnostics.Debug.Assert(expectedReasonLength > 0 == p.HasReasonForLeaving, "Unexpected HasReasonForLeaving");
+
+                            //Check the Payload.Count
+                            System.Diagnostics.Debug.Assert(p.Payload.Count == ReportBlockCounter * Binary.BytesPerInteger + PaddingCounter + expectedReasonLength, "Unexpected Payload Count");
+
+                            //Check the Length, 
+                            System.Diagnostics.Debug.Assert(p.Length == p.Header.Size + ReportBlockCounter * Binary.BytesPerInteger + PaddingCounter + expectedReasonLength, "Unexpected Length");
+
+                            //Check the BlockCount count
+                            System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
+
+                            //Check the reaosn for leaving
+                            System.Diagnostics.Debug.Assert(p.ReasonForLeaving.SequenceEqual(ReasonForLeaving), "Unexpected ReasonForLeaving data");
+
+                            //Check the PaddingOctets count
+                            System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter, "Unexpected PaddingOctets");
+
+                            //Check all data in the padding but not the padding octet itself.
+                            System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
+
+                            //Serialize and Deserialize and verify again
+                            using (Rtcp.GoodbyeReport s = new Rtcp.GoodbyeReport(new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0), true))
+                            {
+                                //Check the Payload.Count
+                                System.Diagnostics.Debug.Assert(s.Payload.Count == p.Payload.Count, "Unexpected Payload Count");
+
+                                //Check the Length, 
+                                System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+
+                                //Check the BlockCount count
+                                System.Diagnostics.Debug.Assert(s.BlockCount == p.BlockCount, "Unexpected BlockCount");
+
+                                //Check the reaosn for leaving
+                                System.Diagnostics.Debug.Assert(s.ReasonForLeaving.SequenceEqual(ReasonForLeaving) && s.ReasonForLeaving.Count() == ReasonLength, "Unexpected ReasonForLeaving data");
+
+                                //Check the PaddingOctets count
+                                System.Diagnostics.Debug.Assert(s.PaddingOctets == p.PaddingOctets, "Unexpected PaddingOctets");
+
+                                //Check all data in the padding but not the padding octet itself.
+                                System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -289,6 +289,11 @@ namespace Media
         }
 
         /// <summary>
+        /// The amount of bytes which appear before all RtcpPacket's in a given buffer when using RFC3550 encryption.
+        /// </summary>
+        public static int MagicBytesSize = Binary.BytesPerInteger;
+
+        /// <summary>
         /// Reads the first 32 bit value present in the Compound Data and parses all contained packets.
         /// </summary>
         /// <param name="random">The 32 bit value read from the array</param>
@@ -300,7 +305,7 @@ namespace Media
         public static IEnumerable<RtcpPacket> FromEncryptedCompoundBytes(out int random, byte[] array, int offset, int count, bool skipUnknownTypes = false)
         {
             random = (int)Media.Common.Binary.ReadU32(array, offset, BitConverter.IsLittleEndian);
-            return FromCompoundBytes(array, offset += 4, count -= 4, skipUnknownTypes);
+            return FromCompoundBytes(array, offset += MagicBytesSize, count -= MagicBytesSize, skipUnknownTypes);
         }
 
         /// <summary>
@@ -312,8 +317,6 @@ namespace Media
         /// <returns>The value of the last non 0 octet in the given segment deleniated by position</returns>
         public static int ReadPadding(Common.MemorySegment segment, int position)
         {
-
-
             int segmentCount = segment.Count;
 
             //If there are no more bytes to parse we cannot continue
@@ -333,7 +336,7 @@ namespace Media
             for (; position < segmentCount; ++position)
             {
 
-                byte val = segment.Array[position];
+                byte val = segment[position];
 
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
                 if (val != default(byte))
@@ -381,7 +384,7 @@ namespace Media
         ///     
         /// public to allow derived implementation, hence not sealed.
         /// 
-        /// This instance only declares 2 fields which are value types and owns no other references.
+        /// This Type only declares 2 fields which are value types and owns no other references.
         /// </remarks>
         public class CommonHeaderBits : BaseDisposable, IEnumerable<byte>
         {
@@ -472,7 +475,7 @@ namespace Media
             /// <summary>
             /// If created from memory existing
             /// </summary>
-            Common.MemorySegment m_Memory;
+            readonly Common.MemorySegment m_Memory;
 
             /// <summary>
             /// The first and octets themselves, utilized by both Rtp and Rtcp.
@@ -775,6 +778,23 @@ namespace Media
 
             #region Overrides
 
+            public override void Dispose()
+            {
+                base.Dispose();
+
+                if (ShouldDispose)
+                {
+                    IDisposable memory = (IDisposable)m_Memory;
+
+                    if (memory != null)
+                    {
+                        memory.Dispose();
+
+                        memory = null;
+                    }
+                }
+            }
+
             public override int GetHashCode() { return (short)this; }
 
             public override bool Equals(object obj)
@@ -800,7 +820,7 @@ namespace Media
                 return boxA == null ? boxB == null : a.Equals(b);
             }
 
-            public static bool operator !=(CommonHeaderBits a, CommonHeaderBits b) { return !(a == b); }
+            public static bool operator !=(CommonHeaderBits a, CommonHeaderBits b) { return false == (a == b); }
 
             #endregion
         }
@@ -817,7 +837,8 @@ namespace Media
         /// for more information see
         /// <see href="http://tools.ietf.org/html/rfc3550">Page 15, paragraph `CSRC list`</see>
         /// </summary>
-        public sealed class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>/*, IReadOnlyCollection<uint> */ //Only needed if modifications to a SourceList are allowed at run time.
+        public sealed class SourceList : BaseDisposable, IEnumerator<uint>, IEnumerable<uint>, IReportBlock
+            /*, IReadOnlyCollection<uint> */ //Only needed if modifications to a SourceList are allowed at run time.
         {
             #region Constants / Statics
 
@@ -855,6 +876,11 @@ namespace Media
             [CLSCompliant(false)]
             public SourceList(uint ssrc) : this(Media.Common.Extensions.Linq.LinqExtensions.Yield(ssrc)) { }
 
+            /// <summary>
+            /// Copies Data
+            /// </summary>
+            /// <param name="sources"></param>
+            /// <param name="start"></param>
             public SourceList(IEnumerable<uint> sources, int start = 0)
             {
                 m_SourceCount = Math.Min(Common.Binary.FourBitMaxValue, sources.Count());
@@ -912,9 +938,13 @@ namespace Media
             public SourceList(int sourceCount)
             {
                 m_SourceCount = sourceCount;
-                int sourceListSize = 4 * sourceCount;
+                
+                int sourceListSize = Binary.BytesPerInteger * sourceCount;
+                
                 m_OwnedOctets = new byte[sourceListSize];
+                
                 m_Binary = new Common.MemorySegment(m_OwnedOctets, 0, sourceListSize);
+
             }
 
             /// <summary>
@@ -924,6 +954,7 @@ namespace Media
             public SourceList(GoodbyeReport goodbyeReport)
             {
                 m_SourceCount = goodbyeReport.Header.BlockCount;
+
                 m_Binary = goodbyeReport.Payload;
             }
 
@@ -934,7 +965,7 @@ namespace Media
             /// <summary>
             /// Indicates if there is enough data in the given binary to read the complete source list.
             /// </summary>
-            public bool IsComplete { get { return false == IsDisposed && m_SourceCount * 4 == m_Binary.Count; } }
+            public bool IsComplete { get { return false == IsDisposed && m_SourceCount * Binary.BytesPerInteger == m_Binary.Count; } }
 
             uint IEnumerator<uint>.Current
             {
@@ -1032,13 +1063,13 @@ namespace Media
                 if (IsDisposed) return false;
 
                 //If there is a value to read and the binary data encompasses the required offset.
-                if (m_Read < m_SourceCount && m_CurrentOffset + 4 < m_Binary.Count)
+                if (m_Read < m_SourceCount && m_CurrentOffset + Binary.BytesPerInteger < m_Binary.Count)
                 {
                     //Read the unsigned 16 bit value from the binary data
                     m_CurrentSource = Binary.ReadU16(m_Binary.Array, m_CurrentOffset, true);
 
                     //advance the offset
-                    m_CurrentOffset += 4;
+                    m_CurrentOffset += Binary.BytesPerInteger;
 
                     ++m_Read;
 
@@ -1072,9 +1103,14 @@ namespace Media
             /// Prepares a binary sequence of 'Size' containing all of the data in the SourceList.
             /// </summary>
             /// <returns>The sequence created.</returns>
+            public IEnumerable<byte> AsBinaryEnumerable(int offset, int count)
+            {
+                return m_Binary.Skip(offset * ItemSize).Take(count * ItemSize);
+            }
+
             public IEnumerable<byte> AsBinaryEnumerable()
             {
-                return m_Binary.Array.Skip(m_Binary.Offset).Take(m_Binary.Count);
+                return AsBinaryEnumerable(0, m_SourceCount);
             }
 
             /// <summary>
@@ -1088,7 +1124,7 @@ namespace Media
                 try
                 {
                     CheckDisposed();
-                    Array.Copy(m_Binary.Array, m_Binary.Offset, other, offset, Math.Min(m_SourceCount * 4, m_Binary.Count));
+                    Array.Copy(m_Binary.Array, m_Binary.Offset, other, offset, Math.Min(m_SourceCount * Binary.BytesPerInteger, m_Binary.Count));
                     return true;
                 }
                 catch { return false; }
@@ -1141,6 +1177,34 @@ namespace Media
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
             {
                 return this;
+            }
+
+            #endregion
+
+            #region IReportBlock
+
+            /// <summary>
+            /// <see cref="Size"/>
+            /// </summary>
+            int IReportBlock.Size
+            {
+                get { return Size; }
+            }
+
+            /// <summary>
+            /// <see cref="CurrentSource"/>
+            /// </summary>
+            int IReportBlock.BlockIdentifier
+            {
+                get { return CurrentSource; }
+            }
+
+            /// <summary>
+            /// Provides the binary data assoicated with this SourceList
+            /// </summary>
+            IEnumerable<byte> IReportBlock.BlockData
+            {
+                get { return m_Binary; }
             }
 
             #endregion

@@ -41,6 +41,7 @@ namespace Media.Ntp
     /// <summary>
     /// Contains logic useful for calculating values which correspond to the <see href="http://en.wikipedia.org/wiki/Network_Time_Protocol"> Network Time Protocol </see>
     /// </summary>
+    [System.CLSCompliant(true)]
     public class NetworkTimeProtocol
     {
         //Should all probably be DateTimeOffset
@@ -56,7 +57,11 @@ namespace Media.Ntp
         /// bits of the integer part and the high 16 bits of the fractional part.
         /// The high 16 bits of the integer part must be determined independently.
         /// </notes>
-        public static uint DateTimeToNptTimestamp32(System.DateTime value) { return (uint)((DateTimeToNptTimestamp(value) << 16) & 0xFFFFFFFF); }
+        [System.CLSCompliant(false)]
+        public static uint DateTimeToNptTimestamp32(ref System.DateTime value) { return (uint)((DateTimeToNptTimestamp(value) << 16) & 0xFFFFFFFF); }
+
+        [System.CLSCompliant(false)]
+        public static uint DateTimeToNptTimestamp32(System.DateTime value) { return DateTimeToNptTimestamp32(ref value); }
 
         /// <summary>
         /// Converts specified DateTime value to long NPT time.
@@ -74,7 +79,8 @@ namespace Media.Ntp
         /// bits of the integer part and the high 16 bits of the fractional part.
         /// The high 16 bits of the integer part must be determined independently.
         /// </notes>
-        public static ulong DateTimeToNptTimestamp(System.DateTime value)
+        [System.CLSCompliant(false)]
+        public static ulong DateTimeToNptTimestamp(ref System.DateTime value)
         {
             System.DateTime baseDate = value >= UtcEpoch2036 ? UtcEpoch2036 : UtcEpoch1900;
 
@@ -83,14 +89,29 @@ namespace Media.Ntp
             return ((ulong)(elapsedTime.Ticks / System.TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
         }
 
-        public static System.DateTime NptTimestampToDateTime(ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> 32) & 0xFFFFFFFF), (uint)(nptTimestamp & 0xFFFFFFFF)); }
+        [System.CLSCompliant(false)]
+        public static ulong DateTimeToNptTimestamp(System.DateTime value) { return DateTimeToNptTimestamp(ref value); }
 
-        public static System.DateTime NptTimestampToDateTime(uint seconds, uint fractions, System.DateTime? epoch = null)
+        [System.CLSCompliant(false)]
+        public static System.DateTime NptTimestampToDateTime(ref ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> 32) & 0xFFFFFFFF), (uint)(nptTimestamp & 0xFFFFFFFF)); }
+
+        [System.CLSCompliant(false)]
+        public static System.DateTime NptTimestampToDateTime(ulong ntpTimestamp) { return NptTimestampToDateTime(ref ntpTimestamp); }
+
+        [System.CLSCompliant(false)]
+        public static System.DateTime NptTimestampToDateTime(ref uint seconds, ref uint fractions, System.DateTime? epoch = null)
         {
+            //Convert to ticks
             ulong ticks = (ulong)((seconds * System.TimeSpan.TicksPerSecond) + ((fractions * System.TimeSpan.TicksPerSecond) / 0x100000000L));
-            if (epoch.HasValue) return epoch.Value + System.TimeSpan.FromTicks((long)ticks);
-            return (seconds & 0x80000000L) == 0 ? UtcEpoch2036 + System.TimeSpan.FromTicks((long)ticks) : UtcEpoch1900 + System.TimeSpan.FromTicks((long)ticks);
+
+            return epoch.HasValue ? epoch.Value + System.TimeSpan.FromTicks((long)ticks) : 
+                    (seconds & 0x80000000L) == 0 ? 
+                        UtcEpoch2036 + System.TimeSpan.FromTicks((long)ticks) :
+                            UtcEpoch1900 + System.TimeSpan.FromTicks((long)ticks);
         }
+
+        [System.CLSCompliant(false)]
+        public static System.DateTime NptTimestampToDateTime(uint seconds, uint fractions, System.DateTime? epoch = null) { return NptTimestampToDateTime(ref seconds, ref fractions, epoch); }
 
         //When the First Epoch will wrap (The real Y2k)
         public static System.DateTime UtcEpoch2036 = new System.DateTime(2036, 2, 7, 6, 28, 16, System.DateTimeKind.Utc);

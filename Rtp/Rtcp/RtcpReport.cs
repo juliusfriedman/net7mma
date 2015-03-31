@@ -64,28 +64,31 @@ namespace Media.Rtcp
         /// <param name="payloadType">The payloadType of the report.</param>
         /// <param name="padding"><see cref="RtcpHeader.Padding"/></param>
         /// <param name="ssrc">The id of the sender of the report</param>
+        /// <param name="lengthInWords">The lengthInWords</param>
         /// <param name="blockCount"><see cref="RtcpHeader.BlockCount"/></param>
         /// <param name="blockSize">The size in bytes of each block in the RtcpReport</param>
         /// <param name="extensionSize">The size in bytes of any extension data contained in the report.</param>
-        public RtcpReport(int version, int payloadType, bool padding, int ssrc, int blockCount, int blockSize, int extensionSize = 0)
-            : base(new RtcpHeader(version, payloadType, padding, blockCount, ssrc), Enumerable.Empty<byte>())
+        public RtcpReport(int version, int payloadType, int padding, int ssrc, int blockCount, int blockSize, int lengthInWords, int extensionSize = 0)
+            : base(version, payloadType, padding, ssrc, blockCount, lengthInWords, blockSize, extensionSize)
         {
-            //Calulcate the size of the Payload Segment
-            int payloadSize = blockSize * blockCount + extensionSize;
 
-            //Octet alignment should always be respected when creating the payload, this will avoid a few uncecessary resizes.
-            int nullOctetsRequired = (payloadSize & 0x03);
+        }
 
-            //This will allow the data to end on a 32 bit boundary.
-            payloadSize += nullOctetsRequired;
-
-            //Allocate an array of byte equal to the size required
-            m_OwnedOctets = new byte[payloadSize];
-
-            //Segment the array to allow property access.
-            Payload = new MemorySegment(m_OwnedOctets, 0, payloadSize);
-
-            //Set the SetLenthInWordsMinusOne property in the Header according to the size of the allocated Payload
+        /// <summary>
+        /// Constructs a new instance of a RtcpReport.
+        /// </summary>
+        /// <param name="version">The version of the report</param>
+        /// <param name="payloadType">The payloadType of the report.</param>
+        /// <param name="padding"><see cref="RtcpHeader.Padding"/></param>
+        /// <param name="ssrc">The id of the sender of the report</param>
+        /// <param name="blockCount"><see cref="RtcpHeader.BlockCount"/></param>
+        /// <param name="blockSize">The size in bytes of each block in the RtcpReport</param>
+        /// <param name="extensionSize">The size in bytes of any extension data contained in the report.</param>
+        public RtcpReport(int version, int payloadType, int padding, int ssrc, int blockCount, int blockSize, int extensionSize = 0)
+            : base(version, payloadType, padding, ssrc, blockCount,
+            RtcpHeader.DefaultLengthInWords,
+            blockSize, extensionSize)
+        {
             SetLengthInWordsMinusOne();
         }
 
@@ -114,6 +117,8 @@ namespace Media.Rtcp
 
         }
 
+        ~RtcpReport() { Dispose(); }
+
         #endregion
 
         #region Properties
@@ -123,7 +128,7 @@ namespace Media.Rtcp
         /// </summary>
         public bool HasExtensionData
         {
-            get { return IsDisposed ? false : Payload.Count > ReportBlockOctets; }
+            get { return IsDisposed ? false : Payload.Count - ReportBlockOctets - PaddingOctets > 0; }
         }
 
         /// <summary>
@@ -166,11 +171,17 @@ namespace Media.Rtcp
         {
             get
             {
-                if (IsDisposed || false == HasExtensionData) return Enumerable.Empty<byte>();
+                if (false == HasExtensionData) return Enumerable.Empty<byte>();
+
+                //return Payload.Reverse().Skip(PaddingOctets).Reverse();
 
                 return Payload.Skip(ReportBlockOctets).Take(ExtensionDataOctets);
             }
-            //set { }
+            //internal protected set
+            //{
+            //    value.ToArray().CopyTo(Payload.Array, Payload.Offset);
+            //    //Payload.Skip(ReportBlockOctets).Take(ExtensionDataOctets);
+            //}
         }
 
         /// <summary>
@@ -178,7 +189,7 @@ namespace Media.Rtcp
         /// </summary>
         public int ExtensionDataOctets
         {
-            get { return false == IsDisposed && HasExtensionData ? Payload.Count - ReportBlockOctets : 0; }
+            get { return Payload.Count - ReportBlockOctets - PaddingOctets; }
         }
 
         /// <summary>
@@ -190,11 +201,11 @@ namespace Media.Rtcp
         /// 
         /// </summary>
         /// <param name="includeHeader"></param>
-        /// <param name="includeExtensionData"></param>
         /// <param name="includeReportData"></param>
+        /// <param name="includeExtensionData"></param>
         /// <param name="includePadding"></param>
         /// <returns></returns>
-        public virtual IEnumerable<byte> Prepare(bool includeHeader, bool includeExtensionData, bool includeReportData, bool includePadding)
+        public virtual IEnumerable<byte> Prepare(bool includeHeader, bool includeReportData, bool includeExtensionData, bool includePadding)
         {
             if (includeHeader) foreach (byte b in Header) yield return b;
 
@@ -209,21 +220,33 @@ namespace Media.Rtcp
 
         #region Instance Methods       
 
-        internal virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
+        internal protected virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)//, int blockSize = ReportBlock.ReportBlockSize)
         {
-            if (false == IsDisposed && HasReports)
+            for (int
+                blockCounter = BlockCount,
+                paddingOctets = PaddingOctets,
+                count = Payload.Count - PaddingOctets - offset,
+                localOffset = Payload.Offset + offset;
+                //
+                false == IsDisposed &&
+                --blockCounter >= 0 &&
+                count > 0; /**/)
             {
-                for (int count = Payload.Count - offset; offset <= count; )
+                using (ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, localOffset, count)))
                 {
-                    ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, Payload.Offset + offset, count));
-                    offset += current.Size;
-                    count -= current.Size;
                     yield return current;
+
+                    localOffset += current.Size;
+
+                    count -= current.Size;
                 }
             }
         }
 
-        public virtual IEnumerator<IReportBlock> GetEnumerator() { return GetEnumeratorInternal(); }
+        public virtual IEnumerator<IReportBlock> GetEnumerator() //Should take offset and count? 
+        {
+            return GetEnumeratorInternal(ReportBlockOctets);
+        }
 
         #endregion
 
@@ -241,9 +264,7 @@ namespace Media.Rtcp
 
             if (IsReadOnly) throw new InvalidOperationException("The RtcpReport can only be modified when IsReadOnly is false.");
 
-            if (BlockCount > Binary.FiveBitMaxValue) throw new ArgumentOutOfRangeException("reportBlock", "The BlockCount property of the RtcpReport is at the maximum value possible.");
-
-            if (reportBlock == null) throw new ArgumentNullException("reportBlock");
+            if (ReportBlocksRemaining == 0) throw new InvalidOperationException("A RtcpReport can only hold 31 ReportBlocks");
 
             //Determine the size of the block
             int reportBlockSize = reportBlock.Size;

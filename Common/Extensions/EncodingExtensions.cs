@@ -115,7 +115,7 @@ namespace Media.Common.Extensions.Encoding
                         read = (ulong)(stream.Position - at);
 
                         //If the Byte was a delemit 
-                        if (Array.IndexOf<char>(delimits, cached) >= 0)
+                        if (System.Array.IndexOf<char>(delimits, cached) >= 0)
                         {
                             //Indicate the delimit was seen
                             sawDelimit = true;

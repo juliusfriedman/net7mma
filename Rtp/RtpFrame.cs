@@ -310,7 +310,16 @@ namespace Media.Rtp
         /// <summary>
         /// Empties the RtpFrame by clearing the SortedList of contained RtpPackets
         /// </summary>
-        public virtual void RemoveAllPackets() { if(m_Packets != null) m_Packets.Clear(); }
+        public virtual void RemoveAllPackets()
+        {
+            if (m_Packets != null) m_Packets.Clear();
+        }
+
+        internal protected virtual void DisposeAllPackets()
+        {
+            //Dispose all packets...
+            foreach (RtpPacket p in m_Packets.Values) p.Dispose();
+        }
 
         /// <summary>
         /// Assembles the RtpFrame into a byte[] by combining the ExtensionBytes and Payload of all contained RtpPackets into a single byte array (excluding the RtpHeader)
@@ -356,11 +365,15 @@ namespace Media.Rtp
 
         public override void Dispose()
         {
-            if (IsDisposed) return;
-
             base.Dispose();
 
-            RemoveAllPackets();
+            if (ShouldDispose)
+            {
+                //Dispose all packets...
+                DisposeAllPackets();
+
+                RemoveAllPackets(); 
+            }
         }
     }
 }

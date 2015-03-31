@@ -82,6 +82,24 @@ namespace Media.Rtcp
         /// </summary>
         public const int Length = 4;
 
+        /// <summary>
+        /// The value which is placed into the <see cref="RtcpHeader.LengthInWordsMinusOne"/> by default when creating a RtcpReport.
+        /// Note that a value of 0 = 4 bytes and a value of 1 = 8 bytes.
+        /// </summary>
+        public const int DefaultLengthInWords = 1;
+
+        /// <summary>
+        /// The maximum value which can appear in the <see cref="RtcpHeader.LengthInWordsMinusOne"/>
+        /// Usually indicates a header only, 65535 + 1 = 0, 4 bytes
+        /// </summary>
+        public const int MaximumLengthInWords = ushort.MaxValue;
+
+        /// <summary>
+        /// The minimum value which can appear in the <see cref="RtcpHeader.LengthInWordsMinusOne"/>
+        /// Usually indicates header and a ssrc but is technically equal to <see cref="MaximumLengthInWords"/>
+        /// </summary>
+        internal const int MinimumLengthInWords = ushort.MinValue;
+
         #endregion
 
         #region Fields
@@ -197,7 +215,8 @@ namespace Media.Rtcp
                 /*CheckDisposed();*/
 
                 //Write the value
-                if (value > ushort.MaxValue) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
+                if (value > RtcpHeader.MinimumLengthInWords) Binary.CreateOverflowException("LengthInWordsMinusOne", value, ushort.MinValue.ToString(), ushort.MaxValue.ToString());
+
                 Binary.Write16(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset, BitConverter.IsLittleEndian, (ushort)value);
             }
         }
@@ -213,8 +232,16 @@ namespace Media.Rtcp
             { 
 
                 /*CheckDisposed();*/
-                
-                return Size > RtcpHeader.Length ? (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian) : 0;
+
+                switch (LengthInWordsMinusOne)
+                {
+                    case RtcpHeader.MinimumLengthInWords:
+                    //case RtcpHeader.MaximumLengthInWords: // -
+                        return 0;
+                    default: return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian);
+                }
+
+               //return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian);
             }
             set
             { 
@@ -225,9 +252,9 @@ namespace Media.Rtcp
                 //If there was no words in the packet (other than the header itself) than indicate another word is present.
                 switch (LengthInWordsMinusOne)
                 {
-                    case 0:
-                    case ushort.MaxValue:
-                        LengthInWordsMinusOne = 1;
+                    case RtcpHeader.MinimumLengthInWords:
+                    case RtcpHeader.MaximumLengthInWords:
+                        LengthInWordsMinusOne = RtcpHeader.DefaultLengthInWords;
                         return;
                 }
             }
@@ -240,14 +267,15 @@ namespace Media.Rtcp
         {
             get
             {
+                if (IsDisposed) return 0;
 
-                //Get the lenth in words
-                int lengthInWords = LengthInWordsMinusOne;
-
-                //Account for the Senders SSRC word if present.
-                if (lengthInWords != ushort.MinValue && lengthInWords != ushort.MaxValue) return Media.Common.Binary.BitsPerByte; //8
-
-                return RtcpHeader.Length;
+                switch (LengthInWordsMinusOne)
+                {
+                    case RtcpHeader.MinimumLengthInWords:
+                    case RtcpHeader.MaximumLengthInWords:
+                        return RtcpHeader.Length;
+                    default: return Binary.BytesPerLong;
+                }
             }
         }
 
@@ -341,8 +369,8 @@ namespace Media.Rtcp
             
             PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);
             
-            //The default value must be set into the LengthInWords field otherwise it will reflect 65535.
-            if(blockCount == 0) LengthInWordsMinusOne = ushort.MaxValue;
+            //The default value must be set into the LengthInWords field otherwise it will reflect 0
+            if(blockCount == 0) LengthInWordsMinusOne = RtcpHeader.MaximumLengthInWords; // ushort (0 - 1)
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount, int ssrc)
@@ -367,8 +395,15 @@ namespace Media.Rtcp
         /// <returns>The sequence created</returns>
         internal IEnumerable<byte> GetSendersSynchronizationSourceIdentifierSequence()
         {
-            int lengthInWords = LengthInWordsMinusOne;
-            return PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes.Skip(2) : Media.Common.MemorySegment.EmptyBytes;
+            switch (LengthInWordsMinusOne)
+            {
+                case RtcpHeader.MinimumLengthInWords:
+                case RtcpHeader.MaximumLengthInWords:
+                    return Common.MemorySegment.EmptyBytes;
+                default: return PointerToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size);
+            }
+            //int lengthInWords = LengthInWordsMinusOne;
+            //return PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes.Skip(RFC3550.CommonHeaderBits.Size) : Media.Common.MemorySegment.EmptyBytes;
         }
 
         /// <summary>
@@ -381,8 +416,14 @@ namespace Media.Rtcp
 
         internal IEnumerable<byte> GetEnumerableImplementation()
         {
-            int lengthInWords = LengthInWordsMinusOne;
-            return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes.Count >= 6 && lengthInWords != 0 && lengthInWords != ushort.MaxValue ? PointerToLast6Bytes : PointerToLast6Bytes.Take(2));
+            switch (LengthInWordsMinusOne)
+            {
+                case RtcpHeader.MinimumLengthInWords:
+                case RtcpHeader.MaximumLengthInWords:
+                    return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes.Take(RFC3550.CommonHeaderBits.Size));
+                default:
+                     return Enumerable.Concat<byte>(First16Bits, PointerToLast6Bytes);
+            }
         }
 
         #endregion
@@ -402,8 +443,6 @@ namespace Media.Rtcp
         public override void Dispose()
         {
 
-            if (IsDisposed) return;
-
             base.Dispose();
 
             if (ShouldDispose)
@@ -416,6 +455,7 @@ namespace Media.Rtcp
 
                 //Invalidate the pointer
                 PointerToLast6Bytes.Dispose();
+
                 PointerToLast6Bytes = null;
 
                 //Remove the reference to the allocated array.
@@ -448,7 +488,7 @@ namespace Media.Rtcp
             return boxA == null ? boxB == null : a.Equals(b);
         }
 
-        public static bool operator !=(RtcpHeader a, RtcpHeader b) { return !(a == b); }
+        public static bool operator !=(RtcpHeader a, RtcpHeader b) { return false == (a == b); }
 
         #endregion
 
@@ -464,16 +504,90 @@ namespace Media.UnitTests
     /// </summary>
     internal class RtcpHeaderUnitTests
     {
-        public static void TestLengthInWordsMinusOne()
+        public static void TestAConstructor_And_Reserialization()
         {
-            for (int lengthIn32BitWords = 0; lengthIn32BitWords <= ushort.MaxValue; ++lengthIn32BitWords)
+            unchecked
             {
-                using (Rtcp.RtcpHeader test = new Rtcp.RtcpHeader(0, 0, false, 0, 0, lengthIn32BitWords))
-                {
-                    if (lengthIn32BitWords != test.LengthInWordsMinusOne ||
-                        lengthIn32BitWords + 1 * 4 != test.LengthInWordsMinusOne + 1 * 4) throw new Exception("Invalid LengthInWordsMinusOne");
+                bool bitValue = false;
 
-                    if (test.Count() != test.Size) throw new Exception("Invalid Size");
+                //Test every possible bit packed value that can be valid in the first and second octet
+                for (int ibitValue = 0; ibitValue < 2; ++ibitValue)
+                {
+                    //Make a bitValue after the 0th iteration
+                    if (ibitValue > 0) bitValue = Convert.ToBoolean(ibitValue);
+
+                    //Permute every possible value within the 2 bit Version
+                    for (byte VersionCounter = 0; VersionCounter <= Media.Common.Binary.TwoBitMaxValue; ++VersionCounter)
+                    {
+                        //Permute every possible value in the 7 bit PayloadCounter
+                        for (int PayloadCounter = 0; PayloadCounter <= byte.MaxValue; ++PayloadCounter)
+                        {
+                            //Permute every possible value in the 5 bit BlockCount
+                            for (byte ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+                            {
+                                //Permute every necessary value in the 16 bit LengthInWordsMinusOne
+                                for (ushort lengthIn32BitWords = ushort.MaxValue; lengthIn32BitWords == ushort.MaxValue || lengthIn32BitWords <= Media.Common.Binary.BitsPerByte; ++lengthIn32BitWords)
+                                {
+                                    using (Rtcp.RtcpHeader test = new Rtcp.RtcpHeader(VersionCounter, PayloadCounter, bitValue, ReportBlockCounter, 7, lengthIn32BitWords))
+                                    {
+                                        if (lengthIn32BitWords > 0 && test.SendersSynchronizationSourceIdentifier != 7) throw new Exception("Unexpected SendersSynchronizationSourceIdentifier");
+
+                                        if (test.Padding != bitValue) throw new Exception("Unexpected BlockCount");
+
+                                        if (test.Version != VersionCounter) throw new Exception("Unexpected Version");
+
+                                        if (test.PayloadType != PayloadCounter) throw new Exception("Unexpected PayloadType");
+
+                                        if (test.BlockCount != ReportBlockCounter) throw new Exception("Unexpected BlockCount");
+
+                                        if (lengthIn32BitWords != test.LengthInWordsMinusOne ||
+                                            lengthIn32BitWords + 1 * 4 != test.LengthInWordsMinusOne + 1 * 4) throw new Exception("Invalid LengthInWordsMinusOne");
+
+                                        if (test.Count() != test.Size) throw new Exception("Invalid Size given Count");
+
+                                        //Test Serialization from an array and Deserialization from the array
+
+                                        using (Rtcp.RtcpHeader deserialized = new Rtcp.RtcpHeader(test.ToArray()))
+                                        {
+                                            if (test.SendersSynchronizationSourceIdentifier != 0 &&
+                                                test.Size > Rtcp.RtcpHeader.Length &&
+                                                test.SendersSynchronizationSourceIdentifier != deserialized.SendersSynchronizationSourceIdentifier) throw new Exception("Unexpected SendersSynchronizationSourceIdentifier");
+
+                                            if (test.Padding != deserialized.Padding) throw new Exception("Unexpected BlockCount");
+
+                                            if (test.Version != deserialized.Version) throw new Exception("Unexpected Version");
+
+                                            if (test.PayloadType != deserialized.PayloadType) throw new Exception("Unexpected PayloadType");
+
+                                            if (test.BlockCount != deserialized.BlockCount) throw new Exception("Unexpected BlockCount");
+
+                                            if (test.LengthInWordsMinusOne != deserialized.LengthInWordsMinusOne) throw new Exception("Invalid LengthInWordsMinusOne");
+
+                                            if (test.Size != deserialized.Size) throw new Exception("Unexpected Size");
+                                        }
+
+                                        //Test IEnumerable constructor if added
+
+                                        //using (Rtcp.RtcpHeader deserialized = new Rtcp.RtcpHeader(test.GetEnumerableImplementation()))
+                                        //{
+                                        //    if (test.Padding != deserialized.Padding) throw new Exception("Unexpected BlockCount");
+
+                                        //    if (test.Version != deserialized.Version) throw new Exception("Unexpected Version");
+
+                                        //    if (test.PayloadType != deserialized.PayloadType) throw new Exception("Unexpected PayloadType");
+
+                                        //    if (test.BlockCount != deserialized.BlockCount) throw new Exception("Unexpected BlockCount");
+
+                                        //    if (test.LengthInWordsMinusOne != deserialized.LengthInWordsMinusOne) throw new Exception("Invalid LengthInWordsMinusOne");
+
+                                        //    if (test.Count() != deserialized.Size) throw new Exception("Invalid Size");
+                                        //}
+
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

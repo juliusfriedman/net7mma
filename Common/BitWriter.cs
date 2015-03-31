@@ -132,7 +132,7 @@ namespace Media.Common//.Binary
                 Array.Reverse(intBytes);
             }
 
-            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.SizeOfInt);
+            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerInteger);
         }
         public void WriteEndian(Int64 source, Common.Binary.ByteOrder byteOrder)
         {
@@ -143,7 +143,7 @@ namespace Media.Common//.Binary
                 Array.Reverse(intBytes);
             }
 
-            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.SizeOfLong);
+            m_Source.Write(Common.Binary.ConvertFromBigEndian(intBytes, byteOrder), 0, Common.Binary.BytesPerLong);
         }
         public void WriteEndian(string source, Common.Binary.ByteOrder byteOrder)
         {

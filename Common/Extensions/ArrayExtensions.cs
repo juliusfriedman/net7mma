@@ -36,28 +36,20 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Common.Extensions.Object
+namespace Media.Common.Extensions.Array
 {
-    public static class ObjectExtensions
+    public static class ArrayExtensions
     {
-        public static System.Array ToArray(object o)
+        static long longLength;
+
+        public static bool IsNullOrEmpty(this System.Array a, out long longLength)
         {
-            return ToArray(o);
+            return (longLength = (a ?? Common.MemorySegment.EmptyBytes).LongLength) == 0;
         }
 
-        internal static System.Array ToArray(params object[] array)
+        public static bool IsNullOrEmpty(this System.Array a)
         {
-            return array;
-        }
-
-        public static T[] ToArray<T>(T t)
-        {
-            return ToArray<T>(t);
-        }
-
-        public static T[] ToArray<T>(params T[] tArray)
-        {
-            return tArray;
+            return IsNullOrEmpty(a, out longLength);
         }
     }
 }

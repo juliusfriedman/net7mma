@@ -38,11 +38,11 @@ namespace Media.Rtcp.Expansion
 
         public class RtcpFeedbackPacket : RtcpReport
         {
-            public RtcpFeedbackPacket(int version, int type, bool padding, int ssrc, byte[] feedbackControlInformation)
+            public RtcpFeedbackPacket(int version, int type, int padding, int ssrc, byte[] feedbackControlInformation)
                 : base(version, type, padding, ssrc, 0, 0, feedbackControlInformation != null ? feedbackControlInformation.Length : 0)
             {
 
-                //type must be either RTPFB or PSFB ?
+                //type must be either RTPFB or PSFB ? FIR
 
                 if (feedbackControlInformation != null)
                     feedbackControlInformation.CopyTo(Payload.Array, Payload.Offset);

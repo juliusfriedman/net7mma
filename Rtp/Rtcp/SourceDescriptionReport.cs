@@ -94,7 +94,7 @@ namespace Media.Rtcp
          * X, 255 (->)|0x05-0x105 (Type = X, Length = 255, Total 257 octets) [without a null terminator including the 2 bytes X and 255] (262 inlcuding the identifier)
          * 5, 6, 7, 8 |0x106 (4 octet Chunk Identifier)
          * X  251 ->  |0x107 - 0x203 (Type = X, Length = 251, Total 253 octets (+262 previous) ) [without a null terminator]
-         *            |0x203 (515 total octets) 515 is not evenly divisible by 4 but since BlockCount(SC) = 2 no more octets are required.
+         *            |0x203 (515 total octets) 515 is not evenly divisible by 4 but since BlockCount(SC) = 2, no more octets are required.
          *------------+
          * 
          */
@@ -179,6 +179,8 @@ namespace Media.Rtcp
 
             #region Statics
 
+            internal static SourceDescriptionItem End = new SourceDescriptionItem(SourceDescriptionItem.SourceDescriptionItemType.End, 0);
+
             /// <summary>
             ///  The CNAME item SHOULD have the format "user@host
             /// </summary>
@@ -187,7 +189,7 @@ namespace Media.Rtcp
             /// <summary>
             /// The value representing null
             /// </summary>
-            public static byte Null = default(byte);
+            public static byte Null = (byte)SourceDescriptionItem.SourceDescriptionItemType.End;
 
             #endregion
 
@@ -201,7 +203,7 @@ namespace Media.Rtcp
             /// <summary>
             /// A reference to the octets which contain the data this instance.
             /// </summary>
-            protected readonly IEnumerable<byte> ItemData;
+            internal protected readonly IEnumerable<byte> Data;
 
             #endregion
 
@@ -211,21 +213,18 @@ namespace Media.Rtcp
             {
 
                 //Cache the length because it will be used more than once.
-                byte length = (byte)existing.Length;
+                byte length = (byte)existing.ItemLength;
 
                 //Generate the ItemHeader from the data existing in the memory of the existing references itemHeader.
                 if (doNotCopy)
                 {
-                    ItemData = existing.ItemData;
+                    Data = existing.Data;
+
                     return;
                 }
 
                 //Generate a seqence contaning the required memory and project it into the owned octets instance.
-                ItemData = m_OwnedOctets = existing.ItemData.ToArray();
-
-                //Generate a segment of data consisting of the octets owned.
-                //ItemData = m_OwnedOctets;
-
+                Data = m_OwnedOctets = existing.Data.ToArray();
             }
 
             /// <summary>
@@ -235,19 +234,16 @@ namespace Media.Rtcp
             /// <param name="itemLength">The length in bytes of the item</param>
             public SourceDescriptionItem(SourceDescriptionItemType itemType, int itemLength)
             {
+                if (itemLength > byte.MaxValue) throw Binary.CreateOverflowException("itemType", itemLength, byte.MinValue.ToString(), byte.MaxValue.ToString());
 
-                if (itemLength > 255) throw Binary.CreateOverflowException("itemType", itemLength, byte.MinValue.ToString(), byte.MaxValue.ToString());
+                //There is always at least ItemHeaderSize octets owned to represent the Type
+                Data = m_OwnedOctets = new byte[ItemHeaderSize + itemLength];
 
-                //There is always at least 1 octets owned to represent the Type
-                ItemData = m_OwnedOctets = new byte[ItemHeaderSize + itemLength];
-
+                //Set the type
                 m_OwnedOctets[0] = (byte)itemType;
 
-                //Only set the Length when the ItemType is not End.
+                //Only set the Length when the ItemType is not End as they are sometimes padded anyway
                 if (itemType != SourceDescriptionItemType.End) m_OwnedOctets[1] = (byte)itemLength;
-
-                //Gererate a sequence from the owned octets.
-                //ItemData = m_OwnedOctets;
             }
 
             /// <summary>
@@ -279,8 +275,8 @@ namespace Media.Rtcp
                         //If there are any bytes to copy
                         if (bytesToCopy > 0)
                         {
-                            //Copy any data present from the given offset into the octets owned by this instance to the correct destination offet depending on the Type
-                            Array.Copy(data, offset, m_OwnedOctets, 0, bytesToCopy);
+                            //Copy any data present from the given offset into the octets owned by this instance to the correct destination offset depending on the Type
+                            Array.Copy(data, offset, m_OwnedOctets, ItemHeaderSize, bytesToCopy);
                         }
                     }
                 }
@@ -295,7 +291,7 @@ namespace Media.Rtcp
             public SourceDescriptionItem(IEnumerable<byte> data)
             {
                 //Assign the segment of data to the item.
-                ItemData = data;
+                Data = data;
             }
 
             /// <summary>
@@ -312,12 +308,19 @@ namespace Media.Rtcp
                 //If the amount of contained octets is greater than the maximum value allowed then throw an overflow exception.
                 if (octetCount > byte.MaxValue) Binary.CreateOverflowException("octets", octetCount, byte.MinValue.ToString(), byte.MaxValue.ToString());
 
+                //Could create an array but it would need to be created twice to combine the octets with it
+                //Media.Common.Extensions.Object.ObjectExtensions.ToArray<byte>((byte)itemType, (byte)octetCount);
+
                 //Project the sequence which must be less than Byte.MaxValue in count.
-                ItemData = Enumerable.Concat(Enumerable.Repeat((byte)itemType, 1).Concat(Enumerable.Repeat((byte)octetCount, 1)), octets);
+                Data = Media.Common.Extensions.Linq.LinqExtensions.Yield((byte)itemType).
+                    Concat(Media.Common.Extensions.Linq.LinqExtensions.Yield((byte)octetCount)).
+                    Concat(octets);
 
                 //Use the count obtained previously to generate a segment.
-                m_OwnedOctets = ItemData.ToArray();
+                m_OwnedOctets = Data.ToArray();
             }
+
+            ~SourceDescriptionItem() { Dispose(); }
 
             #endregion
 
@@ -328,20 +331,19 @@ namespace Media.Rtcp
             /// <summary>
             /// Returns the 8 bit ItemType of the SourceDescriptionItem
             /// </summary>
-            public SourceDescriptionItemType ItemType { get { return (SourceDescriptionItemType)ItemData.First(); } }
+            public SourceDescriptionItemType ItemType { get { return (SourceDescriptionItemType)Data.First(); } }
 
             /// <summary>
             /// Returns the 8 bit value of the Length field unless the Type is End Of list, then the amount of null octets is returned.
             /// </summary>
-            public int Length { get { return ItemType == 0 ? Data.Count() : ItemData.Skip(1).First(); } }
+            public int ItemLength { get { return ItemType == 0 ? ItemData.Count() - 1 : Data.Skip(1).First(); } }
 
             #endregion
 
             /// <summary>
-            /// Calculates the size in octets of the SourceDescriptionItem.
-            /// This value includes the Type and Length fields as well as any null octets which may be present.
+            /// The amount of bytes this instance occupied when serialied with ToArray
             /// </summary>
-            public int Size { get { return ItemHeaderSize + Length; } }
+            public int Size { get { return Data.Count(); } }
 
             /// <summary>
             /// Provides the binary data of the SourceDescriptionItem not including the Type and Length fields.
@@ -351,9 +353,9 @@ namespace Media.Rtcp
             /// This data is supposed to be text in UTF-8 Encoding however [Page 45] Paragraph 1 states:
             /// The presence of multi-octet encodings is indicated by setting the most significant bit of a character to a value of one.
             /// </remarks>
-            public IEnumerable<byte> Data
+            public IEnumerable<byte> ItemData
             {
-                get { return ItemType == default(byte) ? ItemData.TakeWhile(o => o == default(byte)) : ItemData.Skip(ItemHeaderSize).Take(Length); }
+                get { return ItemType == default(byte) ? Data.TakeWhile(o => o == default(byte)) : Data.Skip(ItemHeaderSize).Take(ItemLength); }
             }
 
             #endregion
@@ -380,13 +382,31 @@ namespace Media.Rtcp
 
             IEnumerator<byte> IEnumerable<byte>.GetEnumerator()
             {
-                return ItemData.GetEnumerator();
+                return Data.GetEnumerator();
             }
 
             System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
             {
-                return ItemData.GetEnumerator();
+                return Data.GetEnumerator();
             }
+
+            public override void Dispose()
+            {
+                base.Dispose();
+
+                if (ShouldDispose)
+                {
+                    IDisposable data = (IDisposable)Data;
+
+                    if (data != null)
+                    {
+                        data.Dispose();
+
+                        data = null;
+                    }
+                }
+            }
+
         }
 
         #endregion
@@ -397,8 +417,34 @@ namespace Media.Rtcp
         /// Provides a construct to enumerate <see cref="SourceDescriptionItem"/>'s from a contigous allocation of memory.
         /// Is effectively a fixed sized read only list.
         /// </summary>
-        internal class SourceDescriptionItemList : BaseDisposable, IEnumerator<SourceDescriptionItem>, IEnumerable<SourceDescriptionItem>, IReadOnlyCollection<SourceDescriptionItem>
+        internal class SourceDescriptionItemList : BaseDisposable, 
+            IEnumerator<SourceDescriptionItem>, 
+            IEnumerable<SourceDescriptionItem>
+            //,IReadOnlyCollection<SourceDescriptionItem>
         {
+
+            #region Statics
+
+            /// <summary>
+            /// Counts null octets and increments the given reference
+            /// </summary>
+            /// <param name="b">The octet</param>
+            /// <param name="itemLength">Incremented if True is returned.</param>
+            /// <returns>True if the byte was a <see cref="SourceDescriptionItem.Null"/>, otherwise false.</returns>
+            internal static bool IsNull(ref byte b, ref int itemLength)
+            {
+                if (b == SourceDescriptionItem.Null)
+                {
+                    ++itemLength;
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            #endregion
+
             #region Fields
 
             /// <summary>
@@ -410,10 +456,15 @@ namespace Media.Rtcp
             /// </remarks>
             byte[] m_OwnedOctets;
 
+            /// <summary>
+            /// The amount of <see cref="SourceDescriptionItem"/>'s known to be in the List
+            /// </summary>
             int m_Count;
 
             //The OctetSegment from which the SourceDescriptionList is parsed.
             public readonly IEnumerable<byte> ChunkData;
+
+            //readonly int ChunkDataCount;
 
             /// <summary>
             /// The offset in parsing the ChunkData.
@@ -438,6 +489,8 @@ namespace Media.Rtcp
                 if (parent == null) throw new ArgumentNullException("parent");
 
                 ChunkData = parent.ChunkData.Skip(SourceDescriptionChunk.IdentifierSize);
+
+                //ChunkDataCount = ChunkData.Count();
             }
 
             /// <summary>
@@ -447,6 +500,8 @@ namespace Media.Rtcp
             internal SourceDescriptionItemList(IEnumerable<byte> chunkData)
             {
                 ChunkData = chunkData;
+
+                //ChunkDataCount = ChunkData.Count();
             }
 
             /// <summary>
@@ -463,14 +518,15 @@ namespace Media.Rtcp
                 using (IEnumerator<SourceDescriptionItem> enumerator = items.GetEnumerator())
                 {
                     //Create a sequence to concatenate the bytes to
-                    ChunkData = Enumerable.Empty<byte>();
+                    ChunkData = Common.MemorySegment.Empty;
 
                     //While there is an item
                     while (enumerator.MoveNext())
                     {
                         //concatenate the sequence representing the item to the existing sequence
-                        ChunkData = ChunkData.Concat(enumerator.Current.Data);
+                        ChunkData = ChunkData.Concat(enumerator.Current.ItemData);
 
+                        //Increase the count of items in the list
                         ++m_Count;
                     }
 
@@ -483,7 +539,7 @@ namespace Media.Rtcp
                         //Determine how many null octets to add
                         //http://tools.ietf.org/html/rfc3550#appendix-A.4
 
-                        int nullOctetsRequired = count % 32;
+                        int nullOctetsRequired = Binary.BytesPerInteger - (count & 0x03);
 
                         //if there are any to add, concatenate them to the sequence.
                         if (nullOctetsRequired > 0) ChunkData = ChunkData.Concat(Enumerable.Repeat(default(byte), nullOctetsRequired));
@@ -491,6 +547,8 @@ namespace Media.Rtcp
 
                     //Project the sequence
                     m_OwnedOctets = ChunkData.ToArray();
+
+                    //ChunkDataCount = m_OwnedOctets.Length;
                 }
             }
 
@@ -510,7 +568,8 @@ namespace Media.Rtcp
             {
                 get
                 {
-                    if (!StartedEnumeration) throw new InvalidOperationException("Enumeration has not started.");
+                    //if (false == StartedEnumeration) throw new InvalidOperationException("Enumeration has not started.");
+
                     return CurrentItem;
                 }
             }
@@ -522,7 +581,8 @@ namespace Media.Rtcp
             {
                 get
                 {
-                    if (!StartedEnumeration) throw new InvalidOperationException("Enumeration has not started.");
+                    //if (false == StartedEnumeration) throw new InvalidOperationException("Enumeration has not started.");
+
                     return CurrentItem;
                 }
             }
@@ -530,7 +590,11 @@ namespace Media.Rtcp
             /// <summary>
             /// Indicates if there are any more <see cref="SourceDescriptionItem"/>'s to enumerate.
             /// </summary>
-            public bool AtEndOfList { get { return ChunkDataOffset > ChunkData.Count() || StartedEnumeration && CurrentItem.ItemType == 0; } }
+            public bool AtEndOfList
+            {
+                //get { return ChunkDataOffset > ChunkData.Count() || StartedEnumeration && CurrentItem.ItemType == 0; }
+                get { return ItemIndex < m_Count || StartedEnumeration && CurrentItem.ItemType == 0; }
+            }
 
             public int Size { get { return ChunkData.Count(); } }
 
@@ -546,16 +610,31 @@ namespace Media.Rtcp
             /// </summary>
             public override void Dispose()
             {
-                if (IsDisposed) return;
-
                 base.Dispose();
 
-                CurrentItem = null;
+                if (ShouldDispose)
+                {
+                    if (CurrentItem != null)
+                    {
+                        CurrentItem.Dispose();
 
-                m_OwnedOctets = null;
+                        CurrentItem = null;
+                    }
 
-                m_Count = 0;
-                //ChunkData still points to m_OwnedOctets but it is readonly
+                    m_OwnedOctets = null;
+
+                    m_Count = 0;
+
+                    //ChunkData still points to m_OwnedOctets but it is readonly
+                    IDisposable chunkData = (IDisposable)ChunkData;
+
+                    if (chunkData != null)
+                    {
+                        chunkData.Dispose();
+
+                        chunkData = null;
+                    }
+                }
             }
 
             /// <summary>
@@ -565,41 +644,55 @@ namespace Media.Rtcp
             public bool MoveNext()
             {
                 //If the enumerator is disposed or AtEndOfList is true
-                if (!IsDisposed && !AtEndOfList && ChunkData.Count() - ChunkDataOffset >= SourceDescriptionItem.ItemHeaderSize)
+                if (false == IsDisposed && false == AtEndOfList)
                 {
+
+                    //Dipose the current item
+                    if (StartedEnumeration && CurrentItem != null)
+                    {
+                        Current.Dispose();
+
+                        CurrentItem = null;
+                    }
 
                     //Generate a sequence of data contained in the chunk
                     IEnumerable<byte> chunkData = ChunkData.Skip(ChunkDataOffset);
 
-                    //itemType is determined by reading the 1st octet of the ItemHeader
-                    SourceDescriptionItem.SourceDescriptionItemType itemType = (SourceDescriptionItem.SourceDescriptionItemType)chunkData.First();
-
-                    //Determine the itemLength
-                    int itemLength;
-
-                    //If the itemType is not End Of List then the the itemLength is determined by reading the 2nd octet of the ItemHeader
-                    if (itemType != SourceDescriptionItem.SourceDescriptionItemType.End)
+                    //Ensure the data is disposed
+                    using ((IDisposable)chunkData)
                     {
-                        itemLength = chunkData.Skip(1).First();
-                        chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).Take(itemLength);
+                        //itemType is determined by reading the 1st octet of the ItemHeader
+                        SourceDescriptionItem.SourceDescriptionItemType itemType = (SourceDescriptionItem.SourceDescriptionItemType)chunkData.FirstOrDefault();
+
+                        //Determine the itemLength
+                        int itemLength = 0;
+
+                        //If the itemType is not End Of List then the the itemLength is determined by reading the 2nd octet of the ItemHeader
+                        if (itemType != SourceDescriptionItem.SourceDescriptionItemType.End)
+                        {
+                            itemLength = chunkData.Skip(1).FirstOrDefault();
+
+                            chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).Take(itemLength);
+                        }
+                        else //Other wise it is determined by taking the null octets which proceed the previous data.
+                        {
+                            chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).TakeWhile((o) => IsNull(ref o, ref itemLength));
+
+                            //itemLength = chunkData.Count();
+                        }
+
+                        //Allocate an item
+                        CurrentItem = new SourceDescriptionItem(itemType, chunkData);
+
+                        //Move the offset in parsing
+                        ChunkDataOffset += CurrentItem.Size;
+
+                        //Increment ItemIndex
+                        ++ItemIndex;
+
+                        //Indicate success
+                        return true;
                     }
-                    else //Other wise it is determined by taking the null octets which proceed the previous data.
-                    {
-                        chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).TakeWhile(o => o == SourceDescriptionItem.Null);
-                        itemLength = chunkData.Count();
-                    }
-
-                    //Allocate an item
-                    CurrentItem = new SourceDescriptionItem(itemType, chunkData);
-
-                    //Move the offset in parsing
-                    ChunkDataOffset += CurrentItem.Size;
-
-                    //Increment ItemIndex
-                    ++ItemIndex;
-
-                    //Indicate success
-                    return true;
                 }
 
                 //Indicate failure
@@ -612,6 +705,7 @@ namespace Media.Rtcp
             public void Reset()
             {
                 if (IsDisposed) return;
+
                 ChunkDataOffset = 0;
             }
 
@@ -677,10 +771,10 @@ namespace Media.Rtcp
                         memory[offset++] = (byte)CurrentItem.ItemType;
 
                         //Write the length
-                        memory[offset++] = (byte)CurrentItem.Length;
+                        memory[offset++] = (byte)CurrentItem.ItemLength;
 
                         //For every other byte in the data write it to the memory at the offset, moving offset by 1 byte each time.
-                        foreach (byte b in CurrentItem.Data) memory[offset++] = b;
+                        foreach (byte b in CurrentItem.ItemData) memory[offset++] = b;
                     }
                     //Indicate success
                     return true;
@@ -733,7 +827,9 @@ namespace Media.Rtcp
         /// <remarks>
         /// A SourceDescriptionChunk is a [variable length] 2 Tier Structure which contains an Identifer and a List of <see cref="SourceDescriptionItem"/>.
         /// </remarks>
-        public class SourceDescriptionChunk : Common.BaseDisposable, IEnumerable<SourceDescriptionItem>, IReportBlock
+        public class SourceDescriptionChunk : Common.BaseDisposable, 
+            IEnumerable<SourceDescriptionItem>, 
+            IReportBlock //,ReportBlock //? virtual calls are slow but it is do-able.
         {
             #region Constants
 
@@ -784,16 +880,22 @@ namespace Media.Rtcp
             /// <param name="items">The pointer to the items in the chunk</param>
             public SourceDescriptionChunk(int chunkIdentifier, IEnumerable<SourceDescriptionItem> items)
             {
-
-                m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, BitConverter.IsLittleEndian), items.SelectMany(i => i));
+                m_ChunkData = Enumerable.Concat(Binary.GetBytes(chunkIdentifier, BitConverter.IsLittleEndian),
+                    items.DefaultIfEmpty<SourceDescriptionItem>(SourceDescriptionItem.End).SelectMany(i => i));
             }
 
-            public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) : this(chunkIdentifier, Media.Common.Extensions.Linq.LinqExtensions.Yield(item)) { }
+            public SourceDescriptionChunk(int chunkIdentifier, SourceDescriptionItem item) 
+                : this(chunkIdentifier, Media.Common.Extensions.Linq.LinqExtensions.Yield(item)) { }
+
+            public SourceDescriptionChunk(int chunkIdentifier, params SourceDescriptionItem[] items)
+                : this(chunkIdentifier, (IEnumerable<SourceDescriptionItem>)items) { }
 
             public SourceDescriptionChunk(IEnumerable<byte> ChunkData)
             {
                 m_ChunkData = ChunkData;
             }
+
+            ~SourceDescriptionChunk() { Dispose(); }
 
             #endregion
 
@@ -829,6 +931,9 @@ namespace Media.Rtcp
                 }
             }
 
+
+            public IEnumerable<SourceDescriptionItem> Items { get { return GetSourceDescriptionItemList(); } }
+
             #endregion
 
             #region Methods
@@ -849,9 +954,14 @@ namespace Media.Rtcp
 
             #region IEnumerator Implementation
 
-            IEnumerable<SourceDescriptionItem> GetEnumerableImplementation()
+            internal SourceDescriptionItemList GetSourceDescriptionItemList()
             {
                 return new SourceDescriptionItemList(this);
+            }
+
+            IEnumerable<SourceDescriptionItem> GetEnumerableImplementation()
+            {
+                return GetSourceDescriptionItemList();
             }
 
             IEnumerator<SourceDescriptionItem> IEnumerable<SourceDescriptionItem>.GetEnumerator()
@@ -880,15 +990,22 @@ namespace Media.Rtcp
 
             #endregion
 
-            //public override void Dispose()
-            //{
+            public override void Dispose()
+            {
+                base.Dispose();
 
-            //    if (IsDisposed) return;
+                if (ShouldDispose)
+                {
+                    IDisposable chunkData = (IDisposable)m_ChunkData;
 
-            //    base.Dispose();
+                    if (chunkData != null)
+                    {
+                        chunkData.Dispose();
 
-            //    if(false == ShouldDispose) m_ChunkData = null;
-            //}
+                        chunkData = null;
+                    }
+                }
+            }
         }
 
         #endregion
@@ -907,8 +1024,14 @@ namespace Media.Rtcp
         /// Creates a new SourceDescription with the given parameters
         /// </summary>
         /// <param name="version">The 2 - bit version of the SourceDescription</param>
+        public SourceDescriptionReport(int version, int ssrc, int blockCount, int blockSize, int padding = 0)
+            : base(version, PayloadType, padding, ssrc, blockCount, blockSize, 0) { }
+        //    : base(version, PayloadType, padding, ssrc, blockCount, blockSize, RtcpHeader.DefaultLengthInWords, 0)
+        //{
+        //}
+
         public SourceDescriptionReport(int version)
-            : base(new RtcpHeader(version, PayloadType, false, 0), Media.Common.MemorySegment.EmptyBytes) //4 null octets occupy Ssrc field
+            : base(version, PayloadType, 0, 0, 0, 0, RtcpHeader.MaximumLengthInWords, 0)
         {
             //[Page 45] Paragraph 2.
             //A chunk with zero items (four null octets) is valid but useless.
@@ -923,6 +1046,8 @@ namespace Media.Rtcp
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 202.", "reference");
         }
+
+        //Overloads with Items :)
 
         #endregion
 
@@ -953,7 +1078,9 @@ namespace Media.Rtcp
             get
             {
                 if (false == HasChunks) return false;
-                foreach (SourceDescriptionChunk chunk in GetChunkIterator()) foreach (SourceDescriptionItem item in chunk) if (item.ItemType == SourceDescriptionItem.SourceDescriptionItemType.CName) return true;
+                foreach (SourceDescriptionChunk chunk in GetChunkIterator()) 
+                    foreach (SourceDescriptionItem item in chunk) 
+                        if (item.ItemType == SourceDescriptionItem.SourceDescriptionItemType.CName) return true;
                 return false;
             }
         }
@@ -966,15 +1093,25 @@ namespace Media.Rtcp
         {
             get
             {
-                if (!HasChunks) return Enumerable.Empty<byte>();
-                return Enumerable.Concat(Header.GetSendersSynchronizationSourceIdentifierSequence(), Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets));                
+                //if (false == HasChunks) return Enumerable.Empty<byte>();
+                //return Enumerable.Concat(Header.GetSendersSynchronizationSourceIdentifierSequence(), Payload.Array.Skip(Payload.Offset).Take(ReportBlockOctets));
+
+
+                return HasChunks ? Enumerable.Concat(Header.GetSendersSynchronizationSourceIdentifierSequence(), Payload.Take(ReportBlockOctets))
+                    : Common.MemorySegment.Empty;
+
             }
         }
 
         /// <summary>
         /// Calculates the summation of each contained <see cref="SourceDescriptionChunk"/> in this instance using <see cref="GetChunkEnumerator"/>
         /// </summary>
-        public override int ReportBlockOctets { get { return GetChunkIterator().Sum(sc => sc.Size); } }
+        public override int ReportBlockOctets
+        {
+            //get { return GetChunkIterator().Sum(sc => sc.Size); }
+
+            get { return Payload.Count - PaddingOctets; }
+        }
 
         #endregion
 
@@ -987,7 +1124,7 @@ namespace Media.Rtcp
             else base.Add(reportBlock);
         }
 
-        public void Add(SourceDescriptionChunk chunk)
+        internal virtual protected void Add(SourceDescriptionChunk chunk, bool pad)
         {
             if (chunk == null) return;
 
@@ -998,36 +1135,49 @@ namespace Media.Rtcp
             //The octets which will be added to the payload consist of the ChunkData without the octets of the ChunkIdentifier in cases where BlockCount == 0
             IEnumerable<byte> chunkData = chunk.ChunkData;
 
+            int chunkSize = chunk.Size;
+
+            if (chunkSize == SourceDescriptionChunk.IdentifierSize) return;
+
             //In the first SourceDescriptionChunk added to a SourceDescription the header contains the BlockIdentifier. 
-            if (BlockCount == 0)
+            if (BlockCount++ == 0)
             {
                 //Set the value in the header
                 Header.SendersSynchronizationSourceIdentifier = chunk.ChunkIdentifer;
 
                 //Build a seqeuence from the data in the ReportBlock without the chunk identifer
                 chunkData = chunkData.Skip(SourceDescriptionChunk.IdentifierSize);
+
+                //Take into account the identifier
+                chunkSize -= SourceDescriptionChunk.IdentifierSize;
             }
 
-            //Increase the BlockCount in any case
-            ++BlockCount;
-            
-            //Add the bytes to the payload
-            AddBytesToPayload(chunkData);
+            //if there was no data in the chunk then there is nothing more to add.
+            if (chunkSize == 0) return;
 
-            //http://tools.ietf.org/html/rfc3550#appendix-A.4
-            int nullOctetsRequired = 4 - (Payload.Count & 0x03); 
-
-            //Per RFC3550 @ Page 45 [Paragraph 2]
-            //but additional null octets MUST be included if needed to pad until the next 32-bit boundary.
-            if (nullOctetsRequired > 0)
+            //If it's okay to pad the item data for octet alignment
+            if (pad)
             {
-                //The amount of octets contained in the End Item is equal to the size of the chunk modulo 32.
-                //This will allow the data to end on a 32 bit boundary.
-                AddBytesToPayload(Enumerable.Repeat(SourceDescriptionItem.Null, nullOctetsRequired));
+                //http://tools.ietf.org/html/rfc3550#appendix-A.4
+                int nullOctetsRequired = Binary.BytesPerInteger - (chunkSize & 0x03);
+
+                //Per RFC3550 @ Page 45 [Paragraph 2]
+                //but additional null octets MUST be included if needed to pad until the next 32-bit boundary.
+                if (nullOctetsRequired > 0)
+                {
+                    chunkSize += nullOctetsRequired;
+
+                    chunkData = Enumerable.Concat(chunkData, Enumerable.Repeat(SourceDescriptionItem.Null, nullOctetsRequired));
+                }
             }
 
-            //Set the length in words minus one in the header
-            SetLengthInWordsMinusOne();
+            //Add the bytes to the payload and set the LengthInWordsMinusOne
+            AddBytesToPayload(chunkData, 0, chunkSize);
+        }
+
+        public virtual void Add(SourceDescriptionChunk chunk)
+        {
+            Add(chunk, true);
         }
 
         public override bool Remove(IReportBlock reportBlock)
@@ -1095,6 +1245,7 @@ namespace Media.Rtcp
         public IEnumerator<SourceDescriptionChunk> GetChunkEnumerator()
         {
             if (m_Chunks == null) m_Chunks = GetChunkIterator();
+
             return m_Chunks.GetEnumerator();
         }
 
@@ -1106,25 +1257,68 @@ namespace Media.Rtcp
         internal IEnumerable<SourceDescriptionChunk> GetChunkIterator()
         {
             int logicalChunkIndex = -1,
-                offset = Payload.Offset;
-
-            //Get the ReportData of the 
-            IEnumerable<byte> ChunkData = Payload.Array;
+                localOffset = 0,
+                currentSize = 0,
+                blockCount = Header.BlockCount,
+                bias;
+            
+            //Label the chunk
+            SourceDescriptionChunk currentChunk;
 
             //While there is a chunk to iterate
-            while (++logicalChunkIndex < Header.BlockCount && offset <= Payload.Count)
+            while (++logicalChunkIndex < blockCount && localOffset < Payload.Count)
             {
-                //Instantiate the chunk and return the current item skipping previous data
-                using (SourceDescriptionChunk current = logicalChunkIndex == 0 ? new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(ChunkData.Skip(offset))) : new SourceDescriptionChunk(ChunkData.Skip(offset)))
+                //Make the chunk
+                switch (logicalChunkIndex)
                 {
-                    yield return current;
+                    //The first csrc is shared with the header
+                    case 0:
+                        {
+                            currentChunk = new SourceDescriptionChunk(Header.GetSendersSynchronizationSourceIdentifierSequence().Concat(new Common.MemorySegment(Payload.Array, Payload.Offset + localOffset, Payload.Count - localOffset)));
 
-                    offset += logicalChunkIndex == 0 ? current.Size - SourceDescriptionChunk.IdentifierSize : current.Size;
+                            //Add -4 to the Size below because of this
+                            bias = -SourceDescriptionChunk.IdentifierSize;
+
+                            goto UseChunk;
+                        }
+                    default:
+                        {
+                            //Make the chunk as usual
+                            currentChunk = new SourceDescriptionChunk(new Common.MemorySegment(Payload.Array, Payload.Offset + localOffset, Payload.Count - localOffset));
+
+                            bias = 0;
+
+                            goto UseChunk;
+                        }
+                }
+
+                //Create a chunk based on the logicalChunk Index
+            UseChunk: //Take the size of the chunk
+                currentSize = currentChunk.Size;
+
+                //If the size is 0 continue
+                switch (currentSize)
+                {
+                    default:
+                        {
+                            //Move the offset
+                            localOffset += bias + currentSize;
+
+                            //Yield the chunk
+                            yield return currentChunk;
+
+                            goto case 0;
+                        }
+                    case 0: //Dipose the currentChunk
+                        {
+                            currentChunk.Dispose();
+
+                            currentChunk = null;
+
+                            continue;
+                        }
                 }
             }
-
-            //Break the iterations all chunks have been iterated.
-            yield break;
         }
 
         public override IEnumerator<IReportBlock> GetEnumerator()
@@ -1148,7 +1342,17 @@ namespace Media.Rtcp
         {
             base.Dispose();
 
-            if(false == ShouldDispose) m_Chunks = null;
+            if (ShouldDispose)
+            {
+                IDisposable chunks = (IDisposable)m_Chunks;
+
+                if (chunks != null)
+                {
+                    chunks.Dispose();
+
+                    chunks = null;
+                }
+            }
         }
     }
 
@@ -1163,9 +1367,51 @@ namespace Media.UnitTests
     /// </summary>
     internal class SourceDescriptionItemUnitTests
     {
-        public static void TestAConstructor()
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
         {
-            throw new NotImplementedException();
+            //Iterate for any possible ItemType
+            for (int ItemType = 0; ItemType <= byte.MaxValue; ++ItemType)
+            {
+                //Iterate for any possible ItemLength
+                for (int ItemLength = 0; ItemLength <= byte.MaxValue; ++ItemLength)
+                {
+                    //Create the ItemData
+                    IEnumerable<byte> ItemData = Array.ConvertAll(Enumerable.Range(1, (int)ItemLength).ToArray(), Convert.ToByte);
+
+                    using(Rtcp.SourceDescriptionReport.SourceDescriptionItem sdi = new Rtcp.SourceDescriptionReport.SourceDescriptionItem(
+                        (Rtcp.SourceDescriptionReport.SourceDescriptionItem.SourceDescriptionItemType)ItemType,
+                        ItemLength, ItemData.ToArray(), 0))
+                    {
+                        //Check ItemType
+                        System.Diagnostics.Debug.Assert((int)sdi.ItemType == ItemType, "Unexpected ItemType");
+
+                        //Check Size
+                        System.Diagnostics.Debug.Assert(sdi.Size == Rtcp.SourceDescriptionReport.SourceDescriptionItem.ItemHeaderSize + ItemLength, "Unexpected Size");
+
+                        //Check Data
+                        System.Diagnostics.Debug.Assert(sdi.Data.Skip(Rtcp.SourceDescriptionReport.SourceDescriptionItem.ItemHeaderSize).SequenceEqual(ItemData), "Unexpected ItemData");
+
+                        //Check ItemLength
+                        System.Diagnostics.Debug.Assert(sdi.ItemLength <= Rtcp.SourceDescriptionReport.SourceDescriptionItem.ItemHeaderSize + ItemLength, "Unexpected ItemLength");
+
+                        //Derserialize, Serialize and Verify again
+                        using (Rtcp.SourceDescriptionReport.SourceDescriptionItem sdis = new Rtcp.SourceDescriptionReport.SourceDescriptionItem(sdi.ToArray()))
+                        {
+                            //Check ItemLength
+                            System.Diagnostics.Debug.Assert(sdis.ItemLength == sdi.ItemLength, "Unexpected ItemLength");
+
+                            //Check ItemType
+                            System.Diagnostics.Debug.Assert(sdis.ItemType == sdi.ItemType, "Unexpected ItemType");
+
+                            //CheckItem Data
+                            System.Diagnostics.Debug.Assert(sdi.Data.SequenceEqual(sdis.Data), "Unexpected Data");
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1176,18 +1422,165 @@ namespace Media.UnitTests
     {
         public static void TestAConstructor()
         {
-            throw new NotImplementedException();
+            //Iterate for any possible ItemType
+            for (int ItemType = 0; ItemType <= byte.MaxValue; ++ItemType)
+            {
+                //Iterate for any possible ItemLength
+                for (int ChunkLength = 0; ChunkLength <= byte.MaxValue; ++ChunkLength)
+                {
+                    //Create a random id
+                    int RandomId =  RFC3550.Random32(Utility.Random.Next());
+
+                    //Get the bytes in network order
+                    IEnumerable<byte> ssrcBytes = Binary.GetBytes(RandomId, BitConverter.IsLittleEndian);
+
+                    //Create the ItemData
+                    IEnumerable<byte> ChunkData = Array.ConvertAll(Enumerable.Range(1, (int)ChunkLength).ToArray(), Convert.ToByte);
+
+                    //Create a SourceDescriptionChunk
+                    using (Media.Rtcp.SourceDescriptionReport.SourceDescriptionChunk chunk = new Rtcp.SourceDescriptionReport.SourceDescriptionChunk(ssrcBytes.Concat(ChunkData)))
+                    {
+                        //Check ChunkIdentifer
+                        System.Diagnostics.Debug.Assert(chunk.ChunkIdentifer == RandomId, "Unexpected ChunkIdentifer");
+
+                        //Check Size
+                        System.Diagnostics.Debug.Assert(chunk.Size == Binary.BytesPerInteger + ChunkLength, "Unexpected Size");
+
+                        //Serialize methods
+                        //System.Diagnostics.Debug.Assert(chunk.ToArray()), "Unexpected result from SequenceEqual");
+
+                    }
+
+                }
+            }
         }
     }
 
     /// <summary>
     /// Provides tests which ensure the logic of the SourceDescriptionReport class is correct
     /// </summary>
-    internal class SourceDescriptionReportUnitTests
+    internal class RtcpSourceDescriptionReportUnitTests
     {
-        public static void TestAConstructor()
+
+        //Pre-requesite will be the Item and Chunk Test.
+
+        /// <summary>
+        /// O( )
+        /// </summary>
+        public static void TestAConstructor_And_Reserialization()
         {
-            throw new NotImplementedException();
+            //Permute every possible value in the 5 bit BlockCount
+            for (byte ReportBlockCounter = byte.MinValue; ReportBlockCounter <= Media.Common.Binary.FiveBitMaxValue; ++ReportBlockCounter)
+            {
+                //Permute every possible value in the Padding field.
+                for (byte PaddingCounter = byte.MinValue; PaddingCounter <= Media.Common.Binary.FiveBitMaxValue; ++PaddingCounter)
+                {
+                    //Enumerate every possible reason length
+                    for (byte ItemLength = byte.MinValue; ItemLength <= Media.Common.Binary.FiveBitMaxValue; ++ItemLength)
+                    {
+                        //Create the ItemData
+                        IEnumerable<byte> ItemData = Array.ConvertAll(Enumerable.Range(1, (int)ItemLength).ToArray(), Convert.ToByte);
+
+                        //Create a random id
+                        int RandomId = RFC3550.Random32(Utility.Random.Next());
+
+                        //Create a SourceDescriptionReport instance using the specified options.
+                        using (Media.Rtcp.SourceDescriptionReport p = new Rtcp.SourceDescriptionReport(0, RandomId, 0, 0, PaddingCounter))
+                        {
+                            //Check IsComplete
+                            System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
+
+                            //Check SynchronizationSourceIdentifier
+                            System.Diagnostics.Debug.Assert(p.SynchronizationSourceIdentifier == RandomId, "Unexpected SynchronizationSourceIdentifier");
+
+                            //Check the PaddingOctets count
+                            System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter, "Unexpected PaddingOctets");
+
+                            //Check all data in the padding but not the padding octet itself.
+                            System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
+
+                            //Iterate for the amount of reports to add.
+                            if (ItemLength > 0)
+                            {
+                                for (int added = 0; added < ReportBlockCounter; ++added)
+                                {
+                                    //Create and add a SourceDescriptionChunk with the expected ItemData
+                                    p.Add(new Rtcp.SourceDescriptionReport.SourceDescriptionChunk(RandomId,
+                                        new Rtcp.SourceDescriptionReport.SourceDescriptionItem(ItemData)));
+                                }
+
+                                //Verify all IReportBlock
+                                foreach (Rtcp.IReportBlock rb in p)
+                                {
+                                    System.Diagnostics.Debug.Assert(rb.BlockIdentifier == RandomId, "Unexpected ChunkIdentifier");
+
+                                    System.Diagnostics.Debug.Assert(rb.BlockData.Skip(Rtcp.SourceDescriptionReport.SourceDescriptionChunk.IdentifierSize).Take(ItemLength).SequenceEqual(ItemData), "Unexpected BlockData");
+                                }
+
+                                //Check IsComplete
+                                System.Diagnostics.Debug.Assert(p.IsComplete, "IsComplete must be true.");
+
+                                //Check the BlockCount count
+                                System.Diagnostics.Debug.Assert(p.BlockCount == ReportBlockCounter, "Unexpected BlockCount");
+                            }
+
+                            //Check the PaddingOctets count
+                            System.Diagnostics.Debug.Assert(p.PaddingOctets == PaddingCounter, "Unexpected PaddingOctets");
+
+                            //Check all data in the padding but not the padding octet itself.
+                            System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
+
+
+                            //TODO
+
+                            //Calculate how many items should appear and their lengths.
+
+                            //Calculate the length of the ReasonForLeaving, should always be padded to 32 bits for octet alignment.
+                            //int expectedItemLength = ItemLength > 0 ? Binary.BytesToMachineWords(ItemLength + 1) * Binary.BytesPerInteger : 0;
+
+                            //Check the Payload.Count
+                            //System.Diagnostics.Debug.Assert(p.Payload.Count == ReportBlockCounter * Binary.BytesPerInteger + PaddingCounter + expectedItemLength, "Unexpected Payload Count");
+
+                            //Check the Length, 
+                            //System.Diagnostics.Debug.Assert(p.Length == p.Header.Size + ReportBlockCounter * Binary.BytesPerInteger + PaddingCounter + expectedReasonLength, "Unexpected Length");
+
+                            //Serialize and Deserialize and verify again
+                            using (Rtcp.SourceDescriptionReport s = new Rtcp.SourceDescriptionReport(new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0), true))
+                            {
+                                //Check SynchronizationSourceIdentifier
+                                System.Diagnostics.Debug.Assert(s.SynchronizationSourceIdentifier == p.SynchronizationSourceIdentifier, "Unexpected SynchronizationSourceIdentifier");
+
+                                //Check the Payload.Count
+                                System.Diagnostics.Debug.Assert(s.Payload.Count == p.Payload.Count, "Unexpected Payload Count");
+
+                                //Check the Length, 
+                                System.Diagnostics.Debug.Assert(s.Length == p.Length, "Unexpected Length");
+
+                                //Check the BlockCount count
+                                System.Diagnostics.Debug.Assert(s.BlockCount == p.BlockCount, "Unexpected BlockCount");
+
+                                //Verify all IReportBlock
+                                foreach (Rtcp.IReportBlock rb in s)
+                                {
+                                    System.Diagnostics.Debug.Assert(rb.BlockIdentifier == RandomId, "Unexpected ChunkIdentifier");
+
+                                    System.Diagnostics.Debug.Assert(rb.BlockData.Skip(Rtcp.SourceDescriptionReport.SourceDescriptionChunk.IdentifierSize).Take(ItemLength).SequenceEqual(ItemData), "Unexpected BlockData");
+                                }
+
+                                //Check the RtcpData
+                                System.Diagnostics.Debug.Assert(p.RtcpData.SequenceEqual(s.RtcpData), "Unexpected RtcpData");
+
+                                //Check the PaddingOctets
+                                System.Diagnostics.Debug.Assert(s.PaddingOctets == p.PaddingOctets, "Unexpected PaddingOctets");
+
+                                //Check all data in the padding but not the padding octet itself.
+                                System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
+                            }
+
+                        }
+                    }
+                }
+            }
         }
     }
 }
