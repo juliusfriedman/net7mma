@@ -93,7 +93,7 @@ namespace Media.Common.Extensions.IPAddress
         ///  192.168.0.0   192.168.255.255 
         /// </summary>
         /// <returns></returns>
-        public static bool IsOnIntranet(this System.Net.IPAddress ipAddress)
+        public static bool IsOnIntranet(this System.Net.IPAddress ipAddress) //Nat
         {
             if (emptyIpv4.Equals(ipAddress))
             {

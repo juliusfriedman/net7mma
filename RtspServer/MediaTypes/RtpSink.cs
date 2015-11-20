@@ -42,11 +42,17 @@ namespace Media.Rtsp.Server.MediaTypes
 {
 
     /// <summary>
-    /// Provides the basic opertions for any locally created Rtp data
+    /// Provides the basic opertions for any locally created Rtp data, should also allow a real endpoint to send data to besides just emiting events
     /// </summary>
     public class RtpSink : RtpSource, IMediaSink
     {
         public RtpSink(string name, Uri source) : base(name, source) { }
+
+        public RtpSink(string name, Uri source, Rtp.RtpClient client, bool perPacket = false)
+            : base(name, source, perPacket)
+        {
+            //RtpClient = client;
+        }
 
         public virtual bool Loop { get; set; }
 
@@ -70,7 +76,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
         public void SendPacket(Common.IPacket packet)
         {
-            if (RtpClient != null)
+            if (RtpClient != null && false == Common.IDisposedExtensions.IsNullOrDisposed(packet))
             {
                 if (packet is Rtp.RtpPacket) RtpClient.OnRtpPacketReceieved(packet as Rtp.RtpPacket);
                 else if (packet is Rtcp.RtcpPacket) RtpClient.OnRtcpPacketReceieved(packet as Rtcp.RtcpPacket);

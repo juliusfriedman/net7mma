@@ -36,15 +36,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Concepts.Classes
+namespace Media.Concepts.Sockets
 {
     /// <summary>
-    /// Will allow connection information to be shared as well as the configuration of the socket releven to that connection.
+    /// Will allow connection information to be shared as well as the configuration of the socket relevent to that connection.
     /// </summary>
     internal class MediaConnection
     {
-
-        SocketConfiguration Configuration;
+        //SafeSocketOption[] Configuration;
 
         System.Net.IPEndPoint LocalEndPoint, RemoteEndPoint;
     }

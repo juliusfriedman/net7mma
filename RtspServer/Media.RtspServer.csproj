@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Media.RtspServer</RootNamespace>
     <AssemblyName>Media.RtspServer</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
@@ -43,6 +43,15 @@
     <AssemblyOriginatorKeyFile>
     </AssemblyOriginatorKeyFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'x64_Release|AnyCPU'">
+    <OutputPath>bin\x64_Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -61,11 +70,13 @@
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="Classes\ArchivedMedia.cs" />
     <Compile Include="ClientSession.cs" />
-    <Compile Include="MediaTypes\ChildMedia.cs" />
-    <Compile Include="MediaTypes\IMediaSink.cs" />
-    <Compile Include="MediaTypes\IMediaSource.cs" />
-    <Compile Include="MediaTypes\IMedia.cs" />
+    <Compile Include="Classes\ChildMedia.cs" />
+    <Compile Include="Interfaces\IMediaSink.cs" />
+    <Compile Include="Interfaces\IMediaSource.cs" />
+    <Compile Include="Interfaces\IMedia.cs" />
+    <Compile Include="Interfaces\IRtspServerArchiver.cs" />
     <Compile Include="MediaTypes\JPEGMedia.cs" />
     <Compile Include="MediaTypes\MJPEGMedia.cs" />
     <Compile Include="MediaTypes\RFC2250Media.cs" />
@@ -83,8 +94,9 @@
     <Compile Include="MediaTypes\RFC6184Media.cs" />
     <Compile Include="MediaTypes\RtpSink.cs" />
     <Compile Include="MediaTypes\RtpSource.cs" />
+    <Compile Include="MediaTypes\RtspSink.cs" />
     <Compile Include="MediaTypes\RtspSource.cs" />
-    <Compile Include="MediaTypes\SourceMedia.cs" />
+    <Compile Include="Classes\SourceMedia.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RtspServer.cs" />
     <Compile Include="RtspServerConsoleLogger.cs" />
@@ -188,6 +200,14 @@
     <ProjectReference Include="..\Containers\Riff\Media.Containers.Riff.csproj">
       <Project>{beaa546e-6c3d-47f4-85d9-6bb598b5d8b8}</Project>
       <Name>Media.Containers.Riff</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Cryptography\Media.Cryptography.csproj">
+      <Project>{818bd18e-f1fe-45e3-96d4-984e76fec84d}</Project>
+      <Name>Media.Cryptography</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Http\Media.Http.csproj">
+      <Project>{dbdbfef3-a51c-4423-b2d6-aa9d014bdb9e}</Project>
+      <Name>Media.Http</Name>
     </ProjectReference>
     <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
       <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>

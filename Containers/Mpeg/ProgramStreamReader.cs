@@ -52,6 +52,8 @@ namespace Media.Containers.Mpeg
 
         public ProgramStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public ProgramStreamReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, bufferSize) { } 
+
         //Might need the data not the identifier
         public static string ToTextualConvention(byte[] identifier)
         {
@@ -101,7 +103,7 @@ namespace Media.Containers.Mpeg
             byte[] identifier = PacketizedElementaryStreamReader.ReadIdentifier(this);
 
             //Check for sync
-            if (Common.Binary.ReadU24(identifier, 0, !BitConverter.IsLittleEndian) != Common.Binary.ReadU24(Mpeg.StartCodes.Prefix, 0, !BitConverter.IsLittleEndian)) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
+            if (Common.Binary.ReadU24(identifier, 0, false == BitConverter.IsLittleEndian) != Common.Binary.ReadU24(Mpeg.StartCodes.Prefix, 0, false == BitConverter.IsLittleEndian)) throw new InvalidOperationException("Cannot Find StartCode Prefix.");
 
             int length = 0, lengthSize = PacketizedElementaryStreamReader.LengthSize;
 

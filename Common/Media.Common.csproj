@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Media.Common</RootNamespace>
     <AssemblyName>Media.Common</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
@@ -43,56 +43,79 @@
     <AssemblyOriginatorKeyFile>
     </AssemblyOriginatorKeyFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'x64_Release|AnyCPU'">
+    <OutputPath>bin\x64_Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ASCII.cs" />
-    <Compile Include="BaseDisposable.cs" />
-    <Compile Include="Binary.cs" />
-    <Compile Include="BitReader.cs" />
-    <Compile Include="BitWriter.cs" />
-    <Compile Include="Collections\ConcurrentThesaurus.cs" />
-    <Compile Include="Collections\RingBuffer.cs" />
-    <Compile Include="CommonDisposable.cs" />
+    <Compile Include="Classes\Composed.cs" />
+    <Compile Include="Classes\EventArgsEx.cs" />
+    <Compile Include="Classes\FileInfoEx.cs" />
+    <Compile Include="Classes\LifetimeDisposable.cs" />
+    <Compile Include="Classes\MessageBase.cs" />
+    <Compile Include="Classes\Text\ASCII.cs" />
+    <Compile Include="Classes\BaseDisposable.cs" />
+    <Compile Include="Classes\Binary\Binary.cs" />
+    <Compile Include="Classes\Binary\BitReader.cs" />
+    <Compile Include="Classes\Binary\BitWriter.cs" />
+    <Compile Include="Collections\Generic\ConcurrentThesaurus.cs" />
+    <Compile Include="Collections\Generic\RingBuffer.cs" />
+    <Compile Include="Classes\CommonDisposable.cs" />
+    <Compile Include="Collections\SocketCollection.cs" />
+    <Compile Include="Collections\ThreadCollection.cs" />
+    <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />
+    <Compile Include="Extensions\DebugExtensions.cs" />
+    <Compile Include="Extensions\Delegate.cs" />
+    <Compile Include="Extensions\DictionaryExtensions.cs" />
     <Compile Include="Extensions\EncodingExtensions.cs" />
     <Compile Include="Extensions\ExceptionExtensions.cs" />
     <Compile Include="Extensions\IPAddressExtensions.cs" />
     <Compile Include="Extensions\ListExtensions.cs" />
     <Compile Include="Extensions\MathExtensions.cs" />
+    <Compile Include="Extensions\NetworkInterfaceExtensions.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
     <Compile Include="Extensions\SocketExtensions.cs" />
+    <Compile Include="Extensions\StreamExtensions.cs" />
     <Compile Include="Extensions\ThreadExtensions.cs" />
     <Compile Include="Extensions\UriExtensions.cs" />
     <Compile Include="Extensions\WaitHandleExtensions.cs" />
-    <Compile Include="IDisposed.cs" />
+    <Compile Include="Interfaces\IDisposed.cs" />
     <Compile Include="Extensions\IPEndPointExtensions.cs" />
-    <Compile Include="ITaggedException.cs" />
+    <Compile Include="Interfaces\IReference.cs" />
+    <Compile Include="Interfaces\ITaggedException.cs" />
     <Compile Include="Extensions\LinqExtensions.cs" />
-    <Compile Include="Loggers\BaseLogger.cs" />
-    <Compile Include="Loggers\ConsoleLogger.cs" />
-    <Compile Include="Loggers\DebuggingLogger.cs" />
-    <Compile Include="Collections\DictionaryExtensions.cs" />
+    <Compile Include="Classes\Loggers\BaseLogger.cs" />
+    <Compile Include="Classes\Loggers\ConsoleLogger.cs" />
+    <Compile Include="Classes\Loggers\DebuggingLogger.cs" />
     <Compile Include="Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs" />
     <Compile Include="Extensions\StringExtensions.cs" />
-    <Compile Include="TaggedException.cs" />
-    <Compile Include="Loggers\FileLogger.cs" />
-    <Compile Include="Grouping.cs" />
-    <Compile Include="ILogging.cs" />
-    <Compile Include="IPacket.cs" />
-    <Compile Include="ISocketReference.cs" />
-    <Compile Include="IThreadReference.cs" />
-    <Compile Include="MemorySegment.cs" />
-    <Compile Include="Loggers\NullLogger.cs" />
+    <Compile Include="Classes\TaggedException.cs" />
+    <Compile Include="Classes\Loggers\FileLogger.cs" />
+    <Compile Include="Collections\Generic\Grouping.cs" />
+    <Compile Include="Interfaces\ILogging.cs" />
+    <Compile Include="Interfaces\IPacket.cs" />
+    <Compile Include="Interfaces\ISocketReference.cs" />
+    <Compile Include="Interfaces\IThreadReference.cs" />
+    <Compile Include="Classes\MemorySegment.cs" />
+    <Compile Include="Classes\Loggers\NullLogger.cs" />
     <Compile Include="Properties\MediaAssemblyInfo.cs" />
     <Compile Include="Properties\MediaCLSComplaintInfo.cs" />
     <Compile Include="Properties\MediaAssemblyVersionInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Extensions\TimeSpanExtensions.cs" />
-    <Compile Include="Unicode.cs" />
-    <Compile Include="UTF8.cs" />
+    <Compile Include="Classes\Text\Unicode.cs" />
+    <Compile Include="Classes\Text\UTF8.cs" />
+    <Compile Include="Classes\StreamAdapter.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -37,11 +37,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #endregion
 namespace Media.Concepts.Classes
 {
+    //Windows.Media.Clock has a fairly complex but complete API
+
     /// <summary>
     /// Provides a clock with a given offset and calendar.
     /// </summary>
     public class Clock : Media.Common.BaseDisposable
     {
+        static bool GC = false;
+
         #region Fields
 
         /// <summary>
@@ -86,7 +90,7 @@ namespace Media.Concepts.Classes
         /// <summary>
         /// Return the current system time in the TimeZone offset of this clock
         /// </summary>
-        public System.DateTimeOffset Now { get { return System.DateTimeOffset.Now.ToOffset(Offset); } }
+        public System.DateTimeOffset Now { get { return System.DateTimeOffset.Now.ToOffset(Offset).Add(new System.TimeSpan((long)(AverageOperationsPerTick / System.TimeSpan.TicksPerMillisecond))); } }
 
         /// <summary>
         /// Return the current system time in the TimeZone offset of this clock converter to UniversalTime.
@@ -110,18 +114,25 @@ namespace Media.Concepts.Classes
         public Clock(bool shouldDispose = true)
             : this(System.DateTimeOffset.Now.Offset, System.Globalization.CultureInfo.CurrentCulture.Calendar, shouldDispose)
         {
+            try { if (false == GC && System.Runtime.GCSettings.LatencyMode != System.Runtime.GCLatencyMode.NoGCRegion) GC = System.GC.TryStartNoGCRegion(0); }
+            catch { }
+            finally
+            {
 
-            throw new System.NotImplementedException("Contribute!");
+                System.Threading.Thread.BeginCriticalRegion();
 
-            //Sample the TickCount
-            long ticksStart = System.Environment.TickCount,
-                ticksEnd;
+                //Sample the TickCount
+                long ticksStart = System.Environment.TickCount,
+                    ticksEnd;
 
-            //Continually sample the TickCount. while the value has not changed increment OperationsPerTick
-            while ((ticksEnd = System.Environment.TickCount) == ticksStart) ++InstructionsPerClockUpdate;
+                //Continually sample the TickCount. while the value has not changed increment InstructionsPerClockUpdate
+                while ((ticksEnd = System.Environment.TickCount) == ticksStart) ++InstructionsPerClockUpdate; //+= 4; Read,Assign,Compare,Increment
 
-            //How many ticks occur per update of TickCount
-            TicksPerUpdate = ticksEnd - ticksStart;
+                //How many ticks occur per update of TickCount
+                TicksPerUpdate = ticksEnd - ticksStart;
+
+                System.Threading.Thread.EndCriticalRegion();
+            }
         }
 
         /// <summary>
@@ -150,11 +161,75 @@ namespace Media.Concepts.Classes
             if (false == ShouldDispose) return;
 
             base.Dispose();
+
+            try
+            {
+                if (System.Runtime.GCSettings.LatencyMode == System.Runtime.GCLatencyMode.NoGCRegion)
+                {
+                    System.GC.EndNoGCRegion();
+
+                    GC = false;
+                }
+            }
+            catch { }
         }
 
         #endregion
 
+        public long EstimateOperations(System.TimeSpan ts)
+        {
+            unchecked { return AverageOperationsPerTick * ts.Ticks; }
+        }
+
+        public System.TimeSpan EstimateTime(long operations)
+        {
+            return new System.TimeSpan((operations / AverageOperationsPerTick));
+        }
+
         //Methods or statics for OperationCountToTimeSpan? (Estimate)
+        public void NanoSleep(int nanos)
+        {
+            var p = System.Threading.Thread.CurrentThread.Priority;
+
+            System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
+
+            Clock.NanoSleep((long)nanos, AverageOperationsPerTick);
+
+            System.Threading.Thread.CurrentThread.Priority = p;
+        }
+
+        public static void NanoSleep(long nanos, long aopt = 1)
+        {
+            System.Threading.Thread.BeginCriticalRegion();
+
+            nanos = Common.Binary.Clamp(nanos, 0, (long)Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerMicrosecond);
+
+            NanoSleep(ref nanos, aopt); 
+            
+            System.Threading.Thread.EndCriticalRegion();
+        }
+
+        static void NanoSleep(ref long nanos, long aopt = 1)
+        {
+            try
+            {
+                unchecked
+                {
+                    //convert the average ticks to nanos
+                    nanos = aopt / 100;
+
+                    while (--nanos >= 2)
+                    { 
+                        /* if(--nanos % 2 == 0) */
+                            NanoSleep((long)0); //nanos -= 1 + (ops / (ulong)AverageOperationsPerTick);// *10;
+                    }
+                }
+            }
+            catch
+            {
+                return;
+            }
+        }
     }
 }
 
@@ -256,6 +331,23 @@ namespace Media.UnitTests
 
                         //Convert from ticks to hZ
                         System.Console.WriteLine("CPU Estimated Frequency:" + clock.InstructionsPerClockUpdate / 1000 + "hZ");
+
+                        //
+                        System.Console.WriteLine("CPU 1 Tick = " + clock.EstimateOperations(Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick) + " ops");
+
+                        System.Console.WriteLine("CPU 1000000 Ops in " + clock.EstimateTime(1000000));
+
+                        var a = clock.UtcNow;
+
+                        System.Console.WriteLine("Now: " + clock.UtcNow);
+
+                        clock.NanoSleep(1000);
+
+                        var b = clock.UtcNow;
+
+                        System.Console.WriteLine("Now: " + clock.UtcNow);
+
+                        System.Console.WriteLine("Taken: " + (b - a));
                     }
                 }
 

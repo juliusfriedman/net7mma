@@ -49,6 +49,13 @@ namespace Media.Rtsp.Server.MediaTypes
     {
         public RtpSource(string name, Uri source, bool perPacket = false) : base(name, source) { PerPacket = perPacket; }
 
+        public RtpSource(string name, Uri source, Rtp.RtpClient client, bool perPacket = false)
+            : this(name, source, perPacket)
+        {
+            if (client == null) throw new ArgumentNullException("client");
+            RtpClient = client;
+        }
+
         public readonly bool PerPacket;
 
         public bool RtcpDisabled { get { return m_DisableQOS; } set { m_DisableQOS = value; } }
@@ -114,14 +121,11 @@ namespace Media.Rtsp.Server.MediaTypes
             //Add handler for frame events
             if (State == StreamState.Stopped)
             {
-                if (RtpClient != null)
-                {
-                    RtpClient.Activate();
+                if (RtpClient != null) RtpClient.Activate();
 
-                    base.Ready = true;
+                base.Ready = true;
 
-                    base.Start();
-                }
+                base.Start();
             }
         }
 
@@ -130,7 +134,7 @@ namespace Media.Rtsp.Server.MediaTypes
             //Remove handler
             if (State == StreamState.Started)
             {
-                if (RtpClient != null) RtpClient.Disconnect();
+                if (RtpClient != null) RtpClient.Deactivate();
 
                 base.Ready = false;
 

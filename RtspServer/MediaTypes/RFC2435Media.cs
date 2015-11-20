@@ -1292,7 +1292,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
                     if (false == base.IsComplete) return false;
 
-                    var packet = m_Packets.First().Value;
+                    var packet = m_Packets.First();
 
                     return Common.Binary.ReadU24(packet.Payload, packet.HeaderOctets + 1, BitConverter.IsLittleEndian) == 0;
                 }
@@ -1327,7 +1327,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 Buffer = new System.IO.MemoryStream();
 
                 //Loop each packet
-                foreach (Rtp.RtpPacket packet in m_Packets.Values)
+                foreach (Rtp.RtpPacket packet in m_Packets)
                 {
 
                     //Payload starts at the offset of the first PayloadOctet
@@ -1807,7 +1807,7 @@ namespace Media.Rtsp.Server.MediaTypes
             
 
             //Add a Interleave (We are not sending Rtcp Packets becaues the Server is doing that) We would use that if we wanted to use this ImageSteam without the server.            
-            //See the notes about having a Dictionary to support various tracks
+            //See the notes about having a Generic.Dictionary to support various tracks
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
 
             //Add the control line
@@ -1823,11 +1823,12 @@ namespace Media.Rtsp.Server.MediaTypes
             m_RtpClient.m_WorkerThread.Name = "SourceStream-" + Id;
 
             //If we are watching and there are already files in the directory then add them to the Queue
-            if (m_Watcher != null && !string.IsNullOrWhiteSpace(base.Source.LocalPath) && System.IO.Directory.Exists(base.Source.LocalPath))
+            if (m_Watcher != null && false == string.IsNullOrWhiteSpace(base.Source.LocalPath) && System.IO.Directory.Exists(base.Source.LocalPath))
             {
+                //Get all files in the path
                 foreach (string file in System.IO.Directory.GetFiles(base.Source.LocalPath))
                 {
-
+                    //If there is not a codec continue
                     if (false == SupportedImageFormats.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase))) continue;
 
                     try
@@ -1852,6 +1853,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 {
                     //Only ready after all pictures are in the queue
                     Ready = true;
+                    State = StreamState.Started;
                     m_RtpClient.m_WorkerThread.Start();                    
                 }
 #if DEBUG
@@ -1862,9 +1864,11 @@ namespace Media.Rtsp.Server.MediaTypes
             {
                 //We are ready
                 Ready = true;
+                State = StreamState.Started;
                 m_RtpClient.m_WorkerThread.Start();
             }
 
+            //Finally the state is set to Started
             base.Start();
         }
 
@@ -1873,7 +1877,7 @@ namespace Media.Rtsp.Server.MediaTypes
 #if DEBUG
             System.Diagnostics.Debug.WriteLine("ImageStream" + Id + " Stopped");
 #endif
-            Ready = false;            
+            base.Stop();          
 
             if (m_Watcher != null)
             {
@@ -1883,17 +1887,9 @@ namespace Media.Rtsp.Server.MediaTypes
                 m_Watcher = null;
             }
 
-            if (m_RtpClient != null)
-            {
-                m_RtpClient.Disconnect();
-                m_RtpClient = null;
-            }
-
             m_Frames.Clear();
 
             SessionDescription = null;
-
-            base.Stop();
         }
 
         /// <summary>
@@ -1955,86 +1951,104 @@ namespace Media.Rtsp.Server.MediaTypes
 
         internal override void SendPackets()
         {
-
             m_RtpClient.FrameChangedEventsEnabled = false;
 
-            while (State == StreamState.Started)
+            unchecked
             {
-                try
+                while (State == StreamState.Started)
                 {
-                    if (m_Frames.Count == 0)
+                    try
                     {
-
-                        m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.Lowest;
-
-                        System.Threading.Thread.Sleep(clockRate);
-
-                        continue;
-                    }                    
-
-                    int period = (clockRate * 1000 / m_Frames.Count);
-
-                    //Dequeue a frame or die
-                    Rtp.RtpFrame frame = m_Frames.Dequeue();
-
-                    if (frame == null || frame.IsDisposed) continue;
-
-                    //Get the transportChannel for the packet
-                    Rtp.RtpClient.TransportContext transportContext = RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
-
-                    //If there is a context
-                    if (transportContext != null)
-                    {
-                        //Increase priority
-                        m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.AboveNormal;
-
-                        transportContext.RtpTimestamp += period;
-
-                        foreach (Rtp.RtpPacket packet in frame)
+                        if (m_Frames.Count == 0 && State == StreamState.Started)
                         {
-                            //Copy the values before we signal the server
-                            //packet.Channel = transportContext.DataChannel;
-                            packet.SynchronizationSourceIdentifier = (int)sourceId;
-                            packet.Timestamp = (int)transportContext.RtpTimestamp;
+                            if (m_RtpClient.IsActive) m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.Lowest;
 
-                            //Increment the sequence number on the transportChannel and assign the result to the packet
-                            packet.SequenceNumber = ++transportContext.SequenceNumber;
+                            System.Threading.Thread.Sleep(clockRate);
 
-                            //Fire an event so the server sends a packet to all clients connected to this source
-                            if(false == m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpPacketReceieved(packet);
+                            continue;
                         }
 
-                        //Modified packet is no longer complete because SequenceNumbers were modified
+                        int period = (clockRate * 1000 / m_Frames.Count);
 
-                        //Fire a frame changed event manually
-                        if(m_RtpClient.FrameChangedEventsEnabled) RtpClient.OnRtpFrameChanged(frame);
+                        //Dequeue a frame or die
+                        Rtp.RtpFrame frame = m_Frames.Dequeue();
 
-                        if (DecodeFrames && frame.PayloadTypeByte == 26) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
+                        if (frame == null || frame.IsDisposed) continue;
 
-                        unchecked { ++m_FramesPerSecondCounter; }
+                        //Get the transportChannel for the packet
+                        Rtp.RtpClient.TransportContext transportContext = m_RtpClient.GetContextBySourceId(frame.SynchronizationSourceIdentifier);
+
+                        //If there is a context
+                        if (transportContext != null)
+                        {
+
+                            //Increase priority
+                            m_RtpClient.m_WorkerThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+
+                            transportContext.RtpTimestamp += period;
+
+                            frame.Timestamp = (int)transportContext.RtpTimestamp;
+
+                            foreach (Rtp.RtpPacket packet in frame)
+                            {
+                                //Copy the values before we signal the server
+                                //packet.Channel = transportContext.DataChannel;
+                                packet.SynchronizationSourceIdentifier = (int)sourceId;
+
+                                packet.Timestamp = transportContext.RtpTimestamp;
+
+                                switch (transportContext.SequenceNumber)
+                                {
+                                    case ushort.MaxValue: 
+                                        transportContext.SequenceNumber = 0; 
+                                        break;
+                                    //Increment the sequence number on the transportChannel and assign the result to the packet
+                                    default: 
+                                        packet.SequenceNumber = ++transportContext.SequenceNumber;
+                                        break;
+                                }
+
+                                //Fire an event so the server sends a packet to all clients connected to this source
+                                if (false == m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpPacketReceieved(packet, transportContext);
+                            }
+
+                            //Modified frame HasMissingPackets because SequenceNumbers were modified and the SortedList's keys were assigned to the previous sequence numbers
+
+                            //Fire a frame changed event manually
+                            if (m_RtpClient.FrameChangedEventsEnabled) m_RtpClient.OnRtpFrameChanged(frame, transportContext);
+
+                            if (DecodeFrames && frame.PayloadTypeByte == RFC2435Frame.RtpJpegPayloadType) OnFrameDecoded((RFC2435Media.RFC2435Frame)frame);
+
+                            ++m_FramesPerSecondCounter;
+
+                        }
+
+                        //If we are to loop images then add it back at the end
+                        if (Loop)
+                        {
+                            m_Frames.Enqueue(frame);
+                        }
+
+                        System.Threading.Thread.Sleep(clockRate);
                     }
 
-                    //If we are to loop images then add it back at the end
-                    if (Loop)
+
+                    catch (Exception ex)
                     {
-                        m_Frames.Enqueue(frame);
+                        if (ex is System.Threading.ThreadAbortException)
+                        {
+                            //Handle the abort
+                            System.Threading.Thread.ResetAbort();
+
+                            Stop();
+
+                            return;
+                        }
+
+                        //TryRaiseex
+
+                        continue;
                     }
-
-                    System.Threading.Thread.Sleep(clockRate);
-                        
-                }
-                catch (Exception ex)
-                {
-                    if (ex is System.Threading.ThreadAbortException)
-                    {
-                        //Handle the abort
-                        System.Threading.Thread.ResetAbort();
-
-                        Stop();
-
-                        return;
-                    }
-                    continue;
                 }
             }
         }

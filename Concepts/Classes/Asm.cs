@@ -40,6 +40,7 @@ namespace Media.Concepts.Classes
 {
     /// <summary>
     /// Provides a way of calling inline assembler via C#. 
+    /// This may be integrated into the Machine class.
     /// </summary>
     static unsafe class Asm
     {

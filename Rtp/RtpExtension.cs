@@ -113,7 +113,7 @@ namespace Media.Rtp
         /// <summary>
         /// Gets the size in bytes of this RtpExtension including the Flags and LengthInWords fields.
         /// </summary>
-        public int Size { get { return IsDisposed ? 0 : (ushort)(MinimumSize + LengthInWords * 4); } }
+        public int Size { get { return IsDisposed ? ushort.MinValue : (ushort)(MinimumSize + Binary.MachineWordsToBytes(LengthInWords)); } } //LengthInWords * 4
 
         #endregion
 
@@ -173,12 +173,12 @@ namespace Media.Rtp
             //Calulcate the amount of ContributingSourceListOctets
             int sourceListOctets = rtpPacket.ContributingSourceListOctets;
 
-            if (!rtpPacket.Header.Extension)
+            if (false == rtpPacket.Header.Extension)
                 throw new ArgumentException("rtpPacket", "Does not have the Extension bit set in the RtpHeader.");
             else if (rtpPacket.Payload.Count - sourceListOctets < MinimumSize)
                 throw InvalidExtension;
             else
-                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + rtpPacket.ContributingSourceListOctets, rtpPacket.Payload.Count - sourceListOctets);
+                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + sourceListOctets, rtpPacket.Payload.Count - sourceListOctets);
         }
 
         #endregion
@@ -301,10 +301,6 @@ namespace Media.UnitTests
             byte[] output = testPacket.Prepare().ToArray();
 
             if (output.Length != m_SamplePacketBytes.Length || false == output.SequenceEqual(m_SamplePacketBytes)) throw new Exception("Packet was not the same");
-
-            //for (int i = 0, e = testPacket.Length; i < e; ++i) if (output[i] != m_SamplePacketBytes[i]) throw new Exception("Packet was not the same");
-
-            //Console.WriteLine();
 
             m_SamplePacketBytes = new byte[]
                                       {

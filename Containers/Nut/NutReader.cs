@@ -242,6 +242,8 @@ namespace Media.Containers.Nut
 
         public NutReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public NutReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
+
         public IEnumerable<Node> ReadTags(long offset, long count, params StartCode[] names)
         {
             long position = Position;

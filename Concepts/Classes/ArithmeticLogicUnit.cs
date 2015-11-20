@@ -8,6 +8,8 @@ namespace Media.Concepts.Classes
     [System.CLSCompliant(false)]
     public static class ArithmeticLogicUnit
     {
+        const int Mask = 1 << 30;
+
         public static uint Adder(uint Addend_One, uint Addend_Two)
         {
             uint Carry;
@@ -49,7 +51,7 @@ namespace Media.Concepts.Classes
 
             Hold = Divisor;
             Quotient = 0;
-            while (Hold < (1 << 30) && Hold < Dividend)  // Should always be 1 << (BitsPerInteger - 2);
+            while (Hold < Mask && Hold < Dividend)  // Should always be 1 << (BitsPerInteger - 2);
             {
                 Hold <<= 1;
             }
@@ -72,7 +74,7 @@ namespace Media.Concepts.Classes
             uint Hold, Temp;
 
             Hold = Divisor;
-            while (Hold < (1 << 30) && Hold < Dividend)   // Should always be 1 << (BitsPerInteger - 2);  
+            while (Hold < Mask && Hold < Dividend)   // Should always be 1 << (BitsPerInteger - 2);  
             {
                 Hold <<= 1;
             }
@@ -92,7 +94,7 @@ namespace Media.Concepts.Classes
         {
             uint Root, Temp, One;
             Root = 0;
-            One = 1 << 30;  // 1 << (BitSize - 2);
+            One = Mask;  // 1 << (BitSize - 2);
             while (One > Square)
             {
                 One >>= 2;

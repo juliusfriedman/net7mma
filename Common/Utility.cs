@@ -58,13 +58,7 @@ namespace Media
     {
         #region Properties
 
-        //Move to Cryptography
-
-        public static System.Security.Cryptography.MD5 CreateMD5HashAlgorithm() { return System.Security.Cryptography.MD5.Create(); }
-
-        //Make a Rng?
-
-        public static Random Random = new Random();
+        public readonly static Random Random = new Random();
 
         #endregion
 
@@ -84,7 +78,7 @@ namespace Media
         /// the position within the buffer reletive to the start position in which the first occurance of octets given the octetStart and octetCount was matched.
         /// If more than 1 octet is required for a match and the buffer does not encapsulate the entire match start will still reflect the occurance of the partial match.
         /// </returns>
-        public static int ContainsBytes(this byte[] buffer, ref int start, ref int count, byte[] octets, int octetStart, int octetCount)
+        public static int ContainsBytes(byte[] buffer, ref int start, ref int count, byte[] octets, int octetStart, int octetCount)
         {
             //If the buffer or the octets are null no dice
             if (buffer == null || octets == null) return -1;
@@ -141,11 +135,13 @@ namespace Media
 
             //start now reflects the position after a parse occurs
 
+            //Should alsp export matchedBytes with count or out
+
             //Return the last position of the partial match
             return lastPosition;
         }
 
-        public static int Find(this byte[] array, byte[] needle, int startIndex, int sourceLength)
+        public static int Find(byte[] array, byte[] needle, int startIndex, int sourceLength)
         {
             int needleLen = needle.Length;
 

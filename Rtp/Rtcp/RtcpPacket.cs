@@ -101,28 +101,32 @@ namespace Media.Rtcp
             //Would overflow the array
             if (count + offset > upperBound) throw new ArgumentOutOfRangeException("index", "Count must refer to an accessible position in the given array when deleniated by index");
 
+            int remains = count;
+
             //While  a 32 bit value remains to be read in the vector
-            while (offset + RtcpHeader.Length < upperBound && count >= RtcpHeader.Length)
+            while (remains >= RtcpHeader.Length)
             {
                 //Get the header of the packet to verify if it is wanted or not
-                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, count)))
+                using (var header = new RtcpHeader(new Common.MemorySegment(array, offset, remains)))
                 {
                     //Determine how long the header was
-                    int payloadOffset = header.Size;
+                    int headerSize = header.Size;
 
-                    //Determine the amount of bytes in the packet NOT INCLUDING the RtcpHeader (Which may be 0)
-                    int lengthInBytes = Binary.MachineWordsToBytes(header.LengthInWordsMinusOne + 1); //((lengthInWords + 1) * 4) - payloadOffset;
+                    //Determine the amount of bytes in the packet NOT INCLUDING the RtcpHeader (Which may be 0 or 65535)
+                    //16384 is the maximum value which should occupy the LengthInWordsMinusOne in a single IP RTCP packet
+                    //Values over this such as 65535 will be truncated to 0 when added with 1 when the result type is not bound to ushort
+                    int lengthInBytes = headerSize > remains ? 0 : Binary.MachineWordsToBytes((ushort)(header.LengthInWordsMinusOne + 1)); 
 
                     //Create a packet using the existing header and the bytes left in the packet
-                    using (RtcpPacket newPacket = new RtcpPacket(header, new MemorySegment(array, offset + payloadOffset, Binary.Min(lengthInBytes - payloadOffset, count - payloadOffset))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, lengthInBytes == 0 ? MemorySegment.Empty : new MemorySegment(array, offset + headerSize, Binary.Clamp(lengthInBytes - headerSize, 0, remains - headerSize))))
                     {
-                        //Move the offset the length in bytes of the size of the last packet (including the header).
-                        offset += newPacket.Length;
+                        lengthInBytes = headerSize + newPacket.Payload.Count;
 
-                        //Reduce the count
-                        count -= newPacket.Length;
+                        remains -= lengthInBytes;
 
-                        //Check for the optional parameters
+                        offset += lengthInBytes;
+
+                        //Check for the optional parameters before returning the packet
                         if (payloadType.HasValue && payloadType.Value != header.PayloadType ||  // Check for the given payloadType if provided
                             ssrc.HasValue && ssrc.Value != header.SendersSynchronizationSourceIdentifier) //Check for the given ssrc if provided
                         {
@@ -159,6 +163,8 @@ namespace Media.Rtcp
         #endregion
 
         #region Constructor
+
+        ~RtcpPacket() { Dispose(); }
 
         /// <summary>
         /// Creates a RtcpPacket instance by projecting the given sequence to an array which is subsequently owned by the instance.
@@ -328,7 +334,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The binary data of the RtcpPacket which may contain ReportBlocks and or ExtensionData.
         /// </summary>
-        public MemorySegment Payload { get; protected set; } //should be backe dfield
+        public MemorySegment Payload { get; protected set; } //should be backed field
 
         public bool IsReadOnly { get { return false == m_OwnsHeader; } }
 
@@ -351,14 +357,14 @@ namespace Media.Rtcp
         {
             get
             {
-                return Header.Size + Payload.Count;
+                return IsDisposed ? 0 : Header.Size + Payload.Count;
             }
         }
 
         /// <summary>
         /// Indicates if the RtcpPacket needs any more data to be considered complete.
         /// </summary>
-        public bool IsComplete { get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * 4)) - RtcpHeader.Length; } }
+        public bool IsComplete { get { return IsDisposed || Header.IsDisposed ? false : Length >= ((ushort)((Header.LengthInWordsMinusOne + 1) * Binary.BytesPerInteger)) - RtcpHeader.Length; } }
 
         /// <summary>
         /// <see cref="RtpHeader.Version"/>
@@ -554,7 +560,7 @@ namespace Media.Rtcp
             try
             {
                 //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-                if ((padding && reportBlocks) && (selfReference && Payload.Count == 0)) return new RtcpPacket(Header.Clone(), Payload);
+                if (padding && reportBlocks && selfReference) return new RtcpPacket(Header.Clone(selfReference), Payload) { Transferred = Transferred };
 
                 if (padding && reportBlocks) binarySequence = binarySequence.Concat(Payload.Array.Skip(Payload.Offset).Take(Payload.Count));//Take everything that is left if padding and coeffecients are included.
                 else if (reportBlocks) binarySequence = binarySequence.Concat(RtcpData); //Add the binary data to the packet except any padding
@@ -605,7 +611,7 @@ namespace Media.Rtcp
                     recieved += rec;
                 }
                 
-                //Re-allocate the segment around the received data.
+                //Re-allocate the segment around the received data. //length + received
                 Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
 
                 return recieved;
@@ -719,10 +725,10 @@ namespace Media.Rtcp
             implementation != null &&
             false == implementation.IsAbstract &&
             implementation.IsSubclassOf(RtcpPacketType)
-                ? Media.Common.Collections.DictionaryExtensions.TryAdd(ImplementationMap, payloadType, implementation, out any) : false;
+                ? Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryAdd(ImplementationMap, payloadType, implementation, out any) : false;
         }
 
-        internal static bool TryUnMapImplementation(byte payloadType, out Type implementation) { implementation = null; Exception any; return payloadType > default(byte) && Media.Common.Collections.DictionaryExtensions.TryRemove(ImplementationMap, payloadType, out implementation, out any); }
+        internal static bool TryUnMapImplementation(byte payloadType, out Type implementation) { implementation = null; Exception any; return payloadType > default(byte) && Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryRemove(ImplementationMap, payloadType, out implementation, out any); }
 
         #endregion
 

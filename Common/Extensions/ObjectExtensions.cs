@@ -42,20 +42,20 @@ namespace Media.Common.Extensions.Object
     {
         public static System.Array ToArray(object o)
         {
-            return ToArray(o);
+            return _ToArray(o);
         }
 
-        internal static System.Array ToArray(params object[] array)
+        internal static System.Array _ToArray(params object[] array)
         {
             return array;
         }
 
         public static T[] ToArray<T>(T t)
         {
-            return ToArray<T>(t);
+            return _ToArray<T>(t);
         }
 
-        public static T[] ToArray<T>(params T[] tArray)
+        internal static T[] _ToArray<T>(params T[] tArray)
         {
             return tArray;
         }

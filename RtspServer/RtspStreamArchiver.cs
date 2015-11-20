@@ -7,13 +7,16 @@ namespace Media.Rtsp.Server
 {
     public class RtspStreamArchiver : Common.BaseDisposable
     {
-        string BaseDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "archive";
+
+        //Nested type for playback
+
+        public readonly string BaseDirectory = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "archive";
 
         IDictionary<IMedia, RtpTools.RtpDump.Program> Attached = new System.Collections.Concurrent.ConcurrentDictionary<IMedia, RtpTools.RtpDump.Program>();
         
         RtspStreamArchiver()
         {
-            if (!System.IO.Directory.Exists(BaseDirectory))
+            if (false == System.IO.Directory.Exists(BaseDirectory))
             {
                 System.IO.Directory.CreateDirectory(BaseDirectory);
             }
@@ -22,12 +25,14 @@ namespace Media.Rtsp.Server
         //Creates directories
         public virtual void Prepare(IMedia stream)
         {
-            if (!System.IO.Directory.Exists(BaseDirectory + '/' + stream.Id))
+            if (false == System.IO.Directory.Exists(BaseDirectory + '/' + stream.Id))
             {
                 System.IO.Directory.CreateDirectory(BaseDirectory + '/' + stream.Id);
             }
 
             //Create Toc file?
+
+            //Start, End
         }        
 
         //Determine if directory is created
@@ -39,7 +44,7 @@ namespace Media.Rtsp.Server
         //Writes a .Sdp file
         public virtual void WriteDescription(IMedia stream, Sdp.SessionDescription sdp)
         {
-            if (!IsArchiving(stream)) return;
+            if (false == IsArchiving(stream)) return;
 
             //Add lines with Alias info?
 
@@ -52,10 +57,10 @@ namespace Media.Rtsp.Server
             if (stream == null) return;
 
             RtpTools.RtpDump.Program program;
-            if (!Attached.TryGetValue(stream, out program)) return;
+            if (false == Attached.TryGetValue(stream, out program)) return;
 
             if (packet is Rtp.RtpPacket) program.Writer.WritePacket(packet as Rtp.RtpPacket);
-            program.Writer.WritePacket(packet as Rtcp.RtcpPacket);
+            else program.Writer.WritePacket(packet as Rtcp.RtcpPacket);
         }
 
         public virtual void Start(IMedia stream, RtpTools.FileFormat format = RtpTools.FileFormat.Binary)
@@ -78,7 +83,7 @@ namespace Media.Rtsp.Server
             }
         }
 
-        void RtpClientPacketReceieved(object sender, Common.IPacket packet)
+        void RtpClientPacketReceieved(object sender, Common.IPacket packet = null, Media.Rtp.RtpClient.TransportContext tc = null)
         {
             if(sender is Rtp.RtpClient)
                 WritePacket(Attached.Keys.FirstOrDefault(s => (s as RtpSource).RtpClient == sender as Rtp.RtpClient), packet);
@@ -90,7 +95,7 @@ namespace Media.Rtsp.Server
             if (stream is RtpSource)
             {
                 RtpTools.RtpDump.Program program;
-                if (!Attached.TryGetValue(stream, out program)) return;
+                if (false == Attached.TryGetValue(stream, out program)) return;
 
                 program.Dispose();
                 Attached.Remove(stream);
@@ -111,6 +116,47 @@ namespace Media.Rtsp.Server
                 Stop(stream);
 
             Attached = null;
+        }
+
+        public readonly List<ArchiveSource> Sources = new List<ArchiveSource>();
+
+        public class ArchiveSource : SourceMedia
+        {
+            public ArchiveSource(string name, Uri source)
+                : base(name, source)
+            {
+
+            }
+
+            public ArchiveSource(string name, Uri source, Guid id)
+                : this(name, source)
+            {
+                Id = id;
+            }
+            
+
+            public List<RtpSource> Playback = new List<RtpSource>();
+
+            public RtpSource CreatePlayback()
+            {
+                RtpSource created = null;
+
+                Playback.Add(created);
+
+                return created;
+            }
+
+            //Implicit operator to RtpSource which creates a new RtpSource configured from the main source using CreatePlayback
+
+
+
+        }
+
+        public IMedia FindStreamByLocation(Uri mediaLocation)
+        {
+            //Check sources for name, if found then return
+
+            return null;
         }
     }
 }

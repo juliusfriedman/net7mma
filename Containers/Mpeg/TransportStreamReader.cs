@@ -447,6 +447,8 @@ namespace Media.Containers.Mpeg
 
         public TransportStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public TransportStreamReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
+
         /// <summary>
         /// Used in variations of the Mpeg Transport Stream format which require additional data such as ATSC or M2TS.
         /// The additional bytes are then stored in the <see cref="Node.Identifier"/>.

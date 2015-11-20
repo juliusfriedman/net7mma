@@ -423,28 +423,6 @@ namespace Media.Rtcp
             //,IReadOnlyCollection<SourceDescriptionItem>
         {
 
-            #region Statics
-
-            /// <summary>
-            /// Counts null octets and increments the given reference
-            /// </summary>
-            /// <param name="b">The octet</param>
-            /// <param name="itemLength">Incremented if True is returned.</param>
-            /// <returns>True if the byte was a <see cref="SourceDescriptionItem.Null"/>, otherwise false.</returns>
-            internal static bool IsNull(ref byte b, ref int itemLength)
-            {
-                if (b == SourceDescriptionItem.Null)
-                {
-                    ++itemLength;
-
-                    return true;
-                }
-
-                return false;
-            }
-
-            #endregion
-
             #region Fields
 
             /// <summary>
@@ -461,7 +439,7 @@ namespace Media.Rtcp
             /// </summary>
             int m_Count;
 
-            //The OctetSegment from which the SourceDescriptionList is parsed.
+            //The data from which the SourceDescriptionItem's are parsed.
             public readonly IEnumerable<byte> ChunkData;
 
             //readonly int ChunkDataCount;
@@ -656,43 +634,54 @@ namespace Media.Rtcp
                     }
 
                     //Generate a sequence of data contained in the chunk
-                    IEnumerable<byte> chunkData = ChunkData.Skip(ChunkDataOffset);
+                    IEnumerable<byte> chunkData = Common.MemorySegment.Empty;
 
-                    //Ensure the data is disposed
-                    using ((IDisposable)chunkData)
+                    SourceDescriptionItem.SourceDescriptionItemType itemType;
+
+                    using (IEnumerator<byte> enumerator = ChunkData.Skip(ChunkDataOffset).GetEnumerator())
                     {
-                        //itemType is determined by reading the 1st octet of the ItemHeader
-                        SourceDescriptionItem.SourceDescriptionItemType itemType = (SourceDescriptionItem.SourceDescriptionItemType)chunkData.FirstOrDefault();
+                        if (false == enumerator.MoveNext()) return false;
 
-                        //Determine the itemLength
-                        int itemLength = 0;
+                        itemType = (SourceDescriptionItem.SourceDescriptionItemType)enumerator.Current;
 
                         //If the itemType is not End Of List then the the itemLength is determined by reading the 2nd octet of the ItemHeader
                         if (itemType != SourceDescriptionItem.SourceDescriptionItemType.End)
                         {
-                            itemLength = chunkData.Skip(1).FirstOrDefault();
+                            if (enumerator.MoveNext())
+                            {
+                                //Determine the itemLength
+                                int itemLength = enumerator.Current;
 
-                            chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).Take(itemLength);
+                                while (--itemLength >= 0 && enumerator.MoveNext())
+                                {
+                                    chunkData = Enumerable.Concat(chunkData, Media.Common.Extensions.Linq.LinqExtensions.Yield(enumerator.Current));
+                                }
+                            }
                         }
                         else //Other wise it is determined by taking the null octets which proceed the previous data.
                         {
-                            chunkData = chunkData.Skip(SourceDescriptionItem.ItemHeaderSize).TakeWhile((o) => IsNull(ref o, ref itemLength));
+                            while (enumerator.MoveNext())
+                            {
+                                byte current = enumerator.Current;
 
-                            //itemLength = chunkData.Count();
+                                chunkData = Enumerable.Concat(chunkData, Media.Common.Extensions.Linq.LinqExtensions.Yield(current));
+
+                                if (current == SourceDescriptionItem.Null) break;
+                            }
                         }
-
-                        //Allocate an item
-                        CurrentItem = new SourceDescriptionItem(itemType, chunkData);
-
-                        //Move the offset in parsing
-                        ChunkDataOffset += CurrentItem.Size;
-
-                        //Increment ItemIndex
-                        ++ItemIndex;
-
-                        //Indicate success
-                        return true;
                     }
+
+                    //Allocate an item
+                    CurrentItem = new SourceDescriptionItem(itemType, chunkData);
+
+                    //Move the offset in parsing
+                    ChunkDataOffset += CurrentItem.Size;
+
+                    //Increment ItemIndex
+                    ++ItemIndex;
+
+                    //Indicate success
+                    return true;
                 }
 
                 //Indicate failure
@@ -1110,7 +1099,13 @@ namespace Media.Rtcp
         {
             //get { return GetChunkIterator().Sum(sc => sc.Size); }
 
-            get { return Payload.Count - PaddingOctets; }
+            //Doesn't check header ssrc
+
+            //get { return Payload.Count - PaddingOctets + Binary.BytesPerInteger; }
+
+            //The Header may have a ssrc, the ssrc is in the header
+
+            get { return Payload.Count - PaddingOctets + Header.Size - RtcpHeader.Length; }
         }
 
         #endregion
