@@ -51,10 +51,6 @@ namespace Media.Rtp
         //Determine to keep clients or just a Queue of RtpPackets
         //System.Collections.Concurrent.ConcurrentBag<RtpClient> Sources;
 
-        long m_Clock;
-
-        int m_Frequency, m_Timestamp;
-
         //When add attach event and Queue packets
         //When remove detach event
 

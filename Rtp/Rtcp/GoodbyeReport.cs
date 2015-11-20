@@ -274,17 +274,25 @@ namespace Media.Rtcp
             else base.Add(reportBlock);
         }
 
+        /// <summary>
+        /// Adds the maximum amount of items from the source list as there are availabe blocks
+        /// </summary>
+        /// <param name="sourceList"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
         internal virtual protected void Add(RFC3550.SourceList sourceList, int offset, int count)
         {
             if (sourceList == null) return;
 
-            if (IsReadOnly) throw new InvalidOperationException("A SourceDescription Chunk cannot be added when IsReadOnly is true.");
+            if (IsReadOnly) throw new InvalidOperationException("A RFC3550.SourceList cannot be added when IsReadOnly is true.");
 
             int reportBlocksRemaining = ReportBlocksRemaining;
 
             if (reportBlocksRemaining == 0) throw new InvalidOperationException("A RtcpReport can only hold 31 ReportBlocks");
 
             //Add the bytes to the payload and set the LengthInWordsMinusOne and increase the BlockCount
+            
+            //This is not valid when there is a ReasonForLeaving, the data needs to be placed before such reason and padding
             AddBytesToPayload(sourceList.AsBinaryEnumerable(offset, BlockCount += Binary.Min(reportBlocksRemaining, count)));
         }
 
@@ -297,9 +305,10 @@ namespace Media.Rtcp
         {
             using (RFC3550.SourceList sl = GetSourceList())
             {
-                foreach (uint ssrc in GetSourceList())
+                foreach (uint ssrc in sl)
                 {
-                    using (ReportBlock rb = new ReportBlock((int)ssrc))
+                    //Give a ReportBlock of 4 bytes to represent the source list entry
+                    using (ReportBlock rb = new ReportBlock(new Common.MemorySegment(Payload.Array, Payload.Offset + sl.ItemIndex * RFC3550.SourceList.ItemSize, RFC3550.SourceList.ItemSize)))
                     {
                         yield return rb;
                     }
@@ -372,6 +381,10 @@ namespace Media.UnitTests
                             //Check all data in the padding but not the padding octet itself.
                             System.Diagnostics.Debug.Assert(p.PaddingData.Take(PaddingCounter - 1).All(b => b == 0), "Unexpected PaddingData");
 
+                            //Add remaining amount of reports to test the Add method
+
+                            //Enumerate the RtcpReport version of the instance
+
                             //Serialize and Deserialize and verify again
                             using (Rtcp.GoodbyeReport s = new Rtcp.GoodbyeReport(new Rtcp.RtcpPacket(p.Prepare().ToArray(), 0), true))
                             {
@@ -393,7 +406,6 @@ namespace Media.UnitTests
                                 //Check all data in the padding but not the padding octet itself.
                                 System.Diagnostics.Debug.Assert(s.PaddingData.SequenceEqual(p.PaddingData), "Unexpected PaddingData");
                             }
-
                         }
                     }
                 }

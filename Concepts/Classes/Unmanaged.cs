@@ -84,6 +84,45 @@ namespace Media.Concepts.Classes
             return (System.Runtime.InteropServices.Marshal.ReAllocHGlobal(new System.IntPtr(oldPointer),
                 new System.IntPtr(Unsafe.BytesPer<T>() * newElementCount))).ToPointer();
         }
+
+        //http://stackoverflow.com/questions/1951290/memory-alignment-of-classes-in-c
+
+        public static class AlignedNew
+        {
+            public static T New<T>() where T : new()
+            {
+                System.Collections.Generic.LinkedList<T> candidates = new System.Collections.Generic.LinkedList<T>();
+                System.IntPtr pointer = System.IntPtr.Zero;
+                bool continue_ = true;
+
+                int size = System.Runtime.InteropServices.Marshal.SizeOf(typeof(T)) % 8; //IntPtr.Size
+
+                while (continue_)
+                {
+                    if (size == 0)
+                    {
+                        object gap = new object();
+                    }
+
+                    candidates.AddLast(new T());
+
+                    System.Runtime.InteropServices.GCHandle handle = System.Runtime.InteropServices.GCHandle.Alloc(candidates.Last.Value, System.Runtime.InteropServices.GCHandleType.Pinned);
+                    pointer = handle.AddrOfPinnedObject();
+
+                    //IntPtr.Size                              
+                    continue_ = (pointer.ToInt64() % 8) != 0 || (pointer.ToInt64() % 64) == 24;
+
+                    handle.Free();
+
+                    if (false == continue_)
+                        return candidates.Last.Value;
+                }
+
+                return default(T);
+            }
+        }
+
+        
     }
 }
 

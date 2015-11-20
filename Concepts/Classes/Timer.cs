@@ -43,11 +43,11 @@ namespace Media.Concepts.Classes
     /// </summary>
     public class Timer : Common.BaseDisposable
     {
-        readonly System.Threading.Thread m_Counter; // m_Consumer, m_Producer
+        internal readonly System.Threading.Thread m_Counter; // m_Consumer, m_Producer
 
-        System.TimeSpan m_Frequency;
+        internal System.TimeSpan m_Frequency;
 
-        long m_Ticks = 0;
+        internal ulong m_Ops = 0, m_Ticks = 0;
 
         bool m_Enabled;
 
@@ -60,6 +60,9 @@ namespace Media.Concepts.Classes
         public bool Enabled { get { return m_Enabled; } set { m_Enabled = value; } }
 
         public System.TimeSpan Frequency { get { return m_Frequency; } }
+
+        internal ulong m_Bias;
+
         //
 
         //Could just use a single int, 32 bits is more than enough.
@@ -68,13 +71,59 @@ namespace Media.Concepts.Classes
 
         //
 
-        internal Clock m_Clock = new Clock();
+        readonly internal Clock m_Clock = new Clock();
+
+        readonly internal System.Collections.Generic.Queue<long> Producer;
 
         void Count()
         {
+
+            System.Threading.Thread Event = new System.Threading.Thread(new System.Threading.ThreadStart(() =>
+            {
+                System.Threading.Thread.BeginCriticalRegion();
+                long sample;
+            AfterSample:
+                try
+                {
+                Top:
+                    System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
+
+                    while (m_Enabled && Producer.Count >= 1)
+                    {
+                        sample = Producer.Dequeue();
+
+                        Tick(ref sample);
+                    }
+
+                    System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
+
+                    if (false == m_Enabled) return;
+
+                    while (m_Enabled && Producer.Count == 0) if(m_Counter.IsAlive) m_Counter.Join(0);  //++m_Ops;
+
+                    goto Top;
+                }
+                catch { if (false == m_Enabled) return; goto AfterSample; }
+                finally { System.Threading.Thread.EndCriticalRegion(); }
+            }))
+            {
+                IsBackground = false,
+                Priority = System.Threading.ThreadPriority.AboveNormal
+            };
+
+            Event.TrySetApartmentState(System.Threading.ApartmentState.MTA);
+
+            Event.Start();
+
+        Approximate:
+
+            ulong approximate = (ulong)Common.Binary.Clamp((m_Clock.AverageOperationsPerTick / (Frequency.Ticks + 1)), 1, ulong.MaxValue), x = 0;
+
             try
             {
                 m_Started = m_Clock.Now;
+
+                System.Threading.Thread.BeginCriticalRegion();
 
                 unchecked
                 {
@@ -82,31 +131,46 @@ namespace Media.Concepts.Classes
 
                     if (IsDisposed) return;
 
-                    while (m_Enabled)
+                    switch (++m_Ops)
                     {
-                        if (++m_Ticks >= m_Frequency.Ticks)
-                        {
-                            Tick(ref m_Ticks);
+                        default:
+                            {
+                                if (m_Bias + ++m_Ops >= approximate)
+                                {
+                                    System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
-                            m_Ticks = 0;
-                        }
+                                    Producer.Enqueue((long)m_Ticks++);
+
+                                    x = (ulong)Common.Binary.Clamp((m_Bias = m_Ops / approximate), 0, m_Bias);
+
+                                    while (1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
+
+                                    m_Ops += m_Bias;
+
+                                    System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
+                                }
+
+                                if(Event != null && Event.IsAlive) Event.Join(m_Frequency);
+
+                                goto Start;
+                            }
                     }
-
-                    if (false == IsDisposed) goto Start;
                 }
             }
-            catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
-            catch
+            catch (System.Threading.ThreadAbortException) { if (m_Enabled) goto Approximate; System.Threading.Thread.ResetAbort(); }
+            catch (System.OutOfMemoryException) { if ((ulong)Producer.Count > approximate) Producer.Clear(); if (m_Enabled) goto Approximate; }
+            catch { if (m_Enabled) goto Approximate; }
+            finally
             {
-                return;
+                Event = null;
+
+                System.Threading.Thread.EndCriticalRegion();
             }
         }
 
         public Timer(System.TimeSpan frequency)
         {
-            throw new System.NotImplementedException("Contribute!");
-
-            m_Frequency = frequency;
+            Producer = new System.Collections.Generic.Queue<long>((int)((m_Frequency = frequency).Ticks * Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond.Ticks));
 
             m_Counter = new System.Threading.Thread(new System.Threading.ThreadStart(Count))
             {
@@ -116,16 +180,24 @@ namespace Media.Concepts.Classes
 
             m_Counter.TrySetApartmentState(System.Threading.ApartmentState.MTA);
 
-            Tick += delegate { };
+            Tick = delegate { unchecked { m_Ops += 1 + m_Bias; } };
         }
 
         public void Start()
         {
+            if (m_Enabled) return;
+
             m_Enabled = true;
 
             m_Counter.Start();
 
-            while (m_Ticks == 0) System.Threading.Thread.Sleep(m_Frequency);
+            var p = System.Threading.Thread.CurrentThread.Priority;
+
+            System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Lowest;
+
+            while (m_Ops == 0) m_Counter.Join(0); //m_Clock.NanoSleep(0);
+            
+            System.Threading.Thread.CurrentThread.Priority = p;
         }
 
         public void Stop()
@@ -146,27 +218,216 @@ namespace Media.Concepts.Classes
 
         public override void Dispose()
         {
-            if (IsDisposed) return;
+            if (IsDisposed) return;            
 
             base.Dispose();
 
-            Tick = null;
+            Stop();
 
             try { m_Counter.Abort(m_Frequency); }
             catch (System.Threading.ThreadAbortException) { System.Threading.Thread.ResetAbort(); }
             catch { }
+
+            Tick = null;
+
+            //Producer.Clear();
         }
 
     }
-
-
 }
 
 namespace Media.UnitTests
 {
     internal class TimerTests
     {
+        public void TestForOneTick()
+        {
+            //Create a Timer that will elapse every `OneMicrosecond`
+             using (Media.Concepts.Classes.Timer t = new Media.Concepts.Classes.Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneTick))
+            {
+                int count = 0;
+
+                //Handle the event by incrementing count
+                t.Tick += (ref long st) => { ++count; };
+
+                //Do the same for another counter
+                int anotherCount = 0;
+
+                t.Tick += (ref long st) => { ++anotherCount; };
+
+                //Do the same for another counter
+                int lastCounter = 0;
+
+                t.Tick += (ref long st) => { ++lastCounter; };
+
+                System.Diagnostics.Stopwatch testSw = new System.Diagnostics.Stopwatch();
+
+                t.Start();
+
+                testSw.Start();
+
+                System.Console.WriteLine("Frequency: " + t.Frequency);
+
+                System.Console.WriteLine("Started: " + t.m_Started.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                //Sleep the frequency
+                 System.TimeSpan s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks));
+
+                while (s < t.Frequency)
+                {
+                    System.Console.WriteLine((t.m_Clock.UtcNow + s).ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+                    //System.Threading.Thread.SpinWait(0);
+                    t.m_Clock.NanoSleep(0);
+                    s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks));
+                }
+
+
+                t.Stop();
+
+                testSw.Stop();
+
+                var finished = System.DateTime.UtcNow;
+
+                var taken = finished - t.m_Started;
+
+                System.Console.WriteLine("Finished: " + finished.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                System.Console.WriteLine("Taken Microseconds: " + Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
+
+                System.Console.WriteLine("Taken Total: " + taken.ToString());
+
+                System.Console.WriteLine("Managed Ticks: " + t.m_Ticks);
+
+                //The maximum amount of times the timer can elapse in the given frequency
+                double maxCount = taken.Ticks / t.Frequency.Ticks;
+
+                System.Console.WriteLine("Maximum Count: " + taken.Ticks / t.Frequency.Ticks);
+
+                System.Console.WriteLine("Actual Count: " + count);
+
+                System.Console.WriteLine("Another Count: " + anotherCount);
+
+                System.Console.WriteLine("Last Counter: " + lastCounter);
+
+                //100 ns or (1 tick) is equal to about 100 counts in this case
+                //Since sleep may not be accurate then there must be atleast 900 counts
+                if ((taken > System.TimeSpan.Zero && count < Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
+                    || //In all cases the count must never be less than what is possible during the physical given frequency
+                    count < maxCount)
+                    && t.m_Ticks > 0 &&
+                    (long)t.m_Ticks < count) throw new System.Exception("Did not count all intervals");
+
+                //Write the rough amount of time taken in nano seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(t.Frequency) + "ns");
+
+                //Write the rough amount of time taken in  micro seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency) + "μs");
+
+                //How many more times the event was fired than needed
+                double overage = (count - maxCount);
+
+                //Display the amount of operations which were performed more than required.
+                System.Console.WriteLine("Count Overage: " + overage);
+
+                System.Console.WriteLine("Ticks Overage: " + System.Math.Abs(overage - testSw.Elapsed.Ticks));
+            }
+        }
+
         public void TestForOneMillisecond()
+        {
+            //Create a Timer that will elapse every `OneMicrosecond`
+            using (Media.Concepts.Classes.Timer t = new Media.Concepts.Classes.Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMillisecond))
+            {
+                int count = 0;
+
+                //Handle the event by incrementing count
+                t.Tick += (ref long st) => { ++count; };
+
+                //Do the same for another counter
+                int anotherCount = 0;
+
+                t.Tick += (ref long st) => { ++anotherCount; };
+
+                //Do the same for another counter
+                int lastCounter = 0;
+
+                t.Tick += (ref long st) => { ++lastCounter; };
+
+                System.Diagnostics.Stopwatch testSw = new System.Diagnostics.Stopwatch();
+
+                t.Start();
+
+                testSw.Start();
+
+                System.Console.WriteLine("Frequency: " + t.Frequency);
+
+                System.Console.WriteLine("Started: " + t.m_Started.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                //Sleep the frequency
+                System.TimeSpan s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks));
+
+                while (s < t.Frequency)
+                {
+                    System.Console.WriteLine((t.m_Clock.UtcNow + s).ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+                    //System.Threading.Thread.SpinWait(0);
+                    t.m_Clock.NanoSleep(0);
+                    s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks));
+                }
+
+
+
+                t.Stop();
+
+                testSw.Stop();
+
+                var finished = System.DateTime.UtcNow;
+
+                var taken = finished - t.m_Started;
+
+                System.Console.WriteLine("Finished: " + finished.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                System.Console.WriteLine("Taken Microseconds: " + Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
+
+                System.Console.WriteLine("Taken Total: " + taken.ToString());
+
+                System.Console.WriteLine("Managed Ticks: " + t.m_Ticks);
+
+                //The maximum amount of times the timer can elapse in the given frequency
+                double maxCount = taken.TotalMilliseconds / t.Frequency.TotalMilliseconds;
+
+                System.Console.WriteLine("Maximum Count: " + taken.TotalMilliseconds / t.Frequency.TotalMilliseconds);
+
+                System.Console.WriteLine("Actual Count: " + count);
+
+                System.Console.WriteLine("Another Count: " + anotherCount);
+
+                System.Console.WriteLine("Last Counter: " + lastCounter);
+
+                //100 ns or (1 tick) is equal to about 100 counts in this case
+                //Since sleep may not be accurate then there must be atleast 900 counts
+                if ((taken > System.TimeSpan.Zero && count < Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
+                    || //In all cases the count must never be less than what is possible during the physical given frequency
+                    count < maxCount)
+                    && t.m_Ticks > 0 &&
+                    (long)t.m_Ticks < count) throw new System.Exception("Did not count all intervals");
+
+                //Write the rough amount of time taken in nano seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(t.Frequency) + "ns");
+
+                //Write the rough amount of time taken in  micro seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency) + "μs");
+
+                //How many more times the event was fired than needed
+                double overage = (count - maxCount);
+
+                //Display the amount of operations which were performed more than required.
+                System.Console.WriteLine("Count Overage: " + overage);
+
+                System.Console.WriteLine("Ticks Overage: " + System.Math.Abs(overage - testSw.Elapsed.Ticks));
+            }
+        }
+
+        public void TestForOneMicrosecond()
         {
             //Create a Timer that will elapse every `OneMicrosecond`
             using (Media.Concepts.Classes.Timer t = new Media.Concepts.Classes.Timer(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond))
@@ -197,7 +458,15 @@ namespace Media.UnitTests
                 System.Console.WriteLine("Started: " + t.m_Started.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
 
                 //Sleep the frequency
-                System.Threading.Thread.Sleep(t.Frequency);
+                System.TimeSpan s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks + 1));
+
+                while (s < t.Frequency)
+                {
+                    System.Console.WriteLine((t.m_Clock.UtcNow + s).ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+                    //System.Threading.Thread.SpinWait(0);
+                    t.m_Clock.NanoSleep(0);
+                    s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks + 1));
+                }
 
                 t.Stop();
 
@@ -213,10 +482,12 @@ namespace Media.UnitTests
 
                 System.Console.WriteLine("Taken Total: " + taken.ToString());
 
-                //The maximum amount of times the timer can elapse in the given frequency
-                double maxCount = taken.TotalMilliseconds / t.Frequency.TotalMilliseconds;
+                System.Console.WriteLine("Managed Ticks: " + t.m_Ticks);
 
-                System.Console.WriteLine("Maximum Count: " + taken.TotalMilliseconds / t.Frequency.TotalMilliseconds);
+                //The maximum amount of times the timer can elapse in the given frequency
+                double maxCount = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency);
+
+                System.Console.WriteLine("Maximum Count: " + Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
 
                 System.Console.WriteLine("Actual Count: " + count);
 
@@ -226,9 +497,194 @@ namespace Media.UnitTests
 
                 //100 ns or (1 tick) is equal to about 100 counts in this case
                 //Since sleep may not be accurate then there must be atleast 900 counts
-                if (taken > System.TimeSpan.Zero && count < Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
+                if ((taken > System.TimeSpan.Zero && count < Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
                     || //In all cases the count must never be less than what is possible during the physical given frequency
-                    count < maxCount) throw new System.Exception("Did not count all intervals");
+                    count < maxCount)
+                    && t.m_Ticks > 0 &&
+                    (long)t.m_Ticks < count) throw new System.Exception("Did not count all intervals");
+
+                //Write the rough amount of time taken in nano seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(t.Frequency) + "ns");
+
+                //Write the rough amount of time taken in  micro seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency) + "μs");
+
+                //How many more times the event was fired than needed
+                double overage = (count - maxCount);
+
+                //Display the amount of operations which were performed more than required.
+                System.Console.WriteLine("Count Overage: " + overage);
+
+                System.Console.WriteLine("Ticks Overage: " + System.Math.Abs(overage - testSw.Elapsed.Ticks));
+            }
+        }
+
+        public void TestForZero()
+        {
+            using (Media.Concepts.Classes.Timer t = new Media.Concepts.Classes.Timer(System.TimeSpan.Zero))
+            {
+                int count = 0;
+
+                //Handle the event by incrementing count
+                t.Tick += (ref long st) => { ++count; };
+
+                //Do the same for another counter
+                int anotherCount = 0;
+
+                t.Tick += (ref long st) => { ++anotherCount; };
+
+                //Do the same for another counter
+                int lastCounter = 0;
+
+                t.Tick += (ref long st) => { ++lastCounter; };
+
+                System.Diagnostics.Stopwatch testSw = new System.Diagnostics.Stopwatch();
+
+                t.Start();
+
+                testSw.Start();
+
+                System.Console.WriteLine("Frequency: " + t.Frequency);
+
+                System.Console.WriteLine("Started: " + t.m_Started.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                //Sleep the frequency
+                System.TimeSpan s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks + 1));
+
+                while (s < t.Frequency)
+                {
+                    System.Console.WriteLine((t.m_Clock.UtcNow + s).ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+                    //System.Threading.Thread.SpinWait(0);
+                    t.m_Clock.NanoSleep(0);
+                    s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks + 1));
+                }
+
+                t.Stop();
+
+                testSw.Stop();
+
+                var finished = System.DateTime.UtcNow;
+
+                var taken = finished - t.m_Started;
+
+                System.Console.WriteLine("Finished: " + finished.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                System.Console.WriteLine("Taken Microseconds: " + Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
+
+                System.Console.WriteLine("Taken Total: " + taken.ToString());
+
+                System.Console.WriteLine("Managed Ticks: " + t.m_Ticks);
+
+                //The maximum amount of times the timer can elapse in the given frequency
+                double maxCount = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency);
+
+                System.Console.WriteLine("Maximum Count: " + Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
+
+                System.Console.WriteLine("Actual Count: " + count);
+
+                System.Console.WriteLine("Another Count: " + anotherCount);
+
+                System.Console.WriteLine("Last Counter: " + lastCounter);
+
+                //100 ns or (1 tick) is equal to about 100 counts in this case
+                //Since sleep may not be accurate then there must be atleast 900 counts
+                if ((taken > System.TimeSpan.Zero && count < Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
+                    || //In all cases the count must never be less than what is possible during the physical given frequency
+                    count < maxCount)
+                    && t.m_Ticks > 0 &&
+                    (long)t.m_Ticks < count) throw new System.Exception("Did not count all intervals");
+
+                //Write the rough amount of time taken in nano seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(t.Frequency) + "ns");
+
+                //Write the rough amount of time taken in  micro seconds
+                System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency) + "μs");
+
+                //How many more times the event was fired than needed
+                double overage = (count - maxCount);
+
+                //Display the amount of operations which were performed more than required.
+                System.Console.WriteLine("Count Overage: " + overage);
+
+                System.Console.WriteLine("Ticks Overage: " + System.Math.Abs(overage - testSw.Elapsed.Ticks));
+            }
+        }
+
+        public void TestForTwentyMicroseconds()
+        {
+            //Create a Timer that will elapse every `OneMicrosecond`
+            using (Media.Concepts.Classes.Timer t = new Media.Concepts.Classes.Timer(new System.TimeSpan(Media.Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond.Ticks * 20)))
+            {
+                int count = 0;
+
+                //Handle the event by incrementing count
+                t.Tick += (ref long st) => { ++count; };
+
+                //Do the same for another counter
+                int anotherCount = 0;
+
+                t.Tick += (ref long st) => { ++anotherCount; };
+
+                //Do the same for another counter
+                int lastCounter = 0;
+
+                t.Tick += (ref long st) => { ++lastCounter; };
+
+                System.Diagnostics.Stopwatch testSw = new System.Diagnostics.Stopwatch();
+
+                t.Start();
+
+                testSw.Start();
+
+                System.Console.WriteLine("Frequency: " + t.Frequency);
+
+                System.Console.WriteLine("Started: " + t.m_Started.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                //Sleep the frequency
+                System.TimeSpan s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks + 1));
+
+                while (s < t.Frequency)
+                {
+                    System.Console.WriteLine((t.m_Clock.UtcNow + s).ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+                    //System.Threading.Thread.SpinWait(0);
+                    //t.m_Clock.NanoSleep(0);
+                    s = new System.TimeSpan(((long)t.m_Ticks + testSw.ElapsedTicks + 1));
+                }
+
+                t.Stop();
+
+                testSw.Stop();
+
+                var finished = System.DateTime.UtcNow;
+
+                var taken = finished - t.m_Started;
+
+                System.Console.WriteLine("Finished: " + finished.ToString("MM/dd/yyyy hh:mm:ss.ffffff tt"));
+
+                System.Console.WriteLine("Taken Microseconds: " + Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
+
+                System.Console.WriteLine("Taken Total: " + taken.ToString());
+
+                System.Console.WriteLine("Managed Ticks: " + t.m_Ticks);
+
+                //The maximum amount of times the timer can elapse in the given frequency
+                double maxCount = Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken) / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(t.Frequency);
+
+                System.Console.WriteLine("Maximum Count: " + Common.Extensions.TimeSpan.TimeSpanExtensions.TotalMicroseconds(taken));
+
+                System.Console.WriteLine("Actual Count: " + count);
+
+                System.Console.WriteLine("Another Count: " + anotherCount);
+
+                System.Console.WriteLine("Last Counter: " + lastCounter);
+
+                //100 ns or (1 tick) is equal to about 100 counts in this case
+                //Since sleep may not be accurate then there must be atleast 900 counts
+                if ((taken > System.TimeSpan.Zero && count < Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond
+                    || //In all cases the count must never be less than what is possible during the physical given frequency
+                    count < maxCount)
+                    && t.m_Ticks > 0 &&
+                    (long)t.m_Ticks < count) throw new System.Exception("Did not count all intervals");
 
                 //Write the rough amount of time taken in nano seconds
                 System.Console.WriteLine("Time Estimated Taken: " + count * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.TotalNanoseconds(t.Frequency) + "ns");

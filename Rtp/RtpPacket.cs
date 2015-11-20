@@ -99,7 +99,7 @@ namespace Media.Rtp
         /// The maximum value this property can return is 65535.
         /// <see cref="RtpExtension.LengthInWords"/> for more information.
         /// </summary>
-        public int ExtensionOctets { get { if (IsDisposed || !Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
+        public int ExtensionOctets { get { if (IsDisposed || false == Header.Extension || Payload.Count == 0) return 0; using (RtpExtension extension = GetExtension()) return extension != null ? extension.Size : 0; } }
 
         /// <summary>
         /// The amount of octets which belong either to the SourceList or the RtpExtension.
@@ -140,7 +140,7 @@ namespace Media.Rtp
                 //Check the Extension bit in the header, if set the RtpExtension must be complete
                 if (Header.Extension) using (var extension = GetExtension())
                     {
-                        if (extension == null || !extension.IsComplete) return false;
+                        if (extension == null || false == extension.IsComplete) return false;
 
                         //Reduce the number of octets in the payload by the number of octets which make up the extension
                         octetsContained -= extension.Size;
@@ -160,7 +160,7 @@ namespace Media.Rtp
         /// <summary>
         /// Indicates the length in bytes of this RtpPacket instance. (Including the RtpHeader as well as SourceList and Extension if present.)
         /// </summary>
-        public int Length { get { if (IsDisposed) return 0; return RtpHeader.Length + Payload.Count; } }
+        public int Length { get { return IsDisposed ? 0 : RtpHeader.Length + Payload.Count; } }
 
         /// <summary>
         /// Gets the data in the Payload which does not belong to the ContributingSourceList or RtpExtension or Padding.
@@ -184,9 +184,11 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || !IsComplete || Payload.Count == 0 || !Padding) return Media.Common.MemorySegment.EmptyBytes;
+                if (IsDisposed || false == IsComplete || Payload.Count == 0 || false == Padding) yield break;
 
-                return Payload.Reverse().Take(PaddingOctets).Reverse();
+                //return Payload.Reverse().Take(PaddingOctets).Reverse();
+
+                for (int  p = PaddingOctets, e = Payload.Count, i = e - p; i < e; ++i) yield return Payload[i];
             }
         }
 
@@ -228,6 +230,8 @@ namespace Media.Rtp
         #endregion
 
         #region Constructor
+
+        ~RtpPacket() { Dispose(); }
 
         public RtpPacket(int version, bool padding, bool extension, byte[] payload)
             : this(new RtpHeader(version, padding, extension), payload ?? Media.Common.MemorySegment.EmptyBytes)
@@ -293,7 +297,7 @@ namespace Media.Rtp
 
             ShouldDispose = m_OwnsHeader = true;
 
-            if (count > RtpHeader.Length && !Header.IsCompressed)
+            if (count > RtpHeader.Length && false == Header.IsCompressed)
             {
                 //Advance the pointer
                 offset += RtpHeader.Length;
@@ -301,6 +305,7 @@ namespace Media.Rtp
                 count -= RtpHeader.Length;
 
                 m_OwnedOctets = new byte[count];
+
                 Array.Copy(buffer, offset, m_OwnedOctets, 0, count);
 
                 //Create a segment to the payload deleniated by the given offset and the constant Length of the RtpHeader.
@@ -310,7 +315,7 @@ namespace Media.Rtp
             {                
                 m_OwnedOctets = Media.Common.MemorySegment.EmptyBytes; //IsReadOnly should be false
                 //Payload = new MemoryReference(m_OwnedOctets, 0, 0, m_OwnsHeader);
-                Payload = new MemorySegment(0);
+                Payload = MemorySegment.Empty;
             }
         }
         
@@ -483,7 +488,7 @@ namespace Media.Rtp
             IEnumerable<byte> binarySequence = Enumerable.Empty<byte>();
 
             //If the sourcelist and extensions are to be included and selfReference is true then return the new instance using the a reference to the data already contained.
-            if (includeSourceList && includeExtension && selfReference) return new RtpPacket(Header.Clone(), Payload);
+            if (includeSourceList && includeExtension && includePadding && includeCoeffecients && selfReference) return new RtpPacket(Header, Payload, false) { Transferred = Transferred };
 
             bool hasSourceList = ContributingSourceCount > 0;
 
@@ -587,8 +592,10 @@ namespace Media.Rtp
             //If the ContributingSourceList is not complete
             if (payloadCount < sourceListOctets)
             {
-                //Calulcate the amount of octets to receive
-                octetsRemaining = Math.Abs(payloadCount - sourceListOctets);
+                //Calulcate the amount of octets to receive, ABS is weird and not required since paycount is checked to be less
+                octetsRemaining = sourceListOctets - payloadCount; //Binary.Abs(payloadCount - sourceListOctets);
+
+                //octetsRemaining = Binary.Min(payloadCount, sourceListOctets);
 
                 //Allocte the memory for the required data
                 if (m_OwnedOctets == null) m_OwnedOctets = new byte[octetsRemaining];
@@ -653,7 +660,7 @@ namespace Media.Rtp
                 //Use a RtpExtension instance to read the Extension Header and data.
                 using (RtpExtension extension = GetExtension())
                 {
-                    if (extension != null && !extension.IsComplete)
+                    if (extension != null && false == extension.IsComplete)
                     {
                         //Cache the size of the RtpExtension (not including the Flags and LengthInWords [The Extension Header])
                         extensionSize = extension.Size - RtpExtension.MinimumSize;
@@ -694,7 +701,7 @@ namespace Media.Rtp
             //If the header indicates the payload has padding
             if (Header.Padding)
             {
-
+                //Double check this math
                 octetsRemaining = PaddingOctets - payloadCount;
 
                 if (octetsRemaining > 0)
@@ -763,7 +770,7 @@ namespace Media.Rtp
             if (false == ShouldDispose) return;
 
             //If there is a referenced RtpHeader
-            if (m_OwnsHeader && Header != null && false == Header.IsDisposed)
+            if (m_OwnsHeader)
             {
                 //Dispose it
                 Header.Dispose();
@@ -773,6 +780,7 @@ namespace Media.Rtp
             {
                 //Payload goes away when Disposing
                 Payload.Dispose();
+
                 Payload = null;
             }
 
@@ -782,7 +790,6 @@ namespace Media.Rtp
 
         public override bool Equals(object obj)
         {
-
             if (System.Object.ReferenceEquals(this, obj)) return true;
 
             if (false == (obj is RtpPacket)) return false;

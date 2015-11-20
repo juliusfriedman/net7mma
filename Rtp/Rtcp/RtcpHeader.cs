@@ -80,7 +80,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The length of every RtcpHeader. (In bytes)
         /// </summary>
-        public const int Length = 4;
+        public const int Length = Common.Binary.BytesPerInteger;
 
         /// <summary>
         /// The value which is placed into the <see cref="RtcpHeader.LengthInWordsMinusOne"/> by default when creating a RtcpReport.
@@ -274,7 +274,7 @@ namespace Media.Rtcp
                     case RtcpHeader.MinimumLengthInWords:
                     case RtcpHeader.MaximumLengthInWords:
                         return RtcpHeader.Length;
-                    default: return Binary.BytesPerLong;
+                    default: return Binary.BytesPerLong; //return RFC3550.CommonHeaderBits.Size + PointerToLast6Bytes.Count;
                 }
             }
         }
@@ -351,14 +351,17 @@ namespace Media.Rtcp
             }
         }
 
-        public RtcpHeader(Common.MemorySegment memory, int additionalOffset = 0) 
+        public RtcpHeader(Common.MemorySegment memory)//, int additionalOffset = 0) 
         {
-            if (Math.Abs(memory.Count - additionalOffset) < RtcpHeader.Length) throw new ArgumentException("memory must contain at least 4 elements", "memory");
+            //int diff = memory.Count - additionalOffset;
 
-            First16Bits = new Media.RFC3550.CommonHeaderBits(memory, additionalOffset);
+            //if (Math.Abs(diff) < RtcpHeader.Length) throw new ArgumentException("memory must contain at least 4 elements", "memory");
 
-            //das infamous clamp max min
-            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + RFC3550.CommonHeaderBits.Size, Math.Max(Math.Min(memory.Count - additionalOffset - RFC3550.CommonHeaderBits.Size, 6), RtcpHeader.Length));
+            First16Bits = new Media.RFC3550.CommonHeaderBits(memory);//, additionalOffset);
+
+            PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + RFC3550.CommonHeaderBits.Size, Binary.Clamp(memory.Count - RFC3550.CommonHeaderBits.Size, 0, 6));
+
+            //PointerToLast6Bytes = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset + RFC3550.CommonHeaderBits.Size, Binary.Max(Binary.Min(diff - RFC3550.CommonHeaderBits.Size, 6), RtcpHeader.Length));
         }
 
         public RtcpHeader(int version, int payloadType, bool padding, int blockCount)

@@ -58,10 +58,16 @@ namespace Media.Ntp
         /// The high 16 bits of the integer part must be determined independently.
         /// </notes>
         [System.CLSCompliant(false)]
-        public static uint DateTimeToNptTimestamp32(ref System.DateTime value) { return (uint)((DateTimeToNptTimestamp(value) << 16) & 0xFFFFFFFF); }
+        public static uint DateTimeToNptTimestamp32(ref System.DateTime value) { return (uint)((DateTimeToNptTimestamp(ref value) << Common.Binary.BitsPerShort) & uint.MaxValue); }
 
         [System.CLSCompliant(false)]
         public static uint DateTimeToNptTimestamp32(System.DateTime value) { return DateTimeToNptTimestamp32(ref value); }
+
+        //Error	44	Type 'Media.Ntp.NetworkTimeProtocol' already defines a member called 'DateTimeToNptTimestamp' with the same parameter types
+        //public static long DateTimeToNptTimestamp(System.DateTime value) { return (long)DateTimeToNptTimestamp(ref value); }
+
+        [System.CLSCompliant(false)]
+        public static ulong DateTimeToNptTimestamp(System.DateTime value) { return DateTimeToNptTimestamp(ref value); }
 
         /// <summary>
         /// Converts specified DateTime value to long NPT time.
@@ -86,14 +92,11 @@ namespace Media.Ntp
 
             System.TimeSpan elapsedTime = value > baseDate ? value.ToUniversalTime() - baseDate.ToUniversalTime() : baseDate.ToUniversalTime() - value.ToUniversalTime();
 
-            return ((ulong)(elapsedTime.Ticks / System.TimeSpan.TicksPerSecond) << 32) | (uint)(elapsedTime.Ticks / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
-        }
+            return ((ulong)(elapsedTime.Ticks / System.TimeSpan.TicksPerSecond) << Common.Binary.BitsPerInteger) | (uint)(elapsedTime.Ticks / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
+        }        
 
         [System.CLSCompliant(false)]
-        public static ulong DateTimeToNptTimestamp(System.DateTime value) { return DateTimeToNptTimestamp(ref value); }
-
-        [System.CLSCompliant(false)]
-        public static System.DateTime NptTimestampToDateTime(ref ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> 32) & 0xFFFFFFFF), (uint)(nptTimestamp & 0xFFFFFFFF)); }
+        public static System.DateTime NptTimestampToDateTime(ref ulong nptTimestamp) { return NptTimestampToDateTime((uint)((nptTimestamp >> Common.Binary.BitsPerInteger) & uint.MaxValue), (uint)(nptTimestamp & uint.MaxValue)); }
 
         [System.CLSCompliant(false)]
         public static System.DateTime NptTimestampToDateTime(ulong ntpTimestamp) { return NptTimestampToDateTime(ref ntpTimestamp); }
@@ -104,6 +107,7 @@ namespace Media.Ntp
             //Convert to ticks
             ulong ticks = (ulong)((seconds * System.TimeSpan.TicksPerSecond) + ((fractions * System.TimeSpan.TicksPerSecond) / 0x100000000L));
 
+            //System.DateTime.SpecifyKind( , System.DateTimeKind.Utc);
             return epoch.HasValue ? epoch.Value + System.TimeSpan.FromTicks((long)ticks) : 
                     (seconds & 0x80000000L) == 0 ? 
                         UtcEpoch2036 + System.TimeSpan.FromTicks((long)ticks) :
@@ -112,6 +116,13 @@ namespace Media.Ntp
 
         [System.CLSCompliant(false)]
         public static System.DateTime NptTimestampToDateTime(uint seconds, uint fractions, System.DateTime? epoch = null) { return NptTimestampToDateTime(ref seconds, ref fractions, epoch); }
+
+        public static System.DateTime NptTimestampToDateTime(int seconds, int fractions, System.DateTime? epoch = null)
+        {
+            uint sec = (uint)seconds, frac = (uint)fractions; 
+            
+            return NptTimestampToDateTime(ref sec, ref frac, epoch);
+        }
 
         //When the First Epoch will wrap (The real Y2k)
         public static System.DateTime UtcEpoch2036 = new System.DateTime(2036, 2, 7, 6, 28, 16, System.DateTimeKind.Utc);

@@ -184,17 +184,99 @@ namespace Media.Concepts.Classes
         {
             try
             {
-                fixed (char* str = toModify)
-                {
-                    str[index] = newValue;
+                UnsafeModifyString(toModify, index, newValue);
 
-                    return true;
-                }
+                return true;
             }
             catch
             {
                 return false;
             }
+        }
+
+        public unsafe static void UnsafeModifyString(string toModify, int index, char newValue)
+        {
+            fixed (char* str = toModify)
+            {
+                str[index] = newValue;
+            }
+        }
+    }
+
+    public static class AlignedNew
+    {
+
+        public static T New<T>() where T : new()
+        {
+            System.Collections.Generic.LinkedList<T> candidates = new System.Collections.Generic.LinkedList<T>();
+            System.IntPtr pointer = System.IntPtr.Zero;
+            bool continue_ = true;
+
+            int size = System.Runtime.InteropServices.Marshal.SizeOf(typeof(T)) % 8;
+
+            while (continue_)
+            {
+                if (size == 0)
+                {
+                    object gap = new object();
+                }
+
+                candidates.AddLast(new T());
+
+                System.Runtime.InteropServices.GCHandle handle = System.Runtime.InteropServices.GCHandle.Alloc(candidates.Last.Value, System.Runtime.InteropServices.GCHandleType.Pinned);
+                pointer = handle.AddrOfPinnedObject();
+                continue_ = (pointer.ToInt64() % 8) != 0 || (pointer.ToInt64() % 64) == 24;
+
+                handle.Free();
+
+                if (!continue_)
+                    return candidates.Last.Value;
+            }
+
+            return default(T);
+        }
+    }
+
+    class Program
+    {
+
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        public class Variable
+        {
+            public double Value;
+        }
+
+        static void Main()
+        {
+
+            const int COUNT = 10000000;
+
+            while (true)
+            {
+
+                var x = AlignedNew.New<Variable>();
+
+
+                for (int inner = 0; inner < 5; ++inner)
+                {
+
+                    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                    var total = 0.0;
+                    for (int i = 1; i <= COUNT; ++i)
+                    {
+                        x.Value = i;
+                        total += x.Value;
+                    }
+                    if (System.Math.Abs(total - 50000005000000.0) > 1)
+                        throw new System.ApplicationException(total.ToString());
+
+
+                    System.Console.Write("{0}, ", stopwatch.ElapsedMilliseconds);
+                }
+                System.Console.WriteLine();
+            }
+
         }
     }
 }

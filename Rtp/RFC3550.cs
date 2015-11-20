@@ -92,7 +92,7 @@ namespace Media
             //Perform MD5 on structure per 3550
             byte[] digest;
 
-            using (var md5 = Utility.CreateMD5HashAlgorithm()) digest = md5.ComputeHash(structure);
+            digest = Cryptography.MD5.GetHash(structure);
 
             //Complete hash
             uint r = 0;
@@ -525,8 +525,8 @@ namespace Media
             /// </summary>
             public int Version
             {
-                //Only 1 shift is required to read the version
-                get { return BitConverter.IsLittleEndian ? First8Bits >> 6 : First8Bits << 6; }
+                //Only 1 shift is required to read the version and it shouldn't matter about the endian
+                get { return First8Bits >> 6; } //BitConverter.IsLittleEndian ? First8Bits >> 6 : First8Bits << 6; }
                 set
                 {
                     //Get a unsigned copy to prevent two checks, the value is only 5 bits and must be aligned to this boundary in the octet
@@ -574,7 +574,7 @@ namespace Media
                 //There are 8 bits in a byte.
                 //Where 3 is the amount of unnecessary bits preceeding the Extension bit
                 //and 7 is amount of bits to discard to place the extension bit at the highest indicie of the octet (8)
-                //get { return First8Bits > 0 && (Common.Binary.ReadBitsWithShift(First8Bits, 3, 7, !BitConverter.IsLittleEndian) & ExtensionMask) > 0; }
+                //get { return First8Bits > 0 && (Common.Binary.ReadBitsWithShift(First8Bits, 3, 7, false == BitConverter.IsLittleEndian) & ExtensionMask) > 0; }
                 get { return (First8Bits & ExtensionMask) > 0; }
                 set { First8Bits = PackOctet((byte)Version, Padding, value, (byte)RtpContributingSourceCount); }
             }
@@ -620,10 +620,9 @@ namespace Media
                 //Contributing sources only exist in the highest half of the `leastSignificant` octet.
                 //Example 240 = 11110000 and would indicate 0 Contributing Sources etc.
                 //get { return Common.Binary.ReverseU8((byte)Common.Binary.ReadBitsWithShift(First8Bits, 0, 4, BitConverter.IsLittleEndian)); }
-                get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
+                get { return BitConverter.IsLittleEndian ? Common.Binary.ReverseU8((byte)(First8Bits << 4)) : First8Bits << 4;} // Common.Binary.ReverseU8((byte)(First8Bits >> 4)); }
                 internal set
                 {
-
                     //If the value exceeds the highest value which can be stored in the bit field throw an overflow exception
                     if (value > Binary.FourBitMaxValue)
                         throw Binary.CreateOverflowException("RtpContributingSourceCount", value, byte.MinValue.ToString(), Binary.FourBitMaxValue.ToString());
@@ -632,7 +631,7 @@ namespace Media
                     //byte unsigned = BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4);
 
                     //re pack the octet
-                    First8Bits = PackOctet(Version, Padding, Extension, BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value << 4));
+                    First8Bits = PackOctet(Version, Padding, Extension, BitConverter.IsLittleEndian ? (byte)(Common.Binary.ReverseU8((byte)(value)) >> 4) : (byte)(value >> 4));
                 }
             }
 
@@ -650,7 +649,9 @@ namespace Media
             /// </summary>
             public int RtpPayloadType
             {
-                get { return Last8Bits > 0 ? (byte)((Last8Bits << 1)) >> 1 : 0; }
+                //& Binary.SevenBitMaxValue may be faster
+                //get { return Last8Bits > 0 ? (byte)((Last8Bits << 1)) >> 1 : 0; }
+                get { return Last8Bits > 0 ? (byte)(Last8Bits & Binary.SevenBitMaxValue) : 0; }
                 set
                 {
                     //Get an unsigned copy of the value to prevent 2 checks 
@@ -705,11 +706,13 @@ namespace Media
                 mostSignificant = msb;
             }
 
-            public CommonHeaderBits(Common.MemorySegment memory, int additionalOffset = 0)
+            public CommonHeaderBits(Common.MemorySegment memory)//, int additionalOffset = 0)
             {
-                if (Math.Abs(memory.Count - additionalOffset) < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
+                //if (Math.Abs(memory.Count - additionalOffset) < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
 
-                m_Memory = new Common.MemorySegment(memory.Array, memory.Offset + additionalOffset, CommonHeaderBits.Size);
+                if (memory == null || memory.Count < CommonHeaderBits.Size) throw new InvalidOperationException("at least two octets are required in memory");
+
+                m_Memory = new Common.MemorySegment(memory.Array, memory.Offset /*+ additionalOffset*/, CommonHeaderBits.Size);
             }
 
             /// <summary>
@@ -972,7 +975,8 @@ namespace Media
                 get
                 {
                     CheckDisposed();
-                    if (m_CurrentOffset == m_Binary.Offset) throw new InvalidOperationException("Enumeration has not started yet.");
+                    //if (m_CurrentOffset == m_Binary.Offset) throw new InvalidOperationException("Enumeration has not started yet.");
+                    if (m_Read <= 0) throw new InvalidOperationException("Enumeration has not started yet.");
                     return m_CurrentSource;
                 }
             }
@@ -1027,6 +1031,16 @@ namespace Media
             /// </summary>
             public int Capacity { get { return m_SourceCount; } }
 
+            /// <summary>
+            /// The index to which <see cref="Current"/> corresponds
+            /// </summary>
+            public int ItemIndex { get { return m_Read; } }
+
+            /// <summary>
+            /// Gets the memory assoicated with the instance
+            /// </summary>
+            public Common.MemorySegment Memory { get { return m_Binary; } }
+
             #endregion
 
             #region Methods
@@ -1045,7 +1059,7 @@ namespace Media
             //    m_CurrentSource = (uint)id;
 
             //    //Write the given value to the correct position
-            //    Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, !BitConverter.IsLittleEndian, m_CurrentSource);
+            //    Binary.WriteNetwork32(m_Binary.Array, m_CurrentOffset, false == BitConverter.IsLittleEndian, m_CurrentSource);
 
             //    //Move the offset
             //    m_CurrentOffset += 4;

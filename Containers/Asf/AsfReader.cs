@@ -152,7 +152,7 @@ namespace Media.Containers.Asf
 
             string result;
 
-            if (!IdentifierLookup.TryGetValue(id, out result)) result = Media.Common.Extensions.String.StringExtensions.UnknownString;
+            if (false == IdentifierLookup.TryGetValue(id, out result)) result = Media.Common.Extensions.String.StringExtensions.UnknownString;
 
             return result;
         }
@@ -166,6 +166,8 @@ namespace Media.Containers.Asf
         public AsfReader(Uri source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
         public AsfReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
+
+        public AsfReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
 
         public IEnumerable<Node> ReadObjects(long offset = 0, params Guid[] names)
         {
@@ -215,7 +217,7 @@ namespace Media.Containers.Asf
             //24 bytes
 
             //Length in LittleEndian?
-            long length = Common.Binary.Read64(lengthBytes, 0, !BitConverter.IsLittleEndian);
+            long length = Common.Binary.Read64(lengthBytes, 0, false == BitConverter.IsLittleEndian);
 
             if (length > MinimumSize) length -= MinimumSize;
 
@@ -263,7 +265,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_FileSize.HasValue) ParseFileProperties();
+                if (false == m_FileSize.HasValue) ParseFileProperties();
                 return m_FileSize.Value;
             }
         }
@@ -272,7 +274,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_NumberOfPackets.HasValue) ParseFileProperties();
+                if (false == m_NumberOfPackets.HasValue) ParseFileProperties();
                 return m_NumberOfPackets.Value;
             }
         }
@@ -280,7 +282,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_SendTime.HasValue) ParseFileProperties();
+                if (false == m_SendTime.HasValue) ParseFileProperties();
                 return m_SendTime.Value;
             }
         }
@@ -289,7 +291,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_Ignore.HasValue) ParseFileProperties();
+                if (false == m_Ignore.HasValue) ParseFileProperties();
                 return m_Ignore.Value;
             }
         }
@@ -298,7 +300,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_Flags.HasValue) ParseFileProperties();
+                if (false == m_Flags.HasValue) ParseFileProperties();
                 return m_Flags.Value;
             }
         }
@@ -317,7 +319,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_MinimumPacketSize.HasValue) ParseFileProperties();
+                if (false == m_MinimumPacketSize.HasValue) ParseFileProperties();
                 return m_MinimumPacketSize.Value;
             }
         }
@@ -326,7 +328,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_MaximumPacketSize.HasValue) ParseFileProperties();
+                if (false == m_MaximumPacketSize.HasValue) ParseFileProperties();
                 return m_MaximumPacketSize.Value;
             }
         }
@@ -335,7 +337,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_MaximumBitRate.HasValue) ParseFileProperties();
+                if (false == m_MaximumBitRate.HasValue) ParseFileProperties();
                 return m_MaximumBitRate.Value;
             }
         }
@@ -344,7 +346,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_PlayTime.HasValue) ParseFileProperties();
+                if (false == m_PlayTime.HasValue) ParseFileProperties();
                 return TimeSpan.FromTicks(m_PlayTime.Value);
             }
         }
@@ -361,7 +363,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_PreRoll.HasValue) ParseFileProperties();
+                if (false == m_PreRoll.HasValue) ParseFileProperties();
                 return TimeSpan.FromMilliseconds((double)m_PreRoll.Value / (Media.Common.Extensions.TimeSpan.TimeSpanExtensions.NanosecondsPerSecond / Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond));
             }
         }
@@ -373,7 +375,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_Created.HasValue) ParseFileProperties();
+                if (false == m_Created.HasValue) ParseFileProperties();
                 return m_Created.Value;
             }
         }
@@ -382,7 +384,7 @@ namespace Media.Containers.Asf
         {
             get
             {
-                if (!m_Modified.HasValue) ParseFileProperties();
+                if (false == m_Modified.HasValue) ParseFileProperties();
                 return m_Modified.Value;
             }
         }
@@ -398,47 +400,47 @@ namespace Media.Containers.Asf
                 int offset = IdentifierSize;
 
                 //FileSize 64
-                m_FileSize = (long)Common.Binary.ReadU64(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_FileSize = (long)Common.Binary.ReadU64(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 8;
 
                 //Created 64
-                m_Created = BaseDate.AddTicks((long)Common.Binary.ReadU64(fileProperties.Data, offset, !BitConverter.IsLittleEndian));
+                m_Created = BaseDate.AddTicks((long)Common.Binary.ReadU64(fileProperties.Data, offset, false == BitConverter.IsLittleEndian));
                 offset += 8;
                 
                 //NumberOfPackets 64
-                m_NumberOfPackets = (long)Common.Binary.ReadU64(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_NumberOfPackets = (long)Common.Binary.ReadU64(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 8;
 
                 //PlayTime 64
-                m_PlayTime = (long)Common.Binary.ReadU64(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_PlayTime = (long)Common.Binary.ReadU64(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 8;
 
                 //SendTime 64
-                m_SendTime = (long)Common.Binary.ReadU64(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_SendTime = (long)Common.Binary.ReadU64(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 8;
 
                 //PreRoll 32
-                m_PreRoll = (long)Common.Binary.ReadU32(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_PreRoll = (long)Common.Binary.ReadU32(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 4;
 
                 //Ignore 32
-                m_Ignore = (long)Common.Binary.ReadU32(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_Ignore = (long)Common.Binary.ReadU32(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 4;
 
                 //Flags 32
-                m_Flags = (long)Common.Binary.ReadU32(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_Flags = (long)Common.Binary.ReadU32(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 4;
                 
                 //MinimumPacketSize 32
-                m_MinimumPacketSize = (long)Common.Binary.ReadU32(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_MinimumPacketSize = (long)Common.Binary.ReadU32(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 4;
 
                 //MaximumPacketSize 32
-                m_MaximumPacketSize = (long)Common.Binary.ReadU32(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_MaximumPacketSize = (long)Common.Binary.ReadU32(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 4;
 
                 //MaximumBitRate 32
-                m_MaximumBitRate = (long)Common.Binary.ReadU32(fileProperties.Data, offset, !BitConverter.IsLittleEndian);
+                m_MaximumBitRate = (long)Common.Binary.ReadU32(fileProperties.Data, offset, false == BitConverter.IsLittleEndian);
                 offset += 4;
                 
                 //Any more data it belongs to some kind of extension...
@@ -501,7 +503,7 @@ namespace Media.Containers.Asf
             {
                 if(contentDescription != null && contentDescription.DataSize > 2)
                 {
-                    int offset = 2, len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian), remaining = (int)contentDescription.DataSize;
+                    int offset = 2, len = Common.Binary.Read16(contentDescription.Data, offset, false == BitConverter.IsLittleEndian), remaining = (int)contentDescription.DataSize;
                     remaining -= 2;
 
                     if (remaining > 0 && len > 0)
@@ -515,7 +517,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 1)
                     {
-                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        len = Common.Binary.Read16(contentDescription.Data, offset, false == BitConverter.IsLittleEndian);
                         offset += 2;
                         remaining -= 2;
                     }
@@ -532,7 +534,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 1)
                     {
-                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        len = Common.Binary.Read16(contentDescription.Data, offset, false == BitConverter.IsLittleEndian);
                         offset += 2;
                         remaining -= 2;
                     }
@@ -549,7 +551,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 1)
                     {
-                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        len = Common.Binary.Read16(contentDescription.Data, offset, false == BitConverter.IsLittleEndian);
                         offset += 2;
                         remaining -= 2;
                     }
@@ -567,7 +569,7 @@ namespace Media.Containers.Asf
 
                     if (remaining > 1)
                     {
-                        len = Common.Binary.Read16(contentDescription.Data, offset, !BitConverter.IsLittleEndian);
+                        len = Common.Binary.Read16(contentDescription.Data, offset, false == BitConverter.IsLittleEndian);
                         offset += 2;
                         remaining -= 2;
                     }
@@ -634,21 +636,21 @@ namespace Media.Containers.Asf
                 //if (noCorrection != "ASFNoErrorCorrection") throw new InvalidOperationException("Invalid ASFStreamPropertiesObject");
 
                 //TimeOffset
-                startTime = Common.Binary.ReadU64(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                startTime = Common.Binary.ReadU64(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 8;
 
                 int typeSpecDataLen, eccDataLen;
 
-                typeSpecDataLen = Common.Binary.Read32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                typeSpecDataLen = Common.Binary.Read32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
-                eccDataLen = Common.Binary.Read32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                eccDataLen = Common.Binary.Read32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
-                short flags = Common.Binary.Read16(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                short flags = Common.Binary.Read16(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 2;
 
@@ -677,12 +679,12 @@ namespace Media.Containers.Asf
                             mediaType = Sdp.MediaType.video;
 
                             //Read 32 Width
-                            width = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 4;
 
                             //Read 32 Height
-                            height = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 6;
 
@@ -691,7 +693,7 @@ namespace Media.Containers.Asf
                             //Read 16 panes
 
                             //Read 16 BitDepth
-                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 2;
 
@@ -720,11 +722,11 @@ namespace Media.Containers.Asf
                             offset += 2;
 
                             //16 number_channels
-                            channels = (byte)Common.Binary.ReadU16(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            channels = (byte)Common.Binary.ReadU16(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
                             offset += 2;
                             
                             //32 samples_per_second
-                            rate = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            rate = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 4;
 
@@ -733,7 +735,7 @@ namespace Media.Containers.Asf
                             offset += 6;
 
                             //16 bits_per_sample
-                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            bitDepth = (byte)Common.Binary.ReadU16(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
                             break;
                         }
                     case "CommandMedia":
@@ -744,12 +746,12 @@ namespace Media.Containers.Asf
                     case "DegradableJPEGMedia":
                         {
                             //Read 32 Width
-                            width = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 4;
 
                             //Read 32 Height
-                            height = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 4;
 
@@ -762,12 +764,12 @@ namespace Media.Containers.Asf
                     case "JFIFMedia":
                         {
                             //Read 32 Width
-                            width = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            width = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 4;
 
                             //Read 32 Height
-                            height = Common.Binary.ReadU32(asfObject.Data, offset, !BitConverter.IsLittleEndian);
+                            height = Common.Binary.ReadU32(asfObject.Data, offset, false == BitConverter.IsLittleEndian);
 
                             offset += 4;
 

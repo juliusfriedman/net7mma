@@ -180,6 +180,14 @@ namespace Media.Rtcp
 
         #endregion
 
+        public override int ReportBlockOctets
+        {
+            get
+            {
+                return base.ReportBlockOctets + SendersInformationSize;
+            }
+        }
+
         /// <summary>
         /// Retrieves the the segment of data which corresponds to any ReportBlocks contained in the SendersReport after the SendersInformation.
         /// </summary>

@@ -57,7 +57,7 @@ namespace Media.Containers.BaseMedia
 
         static DateTime IsoBaseDateUtc = new DateTime(1904, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        //Todo Make Dictionary and have a ToTextualConvention that tries the Dictionary first. (KnownParents)        
+        //Todo Make Generic.Dictionary and have a ToTextualConvention that tries the Generic.Dictionary first. (KnownParents)        
 
         /// <summary>
         /// <see href="http://www.mp4ra.org/atoms.html">MP4REG</see>
@@ -118,11 +118,16 @@ namespace Media.Containers.BaseMedia
         //TryRegisterParentBox
         //Try UnregisterParentBox
 
+        //Should be int type..
+
         const int MinimumSize = IdentifierSize + LengthSize, IdentifierSize = 4, LengthSize = IdentifierSize;
 
-        public static string ToFourCharacterCode(byte[] identifier, int offset = 0, int count = 4) { return ToFourCharacterCode(Encoding.UTF8, identifier, offset, count); }
+        public static string ToUTF8FourCharacterCode(byte[] identifier, int offset = 0, int count = 4)
+        {
+            return ToEncodedFourCharacterCode(Encoding.UTF8, identifier, offset, count);
+        }
 
-        public static string ToFourCharacterCode(Encoding encoding, byte[] identifier, int offset, int count)
+        public static string ToEncodedFourCharacterCode(Encoding encoding, byte[] identifier, int offset, int count)
         {
             if (encoding == null) throw new ArgumentNullException("encoding");
 
@@ -139,6 +144,8 @@ namespace Media.Containers.BaseMedia
 
         public BaseMediaReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public BaseMediaReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { }        
+
         //int[] names?
         public IEnumerable<Node> ReadBoxes(long offset, long count, params string[] names)
         {
@@ -148,15 +155,17 @@ namespace Media.Containers.BaseMedia
 
             foreach (var box in this)
             {
-                if (names == null || names.Count() == 0 || names.Contains(ToFourCharacterCode(box.Identifier)))
+                if (names == null || names.Count() == 0 || names.Contains(ToUTF8FourCharacterCode(box.Identifier)))
                 {
                     yield return box;
                     continue;
                 }
 
-                count -= box.TotalSize;
+                //Ensure the TotalSize is correctly set.
 
-                if (count <= 0) break;
+                count -= box.TotalSize > count ? box.TotalSize - box.DataSize : box.TotalSize;
+
+                if (count <= 0 /*&& m_Position >= m_Length*/) break;
 
             }
 
@@ -191,12 +200,12 @@ namespace Media.Containers.BaseMedia
             return identifier;
         }
 
-        public static long ReadLength(Stream stream, out int bytesRead)
+        public static long ReadLength(Stream stream, out int bytesRead, byte[] buffer = null, int offset = 0)
         {
             //4.2 Object Structure 
             bytesRead = 0;
             long length = 0;
-            byte[] lengthBytes = new byte[LengthSize];
+            byte[] lengthBytes = buffer ?? new byte[LengthSize];
             do
             {
                 /*
@@ -207,9 +216,9 @@ namespace Media.Containers.BaseMedia
                     } 
                  */
 
-                bytesRead += stream.Read(lengthBytes, 0, LengthSize);
+                bytesRead += stream.Read(lengthBytes, offset, LengthSize);
                 //Check byte 3 == 1?
-                length = (lengthBytes[0] << 24) + (lengthBytes[1] << 16) + (lengthBytes[2] << 8) + lengthBytes[3];
+                length = (lengthBytes[offset] << 24) + (lengthBytes[offset + 1] << 16) + (lengthBytes[offset + 2] << 8) + lengthBytes[offset + 3];
             } while (length == 1 || (length & 0xffffffff) == 0);
             return length;
         }
@@ -218,13 +227,25 @@ namespace Media.Containers.BaseMedia
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
 
+            //int lengthBytesRead = 0;
+
+            //long length = ReadLength(this, out lengthBytesRead);
+
+            //byte[] identifier = ReadIdentifier(this);
+
+            //return new Node(this, identifier, lengthBytesRead, Position, length, length <= Remaining);
+
+            Common.MemorySegment lot = new Common.MemorySegment(IdentifierSize);
+            //int count = 0; while(0 > (count -= Read(lot.Array, count, lot.Count - count))) { }
+
             int lengthBytesRead = 0;
 
-            long length = ReadLength(this, out lengthBytesRead);
+            long length = ReadLength(this, out lengthBytesRead, lot.Array);
 
-            byte[] identifier = ReadIdentifier(this);
-
-            return new Node(this, identifier, lengthBytesRead, Position, length, length <= Remaining);
+            //while (Remaining < IdentifierSize && Buffering) { }
+                                                                   //Only read the length, the identifier is read next
+            return new Node(this, lot, IdentifierSize, LengthSize, Position + IdentifierSize, length, //determine Complete by reading the identifier
+                Read(lot.Array, 0, IdentifierSize) + lengthBytesRead >= MinimumSize && length <= Remaining);  //Could also inline the ReadLength(this, out lengthBytesRead, lot.Array) and do the IsComplete check in the Node constructor based on Master.Remaining
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -237,7 +258,7 @@ namespace Media.Containers.BaseMedia
                 yield return next;
 
                 //Parent boxes contain other boxes so do not skip them, parse right into their data
-                if (ParentBoxes.Contains(ToFourCharacterCode(next.Identifier))) continue;
+                if (ParentBoxes.Contains(ToUTF8FourCharacterCode(next.Identifier))) continue;
 
                 //Here using MinimumSize is technically not correct, it should be `Skip(next.Size - IdentifierSize + lengthBytesCount);`
                 //When the Node only reflects the data count then this would be simply `Skip(next.Size);`
@@ -262,7 +283,7 @@ namespace Media.Containers.BaseMedia
 
         public override string ToTextualConvention(Node node)
         {
-            if (node.Master.Equals(this)) return BaseMediaReader.ToFourCharacterCode(node.Identifier);
+            if (node.Master.Equals(this)) return BaseMediaReader.ToUTF8FourCharacterCode(node.Identifier);
             return base.ToTextualConvention(node);
         }
 
@@ -279,7 +300,7 @@ namespace Media.Containers.BaseMedia
         {
             get
             {
-                if (!m_Created.HasValue) ParseMovieHeader();
+                if (false == m_Created.HasValue) ParseMovieHeader();
                 return m_Created.Value;
             }
         }
@@ -288,7 +309,7 @@ namespace Media.Containers.BaseMedia
         {
             get
             {
-                if (!m_Modified.HasValue) ParseMovieHeader();
+                if (false == m_Modified.HasValue) ParseMovieHeader();
                 return m_Modified.Value;
             }
         }
@@ -301,7 +322,7 @@ namespace Media.Containers.BaseMedia
         {
             get
             {
-                if (!m_Duration.HasValue) ParseMovieHeader();
+                if (false == m_Duration.HasValue) ParseMovieHeader();
                 return m_Duration.Value;
             }
         }
@@ -312,7 +333,7 @@ namespace Media.Containers.BaseMedia
         {
             get
             {
-                if (!m_PlayRate.HasValue) ParseMovieHeader();
+                if (false == m_PlayRate.HasValue) ParseMovieHeader();
                 return m_PlayRate.Value;
             }
         }
@@ -321,7 +342,7 @@ namespace Media.Containers.BaseMedia
         {
             get
             {
-                if (!m_Volume.HasValue) ParseMovieHeader();
+                if (false == m_Volume.HasValue) ParseMovieHeader();
                 return m_Volume.Value;
             }
         }
@@ -343,17 +364,23 @@ namespace Media.Containers.BaseMedia
         {
             get
             {
-                if (!m_NextTrackId.HasValue) ParseMovieHeader();
+                if (false == m_NextTrackId.HasValue) ParseMovieHeader();
                 return m_NextTrackId.Value;
             }
         }
 
         protected void ParseMovieHeader()
         {
+
+            Node mediaHeader = null;
+
+            //Handle in program....
+            //while ((mediaHeader = ReadBox("mvhd", Root.Offset)) == null && Buffering == true) System.Threading.Thread.Yield();
+
             ulong duration;
 
             //Obtain the timeScale and duration from the LAST mdhd box
-            using (var mediaHeader = ReadBox("mvhd", Root.Offset))
+            using (mediaHeader = mediaHeader == null ? ReadBox("mvhd", Root.Offset) : mediaHeader)
             {
 
                 if (mediaHeader == null) throw new InvalidOperationException("Cannot find 'mvhd' box.");
@@ -437,6 +464,8 @@ namespace Media.Containers.BaseMedia
 
                 m_Duration = TimeSpan.FromSeconds((double)duration / (double)m_TimeScale.Value);
             }
+
+            mediaHeader = null;
         }
 
         //Should be a better box... (meta ,moov, mfra?)?
@@ -471,7 +500,7 @@ namespace Media.Containers.BaseMedia
             byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
 
             //Get Duration from mdhd, some files have more then one mdhd.
-            if (!m_Duration.HasValue) ParseMovieHeader();
+            if (false == m_Duration.HasValue) ParseMovieHeader();
 
             //For each trak box in the file
             //TODO Make only a single pass, the data required should always be in the RawData of trakBox
@@ -794,7 +823,7 @@ namespace Media.Containers.BaseMedia
 
                 var hdlr = ReadBox("hdlr", trakBox.Offset);
 
-                string comp = ToFourCharacterCode(hdlr.Data, LengthSize), sub = ToFourCharacterCode(hdlr.Data, LengthSize * 2);
+                string comp = ToUTF8FourCharacterCode(hdlr.Data, LengthSize), sub = ToUTF8FourCharacterCode(hdlr.Data, LengthSize * 2);
 
                 switch (sub)
                 {
@@ -813,13 +842,13 @@ namespace Media.Containers.BaseMedia
 
                 ulong sampleCount = (ulong)sampleSizes.Count();
 
-                if (sampleCount == 0) sampleCount = (ulong)entries[0].Item1;
+                if (sampleCount == 0 && entries.Count > 0) sampleCount = (ulong)entries[0].Item1;
 
                 double rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
 
                 var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
 
-                int sampleDescriptionCount = Common.Binary.Read32(sampleDescriptionBox.Data, LengthSize, BitConverter.IsLittleEndian);
+                int sampleDescriptionCount = sampleDescriptionBox == null ? 0 : Common.Binary.Read32(sampleDescriptionBox.Data, LengthSize, BitConverter.IsLittleEndian);
 
                 byte channels = 0, bitDepth = 0;
 

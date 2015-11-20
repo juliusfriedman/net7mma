@@ -45,8 +45,10 @@ namespace Media.Common.Extensions.TimeSpan
     {
         //TimeSpan.MinValue is already defined as
         //public static System.TimeSpan Undefined = System.TimeSpan.FromTicks(unchecked((long)double.NaN));
-
-        public const double MicrosecondsPerMillisecond = 1000, NanosecondsPerMillisecond = MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, NanosecondsPerSecond = 1000000000;
+        public const double MicrosecondsPerMillisecond = 1000,
+            NanosecondsPerMicrosecond = MicrosecondsPerMillisecond,//1000,
+            NanosecondsPerMillisecond = 1000000, //MicrosecondsPerMillisecond * MicrosecondsPerMillisecond, 
+            NanosecondsPerSecond = 1000000000;
 
         /// <summary>
         /// A <see cref="System.TimeSpan"/> with the value of -1 Millisecond
@@ -74,6 +76,11 @@ namespace Media.Common.Extensions.TimeSpan
         public static readonly System.TimeSpan OneMicrosecond = System.TimeSpan.FromTicks(10);
 
         /// <summary>
+        /// A <see cref="System.TimeSpan"/> with the value of 1 Hour
+        /// </summary>
+        public static readonly System.TimeSpan OneHour = System.TimeSpan.FromHours(1);
+
+        /// <summary>
         /// Calulcates the total amount of Microseconds (μs) in the given <see cref="TimeSpan"/>
         /// </summary>
         /// <param name="ts"></param>
@@ -86,6 +93,32 @@ namespace Media.Common.Extensions.TimeSpan
         /// <param name="ts"></param>
         /// <returns></returns>
         public static double TotalNanoseconds(this System.TimeSpan ts) { return ts.TotalMilliseconds * NanosecondsPerMillisecond; }
+
+        ////
+        //// Structure used in select() call, taken from the BSD file sys/time.h.
+        ////
+        //[System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        //internal struct TimeValue
+        //{
+        //    internal long Value;
+
+        //    public int Seconds { get { return (int)Value; } }  // seconds
+
+        //    public int Microseconds { get { return (int)(Value << Binary.BitsPerInteger); } } // and microseconds
+
+        //    public TimeValue(long microSeconds)
+        //    {
+        //        Value = microSeconds;
+        //        //Seconds = System.Math.DivRem((int)microSeconds,(int)NanosecondsPerMillisecond, 
+        //        //    out Microseconds);
+        //    }
+
+        //}
+
+        //private static void MicrosecondsToTimeValue(long microSeconds, ref TimeValue socketTime)
+        //{
+        //    socketTime.Value = microSeconds;
+        //}
 
     }
 }

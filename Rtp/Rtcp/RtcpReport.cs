@@ -52,6 +52,7 @@ namespace Media.Rtcp
     /// <summary>
     /// Provides a managed implementation around the data contained in most Rtcp Packets.
     /// </summary>
+    /// <notes>Could drop the abstract notation if desired</notes>
     public abstract class RtcpReport : RtcpPacket, IEnumerable<IReportBlock>
     {
 
@@ -220,32 +221,35 @@ namespace Media.Rtcp
 
         #region Instance Methods       
 
-        internal protected virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)//, int blockSize = ReportBlock.ReportBlockSize)
+        internal protected virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int maxOffset = 0)//, int blockSize = ReportBlock.ReportBlockSize)
         {
-            for (int
-                blockCounter = BlockCount,
-                paddingOctets = PaddingOctets,
-                count = Payload.Count - PaddingOctets - offset,
-                localOffset = Payload.Offset + offset;
-                //
-                false == IsDisposed &&
-                --blockCounter >= 0 &&
-                count > 0; /**/)
+            //for (int
+            //    blockCounter = BlockCount,
+            //    paddingOctets = PaddingOctets,
+            //    count = Payload.Count - paddingOctets - offset,//Payload.Count - paddingOctets - ReportBlockOctets - offset,
+            //    localOffset = Payload.Offset + offset;
+            //    //
+            //    false == IsDisposed &&
+            //    --blockCounter >= 0 &&
+            //    count > 0; /**/)
+
+            //could just trust offset >= 0 and then -= offset each iter, 
+            for (int blockCounter = BlockCount, localOffset = Payload.Offset; maxOffset > 0 && false == IsDisposed && --blockCounter >= 0; )
             {
-                using (ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, localOffset, count)))
+                using (ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, localOffset, maxOffset)))
                 {
                     yield return current;
 
                     localOffset += current.Size;
 
-                    count -= current.Size;
+                    maxOffset -= current.Size;
                 }
             }
         }
 
         public virtual IEnumerator<IReportBlock> GetEnumerator() //Should take offset and count? 
         {
-            return GetEnumeratorInternal(ReportBlockOctets);
+            return GetEnumeratorInternal(ReportBlockOctets); //Header.Size);//
         }
 
         #endregion

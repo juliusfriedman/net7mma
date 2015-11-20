@@ -75,7 +75,7 @@ namespace Media.Common.Extensions.Exception
         /// <typeparam name="T">The type related to the exception.</typeparam>
         /// <param name="exception">The <see cref="System.Exception"/> which occured.</param>
         
-        public static void TryRaise<T>(this TaggedException<T> exception)
+        public static void TryRaise<T>(this TaggedException<T> exception) //storeData
         {
             try { exception.Raise(); }
             catch { /*hide*/ }
@@ -101,10 +101,10 @@ namespace Media.Common.Extensions.Exception
             catch //Handle it
             {
                 //If the debugger is not attached and it cannot be then return
-                if (false == System.Diagnostics.Debugger.IsAttached && false == System.Diagnostics.Debugger.Launch()) return; 
+                if (false == Common.Extensions.Debug.DebugExtensions.Attach()) return;
 
-                //Break
-                System.Diagnostics.Debugger.Break();
+                //Break if still attached
+                Common.Extensions.Debug.DebugExtensions.BreakIfAttached();
             }
         }
 

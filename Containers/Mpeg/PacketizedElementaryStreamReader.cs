@@ -62,6 +62,8 @@ namespace Media.Containers.Mpeg
 
         public PacketizedElementaryStreamReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public PacketizedElementaryStreamReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
+
         /// <summary>
         /// Reads 4 bytes from the given stream
         /// </summary>

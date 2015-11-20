@@ -295,7 +295,7 @@ namespace Media.Rtsp.Server.MediaTypes
                 this.Buffer = new MemoryStream();
 
                 //Get all packets in the frame
-                foreach (Rtp.RtpPacket packet in m_Packets.Values)
+                foreach (Rtp.RtpPacket packet in m_Packets)
                     ProcessPacket(packet);
 
                 //Order by DON?
@@ -584,7 +584,7 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:96 H264/90000"));
 
             //Sps and pps should be given...
-            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, !BitConverter.IsLittleEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=fmtp:96 profile-level-id=" + Common.Binary.ReadU24(sps, 4, false == BitConverter.IsLittleEndian).ToString("X2") + ";sprop-parameter-sets=" + Convert.ToBase64String(sps, 4, sps.Length - 4) + ',' + Convert.ToBase64String(pps, 4, pps.Length - 4)));
 
             m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
         }
@@ -598,59 +598,56 @@ namespace Media.Rtsp.Server.MediaTypes
         /// <param name="image">The Image to Encode and Send</param>
         public override void Packetize(System.Drawing.Image image)
         {
-            lock (m_Frames)
+            try
             {
-                try
+                //Make the width and height correct
+                using (var thumb = image.Width != Width || image.Height != Height ? image.GetThumbnailImage(Width, Height, null, IntPtr.Zero) : image)
                 {
-                    //Make the width and height correct
-                    using (var thumb = image.GetThumbnailImage(Width, Height, null, IntPtr.Zero))
-                    {
-                        //Ensure the transformation will work.
-                        if (thumb.PixelFormat != System.Drawing.Imaging.PixelFormat.Format32bppArgb) throw new NotSupportedException("Only ARGB is currently supported.");
+                    //Ensure the transformation will work.
+                    if (thumb.PixelFormat != System.Drawing.Imaging.PixelFormat.Format32bppArgb) throw new NotSupportedException("Only ARGB is currently supported.");
 
-                        //Create a new frame
-                        var newFrame = new RFC6184Frame(96); //should all payload type to come from the media description...
+                    //Create a new frame
+                    var newFrame = new RFC6184Frame(96); //should all payload type to come from the media description...
 
-                        //Get RGB Stride
-                        System.Drawing.Imaging.BitmapData data = ((System.Drawing.Bitmap)thumb).LockBits(new System.Drawing.Rectangle(0, 0, thumb.Width, thumb.Height),
-                                   System.Drawing.Imaging.ImageLockMode.ReadOnly, thumb.PixelFormat);
+                    //Get RGB Stride
+                    System.Drawing.Imaging.BitmapData data = ((System.Drawing.Bitmap)thumb).LockBits(new System.Drawing.Rectangle(0, 0, thumb.Width, thumb.Height),
+                               System.Drawing.Imaging.ImageLockMode.ReadOnly, thumb.PixelFormat);
 
-                        //MUST Convert the bitmap to yuv420
-                        //switch on image.PixelFormat
-                        //Utility.YUV2RGBManaged()
-                        //Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
-                        //etc
+                    //MUST Convert the bitmap to yuv420
+                    //switch on image.PixelFormat
+                    //Utility.YUV2RGBManaged()
+                    //Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
+                    //etc
 
-                        byte[] yuv = Media.Codecs.Image.ColorConversions.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);
+                    byte[] yuv = Media.Codecs.Image.ColorConversions.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);
 
-                        ((System.Drawing.Bitmap)image).UnlockBits(data);
+                    ((System.Drawing.Bitmap)image).UnlockBits(data);
 
-                        data = null;
+                    data = null;
 
-                        List<IEnumerable<byte>> macroBlocks = new List<IEnumerable<byte>>();
+                    List<IEnumerable<byte>> macroBlocks = new List<IEnumerable<byte>>();
 
-                        //For each h264 Macroblock in the frame
-                        for (int i = 0; i < Height / 16; i++)
-                            for (int j = 0; j < Width / 16; j++)
-                                macroBlocks.Add(EncodeMacroblock(i, j, yuv)); //Add an encoded macroblock to the list
+                    //For each h264 Macroblock in the frame
+                    for (int i = 0; i < Height / 16; i++)
+                        for (int j = 0; j < Width / 16; j++)
+                            macroBlocks.Add(EncodeMacroblock(i, j, yuv)); //Add an encoded macroblock to the list
 
-                        macroBlocks.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
+                    macroBlocks.Add(new byte[] { 0x80 });//Stop bit (Wasteful by itself)
 
-                        //Packetize the data
-                        newFrame.Packetize(macroBlocks.SelectMany(mb => mb).ToArray());
+                    //Packetize the data
+                    newFrame.Packetize(macroBlocks.SelectMany(mb => mb).ToArray());
 
-                        //Add the frame
-                        AddFrame(newFrame);
+                    //Add the frame
+                    AddFrame(newFrame);
 
-                        yuv = null;
+                    yuv = null;
 
-                        macroBlocks.Clear();
+                    macroBlocks.Clear();
 
-                        macroBlocks = null;
-                    }
+                    macroBlocks = null;
                 }
-                catch { throw; }
             }
+            catch { throw; }
         }
 
         IEnumerable<byte> EncodeMacroblock(int i, int j, byte[] yuvData)

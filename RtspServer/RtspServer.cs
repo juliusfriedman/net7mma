@@ -104,7 +104,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The dictionary containing all streams the server is aggregrating
         /// </summary>
-        Dictionary<Guid, IMedia> m_MediaStreams = new Dictionary<Guid, IMedia>();
+        Dictionary<Guid, Media.Rtsp.Server.IMedia> m_MediaStreams = new Dictionary<Guid, Media.Rtsp.Server.IMedia>();
 
         /// <summary>
         /// The dictionary containing all the clients the server has sessions assocaited with
@@ -248,7 +248,7 @@ namespace Media.Rtsp
         /// <summary>
         /// The streams contained in the server
         /// </summary>
-        public IEnumerable<IMedia> MediaStreams
+        public IEnumerable<Media.Rtsp.Server.IMedia> MediaStreams
         {
             get
             {
@@ -276,7 +276,7 @@ namespace Media.Rtsp
             get
             {                
                 if (TotalStreamCount == 0) return 0;
-                return MediaStreams.Where(s => s.State == SourceMedia.StreamState.Started && s.Ready == true).Count();
+                return MediaStreams.Where(s => s.State == Media.Rtsp.Server.SourceMedia.StreamState.Started && s.Ready == true).Count();
             }
         }
         
@@ -333,12 +333,12 @@ namespace Media.Rtsp
 
         //Should support multiple handlers per method, use ConcurrentThesarus
 
-        internal Dictionary<RtspMethod, RtspRequestHandler> m_RequestHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
+        internal readonly Dictionary<RtspMethod, RtspRequestHandler> m_RequestHandlers = new Dictionary<RtspMethod, RtspRequestHandler>();
 
         public bool TryAddRequestHandler(RtspMethod method, RtspRequestHandler handler)
         {
             Exception any;
-            if (false == Common.Collections.DictionaryExtensions.TryAdd(m_RequestHandlers, method, handler, out any))
+            if (false == Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryAdd(m_RequestHandlers, method, handler, out any))
             {
                 try { Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already registered", any); }
                 catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
@@ -350,7 +350,7 @@ namespace Media.Rtsp
         public bool RemoveRequestHandler(RtspMethod method)
         {
             Exception any;
-            if (false == Common.Collections.DictionaryExtensions.TryRemove(m_RequestHandlers, method, out any))
+            if (false == Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryRemove(m_RequestHandlers, method, out any))
             {
                 try { Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Custom Handler already removed", any); }
                 catch (Exception ex) { if (Logger != null) Logger.LogException(ex); }
@@ -367,7 +367,7 @@ namespace Media.Rtsp
         //Allow for joining of server instances to support multiple end points.
 
         public RtspServer(AddressFamily addressFamily = AddressFamily.InterNetwork, int listenPort = DefaultPort)
-            : this(new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstIPAddress(addressFamily), listenPort)) { }
+            : this(new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(addressFamily), listenPort)) { }
 
         public RtspServer(IPAddress listenAddress, int listenPort) 
             : this(new IPEndPoint(listenAddress, listenPort)) { }
@@ -438,10 +438,10 @@ namespace Media.Rtsp
                 }
                 else //No body
                 {
-                    RtspMessage request = new RtspMessage()
+                    RtspMessage request = new RtspMessage(RtspMessageType.Request)
                     {
-                        Location = new Uri(RtspMessage.ReliableTransport + "://" + context.Request.LocalEndPoint.Address.ToString() +  context.Request.RawUrl),
-                        Method = RtspMethod.DESCRIBE
+                        Location = new Uri(RtspMessage.ReliableTransportScheme + "://" + context.Request.LocalEndPoint.Address.ToString() +  context.Request.RawUrl),
+                        RtspMethod = RtspMethod.DESCRIBE
                     };
 
                     foreach (var header in context.Request.Headers.AllKeys)
@@ -487,8 +487,10 @@ namespace Media.Rtsp
 
         //Should allow multiple endpoints for any type of service.
 
-        public void EnableUnreliableTransport(int port = 555, AddressFamily addressFamily = AddressFamily.InterNetwork) 
+        public void EnableUnreliableTransport(int port = RtspMessage.UnreliableTransportDefaultPort, AddressFamily addressFamily = AddressFamily.InterNetwork) 
         {
+            //Should be a list of EndPoints.
+
             if (m_UdpServerSocket == null)
             {
                 try
@@ -498,11 +500,12 @@ namespace Media.Rtsp
                     EndPoint inBound;
 
                     m_UdpServerSocket = new Socket(addressFamily, SocketType.Dgram, ProtocolType.Udp);
-                    m_UdpServerSocket.Bind(inBound = new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstIPAddress(addressFamily), port));
+                    m_UdpServerSocket.Bind(inBound = new IPEndPoint(Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(addressFamily), port));
 
                     //Include the IP Header
                     m_UdpServerSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.PacketInformation, true);
 
+                    //Maybe use Peek
                     m_UdpServerSocket.BeginReceiveFrom(Media.Common.MemorySegment.EmptyBytes, 0, 0, SocketFlags.Partial, ref inBound, ProcessAccept, m_UdpServerSocket);
                 }
                 catch (Exception ex)
@@ -545,7 +548,7 @@ namespace Media.Rtsp
             {
                 Common.ILoggingExtensions.Log(Logger, "Adding Client: " + session.Id);
 
-                if (Common.Collections.DictionaryExtensions.TryAdd(m_Clients, session.Id, session, out any))
+                if (Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryAdd(m_Clients, session.Id, session, out any))
                 {
                     session.m_Contained = this;
                 }
@@ -587,7 +590,7 @@ namespace Media.Rtsp
                 }
 
                 //If the client was already removed indicate this in the logs
-                if (false == Common.Collections.DictionaryExtensions.TryRemove(m_Clients, session.Id, out any)) Common.ILoggingExtensions.Log(Logger, "Client Already Removed(" + session.Id + ")");
+                if (false == Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryRemove(m_Clients, session.Id, out any)) Common.ILoggingExtensions.Log(Logger, "Client Already Removed(" + session.Id + ")");
 
                 //Indicate success
                 return true;
@@ -649,13 +652,13 @@ namespace Media.Rtsp
         /// Adds a stream to the server. If the server is already started then the stream will also be started
         /// </summary>
         /// <param name="location">The uri of the stream</param>
-        public bool TryAddMedia(IMedia stream)
+        public bool TryAddMedia(Media.Rtsp.Server.IMedia stream)
         {
             Exception any = null;
             try
             {
                 //Try to add the stream to the dictionary of contained streams.
-                bool result = Common.Collections.DictionaryExtensions.TryAdd(m_MediaStreams, stream.Id, stream, out any);
+                bool result = Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryAdd(m_MediaStreams, stream.Id, stream, out any);
 
                 if (result && IsRunning) stream.Start();
 
@@ -680,7 +683,7 @@ namespace Media.Rtsp
             {
                 //if (stream != null) stream.TrySetLogger(Logger);
 
-                if (Logger != null && any != null) Logger.LogException(any);
+                if (any != null) Common.ILoggingExtensions.Log(Logger, any.Message);
             }
         }
 
@@ -705,7 +708,7 @@ namespace Media.Rtsp
             Exception any = null;
             try
             {
-                IMedia source = GetStream(streamId);
+                Media.Rtsp.Server.IMedia source = GetStream(streamId);
 
                 if (source != null && stop) source.Stop();
 
@@ -715,7 +718,7 @@ namespace Media.Rtsp
                     RemoveCredential(source, "Digest");
                 }
 
-                return Common.Collections.DictionaryExtensions.TryRemove(m_MediaStreams, streamId, out any);
+                return Media.Common.Extensions.Generic.Dictionary.DictionaryExtensions.TryRemove(m_MediaStreams, streamId, out any);
             }
             catch
             {
@@ -723,13 +726,14 @@ namespace Media.Rtsp
             }
             finally
             {
-                if (any != null && Logger != null) Logger.LogException(any);
+                if (any != null) Common.ILoggingExtensions.Log(Logger, any.Message);
+                
             }
         }
 
-        public IMedia GetStream(Guid streamId)
+        public Media.Rtsp.Server.IMedia GetStream(Guid streamId)
         {
-            IMedia result;
+            Media.Rtsp.Server.IMedia result;
             m_MediaStreams.TryGetValue(streamId, out result);
             return result;
         }
@@ -738,9 +742,9 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="mediaLocation"></param>
         /// <returns></returns>
-        internal IMedia FindStreamByLocation(Uri mediaLocation)
+        internal Media.Rtsp.Server.IMedia FindStreamByLocation(Uri mediaLocation)
         {
-            IMedia found = null;
+            Media.Rtsp.Server.IMedia found = null;
 
             string streamBase = null, streamName = null;
 
@@ -757,7 +761,7 @@ namespace Media.Rtsp
             //handle live streams
             if (streamBase == "live")
             {
-                foreach (IMedia stream in MediaStreams)
+                foreach (Media.Rtsp.Server.IMedia stream in MediaStreams)
                 {
 
                     //If the name matches the streamName or stream Id then we found it
@@ -784,12 +788,26 @@ namespace Media.Rtsp
 
                 }
             }
-            else
+            else if(streamBase == "archive")
             {
-                //Find Archive File by Uri
-                //Create RtpSoure from file
+                //Check MediaStreams for existing ArchivedMedia, if found return.
+
+                //If Uri contains an Id then attempt lookup and return if found, otherwise
+
+                //Find Archive File by Uri, ensure directly is allowed by checking enabled property based on file in dir.
+
+                //Archiver.BaseDirectory contains the directory where all archived sources are kept, search for a directory name which matched the uri
+
+                //Create a ArchivedMedia, add to the list of contained media if enabled and
+
+                //Use Archiver.CanPlayback() / CreatePlayback.
+
                 //Return found
             }
+            //else if (streamBase == "playback") //maynot be needed if handled in archiver
+            //{
+            //    //Check existing archives being played back, there should be a property in the Archiver to seperate these.
+            //}
 
             return found;
         }
@@ -804,7 +822,7 @@ namespace Media.Rtsp
         /// <param name="source"></param>
         /// <param name="credential"></param>
         /// <param name="authType"></param>
-        public void AddCredential(IMedia source, NetworkCredential credential, string authType)
+        public void AddCredential(Media.Rtsp.Server.IMedia source, NetworkCredential credential, string authType)
         {
             RequiredCredentials.Add(source.ServerLocation, authType, credential);
         }
@@ -814,7 +832,7 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="source"></param>
         /// <param name="authType"></param>
-        public void RemoveCredential(IMedia source, string authType)
+        public void RemoveCredential(Media.Rtsp.Server.IMedia source, string authType)
         {
             RequiredCredentials.Remove(source.ServerLocation, authType);
         }
@@ -883,7 +901,7 @@ namespace Media.Rtsp
         internal void RestartFaultedStreams(object state = null) { RestartFaultedStreams(); }
         internal void RestartFaultedStreams()
         {
-            foreach (IMedia stream in MediaStreams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
+            foreach (Media.Rtsp.Server.IMedia stream in MediaStreams.Where(s => s.State == RtspSource.StreamState.Started && s.Ready == false))
             {
 
                 Common.ILoggingExtensions.Log(Logger, "Stopping Stream: " + stream.Name + " Id=" + stream.Id);
@@ -923,10 +941,37 @@ namespace Media.Rtsp
             //Create the server Socket
             m_TcpServerSocket = new Socket(m_ServerIP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-            //If multiple instances cannot bind then this should be set to true
-            m_TcpServerSocket.ExclusiveAddressUse = false;
+            //
+            Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(m_TcpServerSocket);
 
-            m_TcpServerSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            //
+            Media.Common.Extensions.Socket.SocketExtensions.EnableTcpNoSynRetries(m_TcpServerSocket);
+
+            //
+            //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpTimestamp(m_TcpServerSocket);
+
+            //
+            //Media.Common.Extensions.Socket.SocketExtensions.SetTcpOffloadPreference(m_TcpServerSocket);
+
+            //
+            //Media.Common.Extensions.Socket.SocketExtensions.EnableTcpCongestionAlgorithm(m_TcpServerSocket);
+
+            // Set option that allows socket to close gracefully without lingering.
+            Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(m_TcpServerSocket);
+
+            //Retransmit for 0 sec
+            Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(m_TcpServerSocket);
+
+            //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
+            Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(m_TcpServerSocket);
+            //socket.NoDelay = true;
+
+            //Allow more than one byte of urgent data
+            Media.Common.Extensions.Socket.SocketExtensions.EnableTcpExpedited(m_TcpServerSocket);
+            //socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.Expedited, true);
+
+            //Receive any urgent data in the normal data stream
+            Media.Common.Extensions.Socket.SocketExtensions.EnableTcpOutOfBandDataInLine(m_TcpServerSocket);
 
             //Bind the server Socket to the server EndPoint
             m_TcpServerSocket.Bind(m_ServerEndPoint);
@@ -941,18 +986,18 @@ namespace Media.Rtsp
             m_TcpServerSocket.SendTimeout = DefaultSendTimeout;
 
             //Create a thread to handle client connections
-            m_ServerThread = new Thread(new ThreadStart(RecieveLoop));
+            m_ServerThread = new Thread(new ThreadStart(RecieveLoop), Common.Extensions.Thread.ThreadExtensions.MinimumStackSize);
             
             //Configure the thread
             m_ServerThread.Name = ServerName + "@" + m_ServerPort;
             m_ServerThread.TrySetApartmentState(ApartmentState.MTA);
             m_ServerThread.Priority = ThreadPriority.BelowNormal;
 
+            //Erase any prior stats
+            m_Sent = m_Recieved = 0;
+
             //Start it
             m_ServerThread.Start();
-
-            //Indicate when start was finished.
-            m_Started = DateTime.UtcNow;
 
             //Timer for maintaince
             m_Maintainer = new Timer(new TimerCallback(MaintainServer), null, TimeSpan.FromTicks(RtspClientInactivityTimeout.Ticks / 4), Media.Common.Extensions.TimeSpan.TimeSpanExtensions.InfiniteTimeSpan);
@@ -963,8 +1008,7 @@ namespace Media.Rtsp
             //Start streaming from m_Streams before server can accept connections.
             StartStreams();
 
-            //Erase any prior stats
-            m_Sent = m_Recieved = 0;
+            while (false == m_Started.HasValue) System.Threading.Thread.Sleep(0);
         }
 
         /// <summary>
@@ -993,7 +1037,8 @@ namespace Media.Rtsp
                         }
                         catch (Exception ex)
                         {
-                            if (Logger != null) Logger.LogException(ex);
+                            //if (Logger != null) Logger.LogException(ex);
+                            Common.ILoggingExtensions.LogException(Logger, ex);
                         }
 
                         try
@@ -1004,24 +1049,24 @@ namespace Media.Rtsp
                         }
                         catch (Exception ex)
                         {
-                            if (Logger != null) Logger.LogException(ex);
+                            Common.ILoggingExtensions.LogException(Logger, ex);
                         }
 
-                        foreach (IMedia readyStream in MediaStreams)
+                        foreach (Media.Rtsp.Server.IMedia readyStream in MediaStreams)
                         {
                             readyStream.TrySetLogger(Logger);
                         }
 
                         m_Maintaining = false;
 
-                    }))
+                    }), Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = m_ServerThread.Priority
                     }.Start();
                 }
                 catch (Exception ex)
                 {
-                    if (Logger != null) Logger.LogException(ex);
+                    Common.ILoggingExtensions.LogException(Logger, ex);
 
                     m_Maintaining = m_Maintainer != null;
                 }
@@ -1038,7 +1083,7 @@ namespace Media.Rtsp
         public virtual void Stop()
         {
             //If there is not a server thread return
-            if (IsRunning) return;
+            if (false == IsRunning) return;
 
             //Stop listening for new clients
             m_StopRequested = true;
@@ -1092,7 +1137,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StartStreams()
         {
-            foreach (IMedia stream in MediaStreams)
+            foreach (Media.Rtsp.Server.IMedia stream in MediaStreams)
             {
                 if (m_StopRequested) return;
 
@@ -1102,14 +1147,14 @@ namespace Media.Rtsp
                 {
                     Common.ILoggingExtensions.Log(Logger, "Starting Stream: " + stream.Name + " Id=" + stream.Id);
 
-                    new Thread(stream.Start)
+                    new Thread(stream.Start, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = m_ServerThread.Priority
                     }.Start();
                 }
                 catch(Exception ex)
                 {
-                    if (Logger != null) Logger.LogException(ex);
+                    Common.ILoggingExtensions.LogException(Logger, ex);
                     continue;
                 }
             }
@@ -1120,7 +1165,7 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void StopStreams()
         {
-            foreach (IMedia stream in MediaStreams)
+            foreach (Media.Rtsp.Server.IMedia stream in MediaStreams)
             {
                 if (m_StopRequested) return;
 
@@ -1130,14 +1175,14 @@ namespace Media.Rtsp
                 {
                     Common.ILoggingExtensions.Log(Logger, "Stopping Stream: " + stream.Name + " Id=" + stream.Id);
 
-                    new Thread(stream.Stop)
+                    new Thread(stream.Stop, Common.Extensions.Thread.ThreadExtensions.MinimumStackSize)
                     {
                         Priority = m_ServerThread.Priority
                     }.Start();
                 }
                 catch (Exception ex)
                 {
-                    if (Logger != null) Logger.LogException(ex);
+                    Common.ILoggingExtensions.LogException(Logger, ex);
                     continue;
                 }
             }
@@ -1148,6 +1193,8 @@ namespace Media.Rtsp
         /// </summary>
         internal virtual void RecieveLoop()
         {
+            //Indicate Thread Started
+            m_Started = DateTime.UtcNow;
         Begin:
             try
             {
@@ -1216,7 +1263,7 @@ namespace Media.Rtsp
             }
             catch(Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
 
                 if (m_StopRequested) return;
 
@@ -1234,7 +1281,7 @@ namespace Media.Rtsp
         /// <param name="ar">IAsyncResult with a Socket object in the AsyncState property</param>
         internal void ProcessAccept(IAsyncResult ar)
         {
-            if (ar == null || ar.CompletedSynchronously || false == ar.IsCompleted) return;
+            if (ar == null /*|| ar.CompletedSynchronously*/ || false == ar.IsCompleted) return;
             
             //The ClientSession created
             try
@@ -1283,6 +1330,8 @@ namespace Media.Rtsp
                         //If there is a logger then indicate what is happening
                         Common.ILoggingExtensions.Log(Logger, "Accepted Socket @ " + clientSocket.LocalEndPoint + " From: " + clientSocket.RemoteEndPoint + " Disposing. ConnectedClient=" + m_Clients.Count);
 
+                        //Could send a response 429?
+
                         //Try to dispose the socket
                         try { clientSocket.Dispose(); }
                         catch { }
@@ -1304,7 +1353,8 @@ namespace Media.Rtsp
             catch(Exception ex)//Using begin methods you want to hide this exception to ensure that the worker thread does not exit because of an exception at this level
             {
                 //If there is a logger log the exception
-                Logger.LogException(ex);
+                    //if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
             }
         }
 
@@ -1322,21 +1372,22 @@ namespace Media.Rtsp
         internal void ProcessReceive(IAsyncResult ar)
         {
 
-            if (ar == null || ar.CompletedSynchronously || false == ar.IsCompleted) return;
+            if (ar == null /*|| ar.CompletedSynchronously*/ || false == ar.IsCompleted) return;
 
             //Get the client information from the result
             ClientSession session = (ClientSession)ar.AsyncState;
 
-            //If there is no session return
-            if (session == null || session.IsDisposed || session.m_RtspSocket == null) return;
-
-            //Take note of where we are receiving from
-            EndPoint inBound = session.RemoteEndPoint;
-
             try
             {
+
+                //Take note of where we are receiving from
+                EndPoint inBound = session.RemoteEndPoint;
+
                 //Declare how much was recieved
                 int received = session.m_RtspSocket.EndReceiveFrom(ar, ref inBound);
+
+                //If there is no session return
+                if (BaseDisposable.IsNullOrDisposed(session) || session.m_RtspSocket == null) return;
 
                 //Let the client propagate the message
                 if (received > 0 && session.SharesSocket)
@@ -1364,10 +1415,12 @@ namespace Media.Rtsp
                 else //Zero  bytes were received either due to consumption of data or lack thereof.
                 {
                     //If there is a rtp client but it was disposed or disconnected
-                    if (session.m_RtpClient == null || session.m_RtpClient.IsDisposed || false == session.m_RtpClient.IsActive)
+                    if (BaseDisposable.IsNullOrDisposed(session.m_RtpClient) || false == session.m_RtpClient.IsActive)
                     {
                         //Mark the session as Disconnected
                         session.IsDisconnected = true;
+
+                        //Should only be done if the time elapsed has required..
 
                         //Try a send to ensure that there is no connection error, also begin another recieve.
                         ProcessSendRtspMessage(null, session);
@@ -1377,10 +1430,10 @@ namespace Media.Rtsp
             catch (Exception ex)
             {
                 //Something happened during the session
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
 
                 //if a socket exception occured then handle it.
-                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);                                     
+                if (false == BaseDisposable.IsNullOrDisposed(session) && ex is SocketException) HandleClientSocketException((SocketException)ex, session);                                     
                 //else if (ex is ObjectDisposedException)
             }
         }
@@ -1388,7 +1441,7 @@ namespace Media.Rtsp
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal void ProcessClientBuffer(ClientSession session, int received)
         {
-            if (session == null || session.IsDisposed || received <= 0) return;
+            if (BaseDisposable.IsNullOrDisposed(session) || received <= 0) return;
 
             try
             {
@@ -1483,7 +1536,7 @@ namespace Media.Rtsp
             }
             catch(Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
             }
         }
 
@@ -1499,9 +1552,14 @@ namespace Media.Rtsp
                         //Clients interleaving shouldn't time out ever
                         if (cs.m_RtspSocket.ProtocolType == ProtocolType.Tcp)
                         {
-                            Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Timeouts when interleaving");
+                            Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Timeout");
 
-                             if(cs.Playing.Count > 0) return;
+                            if (cs.Playing.Count > 0)
+                            {
+                                Common.ILoggingExtensions.Log(Logger, "Client:" + cs.Id + " Playing, SharesSocket = " + cs.SharesSocket);
+
+                                return;
+                            }
                         }
 
                         //Increase send and receive timeout
@@ -1529,7 +1587,7 @@ namespace Media.Rtsp
                     }
                 default:
                     {
-                        if (Logger != null) Logger.LogException(se);
+                        //Common.ILoggingExtensions.LogException(Logger, se);
 
                         return;
                     }
@@ -1542,17 +1600,17 @@ namespace Media.Rtsp
         /// <param name="ar">The asynch result</param>
         internal void ProcessSendComplete(IAsyncResult ar)
         {
-            if (ar == null || ar.CompletedSynchronously || false == ar.IsCompleted) return;
+            if (ar == null /*|| ar.CompletedSynchronously*/ || false == ar.IsCompleted) return;
 
             ClientSession session = (ClientSession)ar.AsyncState;
 
             try
             {
-                //Don't do anything if the session cannot be acted on.
-                if (session == null || session.IsDisposed || session.IsDisconnected) return;
-
                 //Ensure the bytes were completely sent..
                 int sent = session.m_RtspSocket.EndSendTo(ar);
+
+                //Don't do anything if the session cannot be acted on.
+                if (BaseDisposable.IsNullOrDisposed(session) || session.IsDisconnected) return;
 
                 //See how much was needed.
                 int neededLength = session.m_SendBuffer.Length;
@@ -1597,11 +1655,11 @@ namespace Media.Rtsp
             }
             catch (Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
 
 
                 //handle the socket exception
-                if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
+                if (false == BaseDisposable.IsNullOrDisposed(session) && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
             }
         }
 
@@ -1622,7 +1680,7 @@ namespace Media.Rtsp
                 if (Logger != null) Logger.LogRequest(request, session);
 
                 //Ensure we have a session and request and that the server is still running and that the session is still contained in this server
-                if (request == null || request.IsDisposed || session == null || session.IsDisposed)
+                if (BaseDisposable.IsNullOrDisposed(request) || BaseDisposable.IsNullOrDisposed(session))
                 {
                     return;
                 }//Ensure the session is added to the connected clients if it has not been already.
@@ -1643,6 +1701,9 @@ namespace Media.Rtsp
                 //All requests need the CSeq
                 if (false == request.ContainsHeader(RtspHeaders.CSeq))
                 {
+
+                    //if(request.HeaderCount == 0)
+
                     //Send back a BadRequest.
                     ProcessInvalidRtspRequest(session, Rtsp.RtspStatusCode.BadRequest, null, sendResponse);
 
@@ -1788,7 +1849,7 @@ namespace Media.Rtsp
                     RtspRequestHandler custom;
 
                     //If there is
-                    if (m_RequestHandlers.TryGetValue(request.Method, out custom))
+                    if (m_RequestHandlers.TryGetValue(request.RtspMethod, out custom))
                     {
                         //Then create the response
                         RtspMessage response;
@@ -1815,15 +1876,16 @@ namespace Media.Rtsp
                 //Then it would also be easier to make /audio only passwords etc.
 
                 //When stopping only handle teardown and keep alives
-                if (m_StopRequested && (request.Method != RtspMethod.TEARDOWN && request.Method != RtspMethod.GET_PARAMETER && request.Method != RtspMethod.OPTIONS))
+                if (m_StopRequested && (request.RtspMethod != RtspMethod.TEARDOWN && request.RtspMethod != RtspMethod.GET_PARAMETER && request.RtspMethod != RtspMethod.OPTIONS))
                 {
+                    //Maybe a METHOD NOT VALID IN THIS STATE with a Reason Pharse "Shutting Down"
                     ProcessInvalidRtspRequest(session, RtspStatusCode.BadRequest, null, sendResponse);
 
                     return;
                 }
 
                 //Determine the handler for the request and process it
-                switch (request.Method)
+                switch (request.RtspMethod)
                 {
                     case RtspMethod.ANNOUNCE:
                         {
@@ -1892,7 +1954,7 @@ namespace Media.Rtsp
             catch (Exception ex)
             {
                 //Log it
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
             }
         }
 
@@ -1906,9 +1968,9 @@ namespace Media.Rtsp
                 return;
             }
 
-            if (false == AuthenticateRequest(request, found))
+            if (false == AuthenticateRequest(request, found.ServerLocation))
             {
-                ProcessAuthorizationRequired(found, session, sendResponse);
+                ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                 return;
             }
 
@@ -1917,11 +1979,33 @@ namespace Media.Rtsp
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed, null, sendResponse);
                 return;
             }
-            
-            using (var resp = session.ProcessRecord(request, found))
+
+            var resp = session.ProcessRecord(request, found);
+
+            ProcessSendRtspMessage(resp, session, sendResponse);
+        }
+
+        internal void ProcessAnnounce(RtspMessage request, ClientSession session, bool sendResponse = true)
+        {
+
+            Uri announceLocation = new Uri(Rtsp.Server.SourceMedia.UriScheme + request.MethodString);
+
+            if (false == AuthenticateRequest(request, announceLocation))
             {
-                ProcessSendRtspMessage(resp, session, sendResponse);
+                ProcessAuthorizationRequired(announceLocation, session, sendResponse);
+                return;
             }
+
+            //Check for body and content type, if SDP create and parse.
+
+            //Determine if there is an existing Media and update, otherwise
+
+            //Determine sink type, and create.
+
+            //TryAddMedia
+
+            //Create OK Response with Location header set if required.
+
         }
 
         internal void ProcessRedirect(RtspMessage request, ClientSession session, bool sendResponse = true)
@@ -1934,9 +2018,9 @@ namespace Media.Rtsp
                 return;
             }
 
-            if (false == AuthenticateRequest(request, found))
+            if (false == AuthenticateRequest(request, found.ServerLocation))
             {
-                ProcessAuthorizationRequired(found, session, sendResponse);
+                ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                 return;
             }
 
@@ -1945,13 +2029,13 @@ namespace Media.Rtsp
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed, null, sendResponse);
                 return;
             }
-            
-            using (var resp = session.CreateRtspResponse(request))
-            {
-                resp.Method = RtspMethod.REDIRECT;
-                resp.AppendOrSetHeader(RtspHeaders.Location, "rtsp://" + session.LocalEndPoint.Address.ToString() + "/live/" + found.Id);
-                ProcessSendRtspMessage(resp, session, sendResponse);
-            }
+
+
+            var resp = session.CreateRtspResponse(request);
+            resp.RtspMethod = RtspMethod.REDIRECT;
+            resp.AppendOrSetHeader(RtspHeaders.Location, "rtsp://" + session.LocalEndPoint.Address.ToString() + "/live/" + found.Id);
+            ProcessSendRtspMessage(resp, session, sendResponse);
+
         }
 
         /// <summary>
@@ -1970,10 +2054,11 @@ namespace Media.Rtsp
             Require: play.basic, con.persistent
                        (basic play, TCP is supported)
             setup.playing means that setup and teardown can be used in the play state.
+            method. is method support, method.announce, method.record
             */
 
             //If we have a session
-            if (session == null || session.IsDisposed) return;
+            if (BaseDisposable.IsNullOrDisposed(session)) return;
 
             try
             {
@@ -2040,15 +2125,12 @@ namespace Media.Rtsp
                     //Todo
                     //Content-Encoding should be the same as the request's if possible..
 
+                    //Log response
+                    if (Logger != null) Logger.LogResponse(message, session);
+
                     //If sending a response
-                    if (sendResponse)
-                    {
-                        //Log response
-                        if (Logger != null) Logger.LogResponse(message, session);
-
-                        session.SendRtspData((session.LastResponse = message).ToBytes());
-
-                    }//Otherwise just update the property
+                    if (sendResponse) session.SendRtspData((session.LastResponse = message).ToBytes());
+                    //Otherwise just update the property
                     else session.LastResponse = message;
 
                     //Indicate the session is not disconnected
@@ -2065,7 +2147,7 @@ namespace Media.Rtsp
             }
             catch (Exception ex)
             {
-                if (Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
 
                 //if a socket exception occured then handle it.
                 if (session != null && ex is SocketException) HandleClientSocketException((SocketException)ex, session);
@@ -2077,11 +2159,12 @@ namespace Media.Rtsp
         /// </summary>
         /// <param name="ci">The client session to send the response on</param>
         /// <param name="code">The status code of the response if other than BadRequest</param>
+        /// //should allow reason phrase to be set
         //Should allow a header to be put into the response or a KeyValuePair<string,string> headers
-        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, string body = null, bool sendResponse = true)
+        internal void ProcessInvalidRtspRequest(ClientSession session, RtspStatusCode code = RtspStatusCode.BadRequest, /*string reasonPhrase = null,*/ string body = null, bool sendResponse = true)
         {
             //Create and Send the response
-            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code, body) : new RtspMessage(RtspMessageType.Response) { StatusCode = code, Body = body, CSeq = Utility.Random.Next() }, session);
+            ProcessInvalidRtspRequest(session != null ? session.CreateRtspResponse(null, code, body: body) : new RtspMessage(RtspMessageType.Response) { RtspStatusCode = code, Body = body, CSeq = Utility.Random.Next() }, session);
         }
 
         internal void ProcessInvalidRtspRequest(RtspMessage response, ClientSession session, bool sendResponse = true) { ProcessSendRtspMessage(response, session, sendResponse); }
@@ -2095,7 +2178,7 @@ namespace Media.Rtsp
             ProcessInvalidRtspRequest(ci, RtspStatusCode.NotFound, null, sendResponse);
         }
 
-        internal virtual void ProcessAuthorizationRequired(IMedia source, ClientSession session, bool sendResponse = true)
+        internal virtual void ProcessAuthorizationRequired(Uri sourceLocation, ClientSession session, bool sendResponse = true)
         {
 
             RtspMessage response = new RtspMessage(RtspMessageType.Response);
@@ -2150,10 +2233,8 @@ namespace Media.Rtsp
 
                 string authenticateHeader = null;
 
-                Uri relativeLocation = source.ServerLocation;
-
                 //Check for Digest first - Todo Finish implementation
-                if ((requiredCredential = RequiredCredentials.GetCredential(relativeLocation, "Digest")) != null)
+                if ((requiredCredential = RequiredCredentials.GetCredential(sourceLocation, "Digest")) != null)
                 {
                     //Might need to store values qop nc, cnonce and nonce in session storage for later retrival                    
 
@@ -2161,12 +2242,12 @@ namespace Media.Rtsp
 
                     authenticateHeader = string.Format(System.Globalization.CultureInfo.InvariantCulture, "Digest username={0},realm={1},nonce={2},cnonce={3}", requiredCredential.UserName, (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain), ((long)(Utility.Random.Next(int.MaxValue) << 32 | (Utility.Random.Next(int.MaxValue)))).ToString("X"), Utility.Random.Next(int.MaxValue).ToString("X"));
                 }
-                else if ((requiredCredential = RequiredCredentials.GetCredential(relativeLocation, "Basic")) != null)
+                else if ((requiredCredential = RequiredCredentials.GetCredential(sourceLocation, "Basic")) != null)
                 {
                     authenticateHeader = "Basic realm=\"" + (string.IsNullOrWhiteSpace(requiredCredential.Domain) ? ServerName : requiredCredential.Domain + '"');
                 }
 
-                if (!string.IsNullOrWhiteSpace(authenticateHeader))
+                if (false == string.IsNullOrWhiteSpace(authenticateHeader))
                 {
                     response.SetHeader(RtspHeaders.WWWAuthenticate, authenticateHeader);
                 }
@@ -2200,7 +2281,7 @@ namespace Media.Rtsp
             }
             
             //Set the status code
-            response.StatusCode = statusCode;
+            response.RtspStatusCode = statusCode;
 
             //Send the response
             ProcessInvalidRtspRequest(response, session, sendResponse);
@@ -2216,7 +2297,7 @@ namespace Media.Rtsp
             //See if the location requires a certain stream
             if (request.Location != RtspMessage.Wildcard && false == string.IsNullOrWhiteSpace(request.Location.LocalPath) && request.Location.LocalPath.Length > 1)
             {
-                IMedia found = FindStreamByLocation(request.Location);
+                Media.Rtsp.Server.IMedia found = FindStreamByLocation(request.Location);
 
                 //No stream with name
                 if (found == null)
@@ -2278,7 +2359,7 @@ namespace Media.Rtsp
                     return;
                 }
 
-                RtpSource found = FindStreamByLocation(request.Location) as RtpSource;
+                Media.Rtsp.Server.IMedia found = FindStreamByLocation(request.Location);// as RtpSource;
 
                 if (found == null)
                 {
@@ -2286,9 +2367,9 @@ namespace Media.Rtsp
                     return;
                 }
 
-                if (false == AuthenticateRequest(request, found))
+                if (false == AuthenticateRequest(request, found.ServerLocation))
                 {
-                    ProcessAuthorizationRequired(found, session, sendResponse);
+                    ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                     return;
                 }
 
@@ -2323,9 +2404,9 @@ namespace Media.Rtsp
                 ProcessLocationNotFoundRtspRequest(session, sendResponse);
                 return;
             }
-            else if (false == AuthenticateRequest(request, found))
+            else if (false == AuthenticateRequest(request, found.ServerLocation))
             {
-                ProcessAuthorizationRequired(found, session, sendResponse);
+                ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                 return;
             }
             else if (false == found.Ready)
@@ -2368,7 +2449,7 @@ namespace Media.Rtsp
             RtpClient.TransportContext sourceContext = found.RtpClient.GetContextForMediaDescription(mediaDescription);
 
             //If the source has no TransportContext for that format or the source has not recieved a packet yet
-            if (sourceContext == null || sourceContext.SynchronizationSourceIdentifier == 0)
+            if (sourceContext == null || sourceContext.InDiscovery)
             {
                 //Stream is not yet ready
                 ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed, null, sendResponse);
@@ -2399,9 +2480,9 @@ namespace Media.Rtsp
                 return;
             }
 
-            if (false == AuthenticateRequest(request, found))
+            if (false == AuthenticateRequest(request, found.ServerLocation))
             {
-                ProcessAuthorizationRequired(found, session, sendResponse);
+                ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                 return;
             }
             else if (false == found.Ready)
@@ -2421,7 +2502,7 @@ namespace Media.Rtsp
                 //Send the response to the client
                 ProcessSendRtspMessage(resp, session, sendResponse);
 
-                if (resp.StatusCode == RtspStatusCode.OK)
+                if (resp.RtspStatusCode == RtspStatusCode.OK)
                 {
                     //Take the range into account given.
                     session.ProcessPacketBuffer(found);
@@ -2431,11 +2512,11 @@ namespace Media.Rtsp
             }
             catch(Exception ex)
             {
-                if(Logger != null) Logger.LogException(ex);
+                Common.ILoggingExtensions.LogException(Logger, ex);
 
-                if (ex is InvalidOperationException) goto TryCreateResponse;
+                if (ex is InvalidOperationException /*&& false == m_StopRequested*/) goto TryCreateResponse;
 
-                throw;
+                //throw;
 
             }
         }
@@ -2456,9 +2537,9 @@ namespace Media.Rtsp
                 return;
             }
 
-            if (false == AuthenticateRequest(request, found))
+            if (false == AuthenticateRequest(request, found.ServerLocation))
             {
-                ProcessAuthorizationRequired(found, session, sendResponse);
+                ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                 return;
             }
 
@@ -2492,9 +2573,9 @@ namespace Media.Rtsp
                     return;
                 }
 
-                if (false == AuthenticateRequest(request, found))
+                if (false == AuthenticateRequest(request, found.ServerLocation))
                 {
-                    ProcessAuthorizationRequired(found, session, sendResponse);
+                    ProcessAuthorizationRequired(found.ServerLocation, session, sendResponse);
                     return;
                 }
 
@@ -2580,6 +2661,8 @@ namespace Media.Rtsp
             //jitter
             //rtcp_interval
 
+            //Todo if HasBody, check for expected parameter types e.g. text/ 
+            //if found and supported parse body and create response based on input.
 
             var resp = session.CreateRtspResponse(request);
 
@@ -2614,11 +2697,11 @@ namespace Media.Rtsp
         /// <param name="request">The RtspRequest to authenticate</param>
         /// <param name="source">The RtspStream to authenticate against</param>
         /// <returns>True if authroized, otherwise false</returns>
-        public virtual bool AuthenticateRequest(RtspMessage request, IMedia source)
+        public virtual bool AuthenticateRequest(RtspMessage request, Uri sourceLocation)
         {
 
             if (request == null) throw new ArgumentNullException("request");
-            if (source == null) throw new ArgumentNullException("source");
+            if (sourceLocation == null) throw new ArgumentNullException("sourceLocation");
 
             //There are no rules to validate
             if (RequiredCredentials == null) return true;
@@ -2635,9 +2718,19 @@ namespace Media.Rtsp
             {
                 authType = "basic";
 
-                requiredCredential = RequiredCredentials.GetCredential(source.ServerLocation, authType);
+                //if source is null then the use of the request.location will have to work.
+                //Uri loc = source == null ? request.Location : source.ServerLocation;
 
-                if (requiredCredential == null) requiredCredential = RequiredCredentials.GetCredential(source.ServerLocation, authType = "digest");
+                //Try *
+                //requiredCredential = RequiredCredentials.GetCredential(source.ServerLocation, "*");
+
+                
+
+                //Try to get the basic cred
+                requiredCredential = RequiredCredentials.GetCredential(sourceLocation, authType);
+
+                //If there was nothing for basic then try digest
+                if (requiredCredential == null) requiredCredential = RequiredCredentials.GetCredential(sourceLocation, authType = "digest");
             }
             else
             {
@@ -2647,8 +2740,12 @@ namespace Media.Rtsp
                     authType = parts[0];
                     authHeader = parts[1];
                 }
-                requiredCredential = RequiredCredentials.GetCredential(source.ServerLocation, authType);
+                requiredCredential = RequiredCredentials.GetCredential(sourceLocation, authType);
             }
+
+            //Should check method?, ensure announce and record is allowed from anywhere
+
+            //A CredentialCacheEx with a NetworkCredentialEx may help API wise
 
             //If there is no rule to validate
             if (requiredCredential == null) return true;
@@ -2784,25 +2881,22 @@ namespace Media.Rtsp
 
                     if (string.IsNullOrEmpty(username) || username != requiredCredential.UserName || string.IsNullOrWhiteSpace(realm) || string.IsNullOrWhiteSpace(uri) || string.IsNullOrWhiteSpace(response)) return false;
 
-                    using (var md5 = Utility.CreateMD5HashAlgorithm())
-                    {
-                        //http://en.wikipedia.org/wiki/Digest_access_authentication
-                        //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
-                        byte[] HA1 = md5.ComputeHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", requiredCredential.UserName, realm.Replace("realm=", string.Empty), requiredCredential.Password)));
+                    //http://en.wikipedia.org/wiki/Digest_access_authentication
+                    //The MD5 hash of the combined username, authentication realm and password is calculated. The result is referred to as HA1.
+                    byte[] HA1 = Cryptography.MD5.GetHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}", requiredCredential.UserName, realm.Replace("realm=", string.Empty), requiredCredential.Password)));
 
-                        //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
-                        byte[] HA2 = md5.ComputeHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.Method, uri.Replace("uri=", string.Empty))));
+                    //The MD5 hash of the combined method and digest URI is calculated, e.g. of "GET" and "/dir/index.html". The result is referred to as HA2.
+                    byte[] HA2 = Cryptography.MD5.GetHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}", request.RtspMethod, uri.Replace("uri=", string.Empty))));
 
-                        //No QOP No NC
-                        //See http://en.wikipedia.org/wiki/Digest_access_authentication
-                        //http://tools.ietf.org/html/rfc2617
+                    //No QOP No NC
+                    //See http://en.wikipedia.org/wiki/Digest_access_authentication
+                    //http://tools.ietf.org/html/rfc2617
 
-                        //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
-                        byte[] ResponseHash = md5.ComputeHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", Convert.ToString(HA1).Replace("-", string.Empty), nonce.Replace("nonce=", string.Empty), nc.Replace("nc=", string.Empty), cnonce.Replace("cnonce=", string.Empty), qop.Replace("qop=", string.Empty), Convert.ToString(HA2).Replace("-", string.Empty))));
+                    //The MD5 hash of the combined HA1 result, server nonce (nonce), request counter (nc), client nonce (cnonce), quality of protection code (qop) and HA2 result is calculated. The result is the "response" value provided by the client.
+                    byte[] ResponseHash = Cryptography.MD5.GetHash(request.ContentEncoding.GetBytes(string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}:{1}:{2}:{3}:{4}:{5}", Convert.ToString(HA1).Replace("-", string.Empty), nonce.Replace("nonce=", string.Empty), nc.Replace("nc=", string.Empty), cnonce.Replace("cnonce=", string.Empty), qop.Replace("qop=", string.Empty), Convert.ToString(HA2).Replace("-", string.Empty))));
 
-                        //return the result of a mutal hash creation via comparison
-                        return ResponseHash.SequenceEqual(Media.Common.Extensions.String.StringExtensions.HexStringToBytes(response.Replace("response=", string.Empty)));
-                    }
+                    //return the result of a mutal hash creation via comparison
+                    return ResponseHash.SequenceEqual(Media.Common.Extensions.String.StringExtensions.HexStringToBytes(response.Replace("response=", string.Empty)));
                 }
                 //else if (source.RemoteAuthenticationScheme == AuthenticationSchemes.IntegratedWindowsAuthentication && (header.Contains("ntlm") || header.Contains("integrated")))
                 //{

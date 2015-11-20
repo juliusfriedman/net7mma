@@ -98,28 +98,28 @@ namespace Media.Common.Extensions.Encoding
             //Make the builder
             builder = new System.Text.StringBuilder();
 
-            long at = stream.Position;
+            long at = stream.Position;// max = stream.Length
 
             //Use the BinaryReader on the stream to ensure ReadChar reads in the correct size
             //This prevents manual conversion from byte to char and uses the encoding's code page.
             using (var br = new System.IO.BinaryReader(stream, encoding, true))
             {
+                char cached;
+
                 //Read a while permitted, check for EOS
                 while (read < count && stream.CanRead)
                 {
                     try
                     {
                         //Get the char in the encoding beging used
-                        char cached = br.ReadChar();
+                        cached = br.ReadChar();
 
+                        //Determine where ReadChar advanced to (e.g. if Fallback occured)
                         read = (ulong)(stream.Position - at);
 
-                        //If the Byte was a delemit 
-                        if (System.Array.IndexOf<char>(delimits, cached) >= 0)
+                        //If the char was a delemit, indicate the delimit was seen
+                        if (sawDelimit = System.Array.IndexOf<char>(delimits, cached) >= 0)
                         {
-                            //Indicate the delimit was seen
-                            sawDelimit = true;
-
                             //if the delemit should be included, include it.
                             if (includeDelimits) builder.Append(cached);
 
@@ -127,16 +127,19 @@ namespace Media.Common.Extensions.Encoding
                             goto Done;
                         }
 
-                        //Create a string and append
+                        //append the char
                         builder.Append(cached);
                     }
                     catch (System.Exception ex)
                     {
+                        //Handle the exception
                         any = ex;
 
+                        //Take note of the position only during exceptions
                         read = (ulong)(stream.Position - at);
 
-                        break;
+                        //Do not read further
+                        goto Done;
                     }
                 }
             }
@@ -151,6 +154,8 @@ namespace Media.Common.Extensions.Encoding
             }
 
             result = builder.Length == 0 ? string.Empty : builder.ToString();
+
+            builder = null;
 
             return sawDelimit;
         }

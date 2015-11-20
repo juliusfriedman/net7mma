@@ -1,6 +1,6 @@
 Managed Media Aggregation `Media.Rtsp.dll`
 
-Copyright 2014
+Copyright 2014, 2015
 
 Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 

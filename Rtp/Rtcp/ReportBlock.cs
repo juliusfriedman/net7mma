@@ -69,7 +69,7 @@ namespace Media.Rtcp
 
         #region Fields
 
-        readonly Common.MemorySegment Memory;
+        readonly Common.MemorySegment Memory = Common.MemorySegment.Empty;
 
         readonly byte[] m_OwnedOctets;
 
@@ -82,7 +82,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The size in octets of this ReportBlock instance
         /// </summary>
-        public virtual int Size { get { return ReportBlockSize; } }
+        public virtual int Size { get { return IsDisposed ? 0 : Memory.Count; } } //ReportBlockSize
 
         /// <summary>
         /// The identifier or identity to which this ReportBlock corresponds to.
@@ -169,9 +169,9 @@ namespace Media.Rtcp
         /// </summary>
         ReportBlock(bool shouldDispose = true)
         {
-            m_OwnedOctets = new byte[Size]; 
-            
-            Memory = new Common.MemorySegment(m_OwnedOctets, 0, Size);
+            m_OwnedOctets = new byte[ReportBlockSize];
+
+            Memory = new Common.MemorySegment(m_OwnedOctets, 0, ReportBlockSize);
 
             ShouldDispose = shouldDispose;
         }
@@ -206,8 +206,10 @@ namespace Media.Rtcp
             Memory = reference.Memory;
         }
 
-        internal ReportBlock(Common.MemorySegment data)
+        public ReportBlock(Common.MemorySegment data, bool shouldDispose = true)
         {
+            ShouldDispose = shouldDispose;
+
             Memory = data;
         }
 

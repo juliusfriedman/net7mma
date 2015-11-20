@@ -178,7 +178,7 @@ namespace Media.UnitTests
                     }
                 }
 
-                void ProcessRtpPacket(object sender, Media.Rtp.RtpPacket packet)
+                void ProcessRtpPacket(object sender, Media.Rtp.RtpPacket packet = null, Media.Rtp.RtpClient.TransportContext tc = null)
                 {
                     ConsoleColor previousForegroundColor = Console.ForegroundColor;
                     Console.ForegroundColor = ConsoleColor.Magenta;
@@ -205,7 +205,7 @@ namespace Media.UnitTests
                         if (Console.ReadKey(true).Key == ConsoleKey.Q) quit = true;
                     }
 
-                    _client.Disconnect();
+                    _client.Deactivate();
                 }
             }
 
@@ -343,7 +343,7 @@ namespace Media.UnitTests
                 tf.Send(buffer);
 
                 Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
-                keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+                keepAlive.RtspStatusCode = Media.Rtsp.RtspStatusCode.OK;
                 keepAlive.CSeq = 34;
                 keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
                 keepAlive.SetHeader(Media.Rtsp.RtspHeaders.UserAgent, "Testing $UserAgent $009\r\n$\0:\0");
@@ -411,7 +411,7 @@ namespace Media.UnitTests
                 TestFramework tf = new TestFramework();
 
                 Media.Rtsp.RtspMessage keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
-                keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+                keepAlive.RtspStatusCode = Media.Rtsp.RtspStatusCode.OK;
                 keepAlive.CSeq = 34;
                 keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
                 keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
@@ -419,7 +419,7 @@ namespace Media.UnitTests
                 tf.Send(buffer);
 
                 keepAlive = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response);
-                keepAlive.StatusCode = Media.Rtsp.RtspStatusCode.OK;
+                keepAlive.RtspStatusCode = Media.Rtsp.RtspStatusCode.OK;
                 keepAlive.CSeq = 35;
                 keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Session, "A9B8C7D6");
                 keepAlive.SetHeader(Media.Rtsp.RtspHeaders.Date, DateTime.Now.ToUniversalTime().ToString("r"));
@@ -539,7 +539,7 @@ namespace Media.UnitTests
                         //Make a message 
                         var rtspBytes = new Media.Rtsp.RtspMessage(Media.Rtsp.RtspMessageType.Response, 1.0, Media.Rtsp.RtspMessage.DefaultEncoding)
                         {
-                            StatusCode = Media.Rtsp.RtspStatusCode.OK,
+                            RtspStatusCode = Media.Rtsp.RtspStatusCode.OK,
                             CSeq = Media.Utility.Random.Next(byte.MinValue, int.MaxValue),
                             UserAgent = "$UserAgent $007\r\n$\0\0\aRTSP/1.0",
                             Body = "$00Q\r\n$\0:\0"

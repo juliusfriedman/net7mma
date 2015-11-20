@@ -703,6 +703,8 @@ namespace Media.Containers.Matroska
 
         public MatroskaReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public MatroskaReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
+
         public Node ReadElement(Identifier identifier, long position = 0) { return ReadElement((int)identifier, position); }
 
         public Node ReadElement(int identifier, long position = 0)
@@ -822,7 +824,7 @@ namespace Media.Containers.Matroska
 
                         offset += read;
 
-                        length = Common.Binary.ReadInteger(len, 0, read, !BitConverter.IsLittleEndian);
+                        length = Common.Binary.ReadInteger(len, 0, read, false == BitConverter.IsLittleEndian);
 
                         //Determine what to do based on the found Identifier
                         switch (found)
@@ -831,25 +833,25 @@ namespace Media.Containers.Matroska
                             case Identifier.EBMLVersion:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    m_EbmlVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian);
+                                    m_EbmlVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian);
                                     goto default;
                                 }
                             case Identifier.EBMLReadVersion:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    m_EbmlReadVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian);
+                                    m_EbmlReadVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian);
                                     goto default;
                                 }
                             case Identifier.EBMLMaxIDLength:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    m_MaxIDLength = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian);
+                                    m_MaxIDLength = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian);
                                     goto default;
                                 }
                             case Identifier.EBMLMaxSizeLength:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    m_MaxSizeLength = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian);
+                                    m_MaxSizeLength = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian);
                                     goto default;
                                 }
                             case Identifier.EBMLDocType:
@@ -861,12 +863,12 @@ namespace Media.Containers.Matroska
                             case Identifier.EBMLDocTypeVersion:
                                 {
                                     stream.Read(buffer, 0, (int)length);
-                                    m_DocTypeVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian);
+                                    m_DocTypeVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian);
                                     goto default;
                                 }
                             case Identifier.EBMLDocTypeReadVersion:
                                 {
-                                    m_DocTypeReadVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian);
+                                    m_DocTypeReadVersion = (int)Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian);
                                     stream.Read(buffer, 0, (int)length);
                                     goto default;
                                 }
@@ -924,9 +926,9 @@ namespace Media.Containers.Matroska
                                     stream.Read(buffer, 0, (int)length);
                                     //m_Duration = TimeSpan.FromMilliseconds((double)(Common.Binary.ReadInteger(buffer, 0, (int)length, BitConverter.IsLittleEndian) * m_TimeCodeScale * 1000) / 1000000);
 
-                                    //m_Duration = TimeSpan.FromSeconds(TimeSpan.FromMilliseconds((Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian) / TimeCodeScale) / TimeSpan.TicksPerMillisecond).TotalHours * m_TimeCodeScale);
+                                    //m_Duration = TimeSpan.FromSeconds(TimeSpan.FromMilliseconds((Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian) / TimeCodeScale) / TimeSpan.TicksPerMillisecond).TotalHours * m_TimeCodeScale);
 
-                                    m_Duration = TimeSpan.FromTicks(Common.Binary.ReadInteger(buffer, 0, (int)length, !BitConverter.IsLittleEndian) / m_TimeCodeScale);
+                                    m_Duration = TimeSpan.FromTicks(Common.Binary.ReadInteger(buffer, 0, (int)length, false == BitConverter.IsLittleEndian) / m_TimeCodeScale);
 
                                     offset += length;
                                     continue;
@@ -1212,7 +1214,7 @@ namespace Media.Containers.Matroska
                             case Identifier.VideoColourSpace:
                                 {
 
-                                    //length == 1 !BitConverter.IsLittleEndian : BitConverter.IsLittleEndian? 
+                                    //length == 1 false == BitConverter.IsLittleEndian : BitConverter.IsLittleEndian? 
 
                                     stream.Read(buffer, 0, (int)length);
                                     bitsPerSample = (byte)Common.Binary.ReadInteger(buffer, 0, (int)length, length > 1 && BitConverter.IsLittleEndian);

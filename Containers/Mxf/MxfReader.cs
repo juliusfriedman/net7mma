@@ -584,6 +584,8 @@ namespace Media.Containers.Mxf
 
         public MxfReader(System.IO.FileStream source, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(source, access) { }
 
+        public MxfReader(Uri uri, System.IO.Stream source, int bufferSize = 8192) : base(uri, source, null, bufferSize, true) { } 
+
         int? m_RunInSize, m_MajorVersion, m_MinorVersion, m_IndexByteCount, m_KagSize;
 
         Guid? m_OperationalPattern;
@@ -633,22 +635,33 @@ namespace Media.Containers.Mxf
                MXF encoders may insert any necessary Run-In sequence provided it conforms to the above provisions, and
                any provisions of the respective specialized Operational Pattern specification. 
                 */
-                while (Position <= ushort.MaxValue)
+                int b = 0;
+
+                while (Remaining > 0 && Position <= ushort.MaxValue)
                 {
-                    byte read = (byte)ReadByte();
+                    b = ReadByte();
 
-                    if (read == 0x06)
+                    if(b == -1) break;
+
+                    switch (b)
                     {
-                        read = (byte)ReadByte();
+                        case 0x06:
+                            {
+                                b = ReadByte();
 
-                        if (read != 0x0e) continue;
+                                if (b == -1) break;
 
-                        Position -= 2;
+                                if (b != 0x0e) continue;
 
-                        break;
+                                Position -= 2;
+
+                                goto EndWhile;
+                            }
+                        default: continue;
                     }
                 }
 
+            EndWhile:
                 m_RunInSize = (int)Position;
             }
         }
@@ -1312,7 +1325,7 @@ namespace Media.Containers.Mxf
         /// <summary>
         /// Provides a lookup of a (Related/Linked)TrackId to a GenericDescriptor
         /// </summary>
-        Common.Collections.ConcurrentThesaurus<int, Node> m_TrackDescriptors;
+        Common.Collections.Generic.ConcurrentThesaurus<int, Node> m_TrackDescriptors;
 
         /// <summary>
         /// Obtains information which describes all tracks in the container
@@ -1327,14 +1340,14 @@ namespace Media.Containers.Mxf
 
             //Must assoicate a descriptor to a track so the properties can be read.
 
-            //To be more efficient all tags could be parsed and converted to a Dictionary<int, byte[]>
-            //Then rather than Node a Dictionary<int, byte[]> would be available for quick retrival.
+            //To be more efficient all tags could be parsed and converted to a Generic.Dictionary<int, byte[]>
+            //Then rather than Node a Generic.Dictionary<int, byte[]> would be available for quick retrival.
             //This would also stop the parsing a second time in the logic below.
 
             //Could also make virtual Nodes with each tag but would increase IO
 
             //Create a lookup to asscioate a descriptor to the node
-            m_TrackDescriptors = new Common.Collections.ConcurrentThesaurus<int, Node>();
+            m_TrackDescriptors = new Common.Collections.Generic.ConcurrentThesaurus<int, Node>();
 
             //Iterate the GenericDescriptors in the file parsing for trackId.
             foreach (var descriptor in ReadObjects(offsetStart, false, UniversalLabel.GenericDescriptor).ToArray())
@@ -1687,9 +1700,12 @@ namespace Media.Containers.Mxf
                 //Get sampleCount if index is available? or count all frames...
 
                                                         //Guid is EssenceElement
+                                                        //MxfReader.UniversalLabel.EssenceElement.ToByteArray()
                 int sampleCount = ReadObjects(timelineTrackObject.DataOffset + timelineTrackObject.DataSize, false, new Guid(new byte[] { 0x06, 0x0e, 0x2b, 0x34, 0x01, 0x02, 0x01, 0x01, 0x0d, 0x01, 0x03, 0x01, 
                     //Modified with trackNumber
                     (byte)((trackNumber >> 24) & byte.MaxValue), (byte)((trackNumber >> 16) & byte.MaxValue), (byte)((trackNumber >> 8) & byte.MaxValue), (byte)(trackNumber & byte.MaxValue) })).Count();
+
+                //Do duration calculation in a function and possibly do it above when there is a trackname
 
                 Track created = new Track(timelineTrackObject, trackName, trackId, trackCreated, trackModified, sampleCount, height, width, TimeSpan.FromSeconds(startTime * editRate), 
                     //Duration calculation for Audio

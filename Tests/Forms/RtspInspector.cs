@@ -173,7 +173,7 @@ namespace Tests
             
         }
 
-        void ShowRtcpPacket(object sender, Media.Rtcp.RtcpPacket packet)
+        void ShowRtcpPacket(object sender, Media.Rtcp.RtcpPacket packet = null, Media.Rtp.RtpClient.TransportContext tc = null)
         {
             try
             {
@@ -279,9 +279,9 @@ namespace Tests
                 else label2.Text = "Done Playing";
             }
         }
-    
 
-        void ShowRtpPacket(object sender, Media.Rtp.RtpPacket packet)
+
+        void ShowRtpPacket(object sender, Media.Rtp.RtpPacket packet = null, Media.Rtp.RtpClient.TransportContext tc = null)
         {
             try
             {

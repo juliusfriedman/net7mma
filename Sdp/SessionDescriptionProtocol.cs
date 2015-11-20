@@ -667,7 +667,7 @@ namespace Media.Sdp
                             m_TimeDescriptions.Add(new TimeDescription(lines, ref lineIndex));
                             continue;
                         }
-                    case MediaDescription.MediaDescriptionType:
+                    case MediaDescription.MediaDescriptionLineType:
                         {
                             m_MediaDescriptions.Add(new MediaDescription(lines, ref lineIndex));
                             continue;
@@ -807,6 +807,18 @@ namespace Media.Sdp
                         result = true;
                     }
                     break;
+                    //Handle remove of Time Description and its constituents
+                ////case Sdp.MediaDescription.MediaDescriptionType:
+                ////    {
+                    //Handle remove of Media Description and its constituents
+                ////        foreach (MediaDescription md in MediaDescriptions) if (result = md.Remove(line)) break;
+                ////    }                    
+                ////    break;
+                ////default:
+                ////    {
+                ////        result = m_Lines.Remove(line);
+                ////    }
+                ////    break;
             }
 
             if (false == result)
@@ -826,7 +838,6 @@ namespace Media.Sdp
 
         public bool Remove(TimeDescription timeDescription, bool updateVersion = true)
         {
-
             if (UnderModification || timeDescription == null) return false;
 
             var token = BeginUpdate();
@@ -853,10 +864,9 @@ namespace Media.Sdp
 
         public void RemoveLine(int index, bool updateVersion = true)
         {
-
             if (UnderModification) return;
 
-            //Should give backed lines virtual index?
+            //Should give backed lines virtual/indirect index?
 
             var token = BeginUpdate();
 
@@ -867,7 +877,6 @@ namespace Media.Sdp
 
         public void RemoveMediaDescription(int index, bool updateVersion = true)
         {
-
             if (UnderModification) return;
 
             var token = BeginUpdate();
@@ -917,6 +926,18 @@ namespace Media.Sdp
 
             return m_UpdateTokenSource.Token;
         }
+
+        //public System.Threading.CancellationToken BeginUpdate(int x, bool e)
+        //{
+        //    CheckDisposed();
+
+        //    if (System.Threading.WaitHandle.SignalAndWait(m_UpdateTokenSource.Token.WaitHandle, m_Update.WaitHandle, x, e))
+        //    {
+        //        m_Update.Reset();
+        //    }
+
+        //    return m_UpdateTokenSource.Token;
+        //}
 
         /// <summary>
         /// Ends a previous started update with <see cref="BeginUpdate"/>
@@ -1023,6 +1044,8 @@ namespace Media.Sdp
         }
 
         #endregion
+
+        //Choose line enumerator..
 
         public IEnumerator<SessionDescriptionLine> GetEnumerator()
         {
@@ -1141,7 +1164,7 @@ namespace Media.Sdp
     /// </summary>
     public class MediaDescription : Common.BaseDisposable, IEnumerable<SessionDescriptionLine>
     {
-        public const char MediaDescriptionType = 'm';
+        public const char MediaDescriptionLineType = 'm';
 
         #region Fields
 
@@ -1202,8 +1225,16 @@ namespace Media.Sdp
         {
             get
             {
-                if (string.IsNullOrWhiteSpace(MediaFormatString)) return MediaFormat = string.Join(SessionDescription.SpaceString, m_PayloadList);
-                return MediaFormatString;
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(MediaFormatString)) return MediaFormat = string.Join(SessionDescription.SpaceString, m_PayloadList);
+                    return MediaFormatString;
+                }
+                catch(InvalidOperationException)
+                {
+                    return MediaFormat;
+                }
+                catch { throw; }
             }
             set
             {
@@ -1390,7 +1421,7 @@ namespace Media.Sdp
 
                     if (portSpecifier.HasValue)
                     {
-                        buffer.Append(MediaDescriptionType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + ((char)Common.ASCII.ForwardSlash).ToString() + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.NewLine);
+                        buffer.Append(MediaDescriptionLineType.ToString() + Sdp.SessionDescription.EqualsSign + string.Join(SessionDescription.Space.ToString(), MediaType, MediaPort.ToString() + ((char)Common.ASCII.ForwardSlash).ToString() + portSpecifier, MediaProtocol, MediaFormat) + SessionDescription.NewLine);
 
                         goto LinesOnly;
                     }
@@ -1421,7 +1452,7 @@ namespace Media.Sdp
         {
             get
             {
-                return new SessionDescriptionLine(MediaDescriptionType, ((char)Common.ASCII.Space).ToString())
+                return new SessionDescriptionLine(MediaDescriptionLineType, ((char)Common.ASCII.Space).ToString())
                 {
                     MediaType.ToString(),
                     PortRangeString,
@@ -1541,7 +1572,8 @@ namespace Media.Sdp
 
                     //Return a new uri using the original string and the controlUri relative path.
                     //Hopefully the direction of the braces matched
-                    return new Uri(string.Join(SessionDescription.ForwardSlashString, source.OriginalString, controlUri.OriginalString));                    
+
+                    return new Uri(source.OriginalString.EndsWith(SessionDescription.ForwardSlashString) ? source.OriginalString + controlUri.OriginalString : string.Join(SessionDescription.ForwardSlashString, source.OriginalString, controlUri.OriginalString));                    
 
                     #region Explination
                     //I wonder if Mr./(Dr) Fielding is happy...
@@ -1575,6 +1607,17 @@ namespace Media.Sdp
 
         public const char TimeDescriptionType = 't', RepeatTimeType = 'r';
 
+        /* https://tools.ietf.org/html/rfc4566#page-17
+         The first and second sub-fields give the start and stop times,
+           respectively, for the session.  These values are the decimal
+           representation of Network Time Protocol (NTP) time values in seconds
+           since 1900 [13].  To convert these values to UNIX time, subtract
+           decimal 2208988800.
+
+         */
+
+        //Should be DateTime?
+
         public double SessionStartTime { get; private set; }
 
         public double SessionStopTime { get; private set; }
@@ -1582,6 +1625,10 @@ namespace Media.Sdp
         //public bool IsLive { get { return SessionStartTime == 0 } }
 
         //public bool IsContinious { get { return SessionStopTime <= 0; } }
+
+        //public bool IsPermanent { get { return SessionStopTime == SessionStartTime == 0; } }
+
+        //Also note that there must be no RepeatTimes for the above to be true.
 
         //Ntp Timestamps from above, NOTE they do not wrap in 2036
         //public DateTime Start, Stop;
@@ -1629,7 +1676,9 @@ namespace Media.Sdp
         {
             string sdpLine = sdpLines[index++].Trim();
 
-            if (sdpLine[0] != TimeDescriptionType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid Time Description");
+            if (string.IsNullOrWhiteSpace(sdpLine) || sdpLine[0] != TimeDescriptionType) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid Time Description");
+
+            //Char 1 must always be '='...
 
             sdpLine = SessionDescription.TrimLineValue(sdpLine.Substring(2));
 
@@ -1930,7 +1979,7 @@ namespace Media.Sdp
         /// <param name="line">The line from a SessionDescription</param>
         public SessionDescriptionLine(string line)
         {
-            if (line.Length < 2 || line[1] != SessionDescription.EqualsSign) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
+            if (line == null || line.Length < 2 || line[1] != SessionDescription.EqualsSign) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this,"Invalid SessionDescriptionLine: \"" + line + "\"");
 
             Type = char.ToLower(line[0]);
 
@@ -2006,11 +2055,11 @@ namespace Media.Sdp
 
             const string RecieveBandwidthToken = "RR", SendBandwdithToken = "RS", ApplicationSpecificBandwidthToken = "AS";
 
-            internal static Sdp.SessionDescriptionLine DisabledReceiveLine = new Sdp.SessionDescriptionLine("b=RR:0");
+            public static readonly Sdp.SessionDescriptionLine DisabledReceiveLine = new Sdp.SessionDescriptionLine("b=RR:0");
 
-            internal static Sdp.SessionDescriptionLine DisabledSendLine = new Sdp.SessionDescriptionLine("b=RS:0");
+            public static readonly Sdp.SessionDescriptionLine DisabledSendLine = new Sdp.SessionDescriptionLine("b=RS:0");
 
-            internal static Sdp.SessionDescriptionLine DisabledApplicationSpecificLine = new Sdp.SessionDescriptionLine("b=AS:0");
+            public static readonly Sdp.SessionDescriptionLine DisabledApplicationSpecificLine = new Sdp.SessionDescriptionLine("b=AS:0");
 
             public static bool TryParseBandwidthLine(Media.Sdp.SessionDescriptionLine line, out int result)
             {
@@ -2202,7 +2251,7 @@ namespace Media.Sdp
 
                     if (m_ConnectionParts == null) m_ConnectionParts = ConnectionAddress.Split(SessionDescription.SlashSplit, 3);
 
-                    if (m_ConnectionParts.Length > 2)
+                    if (m_ConnectionParts.Length > 2) //Todo ensure not accidentally giving Hops... should proably be 3
                     {
                         return int.Parse(m_ConnectionParts.Last(), System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture);
                     }

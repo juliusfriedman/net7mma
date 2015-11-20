@@ -9,12 +9,13 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Media.Concepts</RootNamespace>
     <AssemblyName>Media.Concepts</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -35,6 +36,16 @@
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'x64_Release|AnyCPU'">
+    <OutputPath>bin\x64_Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
       <Link>Properties\MediaAssemblyInfo.cs</Link>
@@ -50,14 +61,16 @@
     </Compile>
     <Compile Include="Classes\ArithmeticLogicUnit.cs" />
     <Compile Include="Classes\Asm.cs" />
-    <Compile Include="Classes\CentralProcessingUnit.cs" />
+    <Compile Include="Classes\BindableBase.cs" />
+    <Compile Include="Classes\Bus.cs" />
     <Compile Include="Classes\Clock.cs" />
+    <Compile Include="Classes\Experimental.cs" />
     <Compile Include="Classes\Machine.cs" />
-    <Compile Include="Classes\MediaConnection.cs" />
-    <Compile Include="Classes\SocketConfiguration.cs" />
+    <Compile Include="Classes\SocketOperation.cs" />
     <Compile Include="Classes\Stopwatch.cs" />
     <Compile Include="Classes\Timer.cs" />
     <Compile Include="Classes\Unmanaged.cs" />
+    <Compile Include="Classes\VirtualScreen.cs" />
     <Compile Include="Collections\SocketCollection.cs" />
     <Compile Include="Collections\ThreadCollection.cs" />
     <Compile Include="Interfaces\ITextData.cs" />

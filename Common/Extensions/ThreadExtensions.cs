@@ -40,6 +40,16 @@ namespace Media.Common.Extensions.Thread
 {
     public static class ThreadExtensions
     {
+        /// <summary>
+        /// Will use the maximum stack size available for creation of a thread.
+        /// </summary>
+        public const int DefaultStackSize = 0;
+
+        /// <summary>
+        /// Will use the smallest amount of stack size available for the creation of a thread.
+        /// </summary>
+        public const int MinimumStackSize = 1;
+
         public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             //If the worker IsAlive and has the requested state.
