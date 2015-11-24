@@ -431,7 +431,7 @@ namespace Media.Rtsp//.Server
 
             if (false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
-                Common.ILoggingExtensions.Log(m_Server.Logger, "Not valid sequence number");
+                //Common.ILoggingExtensions.Log(m_Server.Logger, "Not valid sequence number " + packet.SequenceNumber + ", = " + localContext.SequenceNumber);
 
                 goto Exit;
             }
@@ -491,6 +491,8 @@ namespace Media.Rtsp//.Server
                 //{
                 //    context.NtpTimestamp = sr.NtpTimestamp;
                 //    context.RtpTimestamp = sr.RtpTimestamp;
+
+            //Could calulcate NtpOffset from difference here if desired.
 
                 //    if (sr.BlockCount > 0)
                 //    {
@@ -710,6 +712,7 @@ namespace Media.Rtsp//.Server
                 Playing.Add(source.Id);
             }//else could skip ahead, already playing. Rtsp 2 allows this to be a keep alive.
 
+            //Don't observe frame events in the local client.
             m_RtpClient.FrameChangedEventsEnabled = false;
 
             //m_RtpClient.IncomingPacketEventsEnabled = allowIncomingRtp;
@@ -852,8 +855,8 @@ namespace Media.Rtsp//.Server
             //Indicate the range of the play response. (`Range` will be 'now-' if no start or end was given)
             playResponse.SetHeader(RtspHeaders.Range, RtspHeaders.RangeHeader(startRange, endRange));
 
-            //Sent the rtpInfo
-            playResponse.AppendOrSetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
+            //Set the rtpInfo
+            playResponse.SetHeader(RtspHeaders.RtpInfo, string.Join(", ", rtpInfos.ToArray()));
 
 
             //Todo

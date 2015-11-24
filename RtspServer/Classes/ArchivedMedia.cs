@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 
 namespace Media.Rtsp.Server
 {
+
+    //Should also effectively be a ChildMedia of the ArchiveSource
+    //Implies ArchiveSource should be RtpArchivedSource and Archiver should be RtpArchiver.
+
     public class ArchivedRtpMedia : Media.Rtsp.Server.MediaTypes.RtpSource
     {
         //Read the archived data and start playback, one thread to read and send packets

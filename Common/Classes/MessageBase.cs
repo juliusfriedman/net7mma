@@ -47,35 +47,17 @@ namespace Media.Common.Classes
             get { return Transferred; }
         }
 
-        bool IPacket.IsComplete
-        {
-            get { throw new NotImplementedException(); }
-        }
+        public abstract bool IsComplete { get; }
 
-        bool IPacket.IsCompressed
-        {
-            get { throw new NotImplementedException(); }
-        }
+        public abstract bool IsCompressed { get; }
 
-        bool IPacket.IsReadOnly
-        {
-            get { throw new NotImplementedException(); }
-        }
+        public abstract bool IsReadOnly { get; }
 
-        long IPacket.Length
-        {
-            get { throw new NotImplementedException(); }
-        }
+        public abstract long Length { get; }
 
-        int IPacket.CompleteFrom(System.Net.Sockets.Socket socket, MemorySegment buffer)
-        {
-            throw new NotImplementedException();
-        }
+        public abstract int CompleteFrom(System.Net.Sockets.Socket socket, MemorySegment buffer);
 
-        IEnumerable<byte> IPacket.Prepare()
-        {
-            throw new NotImplementedException();
-        }
+        public abstract IEnumerable<byte> Prepare();
 
     }
 }

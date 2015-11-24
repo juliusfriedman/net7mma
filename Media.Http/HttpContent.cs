@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Http
 {
+    //Should be added to HttpMessage ?
     public abstract class HttpContent : Common.BaseDisposable
     {
         public DateTime? Transferred;
@@ -80,11 +81,15 @@ namespace Media.Http
     public class MultipartContent : HttpContent, IEnumerable<HttpContent>
     {
 
-        static MultipartContent Read(HttpClient client, HttpMessage request)
-        {
-            string boundary = request.GetHeader(HttpHeaders.ContentType).Split(';').FirstOrDefault(s => s.StartsWith("boundary")).Substring(9);
+        //DirectoryInfo Storage
 
-            MultipartContent result = new MultipartContent(boundary, request.ContentEncoding);
+
+        //Should store in response ?
+        static MultipartContent Read(HttpClient client, HttpMessage message)
+        {
+            string boundary = message.GetHeader(HttpHeaders.ContentType).Split(';').FirstOrDefault(s => s.StartsWith("boundary")).Substring(9);
+
+            MultipartContent result = new MultipartContent(boundary, message.ContentEncoding);
 
         Receive:
             int received = client.HttpSocket.Receive(client.Buffer.Array);
