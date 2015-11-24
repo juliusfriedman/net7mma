@@ -61,7 +61,7 @@ namespace Media.UnitTests
             //TestStopWatch,
             //TestClock,
             //TestTimer,
-            TestEncodingExtensions,
+            TestEncodingExtensions, 
             TestUtility, 
             TestBinary, 
             //Rtp / Rtcp

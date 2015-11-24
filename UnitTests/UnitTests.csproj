@@ -186,13 +186,9 @@
       <Project>{818bd18e-f1fe-45e3-96d4-984e76fec84d}</Project>
       <Name>Media.Cryptography</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Media.Http\Media.Http.csproj">
+    <ProjectReference Include="..\Http\Media.Http.csproj">
       <Project>{dbdbfef3-a51c-4423-b2d6-aa9d014bdb9e}</Project>
       <Name>Media.Http</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Media.Sip\Media.Sip.csproj">
-      <Project>{945c2e90-19b2-4629-828d-a5bb6d3215e2}</Project>
-      <Name>Media.Sip</Name>
     </ProjectReference>
     <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
       <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
@@ -221,6 +217,10 @@
     <ProjectReference Include="..\Sdp\Media.Sdp.csproj">
       <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
       <Name>Media.Sdp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Sip\Media.Sip.csproj">
+      <Project>{945c2e90-19b2-4629-828d-a5bb6d3215e2}</Project>
+      <Name>Media.Sip</Name>
     </ProjectReference>
     <ProjectReference Include="..\Sockets\Media.Sockets.csproj">
       <Project>{cc6d2fe3-42fb-41f0-83c3-eddc02ff1224}</Project>
