@@ -472,7 +472,7 @@ namespace Media.Rtcp
         {
             if(System.Object.ReferenceEquals(this, obj)) return true;
 
-            if (!(obj is RtcpHeader)) return false;
+            if (false == (obj is RtcpHeader)) return false;
 
             RtcpHeader other = obj as RtcpHeader;
 

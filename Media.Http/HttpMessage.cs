@@ -2336,7 +2336,7 @@ namespace Media.Http
             return received;
         }
 
-        int ParseChunk(ref int offset, int length)
+        int ParseChunk(ref int offset, int length) //out string extensions
         {
             if (length <= 0) return -1;
 
@@ -2389,7 +2389,6 @@ namespace Media.UnitTests
     /// </summary>
     internal class HttpMessgeUnitTests
     {
-
         public void TestRequestsSerializationAndDeserialization()
         {
             string TestLocation = "Http://someServer.com", TestBody = "Body Data ! 1234567890-A";

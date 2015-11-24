@@ -178,7 +178,7 @@ namespace Media.Rtp
             else if (rtpPacket.Payload.Count - sourceListOctets < MinimumSize)
                 throw InvalidExtension;
             else
-                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + sourceListOctets, rtpPacket.Payload.Count - sourceListOctets);
+                m_MemorySegment = new MemorySegment(rtpPacket.Payload.Array, rtpPacket.Payload.Offset + sourceListOctets, rtpPacket.Payload.Count - sourceListOctets); //- rtpPacket.PaddingOctets
         }
 
         #endregion

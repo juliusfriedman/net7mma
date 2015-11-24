@@ -9,6 +9,8 @@ namespace OperatingSystem
 
         static int IntPlatformIdValue { get { return (int)EnvironmentOsPlatformId; } }
 
+        //Should be taken into account when setting socket options...
+
         public static bool IsLinux
         {
             get

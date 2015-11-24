@@ -912,6 +912,14 @@ namespace Media.Http
                         }
 
                         #endregion
+
+                        #region Invalid Protocol Headers
+
+                        //Check for chunked when protocol is less than or equal to 1.0 and remove.
+
+                        //Other checks.
+
+                        #endregion
                     }
 
                     #endregion                    
@@ -938,8 +946,6 @@ namespace Media.Http
 
                         ++m_ReTransmits;
                     }
-
-                    //if (SendChunked) return SendChunkedMessage(message);
 
                     sent += m_HttpSocket.Send(buffer, sent, length - sent, SocketFlags.None, out error);
 

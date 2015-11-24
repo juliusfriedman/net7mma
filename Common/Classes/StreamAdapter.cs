@@ -11,10 +11,14 @@ namespace Media.Common
     /// </summary>
     public class StreamAdapter : System.IO.FileStream, IDisposed, IComposed<LifetimeDisposable>
     {
+
+        //Should just be stream,,,
+
         #region Fields 
         
         internal readonly LifetimeDisposable m_Composed = new LifetimeDisposable(true);
 
+        //Not needed
         internal readonly protected Media.Common.Classes.FileInfoEx FileInfo;
 
         internal protected long m_Position, m_Length;

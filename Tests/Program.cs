@@ -343,6 +343,7 @@ namespace Media.UnitTests
 
                         //For Tcp a higher level protocol such as RTSP / SIP usually sets things up.
                         //Stand alone is also possible a socket just has to be created to facilitate accepts
+                        //This is also known as independent tcp and should be defined in the SDP per RFC4571
                         if (tcp)
                         {
                             //Make a socket for the sender to receive connections on
@@ -427,6 +428,8 @@ namespace Media.UnitTests
 
                         consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "\t *** Sent RtpFrame, Sending Reports and Goodbye ***");
 
+                        receiver.SendReceiversReports();
+
                         //Wait for a receivers report to be sent while the receiver is connected
                         while (receiver.IsActive && (receiversContext.ReceiversReport == null || false == receiversContext.ReceiversReport.Transferred.HasValue)) System.Threading.Thread.Sleep(0);
 
@@ -446,8 +449,8 @@ namespace Media.UnitTests
                                 consoleWriter.WriteLine("\t CumulativePacketsLost : " + reportBlock.CumulativePacketsLost);
                             }
                         }
-                    }//Disposes the receiver
-                }//Disposes the sender
+                    }//Disposes the receiver (Reports and Goodbye Sent)
+                }//Disposes the sender (Reports and Goodbye Sent)
                 consoleWriter.WriteLine(System.Threading.Thread.CurrentThread.ManagedThreadId + "Exit");
             }
         }        

@@ -84,6 +84,8 @@
     <Compile Include="Extensions\MathExtensions.cs" />
     <Compile Include="Extensions\NetworkInterfaceExtensions.cs" />
     <Compile Include="Extensions\ObjectExtensions.cs" />
+    <Compile Include="Extensions\OperatingSystemExtensions.cs" />
+    <Compile Include="Extensions\RuntimeExtensions.cs" />
     <Compile Include="Extensions\SocketExtensions.cs" />
     <Compile Include="Extensions\StreamExtensions.cs" />
     <Compile Include="Extensions\ThreadExtensions.cs" />
@@ -91,7 +93,6 @@
     <Compile Include="Extensions\WaitHandleExtensions.cs" />
     <Compile Include="Interfaces\IDisposed.cs" />
     <Compile Include="Extensions\IPEndPointExtensions.cs" />
-    <Compile Include="Interfaces\IReference.cs" />
     <Compile Include="Interfaces\ITaggedException.cs" />
     <Compile Include="Extensions\LinqExtensions.cs" />
     <Compile Include="Classes\Loggers\BaseLogger.cs" />
