@@ -1462,7 +1462,7 @@ namespace Media.Sdp
             }
         }
 
-          public IEnumerable<SessionDescriptionLine> AttributeLines
+        public IEnumerable<SessionDescriptionLine> AttributeLines
         {
             get
             {

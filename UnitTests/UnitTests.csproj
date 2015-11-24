@@ -1,0 +1,285 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{D3BB71A6-A555-410E-A728-38D80ED52BE1}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Media.UnitTests</RootNamespace>
+    <AssemblyName>Media.UnitTests</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>Media.UnitTests.Program</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Code\RtpClientUnitTests.cs" />
+    <Compile Include="Code\RtpRtcpUnitTests.cs" />
+    <Compile Include="Code\SDPUnitTests.cs" />
+    <Compile Include="Forms\ContainerInspector.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ContainerInspector.Designer.cs">
+      <DependentUpon>ContainerInspector.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\RtspInspector.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\RtspInspector.Designer.cs">
+      <DependentUpon>RtspInspector.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <None Include="Media\bark.rtp" />
+    <None Include="Media\Video\flv\pages.flv" />
+    <None Include="Media\Video\mkv\mvi.mkv" />
+    <None Include="Media\Video\mkv\pages.mkv" />
+    <None Include="Media\Video\mpjpeg\mvi.mpjpeg" />
+    <None Include="Media\Video\mpjpeg\pages.mpjpeg" />
+    <None Include="Media\Video\mxf\freeMXF-mxf1.mxf" />
+    <None Include="Media\Video\nut\Akon_cut.nut" />
+    <None Include="Media\Video\ogg\small.ogv" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Codecs\Audio\Aac\Media.Codecs.Audio.Aac.csproj">
+      <Project>{d087a5ba-0e1b-44c2-a739-ad8153edc8c4}</Project>
+      <Name>Media.Codecs.Audio.Aac</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\AC3\Media.Codecs.Audio.Ac3.csproj">
+      <Project>{c2628db8-9d97-4655-b861-605a9e9fa6d7}</Project>
+      <Name>Media.Codecs.Audio.Ac3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
+      <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
+      <Name>Media.Codecs.Audio</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Mpeg\Media.Codecs.Audio.Mp3.csproj">
+      <Project>{4305ddf6-3c8b-4fe6-8de9-3e81c5d9126a}</Project>
+      <Name>Media.Codecs.Audio.Mp3</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Media.Codecs.Image.csproj">
+      <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
+      <Name>Media.Codecs.Image</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Media.Codec.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codec</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\H264\Media.Codecs.Video.H264.csproj">
+      <Project>{ff0ee03e-0a02-40f1-8064-d055ef41f949}</Project>
+      <Name>Media.Codecs.Video.H264</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Jpeg\Media.Codecs.Image.Jpeg.csproj">
+      <Project>{a12d2eda-c1ba-4d4e-8e7d-38f8048bc161}</Project>
+      <Name>Media.Codecs.Image.Jpeg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
+      <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
+      <Name>Media.Codecs.Video</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Mpeg4\Media.Codecs.Video.Mpeg4.csproj">
+      <Project>{6e191592-acc7-4444-a7e3-88258c8709fe}</Project>
+      <Name>Media.Codecs.Video.Mpeg4</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Mpeg\Media.Codecs.Video.Mpeg.csproj">
+      <Project>{667cde0b-0ae3-4df5-9d81-d91ef0bdceda}</Project>
+      <Name>Media.Codecs.Video.Mpeg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Common\Media.Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Media.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Compression\Media.Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Media.Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Concepts\Concepts.csproj">
+      <Project>{76d6e405-4048-4588-8fc5-0895701e6d96}</Project>
+      <Name>Concepts</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Asf\Media.Containers.Asf.csproj">
+      <Project>{aa92d188-646f-47fe-8fff-bd0b9ca720a0}</Project>
+      <Name>Media.Containers.Asf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\BaseMedia\Media.Containers.BaseMedia.csproj">
+      <Project>{b389b0f4-c788-436e-a108-d01f38fcb3ed}</Project>
+      <Name>Media.Containers.BaseMedia</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Gxf\Media.Containers.Gxf.csproj">
+      <Project>{e51e5ce2-7ebe-4e60-936e-df5b63c63699}</Project>
+      <Name>Media.Containers.Gxf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Matroska\Media.Containers.Matroska.csproj">
+      <Project>{74a5112f-9638-4ad0-973d-60e558ecb93a}</Project>
+      <Name>Media.Containers.Matroska</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Mcf\Media.Containers.Mcf.csproj">
+      <Project>{1561de7a-8ed5-4bb0-9951-e7d807581c72}</Project>
+      <Name>Media.Containers.Mcf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Media.Container.csproj">
+      <Project>{fe980f3f-30cb-44d6-bce4-462c12038440}</Project>
+      <Name>Media.Container</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Mpeg\Media.Containers.Mpeg.csproj">
+      <Project>{50484884-d642-4c02-90fe-cb6b41342deb}</Project>
+      <Name>Media.Containers.Mpeg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Mxf\Media.Containers.Mxf.csproj">
+      <Project>{6e068dae-2a49-497d-bd67-adf92730156e}</Project>
+      <Name>Media.Containers.Mxf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Nut\Media.Containers.Nut.csproj">
+      <Project>{a799b0e7-6d05-46b4-b276-9b12f73596b7}</Project>
+      <Name>Media.Containers.Nut</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Ogg\Media.Containers.Ogg.csproj">
+      <Project>{20228080-72cf-4bad-b3cc-7db267643175}</Project>
+      <Name>Media.Containers.Ogg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Real\Media.Containers.Real.csproj">
+      <Project>{b45a4b28-cd7e-4b09-9b33-d447a63626e7}</Project>
+      <Name>Media.Containers.Real</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Containers\Riff\Media.Containers.Riff.csproj">
+      <Project>{beaa546e-6c3d-47f4-85d9-6bb598b5d8b8}</Project>
+      <Name>Media.Containers.Riff</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Cryptography\Media.Cryptography.csproj">
+      <Project>{818bd18e-f1fe-45e3-96d4-984e76fec84d}</Project>
+      <Name>Media.Cryptography</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Http\Media.Http.csproj">
+      <Project>{dbdbfef3-a51c-4423-b2d6-aa9d014bdb9e}</Project>
+      <Name>Media.Http</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Sip\Media.Sip.csproj">
+      <Project>{945c2e90-19b2-4629-828d-a5bb6d3215e2}</Project>
+      <Name>Media.Sip</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
+      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
+      <Name>Media.Ntp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Rtmp\Media.Rtmp.csproj">
+      <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>
+      <Name>Media.Rtmp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RtpTools\Media.RtpTools.csproj">
+      <Project>{05019b1d-58b3-44a4-8ef4-50a3fe740746}</Project>
+      <Name>Media.RtpTools</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Rtp\Media.Rtp.csproj">
+      <Project>{fd0101f4-1d22-434c-8025-42cac8176c75}</Project>
+      <Name>Media.Rtp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RtspServer\Media.RtspServer.csproj">
+      <Project>{905deffb-6dbc-4cf0-bed9-bb96aea0193f}</Project>
+      <Name>Media.RtspServer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Rtsp\Media.Rtsp.csproj">
+      <Project>{2dc7fd7b-2497-480b-a927-17f4846e5c74}</Project>
+      <Name>Media.Rtsp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Sdp\Media.Sdp.csproj">
+      <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
+      <Name>Media.Sdp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Sockets\Media.Sockets.csproj">
+      <Project>{cc6d2fe3-42fb-41f0-83c3-eddc02ff1224}</Project>
+      <Name>Media.Sockets</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Forms\ContainerInspector.resx">
+      <DependentUpon>ContainerInspector.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\RtspInspector.resx">
+      <DependentUpon>RtspInspector.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Media\Bandit\20130707_083611.jpg" />
+    <Content Include="Media\Bandit\20131022_171308.jpg" />
+    <Content Include="Media\Bandit\20131031_121028.jpg" />
+    <Content Include="Media\Bandit\20131031_121032.jpg" />
+    <Content Include="Media\Bandit\20131211_103924.jpg" />
+    <Content Include="Media\Bandit\20131211_104757.jpg" />
+    <Content Include="Media\Bandit\20131225_232429.jpg" />
+    <Content Include="Media\Bandit\20131225_232530_HDR.jpg" />
+    <Content Include="Media\Bandit\IMG_20130421_140022.jpg" />
+    <Content Include="Media\JpegTest\camera.jpg" />
+    <Content Include="Media\JpegTest\Channel_digital_image_CMYK_color.jpg" />
+    <Content Include="Media\JpegTest\croinbw.jpg" />
+    <Content Include="Media\JpegTest\jpeg400jfif.jpg" />
+    <Content Include="Media\JpegTest\jpeg420exif.jpg" />
+    <Content Include="Media\JpegTest\jpeg422jfif.jpg" />
+    <Content Include="Media\JpegTest\jpeg444.jpg" />
+    <Content Include="Media\JpegTest\m00905argb.jpg" />
+    <Content Include="Media\JpegTest\m00905srgb.jpg" />
+    <Content Include="Media\JpegTest\testimg.jpg" />
+    <Content Include="Media\JpegTest\testimgp.jpg" />
+    <Content Include="Media\JpegTest\testorig.jpg" />
+    <Content Include="Media\JpegTest\testprog.jpg" />
+    <Content Include="Media\JpegTest\Untitled.jpg" />
+    <Content Include="Media\JpegTest\video.jpg" />
+    <Content Include="Media\JpegTest\videoalt.jpg" />
+    <Content Include="Media\JpegTest\videoflipalt.jpg" />
+    <Content Include="Media\JpegTest\yh9r01459argbsmall.jpg" />
+    <Content Include="Media\JpegTest\yh9r01459srgbsmall.jpg" />
+    <Content Include="Media\JpegTest\yuvj422.jpg" />
+    <Content Include="Media\Video\asf\pages.asf" />
+    <Content Include="Media\Video\avi\MVI_3572.AVI" />
+    <Content Include="Media\Video\avi\turning_pages_mjpeg.avi" />
+    <Content Include="Media\Video\mov\pages.mov" />
+    <Content Include="Media\Video\mp4\mvi.mp4" />
+    <Content Include="Media\Video\mp4\pages.mp4" />
+    <Content Include="Media\Video\mp4\pages_ogg.mp4" />
+    <Content Include="Media\Video\turning_pages_mjpeg.avi" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
