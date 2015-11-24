@@ -480,6 +480,8 @@ namespace Media.Rtsp.Server.MediaTypes
                             if (pos == -1)
                                 continue;
 
+                            //Check pos - 2 for '-'
+
                             for (int i = pos - 1; i >= 0; i--)
                             {
                                 byte ch = buffer[i];

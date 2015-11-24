@@ -285,10 +285,13 @@ namespace Media.RtpTools
             if (offset.HasValue) Offset = offset.Value;
         }
 
-        public RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, Common.IPacket packet, int? offset = null, long? fileOffset = null)
-            : this(timeBase, source, FileFormat.Binary, CreatePacketHeader(packet, offset ?? 0).Concat(packet.Prepare()).ToArray(), offset, fileOffset)
+        //http://net7mma.codeplex.com/workitem/17176
+        //Text entries will need another constructor
+
+        public RtpToolEntry(DateTime timeBase, System.Net.IPEndPoint source, Common.IPacket packet, int? offset = null, long? fileOffset = null, FileFormat format = FileFormat.Binary)
+            : this(timeBase, source, format, format >= FileFormat.Binary ? CreatePacketHeader(packet, offset ?? 0).Concat(packet.Prepare()).ToArray() : null, offset, fileOffset)
         {
-            BlobLength = (int)(sizeOf_RD_packet_T + packet.Length);
+            BlobLength = format >= FileFormat.Binary ? (int)(sizeOf_RD_packet_T + packet.Length) : 0;
         }
 
         #endregion

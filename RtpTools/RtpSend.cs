@@ -1117,7 +1117,15 @@ namespace Media.RtpTools
             }
 
             //Create the resulting entry with the data contained in memory read from the reader by the writer
+
+            //http://net7mma.codeplex.com/workitem/17176
+            //Fix to provide correct format here
+            //kind of difficult because text formats are similar, would use tokens present to determine format.
+
             return new RtpToolEntry(DateTime.UtcNow.Subtract(TimeSpan.FromMilliseconds(timeOffset)), sourceInfo, builtPacket, (int)timeOffset, position);
+            //{
+            //    Format = FileFormat.Text
+            //};
         }
         
         public class Program : Common.BaseDisposable
@@ -1152,7 +1160,7 @@ namespace Media.RtpTools
 
             //Default to unknown if not found
             RtpSend.PayloadDescription description;
-            if (!RtpSend.PayloadDescriptions.TryGetValue((byte)packet.PayloadType, out description)) return RtpSend.PayloadDescription.Unknown.EncodingName;
+            if (false == RtpSend.PayloadDescriptions.TryGetValue((byte)packet.PayloadType, out description)) return RtpSend.PayloadDescription.Unknown.EncodingName;
 
             //Return the name as found
             return description.EncodingName;

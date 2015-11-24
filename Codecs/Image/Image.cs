@@ -20,12 +20,12 @@
 
     public class Image : Common.BaseDisposable
     {
-        protected Format m_Format;
-        protected int m_Width;
-        protected int m_Height;
+        protected readonly Format m_Format;
+        protected readonly int m_Width;
+        protected readonly int m_Height;
 
-        protected int m_Size;
-        protected byte[] m_Data;
+        protected readonly int m_Size;
+        protected readonly byte[] m_Data;
 
         public Image(Format format, int width, int height)
         {
@@ -82,7 +82,7 @@
                 {
                     by = m_Data[base_y + stride_y * y + x];
 
-                    if (m_Format != Format.YUV_400)
+                    if (m_Format != Format.YUV_400) //444
                     {
                         bu = m_Data[base_u + stride_u * (y / scaleY) + (x / scaleX)];
                         bv = m_Data[base_v + stride_v * (y / scaleY) + (x / scaleX)];
@@ -100,9 +100,13 @@
             int iu = u & 0xff;
             int iv = v & 0xff;
 
-            float fr = 1.164f * (iy - 16) + 1.596f * (iv - 128);
-            float fg = 1.164f * (iy - 16) - 0.391f * (iu - 128) - 0.813f * (iv - 128);
-            float fb = 1.164f * (iy - 16) + 2.018f * (iu - 128);
+            int miy = iy - 16, miv = iv - 128, miu = iu - 128;
+
+            float fiy = 1.164f * miy;
+
+            float fr = fiy + 1.596f * miv;
+            float fg = fiy - 0.391f * miu - 0.813f * miv;
+            float fb = fiy + 2.018f * miu;
 
             int ir = (int)(fr > 255 ? 255 : fr < 0 ? 0 : fr);
             int ig = (int)(fg > 255 ? 255 : fg < 0 ? 0 : fg);
