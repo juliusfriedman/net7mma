@@ -205,7 +205,7 @@
       <Project>{818bd18e-f1fe-45e3-96d4-984e76fec84d}</Project>
       <Name>Media.Cryptography</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Media.Http\Media.Http.csproj">
+    <ProjectReference Include="..\Http\Media.Http.csproj">
       <Project>{dbdbfef3-a51c-4423-b2d6-aa9d014bdb9e}</Project>
       <Name>Media.Http</Name>
     </ProjectReference>

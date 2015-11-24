@@ -4,52 +4,35 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{2DC7FD7B-2497-480B-A927-17F4846E5C74}</ProjectGuid>
+    <ProjectGuid>{DBDBFEF3-A51C-4423-B2D6-AA9D014BDB9E}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Media.Rtsp</RootNamespace>
-    <AssemblyName>Media.Rtsp</AssemblyName>
+    <RootNamespace>Media.Http</RootNamespace>
+    <AssemblyName>Media.Http</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>
     <SccLocalPath>SAK</SccLocalPath>
     <SccAuxPath>SAK</SccAuxPath>
     <SccProvider>SAK</SccProvider>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>
+    </DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup>
-    <SignAssembly>false</SignAssembly>
-  </PropertyGroup>
-  <PropertyGroup>
-    <AssemblyOriginatorKeyFile>
-    </AssemblyOriginatorKeyFile>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'x64_Release|AnyCPU'">
-    <OutputPath>bin\x64_Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -57,22 +40,25 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\Common\Properties\MediaAssemblyInfo.cs">
-      <Link>Properties\MediaAssemblyInfo.cs</Link>
+      <Link>MediaAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaAssemblyVersionInfo.cs">
-      <Link>Properties\MediaAssemblyVersionInfo.cs</Link>
+      <Link>MediaAssemblyVersionInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaCLSComplaintInfo.cs">
-      <Link>Properties\MediaCLSComplaintInfo.cs</Link>
+      <Link>MediaCLSComplaintInfo.cs</Link>
     </Compile>
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
-      <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
+      <Link>MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="HttpClient.cs" />
+    <Compile Include="HttpContent.cs" />
+    <Compile Include="HttpCookie.cs" />
+    <Compile Include="HttpCookieCollection.cs" />
+    <Compile Include="HttpHeaders.cs" />
+    <Compile Include="HttpMessage.cs" />
+    <Compile Include="HttpSession.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RtspClient.cs" />
-    <Compile Include="RtspHeaders.cs" />
-    <Compile Include="RtspMessage.cs" />
-    <Compile Include="RtspSession.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Media.Common.csproj">
@@ -82,22 +68,6 @@
     <ProjectReference Include="..\Cryptography\Media.Cryptography.csproj">
       <Project>{818bd18e-f1fe-45e3-96d4-984e76fec84d}</Project>
       <Name>Media.Cryptography</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Http\Media.Http.csproj">
-      <Project>{dbdbfef3-a51c-4423-b2d6-aa9d014bdb9e}</Project>
-      <Name>Media.Http</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
-      <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
-      <Name>Media.Ntp</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Rtp\Media.Rtp.csproj">
-      <Project>{fd0101f4-1d22-434c-8025-42cac8176c75}</Project>
-      <Name>Media.Rtp</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Sdp\Media.Sdp.csproj">
-      <Project>{cbe0c273-fb54-46e5-9a28-21c325a85d15}</Project>
-      <Name>Media.Sdp</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
