@@ -121,9 +121,9 @@
       <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
       <Name>Media.Codecs.Image</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Media.Codecs.csproj">
+    <ProjectReference Include="..\Codecs\Media.Codec.csproj">
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
-      <Name>Media.Codecs</Name>
+      <Name>Media.Codec</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\H264\Media.Codecs.Video.H264.csproj">
       <Project>{ff0ee03e-0a02-40f1-8064-d055ef41f949}</Project>

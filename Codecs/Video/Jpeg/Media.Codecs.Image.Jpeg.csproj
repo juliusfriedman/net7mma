@@ -75,9 +75,9 @@
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
       <Name>Media.Compression</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Media.Codecs.csproj">
+    <ProjectReference Include="..\..\Media.Codec.csproj">
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
-      <Name>Media.Codecs</Name>
+      <Name>Media.Codec</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
