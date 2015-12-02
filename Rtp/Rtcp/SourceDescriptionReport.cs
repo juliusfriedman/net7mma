@@ -201,7 +201,7 @@ namespace Media.Rtcp
             readonly byte[] m_OwnedOctets;
 
             /// <summary>
-            /// A reference to the octets which contain the data this instance.
+            /// A reference to the octets which contain the data of this instance. (Including ItemType and ItemLength)
             /// </summary>
             internal protected readonly IEnumerable<byte> Data;
 
@@ -336,7 +336,7 @@ namespace Media.Rtcp
             /// <summary>
             /// Returns the 8 bit value of the Length field unless the Type is End Of list, then the amount of null octets is returned.
             /// </summary>
-            public int ItemLength { get { return ItemType == 0 ? ItemData.Count() - 1 : Data.Skip(1).First(); } }
+            public int ItemLength { get { return ItemType == SourceDescriptionItemType.End ? ItemData.Count() - 1 : Data.Skip(1).First(); } }
 
             #endregion
 

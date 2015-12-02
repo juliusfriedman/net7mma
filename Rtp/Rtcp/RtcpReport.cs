@@ -157,9 +157,11 @@ namespace Media.Rtcp
         {
             get
             {
-                if (false == HasReports || IsDisposed) return Enumerable.Empty<byte>();
+                if (false == HasReports || IsDisposed) return Common.MemorySegment.Empty;
                 
-                return Payload.Take(ReportBlockOctets);
+                //return Payload.Take(ReportBlockOctets);
+
+                return new Common.MemorySegment(Payload.Array, Payload.Offset, ReportBlockOctets);
             }
         }
 
@@ -172,11 +174,14 @@ namespace Media.Rtcp
         {
             get
             {
-                if (false == HasExtensionData) return Enumerable.Empty<byte>();
+                if (false == HasExtensionData) return Common.MemorySegment.Empty;
 
                 //return Payload.Reverse().Skip(PaddingOctets).Reverse();
 
-                return Payload.Skip(ReportBlockOctets).Take(ExtensionDataOctets);
+                //return Payload.Skip(ReportBlockOctets).Take(ExtensionDataOctets);
+
+                return new Common.MemorySegment(Payload.Array, Payload.Offset + ReportBlockOctets, ExtensionDataOctets);
+
             }
             //internal protected set
             //{
@@ -221,35 +226,31 @@ namespace Media.Rtcp
 
         #region Instance Methods       
 
-        internal protected virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int maxOffset = 0)//, int blockSize = ReportBlock.ReportBlockSize)
+        internal protected virtual IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)//, int blockSize = ReportBlock.ReportBlockSize)
         {
-            //for (int
-            //    blockCounter = BlockCount,
-            //    paddingOctets = PaddingOctets,
-            //    count = Payload.Count - paddingOctets - offset,//Payload.Count - paddingOctets - ReportBlockOctets - offset,
-            //    localOffset = Payload.Offset + offset;
-            //    //
-            //    false == IsDisposed &&
-            //    --blockCounter >= 0 &&
-            //    count > 0; /**/)
-
-            //could just trust offset >= 0 and then -= offset each iter, 
-            for (int blockCounter = BlockCount, localOffset = Payload.Offset; maxOffset > 0 && false == IsDisposed && --blockCounter >= 0; )
+            //Loop for the BlockCount, bounded by BlockCount and count of bytes in the ReportData
+            for (int currentSize = 0, count = ReportBlockOctets, blockCounter = BlockCount, localOffset = Payload.Offset + offset; 
+                count > 0 && false == IsDisposed && --blockCounter >= 0; 
+                count -= currentSize) //Subtract the currentSize each iteration
             {
-                using (ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, localOffset, maxOffset)))
+                //Create the report block using the payload data available
+                using (ReportBlock current = new ReportBlock(new Common.MemorySegment(Payload.Array, localOffset, count)))
                 {
+                    //Yield the current block
                     yield return current;
 
-                    localOffset += current.Size;
+                    //Read the current size
+                    currentSize = current.Size;
 
-                    maxOffset -= current.Size;
+                    //Move the local offset
+                    localOffset += currentSize;
                 }
             }
         }
 
-        public virtual IEnumerator<IReportBlock> GetEnumerator() //Should take offset and count? 
+        public virtual IEnumerator<IReportBlock> GetEnumerator()
         {
-            return GetEnumeratorInternal(ReportBlockOctets); //Header.Size);//
+            return GetEnumeratorInternal();
         }
 
         #endregion
@@ -281,6 +282,10 @@ namespace Media.Rtcp
 
             AddBytesToPayload(reportBlock.BlockData, 0, reportBlockSize);
         }       
+
+        //RemoveAt index?
+
+        //Insert?
 
         public virtual bool Remove(IReportBlock reportBlock)
         {

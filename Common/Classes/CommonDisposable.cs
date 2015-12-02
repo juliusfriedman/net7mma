@@ -11,6 +11,11 @@ namespace Media.Common
     /// </summary>
     public class CommonDisposable : BaseDisposable
     {
+        
+        //Could store Created time?
+
+        //public readonly DateTime Created = DateTime.UtcNow;
+
         public CommonDisposable(bool shouldDispose) : base(shouldDispose) { }
     }
 

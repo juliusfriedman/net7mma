@@ -35,24 +35,73 @@ namespace Media.Rtcp.Expansion
             //RtcpPacket.TryMapImplementation(206, typeof(RtcpFeedbackPacket));
 
         }
-
+        
+        //Could be named RtcpFeedbackReport
         public class RtcpFeedbackPacket : RtcpReport
         {
-            public RtcpFeedbackPacket(int version, int type, int padding, int ssrc, byte[] feedbackControlInformation)
-                : base(version, type, padding, ssrc, 0, 0, feedbackControlInformation != null ? feedbackControlInformation.Length : 0)
+            public RtcpFeedbackPacket(int version, int type, int format, int padding, int ssrc, int mssrc, byte[] feedbackControlInformation)
+                : base(version, type, padding, ssrc, /*format*/0, 0, feedbackControlInformation != null ? 4 + feedbackControlInformation.Length : 4)
             {
+                //Set the FMT field
+                BlockCount = format;
 
-                //type must be either RTPFB or PSFB ? FIR
+                //Write the MediaSynchronizationSourceIdentifier
+                Common.Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)mssrc);
 
+                //Copy the FCI Data
                 if (feedbackControlInformation != null)
-                    feedbackControlInformation.CopyTo(Payload.Array, Payload.Offset);
+                    feedbackControlInformation.CopyTo(Payload.Array, Payload.Offset + Common.Binary.BytesPerInteger);
+            }
+
+            public FeedbackControlInformationType Format
+            {
+                get
+                {
+                    return (FeedbackControlInformationType)BlockCount;
+                }
+                set
+                {
+                    BlockCount = (byte)value;
+                }
+            }
+
+            public int MediaSynchronizationSourceIdentifier
+            {
+                get
+                {
+
+                    return (int)Common.Binary.ReadU32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian);
+                }
+                set
+                {
+                    Common.Binary.Write32(Payload.Array, Payload.Offset, BitConverter.IsLittleEndian, (uint)value);
+                }
             }
 
             public IEnumerable<byte> FeedbackControlInformation
             {
-                get { return ExtensionData; }
+                get { return Payload.Skip(Common.Binary.BytesPerInteger); }
+            }
+
+            public override IEnumerable<byte> ReportData
+            {
+                get
+                {
+                    return FeedbackControlInformation;
+                }
             }
 
         }
+
+        //public class NackPacket : RtcpFeedbackPacket
+        //{
+        //    public const int Format = 1;
+
+        //    //public NackPacket(IEnumerable<int> lostPackets)
+        //    //    :base(2, 1, 0, 0, null)
+        //    //{
+
+        //    //}
+        //}
     }
 }

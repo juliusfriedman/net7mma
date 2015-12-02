@@ -203,11 +203,11 @@ namespace Media.UnitTests
 
                 //}
 
-                while (double.IsInfinity(sw.ElapsedNanoseconds))
-                {
-                    sw.Timer.m_Clock.NanoSleep(0);
-                    //sw.Timer.m_Counter.Join(0);
-                }
+                //while (double.IsInfinity(sw.ElapsedNanoseconds))
+                //{
+                //    sw.Timer.m_Clock.NanoSleep(0);
+                //    //sw.Timer.m_Counter.Join(0);
+                //}
 
                 //while (sw.ElapsedNanoseconds == 0.0 && sw.Elapsed == System.TimeSpan.Zero)
                 //{

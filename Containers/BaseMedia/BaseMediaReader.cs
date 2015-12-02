@@ -848,6 +848,9 @@ namespace Media.Containers.BaseMedia
 
                 var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
 
+                //H264
+                // stsd/avc1/avcC contains a field 'lengthSizeMinusOne' specifying the length. But the default is 4.
+
                 int sampleDescriptionCount = sampleDescriptionBox == null ? 0 : Common.Binary.Read32(sampleDescriptionBox.Data, LengthSize, BitConverter.IsLittleEndian);
 
                 byte channels = 0, bitDepth = 0;
@@ -1043,7 +1046,6 @@ namespace Media.Containers.BaseMedia
 
         public override byte[] GetSample(Track track, out TimeSpan duration)
         {
-
             //Could be moved to track.
 
             //Track has sample count.
