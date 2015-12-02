@@ -86,7 +86,7 @@ namespace Media.Rtcp
         /// <param name="payloadType">The optional <see cref="RtcpPacket.PayloadType"/> of all packets</param>
         /// <param name="ssrc">The optional <see cref="RtcpPacket.SynchronizationSourceIdentifier"/> of all packets</param>
         /// <returns>A pointer to each packet found</returns>
-        public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int offset, int count, int version = 2, int? payloadType = null, int? ssrc = null)
+        public static IEnumerable<RtcpPacket> GetPackets(byte[] array, int offset, int count, int version = 2, int? payloadType = null, int? ssrc = null, bool shouldDispose = true)
         {
 
             //array.GetLowerBound(0) for VB, UpperBound(0) is then the index of the last element
@@ -118,7 +118,7 @@ namespace Media.Rtcp
                     int lengthInBytes = headerSize > remains ? 0 : Binary.MachineWordsToBytes((ushort)(header.LengthInWordsMinusOne + 1)); 
 
                     //Create a packet using the existing header and the bytes left in the packet
-                    using (RtcpPacket newPacket = new RtcpPacket(header, lengthInBytes == 0 ? MemorySegment.Empty : new MemorySegment(array, offset + headerSize, Binary.Clamp(lengthInBytes - headerSize, 0, remains - headerSize))))
+                    using (RtcpPacket newPacket = new RtcpPacket(header, lengthInBytes == 0 ? MemorySegment.Empty : new MemorySegment(array, offset + headerSize, Binary.Clamp(lengthInBytes - headerSize, 0, remains - headerSize)), shouldDispose))
                     {
                         lengthInBytes = headerSize + newPacket.Payload.Count;
 
@@ -247,7 +247,7 @@ namespace Media.Rtcp
             //The Payload property must be assigned otherwise the properties will not function in the instance.
             //Payload = new Common.MemorySegment(m_OwnedOctets, shouldDispose);
 
-            Payload = new Common.MemorySegment(buffer, offset + headerLength, count - headerLength, shouldDispose);
+            Payload = new Common.MemorySegment(buffer, offset + headerLength, packetLength - headerLength, shouldDispose);
 
             m_OwnedOctets = Payload.Array;
         }
@@ -523,6 +523,8 @@ namespace Media.Rtcp
                  if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
 
                  return Payload.Take(Payload.Count - PaddingOctets);
+
+                 //return new Common.MemorySegment(Payload.Array, Payload.Offset, Payload.Count - PaddingOctets);
              }
          }
 
@@ -537,9 +539,11 @@ namespace Media.Rtcp
 
                 return Payload.Skip(Payload.Count - PaddingOctets);
 
-                //return Payload.Reverse().Take(PaddingOctets).Reverse();
+                ////return Payload.Reverse().Take(PaddingOctets).Reverse();
 
                 //int padding = PaddingOctets;
+
+                //if (padding == 0) return Common.MemorySegment.Empty;
 
                 //return new Common.MemorySegment(Payload.Array, (Payload.Offset + Payload.Count) - padding, padding);
             }

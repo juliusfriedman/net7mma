@@ -49,6 +49,7 @@ namespace Media.Sdp
         unknown = 0,
         audio,
         video,
+        //image?
         text,
         timing,
         application,

@@ -180,13 +180,13 @@ namespace Media.Rtcp
 
         #endregion
 
-        public override int ReportBlockOctets
-        {
-            get
-            {
-                return base.ReportBlockOctets + SendersInformationSize;
-            }
-        }
+        //public override int ReportBlockOctets
+        //{
+        //    get
+        //    {
+        //        return base.ReportBlockOctets - SendersInformationSize;
+        //    }
+        //}
 
         /// <summary>
         /// Retrieves the the segment of data which corresponds to any ReportBlocks contained in the SendersReport after the SendersInformation.
@@ -195,9 +195,12 @@ namespace Media.Rtcp
         {
             get
             {
-                if (false == HasReports) return Enumerable.Empty<byte>(); 
+                if (false == HasReports || IsDisposed) return Common.MemorySegment.Empty;
                 
-                return Payload.Skip(SendersInformationSize).Take(ReportBlockOctets);
+                //return Payload.Skip(SendersInformationSize).Take(ReportBlockOctets);
+
+                return new Common.MemorySegment(Payload.Array, Payload.Offset + SendersInformationSize, ReportBlockOctets);
+
             }
         }
 
@@ -209,19 +212,21 @@ namespace Media.Rtcp
         {
             get
             {
+                //Used to use Take to allow this to proceed without an exception
+                //if (Payload.Count < SendersInformationSize) return Common.MemorySegment.Empty;
+
                 return new Common.MemorySegment(Payload.Array, Payload.Offset, SendersInformationSize);
-                // Payload.Take(SendersInformationSize); 
             }
         }
 
       
         #endregion
 
-        internal protected override IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = SendersInformationSize)//, int blockSize = ReportBlock.ReportBlockSize)
+        internal protected override IEnumerator<IReportBlock> GetEnumeratorInternal(int offset = 0)
         {
-            return base.GetEnumeratorInternal(offset);//, blockSize);
+            //The SendersReport ReportBlocks start after the SendersInformation
+            return base.GetEnumeratorInternal(offset + SendersInformationSize);
         }
-
     }
 
     #endregion
