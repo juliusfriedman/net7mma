@@ -61,7 +61,10 @@
     <Compile Include="..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="IVideoCodec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="VideoSample.cs" />
+    <Compile Include="VideoInfoHeader.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
@@ -75,6 +78,14 @@
     <ProjectReference Include="..\..\Compression\Media.Compression.csproj">
       <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
       <Name>Media.Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Image\Media.Codecs.Image.csproj">
+      <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
+      <Name>Media.Codecs.Image</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Codec.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codec</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

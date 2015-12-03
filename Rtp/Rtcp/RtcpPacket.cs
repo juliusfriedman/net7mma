@@ -468,6 +468,7 @@ namespace Media.Rtcp
         /// <param name="octets">The octets to add</param>
         /// <param name="offset">The offset to start copying</param>
         /// <param name="count">The amount of bytes to copy</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset = 0, int count = int.MaxValue, bool setLength = true) //overload for padd if necessary?
         {
             if (IsReadOnly) throw new InvalidOperationException("Can only set the AddBytesToPayload when IsReadOnly is false.");
@@ -493,6 +494,8 @@ namespace Media.Rtcp
 
             //Create a pointer to the owned octets.
             Payload = new Common.MemorySegment(m_OwnedOctets);
+
+            //Old Payload GC
 
             //Set the length in words minus one in the header
             if(setLength) SetLengthInWordsMinusOne();
@@ -522,9 +525,9 @@ namespace Media.Rtcp
              {
                  if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
 
-                 return Payload.Take(Payload.Count - PaddingOctets);
+                 //return Payload.Take(Payload.Count - PaddingOctets);
 
-                 //return new Common.MemorySegment(Payload.Array, Payload.Offset, Payload.Count - PaddingOctets);
+                 return new Common.MemorySegment(Payload.Array, Payload.Offset, Payload.Count - PaddingOctets);
              }
          }
 
@@ -535,17 +538,17 @@ namespace Media.Rtcp
         {
             get
             {
-                if (IsDisposed || Payload.Count == 0 || false == Padding) return Media.Common.MemorySegment.EmptyBytes;
+                if (IsDisposed || false == IsComplete || Payload.Count == 0 || false == Padding) return Media.Common.MemorySegment.Empty;
 
-                return Payload.Skip(Payload.Count - PaddingOctets);
+                //return Payload.Skip(Payload.Count - PaddingOctets);
 
                 ////return Payload.Reverse().Take(PaddingOctets).Reverse();
 
-                //int padding = PaddingOctets;
+                int padding = PaddingOctets;
 
-                //if (padding == 0) return Common.MemorySegment.Empty;
+                if (padding == 0) return Common.MemorySegment.Empty;
 
-                //return new Common.MemorySegment(Payload.Array, (Payload.Offset + Payload.Count) - padding, padding);
+                return new Common.MemorySegment(Payload.Array, (Payload.Offset + Payload.Count) - padding, padding);
             }
         }
 
@@ -575,7 +578,7 @@ namespace Media.Rtcp
                 
             }
             catch { throw; } //If anything goes wrong deliver the exception
-            finally { binarySequence = null; } //When the stack is cleaned up remove the refernce to the binarySequence
+            finally { binarySequence = null; } //When the stack is cleaned up remove the reference to the binarySequence
         }
 
         /// <summary>
@@ -588,6 +591,8 @@ namespace Media.Rtcp
 
             //If the packet is complete then return
             if (IsDisposed || IsComplete) return 0;
+
+            //Needs to account for buffer or socket.
 
             //Calulcate the amount of octets remaining in the RtcpPacket including the header
             int octetsRemaining = ((ushort)(Header.LengthInWordsMinusOne + 1)) * 4 - Length, offset = Payload != null ? Payload.Count : 0;

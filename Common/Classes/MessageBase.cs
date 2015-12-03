@@ -20,22 +20,31 @@ namespace Media.Common.Classes
 
     public abstract class MessageBase : CommonDisposable, IPacket
     {
-
         /// <summary>
         /// The Date and Time the message was created.
         /// </summary>
         public readonly DateTime Created = DateTime.UtcNow;
 
+        /// <summary>
+        /// The Date and time the message was transferred
+        /// </summary>
         public DateTime? Transferred;
 
-        public MessageBase()
+        /// <summary>
+        /// A string which identifies the protocol of the message.
+        /// </summary>
+        public readonly string Protocol;
+
+        public MessageBase(string protocol)
             : base(true)
         {
+            if (string.IsNullOrWhiteSpace(protocol)) 
+                throw new ArgumentException("Cannot be null or consist only of whitespace.", "protocol");
 
+            Protocol = protocol;
         }
 
         public MessageType MessageType { get; protected set; }
-
 
         DateTime IPacket.Created
         {
@@ -58,6 +67,5 @@ namespace Media.Common.Classes
         public abstract int CompleteFrom(System.Net.Sockets.Socket socket, MemorySegment buffer);
 
         public abstract IEnumerable<byte> Prepare();
-
     }
 }

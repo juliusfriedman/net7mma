@@ -1097,15 +1097,8 @@ namespace Media.Rtcp
         /// </summary>
         public override int ReportBlockOctets
         {
-            //get { return GetChunkIterator().Sum(sc => sc.Size); }
-
-            //Doesn't check header ssrc
-
-            //get { return Payload.Count - PaddingOctets + Binary.BytesPerInteger; }
-
             //The Header may have a ssrc, the ssrc is in the header
-
-            get { return Payload.Count - PaddingOctets + Header.Size - RtcpHeader.Length; }
+            get { return false == IsDisposed && HasReports ? Payload.Count - PaddingOctets + Header.Size - RtcpHeader.Length : 0; }
         }
 
         #endregion

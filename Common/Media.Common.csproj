@@ -57,9 +57,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Classes\Composed.cs" />
     <Compile Include="Classes\EventArgsEx.cs" />
-    <Compile Include="Classes\FileInfoEx.cs" />
     <Compile Include="Classes\LifetimeDisposable.cs" />
     <Compile Include="Classes\MessageBase.cs" />
     <Compile Include="Classes\Text\ASCII.cs" />
@@ -72,7 +70,6 @@
     <Compile Include="Classes\CommonDisposable.cs" />
     <Compile Include="Collections\SocketCollection.cs" />
     <Compile Include="Collections\ThreadCollection.cs" />
-    <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Extensions\ArrayExtensions.cs" />
     <Compile Include="Extensions\DebugExtensions.cs" />
     <Compile Include="Extensions\Delegate.cs" />
@@ -116,7 +113,6 @@
     <Compile Include="Extensions\TimeSpanExtensions.cs" />
     <Compile Include="Classes\Text\Unicode.cs" />
     <Compile Include="Classes\Text\UTF8.cs" />
-    <Compile Include="Classes\StreamAdapter.cs" />
     <Compile Include="Utility.cs" />
   </ItemGroup>
   <ItemGroup>

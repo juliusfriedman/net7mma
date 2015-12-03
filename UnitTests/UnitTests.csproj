@@ -86,6 +86,18 @@
       <Project>{c2628db8-9d97-4655-b861-605a9e9fa6d7}</Project>
       <Name>Media.Codecs.Audio.Ac3</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Alaw\Media.Codecs.Audio.Alaw.csproj">
+      <Project>{69b3b221-7989-4e14-b6b1-5b5fb7286a85}</Project>
+      <Name>Media.Codecs.Audio.Alaw</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Flac\Media.Codecs.Audio.Flac.csproj">
+      <Project>{c0dc5de4-57e1-4417-a149-d5ffca08efd8}</Project>
+      <Name>Media.Codecs.Audio.Flac</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\G722\Media.Codecs.Audio.G722.csproj">
+      <Project>{19bd7555-aa72-4d43-ab7a-88b2165f0508}</Project>
+      <Name>Media.Codecs.Audio.G722</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Audio\Media.Codecs.Audio.csproj">
       <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
       <Name>Media.Codecs.Audio</Name>
@@ -94,25 +106,61 @@
       <Project>{4305ddf6-3c8b-4fe6-8de9-3e81c5d9126a}</Project>
       <Name>Media.Codecs.Audio.Mp3</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Mulaw\Media.Codecs.Audio.MuLaw.csproj">
+      <Project>{1f7a8313-912f-4c5b-b284-d46d8e2f50d2}</Project>
+      <Name>Media.Codecs.Audio.MuLaw</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Audio\Vorbis\Media.Codecs.Audio.Vorbis.csproj">
+      <Project>{80982b6f-ebbc-4dd5-bcee-c3bfb6f6d498}</Project>
+      <Name>Media.Codecs.Audio.Vorbis</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Bmp\Media.Codecs.Image.Bmp.csproj">
+      <Project>{7c182e2c-bda8-46ec-9dc8-8b25e1da6861}</Project>
+      <Name>Media.Codecs.Image.Bmp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Gif\Media.Codecs.Image.Gif.csproj">
+      <Project>{49562bd8-e15a-4893-842d-e3865d87f94d}</Project>
+      <Name>Media.Codecs.Image.Gif</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Jpeg\Media.Codecs.Image.Jpeg.csproj">
+      <Project>{a12d2eda-c1ba-4d4e-8e7d-38f8048bc161}</Project>
+      <Name>Media.Codecs.Image.Jpeg</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Image\Media.Codecs.Image.csproj">
       <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
       <Name>Media.Codecs.Image</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Image\Png\Media.Codecs.Image.Png.csproj">
+      <Project>{e706f847-f7ed-41fa-9e18-042a738d5dfa}</Project>
+      <Name>Media.Codecs.Image.Png</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Media.Codec.csproj">
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
       <Name>Media.Codec</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\H261\Media.Codecs.Video.H261.csproj">
+      <Project>{2122a2d0-6cb5-42c0-91dd-b5f627fc5e82}</Project>
+      <Name>Media.Codecs.Video.H261</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\H263\Media.Codecs.Video.H263.csproj">
+      <Project>{b2968620-3159-4978-952f-6f138f97a89a}</Project>
+      <Name>Media.Codecs.Video.H263</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\H264\Media.Codecs.Video.H264.csproj">
       <Project>{ff0ee03e-0a02-40f1-8064-d055ef41f949}</Project>
       <Name>Media.Codecs.Video.H264</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Video\Jpeg\Media.Codecs.Image.Jpeg.csproj">
-      <Project>{a12d2eda-c1ba-4d4e-8e7d-38f8048bc161}</Project>
-      <Name>Media.Codecs.Image.Jpeg</Name>
+    <ProjectReference Include="..\Codecs\Video\H265\Media.Codecs.Video.H265.csproj">
+      <Project>{35d3d13e-6ac5-4632-80b3-985fa37e5aae}</Project>
+      <Name>Media.Codecs.Video.H265</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\Media.Codecs.Video.csproj">
       <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
       <Name>Media.Codecs.Video</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Mpeg2\Media.Codecs.Video.Mpeg2.csproj">
+      <Project>{e923e5f2-0f50-432b-a463-ea36efea3b8a}</Project>
+      <Name>Media.Codecs.Video.Mpeg2</Name>
     </ProjectReference>
     <ProjectReference Include="..\Codecs\Video\Mpeg4\Media.Codecs.Video.Mpeg4.csproj">
       <Project>{6e191592-acc7-4444-a7e3-88258c8709fe}</Project>
@@ -121,6 +169,18 @@
     <ProjectReference Include="..\Codecs\Video\Mpeg\Media.Codecs.Video.Mpeg.csproj">
       <Project>{667cde0b-0ae3-4df5-9d81-d91ef0bdceda}</Project>
       <Name>Media.Codecs.Video.Mpeg</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Thor\Media.Codecs.Video.Thor.csproj">
+      <Project>{664025b0-6dd0-4f1a-979a-b87746698f84}</Project>
+      <Name>Media.Codecs.Video.Thor</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\Vp8\Media.Codecs.Video.Vp8.csproj">
+      <Project>{b1b5feae-53f4-47c5-80d6-7d9bebf32f84}</Project>
+      <Name>Media.Codecs.Video.Vp8</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Codecs\Video\VP9\Media.Codecs.Video.Vp9.csproj">
+      <Project>{d07d22ea-bdb9-42c6-9996-d64cc9c1cc0b}</Project>
+      <Name>Media.Codecs.Video.Vp9</Name>
     </ProjectReference>
     <ProjectReference Include="..\Common\Media.Common.csproj">
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
@@ -193,6 +253,10 @@
     <ProjectReference Include="..\Ntp\Media.Ntp.csproj">
       <Project>{fa1cbaf1-50d9-4af8-a4f4-b2101db9c878}</Project>
       <Name>Media.Ntp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RtcpFeedback\Media.Rtcp.Feedback.csproj">
+      <Project>{955cc3dc-0212-44a0-bdbf-72e3ed0ee286}</Project>
+      <Name>Media.Rtcp.Feedback</Name>
     </ProjectReference>
     <ProjectReference Include="..\Rtmp\Media.Rtmp.csproj">
       <Project>{ce4ff4bf-1c21-440a-bd39-25b809803e71}</Project>

@@ -25,7 +25,7 @@ namespace Media.Codecs.Audio
         /// <summary>
         /// The size of the basic structure
         /// </summary>
-        public const uint BytesPer = 18;
+        public const int BytesPer = 18;
 
         /// <summary>
         /// The different formats allowable. For now PCM is the only one we support
@@ -170,6 +170,7 @@ namespace Media.Codecs.Audio
             return s;
         }
 
+        //Not really needed, could be used in constructor.
         /// <summary>
         /// Set the data from a byte array (usually read from a file)
         /// </summary>
@@ -224,12 +225,14 @@ namespace Media.Codecs.Audio
             return new string(rawData);
         }
 
+        //Could all be static except Validate
+
         /// <summary>
         /// Calculate the duration of audio based on the size of the buffer
         /// </summary>
         /// <param name="audioDataSize">the buffer size in bytes</param>
         /// <returns>The duration of that buffer</returns>
-        public long AudioDurationFromBufferSize(uint audioDataSize)
+        public long AudioDurationFromBufferSize(int audioDataSize)
         {
             if (this.AvgBytesPerSec == 0)
             {

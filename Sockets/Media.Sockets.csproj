@@ -59,6 +59,7 @@
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Connection.cs" />
+    <Compile Include="DisposableWaitHandle.cs" />
     <Compile Include="IPAddressInformation.cs" />
     <Compile Include="IPNetworkConnection.cs" />
     <Compile Include="Listener.cs" />

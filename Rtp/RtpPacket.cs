@@ -184,11 +184,17 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || false == IsComplete || Payload.Count == 0 || false == Padding) yield break;
+                if (IsDisposed || false == IsComplete || Payload.Count == 0 || false == Padding) return Media.Common.MemorySegment.Empty;
 
                 //return Payload.Reverse().Take(PaddingOctets).Reverse();
 
-                for (int  p = PaddingOctets, e = Payload.Count, i = e - p; i < e; ++i) yield return Payload[i];
+                int padding = PaddingOctets;
+
+                if (padding == 0) return Common.MemorySegment.Empty;
+
+                return new Common.MemorySegment(Payload.Array, (Payload.Offset + Payload.Count) - padding, padding);
+
+                //for (int  p = PaddingOctets, e = Payload.Count, i = e - p; i < e; ++i) yield return Payload[i];
             }
         }
 
@@ -198,6 +204,7 @@ namespace Media.Rtp
         /// <param name="octets">The octets to add</param>
         /// <param name="offset">The offset to start copying</param>
         /// <param name="count">The amount of bytes to copy</param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         internal protected virtual void AddBytesToPayload(IEnumerable<byte> octets, int offset = 0, int count = int.MaxValue)
         {
             if (IsReadOnly) throw new InvalidOperationException("Can only set the AddBytesToPayload when IsReadOnly is false.");
@@ -222,6 +229,8 @@ namespace Media.Rtp
 
             //Create a pointer to the owned octets.
             Payload = new Common.MemorySegment(m_OwnedOctets, 0, m_OwnedOctets.Length);
+
+            //Old Payload will be GC
 
             //Return
             return;
@@ -534,7 +543,7 @@ namespace Media.Rtp
                 SynchronizationSourceIdentifier = Header.SynchronizationSourceIdentifier,
                 PayloadType = Header.PayloadType,
                 ContributingSourceCount = includeSourceList ? Header.ContributingSourceCount : 0
-            }.Concat(binarySequence).ToArray(), 0) { Transferred = this.Transferred };
+            }.Concat(binarySequence).ToArray(), 0) { Transferred = Transferred };
         }
 
         /// <summary>

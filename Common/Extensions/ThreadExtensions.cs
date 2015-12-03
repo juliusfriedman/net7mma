@@ -50,7 +50,7 @@ namespace Media.Common.Extensions.Thread
         /// </summary>
         public const int MinimumStackSize = 1;
 
-        public static void Abort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
+        public static void AbortAndFree(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             //If the worker IsAlive and has the requested state.
             if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
@@ -72,7 +72,7 @@ namespace Media.Common.Extensions.Thread
             }
         }
 
-        public static void Abort(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
+        public static void AbortAndFree(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
         {
             //If the worker IsAlive and has the requested state.
             if (thread != null && (thread.IsAlive && thread.ThreadState.HasFlag(state)))
@@ -94,17 +94,17 @@ namespace Media.Common.Extensions.Thread
             }
         }
 
-        public static bool TryAbort(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
+        public static bool TryAbortAndFree(ref System.Threading.Thread thread, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped, int timeout = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
-            try { Abort(ref thread, state, timeout); }
+            try { AbortAndFree(ref thread, state, timeout); }
             catch { return false; }
 
             return thread == null;
         }
 
-        public static bool TryAbort(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
+        public static bool TryAbortAndFree(ref System.Threading.Thread thread, System.TimeSpan timeout, System.Threading.ThreadState state = System.Threading.ThreadState.Stopped)
         {
-            try { Abort(ref thread, timeout, state); }
+            try { AbortAndFree(ref thread, timeout, state); }
             catch { return false; }
 
             return thread == null;

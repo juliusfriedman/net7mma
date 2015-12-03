@@ -40,7 +40,7 @@ namespace Media.Common.Extensions
 {
     public static class RuntimeExtensions
     {
-        internal static System.Type MonoType = System.Type.GetType("Mono.Runtime");
+        internal static readonly System.Type MonoType = System.Type.GetType("Mono.Runtime");
 
         public static bool IsMono { get { return MonoType != null; } }
 

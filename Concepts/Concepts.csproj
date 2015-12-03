@@ -64,6 +64,8 @@
     <Compile Include="Classes\BindableBase.cs" />
     <Compile Include="Classes\Bus.cs" />
     <Compile Include="Classes\Clock.cs" />
+    <Compile Include="Classes\Composed.cs" />
+    <Compile Include="Classes\Disposable.cs" />
     <Compile Include="Classes\Experimental.cs" />
     <Compile Include="Classes\Machine.cs" />
     <Compile Include="Classes\Stopwatch.cs" />

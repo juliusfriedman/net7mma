@@ -393,6 +393,7 @@
   <ItemGroup>
     <None Include="Reference\AC3.pdf" />
     <None Include="Reference\MpegTS-PES.pdf" />
+    <None Include="Reference\T-REC-H.264-200305-S.pdf" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Codecs\Audio\Wave\bin\Debug\" />

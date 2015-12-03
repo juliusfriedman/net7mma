@@ -73,7 +73,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RFC3550.cs" />
     <Compile Include="Rtcp\AppplicationSpecificReport.cs" />
-    <Compile Include="Rtcp\Expansion\RFC4585.cs" />
     <Compile Include="Rtcp\GoodbyeReport.cs" />
     <Compile Include="Rtcp\IReportBlock.cs" />
     <Compile Include="Rtcp\ReceiversReport.cs" />
@@ -111,6 +110,7 @@
   <ItemGroup>
     <Content Include="License.txt" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

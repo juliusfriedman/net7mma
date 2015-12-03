@@ -2206,6 +2206,8 @@ namespace Media.Common
             WriteInteger(buffer, index, count, (ulong)value, reverse);
         }
 
+        //Could take value by ref to reduce copies..
+
         [CLSCompliant(false)]
         public static void WriteInteger(byte[] buffer, int index, int count, ulong value, int shift = Binary.BitsPerByte)
         {
@@ -2256,6 +2258,12 @@ namespace Media.Common
         public static void WriteU8(byte[] buffer, int index, bool reverse, byte value)
         {
             buffer[index] = reverse ? ReverseU8(value) : value;
+        }
+
+        [CLSCompliant(false)]
+        public static void Write8(byte[] buffer, int index, bool reverse, sbyte value)
+        {
+            buffer[index] = reverse ? ReverseU8((byte)value) : (byte)value;
         }
 
         //Todo

@@ -36,7 +36,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Common
+namespace Media.Concepts.Classes
 {
     /// <summary>
     /// Wraps the IDisposable object interface for classes that desire to be sure of being called 

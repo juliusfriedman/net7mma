@@ -433,7 +433,7 @@ namespace Media.Common.Extensions.Socket
                                 ++attempt;
 
                                 //Only if the attempts in operations were greater then the amount of bytes requried
-                                if (attempt > amount) goto case System.Net.Sockets.SocketError.TimedOut;
+                                if (attempt > amount) goto Done;//case System.Net.Sockets.SocketError.TimedOut;
 
                                 continue;
                             }

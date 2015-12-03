@@ -65,7 +65,7 @@ namespace Media.Sockets
         /// <summary>
         /// Created in <see cref="CreateWaitHandle"/>, Disposed in <see cref="Dispose"/>.
         /// </summary>
-        Common.Extensions.WaitHandle.DisposableWaitHandle WaitHandle;
+        DisposableWaitHandle WaitHandle;
 
         /// <summary>
         /// The date and time when the Connection was started.
@@ -279,7 +279,7 @@ namespace Media.Sockets
         {
             if (WaitHandle == null)
             {
-                WaitHandle = new Common.Extensions.WaitHandle.DisposableWaitHandle(handle, ownsHandle);
+                WaitHandle = new DisposableWaitHandle(handle, ownsHandle);
             }
         }
 
