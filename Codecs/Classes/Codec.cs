@@ -36,6 +36,8 @@ namespace Media.Codec
             Name = name;
 
             Id = ParseGuidAttribute(GetType());
+
+            Codecs.TryRegisterCodec(this);
         }
 
         Guid Interfaces.ICodec.Id
