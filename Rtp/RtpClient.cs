@@ -461,7 +461,7 @@ namespace Media.Rtp
                     #endregion
 
                     //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
-                    result.Add(new Rtcp.ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
+                    result.Add(new ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
                         (byte)fraction,
                         lost,
                         (int)context.SequenceNumber,
@@ -514,7 +514,7 @@ namespace Media.Rtp
 
                     //Create the ReportBlock based off the statistics of the last RtpPacket and last SendersReport
 
-                    result.Add(new Rtcp.ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
+                    result.Add(new ReportBlock((int)context.RemoteSynchronizationSourceIdentifier,
                            (byte)fraction,
                         lost,
                         (int)context.SequenceNumber,
@@ -1155,7 +1155,7 @@ namespace Media.Rtp
             /// Assigns a Non Zero value to <see cref="SynchronizationSourceIdentifier"/> to a random value based on the given seed.
             /// The value will also be different than <see cref="RemoteSynchronizationSourceIdentifier"/>.
             /// </summary>
-            internal protected void AssignIdentity(int seed = Rtcp.SendersReport.PayloadType)
+            internal protected void AssignIdentity(int seed = SendersReport.PayloadType)
             {
                 if (SynchronizationSourceIdentifier == 0)
                 {
@@ -1236,7 +1236,7 @@ namespace Media.Rtp
 
                 //o  The payload type must be known, and in particular it must not be equal to SR or RR.
 
-                if (packet.PayloadType == Rtcp.SendersReport.PayloadType || packet.PayloadType == Rtcp.ReceiversReport.PayloadType) return false;
+                if (packet.PayloadType == SendersReport.PayloadType || packet.PayloadType == ReceiversReport.PayloadType) return false;
 
                 //o  If the P bit is set, Padding must be less than the total packet length minus the header size.
                 if (packet.Padding && payloadLength > 0 && packet.PaddingOctets > payloadLength) return false;
@@ -1949,14 +1949,14 @@ namespace Media.Rtp
 
                 //Check the type
 
-                if(payloadType == Rtcp.ReceiversReport.PayloadType &&  //The packet is a RecieversReport                                       
+                if(payloadType == ReceiversReport.PayloadType &&  //The packet is a RecieversReport                                       
                     blockCount > 0)//There is at least 1 block
                 {
                     //Create a wrapper around the packet to access the ReportBlocks
-                    using (var rr = new Rtcp.ReceiversReport(packet, false))
+                    using (var rr = new ReceiversReport(packet, false))
                     {
                         //Iterate each contained ReportBlock
-                        foreach (Rtcp.IReportBlock reportBlock in rr)
+                        foreach (IReportBlock reportBlock in rr)
                         {
                             int blockId = reportBlock.BlockIdentifier;
 
@@ -1981,11 +1981,11 @@ namespace Media.Rtp
                         }
                     }
                 }
-                else if (payloadType == Rtcp.GoodbyeReport.PayloadType &&
+                else if (payloadType == GoodbyeReport.PayloadType &&
                     blockCount > 0) //The GoodbyeReport report from a remote party
                 {
                     //Create a wrapper around the packet to access the source list
-                    using (var gb = new Rtcp.GoodbyeReport(packet, false))
+                    using (var gb = new GoodbyeReport(packet, false))
                     {
                         using (var sl = gb.GetSourceList())
                         {
@@ -2012,7 +2012,7 @@ namespace Media.Rtp
                         }
                     }
                 }
-                else if (payloadType == Rtcp.SendersReport.PayloadType) //The senders report from a remote party                    
+                else if (payloadType == SendersReport.PayloadType) //The senders report from a remote party                    
                 {
                     //If there is a context
                     if (transportContext != null)
@@ -3752,7 +3752,7 @@ namespace Media.Rtp
 
             foreach (var tc in TransportContexts) if(tc.IsActive) tc.DisconnectSockets();
 
-            Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref m_WorkerThread);
+            Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref m_WorkerThread);
 
             Started = DateTime.MinValue;
         }
@@ -4143,10 +4143,10 @@ namespace Media.Rtp
                                 //If this was a RtcpPacket with only 4 bytes it wouldn't have a ssrc and wouldn't be valid to be sent.
                                 if (false == incompatible &&
                                     (frameChannel == relevent.DataChannel &&
-                                    remainingInBuffer <= Rtp.RtpHeader.Length + sessionRequired)
+                                    remainingInBuffer <= RtpHeader.Length + sessionRequired)
                                     ||
                                     (frameChannel == relevent.ControlChannel &&
-                                    remainingInBuffer <= Rtcp.RtcpHeader.Length + sessionRequired))
+                                    remainingInBuffer <= RtcpHeader.Length + sessionRequired))
                                 {
                                     //Remove the context
                                     relevent = null;
@@ -4172,7 +4172,7 @@ namespace Media.Rtp
                                     {
                                         //Rtcp
 
-                                        if (remainingInBuffer <= sessionRequired + Rtcp.RtcpHeader.Length)
+                                        if (remainingInBuffer <= sessionRequired + RtcpHeader.Length)
                                         {
                                             //Remove the context
                                             relevent = null;
@@ -4184,7 +4184,7 @@ namespace Media.Rtp
                                         int rtcpLen;
 
                                         //use a rtcp header to extract the information in the packet
-                                        using (Rtcp.RtcpHeader header = new RtcpHeader(buffer, offset + sessionRequired))
+                                        using (RtcpHeader header = new RtcpHeader(buffer, offset + sessionRequired))
                                         {
                                             //Get the length in 'words' (by adding one)
                                             //A length of 0 means 1 word
@@ -4202,7 +4202,7 @@ namespace Media.Rtp
 
                                             if (false == incompatible && //It was not already ruled incomaptible
                                                 lengthInWordsPlusOne > 0 && //If there is supposed to be SSRC in the packet
-                                                header.Size > Rtcp.RtcpHeader.Length && //The header ACTUALLY contains enough bytes to have a SSRC
+                                                header.Size > RtcpHeader.Length && //The header ACTUALLY contains enough bytes to have a SSRC
                                                 false == relevent.InDiscovery)//The remote context knowns the identity of the remote stream                                                 
                                             {
                                                 //Determine if Rtcp is expected
@@ -4840,7 +4840,7 @@ namespace Media.Rtp
 
             //Send abort signal
             //Media.Common.IThreadReferenceExtensions.AbortAll(this);
-            Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref m_WorkerThread);
+            Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref m_WorkerThread);
 
             //Send abort signal to all threads contained.
             //Delegate AbortDelegate

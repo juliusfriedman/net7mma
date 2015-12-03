@@ -19,21 +19,21 @@ namespace Media.Common
     /// </summary>
     public static class IThreadReferenceExtensions
     {
-        public static void AbortAll(this IThreadReference reference, int timeoutmSec = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
+        public static void AbortAndFreeAll(this IThreadReference reference, int timeoutmSec = (int)Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond)
         {
             foreach (var tp in reference.GetReferencedThreads())
             {
                 System.Threading.Thread t = tp;
-                Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref t, System.Threading.ThreadState.Running, timeoutmSec);
+                Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref t, System.Threading.ThreadState.Running, timeoutmSec);
             }
         }
 
-        public static void AbortAll(this IThreadReference reference, System.TimeSpan timeout)
+        public static void AbortAndFreeAll(this IThreadReference reference, System.TimeSpan timeout)
         {
             foreach (var tp in reference.GetReferencedThreads())
             {
                 System.Threading.Thread t = tp;
-                Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref t, timeout, System.Threading.ThreadState.Running);
+                Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref t, timeout, System.Threading.ThreadState.Running);
             }
         }
     }

@@ -1,6 +1,6 @@
 Managed Media Aggregation `Media.Codecs.Audio.Mp3.dll`
 
-Copyright 2014
+Copyright 2015
 
 Julius.Friedman@gmail.com / (SR. Software Engineer ASTI Transportation Inc. http://www.asti-trans.com)
 
@@ -24,4 +24,5 @@ https://net7mma.codeplex.com/license
 
 for the full license text.
 
-
+Based on LGPL code originally from
+https://nlayer.codeplex.com

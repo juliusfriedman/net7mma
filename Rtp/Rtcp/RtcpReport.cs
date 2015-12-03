@@ -142,7 +142,7 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// Calculates the amount of octets contained in the Payload which belong to any ReportBlock.
+        /// Calculates the amount of octets contained in the Payload which belong to any <see cref="ReportBlock"/>.
         /// The BlockCount is obtained from the Header.
         /// </summary>
         public virtual int ReportBlockOctets
@@ -151,7 +151,7 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// Retrieves the segment of data which corresponds to all ReportBlocks contained in the RtcpReport.
+        /// Retrieves the segment of data which corresponds to all <see cref="ReportBlock"/>'s contained in the RtcpReport.
         /// </summary>
         public virtual IEnumerable<byte> ReportData
         {
@@ -250,7 +250,7 @@ namespace Media.Rtcp
 
         public virtual IEnumerator<IReportBlock> GetEnumerator()
         {
-            return GetEnumeratorInternal();
+            return GetEnumeratorInternal(0);
         }
 
         #endregion

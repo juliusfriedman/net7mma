@@ -103,7 +103,7 @@ namespace Media.Common.Extensions.TimeSpan
         //    internal long Value;
 
         //    public int Seconds { get { return (int)Value; } }  // seconds
-
+                                                                 //& int.MaxValue
         //    public int Microseconds { get { return (int)(Value << Binary.BitsPerInteger); } } // and microseconds
 
         //    public TimeValue(long microSeconds)
@@ -115,9 +115,9 @@ namespace Media.Common.Extensions.TimeSpan
 
         //}
 
-        //private static void MicrosecondsToTimeValue(long microSeconds, ref TimeValue socketTime)
+        //private static void MicrosecondsToTimeValue(long microSeconds, ref TimeValue timeValue)
         //{
-        //    socketTime.Value = microSeconds;
+        //    timeValue.Value = microSeconds;
         //}
 
     }

@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Media.Codecs.Video.Mpeg1")]
+[assembly: AssemblyTitle("Media.Codecs.Video.Mpeg4")]
 [assembly: AssemblyDescription("Implementations of various technologies related to the encoding and decoding of MPEG 4 Video")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 

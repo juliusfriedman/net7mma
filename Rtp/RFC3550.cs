@@ -223,6 +223,8 @@ namespace Media
              return packets.SelectMany(p => p.Prepare());
         }
 
+        //Needs an interface defined in Media.Cryptography
+
         /// <summary>
         /// Provides the functionality of <see cref="ToCompoundBytes"/> with the added ability or preceeding the data with a 32 bit value.
         /// If <paramref name="random"/> is greater than 0 the big endian representation of the value will be included in the returned sequence.
@@ -330,13 +332,14 @@ namespace Media
               may be needed by some encryption algorithms with fixed block sizes
               or for carrying several RTP packets in a lower-layer protocol data unit.
           */
-            
+
+            byte val;
 
             //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
-            for (; position < segmentCount; ++position)
+            while (position < segmentCount)
             {
-
-                byte val = segment[position];
+                //get the val and move the position
+                val = segment[position++];
 
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
                 if (val != default(byte))

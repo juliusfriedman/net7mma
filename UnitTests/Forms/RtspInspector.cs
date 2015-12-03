@@ -40,7 +40,7 @@ namespace Media.UnitTests
                     Client = null;
                 }
 
-                Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref ClientThreadProc);
+                Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref ClientThreadProc);
 
                 ClientThreadProc = null;
 

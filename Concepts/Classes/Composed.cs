@@ -36,7 +36,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Common
+namespace Media.Concepts.Experimental
 {
     /// <summary>
     /// Provides access to a type with no virtual call overhead.

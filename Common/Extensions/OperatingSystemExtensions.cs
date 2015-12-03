@@ -40,11 +40,11 @@ namespace Media.Common.Extensions
 {
     public static class OperatingSystemExtensions
     {
-        public static System.PlatformID EnvironmentOsPlatformId = System.Environment.OSVersion.Platform;
+        public static readonly System.PlatformID EnvironmentOsPlatformId = System.Environment.OSVersion.Platform;
 
         internal const int PlatformIdMono = 4, PlatformIdMonoMac = 6, PlatformIdMono2 = 128;
 
-        static int IntPlatformIdValue { get { return (int)EnvironmentOsPlatformId; } }
+        internal static int IntPlatformIdValue { get { return (int)EnvironmentOsPlatformId; } }
 
         //Should be taken into account when setting socket options...
 
@@ -58,7 +58,7 @@ namespace Media.Common.Extensions
                     case PlatformIdMonoMac:
                     case PlatformIdMono2:
                         return true;
-                    default: return false;
+                    default: return EnvironmentOsPlatformId == System.PlatformID.Unix;
                 }
             }
         }
@@ -71,8 +71,16 @@ namespace Media.Common.Extensions
                 {
                     case PlatformIdMonoMac:
                         return true;
-                    default: return false;
+                    default: return EnvironmentOsPlatformId == System.PlatformID.MacOSX;
                 }
+            }
+        }
+
+        public static bool IsXbox
+        {
+            get
+            {
+                return EnvironmentOsPlatformId == System.PlatformID.Xbox;
             }
         }
 
@@ -80,16 +88,16 @@ namespace Media.Common.Extensions
         {
             get
             {
-                switch (IntPlatformIdValue)
+                switch (EnvironmentOsPlatformId)
                 {
-                    case PlatformIdMono:
-                    case PlatformIdMonoMac:
-                    case PlatformIdMono2:
-                        return false;
-                    default: return true;
+                    case System.PlatformID.Win32NT:
+                    case System.PlatformID.Win32S:
+                    case System.PlatformID.Win32Windows:
+                    case System.PlatformID.WinCE:
+                        return true;
+                    default: return false;
                 }
             }
         }
-
     }
 }

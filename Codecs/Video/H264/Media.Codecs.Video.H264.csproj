@@ -60,6 +60,7 @@
     <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="NalReader.cs" />
     <Compile Include="NalUnitSubType.cs" />
     <Compile Include="NalUnitType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -71,9 +72,21 @@
       <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
       <Name>Media.Common</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\Compression\Media.Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Media.Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Image\Media.Codecs.Image.csproj">
+      <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
+      <Name>Media.Codecs.Image</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\Media.Codec.csproj">
       <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
       <Name>Media.Codec</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Codecs.Video.csproj">
+      <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
+      <Name>Media.Codecs.Video</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

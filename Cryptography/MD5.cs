@@ -2,10 +2,14 @@
 using System.Text;
 namespace Media.Cryptography
 {
+    //Needs an Interface IHashAlgorithm
+    //Would need to do some method renaming to make it work because static methods cannot implement interfaces.
+    //Could have a instance, interfacial method which calls the static method
+
     /// <summary>
     /// Implements the MD5 HashAlgorithm
     /// </summary>
-    public sealed class MD5 
+    public sealed class MD5
     {
         #region Constants
 

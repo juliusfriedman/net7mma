@@ -1118,7 +1118,7 @@ namespace Media.Rtsp
             }
 
             //Abort the worker from receiving clients
-            Media.Common.Extensions.Thread.ThreadExtensions.TryAbort(ref m_ServerThread);
+            Media.Common.Extensions.Thread.ThreadExtensions.TryAbortAndFree(ref m_ServerThread);
 
             //Dispose the server socket
             if (m_TcpServerSocket != null)

@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{664025B0-6DD0-4F1A-979A-B87746698F84}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>Media.Codecs.Video.Thor</RootNamespace>
+    <AssemblyName>Media.Codecs.Video.Thor</AssemblyName>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\Common\Properties\MediaAssemblyInfo.cs">
+      <Link>Properties\MediaAssemblyInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\Common\Properties\MediaAssemblyVersionInfo.cs">
+      <Link>Properties\MediaAssemblyVersionInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\Common\Properties\MediaCLSComplaintInfo.cs">
+      <Link>Properties\MediaCLSComplaintInfo.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
+      <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
+    </Compile>
+    <Compile Include="Class1.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Common\Media.Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Media.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Compression\Media.Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Media.Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Image\Media.Codecs.Image.csproj">
+      <Project>{f700ebee-b744-4a60-807d-22dce582c8a4}</Project>
+      <Name>Media.Codecs.Image</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Media.Codec.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codec</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Codecs.Video.csproj">
+      <Project>{fa14b24b-144d-43c1-a44e-8b7b5e849c55}</Project>
+      <Name>Media.Codecs.Video</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
