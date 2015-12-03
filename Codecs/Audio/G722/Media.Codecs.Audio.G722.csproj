@@ -50,7 +50,6 @@
     <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
-    <Compile Include="Class1.cs" />
     <Compile Include="G722Codec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
