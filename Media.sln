@@ -66,6 +66,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Reference", "Reference", "{
 		Reference\AC3.pdf = Reference\AC3.pdf
 		Reference\Information.html = Reference\Information.html
 		Reference\MpegTS-PES.pdf = Reference\MpegTS-PES.pdf
+		Reference\T-REC-H.264-200305-S.pdf = Reference\T-REC-H.264-200305-S.pdf
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Concepts", "Concepts\Concepts.csproj", "{76D6E405-4048-4588-8FC5-0895701E6D96}"

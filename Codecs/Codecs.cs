@@ -20,12 +20,12 @@ namespace Media.Codec
             return m_RegisteredCodecs.FirstOrDefault(c=> string.Compare(c.Name, name, true) == 0);
         }
 
-        public static bool RegisterCodec(Media.Codec.Interfaces.ICodec codec)
+        public static bool TryRegisterCodec(Media.Codec.Interfaces.ICodec codec)
         {
             return m_RegisteredCodecs.Add(codec);
         }
 
-        public static bool UnregisterCodec(Media.Codec.Interfaces.ICodec codec)
+        public static bool TryUnregisterCodec(Media.Codec.Interfaces.ICodec codec)
         {
             return m_RegisteredCodecs.Remove(codec);
         }
