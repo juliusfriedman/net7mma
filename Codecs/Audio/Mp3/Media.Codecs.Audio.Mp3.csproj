@@ -66,6 +66,24 @@
   <ItemGroup>
     <Reference Include="System" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Common\Media.Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Media.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Compression\Media.Compression.csproj">
+      <Project>{03504a7f-63c9-481e-8fc4-af0eaf7fb912}</Project>
+      <Name>Media.Compression</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Media.Codec.csproj">
+      <Project>{a3d7936c-acd5-458d-b1a4-96cee18dc175}</Project>
+      <Name>Media.Codec</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Media.Codecs.Audio.csproj">
+      <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
+      <Name>Media.Codecs.Audio</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

@@ -130,7 +130,7 @@
       <Project>{e4e9cabf-6c3d-49f3-b081-abc557311695}</Project>
       <Name>Media.Codecs.Audio</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Codecs\Audio\Mpeg\Media.Codecs.Audio.Mp3.csproj">
+    <ProjectReference Include="..\Codecs\Audio\Mp3\Media.Codecs.Audio.Mp3.csproj">
       <Project>{4305ddf6-3c8b-4fe6-8de9-3e81c5d9126a}</Project>
       <Name>Media.Codecs.Audio.Mp3</Name>
     </ProjectReference>
