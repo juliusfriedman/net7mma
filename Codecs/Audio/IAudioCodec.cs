@@ -15,5 +15,11 @@ namespace Media.Codecs.Audio
         //MinimumChannels
 
         //MaximumChannels
+
+        //DefaultRate
+
+        //DefaultChannels
+
+        //DefaultNumberOfSamplesPerBuffer
     }
 }

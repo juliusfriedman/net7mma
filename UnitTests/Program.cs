@@ -58,9 +58,10 @@ namespace Media.UnitTests
         /// </summary>
         static Action[] LogicTests = new Action[] { 
             //Experimental Classes (Should not be used in real code)
-            //TestStopWatch,
-            //TestClock,
-            //TestTimer,
+            TestStopWatch,
+            TestClock,
+            TestTimer,
+            //Common
             TestEncodingExtensions, 
             TestUtility, 
             TestBinary, 
@@ -1743,21 +1744,7 @@ namespace Media.UnitTests
         //Should be seperate file with more tests with known types, audio and video and also known values in the data e.g. audio unit size and length, video unit size and length.
         static void TestRFC3640AudioFrame()
         {
-
-            /*
-             Todo, put in file with class under UnitTest namespace
-             * 
-             *  These packets should make a file which can be verified byte for byte and be an exact length, the amount of access units should also be known and verified.
-             *  (sdkplayable (1))
-             *  
-                80e1360209296617bda5a14200100fd80140342c2c3a65869107a140a876175c5f0cbe12b2f5592ca9952f7255932e0b450c00003a8b2290a94e863d78cc036cfd5b11a9651761022c52243687c71a25352f86d219365d1f45f29685073b7b6e19409959545a080e12d9cd4852d0df9790ae0c9f7df8abfa46aecf566c450e4a0e7f4f678f7f5cca81e13009db9505a69c291f575b71dff9161a3d9a524556bd5862b4b2701942d3619e7022826d5ab6787e0f8bf2bd8f4ed5af3afcb0e7b155209ef3bdbf171e534586cb0834eac13c26061c3a500a31046952a1f92dea45af63581332103e524166890bdddb8b8db7c2c4440c93ee714946feb94508b4ca49f7c324b3894610102223cf30c21038866d19a9adb5e57c768d3539c121c2198872c63930a2d96f8dcabd0d332096db19f9efbc6a6fb55b2ab762b14e60411d02667e4fafa9660b004266add34743ba77292c6547bad68b612c18d55a2dba714542409e7f544376ea15a01b10a032cb4c287def045412544d0cd35f79e028b7d8d2994f0441252b3873b4f99c7a88f803385fca42d0ce1aed89a907d860763b35848a9513e3daf2af69455669455bf3dc9386dec0df43fd6fd465781ccea894d43af67076acb3608480766338c4542c03b12d45c6f2a7c307307992e30f0946d574f5f1b83983086b8cb663b27979a33ce2c8d1792da272535fd8ef74d13aac590e1319ec7427f59fc1d1de
-
-                80e1360309296a16bda5a14200100f40014234243478c50d83446bdb8e5552cdf06f8a95564a085e4a41fe0b4e01ec903854a1b88b4040dbcc7b755cfddcb3963a21bf0fa841602aa408b010dd8f17fc4fa81c41831c294ad621511120de60d8f2d19faa2ad594e1548ff4a42c3ff1b4a9e412923ccddddf18de8d44e9a6ddf82001912e17e79f2f95ee5c54fe7d464dc4921abbcac933a8113f22a6fb65f1ed2ce7efb469484c1410c855e9eccbb7abdbdb22678d67bba3b4c43ecff36e3ee0ebb69258263deed09f0db8c430d4f2b42bd9aec6e82c8f2b729c8b2ed2c143d8494e5d75e9124b8b7fb3d7bd573a9d024340eca9c53106413323269d39ff9efb620c18bf70381c0304634488208a90284f2998e2600c6918a01a75605ffe6f54391122a081b60054b334992946e1d5ba11a4ef11f2f51e56fc9707535326cb1f0e9179ad3692ee8d17cacea4f7d8ecfebbd23ac1892c43f18f41646994689ae0f93291a9987b3897971f275cab9597f097e970541d79551d54e9db1867274eec76db23072c2d10d58a28463ae50780906a537a9ea5449cda22e2ebcb8a5ebe3c61f33c361e5a0cef8d314a04310d39c40a4c8b9abad6e44170136c6c9560f2b1f306590708809dca7884e055dbdf90675ccc2e09525d859594ae7c0a4c2c937e566fd0ece543a14a6cbe03aa10f770d6d4f239fd75b94a38
-
-                80e1360409296e15bda5a14200100f70013a342910aa441692bd72a85d32d75920a978bcba94ba03420d0002008c2c6c473a7532edfc46c89033860d022d145cfdcfe9b98e3de154413022260da76749723ccc3997ce7763ca1ec5b21d664646176464ffbd9c42c158826d9ed322c717501eced94866cbaa437123d8b4e0d79f59b42eab5bf90eb4ad2ef7ba4ce0bcc65da7852079b3dd2b2c6586d4be1ba1721006e72418aa6e5ad35a685c9b309ada17969cd16b0a0d236cb764aa9f1e9c78d8336c219a2d5ee846253d9324143f40da1d7577f80680bd70797c1c3aaa96ebf2264538ed1d7d9757d522944658d04c4170f9f19bc9ee939ad638f1c8966312c3796049e1c69ea96a6f2e9b350d2989012d32d16220a438d9b4582422bf461b090428cb988256e5bdadbe9cac3ebfc35d557293547259c4e3e3ff1bcfe7aea5d9f306540da4f10f0d58ae346230529e570d28562ce1d328e02b0b1ee7d569ad9604f1f10f030e52c620b65ad5eac958a5afe3e6c02c16fdfdf21180861c4982f028b006ab6fed82875d19b03b9fcae4311188229ab174ee15743269cac40e2eaecb2879f07e0f3f71886eb641608f56010e5498f5e695350876af73ef58080cb2056ac48ae9b661a15235b0a2c744564634f7b28d482146f6fb0aa2e19b04eaf224c8e9d16c154c1e2deba83483e37273cf04508315a290e2dcb01301c1
-             */
-
-            //The data contained in x Packets
+            //The data contained in x Packets, each packet in this example has a marker.
             byte[][] packetBytes = new byte[][]
                 {
                     //Packet 1
@@ -1782,15 +1769,18 @@ namespace Media.UnitTests
             //Create the file every time the test starts
             using (var fs = new System.IO.FileStream(outputFileName, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite))
             {
-                //Create managed packets from the binary data
+                //Create managed packets from the binary data, normally this would be done only until a marker was encountered, at which point a new frame would be created.
                 foreach (byte[] packet in packetBytes)
                 {
                     //Create the managed packet from that binary data
                     using (Media.Rtp.RtpPacket aManagedPacket = new Media.Rtp.RtpPacket(packet, 0))
-                    {
+                    {                        
                         //Create a RtpFrame from the managed packet
                         using (Media.Rtp.RtpFrame managedFrame = new Media.Rtp.RtpFrame(aManagedPacket))
                         {
+
+                            //E.g. if aManagedPacket.Marker then create the frame and Depacketize, in this example all packets have a marker.
+
                             //The rtp profile contains the logic required to `depacketize` the data.
                             //E.g take it from it's RtpPacket form and into something a decoder can utilize
                             using (Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC3640Media.RFC3640Frame(managedFrame))

@@ -61,7 +61,7 @@
     <Compile Include="..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
-    <Compile Include="AudioSample.cs" />
+    <Compile Include="AudioBuffer.cs" />
     <Compile Include="IAudioCodec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WAVEFORMATEX.cs" />

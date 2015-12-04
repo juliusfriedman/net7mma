@@ -72,8 +72,10 @@ namespace Media.Concepts.Classes
         //
 
         readonly internal Clock m_Clock = new Clock();
+        
+        //Linked list vs list...
 
-        readonly internal System.Collections.Generic.Queue<long> Producer;
+        readonly internal System.Collections.Generic.LinkedList<long> Producer;
 
         void Count()
         {
@@ -90,7 +92,9 @@ namespace Media.Concepts.Classes
 
                     while (m_Enabled && Producer.Count >= 1)
                     {
-                        sample = Producer.Dequeue();
+                        sample = Producer.Last.Value;
+                        
+                        Producer.RemoveLast();
 
                         Tick(ref sample);
                     }
@@ -139,11 +143,11 @@ namespace Media.Concepts.Classes
                                 {
                                     System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.Highest;
 
-                                    Producer.Enqueue((long)m_Ticks++);
+                                    Producer.AddFirst((long)m_Ticks++);
 
                                     x = (ulong)Common.Binary.Clamp((m_Bias = m_Ops / approximate), 0, m_Bias);
 
-                                    while (1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.Enqueue((long)++m_Ticks);
+                                    while (1 > --x /*&& Producer.Count <= m_Frequency.Ticks*/) Producer.AddFirst((long)++m_Ticks);
 
                                     m_Ops += m_Bias;
 
@@ -170,7 +174,7 @@ namespace Media.Concepts.Classes
 
         public Timer(System.TimeSpan frequency)
         {
-            Producer = new System.Collections.Generic.Queue<long>((int)((m_Frequency = frequency).Ticks * Common.Extensions.TimeSpan.TimeSpanExtensions.OneMicrosecond.Ticks));
+            Producer = new System.Collections.Generic.LinkedList<long>();
 
             m_Counter = new System.Threading.Thread(new System.Threading.ThreadStart(Count))
             {

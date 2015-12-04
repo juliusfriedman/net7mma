@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 
 namespace Media.Codec.Interfaces
 {
-    public interface ISample
+    public interface IMediaBuffer
     {
         ICodec Codec { get; }
 
         Media.Common.MemorySegment Data { get; }
+
+        int SampleCount { get; }
     }
 }
