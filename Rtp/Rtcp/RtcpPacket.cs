@@ -505,15 +505,31 @@ namespace Media.Rtcp
         /// Generates a sequence of bytes containing the RtcpHeader and any data including Padding contained in the Payload.
         /// </summary>
         /// <returns>The sequence created.</returns>
-        public IEnumerable<byte> Prepare() { foreach(byte b in Header) yield return b; foreach(byte b in Payload ?? MemorySegment.Empty) yield return b; }
+        public IEnumerable<byte> Prepare()
+        {
+            //foreach (byte b in Header) yield return b; foreach (byte b in Payload ?? MemorySegment.Empty) yield return b;
+
+            return Enumerable.Concat(Header, Payload ?? MemorySegment.Empty);
+        }
 
         public IEnumerable<byte> Prepare(bool includeHeader, bool includeReportData, bool includePadding)
         {
-            if(includeHeader) foreach (byte b in Header) yield return b;
 
-            if (includeReportData) foreach (byte b in RtcpData) yield return b;
+            IEnumerable<byte> sequence = Enumerable.Empty<byte>();
 
-            if (includePadding) foreach (byte b in PaddingData) yield return b;
+            //if(includeHeader) foreach (byte b in Header) yield return b;
+
+            if (includeHeader) sequence = Enumerable.Concat(sequence, Header);
+
+            //if (includeReportData) foreach (byte b in RtcpData) yield return b;
+
+            if (includeReportData) sequence = Enumerable.Concat(sequence, RtcpData);
+
+            //if (includePadding) foreach (byte b in PaddingData) yield return b;
+
+            if (includePadding) sequence = Enumerable.Concat(sequence, PaddingData);
+
+            return sequence;
         }
 
         /// <summary>

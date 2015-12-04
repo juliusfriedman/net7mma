@@ -678,30 +678,9 @@ namespace Media.Rtsp
             //requireContentLength && 
             if (m_ContentLength < 0 && false == ParseContentLength()) return false;
 
-            //If the message cannot have a body it is parsed.
-            if (false == CanHaveBody) return true;
-
-            //If there was no buffer or an unreadable buffer then no parsing can occur
-            if (m_Buffer == null || false == m_Buffer.CanRead) return false;
-
-            //Quite possibly should be long
-            int max = (int)m_Buffer.Length;
-
             //Empty body or no ContentLength
-            if (m_ContentLength == 0)
-            {
-                //m_Body = string.Empty;
-
-                return true;
-            }
-
-            int position = (int)m_Buffer.Position,
-                   available = max - position;
-
-            //Calculate how much data remains based on the ContentLength
-            //remaining = m_ContentLength - m_Body.Length;
-
-            if (available == 0) return false;
+            //If the message cannot have a body it is parsed.
+            if (m_ContentLength == 0 || false == CanHaveBody) return true;
 
             //Get the decoder to use for the body
             Encoding decoder = ParseContentEncoding(false, FallbackToDefaultEncoding);
@@ -710,9 +689,21 @@ namespace Media.Rtsp
 
             int existingBodySize = decoder.GetByteCount(m_Body);
 
+            //Calculate how much data remains based on the ContentLength
             remaining = m_ContentLength - existingBodySize;
 
             if (remaining == 0) return true;
+
+            //If there was no buffer or an unreadable buffer then no parsing can occur
+            if (m_Buffer == null || false == m_Buffer.CanRead) return false;
+
+            //Quite possibly should be long
+            int max = (int)m_Buffer.Length;
+
+            int position = (int)m_Buffer.Position,
+                   available = max - position;
+
+            if (available == 0) return false;
 
             //Get the array of the memory stream
             byte[] buffer = m_Buffer.GetBuffer();

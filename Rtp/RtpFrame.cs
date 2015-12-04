@@ -467,21 +467,25 @@ namespace Media.Rtp
             foreach (RtpPacket packet in this)
             {
                 //Should be handled by derived implementation because it is known if the flags are relevent to the data.
-                if (useExtensions && packet.Extension)
+                if (packet.Extension)
                 {
                     using (RtpExtension extension = packet.GetExtension())
                     {
-                        if (extension != null)
+                        if (useExtensions && extension != null)
                         {
                             /*if (extension.IsComplete) */
                             sequence = sequence.Concat(extension.Data);
+                        }
+                        else
+                        {
+                            profileHeaderSize += extension.Size;
                         }
                     }
                 }
 
                 //Should chyeck PayloadData is > profileHeaderSize ?
 
-                sequence = sequence.Concat(packet.PayloadData.Skip(profileHeaderSize));
+                sequence = sequence.Concat(new Common.MemorySegment(packet.Payload.Array, packet.Payload.Offset + profileHeaderSize, packet.Payload.Count - profileHeaderSize)); //packet.PayloadData.Skip(profileHeaderSize));
             }
 
             return sequence;
