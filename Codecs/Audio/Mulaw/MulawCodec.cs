@@ -6,27 +6,48 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Audio.Mulaw
 {
-    public class MulawCodec : IAudioCodec //: Media.Codec.Codec
+    public class MulawCodec : Media.Codec.Codec, IAudioCodec //: Media.Codec.Codec
     {
-        public const string Name = "MuLaw";
+        public const string CodecName = "MuLaw";
 
-        public static readonly System.Guid Id;
+        public static readonly System.Guid CodecId;
+
+        public static readonly Common.Binary.ByteOrder CodecDefaultByteOrder = Common.Binary.ByteOrder.Little;
+
+        public static readonly int CodecDefaultChannels = 2;
+
+        public static readonly int CodecDefaultBitsPerComponent = 16;
+
+        public static readonly Packing CodecDefaultPacking = Packing.Logarithmic;
+
+        //needs to be in an abstract AudioCodec : Media.Codec.Codec
+        public static readonly int DefaultSampleRate = 8000;
 
         static MulawCodec()
         {
-            Id = Media.Codec.Codec.ParseGuidAttribute(typeof(MulawCodec));
+            CodecId = Media.Codec.Codec.ParseGuidAttribute(typeof(MulawCodec));
 
             Media.Codec.Codecs.TryRegisterCodec(new MulawCodec());
         }
 
+        public MulawCodec()
+            : base(CodecName, Common.Binary.ByteOrder.Little, CodecDefaultChannels, CodecDefaultBitsPerComponent)
+        {
+        }
+
+        public override Codec.Interfaces.IMediaBuffer CreateBuffer(byte[] data, long timestamp = 0, bool shouldDispose = true)
+        {
+            return new Media.Codecs.Audio.AudioBuffer(CodecDefaultPacking, CodecDefaultByteOrder, DefaultComponentCount, DefaultSampleRate, DefaultBitsPerComponent, 1);
+        }
+
         System.Guid Codec.Interfaces.ICodec.Id
         {
-            get { return MulawCodec.Id; }
+            get { return MulawCodec.CodecId; }
         }
 
         string Codec.Interfaces.ICodec.Name
         {
-            get { return MulawCodec.Name; }
+            get { return MulawCodec.CodecName; }
         }
 
         Codec.MediaType Codec.Interfaces.ICodec.MediaTypes

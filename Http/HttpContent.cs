@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Media.Http
 {
+
+    //https://msdn.microsoft.com/en-us/library/system.net.http.httpcontent(v=vs.110).aspx
+
     //Should be added to HttpMessage ?
     public abstract class HttpContent : Common.BaseDisposable
     {

@@ -29,6 +29,13 @@ namespace Media.Codec
 
         public readonly Guid Id;
 
+        public readonly int DefaultComponentCount, DefaultBitsPerComponent;
+
+        /// <summary>
+        /// Defines the byte order used by default in the codec.
+        /// </summary>
+        public readonly Common.Binary.ByteOrder DefaultByteOrder;
+
         public Codec(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new System.InvalidOperationException("name cannot be null or consist only of whitespace.");
@@ -36,6 +43,21 @@ namespace Media.Codec
             Name = name;
 
             Id = ParseGuidAttribute(GetType());
+
+            Codecs.TryRegisterCodec(this);
+        }
+
+        public Codec(string name, Common.Binary.ByteOrder defaultByteOrder, int defaultComponentCount, int defaultBitsPerComponent)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new System.InvalidOperationException("name cannot be null or consist only of whitespace.");
+
+            Name = name;
+
+            Id = ParseGuidAttribute(GetType());
+
+            DefaultComponentCount = defaultComponentCount;
+
+            DefaultBitsPerComponent = defaultBitsPerComponent;
 
             Codecs.TryRegisterCodec(this);
         }
@@ -70,9 +92,9 @@ namespace Media.Codec
             protected set;
         }
 
-        public virtual Media.Codec.Interfaces.ISample CreateSample(byte[] data, long timestamp = 0, bool shouldDispose = true)
+        public virtual Media.Codec.Interfaces.IMediaBuffer CreateBuffer(byte[] data, long timestamp = 0, bool shouldDispose = true)
         {
-            return new Media.Codec.Sample(MediaTypes, new Common.MemorySegment(data), this, timestamp, shouldDispose);
+            return new Media.Codec.MediaBuffer(MediaTypes, new Common.MemorySegment(data), DefaultByteOrder, DefaultBitsPerComponent, DefaultComponentCount, timestamp, this, shouldDispose);
         }
 
         Interfaces.IEncoder Interfaces.ICodec.Encoder

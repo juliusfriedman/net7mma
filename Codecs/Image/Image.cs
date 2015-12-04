@@ -38,10 +38,15 @@ namespace Media.Codecs.Image
         // Could Also be something like 16 bit=>{5,5,5,1}
     }
 
+    /// <summary>
+    /// Indicates how individual colors are extracted from a Image in memory.
+    /// </summary>
     public enum Packing
     {
         Unknown = 0,
+        //Each color is next to each other in memory
         Packed = 1,
+        //Each color is offset by a fixed amount depending on the SamplingRatio
         Planar = 2,
         Other
     }
@@ -68,6 +73,8 @@ namespace Media.Codecs.Image
         //public static readonly SamplingRatio FullNoAlpha = new SamplingRatio() { J = 4, a = 4, b = 4 };
 
         //public static readonly SamplingRatio Half = new SamplingRatio() { J = 4, a = 2, b = 2, Alpha = true };
+
+        //Mark readonly since it doesn't make sense to change a SamplingRatio after construction.
 
         /// <summary>
         /// horizontal sampling reference (width of the conceptual region). Usually, 4.
@@ -227,13 +234,16 @@ namespace Media.Codecs.Image
 
     //Raster could then be x, y of Color
 
-    public class Image : Media.Codec.Sample
+    public class Image : Media.Codec.MediaBuffer
     {
         //static Image Crop(Image source)
 
+        //Needs bits per pixel to accurately calulcate size.
         static int CalculateSize(ColorSpace colorSpace, int width, int height)
         {
             int byteSize = width * height;
+
+            //if bpp < 8 byteSize byteSize /= Common.Binary.BitsToBytes(bpp)
 
             switch (colorSpace)
             {
@@ -256,7 +266,7 @@ namespace Media.Codecs.Image
 
         public Image(ColorSpace format, int width, int height) 
             //Needs a static CalculateSize
-            : base(Media.Codec.MediaType.Image, new byte[CalculateSize(format, width, height)])
+            : base(Media.Codec.MediaType.Image, CalculateSize(format, width, height), Common.Binary.SystemByteOrder, 8, 4)
         {
             m_Format = format;
             m_Width = width;

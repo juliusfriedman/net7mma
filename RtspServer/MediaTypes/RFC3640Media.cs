@@ -73,7 +73,23 @@ namespace Media.Rtsp.Server.MediaTypes
             //Move to Audio.Aac
 
             //note the data needed as parameters comes from the SDP `config=`
-            //Could have a ParseConfig function.
+            //Needs to have a ParseConfig function which can be here.
+
+            public bool ParseConfiguration(Sdp.SessionDescriptionLine attributeLine, out int profileId, out int frequencyIndex, out int channelConfiguration, out int packetLen)
+            {
+                profileId = frequencyIndex = channelConfiguration = packetLen = 0;
+
+                if (attributeLine == null || attributeLine.Type != Sdp.Lines.SessionAttributeLine.AttributeType) return false;
+
+                throw new NotImplementedException();
+
+                foreach (string part in attributeLine.Parts)
+                {
+                    //
+                }
+
+                return true;
+            }
 
             /// <summary>
             /// Creates the ADTS Frame Header as specified
@@ -486,6 +502,9 @@ namespace Media.Rtsp.Server.MediaTypes
 
                             //In bytes, sometimes the au is not completely contained. (Fragmented)
                             auSize = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, sizeLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte);
+
+                            //Testing in bits, truncates data.
+                            //auSize /= 8;
                         }
                         else auSize = defaultAuSize;
 
