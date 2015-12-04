@@ -68,15 +68,33 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="Media\bark.rtp" />
-    <None Include="Media\Video\flv\pages.flv" />
-    <None Include="Media\Video\mkv\mvi.mkv" />
-    <None Include="Media\Video\mkv\pages.mkv" />
-    <None Include="Media\Video\mpjpeg\mvi.mpjpeg" />
-    <None Include="Media\Video\mpjpeg\pages.mpjpeg" />
-    <None Include="Media\Video\mxf\freeMXF-mxf1.mxf" />
-    <None Include="Media\Video\nut\Akon_cut.nut" />
-    <None Include="Media\Video\ogg\small.ogv" />
+    <None Include="Media\bark.rtp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\flv\pages.flv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\mkv\mvi.mkv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\mkv\pages.mkv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\mpjpeg\mvi.mpjpeg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\mpjpeg\pages.mpjpeg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\mxf\freeMXF-mxf1.mxf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\nut\Akon_cut.nut">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="Media\Video\ogg\small.ogv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Codecs\Audio\Aac\Media.Codecs.Audio.Aac.csproj">
@@ -301,43 +319,117 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Media\Bandit\20130707_083611.jpg" />
-    <Content Include="Media\Bandit\20131022_171308.jpg" />
-    <Content Include="Media\Bandit\20131031_121028.jpg" />
-    <Content Include="Media\Bandit\20131031_121032.jpg" />
-    <Content Include="Media\Bandit\20131211_103924.jpg" />
-    <Content Include="Media\Bandit\20131211_104757.jpg" />
-    <Content Include="Media\Bandit\20131225_232429.jpg" />
-    <Content Include="Media\Bandit\20131225_232530_HDR.jpg" />
-    <Content Include="Media\Bandit\IMG_20130421_140022.jpg" />
-    <Content Include="Media\JpegTest\camera.jpg" />
-    <Content Include="Media\JpegTest\Channel_digital_image_CMYK_color.jpg" />
-    <Content Include="Media\JpegTest\croinbw.jpg" />
-    <Content Include="Media\JpegTest\jpeg400jfif.jpg" />
-    <Content Include="Media\JpegTest\jpeg420exif.jpg" />
-    <Content Include="Media\JpegTest\jpeg422jfif.jpg" />
-    <Content Include="Media\JpegTest\jpeg444.jpg" />
-    <Content Include="Media\JpegTest\m00905argb.jpg" />
-    <Content Include="Media\JpegTest\m00905srgb.jpg" />
-    <Content Include="Media\JpegTest\testimg.jpg" />
-    <Content Include="Media\JpegTest\testimgp.jpg" />
-    <Content Include="Media\JpegTest\testorig.jpg" />
-    <Content Include="Media\JpegTest\testprog.jpg" />
-    <Content Include="Media\JpegTest\Untitled.jpg" />
-    <Content Include="Media\JpegTest\video.jpg" />
-    <Content Include="Media\JpegTest\videoalt.jpg" />
-    <Content Include="Media\JpegTest\videoflipalt.jpg" />
-    <Content Include="Media\JpegTest\yh9r01459argbsmall.jpg" />
-    <Content Include="Media\JpegTest\yh9r01459srgbsmall.jpg" />
-    <Content Include="Media\JpegTest\yuvj422.jpg" />
-    <Content Include="Media\Video\asf\pages.asf" />
-    <Content Include="Media\Video\avi\MVI_3572.AVI" />
-    <Content Include="Media\Video\avi\turning_pages_mjpeg.avi" />
-    <Content Include="Media\Video\mov\pages.mov" />
-    <Content Include="Media\Video\mp4\mvi.mp4" />
-    <Content Include="Media\Video\mp4\pages.mp4" />
-    <Content Include="Media\Video\mp4\pages_ogg.mp4" />
-    <Content Include="Media\Video\turning_pages_mjpeg.avi" />
+    <Content Include="Media\Bandit\20130707_083611.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131022_171308.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131031_121028.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131031_121032.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131211_103924.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131211_104757.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131225_232429.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\20131225_232530_HDR.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Bandit\IMG_20130421_140022.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\camera.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\Channel_digital_image_CMYK_color.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\croinbw.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\jpeg400jfif.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\jpeg420exif.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\jpeg422jfif.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\jpeg444.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\m00905argb.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\m00905srgb.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\testimg.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\testimgp.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\testorig.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\testprog.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\Untitled.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\video.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\videoalt.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\videoflipalt.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\yh9r01459argbsmall.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\yh9r01459srgbsmall.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\JpegTest\yuvj422.jpg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\asf\pages.asf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\avi\MVI_3572.AVI">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\avi\turning_pages_mjpeg.avi">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\mov\pages.mov">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\mp4\mvi.mp4">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\mp4\pages.mp4">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\mp4\pages_ogg.mp4">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Media\Video\turning_pages_mjpeg.avi">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

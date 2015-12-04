@@ -28,13 +28,9 @@
 
         static G722Codec()
         {
-            object[] attributes = typeof(G722Codec).Assembly.GetCustomAttributes(typeof(System.Runtime.InteropServices.GuidAttribute), true);
+            Id = Media.Codec.Codec.ParseGuidAttribute(typeof(G722Codec));
 
-            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(attributes)) throw new System.InvalidOperationException("No GuidAttribute Attribute Found");
-
-            System.Runtime.InteropServices.GuidAttribute attribute = (System.Runtime.InteropServices.GuidAttribute)attributes[0];
-
-            if (false == System.Guid.TryParse(attribute.Value, out Id)) throw new System.InvalidOperationException("Invalid GuidAttribute Attribute Found");
+            Media.Codec.Codecs.TryRegisterCodec(new G722Codec());
         }
 
         /// <summary>
@@ -158,8 +154,6 @@
         //static readonly int[] ihn = { 0, 1, 0 };
         //static readonly int[] ihp = { 0, 3, 2 };
 
-        //Cache bands in routines to reduce overhead.
-
         /// <summary>
         /// Decodes a buffer of G722
         /// </summary>
@@ -184,6 +178,8 @@
             int outlen;
             int i;
             int j;
+
+            Band band0 = state.Band[0], band1 = state.Band[1];
 
             outlen = 0;
             rhigh = 0;
@@ -229,10 +225,10 @@
                 }
 
                 // Block 5L, LOW BAND INVQBL
-                wd2 = (state.Band[0].det * wd2) >> 15;
+                wd2 = (band0.det * wd2) >> 15;
 
                 // Block 5L, RECONS
-                rlow = state.Band[0].s + wd2;
+                rlow = band0.s + wd2;
 
                 // Block 6L, LIMIT
                 if (rlow > 16383)
@@ -242,23 +238,23 @@
 
                 // Block 2L, INVQAL
                 wd2 = qm4[wd1];
-                dlowt = (state.Band[0].det * wd2) >> 15;
+                dlowt = (band0.det * wd2) >> 15;
 
                 // Block 3L, LOGSCL
                 wd2 = rl42[wd1];
-                wd1 = (state.Band[0].nb * 127) >> 7;
+                wd1 = (band0.nb * 127) >> 7;
                 wd1 += wl[wd2];
                 if (wd1 < 0)
                     wd1 = 0;
                 else if (wd1 > 18432)
                     wd1 = 18432;
-                state.Band[0].nb = wd1;
+                band0.nb = wd1;
 
                 // Block 3L, SCALEL
-                wd1 = (state.Band[0].nb >> 6) & 31;
-                wd2 = 8 - (state.Band[0].nb >> 11);
+                wd1 = (band0.nb >> 6) & 31;
+                wd2 = 8 - (band0.nb >> 11);
                 wd3 = (wd2 < 0) ? (ilb[wd1] << -wd2) : (ilb[wd1] >> wd2);
-                state.Band[0].det = wd3 << 2;
+                band0.det = wd3 << 2;
 
                 Block4(state, 0, dlowt);
 
@@ -266,10 +262,10 @@
                 {
                     // Block 2H, INVQAH
                     wd2 = qm2[ihigh];
-                    dhigh = (state.Band[1].det * wd2) >> 15;
+                    dhigh = (band1.det * wd2) >> 15;
 
                     // Block 5H, RECONS
-                    rhigh = dhigh + state.Band[1].s;
+                    rhigh = dhigh + band1.s;
 
                     // Block 6H, LIMIT
                     if (rhigh > 16383)
@@ -284,7 +280,7 @@
                     //Avoid lookup, ihigh == 0 or even gets 2, odd gets 1
                     wd2 = Common.Binary.IsEven(ref ihigh) ? 2 : 1;
                     
-                    wd1 = (state.Band[1].nb * 127) >> 7;
+                    wd1 = (band1.nb * 127) >> 7;
                     wd1 += wh[wd2];
 
                     //if (wd1 < 0)
@@ -292,13 +288,13 @@
                     //else if (wd1 > 22528)
                     //    wd1 = 22528;
 
-                    state.Band[1].nb = Common.Binary.Clamp(wd1, 0, 22528);
+                    band1.nb = Common.Binary.Clamp(wd1, 0, 22528);
 
                     // Block 3H, SCALEH
-                    wd1 = (state.Band[1].nb >> 6) & 31;
-                    wd2 = 10 - (state.Band[1].nb >> 11);
+                    wd1 = (band1.nb >> 6) & 31;
+                    wd2 = 10 - (band1.nb >> 11);
                     wd3 = (wd2 < 0) ? (ilb[wd1] << -wd2) : (ilb[wd1] >> wd2);
-                    state.Band[1].det = wd3 << 2;
+                    band1.det = wd3 << 2;
 
                     Block4(state, 1, dhigh);
                 }
@@ -372,6 +368,8 @@
             int ilow;
             int code;
 
+            Band band0 = state.Band[0], band1 = state.Band[1];
+
             g722_bytes = 0;
             xhigh = 0;
             for (j = 0; j < inputBufferCount; )
@@ -409,14 +407,14 @@
                     }
                 }
                 // Block 1L, SUBTRA
-                el = Saturate(xlow - state.Band[0].s);
+                el = Saturate(xlow - band0.s);
 
                 // Block 1L, QUANTL
                 wd = (el >= 0) ? el : -(el + 1);
 
                 for (i = 1; i < 30; i++)
                 {
-                    wd1 = (q6[i] * state.Band[0].det) >> 12;
+                    wd1 = (q6[i] * band0.det) >> 12;
                     if (wd < wd1)
                         break;
                 }
@@ -425,26 +423,26 @@
                 // Block 2L, INVQAL
                 ril = ilow >> 2;
                 wd2 = qm4[ril];
-                dlow = (state.Band[0].det * wd2) >> 15;
+                dlow = (band0.det * wd2) >> 15;
 
                 // Block 3L, LOGSCL
                 il4 = rl42[ril];
-                wd = (state.Band[0].nb * 127) >> 7;
-                state.Band[0].nb = wd + wl[il4];
+                wd = (band0.nb * 127) >> 7;
+                band0.nb = wd + wl[il4];
 
-                //if (state.Band[0].nb < 0)
-                //    state.Band[0].nb = 0;
-                //else if (state.Band[0].nb > 18432)
-                //    state.Band[0].nb = 18432;
+                //if (band0.nb < 0)
+                //    band0.nb = 0;
+                //else if (band0.nb > 18432)
+                //    band0.nb = 18432;
 
                 //Could cache Band0
-                state.Band[0].nb = Common.Binary.Clamp(state.Band[0].nb, 0, 18432);
+                band0.nb = Common.Binary.Clamp(band0.nb, 0, 18432);
 
                 // Block 3L, SCALEL
-                wd1 = (state.Band[0].nb >> 6) & 31;
-                wd2 = 8 - (state.Band[0].nb >> 11);
+                wd1 = (band0.nb >> 6) & 31;
+                wd2 = 8 - (band0.nb >> 11);
                 wd3 = (wd2 < 0) ? (ilb[wd1] << -wd2) : (ilb[wd1] >> wd2);
-                state.Band[0].det = wd3 << 2;
+                band0.det = wd3 << 2;
 
                 Block4(state, 0, dlow);
 
@@ -456,11 +454,11 @@
                 else
                 {
                     // Block 1H, SUBTRA
-                    eh = Saturate(xhigh - state.Band[1].s);
+                    eh = Saturate(xhigh - band1.s);
 
                     // Block 1H, QUANTH
                     wd = (eh >= 0) ? eh : -(eh + 1);
-                    wd1 = (564 * state.Band[1].det) >> 12;
+                    wd1 = (564 * band1.det) >> 12;
                     mih = (wd >= wd1) ? 2 : 1;
 
                     //Lookup correct value in array
@@ -471,7 +469,7 @@
 
                     // Block 2H, INVQAH
                     wd2 = qm2[ihigh];
-                    dhigh = (state.Band[1].det * wd2) >> 15;
+                    dhigh = (band1.det * wd2) >> 15;
 
                     // Block 3H, LOGSCH
                     //Lookup with array
@@ -480,23 +478,23 @@
                     //Avoid lookup, ihigh == 0 or even gets 2, odd gets 1
                     ih2 = Common.Binary.IsEven(ref ihigh) ? 2 : 1;
 
-                    wd = (state.Band[1].nb * 127) >> 7;
-                    state.Band[1].nb = wd + wh[ih2];
+                    wd = (band1.nb * 127) >> 7;
+                    band1.nb = wd + wh[ih2];
 
                     //Clamp?
 
-                    state.Band[1].nb = Common.Binary.Clamp(state.Band[1].nb, 0, 22528);
+                    band1.nb = Common.Binary.Clamp(band1.nb, 0, 22528);
 
-                    //if (state.Band[1].nb < 0)
-                    //    state.Band[1].nb = 0;
-                    //else if (state.Band[1].nb > 22528)
-                    //    state.Band[1].nb = 22528;
+                    //if (band1.nb < 0)
+                    //    band1.nb = 0;
+                    //else if (band1.nb > 22528)
+                    //    band1.nb = 22528;
 
                     // Block 3H, SCALEH
-                    wd1 = (state.Band[1].nb >> 6) & 31;
-                    wd2 = 10 - (state.Band[1].nb >> 11);
+                    wd1 = (band1.nb >> 6) & 31;
+                    wd2 = 10 - (band1.nb >> 11);
                     wd3 = (wd2 < 0) ? (ilb[wd1] << -wd2) : (ilb[wd1] >> wd2);
-                    state.Band[1].det = wd3 << 2;
+                    band1.det = wd3 << 2;
 
                     Block4(state, 1, dhigh);
                     code = ((ihigh << 6) | ilow) >> (8 - state.BitsPerSample);
@@ -624,7 +622,7 @@
         /// <param name="options">Special options</param>
         public G722CodecState(int rate, G722Flags options)
         {
-            this.Band = new Band[2] { new Band(), new Band() };
+            this.Band = new Band[2] { new Band() { det = 32 }, new Band() { det = 8 } };
             this.QmfSignalHistory = new int[24];
             this.ItuTestMode = false;
 
@@ -642,8 +640,8 @@
                 this.Packed = true;
             else
                 this.Packed = false;
-            this.Band[0].det = 32;
-            this.Band[1].det = 8;
+            //this.Band[0].det = 32;
+            //this.Band[1].det = 8;
         }
     }
 
