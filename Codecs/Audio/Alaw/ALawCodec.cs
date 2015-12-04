@@ -14,13 +14,9 @@ namespace Media.Codecs.Audio.Alaw
 
         static ALawCodec()
         {
-            object[] attributes = typeof(ALawCodec).Assembly.GetCustomAttributes(typeof(System.Runtime.InteropServices.GuidAttribute), true);
+            Id = Media.Codec.Codec.ParseGuidAttribute(typeof(ALawCodec));
 
-            if (Common.Extensions.Array.ArrayExtensions.IsNullOrEmpty(attributes)) throw new System.InvalidOperationException("No GuidAttribute Attribute Found");
-
-            System.Runtime.InteropServices.GuidAttribute attribute = (System.Runtime.InteropServices.GuidAttribute)attributes[0];
-
-            if (false == System.Guid.TryParse(attribute.Value, out Id)) throw new System.InvalidOperationException("Invalid GuidAttribute Attribute Found");
+            Media.Codec.Codecs.TryRegisterCodec(new ALawCodec());
         }
 
         System.Guid Codec.Interfaces.ICodec.Id

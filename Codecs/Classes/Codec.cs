@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Media.Codec
 {
-    abstract class Codec : Interfaces.ICodec
+    public abstract class Codec : Interfaces.ICodec
     {
         public static Guid ParseGuidAttribute(Type type)
         {

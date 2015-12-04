@@ -247,7 +247,7 @@ namespace Media.Rtcp
             //The Payload property must be assigned otherwise the properties will not function in the instance.
             //Payload = new Common.MemorySegment(m_OwnedOctets, shouldDispose);
 
-            Payload = new Common.MemorySegment(buffer, offset + headerLength, packetLength - headerLength, shouldDispose);
+            Payload = new Common.MemorySegment(buffer, offset + headerLength, Common.Binary.Min(buffer.Length - headerLength - offset, packetLength - headerLength), shouldDispose);
 
             m_OwnedOctets = Payload.Array;
         }

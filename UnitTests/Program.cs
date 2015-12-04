@@ -72,10 +72,6 @@ namespace Media.UnitTests
             TestRFC2435Frame, 
             // MPEG
             TestRFC3640AudioFrame, 
-            //Tools 
-            TestRtpTools, 
-            //Containers
-            TestContainerImplementations, 
             //Sdp
             TestSdp, 
             //RtspMessage
@@ -87,6 +83,10 @@ namespace Media.UnitTests
             Media.UnitTests.RtpClientUnitTests.TestProcessFrameData.Issue17245_Case2_Iteration,
             Media.UnitTests.RtpClientUnitTests.TestInterleavedFraming,           
             //RtspClient
+            //Tools 
+            TestRtpTools, 
+            //Containers
+            TestContainerImplementations, 
         };
 
         /// <summary>
@@ -538,7 +538,7 @@ namespace Media.UnitTests
                             {
 
                                 //Use Rtp parsing (Special case in the first set of packets where only the Rtp Header is present with a Version 0 header)
-                                if (p.Version != 2) goto PrintRtpOrVatPacketInformation;
+                                //if (p.Version != 2) goto PrintRtpOrVatPacketInformation;
 
                                 //Print information about the packet
                                 PrintRtcpInformation(p);
