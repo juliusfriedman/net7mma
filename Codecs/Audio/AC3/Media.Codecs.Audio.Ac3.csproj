@@ -7,8 +7,8 @@
     <ProjectGuid>{C2628DB8-9D97-4655-B861-605A9E9FA6D7}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>AC3</RootNamespace>
-    <AssemblyName>AC3</AssemblyName>
+    <RootNamespace>Media.Codecs.Audio.Ac3</RootNamespace>
+    <AssemblyName>Media.Codecs.Audio.Ac3</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>

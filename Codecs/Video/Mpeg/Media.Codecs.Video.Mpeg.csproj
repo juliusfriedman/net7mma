@@ -7,8 +7,8 @@
     <ProjectGuid>{667CDE0B-0AE3-4DF5-9D81-D91EF0BDCEDA}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Mpeg</RootNamespace>
-    <AssemblyName>Mpeg</AssemblyName>
+    <RootNamespace>Media.Codecs.Video.Mpeg</RootNamespace>
+    <AssemblyName>Media.Codecs.Video.Mpeg</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>

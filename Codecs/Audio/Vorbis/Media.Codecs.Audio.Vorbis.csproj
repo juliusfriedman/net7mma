@@ -7,8 +7,8 @@
     <ProjectGuid>{80982B6F-EBBC-4DD5-BCEE-C3BFB6F6D498}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Vorbis</RootNamespace>
-    <AssemblyName>Vorbis</AssemblyName>
+    <RootNamespace>Media.Codecs.Audio.Vorbis</RootNamespace>
+    <AssemblyName>Media.Codecs.Audio.Vorbis</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SccProjectName>SAK</SccProjectName>

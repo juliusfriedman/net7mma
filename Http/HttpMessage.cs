@@ -1883,17 +1883,23 @@ namespace Media.Http
         {
             if (IsDisposed && false == IsPersistent) return Common.MemorySegment.EmptyBytes;
 
-            List<byte> result = new List<byte>(HttpMessage.MaximumLength);
+            //List<byte> result = new List<byte>(HttpMessage.MaximumLength);
 
-            result.AddRange(PrepareStatusLine().ToArray());
+            //result.AddRange(PrepareStatusLine().ToArray());
+
+            IEnumerable<byte> result = PrepareStatusLine();
 
             if (MessageType == HttpMessageType.Invalid) return result.ToArray();
 
             //Add the header bytes
-            result.AddRange(PrepareHeaders());
+            //result.AddRange(PrepareHeaders());
+
+            result = Enumerable.Concat(result, PrepareHeaders());
 
             //Add the body bytes
-            result.AddRange(PrepareBody());
+            //result.AddRange(PrepareBody());
+
+            result = Enumerable.Concat(result, PrepareBody());
 
             return result.ToArray();
         }
@@ -1938,11 +1944,13 @@ namespace Media.Http
         /// <returns></returns>
         public virtual IEnumerable<byte> PrepareStatusLine(bool includeEmptyLine = true)
         {
-            if (IsDisposed && false == IsPersistent) yield break;
+            IEnumerable<byte> sequence = Common.MemorySegment.Empty;
+
+            if (IsDisposed && false == IsPersistent) return sequence; //yield break;
 
             System.Text.Encoding headerEncoding = m_HeaderEncoding;
 
-            if (headerEncoding == null) yield break;
+            if (headerEncoding == null) return sequence;
 
             //StatusLine?
             //foreach (byte b in headerEncoding.GetBytes(StatusLine)
@@ -1951,49 +1959,85 @@ namespace Media.Http
 
             if (MessageType == HttpMessageType.Request || MessageType == HttpMessageType.Invalid)
             {
-                foreach (byte b in headerEncoding.GetBytes(MethodString)) yield return b;
+                //foreach (byte b in headerEncoding.GetBytes(MethodString)) yield return b;
 
-                foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+                IEnumerable<byte> whiteSpace = headerEncoding.GetBytes(m_EncodedWhiteSpace);
+
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(MethodString));
+
+                //foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+
+                sequence = Enumerable.Concat(sequence, whiteSpace);
 
                 //UriEncode?
 
-                foreach (byte b in headerEncoding.GetBytes(Location == null ? HttpMessage.Wildcard.ToString() : Location.ToString())) yield return b;
+                //foreach (byte b in headerEncoding.GetBytes(Location == null ? HttpMessage.Wildcard.ToString() : Location.ToString())) yield return b;
 
-                foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(Location == null ? HttpMessage.Wildcard.ToString() : Location.ToString()));
+
+                //foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+
+                sequence = Enumerable.Concat(sequence, whiteSpace);
 
                 //Could skip conversion if default encoding.
-                foreach (byte b in headerEncoding.GetBytes(Protocol)) yield return b;
+                //foreach (byte b in headerEncoding.GetBytes(Protocol)) yield return b;
 
-                foreach (byte b in headerEncoding.GetBytes(m_EncodedForwardSlash)) yield return b;
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(Protocol));
 
-                foreach (byte b in headerEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+                //foreach (byte b in headerEncoding.GetBytes(m_EncodedForwardSlash)) yield return b;
+
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(m_EncodedForwardSlash));
+
+                //foreach (byte b in headerEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture)));
             }
             else if (MessageType == HttpMessageType.Response)
             {
                 //Could skip conversion if default encoding.
-                foreach (byte b in headerEncoding.GetBytes(Protocol)) yield return b;
+                //foreach (byte b in headerEncoding.GetBytes(Protocol)) yield return b;
 
-                foreach (byte b in headerEncoding.GetBytes(m_EncodedForwardSlash)) yield return b;
+                IEnumerable<byte> whiteSpace = headerEncoding.GetBytes(m_EncodedWhiteSpace);
 
-                foreach (byte b in headerEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(Protocol));
 
-                foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+                //foreach (byte b in headerEncoding.GetBytes(m_EncodedForwardSlash)) yield return b;
 
-                foreach (byte b in headerEncoding.GetBytes(((int)HttpStatusCode).ToString())) yield return b;
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(m_EncodedForwardSlash));
+
+                //foreach (byte b in headerEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture))) yield return b;
+
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(Version.ToString(VersionFormat, System.Globalization.CultureInfo.InvariantCulture)));
+
+                //foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+
+                sequence = Enumerable.Concat(sequence, whiteSpace);
+
+                //foreach (byte b in headerEncoding.GetBytes(((int)HttpStatusCode).ToString())) yield return b;
+
+                sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes((StatusCode).ToString()));
 
                 //foreach (byte b in headerEncoding.GetBytes(StatusCode.ToString())/*.ToString*/) yield return b;
 
                 if (false == string.IsNullOrWhiteSpace(m_ReasonPhrase))
                 {
-                    foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+                    //foreach (byte b in headerEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
 
-                    foreach (byte b in headerEncoding.GetBytes(m_ReasonPhrase)) yield return b;
+                    sequence = Enumerable.Concat(sequence, whiteSpace);
+
+                    //foreach (byte b in headerEncoding.GetBytes(m_ReasonPhrase)) yield return b;
+
+                    sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(m_ReasonPhrase));
                 }
             }
 
-            if (includeEmptyLine && m_EncodedLineEnds != null) foreach (byte b in headerEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+            //if (includeEmptyLine && m_EncodedLineEnds != null) foreach (byte b in headerEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+
+            if (includeEmptyLine && m_EncodedLineEnds != null) sequence = Enumerable.Concat(sequence, headerEncoding.GetBytes(m_EncodedLineEnds));
 
             headerEncoding = null;
+
+            return sequence;
         }
 
         /// <summary>
@@ -2003,7 +2047,9 @@ namespace Media.Http
         /// <returns></returns>
         public virtual IEnumerable<byte> PrepareHeaders(bool includeEmptyLine = true)
         {
-            if (IsDisposed && false == IsPersistent) yield break;
+            IEnumerable<byte> sequence = Common.MemorySegment.Empty;
+
+            if (IsDisposed && false == IsPersistent) return sequence;
 
             //if (m_HeaderEncoding.WebName != "utf-8" && m_HeaderEncoding.WebName != "ascii") throw new NotSupportedException("Mime format is not yet supported.");
 
@@ -2012,21 +2058,29 @@ namespace Media.Http
 
             //e.g if(false == string.IsNullOrEmptyOrWhiteSpace(m_HeaderFormat)) { format header using format and then encode to bytes and return that }
 
+            IEnumerable<byte> whiteSpace = m_HeaderEncoding.GetBytes(m_EncodedWhiteSpace);
+
             //Write headers that have values
             foreach (KeyValuePair<string, string> header in m_Headers /*.OrderBy((key) => key.Key).Reverse()*/)
             {
                 //if (string.IsNullOrWhiteSpace(header.Value)) continue;
 
                 //Create the formated header and return the bytes for it
-                foreach (byte b in PrepareHeader(header.Key, header.Value)) yield return b;
+                //foreach (byte b in PrepareHeader(header.Key, header.Value)) yield return b;
+
+                sequence = Enumerable.Concat(sequence, PrepareHeader(header.Key, header.Value));
             }
 
-            if (includeEmptyLine && m_EncodedLineEnds != null) foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+            if (includeEmptyLine && m_EncodedLineEnds != null) sequence = Enumerable.Concat(sequence, m_HeaderEncoding.GetBytes(m_EncodedLineEnds)); //foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+
+            return sequence;
         }
 
         public virtual IEnumerable<byte> PrepareEntityHeaders(bool includeEmptyLine = false)
         {
-            if (IsDisposed && false == IsPersistent) yield break;
+            IEnumerable<byte> sequence = Common.MemorySegment.Empty;
+
+            if (IsDisposed && false == IsPersistent) return sequence;
 
             //if (m_HeaderEncoding.WebName != "utf-8" && m_HeaderEncoding.WebName != "ascii") throw new NotSupportedException("Mime format is not yet supported.");
 
@@ -2041,10 +2095,14 @@ namespace Media.Http
                 //if (string.IsNullOrWhiteSpace(header.Value)) continue;
 
                 //Create the formated header and return the bytes for it
-                foreach (byte b in PrepareHeader(header.Key, header.Value)) yield return b;
+                //foreach (byte b in PrepareHeader(header.Key, header.Value)) yield return b;
+
+                sequence = Enumerable.Concat(sequence, PrepareHeader(header.Key, header.Value));
             }
 
-            if (includeEmptyLine && m_EncodedLineEnds != null) foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+            if (includeEmptyLine && m_EncodedLineEnds != null) sequence = Enumerable.Concat(sequence, m_HeaderEncoding.GetBytes(m_EncodedLineEnds)); //foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+
+            return sequence;
         }
 
         /// <summary>
@@ -2067,29 +2125,41 @@ namespace Media.Http
         /// <returns></returns>
         internal protected virtual IEnumerable<byte> PrepareHeaderWithFormat(string name, string value, string format)
         {
-            if (IsDisposed && false == IsPersistent) yield break;
+            if (IsDisposed && false == IsPersistent) return Common.MemorySegment.Empty;
 
             //When no format or when using the default header format use the optomized path
             if (string.IsNullOrWhiteSpace(format) || format == DefaultHeaderFormat)
             {
-                foreach (byte b in m_HeaderEncoding.GetBytes(name)) yield return b;
+                IEnumerable<byte> sequence = m_HeaderEncoding.GetBytes(name);
 
-                foreach (byte b in m_EncodedColon) yield return b;
+                //foreach (byte b in m_HeaderEncoding.GetBytes(name)) yield return b;
+
+                //foreach (byte b in m_EncodedColon) yield return b;
+
+                sequence = Enumerable.Concat(sequence, m_HeaderEncoding.GetBytes(m_EncodedColon));
 
                 if (false == string.IsNullOrWhiteSpace(value))
                 {
-                    foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
+                    //foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedWhiteSpace)) yield return b;
 
-                    foreach (byte b in m_HeaderEncoding.GetBytes(value)) yield return b;
+                    sequence = Enumerable.Concat(sequence, m_HeaderEncoding.GetBytes(m_EncodedWhiteSpace));
+
+                    //foreach (byte b in m_HeaderEncoding.GetBytes(value)) yield return b;
+
+                    sequence = Enumerable.Concat(sequence, m_HeaderEncoding.GetBytes(value));
                 }
 
-                foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+                //foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
 
-                yield break;
+                sequence = Enumerable.Concat(sequence, m_HeaderEncoding.GetBytes(m_EncodedLineEnds));
+
+                return sequence;
             }
 
+            return m_HeaderEncoding.GetBytes(string.Format(format, name, m_StringWhiteSpace, m_StringColon, value, m_StringEndLine));
+
             //Use the given format
-            foreach (byte b in m_HeaderEncoding.GetBytes(string.Format(format, name, m_StringWhiteSpace, m_StringColon, value, m_StringEndLine))) yield return b;
+            //foreach (byte b in m_HeaderEncoding.GetBytes(string.Format(format, name, m_StringWhiteSpace, m_StringColon, value, m_StringEndLine))) yield return b;
         }
 
         /// <summary>
@@ -2098,16 +2168,22 @@ namespace Media.Http
         /// <returns></returns>
         public virtual IEnumerable<byte> PrepareBody(bool includeEmptyLine = false)
         {
-            if (IsDisposed && false == IsPersistent || false == CanHaveBody) yield break;
+            IEnumerable<byte> sequence = Common.MemorySegment.Empty;
+
+            if (IsDisposed && false == IsPersistent || false == CanHaveBody) return sequence;
 
             if (false == string.IsNullOrWhiteSpace(m_Body))
             {
-                foreach (byte b in ContentEncoding.GetBytes(m_Body)/*.Take(m_ContentLength)*/) yield return b;
+                //foreach (byte b in ContentEncoding.GetBytes(m_Body)/*.Take(m_ContentLength)*/) yield return b;
+
+                sequence = Enumerable.Concat(sequence, ContentEncoding.GetBytes(m_Body));
             }
 
             //includeEmptyLine = m_ContentLength < 0;
 
-            if (includeEmptyLine && m_EncodedLineEnds != null) foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+            if (includeEmptyLine && m_EncodedLineEnds != null) sequence = Enumerable.Concat(sequence, ContentEncoding.GetBytes(m_EncodedLineEnds));  //foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+
+            return sequence;
         }
 
         //CookieCollection or CookieEnumerator

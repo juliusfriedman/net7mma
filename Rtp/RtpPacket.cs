@@ -552,7 +552,10 @@ namespace Media.Rtp
         /// </summary>
         /// <param name="other">The optional other RtpHeader to utilize in the preperation</param>
         /// <returns>The sequence created.</returns>
-        public IEnumerable<byte> Prepare(RtpHeader other = null) { return Enumerable.Concat<byte>(other ?? Header, Payload.Count > 0 ? Payload.Array.Skip(Payload.Offset).Take(Payload.Count) : Media.Common.MemorySegment.EmptyBytes); }
+        public IEnumerable<byte> Prepare(RtpHeader other = null)
+        {
+            return Enumerable.Concat<byte>(other ?? Header, Payload?? Media.Common.MemorySegment.Empty);
+        }
 
         public IEnumerable<byte> Prepare() { return Prepare(null); }
 
@@ -567,7 +570,7 @@ namespace Media.Rtp
         /// <remarks>
         /// To create the sequence a new RtpHeader is generated and eventually disposed.
         /// </remarks>
-        public IEnumerable<byte> Prepare(int? payloadType, int? ssrc, int? sequenceNumber = null, int? timestamp = null, bool? marker = null)
+        public IEnumerable<byte> Prepare(int? payloadType, int? ssrc, int? sequenceNumber = null, int? timestamp = null, bool? marker = null) //includeHeader, includePayload, includePadding
         {
             try
             {

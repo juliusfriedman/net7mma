@@ -146,7 +146,7 @@
         static readonly int[] rl42 = { 0, 7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 0 };
         static readonly int[] ilb = { 2048, 2093, 2139, 2186, 2233, 2282, 2332, 2383, 2435, 2489, 2543, 2599, 2656, 2714, 2774, 2834, 2896, 2960, 3025, 3091, 3158, 3228, 3298, 3371, 3444, 3520, 3597, 3676, 3756, 3838, 3922, 4008 };
         static readonly int[] wh = { 0, -214, 798 };
-        static readonly int[] rh2 = { 2, 1, 2, 1 };
+        //static readonly int[] rh2 = { 2, 1, 2, 1 };
         static readonly int[] qm2 = { -7408, -1616, 7408, 1616 };
         static readonly int[] qm4 = { 0, -20456, -12896, -8968, -6288, -4240, -2584, -1200, 20456, 12896, 8968, 6288, 4240, 2584, 1200, 0 };
         static readonly int[] qm5 = { -280, -280, -23352, -17560, -14120, -11664, -9752, -8184, -6864, -5712, -4696, -3784, -2960, -2208, -1520, -880, 23352, 17560, 14120, 11664, 9752, 8184, 6864, 5712, 4696, 3784, 2960, 2208, 1520, 880, 280, -280 };
@@ -157,6 +157,8 @@
         static readonly int[] ilp = { 0, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 0 };
         //static readonly int[] ihn = { 0, 1, 0 };
         //static readonly int[] ihp = { 0, 3, 2 };
+
+        //Cache bands in routines to reduce overhead.
 
         /// <summary>
         /// Decodes a buffer of G722
@@ -260,7 +262,7 @@
 
                 Block4(state, 0, dlowt);
 
-                if (!state.EncodeFrom8000Hz)
+                if (false == state.EncodeFrom8000Hz)
                 {
                     // Block 2H, INVQAH
                     wd2 = qm2[ihigh];
@@ -276,14 +278,21 @@
                         rhigh = -16384;
 
                     // Block 2H, INVQAH
-                    wd2 = rh2[ihigh];
+                    //Lookup with array
+                    //wd2 = rh2[ihigh];
+
+                    //Avoid lookup, ihigh == 0 or even gets 2, odd gets 1
+                    wd2 = Common.Binary.IsEven(ref ihigh) ? 2 : 1;
+                    
                     wd1 = (state.Band[1].nb * 127) >> 7;
                     wd1 += wh[wd2];
-                    if (wd1 < 0)
-                        wd1 = 0;
-                    else if (wd1 > 22528)
-                        wd1 = 22528;
-                    state.Band[1].nb = wd1;
+
+                    //if (wd1 < 0)
+                    //    wd1 = 0;
+                    //else if (wd1 > 22528)
+                    //    wd1 = 22528;
+
+                    state.Band[1].nb = Common.Binary.Clamp(wd1, 0, 22528);
 
                     // Block 3H, SCALEH
                     wd1 = (state.Band[1].nb >> 6) & 31;
@@ -346,7 +355,7 @@
             int ril;
             int wd2;
             int il4;
-            int ih2;
+            int ih2 = 0;
             int wd3;
             int eh;
             int mih;
@@ -422,10 +431,14 @@
                 il4 = rl42[ril];
                 wd = (state.Band[0].nb * 127) >> 7;
                 state.Band[0].nb = wd + wl[il4];
-                if (state.Band[0].nb < 0)
-                    state.Band[0].nb = 0;
-                else if (state.Band[0].nb > 18432)
-                    state.Band[0].nb = 18432;
+
+                //if (state.Band[0].nb < 0)
+                //    state.Band[0].nb = 0;
+                //else if (state.Band[0].nb > 18432)
+                //    state.Band[0].nb = 18432;
+
+                //Could cache Band0
+                state.Band[0].nb = Common.Binary.Clamp(state.Band[0].nb, 0, 18432);
 
                 // Block 3L, SCALEL
                 wd1 = (state.Band[0].nb >> 6) & 31;
@@ -461,13 +474,23 @@
                     dhigh = (state.Band[1].det * wd2) >> 15;
 
                     // Block 3H, LOGSCH
-                    ih2 = rh2[ihigh];
+                    //Lookup with array
+                    //ih2 = rh2[ihigh];
+
+                    //Avoid lookup, ihigh == 0 or even gets 2, odd gets 1
+                    ih2 = Common.Binary.IsEven(ref ihigh) ? 2 : 1;
+
                     wd = (state.Band[1].nb * 127) >> 7;
                     state.Band[1].nb = wd + wh[ih2];
-                    if (state.Band[1].nb < 0)
-                        state.Band[1].nb = 0;
-                    else if (state.Band[1].nb > 22528)
-                        state.Band[1].nb = 22528;
+
+                    //Clamp?
+
+                    state.Band[1].nb = Common.Binary.Clamp(state.Band[1].nb, 0, 22528);
+
+                    //if (state.Band[1].nb < 0)
+                    //    state.Band[1].nb = 0;
+                    //else if (state.Band[1].nb > 22528)
+                    //    state.Band[1].nb = 22528;
 
                     // Block 3H, SCALEH
                     wd1 = (state.Band[1].nb >> 6) & 31;

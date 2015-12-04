@@ -977,7 +977,7 @@ namespace Media.Common
                 //253 Operations [2 -> 254]
                 for (int i = Binary.Duo; i < byte.MaxValue; ++i)
                 {
-                    byte reverse = MultiplyReverseU8((byte)i);
+                    byte reverse = MultiplyReverseU8_64((byte)i);
 
                     BitsReverseTable[i] = reverse;
 
@@ -2393,12 +2393,20 @@ namespace Media.Common
         /// </summary>
         /// <notes><see href="http://graphics.stanford.edu/~seander/bithacks.html">Bit Twiddling Hacks</see></notes>
         [CLSCompliant(false)]
-        public static byte MultiplyReverseU8(ref byte source)
+        public static byte MultiplyReverseU8_64(ref byte source)
         {
             return (byte)(((source * 0x80200802UL) & 0x0884422110UL) * 0x0101010101UL >> QuadrupleBitSize);
         }
 
-        public static byte MultiplyReverseU8(byte source) { return MultiplyReverseU8(ref source); }
+        [CLSCompliant(false)]
+        public static byte MultiplyReverseU8_32(ref byte source)
+        {
+            return (byte)(((source * 0x0802LU & 0x22110LU) | (source * 0x8020LU & 0x88440LU)) * 0x10101LU >> DoubleBitSize);
+        }
+
+        public static byte MultiplyReverseU8_64(byte source) { return MultiplyReverseU8_64(ref source); }
+
+        public static byte MultiplyReverseU8_32(byte source) { return MultiplyReverseU8_32(ref source); }
 
         [CLSCompliant(false)]
         public static sbyte Reverse8(sbyte source) { return (sbyte)ReverseU8((byte)source); }
