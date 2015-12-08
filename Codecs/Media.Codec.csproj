@@ -72,6 +72,7 @@
     <Compile Include="Codecs.cs" />
     <Compile Include="Classes\Decoder.cs" />
     <Compile Include="Classes\Encoder.cs" />
+    <Compile Include="DataLayout.cs" />
     <Compile Include="Interfaces\ICodec.cs" />
     <Compile Include="Interfaces\IDecoder.cs" />
     <Compile Include="Interfaces\IEncoder.cs" />

@@ -49,7 +49,9 @@ namespace Media.Codecs.Image.Jpeg
                     if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.Prefix) continue;
 
                     //Last Tag
-                    if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.EndOfInformation) break;
+                    if (FunctionCode == Media.Codecs.Image.Jpeg.Markers.StartOfInformation
+                        ||
+                        FunctionCode == Media.Codecs.Image.Jpeg.Markers.EndOfInformation) goto AtMarker;
 
                     //Read the Marker Length
 
@@ -64,7 +66,7 @@ namespace Media.Codecs.Image.Jpeg
                     //Correct Length
                     CodeSize -= 2; //Not including their own length
 
-                    //At a marker data
+                AtMarker:
 
                     current = new Marker()
                     {
@@ -102,6 +104,8 @@ namespace Media.Codecs.Image.Jpeg
             if(PrefixLength > 0) foreach(byte b in Enumerable.Repeat<byte>(Jpeg.Markers.Prefix, PrefixLength)) yield return b;
 
             yield return Code;
+
+            if (Code == Markers.StartOfInformation || Code == Markers.EndOfInformation) yield break;
 
             foreach (byte b in Common.Binary.GetBytes((short)Length, false == BitConverter.IsLittleEndian)) yield return b;
 

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Audio.Mulaw
 {
-    public class MulawCodec : Media.Codec.Codec, IAudioCodec //: Media.Codec.Codec
+    public class MulawCodec : Media.Codecs.Audio.AudioCodec, IAudioCodec //: Media.Codec.Codec
     {
         public const string CodecName = "MuLaw";
 
@@ -18,10 +18,14 @@ namespace Media.Codecs.Audio.Mulaw
 
         public static readonly int CodecDefaultBitsPerComponent = 16;
 
-        public static readonly Packing CodecDefaultPacking = Packing.Logarithmic;
+        //public static readonly Packing CodecDefaultPacking = Packing.Logarithmic;
+
+        public static readonly Media.Codec.DataLayout CodecDefaultDataLayout = Codec.DataLayout.Packed;
 
         //needs to be in an abstract AudioCodec : Media.Codec.Codec
         public static readonly int DefaultSampleRate = 8000;
+
+        public static Audio.AudioFormat DefaultAudioFormat = new AudioFormat(DefaultSampleRate, CodecDefaultBitsPerComponent, CodecDefaultChannels, true, Common.Binary.ByteOrder.Little);
 
         static MulawCodec()
         {
@@ -31,13 +35,13 @@ namespace Media.Codecs.Audio.Mulaw
         }
 
         public MulawCodec()
-            : base(CodecName, Common.Binary.ByteOrder.Little, CodecDefaultChannels, CodecDefaultBitsPerComponent)
+            : base(CodecName, CodecDefaultByteOrder, CodecDefaultChannels, CodecDefaultBitsPerComponent)
         {
         }
 
         public override Codec.Interfaces.IMediaBuffer CreateBuffer(byte[] data, long timestamp = 0, bool shouldDispose = true)
         {
-            return new Media.Codecs.Audio.AudioBuffer(CodecDefaultPacking, CodecDefaultByteOrder, DefaultComponentCount, DefaultSampleRate, DefaultBitsPerComponent, 1);
+            return new Media.Codecs.Audio.AudioBuffer(DefaultAudioFormat, CodecDefaultDataLayout);
         }
 
         System.Guid Codec.Interfaces.ICodec.Id

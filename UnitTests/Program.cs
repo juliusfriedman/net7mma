@@ -88,6 +88,10 @@ namespace Media.UnitTests
             TestRtpTools, 
             //Containers
             TestContainerImplementations, 
+            //Codec
+            TestCodec,
+            TestAudioBuffer,
+            TestImageBuffer
         };
 
         /// <summary>
@@ -2598,6 +2602,21 @@ a=rtpmap:99 h263-1998/90000");
             Console.WriteLine("Detected a: " + Media.Common.Binary.SystemBitOrder.ToString() + ' ' + Media.Common.Binary.SystemBitOrder.GetType().Name + " System.");
 
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.BinaryUnitTests), typeOfVoid);
+        }
+
+        static void TestCodec()
+        {
+            //CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.CodecUnitTests), typeOfVoid);
+        }
+
+        static void TestAudioBuffer()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.AudioUnitTests), typeOfVoid);
+        }
+
+        static void TestImageBuffer()
+        {
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.ImageUnitTests), typeOfVoid);
         }
 
         #endregion

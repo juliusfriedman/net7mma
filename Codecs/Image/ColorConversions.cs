@@ -49,12 +49,14 @@ namespace Media.Codecs.Image
         /// This class is public so a user can manually load and unload the lookup table.
         /// Looking up a color calculates the lookup table if not present.
         /// All methods except UnloadLookupTable should be thread-safe, although there will be a performance overhead if GetYUV is called while Initialize has not finished.
+        /// Table size is roughtly 65 mb...
         /// </remarks>
         public static class RgbYuv
         {
             const uint RgbMask = 0x00ffffff;
 
             private static volatile int[] lookupTable;
+            
             private static int[] LookupTable
             {
                 get
@@ -283,6 +285,7 @@ namespace Media.Codecs.Image
 
                             yuv[yIndex++] = Common.Binary.Clamp((byte)Y, (byte)0, byte.MaxValue);// (byte)((yuvC & 0xff0000) >> 16); //
 
+                            // > 0 && IsEven
                             //If Common.Binary.IsPowerOfTwo(j) && Common.Binary.IsPowerOfTwo(index)
                             if (j % 2 == 0 && index % 2 == 0)
                             {

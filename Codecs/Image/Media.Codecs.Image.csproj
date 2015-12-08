@@ -61,6 +61,8 @@
     </Compile>
     <Compile Include="BitmapInfoHeader.cs" />
     <Compile Include="ColorConversions.cs" />
+    <Compile Include="ColorSpace.cs" />
+    <Compile Include="IImageCodec.cs" />
     <Compile Include="Image.cs" />
     <Compile Include="ImageCodec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

@@ -36,17 +36,20 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Codecs.Image
+namespace Media.Codec
 {
     /// <summary>
-    /// Defines the base class of all image codec implementations
+    /// Defines the commonly used layouts of data with a <see cref="MediaBuffer"/>
     /// </summary>
-    public abstract class ImageCodec : Media.Codec.Codec, IImageCodec
+    public enum DataLayout : int
     {
-        public ImageCodec(string name, Common.Binary.ByteOrder defaultByteOrder = Common.Binary.ByteOrder.Unknown, int defaultComponentCount = 0, int defaultBitsPerComponent = 0)
-            : base(name, Codec.MediaType.Image, defaultByteOrder, defaultComponentCount, defaultBitsPerComponent)
-        {
-
-        }
+        //The layout is unknown
+        Unknown = 0,
+        //Components are stored contiguously
+        Packed = 2,
+        //Components are stored seperately
+        Planar = 4,
+        //Components are stored both contiguously and seperately
+        SemiPlanar = Packed | Planar,
     }
 }

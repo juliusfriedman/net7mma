@@ -63,6 +63,7 @@
     </Compile>
     <Compile Include="IVideoCodec.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="VideoCodec.cs" />
     <Compile Include="VideoSample.cs" />
     <Compile Include="VideoInfoHeader.cs" />
   </ItemGroup>

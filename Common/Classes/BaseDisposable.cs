@@ -56,7 +56,7 @@ namespace Media.Common
     [System.Runtime.InteropServices.ComVisible(true)]
     public abstract class BaseDisposable : IDisposed
     {
-
+        //Should be in BaseDisposableExtensions
         public static bool IsNullOrDisposed(BaseDisposable toCheck) { return toCheck == null || true == toCheck.IsDisposed; }
 
        

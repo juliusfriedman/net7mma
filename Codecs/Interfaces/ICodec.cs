@@ -7,12 +7,18 @@ using System.Threading.Tasks;
 namespace Media.Codec.Interfaces
 {
     /// <summary>
-    /// Represents a Codec's information and capabilities
+    /// Represents a Codec's information and capabilities.
     /// </summary>
     public interface ICodec
     {
+        /// <summary>
+        /// Gets the Guid which uniquely identifies the codec.
+        /// </summary>
         Guid Id { get; }
 
+        /// <summary>
+        /// Gets the string which corresponds to the name of the codec.
+        /// </summary>
         string Name { get; }
 
         /// <summary>
@@ -30,10 +36,10 @@ namespace Media.Codec.Interfaces
         /// </summary>
         bool CanDecode { get; }
 
-        //(Try)CreateEncoder maybe better suited with signature (bool, out IEncoder)
+        //(Try)CreateEncoder maybe better suited with signature (bool, out IEncoder) ...options
         IEncoder Encoder { get; }
 
-        //(Try)CreateDecoder maybe better suitedwith signature (bool, out IDecoder)
+        //(Try)CreateDecoder maybe better suitedwith signature (bool, out IDecoder) ...options
         IDecoder Decoder { get; }
     }
 }

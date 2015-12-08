@@ -40,6 +40,58 @@ namespace Media.Common.Extensions.Math
 {
     public static class MathExtensions
     {
+        [System.CLSCompliant(false)]
+        public static long GreatestCommonDivisor(ref long a, ref long b)
+        {
+            while (a != 0)
+            {
+                b %= a;
+                if (b == 0) return a;
+                a %= b;
+            }
+            return b;
+        }
+
+        public static long GreatestCommonDivisor(long a, long b) { return GreatestCommonDivisor(ref a, ref b); }
+
+        public static int GreatestCommonDivisor(int a, int b) { return (int)GreatestCommonDivisor((long)a, (long)b); }
+
+        [System.CLSCompliant(false)]
+        public static long LeastCommonMultiple(ref long a, ref long b)
+        {
+            return a * b / GreatestCommonDivisor(a, b);
+        }
+
+        public static long LeastCommonMultiple(long a, long b) { return LeastCommonMultiple(ref a, ref b); }
+
+        public static int LeastCommonMultiple(int a, int b) { return (int)LeastCommonMultiple((long)a, (long)b); }
+
+        [System.CLSCompliant(false)]
+        public static long GreatestCommonMultiple(ref long a, ref long b)
+        {
+            //store any remainder
+            long r = 0;
+            
+            //until a approaches 0
+            while (a != 0)
+            {
+                //Determine the modulo of a and b
+                r = a % b;
+
+                //a is set to b
+                a = b;
+
+                //b is set to the modulo
+                b = r;
+            };
+
+            return a;
+        }
+
+        public static long GreatestCommonMultiple(long a, long b) { return GreatestCommonMultiple(ref a, ref b); }
+
+        public static int GreatestCommonMultiple(int a, int b) { return (int)GreatestCommonMultiple((long)a, (long)b); }
+
         public static byte Clamp(byte value, byte min, byte max)
         {
             return System.Math.Min(System.Math.Max(min, value), max);

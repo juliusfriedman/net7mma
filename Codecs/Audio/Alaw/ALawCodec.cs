@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Audio.Alaw
 {
-    public class ALawCodec : IAudioCodec //: Media.Codec.Codec
+    public class ALawCodec : /*: Media.Codec.Codec,*/ IAudioCodec
     {
         public const string Name = "ALaw";
 
