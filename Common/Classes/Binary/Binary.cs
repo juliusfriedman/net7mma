@@ -462,7 +462,12 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static bool IsPowerOfTwo(ref long x) { return Binary.Nihil == (x & (x - Binary.Ūnus)); }
 
+        [CLSCompliant(false)]
+        public static bool IsPowerOfTwo(ref int x) { return Binary.Nihil == (x & (x - Binary.Ūnus)); }
+
         public static bool IsPowerOfTwo(long x) { return IsPowerOfTwo(ref x); }
+
+        public static bool IsPowerOfTwo(int x) { return IsPowerOfTwo(ref x); }
 
         #endregion
 
@@ -603,7 +608,9 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int Sign(ref int value)
         {
-            return((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+            //return((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+
+            return value > 0 ? 1 : value < 0 ? -1 : 0;
         }
 
         public static int Sign(long value) { return Sign(ref value); }
@@ -611,7 +618,9 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int Sign(ref long value)
         {
-            return ((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+            //return ((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+
+            return value > 0 ? 1 : value < 0 ? -1 : 0;
         }
 
         #endregion
@@ -1129,7 +1138,217 @@ namespace Media.Common
 
         #region Bit Methods
 
+        #region CountTrailing / CountLeading Zeros
+
+        internal static int[] DeBruijnPositions =
+	    {
+	        0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
+	        31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
+	    };
+
+        /// <summary>
+        /// builtin_ctz implementation
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        [CLSCompliant(false)]
+        public static int CountTrailingZeros(ref int value)
+        {
+            switch (value)
+            {
+                case 0: return BitsPerInteger;
+                case int.MaxValue: return 0;
+                default:
+                    {
+                        unchecked
+                        {
+                            //Convert the value if it's not a power of two
+                            //if (false == IsPowerOfTwo(ref value))
+                            //{
+                            //    int valueCopy = value;
+                            //    valueCopy |= valueCopy >> 1;
+                            //    valueCopy |= valueCopy >> 2;
+                            //    valueCopy |= valueCopy >> 4;
+                            //    valueCopy |= valueCopy >> 8;
+                            //    valueCopy |= valueCopy >> 16;
+                            //    return DeBruijnPositions[(valueCopy * 0x07C4ACDD) >> 27];
+                            //}
+
+                            return DeBruijnPositions[((uint)(value & -value) * 0x077CB531U) >> 27];
+                        }
+                    }
+            }
+        }
+
+        public static int CountTrailingZeros(int value) { return CountTrailingZeros(ref value); }
+
+        /// <summary>
+        /// builtin_ctz implementation
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        [CLSCompliant(false)]
+        public static int CountTrailingZeros(ref long value)
+        {
+            switch (value)
+            {
+                case 0: return BitsPerLong;
+                case long.MaxValue:
+                case int.MaxValue: return 0;
+                default:
+                    {
+                        unchecked
+                        {
+                            //Branch could be eliminated with larger lookup
+
+                            if (value > int.MaxValue)
+                            {
+                                // Value is greater than largest 32 bit number,
+                                // so calculate the number of bits in the top half
+                                // and add 32.
+                                return BitsPerInteger + CountTrailingZeros((int)(value >> BitsPerInteger));
+                            }
+
+                            // Number is no more than 32 bits,
+                            // so calculate number of bits in the bottom half.
+                            return CountTrailingZeros((int)(value & int.MaxValue));
+                        }
+                    }
+            }
+        }
+
+        public static int CountTrailingZeros(long value) { return CountTrailingZeros(ref value); }
+
+        internal static int[] ReverseDeBruijnPositions =
+	    {
+	         0, 31, 9, 30, 3, 8, 13, 29, 2, 5, 7, 21, 12, 24, 28, 19,
+             1, 10, 4, 14, 6, 22, 25, 20, 11, 15, 23, 26, 16, 27, 17, 18
+	    };
+
+        /// <summary>
+        /// builtin_clz implementation
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        [CLSCompliant(false)]
+        public static int CountLeadingZeros(ref int value)
+        {
+            switch (value)
+            {
+                case 0: return BitsPerInteger;
+                case int.MaxValue: return 0;
+                default:
+                    {
+                        //Ensure a power of two
+
+                        int x = value;
+                        x |= x >> 1;
+                        x |= x >> 2;
+                        x |= x >> 4;
+                        x |= x >> 8;
+                        x |= x >> 16;
+                        x++;
+
+                        return ReverseDeBruijnPositions[x * 0x076be629 >> 27];
+                    }
+            }
+        }
+
+        public static int CountLeadingZeros(int value) { return CountLeadingZeros(ref value); }
+
+        [CLSCompliant(false)]
+        public static int CountLeadingZeros(ref long value)
+        {
+
+            switch (value)
+            {
+                case 0: return BitsPerLong;
+                case long.MaxValue:
+                case int.MaxValue: return 0;
+                default:
+                    {
+                        return CountLeadingZeros((int)(value & int.MaxValue)) + CountLeadingZeros((int)(value << BitsPerInteger));
+                    }
+            }
+        }
+
+        public static int CountLeadingZeros(long value) { return CountLeadingZeros(ref value); }
+
+        public static long GreatestCommonDivisor(long a, long b)
+        {
+            //For any 0 values the result is known.
+            if (a == 0) return b;
+            if (b == 0) return a;
+
+            unchecked
+            {
+                //Count the trailing zeros in a, b
+                long u = Common.Binary.CountTrailingZeros(a);
+
+                long v = Common.Binary.CountTrailingZeros(b);
+
+                //Keep the amount of bits to shift based on u or v.
+                int shift = (int)((u < v) ? u : v);
+
+                //Perform the first iteration on u and v
+                u = a >> (int)u;
+
+                v = b >> (int)v;
+
+                //while u is not equal to v
+                while (u != v)
+                {
+                    //if u is greater than v
+                    if (u > v)
+                    {
+                        //subtract v from u
+                        u -= v;
+
+                        //shift u by the amount of trailing zeros in u
+                        u >>= Common.Binary.CountTrailingZeros(u);
+                    }
+                    else
+                    {
+                        //subtract u from v
+                        v -= u;
+
+                        //shift v by the amount of trailing zeros in v
+                        v >>= Common.Binary.CountTrailingZeros(v);
+                    }
+                }
+
+                //The result is obtained by shifting u by shift (multiplication)
+                return u << shift;
+            }
+        }
+
+        #endregion
+
         #region BitsSet, BitsUnSet
+
+        #region HammingWeight
+
+        /// <summary>
+        /// The Hamming weight of a string is the number of symbols that are different from the zero-symbol of the alphabet used. 
+        /// It is thus equivalent to the Hamming distance from the all-zero string of the same length. 
+        /// For the most typical case, a string of bits, this is the number of 1's in the string. In this binary case, it is also called the population count, popcount or sideways sum.
+        /// https://en.wikipedia.org/wiki/Hamming_weight
+        /// </summary>
+        /// <param name="value">The input</param>
+        /// <returns>The hamming weight for the given input</returns>
+        [CLSCompliant(false)]
+        public static int HammingWeight(ref int value)
+        {
+            value = value - ((value >> 1) & 0x55555555);
+
+            value = (value & 0x33333333) + ((value >> 2) & 0x33333333);
+
+            return ((value + (value >> 4) & 0xF0F0F0F) * 0x1010101) >> 24;
+        }
+
+        public static int HammingWeight(int value) { return HammingWeight(ref value); }
+
+        #endregion
 
         /// <summary>
         /// Determines the amount of bits set in the byte
@@ -2266,7 +2485,6 @@ namespace Media.Common
             buffer[index] = reverse ? ReverseU8((byte)value) : (byte)value;
         }
 
-        //Todo
         /// <summary>
         /// Writes a the given unsgined 16 bit value to the buffer at the given index.
         /// </summary>
@@ -2328,6 +2546,8 @@ namespace Media.Common
         }
 
         #endregion
+
+        //Should be or have ConvertEndian(data, SourceOrder, DestOrder)
 
         #region ConvertFromBigEndian
 
@@ -2661,6 +2881,10 @@ namespace Media.UnitTests
                     //Test the logic of BitsUnSet and verify the result
                     if (bitsNotSet != Media.Common.Binary.BitsUnSet(testBits)) throw new Exception("GetBit Does not Work");
 
+                    if (Media.Common.Binary.HammingWeight(test) != bitsSet) throw new Exception("HammingWeight Does not Work");
+
+                    if (Media.Common.Binary.BitsPerByte - Media.Common.Binary.HammingWeight(test) != bitsNotSet) throw new Exception("HammingWeight Does not Work");
+
                     //Console.WriteLine("Bits Set:" + bitsSet);
 
                     //Console.WriteLine("Bits Not Set:" + bitsNotSet);
@@ -2905,6 +3129,18 @@ namespace Media.UnitTests
 
                 if (bytesInWords > Binary.BytesPerInteger * inBytes || 
                     bytesInWords % Binary.BytesPerInteger != 0) throw new Exception("MachineWordsToBytes Unexpected Result");
+            }
+        }
+
+        public static void TestGCD()
+        {
+            for (int i = 0; i <= ushort.MaxValue; ++i)
+            {
+                var left = Common.Binary.GreatestCommonDivisor(i, i + 1);
+
+                var right = Common.Extensions.Math.MathExtensions.GreatestCommonDivisor(i, i + 1);
+
+                if (left != right) throw new Exception("Invalid result!");
             }
         }
     }

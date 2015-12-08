@@ -38,6 +38,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 //Should be in Container.Common?
 
+//Needs to be the same as the RFC
+//https://tools.ietf.org/html/rfc2361
+
+
 namespace Media.Codecs.Audio
 {
     /// <summary>

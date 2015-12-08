@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace Media.Codec
 {
+    //Could be named CodecRegistry / CodecRepository etc.
+
+    //Essentially a place for all codec types to register and unregister.
+
+    //Confusing to type Codec.Codecs
+
     public sealed class Codecs
     {
         static readonly HashSet<Media.Codec.Interfaces.ICodec> m_RegisteredCodecs = new HashSet<Interfaces.ICodec>();

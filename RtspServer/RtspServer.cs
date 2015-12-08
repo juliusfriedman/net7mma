@@ -1133,7 +1133,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Starts all streams contained in the video server
+        /// Starts all streams contained in the video server in parallel
         /// </summary>
         internal virtual void StartStreams()
         {
@@ -1161,7 +1161,7 @@ namespace Media.Rtsp
         }
 
         /// <summary>
-        /// Stops all contained streams from streaming
+        /// Stops all contained streams from streaming in parallel
         /// </summary>
         internal virtual void StopStreams()
         {

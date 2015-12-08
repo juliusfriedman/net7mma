@@ -36,17 +36,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
  */
 #endregion
 
-namespace Media.Codecs.Image
+namespace Media.Codecs.Audio
 {
     /// <summary>
-    /// Defines the base class of all image codec implementations
+    /// Defines the base class of all audio codec implementations
     /// </summary>
-    public abstract class ImageCodec : Media.Codec.Codec, IImageCodec
+    public abstract class AudioCodec : Media.Codec.Codec, IAudioCodec
     {
-        public ImageCodec(string name, Common.Binary.ByteOrder defaultByteOrder = Common.Binary.ByteOrder.Unknown, int defaultComponentCount = 0, int defaultBitsPerComponent = 0)
-            : base(name, Codec.MediaType.Image, defaultByteOrder, defaultComponentCount, defaultBitsPerComponent)
+        public AudioCodec(string name, Common.Binary.ByteOrder defaultByteOrder = Common.Binary.ByteOrder.Unknown, int defaultComponentCount = 0, int defaultBitsPerComponent = 0)
+            : base(name, Codec.MediaType.Audio, defaultByteOrder, defaultComponentCount, defaultBitsPerComponent)
         {
-
+            
         }
     }
 }

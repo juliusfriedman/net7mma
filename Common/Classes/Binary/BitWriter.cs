@@ -119,6 +119,8 @@ namespace Media.Common//.Binary
 
         //WriteNBit
 
+        //Should check against m_ByteOrder
+
         public void WriteEndian(byte[] data, Common.Binary.ByteOrder byteOrder)
         {
             m_Source.Write(Common.Binary.ConvertFromBigEndian(data, byteOrder), 0, data.Length);

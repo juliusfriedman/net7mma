@@ -1781,7 +1781,7 @@ namespace Media.Rtsp
 
         //Should have end time also?
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public void StartPlaying(TimeSpan? start = null, TimeSpan? end = null, IEnumerable<Sdp.MediaType> mediaTypes = null)
+        public void StartPlaying(TimeSpan? start = null, TimeSpan? end = null, IEnumerable<Sdp.MediaType> mediaTypes = null) //should allow to re describe ,bool forceDescribe = false
         {
             //Is already playing don't do anything
             if (IsPlaying) return;
@@ -3179,7 +3179,7 @@ namespace Media.Rtsp
         /// Assigns the SessionDescription returned from the server
         /// </summary>
         /// <returns></returns>
-        public RtspMessage SendDescribe()
+        public RtspMessage SendDescribe() //bool force, bool followRedirects
         {
 
             RtspMessage response = null;
