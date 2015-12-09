@@ -69,10 +69,14 @@
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
     <Compile Include="Classes\Codec.cs" />
+    <Compile Include="Classes\Transformation.cs" />
+    <Compile Include="TransformationQuality.cs" />
     <Compile Include="Codecs.cs" />
     <Compile Include="Classes\Decoder.cs" />
     <Compile Include="Classes\Encoder.cs" />
     <Compile Include="DataLayout.cs" />
+    <Compile Include="Interfaces\ITransformation.cs" />
+    <Compile Include="MediaFormat.cs" />
     <Compile Include="Interfaces\ICodec.cs" />
     <Compile Include="Interfaces\IDecoder.cs" />
     <Compile Include="Interfaces\IEncoder.cs" />
