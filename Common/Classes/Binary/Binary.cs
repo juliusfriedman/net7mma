@@ -608,9 +608,10 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int Sign(ref int value)
         {
-            //return((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+            return((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
 
-            return value > 0 ? 1 : value < 0 ? -1 : 0;
+            //Same as Math.Sign
+            //return value > 0 ? 1 : value < 0 ? -1 : 0;
         }
 
         public static int Sign(long value) { return Sign(ref value); }
@@ -618,9 +619,10 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int Sign(ref long value)
         {
-            //return ((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
+            return ((value > 0) ? 1 : 0) - ((value < 0) ? 1 : 0);
 
-            return value > 0 ? 1 : value < 0 ? -1 : 0;
+            //Same as Math.Sign
+            //return value > 0 ? 1 : value < 0 ? -1 : 0;
         }
 
         #endregion
@@ -1197,22 +1199,7 @@ namespace Media.Common
                 case int.MaxValue: return 0;
                 default:
                     {
-                        unchecked
-                        {
-                            //Branch could be eliminated with larger lookup
-
-                            if (value > int.MaxValue)
-                            {
-                                // Value is greater than largest 32 bit number,
-                                // so calculate the number of bits in the top half
-                                // and add 32.
-                                return BitsPerInteger + CountTrailingZeros((int)(value >> BitsPerInteger));
-                            }
-
-                            // Number is no more than 32 bits,
-                            // so calculate number of bits in the bottom half.
-                            return CountTrailingZeros((int)(value & int.MaxValue));
-                        }
+                        return CountTrailingZeros((int)(value & int.MaxValue)) + CountTrailingZeros((int)(value >> BitsPerInteger));
                     }
             }
         }
@@ -1239,7 +1226,7 @@ namespace Media.Common
                 case int.MaxValue: return 0;
                 default:
                     {
-                        //Ensure a power of two
+                        //Ensure a power of two, could also use a different sequence and constant.
 
                         int x = value;
                         x |= x >> 1;
@@ -1259,7 +1246,6 @@ namespace Media.Common
         [CLSCompliant(false)]
         public static int CountLeadingZeros(ref long value)
         {
-
             switch (value)
             {
                 case 0: return BitsPerLong;

@@ -43,12 +43,19 @@ namespace Media.Common.Extensions.Math
         [System.CLSCompliant(false)]
         public static long GreatestCommonDivisor(ref long a, ref long b)
         {
+            //Until a approaches 0
             while (a != 0)
             {
+                //Divide b by the modulo of a
                 b %= a;
+
+                //If b is 0 the result is a
                 if (b == 0) return a;
+
+                //Divide a by the module of b
                 a %= b;
             }
+
             return b;
         }
 

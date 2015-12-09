@@ -62,10 +62,15 @@
     <Compile Include="BitmapInfoHeader.cs" />
     <Compile Include="ColorConversions.cs" />
     <Compile Include="ColorSpace.cs" />
+    <Compile Include="ComponentDescriptor.cs" />
     <Compile Include="IImageCodec.cs" />
     <Compile Include="Image.cs" />
     <Compile Include="ImageCodec.cs" />
+    <Compile Include="ImageTransformation.cs" />
+    <Compile Include="PixelFormat.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Transformations\RGB.cs" />
+    <Compile Include="Transformations\YUV.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="License.txt" />

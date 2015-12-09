@@ -178,17 +178,20 @@ namespace Media.Codec
     }
 }
 
-/// <summary>
-/// Provides tests which ensure the logic of the supporting class is correct
-/// </summary>
-internal class MediaBufferUnitTests
+namespace Media.UnitTests
 {
-    public static void Test_Constructor()
+    /// <summary>
+    /// Provides tests which ensure the logic of the supporting class is correct
+    /// </summary>
+    internal class MediaBufferUnitTests
     {
-        //Make a media buffer with all supported layouts and byte orders and sample sizes.
-        using (Media.Codec.MediaBuffer mb = new Media.Codec.MediaBuffer(Media.Codec.MediaType.Unknown, Media.Codec.DataLayout.Packed, 0, Media.Common.Binary.ByteOrder.Unknown, 0, 0))
+        public static void Test_Constructor()
         {
+            //Make a media buffer with all supported layouts and byte orders and sample sizes.
+            using (Media.Codec.MediaBuffer mb = new Media.Codec.MediaBuffer(Media.Codec.MediaType.Unknown, Media.Codec.DataLayout.Packed, 0, Media.Common.Binary.ByteOrder.Unknown, 0, 0))
+            {
 
+            }
         }
     }
 }

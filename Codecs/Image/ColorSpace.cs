@@ -4,13 +4,32 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+//I don't like how you can't tell if the components are packed or planer in the ColorSpace
+
+//I don't like how you still can't tell the precision of a format or if it has an Alpha channel
+//Not to mention the Alpha channel can be represented in less pixels than the luma or chroma planes in some cases
+
+//Av does this with AVComponentDescriptor, AVPixFmtDescriptor defines the format for a picture
+
+//I played with porting them as ComponentDescriptor and PixelFormat, they are commented out for now because they still don't replace ColorSpace,
+//Namely because PixelFormat still doesn't allow you to define a PlaneOrder although it really doesn't matter because:
+// PixelFormat can have more components than planes, it can also have multiple components per plane?
+// PixelFormat RGB vs BGR looks exactly the same only you can't tell which plane is R, B or G
+
+// Seems like I will have to add name here and then use the name to map to the plane order to map them.
+//YUVXXX [0] => y, [1] => u, [2] => v, Planar = true
+//YUYVXXX [0] => y, [1] => u, [2] => v, Planar = false (determined by repeating Y)
+
 namespace Media.Codecs.Image
 {
     /// <summary>
     /// Represents a <see href="https://en.wikipedia.org/wiki/Color_space">ColorSpace</see>
     /// </summary>
-    public class ColorSpace : Media.Common.BaseDisposable
+    public class ColorSpace : Media.Common.BaseDisposable //Media.Codec.Format
     {
+
+        //Would need to know count of components in advance...
+        //static int[] Full = new int[] { 0, 0, 0 }, Half = new int[] { 0, 1, 1 };
 
         #region Statics
 
@@ -58,17 +77,17 @@ namespace Media.Codecs.Image
         /// <summary>
         /// An array which represents the order of the planes
         /// </summary>
-        internal readonly protected int[] m_Planes;
+        public readonly int[] Planes;
 
         /// <summary>
-        /// An array which represents the divisor applied to the width of a plane.
+        /// An array which represents the divisor applied to obtain the width of a plane.
         /// </summary>
-        internal readonly protected int[] m_Widths;
+        public readonly int[] Widths;
 
         /// <summary>
-        /// An array which represents the divisor applied to the height of a plane.
+        /// An array which represents the divisor applied to obtain the height of a plane.
         /// </summary>
-        internal readonly protected int[] m_Heights;
+        public readonly int[] Heights;
 
         /// <summary>
         /// Creates a new ColorSpace with the given configuration.
@@ -88,13 +107,13 @@ namespace Media.Codecs.Image
             //Validate and set the remaining properties, each given array must have the correct amount of elements.
 
             if (planes == null || planes.Length < ComponentCount) throw new ArgumentOutOfRangeException("planes", string.Format("Must be have {0} elements.", ComponentCount));
-            this.m_Planes = planes;
+            this.Planes = planes;
 
             if (widths == null || widths.Length < ComponentCount) throw new ArgumentOutOfRangeException("widths", string.Format("Must be have {0} elements.", ComponentCount));
-            this.m_Widths = widths;
+            this.Widths = widths;
 
             if (heights == null || heights.Length < ComponentCount) throw new ArgumentOutOfRangeException("heights", string.Format("Must be have {0} elements.", ComponentCount));
-            this.m_Heights = heights;
+            this.Heights = heights;
         }
 
         /// <summary>
@@ -119,11 +138,45 @@ namespace Media.Codecs.Image
         }
 
         /// <summary>
+        /// Creates a ColorSpace with the given number of components, plane order and plane sizes, the sizes are used for width and height.
+        /// </summary>
+        /// <param name="componentCount">The number of components in the ColorSpace</param>
+        /// <param name="planes">The array which represents the order of the planes</param>
+        /// <param name="sizes">The array which represents the value used to scale the plane size</param>
+        public ColorSpace(int componentCount, int[] planes, int[] sizes)
+            : this(componentCount, planes, sizes, sizes)
+        {
+
+        }
+
+        /// <summary>
         /// Clones a ColorSpace
         /// </summary>
         /// <param name="other">The ColorSpace to clone</param>
         internal protected ColorSpace(ColorSpace other)
-            : this(other.ComponentCount, other.m_Planes, other.m_Widths, other.m_Heights)
+            : this(other.ComponentCount, other.Planes, other.Widths, other.Heights)
+        {
+
+        }
+
+        /// <summary>
+        /// Creates a derivative of the given colorspace with different plane sizes
+        /// </summary>
+        /// <param name="other"></param>
+        /// <param name="sizes"></param>
+        public ColorSpace(ColorSpace other, int[] sizes)
+            : this(other.ComponentCount, other.Planes, sizes, sizes)
+        {
+
+        }
+
+        /// <summary>
+        /// Creates a derivative of the given colorspace with different plane sizes and optional reverse plane order
+        /// </summary>
+        /// <param name="other"></param>
+        /// <param name="sizes"></param>
+        public ColorSpace(ColorSpace other, int[] widths, int[] heights, bool reverse = false)
+            : this(other.ComponentCount, reverse ? other.Planes.Reverse().ToArray() : other.Planes, widths, heights)
         {
 
         }

@@ -18,7 +18,7 @@ namespace Media.Codecs.Image
             for (int i = 0; i < colorSpace.ComponentCount; ++i)
             {
                 //Increment the total size in bytes by calculating the size in bytes of that plane using the ColorSpace information
-                totalSize += (width >> colorSpace.m_Widths[i]) * (height >> colorSpace.m_Heights[i]);
+                totalSize += (width >> colorSpace.Widths[i]) * (height >> colorSpace.Heights[i]);
             }
 
             //Return the amount of bytes
@@ -32,8 +32,7 @@ namespace Media.Codecs.Image
         protected readonly ColorSpace m_Format;
         protected readonly int m_Width;
         protected readonly int m_Height;
-        protected readonly int m_BitsPerComponent;
-
+        
         #endregion
 
         #region Constructor
@@ -50,13 +49,43 @@ namespace Media.Codecs.Image
 
         #region Properties
 
+        public ColorSpace ColorSpace { get { return m_Format; } }
+
         public int Width { get { return m_Width; } }
         
-        public int Height { get { return m_Height; } }
+        public int Height { get { return m_Height; } }        
 
-        public int Size { get { return Data.Count; } }
+        #endregion
 
-        public int ComponentSize { get { return m_BitsPerComponent; } }
+        #region Methods
+
+        public int PlaneWidth(int plane)
+        {
+            if (plane >= m_Format.ComponentCount) return -1;
+
+            return Width >> m_Format.Widths[plane];
+        }
+
+        public int PlaneHeight(int plane)
+        {
+            if (plane >= m_Format.ComponentCount) return -1;
+
+            return Height >> m_Format.Heights[plane];
+        }
+
+        public int PlaneSize(int plane)
+        {
+            if (plane >= m_Format.ComponentCount) return -1;
+
+            return PlaneWidth(plane) + PlaneHeight(plane) * BitsPerComponent;
+        }
+
+        public int PlaneLength(int plane)
+        {
+            if (plane >= m_Format.ComponentCount) return -1;
+
+            return Common.Binary.BitsToBytes(PlaneSize(plane));
+        }
 
         #endregion
     }
@@ -81,6 +110,48 @@ namespace Media.UnitTests
                 if (image.SampleCount != 1) throw new System.InvalidOperationException();
 
                 if (image.Data.Count != image.Width * image.Height * image.ComponentCount) throw new System.InvalidOperationException();
+            }
+        }
+
+        public static void TestConversion()
+        {
+            //Create the source image
+            using (Media.Codecs.Image.Image rgbImage = new Codecs.Image.Image(Media.Codecs.Image.ColorSpace.RGB, 8, 8, Codec.DataLayout.Packed, 8))
+            {
+                //Create the destination format, copy YUV and specify half size width and height planes
+                using (Media.Codecs.Image.ColorSpace Yuv420P = new Codecs.Image.ColorSpace(Media.Codecs.Image.ColorSpace.YUV, new int[] { 0, 1, 1 }))
+                {
+                    //Create the destination image
+                    using (Media.Codecs.Image.Image yuvImage = new Codecs.Image.Image(Yuv420P, 8, 8, Codec.DataLayout.Packed, 8))
+                    {
+
+                        //Cache the data of the source before transformation
+                        byte[] left = rgbImage.Data.ToArray(), right;
+
+                        //Transform RGB to YUV
+
+                        using (Media.Codecs.Image.ImageTransformation it = new Media.Codecs.Image.Transformations.RGB(rgbImage, yuvImage))
+                        {
+                            it.Transform();
+
+                            //Yuv Data
+                            //left = dest.Data.ToArray();
+                        }
+
+                        //Transform YUV to RGB
+
+                        using (Media.Codecs.Image.ImageTransformation it = new Media.Codecs.Image.Transformations.YUV(yuvImage, rgbImage))
+                        {
+                            it.Transform();
+
+                            //Rgb Data
+                            right = rgbImage.Data.ToArray();
+                        }
+
+                        //Compare the two sequences
+                        if (false == left.SequenceEqual(right)) throw new System.InvalidOperationException();
+                    }
+                }
             }
         }
     }

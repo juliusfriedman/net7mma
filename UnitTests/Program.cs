@@ -2606,7 +2606,8 @@ a=rtpmap:99 h263-1998/90000");
 
         static void TestCodec()
         {
-            //CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.CodecUnitTests), typeOfVoid);
+            //Other types from Codec
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.MediaBufferUnitTests), typeOfVoid);
         }
 
         static void TestAudioBuffer()
