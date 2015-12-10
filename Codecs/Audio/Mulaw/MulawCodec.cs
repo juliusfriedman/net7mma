@@ -25,7 +25,12 @@ namespace Media.Codecs.Audio.Mulaw
         //needs to be in an abstract AudioCodec : Media.Codec.Codec
         public static readonly int DefaultSampleRate = 8000;
 
-        public static Audio.AudioFormat DefaultAudioFormat = new AudioFormat(DefaultSampleRate, CodecDefaultBitsPerComponent, CodecDefaultChannels, true, Common.Binary.ByteOrder.Little);
+        public static Audio.AudioFormat DefaultAudioFormat = new AudioFormat(DefaultSampleRate, true, CodecDefaultByteOrder, CodecDefaultDataLayout, 
+            new Media.Codec.MediaComponent[]
+            {
+                new Codec.MediaComponent((byte)'l', CodecDefaultBitsPerComponent),
+                new Codec.MediaComponent((byte)'r', CodecDefaultBitsPerComponent)
+            });
 
         static MulawCodec()
         {
@@ -41,7 +46,7 @@ namespace Media.Codecs.Audio.Mulaw
 
         public override Codec.Interfaces.IMediaBuffer CreateBuffer(byte[] data, long timestamp = 0, bool shouldDispose = true)
         {
-            return new Media.Codecs.Audio.AudioBuffer(DefaultAudioFormat, CodecDefaultDataLayout);
+            return new Media.Codecs.Audio.AudioBuffer(DefaultAudioFormat, 1, shouldDispose);
         }
 
         System.Guid Codec.Interfaces.ICodec.Id

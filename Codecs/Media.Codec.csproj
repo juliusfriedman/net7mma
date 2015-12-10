@@ -70,6 +70,7 @@
     </Compile>
     <Compile Include="Classes\Codec.cs" />
     <Compile Include="Classes\Transformation.cs" />
+    <Compile Include="MediaComponent.cs" />
     <Compile Include="TransformationQuality.cs" />
     <Compile Include="Codecs.cs" />
     <Compile Include="Classes\Decoder.cs" />

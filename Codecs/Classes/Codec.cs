@@ -94,7 +94,10 @@ namespace Media.Codec
 
         public virtual Media.Codec.Interfaces.IMediaBuffer CreateBuffer(byte[] data, long timestamp = 0, bool shouldDispose = true)
         {
-            return new Media.Codec.MediaBuffer(MediaTypes, DefaultDataLayout, new Common.MemorySegment(data), DefaultByteOrder, DefaultBitsPerComponent, DefaultComponentCount, this, timestamp, shouldDispose);
+            //Needs default MediaFormat and subsequently DefaultComponents
+            Media.Codec.MediaFormat format = new Media.Codec.MediaFormat(MediaTypes, DefaultByteOrder, DefaultDataLayout, null);
+
+            return new Media.Codec.MediaBuffer(format, new Common.MemorySegment(data), this, timestamp, shouldDispose);
         }
 
         Interfaces.IEncoder Interfaces.ICodec.Encoder

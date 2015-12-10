@@ -39,15 +39,40 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 namespace Media.Codec
 {
     /// <summary>
-    /// An enumeration which describes the quality used in a Transformation
+    /// Defines the base class of all components
     /// </summary>
-    public enum TransformationQuality
+    public class MediaComponent
     {
-        Unspecified = -1,
-        None,
-        Low,
-        Medium,
-        High,
-        Highest
+        /// <summary>
+        /// The identifier assigned to the component
+        /// </summary>
+        public readonly byte Id;
+
+        /// <summary>
+        /// The size of the component in bits
+        /// </summary>
+        public readonly int Size;
+
+        /// <summary>
+        /// Constructs a new MediaComponent with the given configuration
+        /// </summary>
+        /// <param name="id">The identifier assigned to the component</param>
+        /// <param name="size">The size of the component in bits</param>
+        public MediaComponent(byte id, int size)
+        {
+            //Validate the size in bits
+            if (size < 1) throw new System.ArgumentException("size", "Must be greater than 0.");
+            
+            //Assign the size in bits
+            Size = size;
+
+            //assign the id
+            Id = id;
+        }
+
+        /// <summary>
+        /// The size of the component in bytes
+        /// </summary>
+        public int Length { get { return Common.Binary.BitsToBytes(Size); } }
     }
 }
