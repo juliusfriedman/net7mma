@@ -14,7 +14,7 @@ namespace Media.Codecs.Image.Transformations
         //Needs a way to verify the source is actuall YUV420 and dest is actually RGB
         public static void TransformYUV420ToRGB(Image source, Image dest)
         {
-            if (dest.ColorSpace != source.ColorSpace)
+            if (dest.MediaFormat != source.MediaFormat)
                 using (var t = new YUV(source, dest))
                     t.Transform();
         }

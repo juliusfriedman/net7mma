@@ -30,6 +30,8 @@ namespace Media.Codecs.Audio
     /// </summary>
     public class AudioBuffer : Media.Codec.MediaBuffer
     {
+        #region Statics
+
         /// <summary>
         /// Calulcates the size in bytes required to store data of the given configuration
         /// </summary>
@@ -43,10 +45,9 @@ namespace Media.Codecs.Audio
             return numberOfSamples * (sampleRate / (Common.Binary.BitsToBytes(bitsPerComponent) * channels));
         }
 
-        /// <summary>
-        /// Gets the <see cref="Media.Codecs.Audio.AudioFormat"/> assoicated with the samples within the buffer.
-        /// </summary>
-        public readonly AudioFormat AudioFormat;
+        #endregion
+
+        #region Constructor
 
         /// <summary>
         /// Constructs a new AudioBuffer with the given configuration.
@@ -56,8 +57,8 @@ namespace Media.Codecs.Audio
         /// <param name="channels"></param>
         /// <param name="sampleRate"></param>
         /// <param name="bitsPerComponent"></param>
-        public AudioBuffer(AudioFormat audioFormat, Media.Codec.DataLayout dataLayout, int numberOfSamples = 1)
-            : base(Media.Codec.MediaType.Audio, dataLayout, CalculateSize(numberOfSamples, audioFormat.Channels, audioFormat.SampleRate, audioFormat.SampleSize), audioFormat.ByteOrder, audioFormat.SampleSize, audioFormat.Channels)
+        public AudioBuffer(AudioFormat audioFormat, int numberOfSamples = 1, bool shouldDispose = true)
+            : base(audioFormat, CalculateSize(numberOfSamples, audioFormat.Components.Length, audioFormat.SampleRate, audioFormat.Size), null, 0, shouldDispose)
         {
             //Validate the sampleRate given
             if (numberOfSamples <= 0) throw new ArgumentOutOfRangeException("numberOfSamples", "Must be > 0");
@@ -70,30 +71,41 @@ namespace Media.Codecs.Audio
             //SampleCount = numberOfSamples;
         }
 
+        #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets the <see cref="Media.Codecs.Audio.AudioFormat"/> assoicated with the samples within the buffer.
+        /// </summary>
+        public AudioFormat AudioFormat { get { return MediaFormat as AudioFormat; } }
+
         /// <summary>
         /// The number of different speakers for which data can be found in the sample.
         /// </summary>
-        public int Channels { get { return ComponentCount; } }
+        public int Channels { get { return MediaFormat.Components.Length ; } }
 
         /// <summary>
         /// Indicates if the sample contains data for only 1 speaker.
         /// </summary>
-        public bool Mono { get { return ComponentCount == 1; } }
+        public bool Mono { get { return Channels == 1; } }
 
         /// <summary>
         /// Indicates if the samples contians data for exactly 2 speakers.
         /// </summary>
-        public bool Stereo { get { return ComponentCount == 2; } }
+        public bool Stereo { get { return Channels == 2; } }
 
         /// <summary>
         /// Indicates if the sample contains data for more than 2 speakers.
         /// </summary>
-        public bool MultiChannel { get { return ComponentCount > 2; } }
+        public bool MultiChannel { get { return Channels > 2; } }
 
         /// <summary>
         /// Gets the sample rate
         /// </summary>
         public int SampleRate { get { return AudioFormat.SampleRate; } }
+
+        #endregion
     }
 }
 
@@ -106,16 +118,16 @@ namespace Media.UnitTests
     {
         public static void Test_AudioFormat_AudioBuffer_Constructor()
         {
-            using (Media.Codecs.Audio.AudioFormat audioFormat = new Codecs.Audio.AudioFormat(8000, 8, 1, true, false))
+            Media.Codecs.Audio.AudioFormat audioFormat = new Codecs.Audio.AudioFormat(8000, true, false, Media.Codec.DataLayout.Packed);
+
+            //Could be given in place to the constructor.
+            using (Media.Codecs.Audio.AudioBuffer audio = new Codecs.Audio.AudioBuffer(audioFormat))
             {
-                using (Media.Codecs.Audio.AudioBuffer audio = new Codecs.Audio.AudioBuffer(audioFormat, Codec.DataLayout.Packed))
-                {
-                    if (audio.Channels != 1) throw new System.InvalidOperationException();
+                if (audio.Channels != 1) throw new System.InvalidOperationException();
 
-                    //if (audio.SampleCount != 1) throw new System.InvalidOperationException();
+                //if (audio.SampleCount != 1) throw new System.InvalidOperationException();
 
-                    //if (audio.Data.Count != 1000) throw new System.InvalidOperationException();
-                }
+                //if (audio.Data.Count != 1000) throw new System.InvalidOperationException();
             }
         }
     }

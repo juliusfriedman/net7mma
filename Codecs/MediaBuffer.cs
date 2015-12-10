@@ -46,49 +46,34 @@ namespace Media.Codec
         //What codec is this sample relevent to
         public readonly Media.Codec.Interfaces.ICodec Codec;
 
-        public readonly MediaType MediaType;
-
-        public readonly Common.Binary.ByteOrder ByteOrder;        
-
         //Already have base.Created
         public readonly long Timestamp;
 
-        public readonly int BitsPerComponent;
+        //Needs to come from format.
+        public readonly MediaFormat MediaFormat;
 
-        public readonly int ComponentCount;
+        //
 
         public readonly Common.MemorySegment Data = Common.MemorySegment.Empty;
 
-        public readonly DataLayout DataLayout = DataLayout.Unknown;
-
-        public MediaBuffer(MediaType type, DataLayout dataLayout, Common.MemorySegment data, Common.Binary.ByteOrder byteOrder, int bitsPerComponent, int componentCount, 
-            Media.Codec.Interfaces.ICodec codec = null, long timestamp = 0, bool shouldDispose = true)
+        public MediaBuffer(MediaFormat mediaFormat, Common.MemorySegment data, Media.Codec.Interfaces.ICodec codec = null, long timestamp = 0, bool shouldDispose = true)
             :base(shouldDispose)
         {
-            DataLayout = dataLayout;
-
-            ComponentCount = componentCount;
-
-            BitsPerComponent = bitsPerComponent;
+            MediaFormat = mediaFormat;
 
             Codec = codec;
-
-            MediaType = type;
 
             Data = data;
 
             if (Data.Count < SampleLength) throw new System.InvalidOperationException(string.Format("Insufficient Data for Sample, found: {0}, expected: {1}", data.Count, SampleLength));
-
-            ByteOrder = byteOrder;
 
             Timestamp = timestamp;
 
             //SampleCount = 1;
         }
 
-        public MediaBuffer(MediaType type, DataLayout dataLayout, int size, Common.Binary.ByteOrder byteOrder, int bitsPerComponent, int componentCount,
-            Media.Codec.Interfaces.ICodec codec = null, long timestamp = 0, bool shouldDispose = true)
-            : this(type, dataLayout, new Common.MemorySegment(size), byteOrder, bitsPerComponent, componentCount, codec, timestamp, shouldDispose)
+        public MediaBuffer(MediaFormat mediaFormat, int size, Media.Codec.Interfaces.ICodec codec = null, long timestamp = 0, bool shouldDispose = true)
+            :this(mediaFormat, new Common.MemorySegment(size), codec, timestamp, shouldDispose)
         {
 
         }
@@ -149,12 +134,16 @@ namespace Media.Codec
         /// <summary>
         /// Indicates the amount of Bits used by a single sample in the buffer.
         /// </summary>
-        public virtual int SampleSize { get { return BitsPerComponent * ComponentCount; } }
+        public int SampleSize { get { return MediaFormat.Size; } }
 
         /// <summary>
         /// Indicates the amount of Bytes used by a sample sample in the buffer.
         /// </summary>
         public int SampleLength { get { return Common.Binary.BitsToBytes(SampleSize); } }
+
+        public Common.Binary.ByteOrder ByteOrder { get { return MediaFormat.ByteOrder; } }
+
+        public DataLayout DataLayout { get { return MediaFormat.DataLayout; } }
 
         /// <summary>
         /// Indicates the amount of samples contained in the buffer.
@@ -188,7 +177,7 @@ namespace Media.UnitTests
         public static void Test_Constructor()
         {
             //Make a media buffer with all supported layouts and byte orders and sample sizes.
-            using (Media.Codec.MediaBuffer mb = new Media.Codec.MediaBuffer(Media.Codec.MediaType.Unknown, Media.Codec.DataLayout.Packed, 0, Media.Common.Binary.ByteOrder.Unknown, 0, 0))
+            using (Media.Codec.MediaBuffer mb = new Media.Codec.MediaBuffer(new Codec.MediaFormat(Codec.MediaType.Unknown, Common.Binary.ByteOrder.Unknown, Codec.DataLayout.Unknown, null), null))
             {
 
             }
