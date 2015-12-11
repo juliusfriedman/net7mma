@@ -68,11 +68,13 @@ namespace Media.Rtcp
             public ReceiversReport(int version, int reportBlocks, int ssrc)
                 : base(version, PayloadType, 0, ssrc, reportBlocks, ReportBlock.ReportBlockSize) { }
 
-            public ReceiversReport(RtcpPacket reference, bool shouldDispose)
+            public ReceiversReport(RtcpPacket reference, bool shouldDispose = true)
                 : base(reference.Header, reference.Payload, shouldDispose)
             {
                 if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 201.", "reference");
             }
+
+            //Other overloads
 
             #endregion
 

@@ -1030,11 +1030,13 @@ namespace Media.Rtcp
         /// Constructs a SourceDescription from an existing RtcpPacket reference.
         /// </summary>
         /// <param name="reference">The existing RtcpPacket instance to create a SourceDescription instance from.</param>
-        public SourceDescriptionReport(RtcpPacket reference, bool shouldDispose = true) :
-            base(reference.Header, reference.Payload, shouldDispose)
+        public SourceDescriptionReport(RtcpPacket reference, bool shouldDispose = true) 
+            : base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 202.", "reference");
         }
+
+        //Other overloads
 
         //Overloads with Items :)
 

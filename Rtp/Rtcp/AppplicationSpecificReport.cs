@@ -113,8 +113,8 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The header</param>
         /// <param name="payload">The payload</param>
-        public ApplicationSpecificReport(RtcpHeader header, Common.MemorySegment payload)
-            : base(header, payload)
+        public ApplicationSpecificReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDispose = true)
+            : base(header, payload, shouldDispose)
         {
 
         }
@@ -126,14 +126,14 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The header</param>
         /// <param name="payload">The payload</param>
-        public ApplicationSpecificReport(RtcpHeader header, IEnumerable<byte> payload)
-            : base(header, payload)
+        public ApplicationSpecificReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDispose = true)
+            : base(header, payload, shouldDispose)
         {
 
         }
 
-        public ApplicationSpecificReport(RtcpPacket reference)
-            :base(reference.Header, reference.Payload)
+        public ApplicationSpecificReport(RtcpPacket reference, bool shouldDispose = true)
+            :base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 204.", "reference");
         }

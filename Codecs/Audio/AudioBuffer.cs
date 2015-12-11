@@ -118,7 +118,10 @@ namespace Media.UnitTests
     {
         public static void Test_AudioFormat_AudioBuffer_Constructor()
         {
-            Media.Codecs.Audio.AudioFormat audioFormat = new Codecs.Audio.AudioFormat(8000, true, false, Media.Codec.DataLayout.Packed);
+            //Construct a new AudioFormat with one component, sampled at 8000hz, all samples are signed 8 bit and in little endian order.
+            Media.Codecs.Audio.AudioFormat audioFormat = new Codecs.Audio.AudioFormat(8000, true, Common.Binary.ByteOrder.Little, Media.Codec.DataLayout.Packed, new Media.Codec.MediaComponent[]{
+                new Media.Codec.MediaComponent(0, 8)
+            });
 
             //Could be given in place to the constructor.
             using (Media.Codecs.Audio.AudioBuffer audio = new Codecs.Audio.AudioBuffer(audioFormat))
