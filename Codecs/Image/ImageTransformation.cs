@@ -112,7 +112,7 @@ namespace Media.Codecs.Image
         #endregion
 
         #region Methods
-
+        
         public override void Dispose()
         {
             m_Source = null;

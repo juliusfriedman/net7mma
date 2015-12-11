@@ -76,6 +76,31 @@ namespace Media.Rtcp
 
         }
 
+        /// <summary>
+        /// Constructs a new SendersReport from the given <see cref="RtcpHeader"/> and payload.
+        /// Changes to the header are immediately reflected in this instance.
+        /// Changes to the payload are not immediately reflected in this instance.
+        /// </summary>
+        /// <param name="header">The header</param>
+        /// <param name="payload">The payload</param>
+        public SendersReport(RtcpHeader header, System.Collections.Generic.IEnumerable<byte> payload, bool shouldDispose = true)
+            : base(header, payload, shouldDispose)
+        {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
+        }
+
+        /// <summary>
+        /// Constructs a new SendersReport from the given <see cref="RtcpHeader"/> and payload.
+        /// Changes to the header and payload are immediately reflected in this instance.
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="payload"></param>
+        public SendersReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDipose = true)
+            : base(header, payload, shouldDipose)
+        {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
+        }
+
         public SendersReport(RtcpPacket reference, bool shouldDispose = true)
             : base(reference.Header, reference.Payload, shouldDispose)
         {

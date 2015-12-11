@@ -23,11 +23,36 @@ namespace Media.Codecs.Image.Transformations
             :base(source, dest, Codec.TransformationQuality.Highest)
         {
             //Should be exceptions.
-            if (false == Encoding.Default.GetString(source.MediaFormat.Ids).Contains("rgb")) return;
+            if (source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.RedChannelId) == null) return;
+            if (source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.BlueChannelId) == null) return;
+            if (source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.GreenChannelId) == null) return;
 
-            if (false == Encoding.Default.GetString(dest.MediaFormat.Ids).Contains("yuv")) return;
+            //Only can convert to YUV right now, not AYUV or YUVA or any other type.
+            if (dest.ImageFormat.Components.Length > 3) return;
 
+            //Check for the luma channel
+            Media.Codec.MediaComponent component = source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.LumaChannelId);
+
+            //Ensure it at the first component
+            if (component == null || source.MediaFormat.IndexOf(component) != 0) return;
+
+            //Check for the chroma major component
+            component = source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.ChromaMajorChannelId);
+
+            //Ensure it at the second component
+            if (component == null || source.MediaFormat.IndexOf(component) != 1) return;
+
+            //Check for the chroma minor component
+            component = source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.ChromaMinorChannelId);
+
+            //Ensure it at the last component
+            if (component == null || source.MediaFormat.IndexOf(component) != 2) return;
+
+            //Ensure the destination image has been configured for sub sampling
             if (false == dest.ImageFormat.IsSubSampled) return;
+
+            //Only can convert to Planar YUV right now (420)
+            if (dest.ImageFormat.DataLayout != Codec.DataLayout.Planar) return;
 
             //Should be a constant in ImageFormat, 1 looks weird but >> 1 divides by 2, >> 2 by 4
             //Could also change the WidthsAndHights to be an enum or Rational... SubSampling...
@@ -38,155 +63,113 @@ namespace Media.Codecs.Image.Transformations
 
         public override void Transform()
         {
-            
+            switch (m_Source.ImageFormat.DataLayout)
+            {
+                default: return;//Exception?
+                case Codec.DataLayout.Packed:
+                    {
+                        TransformPacked(m_Source, m_Dest, Quality);
+
+                        return;
+                    }
+                case Codec.DataLayout.Planar:
+                    {
+                        TransformPlanar(m_Source, m_Dest, Quality);
+
+                        return;
+                    }
+                case Codec.DataLayout.SemiPlanar:
+                    {
+                        TransformSemiPlanar(m_Source, m_Dest, Quality);
+
+                        return;
+                    }
+            }
+        }
+
+        public static void TransformPacked(Image src, Image dst, Codec.TransformationQuality quality)
+        {
+
+            //Source is packed RGB in any possible format
+            //For example a 1x4 image assuming 8 bpp
+
+            //RGB
+            //                   RGBR
+            //                   GBRG
+            //                   BRGB            
+
+            //ARGB
+            //                   ARGB
+            //                   ARGB
+            //                   ARGB
+            //                   ARGB
+
+            //BGRA
+            //                   BGRA
+            //                   BGRA
+            //                   BGRA
+            //                   BGRA
+
+            //Some other format... with or without equal bit sizes for the alpha or other components.
+            //Not the alpha component may have less bits than the others
+            //                   BRAG
+            //                   BRAG
+            //                   BRAG
+            //                   BRAG
+
             //Scope references to the data
-            Common.MemorySegment source = m_Source.Data, dest = m_Dest.Data;
+            Common.MemorySegment source = src.Data, dest = dst.Data;
 
-            Codec.MediaComponent alphaComponent = m_Source.ImageFormat.AlphaComponent;
-
-            //Determine if there is an alpha channel on the RGB data
-            bool sourceHasAlpha = alphaComponent != null;
-
-            //Depending on if there is or is not an alpha channel then there is an adjustment to the offsets in the source
-            int alphaComponentIndex = sourceHasAlpha ? m_Source.ImageFormat.IndexOf(alphaComponent) : -1,
-                beforeData = sourceHasAlpha && alphaComponentIndex == 0 ? alphaComponent.Length : 0,
-                afterData = sourceHasAlpha && alphaComponentIndex == m_Source.ImageFormat.Components.Length - 1 ? alphaComponent.Length : 0;
-
-            //In cases where the alphaComponent.Size is < 8 or is not at the beginning or end of the component data this does not work.
-            //See notes below
-
-            //Create cache of 3 pixels
+            //Create cache of 3 8 bit RGB values * 4 pixels
             byte[] cache = new byte[12];
 
             //Setup variables
-            int offChr = 0, offLuma = 0, offSrc = 0, strideSrc = m_Source.Width * 3, strideDst = m_Dest.Width, dstComponentOffset = m_Dest.MediaFormat.Length;
+            int offChr = 0, offLuma = 0, offSrc = 0, strideSrc = src.Width * src.ImageFormat.Length, strideDst = dst.Width, dstComponentOffset = dst.MediaFormat.Length;
 
-            //Used in any type.
-
-            ///int bitOffset = 0;
-
-            ///byte r, g, b;
+            //Keeps the offset in bits of the current byte
+            int bitOffset = 0;
 
             //1 pixel images...
-            for (int i = 0, ie = m_Source.Height >> 1; i < ie; ++i)
+            for (int i = 0, ie = src.Height >> 1; i < ie; ++i)
             {
-                for (int j = 0, je = m_Source.Width >> 1; j < je; ++j)
+                for (int j = 0, je = src.Width >> 1; j < je; ++j)
                 {
-                    #region Handle Any Type of RGB
-
-                    //To handle alpha correctly as well as bgr, grb or other weird formats
-                    //Loop each component in the source 3 times but unrolled below
-
-                    //for (int c = 0; c < m_Source.MediaFormat.Components.Length; ++c)
-                    //{
-                    //    //Get the component
-                    //    Codec.MediaComponent mc = m_Source.MediaFormat.Components[c];
-
-                    //    switch (mc.Id)
-                    //    {
-                    //        //Skip the Alpha or others
-                    //        default:
-                    //        case Media.Codecs.Image.ImageFormat.AlphaChannelId:
-                    //            {
-                    //                Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
-                    //                continue;
-                    //            }
-                    //        case Media.Codecs.Image.ImageFormat.RedChannelId:
-                    //            {
-                    //                r = (byte)Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
-                    //                continue;
-                    //            }
-                            
-                    //        case Media.Codecs.Image.ImageFormat.GreenChannelId:
-                    //            {
-                    //                g = (byte)Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
-                    //                continue;
-                    //            }
-                    //        case Media.Codecs.Image.ImageFormat.BlueChannelId:
-                    //            {
-                    //                b = (byte)Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
-                    //                continue;
-                    //            }
-                    //    }
-                    //}
-
-                    //Convert the components from RGB to YUV and store the results in the cache at offset 0
-                    //rgb2yuv(r, g, b, cache, 0);
-
-                    #endregion
-
-                    //Need to skip alpha component if present
-                    offSrc += beforeData;
-
-                    //Convert to YUV
-                    rgb2yuv(source[offSrc], source[offSrc + 1], source[offSrc + 2], cache, 0);
-
-                    //Need to skip alpha component if present
-                    offSrc += afterData;
+                    //Read and convert component
+                    ReadAndConvertRGBComponentsToYUV(src.ImageFormat, source, ref offSrc, ref bitOffset, cache, 0);
 
                     //Write Luma
                     dest[offLuma] = cache[0];
 
-                    //Need to skip alpha component if present
-                    offSrc += beforeData;
+                    //Read and convert component
+                    ReadAndConvertRGBComponentsToYUV(src.ImageFormat, source, ref offSrc, ref bitOffset, cache, 3);
 
-                    //Convert to YUV
-                    rgb2yuv(source[offSrc + strideSrc], source[offSrc + strideSrc + 1], source[offSrc + strideSrc + 2], cache, 3);
+                    //Write Luma and move offset
+                    dest[offLuma++ + strideDst] = cache[3];
 
-                    //Need to skip alpha component if present
-                    offSrc += afterData;
-
-                    //Write Luma
-                    dest[offLuma + strideDst] = cache[3];
-
-                    //Move Luma offset
-                    ++offLuma;
-
-                    //Need to skip alpha component if present
-                    offSrc += beforeData;
-
-                    //Convert to YUV
-                    rgb2yuv(source[offSrc + 3], source[offSrc + 4], source[offSrc + 5], cache, 6);
-
-                    //Need to skip alpha component if present
-                    offSrc += afterData;
+                    //Read and convert component
+                    ReadAndConvertRGBComponentsToYUV(src.ImageFormat, source, ref offSrc, ref bitOffset, cache, 6);
 
                     //Write Luma
                     dest[offLuma] = cache[6];
 
-                    //Need to skip alpha component if present
-                    offSrc += beforeData;
+                    //Read and convert component
+                    ReadAndConvertRGBComponentsToYUV(src.ImageFormat, source, ref offSrc, ref bitOffset, cache, 9);
 
-                    //Convert to YUV
-                    rgb2yuv(source[offSrc + strideSrc + 3], source[offSrc + strideSrc + 4], source[offSrc + strideSrc + 5], cache, 9);
+                    //Write Luma and move offset
+                    dest[offLuma++ + strideDst] = cache[9];
 
-                    //Write Luma
-                    dest[offLuma + strideDst] = cache[9];
+                    //Write averaged Chroma Major
+                    dest[offChr] = AverageCb(cache, quality);
 
-                    //Need to skip alpha component if present
-                    offSrc += afterData;
-
-                    //Move Luma offset
-                    ++offLuma;
-
-                    //Write averaged Chroma
-                    dest[offChr] = AverageCr(cache, Quality);
-
-                    //Write averaged Chroma
-                    dest[offChr + dstComponentOffset] = AverageCb(cache, Quality);
+                    //Write averaged Chroma Minor
+                    dest[offChr + dstComponentOffset] = AverageCr(cache, quality);
 
                     //Move the Chroma offset
                     ++offChr;
-                    
-                    //Move the source offset
-                    offSrc += 6;
                 }
 
                 //Move the Luma offset
                 offLuma += strideDst;
-
-                //Move the source offset
-                offSrc += strideSrc;
             }
 
             cache = null;
@@ -194,7 +177,74 @@ namespace Media.Codecs.Image.Transformations
             source = dest = null;
         }
 
-        public static byte AverageCr(byte[] cache, Media.Codec.TransformationQuality quality)
+        public static void TransformPlanar(Image src, Image dst, Codec.TransformationQuality quality)
+        {
+            //Source is planar RGB
+            //1x4 image
+            //                   RRRR
+            //                   GGGG
+            //                   BBBB
+        }
+
+        public static void TransformSemiPlanar(Image src, Image dst, Codec.TransformationQuality quality)
+        {
+            //Source is semi planar RGB????
+            //1x4 image
+            //                   RRRR
+            //                   GBGB
+            //                   GBGB
+        }
+
+        public static void ReadAndConvertRGBComponentsToYUV(ImageFormat format, Common.MemorySegment source, ref int offSrc, ref int bitOffset, byte[] cache, int offset)
+        {
+            byte r = 0, b = 0, g = 0;
+
+            //Loop Components
+            for (int c = 0, ce = format.Components.Length; c < ce; ++c)
+            {
+                //Get the component
+                Codec.MediaComponent mc = format.Components[c];
+
+                //Determine what to do with the component
+                switch (mc.Id)
+                {
+                    //Skip the Alpha or others
+                    default:
+                    case Media.Codecs.Image.ImageFormat.AlphaChannelId:
+                        {
+                            Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
+                            continue;
+                        }
+                    case Media.Codecs.Image.ImageFormat.RedChannelId:
+                        {
+                            r = (byte)Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
+                            continue;
+                        }
+
+                    case Media.Codecs.Image.ImageFormat.GreenChannelId:
+                        {
+                            g = (byte)Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
+                            continue;
+                        }
+                    case Media.Codecs.Image.ImageFormat.BlueChannelId:
+                        {
+                            b = (byte)Common.Binary.ReadBinaryInteger(source.Array, ref offSrc, ref bitOffset, mc.Size, false);
+                            continue;
+                        }
+                }
+            }
+
+            //Convert the components from RGB to YUV and store the results in the cache at offset given
+            rgb2yuv(r, g, b, cache, offset);
+        }
+
+        /// <summary>
+        /// Creates a Averaged Chroma Major value based on the RGB values in the cache and given quality
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="quality"></param>
+        /// <returns></returns>
+        public static byte AverageCb(byte[] cache, Media.Codec.TransformationQuality quality)
         {
             switch (quality)
             {
@@ -238,7 +288,13 @@ namespace Media.Codecs.Image.Transformations
             }
         }
 
-        public static byte AverageCb(byte[] cache, Media.Codec.TransformationQuality quality)
+        /// <summary>
+        /// Creates a Averaged Chroma Minor value based on the RGB values in the cache and given quality
+        /// </summary>
+        /// <param name="cache"></param>
+        /// <param name="quality"></param>
+        /// <returns></returns>
+        public static byte AverageCr(byte[] cache, Media.Codec.TransformationQuality quality)
         {
             switch (quality)
             {

@@ -360,5 +360,7 @@ namespace Media.Codec
         //BitsSizeWithoutComponents
 
         #endregion
+
+        //Needs override for equals...
     }
 }

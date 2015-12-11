@@ -116,7 +116,7 @@ namespace Media.Rtcp
         public ApplicationSpecificReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDispose = true)
             : base(header, payload, shouldDispose)
         {
-
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 204.", "reference");
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace Media.Rtcp
         public ApplicationSpecificReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDispose = true)
             : base(header, payload, shouldDispose)
         {
-
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 204.", "reference");
         }
 
         public ApplicationSpecificReport(RtcpPacket reference, bool shouldDispose = true)
