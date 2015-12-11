@@ -15,9 +15,33 @@ namespace Media.Codecs.Image
 
         public const byte DeltaChannelId = (byte)'d';
 
-        public const byte LumaChannelId = (byte)'l';
+        //
 
-        public const byte ChromaChannelId = (byte)'b'; //Cyan 'c'
+        public const byte LumaChannelId = (byte)'y';
+
+        public const byte ChromaMajorChannelId = (byte)'u';
+
+        public const byte ChromaMinorChannelId = (byte)'v';
+
+        //
+
+        public const byte RedChannelId = (byte)'r';
+
+        public const byte GreenChannelId = (byte)'g';
+
+        public const byte BlueChannelId = (byte)'b';
+
+        //Printing...
+
+        public const byte CyanChannelId = (byte)'c';
+
+        public const byte MagentaChannelId = (byte)'m';
+
+        //Capital of Luma
+        public const byte YellowChannelId = (byte)'Y';
+
+        //Key
+        public const byte KChannelId = (byte)'k';
 
         #endregion
 
@@ -58,9 +82,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'r', bitsPerComponent),
-                new Codec.MediaComponent((byte)'g', bitsPerComponent),
-                new Codec.MediaComponent((byte)'b', bitsPerComponent)
+                new Codec.MediaComponent(RedChannelId, bitsPerComponent),
+                new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
+                new Codec.MediaComponent(BlueChannelId, bitsPerComponent)
             });
         }
 
@@ -69,9 +93,9 @@ namespace Media.Codecs.Image
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
-                new Codec.MediaComponent((byte)'r', bitsPerComponent),
-                new Codec.MediaComponent((byte)'g', bitsPerComponent),
-                new Codec.MediaComponent((byte)'b', bitsPerComponent)
+                new Codec.MediaComponent(RedChannelId, bitsPerComponent),
+                new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
+                new Codec.MediaComponent(BlueChannelId, bitsPerComponent)
             });
         }
 
@@ -79,9 +103,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'r', bitsPerComponent),
-                new Codec.MediaComponent((byte)'g', bitsPerComponent),
-                new Codec.MediaComponent((byte)'b', bitsPerComponent),
+                new Codec.MediaComponent(RedChannelId, bitsPerComponent),
+                new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
+                new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
             });
         }
@@ -90,9 +114,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'b', bitsPerComponent),
-                new Codec.MediaComponent((byte)'g', bitsPerComponent),
-                new Codec.MediaComponent((byte)'r', bitsPerComponent)
+                new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
+                new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
+                new Codec.MediaComponent(RedChannelId, bitsPerComponent)
             });
         }
 
@@ -100,9 +124,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'b', bitsPerComponent),
-                new Codec.MediaComponent((byte)'g', bitsPerComponent),
-                new Codec.MediaComponent((byte)'r', bitsPerComponent),
+                new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
+                new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
+                new Codec.MediaComponent(RedChannelId, bitsPerComponent),
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
             });
         }
@@ -112,21 +136,21 @@ namespace Media.Codecs.Image
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
-                new Codec.MediaComponent((byte)'b', bitsPerComponent),
-                new Codec.MediaComponent((byte)'g', bitsPerComponent),
-                new Codec.MediaComponent((byte)'r', bitsPerComponent)                
+                new Codec.MediaComponent(BlueChannelId, bitsPerComponent),
+                new Codec.MediaComponent(GreenChannelId, bitsPerComponent),
+                new Codec.MediaComponent(RedChannelId, bitsPerComponent)                
             });
         }
 
         public static ImageFormat YUV(int bitsPerComponent, Common.Binary.ByteOrder byteOrder = Common.Binary.ByteOrder.Little, Codec.DataLayout dataLayout = Codec.DataLayout.Packed)
         {
             //Uglier version of the constructor
-            //public static readonly ImageFormat YUV = new ImageFormat(Common.Binary.ByteOrder.Little, Codec.DataLayout.Packed, 3, 8, new byte[] { (byte)'y', (byte)'u', (byte)'v' });
+            //public static readonly ImageFormat YUV = new ImageFormat(Common.Binary.ByteOrder.Little, Codec.DataLayout.Packed, 3, 8, new byte[] { LumaChannelId, ChromaMajorChannelId, ChromaMinorChannelId });
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'y', bitsPerComponent),
-                new Codec.MediaComponent((byte)'u', bitsPerComponent),
-                new Codec.MediaComponent((byte)'v', bitsPerComponent)
+                new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent)
             });
         }
 
@@ -134,9 +158,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'y', bitsPerComponent),
-                new Codec.MediaComponent((byte)'u', bitsPerComponent),
-                new Codec.MediaComponent((byte)'v', bitsPerComponent),
+                new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
             });
         }
@@ -146,9 +170,9 @@ namespace Media.Codecs.Image
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
-                new Codec.MediaComponent((byte)'y', bitsPerComponent),
-                new Codec.MediaComponent((byte)'u', bitsPerComponent),
-                new Codec.MediaComponent((byte)'v', bitsPerComponent)
+                new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent)
             });
         }
 
@@ -156,9 +180,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'v', bitsPerComponent),
-                new Codec.MediaComponent((byte)'u', bitsPerComponent),
-                new Codec.MediaComponent((byte)'y', bitsPerComponent)
+                new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(LumaChannelId, bitsPerComponent)
             });
         }
 
@@ -166,9 +190,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'v', bitsPerComponent),
-                new Codec.MediaComponent((byte)'u', bitsPerComponent),
-                new Codec.MediaComponent((byte)'y', bitsPerComponent),
+                new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(LumaChannelId, bitsPerComponent),
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent)
             });
         }
@@ -178,9 +202,9 @@ namespace Media.Codecs.Image
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent(AlphaChannelId, bitsPerComponent),
-                new Codec.MediaComponent((byte)'v', bitsPerComponent),
-                new Codec.MediaComponent((byte)'u', bitsPerComponent),
-                new Codec.MediaComponent((byte)'y', bitsPerComponent)                
+                new Codec.MediaComponent(ChromaMinorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(ChromaMajorChannelId, bitsPerComponent),
+                new Codec.MediaComponent(LumaChannelId, bitsPerComponent)                
             });
         }
 
@@ -190,9 +214,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'y', sizes[0]),
-                new Codec.MediaComponent((byte)'u', sizes[1]),
-                new Codec.MediaComponent((byte)'v', sizes[2])
+                new Codec.MediaComponent(LumaChannelId, sizes[0]),
+                new Codec.MediaComponent(ChromaMajorChannelId, sizes[1]),
+                new Codec.MediaComponent(ChromaMinorChannelId, sizes[2])
             });
         }
 
@@ -200,9 +224,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'r', sizes[0]),
-                new Codec.MediaComponent((byte)'g', sizes[1]),
-                new Codec.MediaComponent((byte)'b', sizes[2])
+                new Codec.MediaComponent(RedChannelId, sizes[0]),
+                new Codec.MediaComponent(GreenChannelId, sizes[1]),
+                new Codec.MediaComponent(BlueChannelId, sizes[2])
             });
         }
 
@@ -212,9 +236,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'r', 5),
-                new Codec.MediaComponent((byte)'g', 6),
-                new Codec.MediaComponent((byte)'b', 5)
+                new Codec.MediaComponent(RedChannelId, 5),
+                new Codec.MediaComponent(GreenChannelId, 6),
+                new Codec.MediaComponent(BlueChannelId, 5)
             });
         }
 
@@ -224,9 +248,9 @@ namespace Media.Codecs.Image
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
                 new Codec.MediaComponent((byte)'a', 2),
-                new Codec.MediaComponent((byte)'r', 10),
-                new Codec.MediaComponent((byte)'g', 10),
-                new Codec.MediaComponent((byte)'b', 10)
+                new Codec.MediaComponent(RedChannelId, 10),
+                new Codec.MediaComponent(GreenChannelId, 10),
+                new Codec.MediaComponent(BlueChannelId, 10)
             });
         }
 
@@ -234,9 +258,9 @@ namespace Media.Codecs.Image
         {
             return new ImageFormat(byteOrder, dataLayout, new Codec.MediaComponent[]
             {
-                new Codec.MediaComponent((byte)'y', 5),
-                new Codec.MediaComponent((byte)'u', 6),
-                new Codec.MediaComponent((byte)'v', 5)
+                new Codec.MediaComponent(LumaChannelId, 5),
+                new Codec.MediaComponent(ChromaMajorChannelId, 6),
+                new Codec.MediaComponent(ChromaMinorChannelId, 5)
             });
         }
 

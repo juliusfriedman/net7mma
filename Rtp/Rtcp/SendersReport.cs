@@ -76,11 +76,13 @@ namespace Media.Rtcp
 
         }
 
-        public SendersReport(RtcpPacket reference, bool shouldDispose)
+        public SendersReport(RtcpPacket reference, bool shouldDispose = true)
             : base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 200.", "reference");
         }
+
+        //Other overloads
 
         #endregion
 

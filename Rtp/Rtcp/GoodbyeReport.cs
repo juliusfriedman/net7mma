@@ -179,8 +179,8 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header">The header</param>
         /// <param name="payload">The payload</param>
-        public GoodbyeReport(RtcpHeader header, IEnumerable<byte> payload)
-            : base(header, payload)
+        public GoodbyeReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDipose = true)
+            : base(header, payload, shouldDipose)
         {
         }
 
@@ -190,7 +190,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="header"></param>
         /// <param name="payload"></param>
-        public GoodbyeReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDipose)
+        public GoodbyeReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDipose = true)
             : base(header, payload, shouldDipose)
         {
         }
@@ -201,8 +201,8 @@ namespace Media.Rtcp
         /// Throws an ArgumentException if the <see cref="RtcpHeader.PayloadType"/> is not GoodbyeReport (203)
         /// </summary>
         /// <param name="reference">The packet containing the GoodbyeReport</param>
-        public GoodbyeReport(RtcpPacket reference, bool shouldDispose)
-            :this(reference.Header, reference.Payload)
+        public GoodbyeReport(RtcpPacket reference, bool shouldDispose = true)
+            : this(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 203.", "reference");
         }
@@ -252,18 +252,19 @@ namespace Media.Rtcp
         /// <returns>The <see cref="SourceList"/> created.</returns>
         public Media.RFC3550.SourceList GetSourceList() { return new Media.RFC3550.SourceList(this); }
 
-        /// <summary>
-        /// Clones this GoodbyeReport instance.
-        /// If reference is true changes in either instance will be reflected in both.
-        /// </summary>
-        /// <param name="reference">Indicates if the new instance should reference this instance.</param>
-        /// <returns>The newly created instance.</returns>
-        public GoodbyeReport Clone(bool reference)
-        {
-            //Todo, update to includeSourceList etc.
-            if (reference) return new GoodbyeReport(Header, Payload);
-            return new GoodbyeReport(Header.Clone(), this.Prepare().ToArray());
-        }
+        //Packet has clone
+        ///// <summary>
+        ///// Clones this GoodbyeReport instance.
+        ///// If reference is true changes in either instance will be reflected in both.
+        ///// </summary>
+        ///// <param name="reference">Indicates if the new instance should reference this instance.</param>
+        ///// <returns>The newly created instance.</returns>
+        //public GoodbyeReport Clone(bool reference)
+        //{
+        //    //Todo, update to includeSourceList etc.
+        //    if (reference) return new GoodbyeReport(Header, Payload);
+        //    return new GoodbyeReport(Header.Clone(), Prepare().ToArray());
+        //}
 
         #endregion
 

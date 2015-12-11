@@ -319,38 +319,42 @@ namespace Media.Codec
             return null;
         }
 
-        public int ComponentIndexToBitSize(int index)
+        public int BitsInFormatBefore(int componentIndex, bool inclusive = false)
         {
             int bits = 0;
-            
-            for (int i = 0; i <= index; ++i)
+
+            if (false == inclusive) ++componentIndex;
+
+            for (int i = 0; i < componentIndex; ++i)
             {
                 bits += Components[i].Size;
             }
-            
+
             return bits;
         }
 
-        public int ComponentIndexToByteSize(int index)
+        public int BytesInFormatBefore(int componentIndex, bool inclusive = false)
         {
-            return Common.Binary.BitsToBytes(ComponentIndexToBitSize(index));
+            return Common.Binary.BitsToBytes(BitsInFormatBefore(componentIndex, inclusive));
         }
 
-        public int BitsInComponentAfterIndex(int index)
+        public int BitsInFormatAfter(int componentIndex, bool inclusive = false)
         {
             int bits = 0;
 
-            for (int e = Components.Length; index < e; ++index)
+            if (false == inclusive) componentIndex++;
+
+            for (int e = Components.Length; componentIndex < e; ++componentIndex)
             {
-                bits += Components[index].Size;
+                bits += Components[componentIndex].Size;
             }
 
             return bits;
         }
 
-        public int BytesInComponentAfterIndex(int index)
+        public int BytesInFormatAfter(int componentIndex, bool inclusive = false)
         {
-            return Common.Binary.BitsToBytes(BitsInComponentAfterIndex(index));
+            return Common.Binary.BitsToBytes(BitsInFormatAfter(componentIndex, inclusive));
         }
 
         //BitsSizeWithoutComponents
