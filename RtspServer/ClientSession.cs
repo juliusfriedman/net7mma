@@ -1616,7 +1616,7 @@ namespace Media.Rtsp//.Server
                 //Add a control line for the MedaiDescription (which is `rtsp://./Id/audio` (video etc)
                 //Should be a TrackId and not the media type to allow more then one media type to be controlled.
                 //e.g. Two audio streams or text streams is valid.
-                md.Add(new Sdp.SessionDescriptionLine("a=control:" + "/live/" + stream.Id + '/' + md.MediaType));
+                md.Add(new Sdp.SessionDescriptionLine("a=control:" + md.MediaType));
 
 
                 //Add the connection line for the media

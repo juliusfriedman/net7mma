@@ -717,6 +717,7 @@ namespace Media.Rtp
             /// <summary>
             /// Indicates if the RemoteParty is known by a unique id other than 0.
             /// </summary>
+            //Should also check if receiving...
             internal bool InDiscovery { get { return RemoteSynchronizationSourceIdentifier == 0; } }
 
             /// <summary>

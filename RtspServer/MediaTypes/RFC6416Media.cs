@@ -175,9 +175,9 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("fmtp:96 profile-level-id=1"));
             SessionDescription.MediaDescriptions.Last().Add(new Sdp.SessionDescriptionLine("fmtp:97 profile-level-id=15; profile=1;"));
 
-            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
+            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));
 
-            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(2, 3, sourceId, SessionDescription.MediaDescriptions.Last(), false, 0));
+            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(2, 3, sourceId, SessionDescription.MediaDescriptions.Last(), false, sourceId));
         }
 
         /// <summary>
