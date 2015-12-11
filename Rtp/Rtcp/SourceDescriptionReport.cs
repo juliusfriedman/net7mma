@@ -1036,7 +1036,30 @@ namespace Media.Rtcp
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 202.", "reference");
         }
 
-        //Other overloads
+        /// <summary>
+        /// Constructs a new SourceDescriptionReport from the given <see cref="RtcpHeader"/> and payload.
+        /// Changes to the header are immediately reflected in this instance.
+        /// Changes to the payload are not immediately reflected in this instance.
+        /// </summary>
+        /// <param name="header">The header</param>
+        /// <param name="payload">The payload</param>
+        public SourceDescriptionReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDipose = true)
+            : base(header, payload, shouldDipose)
+        {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 202.", "reference");
+        }
+
+        /// <summary>
+        /// Constructs a new SourceDescriptionReport from the given <see cref="RtcpHeader"/> and payload.
+        /// Changes to the header and payload are immediately reflected in this instance.
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="payload"></param>
+        public SourceDescriptionReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDipose = true)
+            : base(header, payload, shouldDipose)
+        {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 202.", "reference");
+        }
 
         //Overloads with Items :)
 

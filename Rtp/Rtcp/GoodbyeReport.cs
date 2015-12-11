@@ -182,6 +182,7 @@ namespace Media.Rtcp
         public GoodbyeReport(RtcpHeader header, IEnumerable<byte> payload, bool shouldDipose = true)
             : base(header, payload, shouldDipose)
         {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 203.", "reference");
         }
 
         /// <summary>
@@ -193,6 +194,7 @@ namespace Media.Rtcp
         public GoodbyeReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDipose = true)
             : base(header, payload, shouldDipose)
         {
+            if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 203.", "reference");
         }
 
         /// <summary>
@@ -202,7 +204,7 @@ namespace Media.Rtcp
         /// </summary>
         /// <param name="reference">The packet containing the GoodbyeReport</param>
         public GoodbyeReport(RtcpPacket reference, bool shouldDispose = true)
-            : this(reference.Header, reference.Payload, shouldDispose)
+            : base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new ArgumentException("Header.PayloadType is not equal to the expected type of 203.", "reference");
         }

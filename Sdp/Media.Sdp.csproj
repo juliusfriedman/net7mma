@@ -68,8 +68,13 @@
     <Compile Include="..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="Lines.cs" />
+    <Compile Include="MediaDescription.cs" />
+    <Compile Include="MediaType.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SessionDescriptionProtocol.cs" />
+    <Compile Include="SessionDescriptionLine.cs" />
+    <Compile Include="SessionDescription.cs" />
+    <Compile Include="TimeDescription.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Media.Common.csproj">

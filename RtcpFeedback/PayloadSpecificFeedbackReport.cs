@@ -15,6 +15,7 @@
         {
 
         }
+
         /// <summary>
         /// Constructs a new PayloadSpecificFeedbackReport from the given <see cref="RtcpHeader"/> and payload.
         /// Changes to the header are immediately reflected in this instance.
@@ -25,6 +26,7 @@
         public PayloadSpecificFeedbackReport(RtcpHeader header, System.Collections.Generic.IEnumerable<byte> payload, bool shouldDispose = true)
             : base(header, payload, shouldDispose)
         {
+            if (Header.PayloadType != PayloadType) throw new System.ArgumentException("Header.PayloadType is not equal to the expected type of 206.", "reference");
         }
 
         /// <summary>
@@ -36,6 +38,7 @@
         public PayloadSpecificFeedbackReport(RtcpHeader header, Common.MemorySegment payload, bool shouldDipose = true)
             : base(header, payload, shouldDipose)
         {
+            if (Header.PayloadType != PayloadType) throw new System.ArgumentException("Header.PayloadType is not equal to the expected type of 206.", "reference");
         }
 
         /// <summary>
@@ -45,7 +48,7 @@
         /// </summary>
         /// <param name="reference">The packet containing the PayloadSpecificFeedbackReport</param>
         public PayloadSpecificFeedbackReport(RtcpPacket reference, bool shouldDispose = true)
-            : this(reference.Header, reference.Payload, shouldDispose)
+            : base(reference.Header, reference.Payload, shouldDispose)
         {
             if (Header.PayloadType != PayloadType) throw new System.ArgumentException("Header.PayloadType is not equal to the expected type of 206.", "reference");
         }

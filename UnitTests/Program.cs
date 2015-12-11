@@ -2576,7 +2576,24 @@ a=rtpmap:99 h263-1998/90000");
         /// </summary>
         static void TestRtpRtcp()
         {
-            //Perform the tests
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtpPacketUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpPacketUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpSendersReportUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpReceiversReportUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SourceDescriptionItemUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.SourceDescriptionChunkUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpSourceDescriptionReportUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpGoodbyeReportUnitTests), typeOfVoid);
+
+            CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(Media.UnitTests.RtcpApplicationSpecificReportUnitTests), typeOfVoid);
+
             CreateInstanceAndInvokeAllMethodsWithReturnType(typeof(RtpRtcpTests), typeOfVoid);
         }
 
@@ -3021,7 +3038,7 @@ a=rtpmap:99 h263-1998/90000");
                 {
                     buffer = data;
 
-                    message.ContentEncoding.GetString(data);
+                    message.Body = message.ContentEncoding.GetString(data);
 
                     message.SetHeader(Media.Rtsp.RtspHeaders.ContentEncoding, contentType ?? "application/octet-string");
                 }
@@ -3031,12 +3048,12 @@ a=rtpmap:99 h263-1998/90000");
 
                 int max = message.Length, toSend = Utility.Random.Next(client.Buffer.Count);
 
-                if (toSend == max) using (client.SendRtspMessage(message)) ;
+                if (toSend == max) using (client.SendRtspMessage(message)) parsed.Dispose();
                 else
                 {
                     int sent = 0;
                     //Send only some of the data
-                    do sent = client.RtspSocket.Send(buffer);
+                    do sent = client.RtspSocket.Send(buffer, 0, toSend, System.Net.Sockets.SocketFlags.None);
                     while (sent == 0);
 
                     string output = message.ContentEncoding.GetString(message.ToBytes(), 0, sent);
@@ -3050,10 +3067,7 @@ a=rtpmap:99 h263-1998/90000");
                     Console.WriteLine(client.InternalId + " - Parsed: " + parsed);
 
                     //Send the real request with the same data
-                    using (client.SendRtspMessage(message)) ;
-
-                    parsed.Dispose();
-
+                    using (client.SendRtspMessage(message)) parsed.Dispose();
                 }
             }
         }

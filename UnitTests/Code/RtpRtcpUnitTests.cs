@@ -532,7 +532,7 @@ namespace Media.UnitTests
             //Prepare a sequence which contains the data in the packet including the header
             IEnumerable<byte> preparedPacket = rtcpPacket.Prepare();
 
-            //Check for an invlaid length
+            //Check for an invalid length
             if (rtcpPacket.Payload.Count > 0 || rtcpPacket.Header.LengthInWordsMinusOne != 0 && rtcpPacket.Length != Media.Rtcp.RtcpHeader.Length || preparedPacket.Count() != Media.Rtcp.RtcpHeader.Length) throw invalidLength;
 
             //Check for any data in the packet binary
@@ -595,7 +595,7 @@ namespace Media.UnitTests
             byte[] example = new byte[]
                          {
                              //Header
-                            0x81,0xc8,0x00,0x0c,
+                            0x81,0xc8,0x00,0x0c,//12 more words
                             0xa3,0x36,0x84,0x36, //SSRC of sender
                             //Senders Information
                             0xd4,0xa6,0xaf,0x65,
@@ -704,7 +704,7 @@ namespace Media.UnitTests
             /////
 
             //Recievers Report and Source Description
-            example = new byte[] { 0x81,0xc9,0x00,0x07,
+            example = new byte[] { 0x81,0xc9,0x00,0x07, //7 more words
                                    0x69,0xf2,0x79,0x50,
                                    0x61,0x37,0x94,0x50,
                                    0xff,0xff,0xff,0xff,
@@ -712,8 +712,8 @@ namespace Media.UnitTests
                                    0x00,0x00,0x0e,0xbb,
                                    0xce,0xd4,0xc8,0xf5,
                                    0x00,0x00,0x84,0x28,
-                                   
-                                   0x81,0xca,0x00,0x04,
+                                   //SDES
+                                   0x81,0xca,0x00,0x04,//4 more words
                                    0x69,0xf2,0x79,0x50,
                                    0x01,0x06,0x4a,0x61,
                                    0x79,0x2d,0x50,0x43,
@@ -839,7 +839,7 @@ namespace Media.UnitTests
             //asPacket would have a LengthInWordsMinusOne of 3 because 19 / 4 = 4 - 1 = 3
             //But null octets are added (Per RFC3550 @ Page 45 [Paragraph 2] / http://tools.ietf.org/html/rfc3550#appendix-A.4)
             //19 + 1 = 20, 20 / 4 = 5 - 1 = 4.
-            if (!rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
+            if (false == rtcpPacket.IsComplete || rtcpPacket.Length != 20 || rtcpPacket.Header.LengthInWordsMinusOne != 4) throw new Exception("Invalid Length");
         }
     }
 }
