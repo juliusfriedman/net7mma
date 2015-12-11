@@ -84,7 +84,7 @@ namespace Media.Rtsp.Server.MediaTypes
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " raw/" + clockRate));
             SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=fmtp:" + SessionDescription.MediaDescriptions.First().MediaFormat + " sampling=RG+B; width=" + Width + "; height=" + Height + ";")); //depth=5; colorimetry=SMPTE240M
 
-            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, 0));
+            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));
         }
 
         /// <summary>

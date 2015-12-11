@@ -22,9 +22,10 @@ namespace Media.Codecs.Image.Transformations
         public RGB(Image source, Image dest)
             :base(source, dest, Codec.TransformationQuality.Highest)
         {
-            if (Encoding.Default.GetString(source.MediaFormat.Ids) != "rgb") return;
+            //Should be exceptions.
+            if (false == Encoding.Default.GetString(source.MediaFormat.Ids).Contains("rgb")) return;
 
-            if (Encoding.Default.GetString(dest.MediaFormat.Ids) != "yuv") return;
+            if (false == Encoding.Default.GetString(dest.MediaFormat.Ids).Contains("yuv")) return;
 
             if (false == dest.ImageFormat.IsSubSampled) return;
 
