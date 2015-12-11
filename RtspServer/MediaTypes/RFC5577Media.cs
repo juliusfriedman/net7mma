@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Media.Rtsp.Server.Media
+namespace Media.Rtsp.Server.MediaTypes
 {
     /// <summary>
     /// Provides an implementation of <see href="https://tools.ietf.org/html/rfc5577">RFC5577</see> which is used for ITU-T Recommendation G.722.1 Audio.
@@ -46,7 +46,7 @@ namespace Media.Rtsp.Server.Media
 
             public override void Dispose()
             {
-                if (Disposed) return;
+                if (IsDisposed) return;
                 base.Dispose();
                 DisposeBuffer();
             }
@@ -82,11 +82,11 @@ namespace Media.Rtsp.Server.Media
             SessionDescription.Add(new Sdp.MediaDescription(Sdp.MediaType.audio, 0, Rtp.RtpClient.RtpAvpProfileIdentifier, 96));
 
             //Add the control line
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=control:trackID=1"));
             //Should be a field set in constructor.
             //PCMA-WB or PCMU-WB
-            SessionDescription.MediaDescriptions[0].Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions[0].MediaFormat + " PCMA-WB/" + clockRate));
-            m_RtpClient.Add(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions[0], false, 0));
+            SessionDescription.MediaDescriptions.First().Add(new Sdp.SessionDescriptionLine("a=rtpmap:" + SessionDescription.MediaDescriptions.First().MediaFormat + " PCMA-WB/" + clockRate));
+            m_RtpClient.TryAddContext(new Rtp.RtpClient.TransportContext(0, 1, sourceId, SessionDescription.MediaDescriptions.First(), false, sourceId));
         }
         
         #endregion

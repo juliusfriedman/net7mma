@@ -80,8 +80,15 @@
     <Compile Include="MediaTypes\HttpMedia.cs" />
     <Compile Include="MediaTypes\JPEGMedia.cs" />
     <Compile Include="MediaTypes\MJPEGMedia.cs" />
+    <Compile Include="MediaTypes\RFC2190Media.cs" />
     <Compile Include="MediaTypes\RFC2250Media.cs" />
     <Compile Include="MediaTypes\RFC2435Media.cs" />
+    <Compile Include="MediaTypes\RFC3952Media.cs" />
+    <Compile Include="MediaTypes\RFC4629Media.cs" />
+    <Compile Include="MediaTypes\RFC4867Media.cs" />
+    <Compile Include="MediaTypes\RFC5404Media.cs" />
+    <Compile Include="MediaTypes\RFC5577Media.cs" />
+    <Compile Include="MediaTypes\RFC5993Media.cs" />
     <Compile Include="MediaTypes\RFC6295Media.cs" />
     <Compile Include="MediaTypes\RFC4733Media.cs" />
     <Compile Include="MediaTypes\RFC5215Media.cs" />
