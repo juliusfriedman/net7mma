@@ -1226,6 +1226,12 @@ namespace Media.Common
                 case int.MaxValue: return 0;
                 default:
                     {
+                        //Could reverse the int and return CountTrailing
+
+                        //Could use rebase
+                        //int lz = (int)(32 - Math.Log((double)value + 1, 2d));
+                        //lz += (int)((value - (0x80000000u >> lz)) >> 31);
+
                         //Ensure a power of two, could also use a different sequence and constant.
 
                         int x = value;
@@ -2231,7 +2237,6 @@ namespace Media.Common
         /// <returns>The calculated result</returns>
         public static long ReadInteger(IEnumerable<byte> octets, int offset, int sizeInBytes, bool reverse, long sign = Binary.Ūnus, int shift = Binary.BitsPerByte)
         {
-
             if (sizeInBytes < Binary.Nihil) throw new ArgumentException("sizeInBytes", "Must be at greater than 0.");
 
             if (sizeInBytes > Binary.Octo) throw new NotSupportedException("Only sizes up to 8 octets are supported in a long.");

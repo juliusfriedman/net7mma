@@ -82,7 +82,7 @@ namespace Media.Rtcp
         /// <summary>
         /// The size in octets of this ReportBlock instance
         /// </summary>
-        public virtual int Size { get { return IsDisposed ? 0 : Memory.Count; } } //ReportBlockSize
+        public virtual int Size { get { return IsDisposed ? 0 : Common.Binary.Clamp(Memory.Count, 0, ReportBlockSize); } } //ReportBlockSize
 
         /// <summary>
         /// The identifier or identity to which this ReportBlock corresponds to.
@@ -109,6 +109,7 @@ namespace Media.Rtcp
         /// </summary>
         public int CumulativePacketsLost
         {
+            //Read 32 at offset 4 and shift left 4
             get { return (int)Binary.ReadU24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian); }
             protected set { Binary.Write24(Memory.Array, Memory.Offset + 5, BitConverter.IsLittleEndian, (uint)value); }
         }

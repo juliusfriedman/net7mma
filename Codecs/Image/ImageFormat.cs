@@ -344,6 +344,16 @@ namespace Media.Codecs.Image
 
             if (sampling.Length < Components.Length) throw new System.ArgumentOutOfRangeException("sampling", "Must have the same amount of elements as Components");
 
+            //This needs to be able to reflect 4:4:4 or less
+            //This is how this needs to look.
+            
+            //Sub Sampling | int | Example
+            //           4 |   0 | 8 >> 0 = 8
+            //           2 |   1 | 8 >> 1 = 4
+            //           1 |   2 | 8 >> 2 = 2
+            //        0.25 |   3 | 8 >> 3 = 1
+            //           0 |   -1| skip
+
             Widths = Heights = sampling;
         }
 
