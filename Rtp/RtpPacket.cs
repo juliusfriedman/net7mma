@@ -112,7 +112,7 @@ namespace Media.Rtp
         /// This property WILL return the value of the last non 0 octet in the payload if Header.Padding is true, otherwise 0.
         /// <see cref="RFC3550.ReadPadding"/> for more information.
         /// </summary>
-        public int PaddingOctets { get { if (IsDisposed || false == Header.Padding) return 0; return RFC3550.ReadPadding(Payload, Payload.Count - 1); } }
+        public int PaddingOctets { get { if (IsDisposed || false == Header.Padding) return 0; return Media.RFC3550.ReadPadding(Payload.Array, Payload.Offset + Payload.Count - 1, 1); } }
 
         /// <summary>
         /// Indicates if the RtpPacket is formatted in a complaince to RFC3550 and that all data required to read the RtpPacket is available.
@@ -174,9 +174,11 @@ namespace Media.Rtp
             {
                 if (IsDisposed || Payload.Count == 0) return Media.Common.MemorySegment.EmptyBytes;
 
-                int nonPayloadOctets = HeaderOctets;
+                int nonPayloadOctets = HeaderOctets, padding = PaddingOctets;
 
-                return Payload.Skip(nonPayloadOctets).Take(IsComplete ? Payload.Count - (nonPayloadOctets + PaddingOctets) : -1);
+                //return Payload.Skip(nonPayloadOctets).Take(IsComplete ? Payload.Count - (nonPayloadOctets + PaddingOctets) : -1);
+
+                return new Common.MemorySegment(Payload.Array, (Payload.Offset + HeaderOctets), Payload.Count - (nonPayloadOctets + padding));
             }
         }
 
@@ -184,7 +186,7 @@ namespace Media.Rtp
         {
             get
             {
-                if (IsDisposed || false == IsComplete || Payload.Count == 0 || false == Padding) return Media.Common.MemorySegment.Empty;
+                if (IsDisposed || false == IsComplete || Payload.Count == 0) return Media.Common.MemorySegment.Empty;
 
                 //return Payload.Reverse().Take(PaddingOctets).Reverse();
 

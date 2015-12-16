@@ -314,6 +314,8 @@ namespace Media.Rtsp.Server.MediaTypes
             internal protected virtual void ProcessPacket(Rtp.RtpPacket packet)
             {
 
+                //Todo, use packet.Payload and keep track of offsets.
+
                 //Starting at offset 0
                 int offset = 0;
 
@@ -401,6 +403,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                                 //Store the nalType contained
                                                 m_ContainedNalTypes.Add(nalHeader);
 
+                                                //>= 6 && <= 8
                                                 if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
 
                                                 //Done reading
@@ -419,6 +422,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 }
                             }
 
+                            //No more data in packet.
                             return;
                         }
                     case Media.Codecs.Video.H264.NalUnitType.FragmentationUnitA: //FU - A
@@ -452,6 +456,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //DON Present in FU - B
                                 if (nalUnitType == 29) offset += 2;
 
+                                //Should verify count... just consumed 1 - 3 bytes and only required 2.
+
                                 //Determine the fragment size
                                 int fragment_size = count - offset;
 
@@ -484,6 +490,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 }
                             }
 
+                            //No more data?
                             return;
                         }
                     default:

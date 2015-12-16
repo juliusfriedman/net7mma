@@ -273,13 +273,13 @@ namespace Media
                 ++parsedPackets;
 
                 //if the packet is a SourceDescriptionReport ensure a CName is present.
-                if (!hasCName && currentPacket.PayloadType == SourceDescriptionReport.PayloadType)
+                if (false == hasCName && currentPacket.PayloadType == SourceDescriptionReport.PayloadType)
                 {
                     //The packets contained a SourceDescription Report.
                     hasSourceDescription = true;
 
                     //if not already checked for a cname check now
-                    if (!hasCName && currentPacket.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket, false)) if ((hasCName = asReport.HasCName)) break;
+                    if (false == hasCName && currentPacket.BlockCount > 0) using (SourceDescriptionReport asReport = new SourceDescriptionReport(currentPacket, false)) if ((hasCName = asReport.HasCName)) break;
                 }
 
                 if (hasSourceDescription && false == hasCName) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(currentPacket, "Invalid compound data, Source Description report did not have a CName SourceDescriptionItem.");
@@ -317,12 +317,49 @@ namespace Media
         /// <param name="segment">The memory which contains binary data</param>
         /// <param name="position">The position in the segment to start looking for padding</param>
         /// <returns>The value of the last non 0 octet in the given segment deleniated by position</returns>
-        public static int ReadPadding(Common.MemorySegment segment, int position)
+        //public static int ReadPadding(Common.MemorySegment segment, int position)
+        //{
+        //  //  int segmentCount = segment.Count;
+
+        //  //  //If there are no more bytes to parse we cannot continue
+        //  //  if (segmentCount == 0 || position > segmentCount) return 0;
+
+        //  //  /*
+        //  //    If the padding bit is set, the packet contains one or more
+        //  //    additional padding octets at the end which are not part of the
+        //  //    payload.  The last octet of the padding contains a count of how
+        //  //    many padding octets should be ignored, including itself.  Padding
+        //  //    may be needed by some encryption algorithms with fixed block sizes
+        //  //    or for carrying several RTP packets in a lower-layer protocol data unit.
+        //  //*/
+
+        //  //  byte val;
+
+        //  //  //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
+        //  //  while (position < segmentCount)
+        //  //  {
+        //  //      //get the val and move the position
+        //  //      val = segment[position++];
+
+        //  //      //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
+        //  //      if (val != default(byte))
+        //  //      {
+        //  //          //The last octet is not part of the payload but should indicate the number of bytes in the padding.
+        //  //          return val;
+        //  //      }
+        //  //  }
+
+        //  //  return 0;
+        //}
+
+        public static int ReadPadding(byte[] buffer, int offset, int count)
         {
-            int segmentCount = segment.Count;
+            if (count <= 0 || buffer == null) return 0;
+
+            int dataLength = buffer.Length;
 
             //If there are no more bytes to parse we cannot continue
-            if (segmentCount == 0 || position > segmentCount) return 0;
+            if (dataLength == 0 || offset > dataLength) return 0;
 
             /*
               If the padding bit is set, the packet contains one or more
@@ -336,10 +373,10 @@ namespace Media
             byte val;
 
             //Iterate forwards looking for padding ending at the count of bytes in the segment of memory given
-            while (position < segmentCount)
+            while (count-- > 0 && offset < dataLength)
             {
                 //get the val and move the position
-                val = segment[position++];
+                val = buffer[offset++];
 
                 //If the value is non 0 this is supposed to be the amount of padding contained in the packet (in octets)
                 if (val != default(byte))

@@ -566,7 +566,7 @@ namespace Media.UnitTests
                 //Try to make a padded packet with the given amount
                 rtcpPacket = new Media.Rtcp.RtcpPacket(0, 0, paddingAmount, 0, 0, 0);
 
-                //A a 4 bytes which are not padding related
+                //Add 4 bytes which are not padding related
                 rtcpPacket.AddBytesToPayload(Enumerable.Repeat(default(byte), 4), 0, 1);
 
                 //Check ReadPadding works after adding bytes to the payload

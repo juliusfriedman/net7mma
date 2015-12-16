@@ -187,7 +187,8 @@ namespace Media.Rtcp
         }
 
         /// <summary>
-        /// The length in 32 bit words (Minus One). When equal to ushort.MaxValue or 0 there is no payload.
+        /// The length in 32 bit words (Minus One). Including any padding. 
+        /// When equal to ushort.MaxValue or ushort.MinValue there is no payload.
         /// </summary>
         public int LengthInWordsMinusOne
         {
@@ -235,8 +236,8 @@ namespace Media.Rtcp
 
                 switch (LengthInWordsMinusOne)
                 {
-                    case RtcpHeader.MinimumLengthInWords:
-                    //case RtcpHeader.MaximumLengthInWords: // -
+                    //case RtcpHeader.MinimumLengthInWords:
+                    case RtcpHeader.MaximumLengthInWords: // -
                         return 0;
                     default: return (int)Binary.ReadU32(PointerToLast6Bytes.Array, PointerToLast6Bytes.Offset + 2, BitConverter.IsLittleEndian);
                 }
@@ -252,8 +253,8 @@ namespace Media.Rtcp
                 //If there was no words in the packet (other than the header itself) than indicate another word is present.
                 switch (LengthInWordsMinusOne)
                 {
-                    case RtcpHeader.MinimumLengthInWords:
-                    case RtcpHeader.MaximumLengthInWords:
+                    case RtcpHeader.MinimumLengthInWords://Was 0 + 1
+                    case RtcpHeader.MaximumLengthInWords://Was FFFF + 0
                         LengthInWordsMinusOne = RtcpHeader.DefaultLengthInWords;
                         return;
                 }
@@ -309,9 +310,11 @@ namespace Media.Rtcp
             //SynchronizationSourceIdentifier (32 bits)
             // 48 Bits = 6 bytes
             Last6Bytes = new byte[6];
-
             //Copy the remaining bytes of the header which consist of the aformentioned properties
-            Array.Copy(octets, offset + RFC3550.CommonHeaderBits.Size, Last6Bytes, 0, Math.Min(6, availableOctets - RFC3550.CommonHeaderBits.Size));
+
+            //If the LengthInWords is FFFF then this is extreanous and probably belongs to any padding...
+
+            Array.Copy(octets, offset + RFC3550.CommonHeaderBits.Size, Last6Bytes, 0, Binary.Min(6, availableOctets - RFC3550.CommonHeaderBits.Size));
 
             //Make a pointer to the last 6 bytes
             PointerToLast6Bytes = new Common.MemorySegment(Last6Bytes, 0, 6);

@@ -50,6 +50,76 @@ namespace Media.Codecs.Image
 
         #region Properties
 
+        public IEnumerable<Common.MemorySegment> this[int x, int y]
+        {
+            get
+            {
+                if (x < 0 || y < 0 || x > Width || y > Height) yield return Common.MemorySegment.Empty;
+
+                switch (DataLayout)
+                {
+                    default:
+                    case Media.Codec.DataLayout.Unknown:
+                        {
+                            throw new System.ArgumentException("Invalid DataLayout");
+                        }
+                    case Media.Codec.DataLayout.Packed:
+                        {
+                            //Packed has all samples next to each other... could return all data in 1 shot...
+                            //yield return new Common.MemorySegment(Data.Array, y * Width + x, ImageFormat.Length);
+
+                            int offset = 0, cache = y * Width + x;
+
+                            //Loop each component
+                            for (int c = 0, ce = ImageFormat.Components.Length; c < ce; ++c)
+                            {
+                                //Sub sampled with no values in the plane
+                                if (ImageFormat.Widths[c] < 0 || ImageFormat.Heights[c] < 0) continue;
+
+                                //Probably Needs a BinarySegment, same as MemorySegment but with a BitOffset...
+
+                                //Return the data which belongs to just the component being iterated
+                                yield return new Common.MemorySegment(Data.Array, Data.Offset + offset + cache, ImageFormat[c].Length);
+
+                                //Move the offset the size of the component.
+                                offset += ImageFormat[c].Length;
+
+                                //If the Length == 1 and Size <= 8 this is not correct logic... can't move offset to the next byte.
+                            }
+
+                            yield break;
+                        }
+                    case Media.Codec.DataLayout.Planar:
+                        {
+                            int offset = 0;
+
+                            for (int c = 0, ce = ImageFormat.Components.Length; c < ce; ++c)
+                            {
+                                //Sub sampled with no values in the plane
+                                if (ImageFormat.Widths[c] < 0 || ImageFormat.Heights[c] < 0) continue;
+
+                                //Return the data which belongs to only the component being iterated
+                                yield return new Common.MemorySegment(Data.Array, Data.Offset + offset + (y >> ImageFormat.Widths[c] * PlaneWidth(c)) + x >> ImageFormat.Heights[c], ImageFormat[c].Length);
+
+                                //Move to the next plane
+                                offset += PlaneLength(c);
+                            }
+
+
+                            yield break;
+                        }
+                    case Media.Codec.DataLayout.SemiPlanar:
+                        {
+                            //Planar of 1st component
+
+                            //Packed for all remaining components?
+
+                            yield break;
+                        }
+                }
+            }
+        }
+
         public ImageFormat ImageFormat { get { return MediaFormat as ImageFormat; } }
 
         public int Planes { get { return MediaFormat.Components.Length; } }
@@ -76,11 +146,7 @@ namespace Media.Codecs.Image
         {
             if (plane >= MediaFormat.Components.Length) return -1;
 
-            ImageFormat format = ImageFormat;
-
-            //return PlaneWidth(plane) + PlaneHeight(plane) * MediaFormat.Size;
-
-            return format.Widths[plane] + format.Heights[plane] * format.Size;
+            return (PlaneWidth(plane) + PlaneHeight(plane)) * ImageFormat.Size;
         }
 
         public int PlaneLength(int plane)

@@ -53,6 +53,9 @@ namespace Media.Codec
         /// </summary>
         public readonly int Size;
 
+        //Really also needs a Plane or atleast there should be a derivative for ImageComponent which decribes if a component is on a plane.
+        //Useful for SemiPlanar, without it theres no way to know what component appear in the Plane without assuming.
+
         /// <summary>
         /// Constructs a new MediaComponent with the given configuration
         /// </summary>

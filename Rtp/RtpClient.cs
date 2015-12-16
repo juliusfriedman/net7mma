@@ -3411,6 +3411,9 @@ namespace Media.Rtp
                 //Iterate each managed packet to determine if it was completely sent.
                 foreach (RtcpPacket packet in packets)
                 {
+                    //Handle null or disposed packets.
+                    if (CommonDisposable.IsNullOrDisposed(packet)) continue;
+
                     //Increment for the length of the packet
                     csent += packet.Length;
 
@@ -4120,7 +4123,7 @@ namespace Media.Rtp
                             //TODO Independent framing... (e.g. no $)[ only 4 bytes not 6 ]
                             //If all that remains is the frame header then receive more data. 6 comes from (InterleavedOverhead + CommonHeaderBits.Size)
                             //We need more data to be able to verify the frame.
-                            if (remainingInBuffer <= 6)
+                            if (remainingInBuffer <= sessionRequired + RFC3550.CommonHeaderBits.Size) //6) //sessionRequired + RFC3550.CommonHeaderBits.Size;
                             {
                                 //Remove the context
                                 relevent = null;
@@ -4185,6 +4188,10 @@ namespace Media.Rtp
                                         int rtcpLen;
 
                                         //use a rtcp header to extract the information in the packet
+                                        //copies the bytes here....
+
+                                        //There may not be 4 bytes after the header... remainingInBuffer should be >= 8 to check the ssrc
+
                                         using (RtcpHeader header = new RtcpHeader(buffer, offset + sessionRequired))
                                         {
                                             //Get the length in 'words' (by adding one)
@@ -4203,6 +4210,7 @@ namespace Media.Rtp
 
                                             if (false == incompatible && //It was not already ruled incomaptible
                                                 lengthInWordsPlusOne > 0 && //If there is supposed to be SSRC in the packet
+                                                ///remainingInBuffer >= 8...
                                                 header.Size > RtcpHeader.Length && //The header ACTUALLY contains enough bytes to have a SSRC
                                                 false == relevent.InDiscovery)//The remote context knowns the identity of the remote stream                                                 
                                             {
@@ -4298,7 +4306,7 @@ namespace Media.Rtp
                         //The packet was incompatible or larger than the buffer
 
                         //Determine how much we can move
-                        int toMove = Math.Min(remainingInBuffer, sessionRequired);
+                        int toMove = Binary.Min(remainingInBuffer, sessionRequired);
 
                         //TODO It may be possible to let the event reiever known how much is available here.
 
@@ -4746,7 +4754,8 @@ namespace Media.Rtp
                                 TransportContext sendContext = GetContextForPacket(packet);
 
                                 //Don't send packets which are disposed but do remove them
-                                if (packet == null || packet.IsDisposed || sendContext == null || sendContext.IsDisposed || sendContext.Goodbye != null)
+
+                                if (CommonDisposable.IsNullOrDisposed(packet) || CommonDisposable.IsNullOrDisposed(sendContext) || sendContext.Goodbye != null)
                                 {
                                     ++remove;
 
