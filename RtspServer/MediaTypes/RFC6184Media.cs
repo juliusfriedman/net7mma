@@ -314,16 +314,12 @@ namespace Media.Rtsp.Server.MediaTypes
             internal protected virtual void ProcessPacket(Rtp.RtpPacket packet)
             {
 
-                //Todo, use packet.Payload and keep track of offsets.
-
-                //Starting at offset 0
-                int offset = 0;
+                //From the beginning of the data in the actual payload
+                int payloadOffset = packet.Payload.Offset, offset = payloadOffset + packet.HeaderOctets,
+                    count = packet.Payload.Count - (offset + packet.PaddingOctets); //until the end of the actual payload
 
                 //Obtain the data of the packet (without source list or padding)
-                byte[] packetData = packet.PayloadData.ToArray();
-
-                //Cache the length
-                int count = packetData.Length;
+                byte[] packetData = packet.Payload.Array; //PayloadData.ToArray();
 
                 //Must have at least 2 bytes
                 if (count <= 2) return;
@@ -443,7 +439,7 @@ namespace Media.Rtsp.Server.MediaTypes
 
                                 bool Start = ((FUHeader & 0x80) >> 7) > 0;
 
-                                //bool End = ((FUHeader & 0x40) >> 6) > 0;
+                                bool End = ((FUHeader & 0x40) >> 6) > 0;
 
                                 //bool Receiver = (FUHeader & 0x20) != 0;
 
@@ -461,33 +457,36 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Determine the fragment size
                                 int fragment_size = count - offset;
 
+                                //If the start bit was set
+                                if (Start)
+                                {
+                                    //Reconstruct the nal header
+                                    //Use the first 3 bits of the first byte and last 5 bites of the FU Header
+                                    byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
+
+                                    //Store the nalType contained
+                                    m_ContainedNalTypes.Add(nalHeader);
+
+                                    //Emulation prevention byte...
+                                    if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
+
+                                    //Write the start code
+                                    Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                                    //Write the re-construced header
+                                    Buffer.WriteByte(nalHeader);
+                                }
+
                                 //If the size was valid
                                 if (fragment_size > 0)
                                 {
-                                    //If the start bit was set
-                                    if (Start)
-                                    {
-                                        //Reconstruct the nal header
-                                        //Use the first 3 bits of the first byte and last 5 bites of the FU Header
-                                        byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
-
-                                        //Store the nalType contained
-                                        m_ContainedNalTypes.Add(nalHeader);
-
-                                        if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
-
-                                        //Write the start code
-                                        Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
-
-                                        //Write the re-construced header
-                                        Buffer.WriteByte(nalHeader);
-                                    }
-
-                                    //Allow If End to Write End Sequence?
-
                                     //Write the data of the fragment.
                                     Buffer.Write(packetData, offset, fragment_size);
                                 }
+
+                                //Allow If End to Write End Sequence?
+
+                                if (End) Buffer.WriteByte(Media.Codecs.Video.H264.NalUnitType.EndOfSequence);
                             }
 
                             //No more data?

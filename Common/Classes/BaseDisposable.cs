@@ -75,6 +75,7 @@ namespace Media.Common
         /// <summary>
         /// Constructs a new BaseDisposable
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected BaseDisposable()
         {
             AppDomain.CurrentDomain.DomainUnload += SetShouldDisposeIfSenderIsBaseDisposable;
@@ -84,6 +85,7 @@ namespace Media.Common
         /// Constructs a new BaseDisposable with <see cref="ShouldDispose"/> set to the given value.
         /// </summary>
         /// <param name="shouldDispose">The value of <see cref="ShouldDispose"/></param>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         protected BaseDisposable(bool shouldDispose)
         {
             ShouldDispose = shouldDispose || Environment.HasShutdownStarted;
@@ -92,6 +94,7 @@ namespace Media.Common
         /// <summary>
         /// Finalizes the BaseDisposable by calling Dispose.
         /// </summary>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         ~BaseDisposable() { Dispose(); }
 
         /// <summary>

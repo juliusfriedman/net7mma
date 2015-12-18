@@ -46,6 +46,14 @@ namespace Media.Codecs.Image
             Height = height;
         }
 
+        public Image(ImageFormat format, int width, int height, byte[] data)
+            : base(format, new Common.MemorySegment(data))
+        {
+            Width = width;
+
+            Height = height;
+        }
+
         #endregion
 
         #region Properties
@@ -63,7 +71,7 @@ namespace Media.Codecs.Image
                         {
                             throw new System.ArgumentException("Invalid DataLayout");
                         }
-                    case Media.Codec.DataLayout.Packed:
+                    case Media.Codec.DataLayout.Packed: //Tiled?
                         {
                             //Packed has all samples next to each other... could return all data in 1 shot...
                             //yield return new Common.MemorySegment(Data.Array, y * Width + x, ImageFormat.Length);
@@ -128,6 +136,8 @@ namespace Media.Codecs.Image
 
         #region Methods
 
+        //http://stackoverflow.com/questions/1881455/why-am-i-getting-strange-results-bit-shifting-by-a-negative-value
+
         public int PlaneWidth(int plane)
         {
             if (plane >= MediaFormat.Components.Length) return -1;
@@ -142,6 +152,11 @@ namespace Media.Codecs.Image
             return Height >> ImageFormat.Heights[plane];
         }
 
+        /// <summary>
+        /// Gets the amount of bits in the given plane
+        /// </summary>
+        /// <param name="plane"></param>
+        /// <returns></returns>
         public int PlaneSize(int plane)
         {
             if (plane >= MediaFormat.Components.Length) return -1;
@@ -149,6 +164,11 @@ namespace Media.Codecs.Image
             return (PlaneWidth(plane) + PlaneHeight(plane)) * ImageFormat.Size;
         }
 
+        /// <summary>
+        /// Gets the amount of bytes in the given plane.
+        /// </summary>
+        /// <param name="plane"></param>
+        /// <returns></returns>
         public int PlaneLength(int plane)
         {
             if (plane >= MediaFormat.Components.Length) return -1;
@@ -182,10 +202,16 @@ namespace Media.UnitTests
             }
         }
 
+        //Averages around 1000 msec or 1 sec, way to slow
+        //Even with Parallel its about 200 msec or .24 sec
         public static void TestConversionRGB()
         {
+            int testHeight = 1920, testWidth = 1080;
+
+            System.DateTime start = System.DateTime.UtcNow, end;
+
             //Create the source image
-            using (Media.Codecs.Image.Image rgbImage =  new Codecs.Image.Image(Media.Codecs.Image.ImageFormat.RGB(8), 8, 8))
+            using (Media.Codecs.Image.Image rgbImage = new Codecs.Image.Image(Media.Codecs.Image.ImageFormat.RGB(8), testWidth, testHeight))
             {
                 if (rgbImage.ImageFormat.HasAlphaComponent) throw new System.Exception("HasAlphaComponent should be false");
 
@@ -199,7 +225,7 @@ namespace Media.UnitTests
                 //ImageFormat could be given directly to constructor here
 
                 //Create the destination image
-                using (Media.Codecs.Image.Image yuvImage = new Codecs.Image.Image(Yuv420P, 8, 8))
+                using (Media.Codecs.Image.Image yuvImage = new Codecs.Image.Image(Yuv420P, testWidth, testHeight))
                 {
 
                     //Cache the data of the source before transformation
@@ -209,7 +235,13 @@ namespace Media.UnitTests
 
                     using (Media.Codecs.Image.ImageTransformation it = new Media.Codecs.Image.Transformations.RGB(rgbImage, yuvImage))
                     {
+                        start = System.DateTime.UtcNow;
+
                         it.Transform();
+
+                        end = System.DateTime.UtcNow;
+
+                        System.Console.WriteLine("Took: " + (end - start).TotalMilliseconds.ToString() + " ms");
 
                         //Yuv Data
                         //left = dest.Data.ToArray();
@@ -219,7 +251,13 @@ namespace Media.UnitTests
 
                     using (Media.Codecs.Image.ImageTransformation it = new Media.Codecs.Image.Transformations.YUV(yuvImage, rgbImage))
                     {
+                        start = System.DateTime.UtcNow;
+
                         it.Transform();
+
+                        end = System.DateTime.UtcNow;
+
+                        System.Console.WriteLine("Took: " + (end - start).TotalMilliseconds.ToString() + " ms");
 
                         //Rgb Data
                         right = rgbImage.Data.ToArray();
@@ -228,6 +266,74 @@ namespace Media.UnitTests
                     //Compare the two sequences
                     if (false == left.SequenceEqual(right)) throw new System.InvalidOperationException();
                 }
+
+                //Done with the format.
+                Yuv420P = null;
+            }
+        }
+
+        //Averages around 100 msec, 0.1 sec, still 60 times would be 600 msec or .6 seconds, just fast enough
+        public static void TestUnsafeConversionRGB()
+        {
+            int testHeight = 1920, testWidth = 1080;
+
+            System.DateTime start = System.DateTime.UtcNow, end;
+
+            Codecs.Image.Image yuvImage;
+
+            //Create the source image
+            using (Media.Codecs.Image.Image rgbImage = new Codecs.Image.Image(Media.Codecs.Image.ImageFormat.RGB(8), testWidth, testHeight))
+            {
+                if (rgbImage.ImageFormat.HasAlphaComponent) throw new System.Exception("HasAlphaComponent should be false");
+
+                //Create the ImageFormat based on YUV packed but in Planar format with a full height luma plane and half hight chroma planes
+                Media.Codecs.Image.ImageFormat Yuv420P = new Codecs.Image.ImageFormat(Media.Codecs.Image.ImageFormat.YUV(8, Common.Binary.ByteOrder.Little, Codec.DataLayout.Planar), new int[] { 0, 1, 1 });
+
+                if (Yuv420P.IsInterleaved) throw new System.Exception("IsInterleaved should be false");
+
+                if (Yuv420P.HasAlphaComponent) throw new System.Exception("HasAlphaComponent should be false");
+
+                //ImageFormat could be given directly to constructor here
+
+                //Create the destination image
+
+                //Cache the data of the source before transformation
+                byte[] left = rgbImage.Data.ToArray(), right;
+
+                //Transform RGB to YUV
+
+                start = System.DateTime.UtcNow;
+
+                unsafe
+                {
+                    fixed (byte* ptr = rgbImage.Data.Array)
+                    {
+                        yuvImage = new Codecs.Image.Image(Yuv420P, testWidth, testHeight, Media.Codecs.Image.ColorConversions.RGBToYUV420Managed(rgbImage.Width, rgbImage.Height, (System.IntPtr)ptr));
+                    }
+
+                }
+
+                end = System.DateTime.UtcNow;
+
+                System.Console.WriteLine("Took: " + (end - start).TotalMilliseconds.ToString() + " ms");
+
+                //Transform YUV to RGB
+
+                start = System.DateTime.UtcNow;
+
+                //it.Transform();
+
+                Media.Codecs.Image.ColorConversions.YUV2RGBManaged(yuvImage.Data.Array, rgbImage.Data.Array, rgbImage.Width >> 1, rgbImage.Height >> 1);
+
+                end = System.DateTime.UtcNow;
+
+                System.Console.WriteLine("Took: " + (end - start).TotalMilliseconds.ToString() + " ms");
+
+                //Rgb Data
+                right = rgbImage.Data.ToArray();
+
+                //Compare the two sequences
+                //if (false == left.SequenceEqual(right)) throw new System.InvalidOperationException();
 
                 //Done with the format.
                 Yuv420P = null;

@@ -50,6 +50,6 @@ namespace Media.Codec
         //Components are stored seperately
         Planar = 4,
         //Components are stored both contiguously and seperately
-        SemiPlanar = Packed | Planar,
+        SemiPlanar = Packed | Planar        
     }
 }

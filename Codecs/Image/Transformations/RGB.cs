@@ -117,11 +117,17 @@ namespace Media.Codecs.Image.Transformations
             //                   BRAG
             //                   BRAG
 
+            //Another hypothetical format..
+            //                   GRAB
+            //                   GRAB
+            //                   GRAB
+            //                   GRAB
+
             //Scope references to the data
             Common.MemorySegment source = src.Data, dest = dst.Data;
 
             //Create cache of 3 8 bit RGB values * 4 pixels
-            byte[] cache = new byte[12];            
+            //byte[] cache = new byte[12];
 
             //Setup variables
             int offChr = 0, offLuma = 0, offSrc = 0, strideSrc = src.Width * src.ImageFormat.Length, strideDst = dst.Width, dstComponentOffset = dst.MediaFormat.Length;
@@ -137,102 +143,218 @@ namespace Media.Codecs.Image.Transformations
             //Should also have a way to write the components of dst
 
             //Keeps the offset in bits of the current byte
-            int bitOffset = 0;
+            //int bitOffset = 0;
 
             //1 pixel images...
             //Should actualy use width or height and check after each operation
 
-            //Should definitely use PlaneHeight
+            //Should definitely use PlaneHeight of the source to determine if Upsamlping is needed?
+            //E.g. 4:1:1 RGB to 4:2:0 YUV
+            //Although I am not sure how you would have 4:1:1 rgb, it would just be different size R, B and G Components...
 
-            //Loop half height
-            for (int i = 0, ie = src.Height >> 1; i < ie; ++i)
-            {                
+            int halfHeight = src.Height >> 1, halfWidth = src.Width >> 1;
 
-                //Loop for half width
-                for (int j = 0, je = src.Width >> 1; j < je; ++j)
+            //Do in parallel
+            Parallel.For(0, halfHeight, (i) =>
+            {
+                Parallel.For(0, halfWidth, (j) =>
                 {
+                    //Use local variables based on i and j.
+
+                    //Create cache of 3 8 bit RGB values * 4 pixels
+                    byte[] cache = new byte[12];
+
+                    int currentLuma = i * j, currentChroma = src.Height + halfHeight + j,
+                        currentSrc = i + j * src.ImageFormat.Length,
+                        currentBsrc = i + j * src.ImageFormat.Size % Common.Binary.BitsPerByte;
+
                     //Read and convert component
-                    ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 0);
+                    ReadAndConvertRGBComponentsToYUV(src, ref currentSrc, ref currentBsrc, cache, 0);
 
                     //if (++j >= src.Width) break;
 
                     //Write Luma
-                    dest[offLuma] = cache[0];
+                    dest[currentLuma] = cache[0];
 
                     //Read and convert component
-                    ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 3);
+                    ReadAndConvertRGBComponentsToYUV(src, ref currentSrc, ref currentBsrc, cache, 3);
 
                     //Write Luma and move offset
-                    dest[offLuma++ + strideDst] = cache[3];
+                    dest[currentLuma++ + strideDst] = cache[3];
 
                     //Read and convert component
-                    ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 6);
+                    ReadAndConvertRGBComponentsToYUV(src, ref currentSrc, ref currentBsrc, cache, 6);
 
                     //Write Luma
-                    dest[offLuma] = cache[6];
+                    dest[currentLuma] = cache[6];
 
                     //Read and convert component
-                    ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 9);                    
+                    ReadAndConvertRGBComponentsToYUV(src, ref currentSrc, ref currentBsrc, cache, 9);
 
                     //Write Luma and move offset
-                    dest[offLuma++ + strideDst] = cache[9];
+                    dest[currentLuma++ + strideDst] = cache[9];
 
                     //If dest is not sub sampled then just write the components...
 
                     //Otherwise this will need to ensure its taking the correct amount of components for the dest SubSampling.
 
-                    //Also needs to write in the correct plane, this assumes YUV
+                    //Also needs to write in the correct plane, this assumes YUV, needs to actually write in the correct order.
 
+                    //Needs Common.Binary.WriteBinaryInteger
+
+                    //Determine how to write the Chroma data depending on the SubSampling.
                     switch (dst.ImageFormat.Widths[1])
                     {
-                        case 0: //No sub sampling in plane 1
+                        //No plane data
+                        case -1: break;
+                        case 0: //No sub sampling in plane 1, components map 1 : 1
                             {
                                 //Needs to be written to the correct offset, this assumes YUV
-                                dest[offChr++] = cache[1];
 
-                                //This could mean 0 samples in this plane?
+                                //Cb
+                                dest[currentChroma++] = cache[1];
+
+                                dest[currentChroma + dstComponentOffset] = cache[4];
+
+                                //Cr
+                                dest[currentChroma++] = cache[7];
+
+                                dest[currentChroma + dstComponentOffset] = cache[10];
 
                                 break;
                             }
-                        case 1: //Half width in plane 1
+                        case 1: //Half samples in plane 1, components map 1 : 2
                             {
                                 //Write averaged Chroma Major
-                                dest[offChr] = AverageCb(cache, quality);
+                                dest[currentChroma] = AverageCb(cache, quality);
 
                                 //Write averaged Chroma Minor
-                                dest[offChr + dstComponentOffset] = AverageCr(cache, quality);
+                                dest[currentChroma + dstComponentOffset] = AverageCr(cache, quality);
 
                                 //Move the Chroma offset
                                 ++offChr;
 
                                 break;
                             }
-                        case 2: //Quarter width in plane 1
+                        case 2: //Quarter samples in plane 1, components map 4 : 1
                             {
                                 byte average = (byte)(AverageCb(cache, quality) + AverageCr(cache, quality));
 
                                 if (average > 0) average >>= 1;
 
                                 //Write averaged Chroma value
-                                dest[offChr++] = average;
+                                dest[currentChroma++] = average;
 
                                 //Move the Chroma offset
-                                ++offChr;
+                                ++currentChroma;
 
                                 break;
                             }
                     }
+                });
+            });
 
-                   
-                }
+            ////Loop half height
+            //for (int i = 0, ie = src.Height >> 1; i < ie; ++i)
+            //{
 
-                //should only be done when dst.ImageFormat is Planar!!!
+            //    //Loop for half width
+            //    for (int j = 0, je = src.Width >> 1; j < je; ++j)
+            //    {
+            //        //Read and convert component
+            //        ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 0);
 
-                //Move the Luma offset
-                offLuma += strideDst;
-            }
+            //        //if (++j >= src.Width) break;
 
-            cache = null;
+            //        //Write Luma
+            //        dest[offLuma] = cache[0];
+
+            //        //Read and convert component
+            //        ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 3);
+
+            //        //Write Luma and move offset
+            //        dest[offLuma++ + strideDst] = cache[3];
+
+            //        //Read and convert component
+            //        ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 6);
+
+            //        //Write Luma
+            //        dest[offLuma] = cache[6];
+
+            //        //Read and convert component
+            //        ReadAndConvertRGBComponentsToYUV(src, ref offSrc, ref bitOffset, cache, 9);
+
+            //        //Write Luma and move offset
+            //        dest[offLuma++ + strideDst] = cache[9];
+
+            //        //If dest is not sub sampled then just write the components...
+
+            //        //Otherwise this will need to ensure its taking the correct amount of components for the dest SubSampling.
+
+            //        //Also needs to write in the correct plane, this assumes YUV, needs to actually write in the correct order.
+
+            //        //Needs Common.Binary.WriteBinaryInteger
+
+            //        //Determine how to write the Chroma data depending on the SubSampling.
+            //        switch (dst.ImageFormat.Widths[1])
+            //        {
+            //            //No plane data
+            //            case -1: break;
+            //            case 0: //No sub sampling in plane 1, components map 1 : 1
+            //                {
+            //                    //Needs to be written to the correct offset, this assumes YUV
+
+            //                    //Cb
+            //                    dest[offChr++] = cache[1];
+
+            //                    dest[offChr + dstComponentOffset] = cache[4];
+
+            //                    //Cr
+            //                    dest[offChr++] = cache[7];
+
+            //                    dest[offChr + dstComponentOffset] = cache[10];
+
+            //                    break;
+            //                }
+            //            case 1: //Half samples in plane 1, components map 1 : 2
+            //                {
+            //                    //Write averaged Chroma Major
+            //                    dest[offChr] = AverageCb(cache, quality);
+
+            //                    //Write averaged Chroma Minor
+            //                    dest[offChr + dstComponentOffset] = AverageCr(cache, quality);
+
+            //                    //Move the Chroma offset
+            //                    ++offChr;
+
+            //                    break;
+            //                }
+            //            case 2: //Quarter samples in plane 1, components map 4 : 1
+            //                {
+            //                    byte average = (byte)(AverageCb(cache, quality) + AverageCr(cache, quality));
+
+            //                    if (average > 0) average >>= 1;
+
+            //                    //Write averaged Chroma value
+            //                    dest[offChr++] = average;
+
+            //                    //Move the Chroma offset
+            //                    ++offChr;
+
+            //                    break;
+            //                }
+            //        }
+
+
+            //    }
+
+            //    //should only be done when dst.ImageFormat is Planar!!!
+
+            //    //Move the Luma offset
+            //    offLuma += strideDst;
+            //}
+
+            //cache = null;
 
             source = dest = null;
         }
@@ -362,7 +484,6 @@ namespace Media.Codecs.Image.Transformations
                             {
                                 //Skip the Alpha or others
                                 default:
-                                case Media.Codecs.Image.ImageFormat.AlphaChannelId:
                                     {
                                         Common.Binary.ReadBinaryInteger(src.Data.Array, ref offSrc, ref bitOffset, mc.Size, false);
                                         continue;
