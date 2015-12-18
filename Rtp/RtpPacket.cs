@@ -92,7 +92,10 @@ namespace Media.Rtp
         /// Subsequently >15 * 4  = 60
         /// Clamped with Min(60, Max(0, N)) where N = ContributingSourceCount * 4;
         /// </remarks>
-        public int ContributingSourceListOctets { get { if (IsDisposed || Payload.Count == 0) return 0; return Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4)); } }
+        public int ContributingSourceListOctets
+        {
+            get { if (IsDisposed || Payload.Count == 0) return 0; return Binary.Clamp(Header.ContributingSourceCount * 4, 0, 60)/* Math.Min(60, Math.Max(0, Header.ContributingSourceCount * 4))*/; }
+        }
 
         /// <summary>
         /// Determines the amount of octets in the RtpExtension in this RtpPacket.

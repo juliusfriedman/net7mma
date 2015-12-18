@@ -69,7 +69,7 @@ namespace Media.Common//.Binary
 
         public long Seek(long offset, System.IO.SeekOrigin origin)
         {
-            if (IsDisposed || m_Source == null || !m_Source.CanSeek) return -1;
+            if (IsDisposed || m_Source == null || false == m_Source.CanSeek) return -1;
             return m_StreamPosition = m_Source.Seek(offset, origin);
         }
 
@@ -120,6 +120,8 @@ namespace Media.Common//.Binary
         //WriteNBit
 
         //Should check against m_ByteOrder
+
+        //Should not call ConvertFromBigEndian
 
         public void WriteEndian(byte[] data, Common.Binary.ByteOrder byteOrder)
         {
