@@ -98,7 +98,14 @@ namespace Media.Rtsp
                 Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket);
 
                 //Retransmit for 0 sec
-                Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
+                try
+                {
+                    Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
+                }
+                catch
+                {
+                    //Not supported.
+                }
 
                 //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
                 Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);

@@ -1872,6 +1872,7 @@ namespace Media.Common
         {
             if (data == null) throw new ArgumentNullException("data");
 
+            //Pass reverse or remove it as a parameter because its confusing.
             if (byteOrder == Binary.SystemByteOrder) return ReadBinaryInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
             else if (byteOrder == ByteOrder.Big) return ReadBigEndianInteger(data, ref byteOffset, ref bitOffset, count, sign, bitsPerByte);
 
