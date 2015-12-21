@@ -73,6 +73,8 @@ namespace Media.UnitTests
             TestRFC2435Frame, 
             // MPEG
             TestRFC3640AudioFrame, 
+            //H264
+            TestRFC6184VideoFrame,
             //Sdp
             TestSdp, 
             //RtspMessage
@@ -1831,6 +1833,104 @@ namespace Media.UnitTests
                 }
             }
 
+            //Delete the test file.
+            if (System.IO.File.Exists(outputFileName)) System.IO.File.Delete(outputFileName);
+        }
+
+        static void TestRFC6184VideoFrame()
+        {
+            //The data contained in x Packets
+            byte[][] packetBytes = new byte[][]
+                {
+                    //Packet 97
+                    Media.Common.Extensions.String.StringExtensions.HexStringToBytes("8061006100057e40449ad77a7c85888427111e08cb000110ca80a0003d1800a1184e216818a1b42270e9443b059932b022602e2c2ac1828178bc12b905c133ede7c0fc5de9f09842340a6252112826071550c52790dde7902e57951f09c5563cf87c02903143b3e6f9e22702ee559ce8d84eb36a7892417aa90b62afff27c4586c8bea7dc0f430a63364f831f8fefce442939a9221daf818e2e8e3e25c0cd2627b37d396bebf989a27e33eef9fc366230bc3ee0c12a36eb0b0a06ebb9dffaff2c3a5bd6ab01112cf93cbe7ffca6a53544249d6a6c9972fa5897104494db5bb8df5766febad1e2a681f127bebf1bf2ee34404b42df3d36db10c5819f511d9a2012ac20b8c6271206831408189450e046319625524e9ab62549874ff7722ff10b9b3074b2b19bfee1870b0c00541312749f6c403a25fe42eef87f437363e6c55bf0331849644c10ee7c06abfe3c61f3f081dfefb93c8bc0f11fddb6ffffb637bf9b2f53a1b1f3fbd3814cd1e2b5231e47dabc56eabe5c71aa104abb6d929eafc54a59ebe8835697ee09313a195f4ff5d8615c4ebfaf57bf7f140bef29e1a99cd65033bf2d6d2b7d513e34b16d7c94cdc7ba923f4c4e18fe39deae8b790300cfde2587cce172893d3121b3f08705dd0d3c8edacfcd295a6b2c633ac0fc68aaab3e329881cea0900060748045da7a7475feaea9ab81eb052792377e6c58ae2e39e0ff03ec67bc5bc9c5bd6014e75c182bbdeddef2fc47ac3834b1c5ebbbf69117f277fe1dd7f1f7bf7abda265694267f3cd528179ab37ee31997ef9c0c2800a6954b1dd15feae1db80825f52fba97d3514389ff1fa4935df582cc0b45fbbbf43194271a4ce1dd2e6cb950aaddc9adac1dbfc73c0000c61bdfe6e69562df6e29c267385e7f58842498952906d4d2ca9e3c57e34640948040c8a3bfa7fe29ec033cffd06afb4f79d0043f37f3be9131a1d23c82ea9fbbd49001c7bef76ff071ce9a8a0b6b9b3d32fd7fce8325d75c140e3a57525f79c79313feb75b8c502949f4d3b71316d914266b182fcbeac9718c50fd614de9a1f4cf9c7eadd2f76e4006522f9e89bdf4e73f81fad177d3bf5c4fe8b14e94a52a2660308193f5eab069c69df5379b867009735a297faa7e9ce1bfcfcdcd166e0a606bcc8487a8229ff4fa78469c0d11cb87e1238863fb7cd92fbb9447ff46d9d1032fff351fd03f85af15bbf8cc3b5d71fff0537f5537f69e456e3c83f537f5eff2afae230dfde30a96745c4e90d5dfab54cbcde6b81888ffeb973f572fe6fa252fbf3339906969c326afdfa5d39d03282fe5fe669431c7acdebf367a88e79e0eb5ecddb157c4c128dce924f1cb9afdae003bd380b86c0b3ed7db3c8102f049f0be009b31d44cd7f0fa43d18fadbaab78049dacf898a3f510cbfe0f8f59c60be1bab94ca08488c071223e0257dc990e3c1de73b11aec0b3daac34d30dbc766ef681ed51068fefa74d33f15d6e58a9aac3749d072f44ffdf37c6dcc71b2f6bf7167bda5ecbe48f12897affcb21983f847b88cb4ccb7ea4d7b495d1a3855c45066e64908bfdda10e77d3f9b55565806fff5aed5b6c9219bffa7c1ccf9fb21aef707a74e305497122768c67f7f8df22cfc7a64722f90e2db63b76cb412cfdf53944fed37def78e61eaad0fefd6ff662fee2cdffab61d730abcc6413259e23dc46f33d27f65d4bddf14ee1faba860026522d798558b1df7c35d3be3247e11d4e0d3ae34eac9f9b58253f69f657a67737c5680fbbc660792d20efff74fbe4966fae735c85beb23da3c66713a50b6a86034dfc1add05aec9b5b2be115cfe958e13cb8aef69f8c15e9ffac7c53eb0b6fdfa49d1433b1a355c76ff820b6b5d682b8861ea0b884125ef788458eda9ff5fd02026fce28d9e338d6b7eb7d7f8e3a43c341cdd7bdbf7f20deeaf7fcff0"),
+                    //Packet 98
+                    Media.Common.Extensions.String.StringExtensions.HexStringToBytes("8061006200057e40449ad77a7c0539c3a5af0ddd32802273d06e84031fbb055fd3b3b2688c8cd81b8a017bb565465f31fb508c714ae16f306771bb9b948c6ef9d871983f721fc5de4adcad478ac1cd1907e58b0a3b9287b4e45af16e01581c0c057c0906459a7c4788aa34c0e1d2f88147d68b836453224326e69011a88e4a0ca3b410ce9c30ffa3b7bcc7af0ecafcd4e893c5f3aef0c4e7d1bfefe59f47ef9d1b172d8b52f8ea49dbf575b9737dfdf32b6b20f78f3e86b77dfa08141850e9326b65b41d1504295d68e5ae688d4cd9c04d54dc47dfbf26c9b0c165d5b2a15557d564fd732ff9ae45b8911add308ca38d03a3f15a9117c669fdaea5ceaa3c53eb4b4bb02cc35ec453972a77a612ffdef77f5e4e6d7ff49e7a52117ab835b2e7f1f80385e0571f33c79d6382faeb8a33ecee26addcc919d48b024ac5e16e838e52a9ffa63bd6ae463fed4b0dffdf36bd7afc57d2e0f49e9fb5bdf02e4a497faec9507e3e4551a91e2c14c86117fe53d85fa58fbe89251c3755e268ca2b557aca68876f574677ee6d1389855550b6c2e89d76bfef39e246a39ff92e4733e95be0381dc432e42531b127292eef486f74ebd5cd1d6996670c31ebc3af0b70a951025ffd23e65223aef9d46d9ccd0a55fcae46cf292aabf7adfef950b7eabc15e7a161d9e522872bffa73526c9d654bd1139023e7fa91bf9ae3ec8b16bbdf3514764cd49a14dd163a77e9d9f282664ac4a2528e4529e08bcbfaa77eb75f3c18a0e19881a9440fc90217b9166fdf8bf68b58cacc65ba31331a7030e039246850c9522ffedfcd4c47f8c7ebddfbf1bedf10482b68257f4987c741925f5d7a3194bb105d7b7cf9f476ff8f930a903e55dbf16b652f87456fd68dafbffb01656b042022141ed8be417811e75ccf0f4e0bbe2e03156e9031b4db993c11a53a84aa967c2e840b10f7e11d268b109226909219191c909ce6316aa3f1e6b59b258dc443cc966774e07244615b7d308f44c92dfb9fd8ad3efd4f5c72e1845088a1e2813a4de731736453fe70724b463856ab499f15abfbc2f649d4873feea3d5ee155be5df647036f1feaaab6244f5ddfbc2ee0da9201dad8b863672e749480aaed0f6d0fdc05232ef3c934372514268ba2ab91a343f279f818b0fe78257a2623cbbbf23ccf3336df66dff3444f7ed0d175ed586d53fca2227d790d056e5440afa6b71b36ff57a6f825563faf4a4acf15c5a4e5a5b79e3f65303df99c7a938a0eca4b4019b32aabc39f22ff9f05306002d6e0915abcc5a3a0e4327eb653bf3787948a3f5b0c789626a222bd850f7e79e67b6247b78174a0912efd9f28e54bef27f8296bd33a2a8c5e4fa8284ba4c8f7d25f6cde54fcfcfa08dbc45d99c5f717c5a19e98b6bf9ba2aa9ddeadf37f6982666d3673ea9ffa63d53e7e0d4af4f0c073428c95c0e154c9cf2afd3d71d1ed3c23711bb96b8e29a2bb1be99c8f2bbe8b22ae7d1ac72eb482ebdf6eedc0d08fb7a8b7e8360ef38fdfa6ae3f479d647a4f23a60d0513d44f5ce8d95fbb6e8346c5febbd4ff8a16ab7fb72d529c1bb0a26e5561c73beaa6bb27aa4f9dd5bcea44d14bdf7d701ed01b14bd0f6aa3ec675e91f9d8697ed62a79fbb30fb12462c5daea165e6353bc395e9bf39a0639e19a3449066cb9a4a91a33afb1cc72e679d7ffb5fd469235efeccde9b31d30fe4e12aa2ffd52e2ebe0e7fd5193864aaffe74519f31d95e5717c285dfd7b3ae70b96ff4c6b89767eac275557d6255a663f544ee074c06446670af0787dc2e6fea57642546190447af5422244f0f5a8143d41d714ea1fc89d1d4f8950c50479d5e99fdbc4e6265bfa025ad4746101801bca1f6c119306927489042ebe4dc3c28e9aac23f4d210298330400887098155c7833a5dfa00ea8519d5e024172cf0bad66d0cff57b85077c47"),
+                    //Packet 99
+                    Media.Common.Extensions.String.StringExtensions.HexStringToBytes("8061006300057e40449ad77a7c052162f2f0315cb0103baf834b701337c057f23050480d048d309b47be94455cde7d2182aa17865c6cdcd66e0ec43e1228ee7f3821a6bc01881ed11353e199b32313d9855ad3d2d3e6e79b1a778bd1dfaf4ed42d5edff99fb55fd64e3e64462ff4fa6e12339b2c6ade6fe6293d1f2eeea8de341db038a81480308f5bba6b568b02a2112344995f3d8145eb53b6481897830a8aced6b7bfb02747cf22fbb4e8b69a0e8fe7b6a82dded2aa4299b17aaba9c3b36e703fa5b9475cce4a430b39fa214f670b964283afdabd3c86bc4b701f4c814ad22fd4c7b30d4c5e7ea645bd5d76598e7cdafcdead81ba96c4e280d6f384450cac6974837439a1c796aa67e1e7acf68a9a650bff960788e0d14eccf07147b722e90d0dfdefbbe66d3471ed18d5e4d5399fbdd3bea1ac13df537ea398922e1b2337e5fb1bcaeea1b1db4ec64d31d6f217501ccd0d7b5e6db40ac07f77f747c713a12802458e18b01459162d522ec2c73386c283f4dadddf162ddcc488f3a09bbb65797b59af9db2686039c080f3dceffd95a172dc7fdf1a71bfed4f0af777f297bfa463e1feea3f468afffed8c8e813e5dddf69a255fbf56b47fb05f09b7e8e4ecd38afb1af28ffad126dbc8fcdd963cc8ccf032501bcff65b07e953b572a2c1b12aa42f232a8609d69d96c7718d751d91d091abae2d3d968fff5670a61ed52d3f49ce280d23bd936b2a74a8ffe1c42d19d91bfff4e5cae12c6a4e4452e67bcd16312682a51b75b7e47d08b0540b9b866fc2716ea71b5e8aea0733595f67f82a6048a4b70603311ba446d2c89f5ebea7e3caa593bb0f54c15d91cdd81c08788ec0ecec03c25f4c08f5974ed3dfa3373392b738cd59d70f6eaad392073bbfdf5a072d02bf0e3cb4d9df812d24af1c1cefea7db7242d6c9ffb11d69e9f64c51548afa7bd48e1f2ebfcd44dd00ee45516a5843f671f51251f7f03705236d4850ca5e3e8c485e7b247423d689dfffc7718745603cc4b2c9064d23fba8061d048b3e16658f0f702aab01c40b7ffdc7a0ee3be077cdb85c066f53033a0398f6851582fae45857fdc7f41d8b4191d213a5b2c34f7519084d60b9e91e4ce100360801a7fe377fc837c0b99aefbb33f2e06ee2018d34a326846dc3935d65affffe814138cfb9b1cfbe3d7e8697c4732ea5d47903332e8ab36bb44f44ccffddf83499043857cdce02de73d844be7321390fce8f6b3f6fc3189cad25ffe82046c48651f08c36024ca711c90717940c8c840b171e5009ea9fd24553d38af3ea03619a8de22be653a3a7cf09b00cdcbf5847dbc559a72cf58cab072a376a3d142eefefcaaa7f056ebbe667c7ff0d94daed23a3f220e2ef91bfa519bfb83845020475e855341477c3be7c35c0934792be5aedb93911c95aec2abbb5e61708af5d9cb77b53c66da9bde4bf2aac6be3cd69277bbe562cb99b0d7db4be29819c50f49b3837fbb9c7be9bf54519fbd34353e92ef67ea830f7521cf81b99467eaaf956b1ff99f7f0264f01ef8d1c64c0ce259639e71997ecd3d939da0c26bd455cd8ee59f7380a759fdd97b239f1b78319cde9c3a4e6aeffd95786ade24cded51d909784c13a8ab33462d3befb0d07b9665b2e7684f602da03038c10c45aa8b9fc6deef81974ffab97bf864255be4d912de60f67154ee29dd87ad2c07d587f8257f0547168b7c8f2dc0865d57b54c7e1b7fff2fca7d01233df9204f5ce314a411287309cfb2a57aedff1154fefd5cdd6c5bcfe9ddc4636fc9a5ff3af5fa7f751ef5e77f5197775a85b0c17355aeae6db5ce2bddb42131fddfd75cf322afdee27fb0bbba89a92d5d3aad8eb2c943c5ee17113cb90a97741292ebd8cde06e97c1f971e32ee725f1726c42f3956bf0920e03a05a8bf0af9bb4eaeead2b859c057264e17ab48c13f80"),
+                    //Packet 100 (Marker)
+                    Media.Common.Extensions.String.StringExtensions.HexStringToBytes("80e1006400057e40449ad77a7c45a27f2678955f39c8fd52eadedd9b8a3ff5a5e279fd5bccfa98d7dc02d7d455b3303416c5db693fdd93df8c14e445fdb912d915a14d83201d115deefbdce4ee6e7aff9af4e4a17ff25da866352b5ed6defd66fd4798183790bfc73cff274d813e54b1d7477937c10dd7fcb6fb434741505ab00dfd9a4b3f853effbbd8e484cd67be897e6c91796115452542e75d55b8bbba6f29f88ff98bdc79b8989fdb7a4b81eb445c7be4f701d97552a6a5bdfd5f0e92594ebd53f4481b744ce2edc6351e8c9b5fd0ebeaaf64dd7ebe1985349c744dc6e96ec812bd953eeb883bd863b5c2d55ee40fbdf3e4f7234b6e5ca8dd10fdfab7dcf1e0b3fed65f51e6902a557f9cb2bbed1977cebc282999f6bcc4f7ea99b7315b5d2bfdc923578dae17ea26a9cfc4ce071d724baf6babdcf8d111e91e739f386987615b55f3b178cdb79bb953aa736ce9"),
+                };
+
+
+            //The data from the packets given above will be placed into this file after depacketization
+            string outputFileName = "Test.h264";
+
+            //Create the file every time the test starts
+            using (var fs = new System.IO.FileStream(outputFileName, System.IO.FileMode.Create, System.IO.FileAccess.ReadWrite))
+            {
+                //Create a RFC6184Frame
+                using (Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame profileFrame = new Media.Rtsp.Server.MediaTypes.RFC6184Media.RFC6184Frame(97))
+                {
+                    //Take each packet in the examples
+                    foreach (byte[] packet in packetBytes)
+                    {
+                        //Create the managed packet from that binary data and add it to the frame.
+                        profileFrame.Add(new Media.Rtp.RtpPacket(packet, 0));
+                    }
+
+                    //Remove any profile header and create a stream which can be given to a decoder.
+                    profileFrame.Depacketize();
+
+                    //If there is no buffer then there is nothing to process.
+                    if (profileFrame.Buffer == null) return;
+
+                    //If there is not a sps or pps in band and this is the first frame given to a decoder then it needs to contain a SPS and PPS
+                    //This is typically retrieved from the SessionDescription or CodecPrivateData
+                    if (false == profileFrame.ContainsSequenceParameterSet || false == profileFrame.ContainsPictureParameterSet)
+                    {
+                        //From the MediaDescription.FmtpLine from the SessionDescription which describes the media.
+                        Media.Sdp.SessionDescriptionLine fmtp = new Sdp.SessionDescriptionLine("a=fmtp:97 packetization-mode=1;profile-level-id=42C01E;sprop-parameter-sets=Z0LAHtkDxWhAAAADAEAAAAwDxYuS,aMuMsg==");
+
+                        //We will extract the sps and pps from that line.
+                        byte[] sps = null, pps = null;
+
+                        //If there was a fmtp line then iterate the parts contained.
+                        if (fmtp != null) foreach (string p in fmtp.Parts)
+                            {
+                                string trim = p.Trim();
+                                if (trim.StartsWith("sprop-parameter-sets=", StringComparison.InvariantCultureIgnoreCase))
+                                {
+                                    string[] data = trim.Replace("sprop-parameter-sets=", string.Empty).Split(',');
+                                    sps = System.Convert.FromBase64String(data[0]);
+                                    pps = System.Convert.FromBase64String(data[1]);
+                                    break;
+                                }
+                            }
+
+                        //Prepend the SPS if it was found
+                        if (sps != null)
+                        {
+                            //Emulation prevention, present for SPS or PPS
+                            fs.WriteByte(0);
+
+                            //Write the start code
+                            fs.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                            //Write the SPS
+                            fs.Write(sps, 0, sps.Length);
+                        }
+
+                        //Prepend the PPS if it was found.
+                        if (pps != null)
+                        {
+                            //Emulation prevention, present for SPS or PPS
+                            fs.WriteByte(0);
+
+                            //Write the start code
+                            fs.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                            //Write the PPS
+                            fs.Write(pps, 0, pps.Length);
+                        }
+                    }
+                    
+                    //Write the data in the frame.
+                    profileFrame.Buffer.CopyTo(fs);
+                }
+            }
+
+            //Check for the test file and delete it.
             if (System.IO.File.Exists(outputFileName)) System.IO.File.Delete(outputFileName);
         }
 

@@ -504,23 +504,22 @@ namespace Media.Rtsp.Server.MediaTypes
                                 continue;
                             }
 
-                            //offset--;
+                            //Read the bits for the size and the index
+                            //auSize = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, sizeLength + indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
 
-                            //bitOffset = Common.Binary.BitsPerByte - indexLength;
+                            //bitOffset -= indexLength;
 
-                            //This should be byte offset 1, bit 5 for sizeLength = 13, but it's 3 bits ahead. indexLength
-                            //auSize = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, sizeLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Little, Media.Common.Binary.BitsPerByte) >> indexLength;
-
-                            //This offset is byte 3 bit 5 which is correct
-                            //auSize += (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, sizeLength - 7, ref bitOffset, false, 1, Common.Binary.ByteOrder.Little, Media.Common.Binary.BitsPerByte) >> indexLength;
+                            ////Peek to the 
+                            //if (bitOffset < 0)
+                            //{
+                            //    bitOffset = 0;
+                            //    --offset;
+                            //}
 
                             //Read one byte and peek into the next byte for the auSize which apparently is in little endian.
                             auSize = (rtp.Payload.Array[offset++] << Media.Common.Binary.BitsPerByte >> indexLength) + (rtp.Payload.Array[offset] >> indexLength);
 
                             //auSize can never be greater than max.
-
-                            bitOffset -= indexLength;
-
                             if (auSize + offset >= max) throw new InvalidOperationException("auSize is larger than expected.");
                         }
                         else auSize = constantAuSize;
@@ -559,7 +558,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             }
 
                             //Not aligned
-                            //auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Little, Media.Common.Binary.BitsPerByte) >> indexLength;
+                            //auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
 
                             auIndex = (rtp.Payload.Array[offset++] >> indexLength);
 
@@ -654,7 +653,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         #endregion
 
                         //Get the header which corresponds to this access unit (note that this should be done in ParseAuHeader)
-                        //This should also take into account that the last auHeader may be padded with up to 7 0 bits.
+                        //This should also take into account that the last auHeader may be padded with up to 7 '0' bits.
                         using (var accessUnitHeader = new Common.MemorySegment(rtp.Payload.Array, auHeaderOffset, auHeaderLengthBytes))
                         {
                             //Use a  auHeader from the header section, if there is more then one move the offset to the next header
@@ -674,8 +673,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                 //Make auSize equal to what actually remains.
                                 auSize = remains;
                             }
-                            else remainingInNextAccessUnit = 0; //Nothing else remains if the auSize indicates was contained in the payload
-
+                            else remainingInNextAccessUnit = 0; //Nothing else remains if the auSize indicated was completely contained in the payload
 
                             //Project the data in the payload from the offset of the access unit until its declared size.
                             using (var accessUnitData = new Common.MemorySegment(rtp.Payload.Array, offset, auSize))

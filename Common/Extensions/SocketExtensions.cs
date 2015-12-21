@@ -129,7 +129,7 @@ namespace Media.Common.Extensions.Socket
 
         //Should also have a TrySetSocketOption
 
-        //Should ensure that the correct options are being set, these are all tests windows options but Linux or Mac may not have them
+        //Should ensure that the correct options are being set, these are all verified as windows options but Linux or Mac may not have them
 
         internal static void SetTcpOption(System.Net.Sockets.Socket socket, System.Net.Sockets.SocketOptionName name, int value)
         {
@@ -147,9 +147,10 @@ namespace Media.Common.Extensions.Socket
 
         public static void SetMaximumTcpRetransmissionTime(System.Net.Sockets.Socket socket, int amountInSeconds = 3)
         {
-            //On windows this is TCP_MAXRT
-            //On linux this may not be defined, and should probably instead be the value of USER_TIMEOUT
-            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)5, amountInSeconds);
+            //On windows this is TCP_MAXRT elsewhere USER_TIMEOUT
+            System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 5 : 18);
+
+            SetTcpOption(socket, optionName, amountInSeconds);
         }
 
         public static void DisableTcpRetransmissions(System.Net.Sockets.Socket socket)
@@ -160,6 +161,22 @@ namespace Media.Common.Extensions.Socket
         public static void EnableTcpRetransmissions(System.Net.Sockets.Socket socket)
         {
             SetMaximumTcpRetransmissionTime(socket);
+        }
+
+        #endregion
+
+        #region MaximumSegmentSize
+
+        //Should verify the value for the option is correct for the OS.
+
+        public static void GetMaximumSegmentSize(System.Net.Sockets.Socket socket, out int result)
+        {
+            result = (int)socket.GetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, (System.Net.Sockets.SocketOptionName)0x02);
+        }
+
+        public static void SetMaximumSegmentSize(System.Net.Sockets.Socket socket, int size)
+        {
+            SetTcpOption(socket, (System.Net.Sockets.SocketOptionName)0x02, size);
         }
 
         #endregion
