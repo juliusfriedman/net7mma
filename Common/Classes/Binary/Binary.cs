@@ -1937,9 +1937,17 @@ namespace Media.Common
         {
             if (count <= 0) return Binary.Nihil;
 
+            //If already at the next byte then advance the offset
+            if (bitOffset >= bitsPerByte)
+            {
+                ++byteOffset;
+
+                bitOffset = 0;
+            }
+
             //The reading offsets
             int reverseByteOffset = byteOffset + Binary.BitsToBytes(count, bitsPerByte) - 1,
-                reverseBitOffset = Binary.Septem - bitOffset;
+                reverseBitOffset = Binary.Septem;
 
             unchecked
             {

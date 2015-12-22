@@ -434,12 +434,19 @@ namespace Media.Containers.Mxf
         {
             if (node == null) throw new ArgumentNullException("node");
 
+            //Should check node starts with ParitionPack...
+            //if (false == CompareUL(node.Identifier, UniversalLabel.PartitionPack.ToByteArray())) return PartitionKind.Unknown;
+
             return (PartitionKind)node.Identifier[13];
         }
 
+        //Should check node starts with ParitionPack?
         public static PartitionStatus GetPartitionStatus(Node node)
         {
             if (node == null) throw new ArgumentNullException("node");
+
+            //Should check node starts with ParitionPack...
+            //if (false == CompareUL(node.Identifier, UniversalLabel.PartitionPack.ToByteArray())) return PartitionStatus.Unknown;
 
             return (PartitionStatus)node.Identifier[14];
         }
@@ -466,7 +473,7 @@ namespace Media.Containers.Mxf
                 //Registry Designator  = byte 0x05 usually can be different in some cases
                 if (compareRegistry ? BitConverter.ToInt16(aBytes, 4) == BitConverter.ToInt16(bBytes, 4) : aBytes[4] == bBytes[4])
                 {
-                    //MXF decoders shall ignore the version number byte (i.e. byte 8) when determining if a KLV key is the Fill item key.
+                    //MXF decoders shall ignore the version number byte (i.e. byte 7) when determining if a KLV key is the Fill item key.
                     if (compareVersion ? BitConverter.ToInt16(aBytes, 7) == BitConverter.ToInt16(bBytes, 7) : aBytes[7] == bBytes[7])
                     {
                         //9 - 12 should also match

@@ -2316,6 +2316,7 @@ a=rtpmap:99 h263-1998/90000");
                             Console.WriteLine("TotalSize: " + mxfObject.TotalSize);
                             Console.WriteLine("DataSize: " + mxfObject.DataSize);
 
+                            //CompareUL?
                             if (name == "PartitionPack")
                             {
                                 Console.WriteLine("Partition Type: " + Media.Containers.Mxf.MxfReader.GetPartitionKind(mxfObject));

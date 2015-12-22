@@ -339,7 +339,7 @@ namespace Media.Rtcp
 
         /// <summary>
         /// The binary data of the RtcpPacket which may contain ReportBlocks and or ExtensionData.
-        /// </summary>        
+        /// </summary>
         public MemorySegment Payload { get; protected set; } //should be backed field
 
         public bool IsReadOnly { get { return false == m_OwnsHeader; } }
