@@ -60,14 +60,7 @@ namespace Media.Http
                 Media.Common.Extensions.Socket.SocketExtensions.DisableLinger(socket);
 
                 //Retransmit for 0 sec
-                try
-                {
-                    Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
-                }
-                catch
-                {
-                    //Not supported.
-                }
+                if(Common.Extensions.OperatingSystemExtensions.IsWindows) Media.Common.Extensions.Socket.SocketExtensions.DisableTcpRetransmissions(socket);
 
                 //If both send and receieve buffer size are 0 then there is no coalescing when nagle's algorithm is disabled
                 Media.Common.Extensions.Socket.SocketExtensions.DisableTcpNagelAlgorithm(socket);

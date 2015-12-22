@@ -133,7 +133,9 @@ namespace Media.Common.Extensions.Socket
 
         internal static void SetTcpOption(System.Net.Sockets.Socket socket, System.Net.Sockets.SocketOptionName name, int value)
         {
-            socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, name, value);
+
+            /*if (Common.Extensions.OperatingSystemExtensions.IsWindows) */socket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Tcp, name, value);
+            //else SetSocketOption_internal 
         }
 
         #region Linger
@@ -148,6 +150,10 @@ namespace Media.Common.Extensions.Socket
         public static void SetMaximumTcpRetransmissionTime(System.Net.Sockets.Socket socket, int amountInSeconds = 3)
         {
             //On windows this is TCP_MAXRT elsewhere USER_TIMEOUT
+
+            //Mono checks the options and will not call setsocketopt if the name is not known to the Mono Runtime.
+            //A work around would be to either define the call for get and set socketopt in this library or call the SetSocketOption_internal method for mono.
+
             System.Net.Sockets.SocketOptionName optionName = (System.Net.Sockets.SocketOptionName)(Common.Extensions.OperatingSystemExtensions.IsWindows ? 5 : 18);
 
             SetTcpOption(socket, optionName, amountInSeconds);
