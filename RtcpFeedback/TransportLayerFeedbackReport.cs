@@ -64,5 +64,25 @@ namespace Media.Rtcp.Feedback
         }
 
         #endregion
+
+        #region Properties
+
+        /// <summary>
+        /// Gets or sets the value contained in the 'FMT' field which is also the <see cref="RtcpHeader.BlockCount"/>.
+        /// </summary>
+        public TransportLayerFormat TransportLayerType
+        {
+            get
+            {
+                return (TransportLayerFormat)BlockCount;
+            }
+            set
+            {
+                BlockCount = (byte)value;
+            }
+        }
+
+        #endregion
+
     }
 }

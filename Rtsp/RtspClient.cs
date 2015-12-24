@@ -2301,35 +2301,47 @@ namespace Media.Rtsp
         /// <returns></returns>
         public virtual RtspMessage Authenticate(RtspMessage request, RtspMessage response = null, bool force = false)
         {
-            //If not forced and already TriedCredentials then return the response given.
+            //If not forced and already TriedCredentials and there was no response then return null.
             if (false == force && TriedCredentials && response == null) return response;
+
+            #region Example header
 
             //http://tools.ietf.org/html/rfc2617
             //3.2.1 The WWW-Authenticate Response Header
             //Example
             //WWW-Authenticate: Basic realm="nmrs_m7VKmomQ2YM3:", Digest realm="GeoVision", nonce="b923b84614fc11c78c712fb0e88bc525"\r\n
 
-            //Needs to handle multiple auth types
+            #endregion
+
+            //If there was a response get the WWWAuthenticate header from it.
 
             string authenticateHeader = response != null ? response[RtspHeaders.WWWAuthenticate] : string.Empty;
 
-            if (false == string.IsNullOrWhiteSpace(m_AuthorizationHeader) && false == authenticateHeader.Contains("stale")) authenticateHeader = m_AuthorizationHeader;
+            //Basic auth shouldn't expire, but to be supported there should be an AuthenticationState class which
+            //holds the state for Authentication, e.g. LastAuthenticationTime, Attempts etc.
+            //Then using that we can really narrow down if the Auth is expired or just not working.
+
+            //For now, if there was no header or if we already tried to authenticate and the header doesn't contain "stale" then return the response given.
+            if (string.IsNullOrWhiteSpace(authenticateHeader) ||
+                TriedCredentials &&
+                authenticateHeader.IndexOf("stale", StringComparison.OrdinalIgnoreCase) < 0) return response;
 
             //Note should not be using ASCII, the request and response have the characters already encoded.
 
             //Should also be a hash broken up by key appropriately.
 
-            //Should also handle when baseParts has 0 length
-
+            //Get the tokens in the header
             string[] baseParts = authenticateHeader.Split(Media.Common.Extensions.Linq.LinqExtensions.Yield(((char)Common.ASCII.Space)).ToArray(), 2, StringSplitOptions.RemoveEmptyEntries);
-
-            if (baseParts.Length > 1) baseParts = Media.Common.Extensions.Linq.LinqExtensions.Yield(baseParts[0]).Concat(baseParts[1].Split(RtspHeaders.Comma).Select(s => s.Trim())).ToArray();
+            
+            //If nothing was in the header then return the response given.
+            if (baseParts.Length == 0) return response;
+            else if (baseParts.Length > 1) baseParts = Media.Common.Extensions.Linq.LinqExtensions.Yield(baseParts[0]).Concat(baseParts[1].Split(RtspHeaders.Comma).Select(s => s.Trim())).ToArray();
 
             if (string.Compare(baseParts[0].Trim(), "basic", true) == 0 || m_AuthenticationScheme == AuthenticationSchemes.Basic)
             {
                 AuthenticationScheme = AuthenticationSchemes.Basic;
 
-                request.SetHeader(RtspHeaders.Authorization, RtspHeaders.BasicAuthorizationHeader(request.ContentEncoding, Credential));
+                request.SetHeader(RtspHeaders.Authorization, m_AuthorizationHeader = RtspHeaders.BasicAuthorizationHeader(request.ContentEncoding, Credential));
 
                 request.RemoveHeader(RtspHeaders.Timestamp);
                 request.RemoveHeader(RtspHeaders.CSeq);

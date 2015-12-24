@@ -371,18 +371,11 @@ namespace Media.Containers.BaseMedia
 
         protected void ParseMovieHeader()
         {
-
-            Node mediaHeader = null;
-
-            //Handle in program....
-            //while ((mediaHeader = ReadBox("mvhd", Root.Offset)) == null && Buffering == true) System.Threading.Thread.Yield();
-
             ulong duration;
 
-            //Obtain the timeScale and duration from the LAST mdhd box
-            using (mediaHeader = mediaHeader == null ? ReadBox("mvhd", Root.Offset) : mediaHeader)
+            //Obtain the timeScale and duration from the LAST? mdhd box, can do but is more latent if the file is large...
+            using (var mediaHeader = ReadBox("mvhd", Root.Offset)) // ReadBoxes(Root.Offset, "mvhd").LastOrDefault())
             {
-
                 if (mediaHeader == null) throw new InvalidOperationException("Cannot find 'mvhd' box.");
 
                 int offset = 0;
@@ -464,8 +457,6 @@ namespace Media.Containers.BaseMedia
 
                 m_Duration = TimeSpan.FromSeconds((double)duration / (double)m_TimeScale.Value);
             }
-
-            mediaHeader = null;
         }
 
         //Should be a better box... (meta ,moov, mfra?)?
@@ -476,7 +467,7 @@ namespace Media.Containers.BaseMedia
 
         List<Track> m_Tracks;
 
-        public override IEnumerable<Track> GetTracks()
+        public override IEnumerable<Track> GetTracks() //bool enabled tracks only?
         {
 
             if (m_Tracks != null)
@@ -958,6 +949,8 @@ namespace Media.Containers.BaseMedia
 
                                     bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 78, BitConverter.IsLittleEndian);
 
+                                    //esds box for codec specific data.
+
                                     break;
                                 }
                         }
@@ -1032,7 +1025,7 @@ namespace Media.Containers.BaseMedia
                     elst = null;
                 }
 
-                Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication, channels, bitDepth);
+                Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication, channels, bitDepth, enabled);
 
                 tracks.Add(createdTrack);
 
