@@ -70,7 +70,7 @@ namespace Media.Container
         /// May not always be present...
         /// <param name="channels"></param>
         /// <param name="bitDepth"></param>
-        public Track(Node header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication, byte channels = 0, byte bitDepth = 0)
+        public Track(Node header, string name, int id,  DateTime created, DateTime modified, long sampleCount, int height, int width, TimeSpan position, TimeSpan duration, double frameRate, Sdp.MediaType mediaType, byte[] codecIndication, byte channels = 0, byte bitDepth = 0, bool enabled = true)
         {
             this.Header = header;
             this.Width = width;
@@ -85,6 +85,7 @@ namespace Media.Container
             this.CodecIndication = codecIndication;
             this.Channels = channels;
             this.BitDepth = bitDepth;
+            this.Enabled = enabled;
         }
 
         #region Fields
@@ -116,6 +117,8 @@ namespace Media.Container
         public readonly long SampleCount;
 
         public readonly byte Channels, BitDepth;
+
+        public readonly bool Enabled;
 
         /// <summary>
         /// Used to adjust the sample which is retrieved next.
