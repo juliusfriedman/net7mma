@@ -1501,7 +1501,7 @@ namespace Media.Rtsp
                             case RtspMessageType.Response:
                             case RtspMessageType.Invalid:
                                 {
-                                    //Ensure the session is still connected.
+                                    //Ensure the session is still connected and wait for more data.
                                     session.SendRtspData(Media.Common.MemorySegment.EmptyBytes);
 
                                     return;
@@ -1606,11 +1606,12 @@ namespace Media.Rtsp
 
             try
             {
-                //Ensure the bytes were completely sent..
-                int sent = session.m_RtspSocket.EndSendTo(ar);
 
                 //Don't do anything if the session cannot be acted on.
                 if (BaseDisposable.IsNullOrDisposed(session) || session.IsDisconnected) return;
+
+                //Ensure the bytes were completely sent..
+                int sent = session.m_RtspSocket.EndSendTo(ar);
 
                 //See how much was needed.
                 int neededLength = session.m_SendBuffer.Length;
@@ -2303,6 +2304,12 @@ namespace Media.Rtsp
                 if (found == null)
                 {
                     ProcessLocationNotFoundRtspRequest(session, sendResponse);
+                    return;
+                }
+
+                if (false == found.Ready)
+                {
+                    ProcessInvalidRtspRequest(session, RtspStatusCode.PreconditionFailed, null, sendResponse);
                     return;
                 }
 

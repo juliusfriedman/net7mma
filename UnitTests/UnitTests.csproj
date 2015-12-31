@@ -36,6 +36,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject>Media.UnitTests.Program</StartupObject>
@@ -46,6 +47,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Code\RtpClientUnitTests.cs" />
@@ -62,6 +64,12 @@
     </Compile>
     <Compile Include="Forms\RtspInspector.Designer.cs">
       <DependentUpon>RtspInspector.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\ServerTester.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ServerTester.Designer.cs">
+      <DependentUpon>ServerTester.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -316,6 +324,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\RtspInspector.resx">
       <DependentUpon>RtspInspector.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ServerTester.resx">
+      <DependentUpon>ServerTester.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

@@ -747,7 +747,18 @@ namespace Media.Rtp
             {
                 get
                 {
-                    return false == IsDisposed && (IsRtpEnabled ? RtpSocket != null && LocalRtp != null || LocalRtcp != null : true) && (IsRtcpEnabled ? RtcpSocket != null && RemoteRtcp != null : true);
+                    //return false == IsDisposed && (IsRtpEnabled ? RtpSocket != null && LocalRtp != null || LocalRtcp != null : true) && (IsRtcpEnabled ? RtcpSocket != null && RemoteRtcp != null : true);
+
+                    if (IsRtpEnabled)
+                    {
+                        return RtpSocket != null && LocalRtp != null;
+                    }
+                    else if (IsRtcpEnabled)
+                    {
+                        return RtcpSocket != null && LocalRtcp != null;
+                    }
+
+                    return false;
                 }
             }
 
@@ -763,7 +774,7 @@ namespace Media.Rtp
             {
                 get
                 {
-                    if (IsDisposed || !IsRtcpEnabled) return true;
+                    if (IsDisposed || false == IsRtcpEnabled) return true;
 
                     //If disposed no limit is imposed do not check
                     if (MaximumRtcpBandwidthPercentage == 0) return false;
@@ -1601,7 +1612,8 @@ namespace Media.Rtp
                     Blocking = false,
                     ReceiveBufferSize = 0,
                     SendBufferSize = 0,
-                    NoDelay = true
+                    NoDelay = true,
+                    ExclusiveAddressUse = false
                 });
             }
 
@@ -1617,9 +1629,7 @@ namespace Media.Rtp
                     //Duplicte the socket
                     Socket duplicate = new Socket(duplexed.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-                    duplicate.ExclusiveAddressUse = false;
-
-                    duplicate.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    Media.Common.Extensions.Socket.SocketExtensions.EnableAddressReuse(duplicate);
 
                     duplicate.SendBufferSize = duplexed.SendBufferSize;
 
@@ -2435,14 +2445,14 @@ namespace Media.Rtp
                     //If the packet was added to the frame
                     if (transportContext.LastFrame.TryAdd(new RtpPacket(packet.Prepare().ToArray(), 0), true))
                     {
-                        //The LastFrame changed
-                        /*if (packet.Marker)*/ OnRtpFrameChanged(transportContext.LastFrame, transportContext);
+                        //The LastFrame changed so fire an event
+                        OnRtpFrameChanged(transportContext.LastFrame, transportContext);
                     }
                     
                     
                     if (transportContext.LastFrame.Count >= transportContext.LastFrame.MaxPackets)
                     {
-
+                        //Indicate the frame is going out of scope
                         OnRtpFrameChanged(transportContext.LastFrame, transportContext, true);
 
                         //Backup of frames
@@ -2461,6 +2471,7 @@ namespace Media.Rtp
                     //Dispose the last frame, it's going out of scope.
                     if (transportContext.LastFrame != null)
                     {
+                        //Indicate the frame is going out of scope
                         OnRtpFrameChanged(transportContext.LastFrame, transportContext, true);
 
                         transportContext.LastFrame.Dispose();
@@ -2480,8 +2491,6 @@ namespace Media.Rtp
                     //The current frame changed
                     OnRtpFrameChanged(transportContext.CurrentFrame, transportContext);
 
-                    /*if (packet.Marker)*/ //OnRtpFrameChanged(transportContext.CurrentFrame, transportContext);
-
                     return;
 
 
@@ -2499,6 +2508,7 @@ namespace Media.Rtp
 
                     if (transportContext.CurrentFrame.Count >= transportContext.CurrentFrame.MaxPackets)
                     {
+                        //Indicate the frame is going out of scope
                         OnRtpFrameChanged(transportContext.CurrentFrame, transportContext, true);
 
                         //Backup of frames
@@ -2703,6 +2713,7 @@ namespace Media.Rtp
                 catch { continue; }
             }
         }
+            
 
         /// <summary>
         /// Raises the RtpPacket Handler for Sending
@@ -3794,6 +3805,8 @@ namespace Media.Rtp
 
             if (received <= 0) return -1;
 
+            received = Common.Binary.Min(received, buffer.Length - offset);
+
             buffer = buffer ?? m_Buffer.Array;
 
             int bufferLength = buffer.Length, bufferOffset = offset;
@@ -3988,7 +4001,7 @@ namespace Media.Rtp
 
                 error = SocketError.Success;
 
-                ////If the receive was a success
+                ////If the receive was a successq
                 //if (available > 0)
                 //{                                       
                 received = socket.ReceiveFrom(buffer.Array, buffer.Offset, buffer.Count, SocketFlags.None, ref remote);
@@ -4578,6 +4591,8 @@ namespace Media.Rtp
 
                     bool shouldStop = IsDisposed || m_StopRequested;
 
+                    //Should keep error Count and if errorCount == TransportContexts.Count then return otherwise reset.
+
                     //Until aborted
                     while (false == shouldStop)
                     {
@@ -4607,19 +4622,21 @@ namespace Media.Rtp
                             TransportContext tc = TransportContexts[i];
 
                             //Check for a context which is able to receive data
-                            if (tc == null || tc.IsDisposed || false == tc.IsActive
-                                ||//If the context does not have continious media it must only receive data for the duration of the media.
-                                false == tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero 
-                                ||
-                                tc.Goodbye != null) continue;
-
+                            if (Common.BaseDisposable.IsNullOrDisposed(tc) 
+                                //Active must be true
+                                || false == tc.IsActive
+                                //If the context does not have continious media it must only receive data for the duration of the media.
+                                ||false == tc.IsContinious && tc.TimeRemaining < TimeSpan.Zero
+                                //There can't be a Goodbye sent or received
+                                || tc.Goodbye != null) continue;                                
+                            
                             //Receive Data on the RtpSocket and RtcpSocket, summize the amount of bytes received from each socket.
 
                             //Reset the error.
                             lastError = SocketError.SocketError;
 
                             //Critical
-                            System.Threading.Thread.BeginCriticalRegion();
+                            //System.Threading.Thread.BeginCriticalRegion();
 
                             //Ensure priority is above normal
                             System.Threading.Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
@@ -4645,6 +4662,15 @@ namespace Media.Rtp
                                     //Determine if the socket is out of sync
                                     if (lastError == SocketError.ConnectionAborted || lastError == SocketError.ConnectionReset)
                                     {
+                                        //Tcp this needs to be handled better, storing the last error on the context may also be useful
+
+                                        //if (tc.RtpSocket.ProtocolType == ProtocolType.Tcp)
+                                        //{
+                                        //    tc.DisconnectSockets();
+
+                                        //    continue;
+                                        //}
+
                                         System.Threading.Thread.Sleep(0);
                                     }
                                 }
@@ -4672,6 +4698,15 @@ namespace Media.Rtp
                                         //Determine if the socket is out of sync
                                         if (lastError == SocketError.ConnectionAborted || lastError == SocketError.ConnectionReset)
                                         {
+                                            //Tcp this needs to be handled better, storing the last error on the context may also be useful
+
+                                            //if (tc.RtpSocket.ProtocolType == ProtocolType.Tcp)
+                                            //{
+                                            //    tc.DisconnectSockets();
+
+                                            //    continue;
+                                            //}
+
                                             System.Threading.Thread.Sleep(0);
                                         }
                                     }
@@ -4702,7 +4737,7 @@ namespace Media.Rtp
                         }
 
                         //Critical
-                        System.Threading.Thread.EndCriticalRegion();
+                        //System.Threading.Thread.EndCriticalRegion();
 
                         #endregion
 
@@ -4712,7 +4747,7 @@ namespace Media.Rtp
 
                         if (remove > 0)
                         {
-                            System.Threading.Thread.BeginCriticalRegion();
+                            //System.Threading.Thread.BeginCriticalRegion();
                             //Todo, do a TakeWhile and sort by something which will allow packets which have different parties or channels.
 
                             //Try and send the lot of them
@@ -4724,7 +4759,7 @@ namespace Media.Rtp
                                 m_OutgoingRtcpPackets.RemoveRange(0, remove);
                             }
 
-                            System.Threading.Thread.EndCriticalRegion();
+                            //System.Threading.Thread.EndCriticalRegion();
                         }
 
                         #endregion
@@ -4735,7 +4770,7 @@ namespace Media.Rtp
 
                         if (remove > 0)
                         {
-                            System.Threading.Thread.BeginCriticalRegion();
+                            //System.Threading.Thread.BeginCriticalRegion();
                             //Could check for timestamp more recent then packet at 0  on transporContext and discard...
                             //Send only A few at a time to share with rtcp
 
@@ -4795,7 +4830,7 @@ namespace Media.Rtp
                             //If any packets should be removed remove them now
                             if (remove > 0) m_OutgoingRtpPackets.RemoveRange(0, remove);
 
-                            System.Threading.Thread.EndCriticalRegion();
+                            //System.Threading.Thread.EndCriticalRegion();
                         }
 
                         #endregion

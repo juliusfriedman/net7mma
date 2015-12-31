@@ -280,7 +280,7 @@ namespace Media.Rtsp.Server.MediaTypes
             catch
             {
                 //Indicate not ready
-                Ready = false;
+                base.Ready = false;
             }
         }
 
