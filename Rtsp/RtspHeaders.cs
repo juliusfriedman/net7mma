@@ -623,13 +623,15 @@ namespace Media.Rtsp
                                 {
                                     string ssrcPart = subParts[1].Trim();
 
-                                    int id;
+                                    uint id;
 
-                                    if (false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out id) &&
-                                        false == int.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out id))
+                                    if (false == uint.TryParse(ssrcPart, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out id) &&
+                                        false == uint.TryParse(ssrcPart, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out id))
                                     {
                                         Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(ssrcPart, "See Tag. Cannot Parse a ssrc datum as given.");
                                     }
+
+                                    ssrc = (int)id;
 
                                     continue;
                                 }

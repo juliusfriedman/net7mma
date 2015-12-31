@@ -119,6 +119,8 @@ namespace Media.UnitTests
 
             RunTest(RtspInspector);
 
+            RunTest(RtspServerTester);
+
             RunTest(TestServer);
         }
 
@@ -213,7 +215,7 @@ namespace Media.UnitTests
                 //Unknown 
                 new
                 {
-                    Uri = "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", //Continious Media
+                    Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301", //Continious Media
                     Creds = new System.Net.NetworkCredential("admin", "admin"),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -225,19 +227,37 @@ namespace Media.UnitTests
                 },
                 new
                 {
-                    Uri = "rtsp://admin:admin@avm561.ddns.eagleeyes.tw:161/live/h264", //Continious Media (Host only allows 1 connection every few minutes)
+                    Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/101",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", //Continious Media (TCP Re-transmission happen frequently)
+                    Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/201",
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
                 new
                 {
-                    Uri = "rtsp://hptvn:hptvn@hptvn-com.dyndns.org:9821/videoMain", //Continious Media
+                    Uri = "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://admin:11111111@118.70.125.33:8801/Streaming/channels/201",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p",
+                    Creds = default(System.Net.NetworkCredential),
+                    Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
+                },
+                new
+                {
+                    Uri = "rtsp://118.70.125.33:15654/mediainput/h264/stream_2", //Continious Media
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },                
@@ -1399,8 +1419,13 @@ namespace Media.UnitTests
         /// </summary>
         static void TestServer()
         {
+            //
+            var serverIp = System.Net.IPAddress.Parse("192.168.1.155"); //Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
+
+            Console.WriteLine("Server Starting on: " + serverIp);
+
             //Setup a Media.RtspServer on port 554
-            using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(System.Net.IPAddress.Any, 554)
+            using (Media.Rtsp.RtspServer server = new Media.Rtsp.RtspServer(serverIp, 554)
             {
                 //new Media.Rtsp.Server.RtspServerDebuggingLogger() 
                 Logger = new Media.Rtsp.Server.RtspServerConsoleLogger()
@@ -1411,11 +1436,11 @@ namespace Media.UnitTests
 
                 //The server will take in Media.RtspSourceStreams and make them available locally
 
-                Media.Rtsp.Server.MediaTypes.RtspSource source = new Media.Rtsp.Server.MediaTypes.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
-                {
-                    //Will force VLC et al to connect over TCP
-                    //                m_ForceTCP = true
-                };
+                //Media.Rtsp.Server.MediaTypes.RtspSource source = new Media.Rtsp.Server.MediaTypes.RtspSource("Alpha", "rtsp://quicktime.uvm.edu:1554/waw/wdi05hs2b.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp)
+                //{
+                //    //Will force VLC et al to connect over TCP
+                //    //                m_ForceTCP = true
+                //};
 
                 //server.AddCredential(source, new System.Net.NetworkCredential("test", "test"), "Basic");
 
@@ -1423,17 +1448,17 @@ namespace Media.UnitTests
                 //source.Client.Credential = new System.Net.NetworkCredential("user", "password");
 
                 //Add the stream to the server
-                server.TryAddMedia(source);
+                //server.TryAddMedia(source);
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Gamma", "rtsp://v4.cache5.c.youtube.com/CjYLENy73wIaLQlg0fcbksoOZBMYDSANFEIJbXYtZ29vZ2xlSARSBXdhdGNoYNWajp7Cv7WoUQw=/0/0/0/video.3gp"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("YouTube", "rtsp://v7.cache3.c.youtube.com/CigLENy73wIaHwmddh2T-s8niRMYDSANFEgGUgx1c2VyX3VwbG9hZHMM/0/0/0/video.3gp"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov"));
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 //thaibienbac Test Cameras - Thanks!
 
@@ -1462,25 +1487,28 @@ namespace Media.UnitTests
                 ////server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://1:1@118.70.181.233:2114/PSIA/Streamingchannels/0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));                
 
 
-                
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("1080p", "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
-                
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("bluetest", "rtsp://admin:admin@118.70.125.33:15554/channel1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("rootTest", "rtsp://root:root@118.70.125.33:15754/cam0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("h264Test", "rtsp://118.70.125.33:15654/mediainput/h264/stream_2", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://demo:demo12345@118.69.78.228:2102/Streaming/Channels/101?transportmode=unicast&profile=Profile_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("bluetest", "rtsp://admin:admin@118.70.125.33:23254/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision2", "rtsp://demo:demo12345@118.69.78.228:2902/Streaming/Channels/101?transportmode=unicast&profile=Profile_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("rootTest", "rtsp://admin:admin@118.70.125.33:23154/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision3", "rtsp://demo:demo12345@118.69.78.228:3202/Streaming/Channels/101?transportmode=unicast&profile=Profile_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision1", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/101", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision4", "rtsp://demo:demo12345@118.69.78.228:2232/Streaming/Channels/101?transportmode=unicast&profile=Profile_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision2", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision5", "rtsp://demo:demo12345@118.69.78.228:5222/Streaming/Channels/101?transportmode=unicast&profile=Profile_1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision3", "rtsp://admin:11111111@118.70.125.33:7801/Streaming/channels/301", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
-                //Down :(
-                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Keeper", "rtsp://admin:admin@camerakeeper.dyndns.tv/av0_0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision4", "rtsp://admin:11111111@118.70.125.33:8801/Streaming/channels/201", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Hikvision5", "rtsp://admin:admin@118.70.125.33:23054/cam/realmonitor?channel=1&subtype=0", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Test_0", "rtsp://admin:admin@118.70.125.33:21254/defaultPrimary?streamType=u", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Test_1", "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Test_2", "rtsp://admin:admin@118.70.125.33:15554/channel1", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 
                 string localPath = System.IO.Path.GetDirectoryName(executingAssemblyLocation);
 
@@ -1537,7 +1565,7 @@ namespace Media.UnitTests
                                     //REST
                                     System.Threading.Thread.Sleep(50);
                                 }
-                                catch(Exception ex)
+                                catch (Exception ex)
                                 {
                                     server.Logger.LogException(ex);
                                 }
@@ -1567,7 +1595,7 @@ namespace Media.UnitTests
                 Console.WriteLine("Press 'H' to Enable Http on Media.RtspServer");
                 Console.WriteLine("Press 'T' to Perform Load SubTest on Media.RtspServer");
                 Console.WriteLine("Press 'C' to See how many clients are connected.");
-                if (sampleStream != null) Console.WriteLine("Press 'F' to See statistics for " + sampleStream.Name);
+                //if (sampleStream != null) Console.WriteLine("Press 'F' to See statistics for " + sampleStream.Name);
 
                 //SUB TEST LOAD ON SAME PROC has UNKNOWNS
 
@@ -1708,7 +1736,7 @@ namespace Media.UnitTests
                 else
                 {
 
-                    string uri = "rtsp://127.0.0.1/live/Mirror";
+                    string uri = "rtsp://127.0.0.1/live/Test_2";
 
                     if (server != null)
                     {
@@ -2620,6 +2648,13 @@ a=rtpmap:99 h263-1998/90000");
                 }
 
             #endregion
+        }
+
+        static void RtspServerTester()
+        {
+            var f = new Media.UnitTests.ServerTester();
+
+            Application.Run(f);
         }
 
         static void RtspInspector()

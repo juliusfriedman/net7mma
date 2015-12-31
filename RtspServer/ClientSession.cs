@@ -414,7 +414,7 @@ namespace Media.Rtsp//.Server
             //If the packet is null or not allowed then return
             if (Common.BaseDisposable.IsNullOrDisposed(packet) || m_RtpClient == null) return;
 
-            Thread.BeginCriticalRegion();
+            //Thread.BeginCriticalRegion();
 
             //Get a source context
             RtpClient.TransportContext localContext = null, sourceContext = tc ?? GetSourceContext(packet);
@@ -452,7 +452,7 @@ namespace Media.Rtsp//.Server
             }
 
         Exit:
-            Thread.EndCriticalRegion();
+            //Thread.EndCriticalRegion();
 
             return;
         }
@@ -792,8 +792,8 @@ namespace Media.Rtsp//.Server
 
             Sdp.MediaType mediaType;            
 
-            //If the mediaType was specified
-            if (Enum.TryParse(lastSegment, true, out mediaType))
+            //If the mediaType was specified there will be /audio or video and that will compare to the lastSegment, 3 previously would be parsed as text etc.
+            if (Enum.TryParse(lastSegment, true, out mediaType) && string.Compare(lastSegment, mediaType.ToString(), true) == 0)
             {
                 var sourceContext = sourceAvailable.FirstOrDefault(tc => tc.MediaDescription.MediaType == mediaType);
 

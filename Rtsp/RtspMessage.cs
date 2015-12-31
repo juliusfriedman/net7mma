@@ -649,14 +649,27 @@ namespace Media.Rtsp
 
         public override IEnumerable<byte> PrepareBody(bool includeEmptyLine = false)
         {
-            if (IsDisposed && false == IsPersistent) yield break;
+
+            IEnumerable<byte> result = Common.MemorySegment.EmptyBytes;
+
+            if (IsDisposed && false == IsPersistent) return result;
 
             if (m_ContentLength > 0)
             {
-                foreach (byte b in ContentEncoding.GetBytes(m_Body)/*.Take(m_ContentLength)*/) yield return b;
+                //foreach (byte b in ContentEncoding.GetBytes(m_Body)/*.Take(m_ContentLength)*/) yield return b;
+
+                result = Enumerable.Concat(result, ContentEncoding.GetBytes(m_Body));
+
             }
 
-            if (includeEmptyLine && m_EncodedLineEnds != null) foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+            if (includeEmptyLine && m_EncodedLineEnds != null)
+            {
+                //foreach (byte b in m_HeaderEncoding.GetBytes(m_EncodedLineEnds)) yield return b;
+
+                result = Enumerable.Concat(result, m_HeaderEncoding.GetBytes(m_EncodedLineEnds));
+            }
+
+            return result;
         }
 
         override protected bool ParseBody(out int remaining, bool force = false) //bool requireContentLength = true
