@@ -4028,10 +4028,9 @@ namespace Media.Rtsp
                             else created = RtpClient.TransportContext.FromMediaDescription(SessionDescription, (byte)dataChannel, (byte)controlChannel, mediaDescription, true, remoteSsrc, remoteSsrc != 0 ? 0 : 2);
                         }
 
-                        created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
+                        created.ContextMemory = m_RtpClient.m_Buffer;
 
-                        //Ensure the receive buffer size is updated for that context.
-                        Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)created), m_Buffer.Count);
+                        created.Initialize(((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, sourceIp, clientRtpPort, clientRtcpPort, serverRtpPort, serverRtcpPort);
 
                         //No longer need the temporary sockets
                         

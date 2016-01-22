@@ -26,7 +26,7 @@ namespace Media.UnitTests
 
         BindingSource RTCPPacketBinding = new BindingSource();
 
-        Media.Rtsp.RtspClient Client;
+        internal Media.Rtsp.RtspClient Client;
 
         private void button1_Click(object sender, EventArgs e)
         {
@@ -92,7 +92,7 @@ namespace Media.UnitTests
 
         }
 
-        void client_OnConnect(RtspClient sender, object args)
+        internal void client_OnConnect(RtspClient sender, object args)
         {
             sender.OnPlay += sender_OnPlay;
 
@@ -154,7 +154,25 @@ namespace Media.UnitTests
             }
         }
 
-        void sender_OnPlay(RtspClient sender, object args)
+        internal void sender_init()
+        {
+            button1.Text = "Stop";
+
+            // Initialize the DataGridView.
+            dataGridView2.AutoGenerateColumns = true;
+            dataGridView2.AutoSize = true;
+            dataGridView2.DataSource = RTPPacketBinding;
+
+            dataGridView1.AutoGenerateColumns = true;
+            dataGridView1.AutoSize = true;
+            dataGridView1.DataSource = RTCPPacketBinding;
+
+            Client.OnRequest += sender_OnRequest;
+
+            Client.OnResponse += sender_OnResponse;
+        }
+
+        internal void sender_OnPlay(RtspClient sender, object args)
         {
             sender.OnDisconnect += sender_OnDisconnect;
             sender.Client.RtpPacketReceieved += ShowRtpPacket;

@@ -301,7 +301,7 @@
             this.comboBox2.TabIndex = 26;
             this.comboBox2.Text = "(Protocol)";
             // 
-            // WinRtspInspector
+            // RtspInspector
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -331,7 +331,7 @@
             this.Controls.Add(this.dataGridView2);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.textBox1);
-            this.Name = "WinRtspInspector";
+            this.Name = "RtspInspector";
             this.Text = "WinRtspInspector";
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView2)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).EndInit();

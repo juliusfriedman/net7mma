@@ -51,6 +51,7 @@
             this.label6 = new System.Windows.Forms.Label();
             this.comboBox1 = new System.Windows.Forms.ComboBox();
             this.label7 = new System.Windows.Forms.Label();
+            this.button10 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // button1
@@ -149,7 +150,7 @@
             // 
             // button3
             // 
-            this.button3.Location = new System.Drawing.Point(200, 419);
+            this.button3.Location = new System.Drawing.Point(167, 419);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(75, 23);
             this.button3.TabIndex = 11;
@@ -159,7 +160,7 @@
             // 
             // button4
             // 
-            this.button4.Location = new System.Drawing.Point(281, 419);
+            this.button4.Location = new System.Drawing.Point(248, 419);
             this.button4.Name = "button4";
             this.button4.Size = new System.Drawing.Size(75, 23);
             this.button4.TabIndex = 12;
@@ -169,7 +170,7 @@
             // 
             // button5
             // 
-            this.button5.Location = new System.Drawing.Point(362, 419);
+            this.button5.Location = new System.Drawing.Point(329, 419);
             this.button5.Name = "button5";
             this.button5.Size = new System.Drawing.Size(75, 23);
             this.button5.TabIndex = 13;
@@ -179,7 +180,7 @@
             // 
             // button6
             // 
-            this.button6.Location = new System.Drawing.Point(488, 419);
+            this.button6.Location = new System.Drawing.Point(548, 419);
             this.button6.Name = "button6";
             this.button6.Size = new System.Drawing.Size(75, 23);
             this.button6.TabIndex = 14;
@@ -188,7 +189,7 @@
             // 
             // button7
             // 
-            this.button7.Location = new System.Drawing.Point(569, 419);
+            this.button7.Location = new System.Drawing.Point(632, 419);
             this.button7.Name = "button7";
             this.button7.Size = new System.Drawing.Size(75, 23);
             this.button7.TabIndex = 15;
@@ -260,11 +261,22 @@
             this.label7.TabIndex = 22;
             this.label7.Text = "Protocol";
             // 
+            // button10
+            // 
+            this.button10.Location = new System.Drawing.Point(410, 419);
+            this.button10.Name = "button10";
+            this.button10.Size = new System.Drawing.Size(72, 23);
+            this.button10.TabIndex = 23;
+            this.button10.Text = "Inspect";
+            this.button10.UseVisualStyleBackColor = true;
+            this.button10.Click += new System.EventHandler(this.button10_Click);
+            // 
             // ServerTester
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(775, 500);
+            this.Controls.Add(this.button10);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.comboBox1);
             this.Controls.Add(this.label6);
@@ -321,5 +333,6 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.ComboBox comboBox1;
         private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Button button10;
     }
 }

@@ -221,7 +221,7 @@ namespace Media.UnitTests
                 },
                  new
                 {
-                    Uri = "rtsp://hptvn:hptvn@eq6842.myfoscam.org:9831/videoMain", //Continious Media
+                    Uri = "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p", //Continious Media
                     Creds = default(System.Net.NetworkCredential),
                     Proto = (Media.Rtsp.RtspClient.ClientProtocolType?)null,
                 },
@@ -1457,6 +1457,11 @@ namespace Media.UnitTests
                 //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Delta", "rtsp://46.249.213.93/broadcast/gamerushtv-tablet.3gp"));
 
                 server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Omega", "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+                //Todo, check why this stream works in client and not server..
+                server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("Zeta", "rtsp://admin:pass@118.70.125.33:9554/rtsph2641080p", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
+
+            
 
                 //server.TryAddMedia(new Media.Rtsp.Server.MediaTypes.RtspSource("MegaPixel5", "rtsp://demo:demo@sieuthivienthong.dyndns.org:8081/live/h264", Media.Rtsp.RtspClient.ClientProtocolType.Tcp));
 

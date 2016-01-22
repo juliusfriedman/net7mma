@@ -1523,7 +1523,7 @@ namespace Media.Http
         public virtual string ToEncodedString()
         {
             if (IsDisposed && false == IsPersistent) goto Exit;
-            try
+            if(HeaderEncoding != null) try
             {
                 return HeaderEncoding.GetString(Prepare(true, true, false, false).ToArray())
                 +
@@ -2057,6 +2057,8 @@ namespace Media.Http
             //If there is a format then the logic changes to format the string in the given format and then use the encoding to return the bytes.
 
             //e.g if(false == string.IsNullOrEmptyOrWhiteSpace(m_HeaderFormat)) { format header using format and then encode to bytes and return that }
+
+            if (m_EncodedWhiteSpace == null) return sequence;
 
             IEnumerable<byte> whiteSpace = m_HeaderEncoding.GetBytes(m_EncodedWhiteSpace);
 
