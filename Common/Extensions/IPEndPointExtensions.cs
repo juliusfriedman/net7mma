@@ -40,6 +40,8 @@ namespace Media.Common.Extensions.IPEndPoint
 {
     public static class IPEndPointExtensions
     {
+        const char PortSeperator = ':';
+
         const string SchemeSeperator = "://";
 
         public static System.Uri ToUri(this System.Net.IPEndPoint endPoint, string scheme = null)
@@ -47,6 +49,36 @@ namespace Media.Common.Extensions.IPEndPoint
             if (endPoint == null) throw new System.ArgumentNullException();                
 
             return new System.Uri(string.IsNullOrWhiteSpace(scheme) ? endPoint.ToString() : string.Join(SchemeSeperator, scheme, endPoint.ToString()));
+        }
+
+        public static System.Net.IPEndPoint Parse(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) throw new System.ArgumentNullException();
+
+            string[] parts = text.Split(PortSeperator);
+
+            if (parts.Length > 1)
+            {
+                return new System.Net.IPEndPoint(System.Net.IPAddress.Parse(parts[0]), int.Parse(parts[1]));
+            }
+
+            return new System.Net.IPEndPoint(System.Net.IPAddress.Parse(parts[0]), 0);
+        }
+
+        public static bool TryParse(string text, out System.Net.IPEndPoint result)
+        {
+            try
+            {
+                result = Parse(text);
+
+                return true;
+            }
+            catch
+            {
+                result = null;
+                
+                return false;
+            }
         }
     }
 }

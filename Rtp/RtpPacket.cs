@@ -559,7 +559,7 @@ namespace Media.Rtp
         /// <returns>The sequence created.</returns>
         public IEnumerable<byte> Prepare(RtpHeader other = null)
         {
-            return Enumerable.Concat<byte>(other ?? Header, Payload?? Media.Common.MemorySegment.Empty);
+            return Enumerable.Concat<byte>(other ?? Header, Payload ?? Media.Common.MemorySegment.Empty);
         }
 
         public IEnumerable<byte> Prepare() { return Prepare(null); }

@@ -625,12 +625,17 @@ namespace Media.UnitTests
                 if ((uint)sr.SynchronizationSourceIdentifier != (uint)2738258998) throw new Exception("Invalid Senders SSRC!");
                 else Console.WriteLine(sr.SynchronizationSourceIdentifier);//0xa3368436
 
+                if ((ulong)sr.NtpTimestamp != 15323127630501249024) throw new Exception("Invalid NtpTimestamp!");
+                
                 //Ensure setting the value through a setter is correct
-                sr.NtpTimestamp = sr.NtpTimestamp;//14697854519044210688
-                if ((ulong)sr.NtpTimestamp != 3567693669) throw new Exception("Invalid NtpTimestamp!");
+                sr.NtpTimestamp = sr.NtpTimestamp;
+                if ((ulong)sr.NtpTimestamp != 15323127630501249024) throw new Exception("Invalid NtpTimestamp!");
                 else Console.WriteLine(sr.NtpTimestamp);
 
+                if ((uint)sr.RtpTimestamp != 3422110928) throw new Exception("Invalid RtpTimestamp!");
+
                 //Timestamp
+                sr.RtpTimestamp = unchecked((int)3422110928);
                 if ((uint)sr.RtpTimestamp != 3422110928) throw new Exception("Invalid RtpTimestamp!");
                 else Console.WriteLine(sr.RtpTimestamp);//0
 

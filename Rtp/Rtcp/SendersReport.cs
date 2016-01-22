@@ -177,9 +177,9 @@ namespace Media.Rtcp
         {
             get
             {
-                if (BitConverter.IsLittleEndian) return (long)((ulong)NtpLSW << 32 | (uint)NtpMSW);
+                if (BitConverter.IsLittleEndian) return (long)((ulong)NtpMSW << 32 | (uint)NtpLSW);
 
-                return (long)((ulong)NtpMSW << 32 | (uint)NtpLSW);
+                return (long)((ulong)NtpLSW << 32 | (uint)NtpMSW);
             }
             internal protected set
             {
@@ -187,11 +187,23 @@ namespace Media.Rtcp
                 //We need an unsigned representation of the value
                 ulong unsigned = (ulong)value;
 
-                //Truncate the last 32 bits of the value, put the result in the MSW
-                NtpMSW = (int)unsigned;
+                if (BitConverter.IsLittleEndian)
+                {
 
-                //Move the value right 32 bits and put the result in the LSW
-                NtpLSW = (int)(unsigned >>= 32);
+                    //Truncate the last 32 bits of the value, put the result in the LSW
+                    NtpLSW = (int)unsigned;
+
+                    //Move the value right 32 bits and put the result in the MSW
+                    NtpMSW = (int)(unsigned >>= 32);
+                }
+                else
+                {
+                    //Truncate the last 32 bits of the value, put the result in the MSW
+                    NtpMSW = (int)unsigned;
+
+                    //Move the value right 32 bits and put the result in the LSW
+                    NtpLSW = (int)(unsigned >>= 32);
+                }
             }
         }
 

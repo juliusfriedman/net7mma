@@ -20,22 +20,22 @@ namespace Media.UnitTests
 
             internal override void LogRequest(Rtsp.RtspMessage request, Rtsp.ClientSession session)
             {
-                textBox.AppendText("Request:" + request.ToString() + " from=" + session.RemoteEndPoint.ToString());
+                textBox.AppendText("Request:" + request.ToString() + Environment.NewLine + " from=" + session.RemoteEndPoint.ToString() + Environment.NewLine);
             }
 
             internal override void LogResponse(Rtsp.RtspMessage response, Rtsp.ClientSession session)
             {
-                textBox.AppendText("Response:" + response.ToString() + " from=" + session.RemoteEndPoint.ToString());
+                textBox.AppendText("Response:" + response.ToString() + Environment.NewLine + " from=" + session.RemoteEndPoint.ToString() + Environment.NewLine);
             }
 
             public override void Log(string message)
             {
-                textBox.AppendText(message);
+                textBox.AppendText(message + Environment.NewLine);
             }
 
             public override void LogException(Exception exception)
             {
-                textBox.AppendText("----Exception:----" + exception.Message);
+                textBox.AppendText("----Exception:----" + exception.Message + Environment.NewLine);
             }
         }
 
@@ -232,12 +232,11 @@ namespace Media.UnitTests
 
             if (selected.Media is Media.Rtsp.Server.MediaTypes.RtspSource)
             {
+                //needs to actually create the appropriate child type...
                 var child = new Media.Rtsp.Server.ChildMedia(selected.Media as Media.Rtsp.Server.MediaTypes.RtspSource);
 
                 //Take the name from the Textbox 3 or add child plus the orig name
-                child.Name = false == string.IsNullOrWhiteSpace(textBox3.Text) ? textBox3.Text : "Child" + selected.Media.Name;
-
-                child.Start();
+                child.Name = false == string.IsNullOrWhiteSpace(textBox3.Text) && textBox3.Text != selected.Media.Name ? textBox3.Text : "Child" + selected.Media.Name;
 
                 //If the media was added
                 if (RtspServer.TryAddMedia(child))
@@ -246,6 +245,34 @@ namespace Media.UnitTests
                     button8_Click(sender, e);
                 }
             }
+        }
+
+        private void button10_Click(object sender, EventArgs e)
+        {
+           
+            int index = listBox1.SelectedIndex;
+
+            if (index < 0) return;
+
+            ListBoxItem selected = listBox1.Items[index] as ListBoxItem;
+
+            if (selected == null) return;
+
+            if (selected.Media is Media.Rtsp.Server.MediaTypes.RtspSource)
+            {
+                var ins = new UnitTests.RtspInspector();
+
+                ins.Show();// Dialog();
+
+                var rtspClient = selected.Media as Media.Rtsp.Server.MediaTypes.RtspSource;
+
+                ins.Client = rtspClient.RtspClient;
+
+                ins.sender_init();
+
+                ins.sender_OnPlay(ins.Client, e);
+            }
+            
         }
     }
 }

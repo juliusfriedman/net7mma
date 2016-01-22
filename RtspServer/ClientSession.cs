@@ -429,7 +429,7 @@ namespace Media.Rtsp//.Server
                 sourceContext = localContext = m_RtpClient.GetContextByPayloadType(packet.PayloadType);
             }
 
-            if (false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
+            if (localContext == null || localContext.SequenceNumber == packet.SequenceNumber || false == localContext.UpdateSequenceNumber(packet.SequenceNumber))
             {
                 //Common.ILoggingExtensions.Log(m_Server.Logger, "Not valid sequence number " + packet.SequenceNumber + ", = " + localContext.SequenceNumber);
 
@@ -1082,11 +1082,11 @@ namespace Media.Rtsp//.Server
                     else setupContext = new RtpClient.TransportContext(dataChannel, controlChannel, localSsrc, mediaDescription, false == rtcpDisabled, remoteSsrc, 0);
                 }
 
+                //set the memory for the context
+                setupContext.ContextMemory = m_Buffer;
+
                 //Initialize the Udp sockets
                 setupContext.Initialize(localAddress, ((IPEndPoint)m_RtspSocket.RemoteEndPoint).Address, serverRtpPort, serverRtcpPort, clientRtpPort, clientRtcpPort);
-
-                //Ensure the receive buffer size is updated for that context.
-                Media.Common.ISocketReferenceExtensions.SetReceiveBufferSize(((Media.Common.ISocketReference)setupContext), m_Buffer.Count);
 
                 ////Check if the punch packets made it out.
                 //if ((setupContext.IsRtpEnabled && ((IPEndPoint)setupContext.RemoteRtp).Port == 0) 
