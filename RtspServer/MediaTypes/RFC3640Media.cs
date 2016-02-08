@@ -557,11 +557,8 @@ namespace Media.Rtsp.Server.MediaTypes
                                 continue;
                             }
 
-                            //Not aligned
-                            //auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
-
-                            auIndex = (rtp.Payload.Array[offset++] >> indexLength);
-
+                            //Notes that this should be read out of the Au Headers Section for the Au being parsed
+                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
                         }
                         else if (indexDeltaLength > 0)
                         {
@@ -575,10 +572,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             }
 
                             //Notes that this should be read out of the Au Headers Section for the Au being parsed
-
-                            //auIndex = /* - 1*/ +(int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, ref bitOffset, indexDeltaLength, false); /* + 1*/;
-
-                            auIndex = (rtp.Payload.Array[offset++] >> indexDeltaLength);
+                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexDeltaLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexDeltaLength;
                         }
 
                         #endregion
