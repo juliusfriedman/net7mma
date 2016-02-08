@@ -1950,8 +1950,8 @@ namespace Media.Rtp
 
             int packetLength = packet.Length;
 
-            //No ssrc
-            if (packetLength < 8)
+            //Compressed or no ssrc
+            if (packet.IsCompressed || packetLength < 8)
             {
                 OnRtcpPacketReceieved(packet, transportContext);
 

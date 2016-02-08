@@ -464,6 +464,9 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //Use the first 3 bits of the first byte and last 5 bites of the FU Header
                                     byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
+                                    //First 3 bits don't matter
+                                    nalHeader &= Common.Binary.FiveBitMaxValue;
+
                                     //Store the nalType contained
                                     m_ContainedNalTypes.Add(nalHeader);
 
