@@ -2133,6 +2133,7 @@ a=rtpmap:99 h263-1998/90000");
                             Console.WriteLine("DataOffset: " + box.DataOffset);
                             Console.WriteLine("Complete: " + box.IsComplete);
                             Console.WriteLine("Name: " + box.ToString());
+                            Console.WriteLine("LengthSize: " + box.LengthSize);
                             Console.WriteLine("DataSize: " + box.DataSize);
                             Console.WriteLine("TotalSize: " + box.TotalSize);
                             Console.WriteLine("ParentBox: " + Media.Containers.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Containers.BaseMedia.BaseMediaReader.ToUTF8FourCharacterCode(box.Identifier)));
