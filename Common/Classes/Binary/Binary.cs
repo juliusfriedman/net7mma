@@ -263,19 +263,10 @@ namespace Media.Common
         /// <param name="min">The minimum value</param>
         /// <param name="max">The maximum value</param>
         /// <returns>The value.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte Min(ref byte min, ref byte max)
         {
-            //Keep the difference
-            int difference = min - max;
-
-            // make a mask that is all ones if x < y, or all zeroes if x >= y
-            int mask = difference >> Binary.TrīgintāŪnus;
-
-            // select x if x < y, or y if x >= y
-            return (byte)((mask & min) | (~mask & max));
-
-            // alternative: use arithmetic to select the minimum
-            //return (byte)(max + (difference & mask));
+            return (byte)(max ^ ((min ^ max) & -(min < max ? 1 : 0)));
 
         }
 
@@ -285,19 +276,10 @@ namespace Media.Common
             return Min(ref min, ref max);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Min(ref int min, ref int max)
         {
-            //Keep the difference
-            int difference = min - max;
-
-            // make a mask that is all ones if x < y, or all zeroes if x >= y
-            int mask = difference >> Binary.TrīgintāŪnus;
-
-            // select x if x < y, or y if x >= y
-            return ((mask & min) | (~mask & max));
-
-            // alternative: use arithmetic to select the minimum
-            //return (int)(max + (difference & mask));
+            return (int)(max ^ ((min ^ max) & -(min < max ? 1 : 0)));
 
         }
 
@@ -307,19 +289,37 @@ namespace Media.Common
             return Min(ref min, ref max);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static uint Min(ref uint min, ref uint max)
+        {
+            return (uint)(max ^ ((min ^ max) & (uint)(-(min < max ? 1 : 0))));
+
+        }
+
+        [CLSCompliant(false)]
+        public static uint Min(uint min, uint max)
+        {
+            return Min(ref min, ref max);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long Min(ref long min, ref long max)
         {
-            //Keep the difference
-            long difference = min - max;
+            return (long)(max ^ ((min ^ max) & -(min < max ? 1 : 0)));
 
-            // make a mask that is all ones if x < y, or all zeroes if x >= y
-            long mask = difference >> Binary.TrīgintāŪnus;
+        }
 
-            // select x if x < y, or y if x >= y
-            return ((mask & min) | (~mask & max));
+        [CLSCompliant(false)]
+        public static ulong Min(ulong min, ulong max)
+        {
+            return Min(ref min, ref max);
+        }
 
-            // alternative: use arithmetic to select the minimum
-            //return (int)(max + (difference & mask));
+        [CLSCompliant(false)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public static ulong Min(ref ulong min, ref ulong max)
+        {
+            return (ulong)(max ^ ((min ^ max) & (ulong)(-(min < max ? 1 : 0))));
 
         }
 
@@ -335,19 +335,10 @@ namespace Media.Common
         /// <param name="min">The minimum value</param>
         /// <param name="max">The maximum value</param>
         /// <returns>The value</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static byte Max(ref byte min, ref byte max)
         {
-            //Keep the difference
-            int difference = min - max;
-
-            // make a mask that is all ones if x < y, or all zeroes if x >= y
-            int mask = difference >> Binary.TrīgintāŪnus;
-
-            // select x if x < y, or y if x >= y
-            return (byte)((mask & max) | (~mask & min));
-
-            // alternative: use arithmetic to select the minimum
-            //return (byte)(max + (difference & mask));
+            return (byte)(min ^ ((min ^ max) & -(min < max ? 1 : 0)));
         }
 
         [CLSCompliant(false)]
@@ -356,20 +347,23 @@ namespace Media.Common
             return Max(ref min, ref max);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [CLSCompliant(false)]
+        public static uint Max(ref uint min, ref uint max)
+        {
+            return min ^ ((min ^ max) & (uint)(-(min < max ? 1 : 0)));
+        }
+
+        [CLSCompliant(false)]
+        public static uint Max(uint min, uint max)
+        {
+            return Max(ref min, ref max);
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static int Max(ref int min, ref int max)
         {
-            //Keep the difference
-            int difference = min - max;
-
-            // make a mask that is all ones if x < y, or all zeroes if x >= y
-            int mask = difference >> Binary.TrīgintāŪnus;
-
-            // select x if x < y, or y if x >= y
-            return ((mask & max) | (~mask & min));
-
-            // alternative: use arithmetic to select the minimum
-            //return (int)(max + (difference & mask));
-
+            return min ^ ((min ^ max) & -(min < max ? 1 : 0));
         }
 
         [CLSCompliant(false)]
@@ -378,20 +372,25 @@ namespace Media.Common
             return Max(ref min, ref max);
         }
 
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static long Max(ref long min, ref long max)
         {
-            //Keep the difference
-            long difference = min - max;
+            return (long)(min ^ ((min ^ max) & -(min < max ? 1 : 0)));
 
-            // make a mask that is all ones if x < y, or all zeroes if x >= y
-            long mask = difference >> Binary.TrīgintāŪnus;
+        }
 
-            // select x if x < y, or y if x >= y
-            return ((mask & max) | (~mask & min));
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [CLSCompliant(false)]
+        public static ulong Max(ref ulong min, ref ulong max)
+        {
+            return (ulong)(min ^ ((min ^ max) & (ulong)(-(min < max ? 1 : 0))));
 
-            // alternative: use arithmetic to select the minimum
-            //return (int)(max + (difference & mask));
+        }
 
+        [CLSCompliant(false)]
+        public static ulong Max(ulong min, ulong max)
+        {
+            return Max(ref min, ref max);
         }
 
         [CLSCompliant(false)]
@@ -2915,6 +2914,21 @@ namespace Media.UnitTests
 
             if (Binary.Max(0, 1) != Math.Max(0, 1)) throw new Exception();
 
+            if (Binary.Min(long.MinValue, long.MaxValue) != Math.Min(long.MinValue, long.MaxValue)) throw new Exception();
+
+            if (Binary.Min(int.MinValue, int.MaxValue) != Math.Min(int.MinValue, int.MaxValue)) throw new Exception();
+
+            if (Binary.Min(uint.MinValue, uint.MaxValue) != Math.Min(uint.MinValue, uint.MaxValue)) throw new Exception();
+
+            if (Binary.Min(ulong.MinValue, ulong.MaxValue) != Math.Min(ulong.MinValue, ulong.MaxValue)) throw new Exception();
+
+            if (Binary.Max(long.MinValue, long.MaxValue) != Math.Max(long.MinValue, long.MaxValue)) throw new Exception();
+
+            if (Binary.Max(int.MinValue, int.MaxValue) != Math.Max(int.MinValue, int.MaxValue)) throw new Exception();
+
+            if (Binary.Max(uint.MinValue, uint.MaxValue) != Math.Max(uint.MinValue, uint.MaxValue)) throw new Exception();
+
+            if (Binary.Max(ulong.MinValue, ulong.MaxValue) != Math.Max(ulong.MinValue, ulong.MaxValue)) throw new Exception();
         }
 
         public static void TestManualBitReversal()

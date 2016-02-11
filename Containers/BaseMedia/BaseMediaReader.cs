@@ -59,6 +59,8 @@ namespace Media.Containers.BaseMedia
 
         //Todo Make Generic.Dictionary and have a ToTextualConvention that tries the Generic.Dictionary first. (KnownParents)        
 
+        //Should be int type
+
         /// <summary>
         /// <see href="http://www.mp4ra.org/atoms.html">MP4REG</see>
         /// </summary>
@@ -204,48 +206,51 @@ namespace Media.Containers.BaseMedia
         {
             //4.2 Object Structure 
             bytesRead = 0;
-            long length = 0;
-            byte[] lengthBytes = buffer ?? new byte[LengthSize];
-            do
-            {
-                /*
-                 * if (size==1) {
-                    unsigned int(64) largesize;
-                    } else if (size==0) {
-                    // box extends to end of file
-                    } 
-                 */
+            
+            ulong length = 0;
 
-                bytesRead += stream.Read(lengthBytes, offset, LengthSize);
-                //Check byte 3 == 1?
-                length = (lengthBytes[offset] << 24) + (lengthBytes[offset + 1] << 16) + (lengthBytes[offset + 2] << 8) + lengthBytes[offset + 3];
-            } while (length == 1 || (length & 0xffffffff) == 0);
-            return length;
+            //Allocate 8 bytes
+            byte[] lengthBytes = buffer ?? new byte[MinimumSize];
+
+            //Try to read the length
+            try
+            {
+                //0 sometimes indicates unknown length...
+                //1 means that a 64 bit length follows...
+                do
+                {
+                    //Read a word and calculate the amount of bytes read
+                    bytesRead += stream.Read(lengthBytes, offset, LengthSize);
+
+                    //Calculate the length
+                    length = (ulong)Common.Binary.Read32(lengthBytes, 0, BitConverter.IsLittleEndian);
+
+                } while (length <= 1);
+
+                //if(length == 1)
+
+                ///
+            }
+            catch
+            {
+                //
+            }
+
+            return (long)length;
         }
 
         public Node ReadNext()
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
-
-            //int lengthBytesRead = 0;
-
-            //long length = ReadLength(this, out lengthBytesRead);
-
-            //byte[] identifier = ReadIdentifier(this);
-
-            //return new Node(this, identifier, lengthBytesRead, Position, length, length <= Remaining);
-
-            Common.MemorySegment lot = new Common.MemorySegment(IdentifierSize);
-            //int count = 0; while(0 > (count -= Read(lot.Array, count, lot.Count - count))) { }
+            
+            Common.MemorySegment identifier = new Common.MemorySegment(IdentifierSize);
 
             int lengthBytesRead = 0;
 
-            long length = ReadLength(this, out lengthBytesRead, lot.Array);
+            long length = ReadLength(this, out lengthBytesRead);            
 
-            //while (Remaining < IdentifierSize && Buffering) { }
-                                                                   //Only read the length, the identifier is read next
-            return new Node(this, lot, IdentifierSize, LengthSize, Position + IdentifierSize, length, //determine Complete by reading the identifier
-                Read(lot.Array, 0, IdentifierSize) + lengthBytesRead >= MinimumSize && length <= Remaining);  //Could also inline the ReadLength(this, out lengthBytesRead, lot.Array) and do the IsComplete check in the Node constructor based on Master.Remaining
+            return new Node(this, identifier, IdentifierSize, lengthBytesRead, Position + IdentifierSize, length, //determine Complete by reading the identifier
+                Read(identifier.Array, 0, IdentifierSize) + lengthBytesRead >= MinimumSize && length <= Remaining);  //Could also inline the ReadLength(this, out lengthBytesRead, lot.Array) and do the IsComplete check in the Node constructor based on Master.Remaining
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -253,6 +258,7 @@ namespace Media.Containers.BaseMedia
             while (Remaining > MinimumSize)
             {
                 Node next = ReadNext();
+
                 if (next == null) yield break;
 
                 yield return next;
@@ -260,9 +266,22 @@ namespace Media.Containers.BaseMedia
                 //Parent boxes contain other boxes so do not skip them, parse right into their data
                 if (ParentBoxes.Contains(ToUTF8FourCharacterCode(next.Identifier))) continue;
 
-                //Here using MinimumSize is technically not correct, it should be `Skip(next.Size - IdentifierSize + lengthBytesCount);`
-                //When the Node only reflects the data count then this would be simply `Skip(next.Size);`
-                Skip(next.DataSize - MinimumSize);
+                //The length field of the node includes the identifier and the 4 bytes indicating the length of the data
+                //The length field itself may actually have more than 4 bytes but the dataSize is never calulcated using more than 4 bytes.
+                ulong dataSize = (ulong)(next.DataSize - Common.Binary.Clamp((next.LengthSize + next.IdentifierSize), 0, MinimumSize));
+                
+                //Keep track of how much was skipped
+                ulong skipped = 0, toSkip = 0;
+
+                //Skip the data
+                while (skipped < dataSize)
+                {
+                    toSkip = (ulong)Common.Binary.Clamp(dataSize, 0, long.MaxValue);
+                    
+                    Skip((long)toSkip);
+
+                    skipped += toSkip;
+                }
             }
         }
 

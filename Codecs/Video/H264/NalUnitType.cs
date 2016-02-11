@@ -46,6 +46,7 @@ namespace Media.Codecs.Video.H264
 
         public const byte SliceExtension = 20;
 
+        //DRD in BluRay
         public const byte SingleTimeAggregationA = 24;
 
         public const byte SingleTimeAggregationB = 25;

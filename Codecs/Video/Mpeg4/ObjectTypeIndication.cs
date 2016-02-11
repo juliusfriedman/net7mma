@@ -25,27 +25,27 @@ namespace Media.Codecs.Video.Mpeg4
 
         public const byte ExtendedBIFS = 0x04;
 
-        public const byte AFXStream = 0x04;
+        public const byte AFXStream = 0x05;
 
-        public const byte FontDataStream = 0x04;
+        public const byte FontDataStream = 0x06;
 
-        public const byte SynthetisedTexture = 0x04;
+        public const byte SynthetisedTexture = 0x07;
 
-        public const byte TextStream = 0x04;
+        public const byte TextStream = 0x08;
 
-        public const byte LASeRStream = 0x04;
+        public const byte LASeRStream = 0x09;
 
-        public const byte SimpleAggregationFormatStream = 0x04;
+        public const byte SimpleAggregationFormatStream = 0x0A;
 
         /// <summary>
         /// ITU-T Recommendation H.264
         /// </summary>
-        public const byte H264 = 0x04;
+        public const byte H264 = 0x21;
 
         /// <summary>
         /// Parameter Sets for ITU-T Recommendation H.264
         /// </summary>
-        public const byte H264ParameterSets = 0x04;
+        public const byte H264ParameterSets = 0x22;
 
         /// <summary>
         /// Audio ISO/IEC 14496-3 (d)
@@ -66,9 +66,9 @@ namespace Media.Codecs.Video.Mpeg4
 
         public const byte AudioMainProfile = 0x66;
 
-        public const byte AudioLowComplexityProfile = 0x66;
+        public const byte AudioLowComplexityProfile = 0x67;
 
-        public const byte AudioScaleableSamplingRateProfile = 0x66;
+        public const byte AudioScaleableSamplingRateProfile = 0x68;
 
         public const byte Audio13818 = 0x69;
 

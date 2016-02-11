@@ -394,13 +394,15 @@ namespace Media.Rtsp.Server.MediaTypes
                                         default:
                                             {
                                                 //Read the nal header but don't move the offset
-                                                byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
+                                                //byte nalHeader = (byte)(packetData[offset] & Common.Binary.FiveBitMaxValue);
 
                                                 //Store the nalType contained
-                                                m_ContainedNalTypes.Add(nalHeader);
+                                                //m_ContainedNalTypes.Add(nalHeader);
 
                                                 //>= 6 && <= 8
-                                                if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
+                                                //if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
+
+                                                WriteStartCode(ref packetData[offset]);
 
                                                 //Done reading
                                                 break;
@@ -408,7 +410,7 @@ namespace Media.Rtsp.Server.MediaTypes
                                     }
 
                                     //Write the start code
-                                    Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+                                    //Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
 
                                     //Write the nal header and data
                                     Buffer.Write(packetData, offset, tmp_nal_size);
@@ -464,17 +466,16 @@ namespace Media.Rtsp.Server.MediaTypes
                                     //Use the first 3 bits of the first byte and last 5 bites of the FU Header
                                     byte nalHeader = (byte)((firstByte & 0xE0) | (FUHeader & Common.Binary.FiveBitMaxValue));
 
-                                    //First 3 bits don't matter
-                                    nalHeader &= Common.Binary.FiveBitMaxValue;
-
                                     //Store the nalType contained
-                                    m_ContainedNalTypes.Add(nalHeader);
+                                    //m_ContainedNalTypes.Add((byte)(nalHeader & Common.Binary.FiveBitMaxValue));
 
                                     //Emulation prevention byte...
-                                    if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
+                                    //if (nalHeader == 6 || nalHeader == 7 || nalHeader == 8) Buffer.WriteByte(0);
 
                                     //Write the start code
-                                    Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+                                    //Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                                    WriteStartCode(ref nalHeader);
 
                                     //Write the re-construced header
                                     Buffer.WriteByte(nalHeader);
@@ -498,12 +499,14 @@ namespace Media.Rtsp.Server.MediaTypes
                     default:
                         {
                             //Store the nalType contained
-                            m_ContainedNalTypes.Add(nalUnitType);
+                            //m_ContainedNalTypes.Add(nalUnitType);
 
-                            if (nalUnitType == 6 || nalUnitType == 7 || nalUnitType == 8) Buffer.WriteByte(0);
+                            //if (nalUnitType == 6 || nalUnitType == 7 || nalUnitType == 8) Buffer.WriteByte(0);
 
                             //Write the start code
-                            Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+                            //Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                            WriteStartCode(ref nalUnitType);
 
                             //Write the nal heaer and data data
                             Buffer.Write(packetData, offset, count - offset);
@@ -522,6 +525,41 @@ namespace Media.Rtsp.Server.MediaTypes
                 }
 
                 m_ContainedNalTypes.Clear();
+            }
+
+            protected virtual void WriteStartCode(ref byte nalHeader)
+            {
+                //Determine the type of Nal
+                byte nalType = (byte)(nalHeader & Common.Binary.FiveBitMaxValue);
+                
+                //Store the nalType contained
+                m_ContainedNalTypes.Add(nalType);
+
+                //Determine if the Emulation prevention byte is required.
+                switch (nalType)
+                {
+                    case Media.Codecs.Video.H264.NalUnitType.SupplementalEncoderInformation://6:                    
+                    case Media.Codecs.Video.H264.NalUnitType.SequenceParameterSet://7:
+                    case Media.Codecs.Video.H264.NalUnitType.PictureParameterSet://8:
+                    case Media.Codecs.Video.H264.NalUnitType.AccessUnitDelimiter://9
+                    //case Media.Codecs.Video.H264.NalUnitType.CodedSlice:
+                    //case Media.Codecs.Video.H264.NalUnitType.SliceExtension:
+                        {
+                            //Write the extra 0 byte to the Buffer
+                            Buffer.WriteByte(0);
+
+                            //Handle as normal
+                            goto default;
+                        }
+                    default:
+                        {
+                            //Write the start code to the Buffer
+                            Buffer.Write(Media.Codecs.Video.H264.NalUnitType.StartCode, 0, 3);
+
+                            //Done
+                            return;
+                        }
+                }
             }
 
             public override void Dispose()
