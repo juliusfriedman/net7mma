@@ -38,6 +38,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace Media.Codecs.Image
 {
+    //Marked for removal or seperation.
     public static class ColorConversions
     {
         #region RgbYuv.cs

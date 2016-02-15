@@ -2136,6 +2136,8 @@ a=rtpmap:99 h263-1998/90000");
                             Console.WriteLine("LengthSize: " + box.LengthSize);
                             Console.WriteLine("DataSize: " + box.DataSize);
                             Console.WriteLine("TotalSize: " + box.TotalSize);
+                            Console.WriteLine("IsUserDefinedNode: " + Media.Containers.BaseMedia.BaseMediaReader.IsUserDefinedNode(reader, box));
+                            Console.WriteLine("UUID: " + Media.Containers.BaseMedia.BaseMediaReader.GetUniqueIdentifier(reader, box));
                             Console.WriteLine("ParentBox: " + Media.Containers.BaseMedia.BaseMediaReader.ParentBoxes.Contains(Media.Containers.BaseMedia.BaseMediaReader.ToUTF8FourCharacterCode(box.Identifier)));
                         }
 

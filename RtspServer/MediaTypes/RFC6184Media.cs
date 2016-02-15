@@ -666,6 +666,8 @@ namespace Media.Rtsp.Server.MediaTypes
                     //Utility.ABGRA2YUV420Managed(image.Width, image.Height, data.Scan0);
                     //etc
 
+                    //Todo use Media.Image.Transformations                   
+
                     byte[] yuv = Media.Codecs.Image.ColorConversions.ABGRA2YUV420Managed(thumb.Width, thumb.Height, data.Scan0);
 
                     ((System.Drawing.Bitmap)image).UnlockBits(data);

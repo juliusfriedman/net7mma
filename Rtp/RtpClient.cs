@@ -224,6 +224,8 @@ namespace Media.Rtp
             //Return the result of reversing the Unsigned 16 bit integer at the offset
             return Common.Binary.ReadU16(buffer, offset, BitConverter.IsLittleEndian);
         }
+        
+        //Todo, cleanup and allow existing Rtp and Rtcp socket.
 
         /// <summary>
         /// Will create a <see cref="RtpClient"/> based on the given parameters
@@ -257,7 +259,9 @@ namespace Media.Rtp
                 //If there is a range directive
                 if (rangeInfo == null)
                 {
+                    //Should only parse once and keep track above and use the results here.
                     rangeInfo = sessionDescription.RangeLine;
+
                     if (rangeInfo != null)
                     {
                         string type;
@@ -1463,7 +1467,7 @@ namespace Media.Rtp
                     RtpSocket = new Socket(localRtp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                     RtpSocket.ExclusiveAddressUse = false;
                     RtpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                    RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(m_ReceiveInterval.TotalMilliseconds / 2);
+                    RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
                     RtpSocket.Bind(LocalRtp = localRtp);
                     RtpSocket.Connect(RemoteRtp = remoteRtp);
                     //RtpSocket.Blocking = false;
@@ -1475,7 +1479,8 @@ namespace Media.Rtp
                         //http://en.wikipedia.org/wiki/Type_of_service
                         //CS5,EF	40,46	5 :Critical - mainly used for voice RTP
                         //40 || 46 is used for RTP Audio per Wikipedia
-                        //48 is Internet
+                        //48 is Internetwork Control
+                        //56 is Network Control
                         //Set type of service
                         RtpSocket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 47);
 
@@ -1529,7 +1534,7 @@ namespace Media.Rtp
                         RtcpSocket = new Socket(localRtcp.Address.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
                         RtcpSocket.ExclusiveAddressUse = false;
                         RtcpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(m_ReceiveInterval.TotalMilliseconds / 2);
+                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
                         RtcpSocket.Bind(LocalRtcp = localRtcp);
                         RtcpSocket.Connect(RemoteRtcp = remoteRtcp);
                         //RtcpSocket.Blocking = false;
@@ -1673,6 +1678,8 @@ namespace Media.Rtp
             //TODO Must allow leaveOpen for existing sockets
             public void Initialize(Socket rtpSocket, Socket rtcpSocket)
             {
+                if (IsDisposed || IsActive) return;
+
                 if (rtpSocket == null) throw new ArgumentNullException("rtpSocket");
 
                 //Maybe should just be set to the rtpSocket?
@@ -1684,7 +1691,7 @@ namespace Media.Rtp
 
                 if (RtpSocket.AddressFamily == AddressFamily.InterNetwork) RtpSocket.DontFragment = true;
 
-                RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);                
+                RtpSocket.SendTimeout = RtpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;                
 
                 bool punchHole = RtpSocket.ProtocolType != ProtocolType.Tcp && false == Media.Common.Extensions.IPAddress.IPAddressExtensions.IsOnIntranet(((IPEndPoint)RtpSocket.RemoteEndPoint).Address); //Only punch a hole if the remoteIp is not on the LAN by default.
 
@@ -1704,7 +1711,7 @@ namespace Media.Rtp
                     //If the socket is not the same as the RtcpSocket configure it also
                     if (RtpSocket.Handle != RtcpSocket.Handle)
                     {
-                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds / 2);
+                        RtcpSocket.SendTimeout = RtcpSocket.ReceiveTimeout = (int)(ReceiveInterval.TotalMilliseconds) >> 1;  
 
                         if (RtcpSocket.AddressFamily == AddressFamily.InterNetwork) RtcpSocket.DontFragment = true;
 
@@ -1795,7 +1802,6 @@ namespace Media.Rtp
                 //Remove the end points
                 LocalRtp = LocalRtcp = RemoteRtp = RemoteRtcp = null;
 
-
                 //Why erase stats?
                 //m_FirstPacketReceived = DateTime.MinValue;
 
@@ -1844,7 +1850,17 @@ namespace Media.Rtp
 
                 base.Dispose();
 
-                if (ShouldDispose) DisconnectSockets();
+                //If the instance should dispose
+                if (ShouldDispose)
+                {
+                    //Disconnect sockets
+                    DisconnectSockets();
+
+                    //Remove references to the context memory and the application context
+                    ContextMemory = null;
+
+                    ApplicationContext = null;
+                }
             }
 
             #endregion

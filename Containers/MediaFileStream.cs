@@ -539,11 +539,11 @@ namespace Media.Container
             {
                 if (position != stream.Seek(position, System.IO.SeekOrigin.Begin)) throw new InvalidOperationException("Unable to obtain the given position");
 
-                int i = 0; while ((count -= (i += stream.Read(buffer, i, count))) > 0) ;                
+                int read = 0; while ((count -= (read += stream.Read(buffer, read, count))) > 0) ;                
 
                 RefreshFileInfo(refreshFileInfo);
 
-                return count;
+                return read;
             }
         }
 

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Image.Transformations
 {
+    //Todo Seperate into seperate assembly
     public sealed class RGB : ImageTransformation
     {
 
@@ -23,6 +24,7 @@ namespace Media.Codecs.Image.Transformations
             :base(source, dest, Codec.TransformationQuality.Highest)
         {
             //Should be exceptions.
+            //Should have a utility method which checks for all required components in one shot.
             if (source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.RedChannelId) == null) return;
             if (source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.BlueChannelId) == null) return;
             if (source.MediaFormat.GetComponentById(Media.Codecs.Image.ImageFormat.GreenChannelId) == null) return;
@@ -511,6 +513,7 @@ namespace Media.Codecs.Image.Transformations
                     }
             }
 
+            //Needs dest format to handle conversion to YUV variants.
             //Convert the components from RGB to YUV and store the results in the cache at offset given, should also take dest format.
             rgb2yuv(r, g, b, cache, offset);
         }
@@ -522,6 +525,7 @@ namespace Media.Codecs.Image.Transformations
         /// <param name="quality"></param>
         /// <returns></returns>
         //Should ALSO TAKE destination format or sub sampling...
+        //Should use SIMD or offer a SIMD variant
         public static byte AverageCb(byte[] cache, Media.Codec.TransformationQuality quality)
         {
             switch (quality)
@@ -531,37 +535,42 @@ namespace Media.Codecs.Image.Transformations
                     return cache[1];
                 default:
                     {
-                        byte chroma = 0;
+                        int chroma = 0;
 
                         switch (quality)
                         {
                             case Codec.TransformationQuality.Medium:
                                 {
                                     //Calulate average chroma
-                                    chroma = (byte)(cache[1] + cache[4]);
+                                    
+                                    chroma = (cache[1] + cache[4]);
+
+                                    if (chroma != 0) chroma >>= 1;
 
                                     break;
                                 }
                             case Codec.TransformationQuality.High:
                                 {
                                     //Calulate average chroma
-                                    chroma = (byte)(cache[1] + cache[4] + cache[8]);
+                                    chroma = (cache[1] + cache[4] + cache[8]);
+                                    
+                                    if (chroma != 0) chroma >>= 1;
 
                                     break;
                                 }
                             case Codec.TransformationQuality.Highest:
                                 {
                                     //Calulate average chroma
-                                    chroma = (byte)(cache[1] + cache[4] + cache[8] + cache[10]);
+
+                                    chroma = (cache[1] + cache[4] + cache[8] + cache[10]);
+
+                                    if (chroma != 0) chroma >>= 2;
 
                                     break;
                                 }
                         }
 
-                        //If there is not a 0 value then half the value
-                        if (chroma != 0) chroma >>= 2;
-
-                        return chroma;
+                        return (byte)chroma;
                     }
             }
         }
@@ -581,43 +590,47 @@ namespace Media.Codecs.Image.Transformations
                     return cache[2];
                 default:
                     {
-                        byte chroma = 0;
+                        int chroma = 0;
 
                         switch (quality)
                         {
                             case Codec.TransformationQuality.Medium:
                                 {
                                     //Calulate average chroma
-                                    chroma = (byte)(cache[2] + cache[5]);
+                                    chroma = (cache[2] + cache[5]);
+
+                                    if (chroma != 0) chroma >>= 1;
 
                                     break;
                                 }
                             case Codec.TransformationQuality.High:
                                 {
                                     //Calulate average chroma
-                                    chroma = (byte)(cache[2] + cache[5] + cache[7]);
+                                    chroma = (cache[2] + cache[5] + cache[7]);
+
+                                    if (chroma != 0) chroma >>= 1;
 
                                     break;
                                 }
                             case Codec.TransformationQuality.Highest:
                                 {
                                     //Calulate average chroma
-                                    chroma = (byte)(cache[2] + cache[5] + cache[7] + cache[11]);
+                                    chroma = (cache[2] + cache[5] + cache[7] + cache[11]);
+
+                                    if (chroma != 0) chroma >>= 2;
 
                                     break;
                                 }
-                        }
+                        }                        
 
-                        //If there is not a 0 value then half the value
-                        if (chroma != 0) chroma >>= 2;
-
-                        return chroma;
+                        return (byte)chroma;
                     }
             }
         }
 
         //should also take dest format to allow conversion to desired type.
-
+        //should offer float / simd variant
+        //Could handle AYUV other variants if the dest type was given...
         public static void rgb2yuv(byte r, byte g, byte b, byte[] res, int offset)
         {
             int rS = r + sbyte.MaxValue;
@@ -630,12 +643,12 @@ namespace Media.Codecs.Image.Transformations
             u = (u + sbyte.MaxValue) >> 8;
             v = (v + sbyte.MaxValue) >> 8;
 
-            //res[offset] = (byte)Common.Binary.Clamp(y - 112, sbyte.MinValue, 127);
+            //res[offset] = (byte)Common.Binary.Clamp(y - 112, sbyte.MinValue, sbyte.MaxValue);
 
             res[offset] = (byte)Common.Binary.Clamp(y - 112, 0, 255);
 
-            res[offset + 1] = (byte)Common.Binary.Clamp(u, sbyte.MinValue, 127);
-            res[offset + 2] = (byte)Common.Binary.Clamp(v, sbyte.MinValue, 127);
+            res[offset + 1] = (byte)Common.Binary.Clamp(u, sbyte.MinValue, sbyte.MaxValue);
+            res[offset + 2] = (byte)Common.Binary.Clamp(v, sbyte.MinValue, sbyte.MaxValue);
         }
 
     }

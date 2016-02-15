@@ -59,7 +59,10 @@ namespace Media.Containers.BaseMedia
 
         //Todo Make Generic.Dictionary and have a ToTextualConvention that tries the Generic.Dictionary first. (KnownParents)        
 
-        //Should be int type
+        //Should be int type instead of string.
+
+        //TryRegisterParentBox
+        //Try UnregisterParentBox
 
         /// <summary>
         /// <see href="http://www.mp4ra.org/atoms.html">MP4REG</see>
@@ -117,10 +120,19 @@ namespace Media.Containers.BaseMedia
             "meco" //additional metadata container 
         };
 
-        //TryRegisterParentBox
-        //Try UnregisterParentBox
+        public const string UserDefined = "uuid";
 
-        //Should be int type..
+        const int BytesPerUUID = 16;
+
+        public static byte[] IsoUUIDTemplate = new byte[] { 
+                                                            0x00, 0x00, 0x00, 0x00, /*XXXX*/
+                                                            0x00, 0x11, 0x00, 0x10, 
+                                                            0x80, 0x00, 0x00, 0xAA,
+                                                            0x00, 0x39, 0x9B, 0x71
+                                                           };
+
+        const int TemplateSize = 12;
+        
 
         const int MinimumSize = IdentifierSize + LengthSize, IdentifierSize = 4, LengthSize = IdentifierSize;
 
@@ -138,6 +150,35 @@ namespace Media.Containers.BaseMedia
             if (offset + count > identifier.Length) throw new ArgumentOutOfRangeException("offset and count must relfect a position within identifier.");
 
             return encoding.GetString(identifier, offset, count);
+        }
+
+        public static bool IsUserDefinedNode(BaseMediaReader reader, Node node)
+        {
+            return (ToUTF8FourCharacterCode(node.Identifier) == UserDefined);
+        }
+
+        public static Guid GetUniqueIdentifier(BaseMediaReader reader, Node node)
+        {
+            //Allocate the 16 bytes for the uuid
+            byte[] uuidBytes = new byte[BytesPerUUID];
+
+            //If the node is a UUID type and the node contains at least 16 bytes
+            if (IsUserDefinedNode(reader, node) && node.DataSize > BytesPerUUID)
+            {
+                //Read the UUID
+                reader.ReadAt(node.DataOffset, uuidBytes, 0, BytesPerUUID);
+            }
+            else
+            {
+                //Copy the identifier to the uuid
+                Array.Copy(node.Identifier, 0, uuidBytes, 0, IdentifierSize);
+
+                //Copy the template value to the uuid after the identifier
+                Array.Copy(IsoUUIDTemplate, IdentifierSize, uuidBytes, IdentifierSize, TemplateSize);
+            }
+
+            //Return the result of parsing a Guid from the uuid bytes.
+            return new Guid(uuidBytes);
         }
 
         public BaseMediaReader(string filename, System.IO.FileAccess access = System.IO.FileAccess.Read) : base(filename, access) { }
@@ -163,14 +204,15 @@ namespace Media.Containers.BaseMedia
                     continue;
                 }
 
-                //Ensure the TotalSize is correctly set.
-
+                //Ensure the TotalSize is correctly set subtract from the count
                 count -= box.TotalSize > count ? box.TotalSize - box.DataSize : box.TotalSize;
 
+                //If the count approaches 0 then stop
                 if (count <= 0 /*&& m_Position >= m_Length*/) break;
 
             }
 
+            //Seek to the position previous to reading (should be optional?)
             Position = positionStart;
 
             yield break;
@@ -215,21 +257,21 @@ namespace Media.Containers.BaseMedia
             //Try to read the length
             try
             {
-                //0 sometimes indicates unknown length...
-                //1 means that a 64 bit length follows...
+                //0 sometimes indicates unknown length or a poorly written box
+                //1 means that a 64 bit length follows or at least 32 bits of such...
                 do
                 {
                     //Read a word and calculate the amount of bytes read
                     bytesRead += stream.Read(lengthBytes, offset, LengthSize);
 
                     //Calculate the length
-                    length = (ulong)Common.Binary.Read32(lengthBytes, 0, BitConverter.IsLittleEndian);
+                    length = (uint)Common.Binary.Read32(lengthBytes, 0, BitConverter.IsLittleEndian);
 
-                } while (length <= 1);
+                    //Repeat while 0 or 1 was found
+                } while (length <= 1);                
 
-                //if(length == 1)
-
-                ///
+                //By 'my' logic when a '1' was read which indicated the length is unknown or first 32 bits are full, we don't need to read 8 more just 4 since that is what would be different...
+                //This logic / optomization is not inline with the standard and may be changed later.                
             }
             catch
             {
@@ -243,14 +285,40 @@ namespace Media.Containers.BaseMedia
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
             
+            //Keep the identifier bytes seperate
             Common.MemorySegment identifier = new Common.MemorySegment(IdentifierSize);
 
+            //Keep track of how many bytes used in the length
             int lengthBytesRead = 0;
 
-            long length = ReadLength(this, out lengthBytesRead);            
+            //Should also keep the length bytes if exact duplication of a box is required....
 
-            return new Node(this, identifier, IdentifierSize, lengthBytesRead, Position + IdentifierSize, length, //determine Complete by reading the identifier
-                Read(identifier.Array, 0, IdentifierSize) + lengthBytesRead >= MinimumSize && length <= Remaining);  //Could also inline the ReadLength(this, out lengthBytesRead, lot.Array) and do the IsComplete check in the Node constructor based on Master.Remaining
+            //Read the length
+            ulong length = (ulong)ReadLength(this, out lengthBytesRead);
+
+            //Read the box identifier
+            int identifierSize = Read(identifier.Array, 0, IdentifierSize);
+
+            //If at least 4 bytes were read for the length and the length is int.MaxValue there is another word indicating the 64 bit length
+            if (lengthBytesRead >= LengthSize && length == int.MaxValue)
+            {
+                //Make room for the last word
+                byte[] lengthBytes = new byte[Common.Binary.BytesPerInteger];
+
+                //Read 4 bytes into the identifier
+                Read(lengthBytes, 0, LengthSize);
+
+                //These bytes don't count towards the length bytes read depending on who write the file,
+                //This also probably doesn't matter as long as the amount which follows is correct.
+                lengthBytesRead += Common.Binary.BytesPerInteger;
+
+                //Calculate the length
+                length = (int.MaxValue << Common.Binary.BitsPerInteger) | (uint)Common.Binary.Read32(lengthBytes, 0, BitConverter.IsLittleEndian);
+            }
+
+            //Return the node, the Position is the position of the data in the node.
+            return new Node(this, identifier, identifierSize, lengthBytesRead, Position, (long)(length - MinimumSize), //The length does not include the 8 bytes used for identifier and length
+                identifierSize + lengthBytesRead >= MinimumSize && length <= (ulong)Remaining);//Complete if enough bytes were read and end is within file size...
         }
 
         public override IEnumerator<Node> GetEnumerator()
@@ -267,8 +335,9 @@ namespace Media.Containers.BaseMedia
                 if (ParentBoxes.Contains(ToUTF8FourCharacterCode(next.Identifier))) continue;
 
                 //The length field of the node includes the identifier and the 4 bytes indicating the length of the data
-                //The length field itself may actually have more than 4 bytes but the dataSize is never calulcated using more than 4 bytes.
-                ulong dataSize = (ulong)(next.DataSize - Common.Binary.Clamp((next.LengthSize + next.IdentifierSize), 0, MinimumSize));
+                //The length field itself may actually have more than 4 bytes but IT SEEMS the dataSize is never calulcated using more than 4 bytes, need more example files to verify
+
+                ulong dataSize = (ulong)(next.DataSize);// (ulong)(next.DataSize - Common.Binary.Clamp((next.LengthSize + next.IdentifierSize), 0, MinimumSize));
                 
                 //Keep track of how much was skipped
                 ulong skipped = 0, toSkip = 0;
@@ -625,6 +694,9 @@ namespace Media.Containers.BaseMedia
                 }
 
                 trackId = Common.Binary.Read32(trakHead.Data, offset, BitConverter.IsLittleEndian);
+
+                //Skip if not the first active track in the moov header..
+                //if (trackId < NextTrackId) continue;
 
                 //Skip
                 offset += 8;
