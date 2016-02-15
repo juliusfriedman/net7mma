@@ -2318,9 +2318,21 @@ namespace Media.Common
         }
 
         [CLSCompliant(false)]
+        public static byte ReadU8(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            return ReadU8(buffer, index++, reverse);
+        }
+
+        [CLSCompliant(false)]
         public static sbyte Read8(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (sbyte)Binary.ReadInteger(buffer, index, Binary.Ūnus, reverse);
+        }
+
+        [CLSCompliant(false)]
+        public static sbyte Read8(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            return Read8(buffer, index++, reverse);
         }
 
         /// <summary>
@@ -2339,9 +2351,25 @@ namespace Media.Common
             return (ushort)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
         }
 
+        [CLSCompliant(false)]
+        public static ushort ReadU16(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            ushort value = (ushort)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
+            index += Binary.BytesPerShort;
+            return value;
+        }
+
         public static short Read16(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (short)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
+        }
+
+        [CLSCompliant(false)]
+        public static short Read16(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            short value = (short)Binary.ReadInteger(buffer, index, Binary.BytesPerShort, reverse);
+            index += Binary.BytesPerShort;
+            return value;
         }
 
         /// <summary>
@@ -2357,9 +2385,25 @@ namespace Media.Common
             return (uint)Binary.ReadInteger(buffer, index, Binary.Tres, reverse);
         }
 
+        [CLSCompliant(false)]
+        public static uint ReadU24(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            uint value = (uint)Binary.ReadInteger(buffer, index, Binary.Tres, reverse);
+            index += Binary.Tres;
+            return value;
+        }
+
         public static int Read24(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (int)Binary.ReadInteger(buffer, index, Binary.Tres, reverse);
+        }
+
+        [CLSCompliant(false)]
+        public static int Read24(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            int value = (int)Binary.ReadInteger(buffer, index, Binary.Tres, reverse);
+            index += Binary.Tres;
+            return value;
         }
 
         /// <summary>
@@ -2378,9 +2422,25 @@ namespace Media.Common
             return (uint)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
         }
 
+        [CLSCompliant(false)]
+        public static uint ReadU32(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            uint value = (uint)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
+            index += Binary.BytesPerInteger;
+            return value;
+        }
+
         public static int Read32(IEnumerable<byte> buffer, int index, bool reverse)
         {
             return (int)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
+        }
+
+        [CLSCompliant(false)]
+        public static int Read32(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            int value = (int)Binary.ReadInteger(buffer, index, Binary.BytesPerInteger, reverse);
+            index += Binary.BytesPerInteger;
+            return value;
         }
 
         [CLSCompliant(false)]
@@ -2389,9 +2449,25 @@ namespace Media.Common
             return (ulong)Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
         }
 
+        [CLSCompliant(false)]
+        public static ulong ReadU64(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            ulong value = (ulong)Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
+            index += Binary.BytesPerLong;
+            return value;
+        }
+
         public static long Read64(IEnumerable<byte> buffer, int index, bool reverse)
         {
-            return (long)Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
+            return Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
+        }
+
+        [CLSCompliant(false)]
+        public static long Read64(IEnumerable<byte> buffer, ref int index, bool reverse)
+        {
+            long value = Binary.ReadInteger(buffer, index, Binary.BytesPerLong, reverse);
+            index += Binary.BytesPerLong;
+            return value;
         }
 
         #endregion

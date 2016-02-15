@@ -61,12 +61,12 @@ namespace Media.Container
 
         public static Node CreateNodeWithDataReference(Node n)
         {
-            return new Node(n, NodeDataCopy.Reference);
+            return new Node(n, true);
         }
 
         public static Node CreateNodeWithDataCopy(Node n)
         {
-            return new Node(n, NodeDataCopy.Copy);
+            return new Node(n, false);
         }
 
         public static bool ReferenceData(Node from, Node to)
@@ -299,42 +299,24 @@ namespace Media.Container
         }
 
         /// <summary>
-        /// Either an assignment or a copy operation
-        /// </summary>
-        internal enum NodeDataCopy
-        {
-            Reference, //Assignment is default
-            Copy
-        }
-
-        /// <summary>
         /// Creates a copy of the node with the data if <paramref name="n"/> has a <see cref="DataSize"/> greater than 0 AND <see cref="DataAssigned"/> is <see cref="True"/>
         /// Throws a <see cref="NotImplementedException"/> if <paramref name="ndc"/> is not a known <see cref="NodeDataCopy"/>
         /// </summary>
         /// <param name="n">The source <see cref="Node"/></param>
         /// <param name="ndc">How to assign <see cref="Data"/></param>
         /// <param name="offset">The optional offset in <see cref="Data"/> to start the copy. (The length of the copy operation is given by <see cref="DataSize"/> minus this parameter) </param>
-        Node(Node n, NodeDataCopy ndc, int offset = 0) //ndc could just be a bool selfReference
+        Node(Node n, bool selfReference, int offset = 0) //ndc could just be a bool selfReference
             : this(n)
         {
-            if(n != null && n.DataSize > 0 && n.DataAssigned) switch (ndc)
+            if(n != null && n.DataSize > 0 && n.DataAssigned)
             {
-                //default: goto case NodeDataCopy.Copy;
-                default: throw new System.NotImplementedException("Unknown NodeDataCopy: " + ndc);
-                case NodeDataCopy.Copy:
-                    {
-                        m_Data = new byte[DataSize];
+                if (selfReference) m_Data = n.m_Data;
+                else
+                {
+                    m_Data = new byte[DataSize];
 
-                        System.Array.Copy(n.m_Data, offset, m_Data, offset, DataSize - offset);
-                        
-                        break;
-                    }
-                case NodeDataCopy.Reference:
-                    {
-                        m_Data = n.m_Data;
-
-                        break;
-                    }
+                    System.Array.Copy(n.m_Data, offset, m_Data, offset, DataSize - offset);
+                }
             }
         }
 

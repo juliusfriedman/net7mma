@@ -61,6 +61,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Reference", "Reference", "{
 	ProjectSection(SolutionItems) = preProject
 		Reference\AC3.pdf = Reference\AC3.pdf
 		Reference\Information.html = Reference\Information.html
+		Reference\ISO_IEC_14496-12_2005(E).pdf = Reference\ISO_IEC_14496-12_2005(E).pdf
 		Reference\MpegTS-PES.pdf = Reference\MpegTS-PES.pdf
 		Reference\S377-1-2009.pdf = Reference\S377-1-2009.pdf
 		Reference\T-REC-H.264-200305-S.pdf = Reference\T-REC-H.264-200305-S.pdf

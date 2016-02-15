@@ -395,6 +395,7 @@ namespace Media.Codecs.Image
 
     }
 
+    //Marked for removal
     ///// <summary>
     ///// Describes a PixelFormat
     ///// </summary>

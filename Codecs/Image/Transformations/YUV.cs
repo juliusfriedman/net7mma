@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Media.Codecs.Image.Transformations
 {
+    //Todo Seperate into seperate assembly
     public sealed class YUV : ImageTransformation
     {
 
