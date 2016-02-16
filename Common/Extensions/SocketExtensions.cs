@@ -52,7 +52,14 @@ namespace Media.Common.Extensions.Socket
             return result;
         }
 
-        public static int FindOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true)
+        /// <summary>        
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="start"></param>
+        /// <param name="even"></param>
+        /// <param name="localIp"></param>
+        /// <returns>-1 if no open ports were found or the next open port.</returns>
+        public static int FindOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true, System.Net.IPAddress localIp = null)
         {
             //As IP would imply either or Only Tcp or Udp please.
             if (type != System.Net.Sockets.ProtocolType.Udp && type != System.Net.Sockets.ProtocolType.Tcp) return -1;
@@ -69,7 +76,7 @@ namespace Media.Common.Extensions.Socket
             //We need endpoints to ensure the ports we want are not in use
             System.Collections.Generic.IEnumerable<System.Net.IPEndPoint> listeners = System.Linq.Enumerable.Empty<System.Net.IPEndPoint>();
 
-
+            //Determine if Udp or Tcp listeners are being checked.
             switch (type)
             {
                 case System.Net.Sockets.ProtocolType.Udp: 
@@ -84,17 +91,44 @@ namespace Media.Common.Extensions.Socket
             //Enumerate the ones that are = or > then port and increase port along the way
             foreach (System.Net.IPEndPoint ep in listeners)
             {
-                if (ep.Port <= port) continue;
+                //If the port is less than the port in question continue.
+                if (ep.Port < port) continue;
 
-                if (port == ep.Port) port++;
-                else if (ep.Port == port + 1) port += 2;
+                //Ensure correctly filtering to the given IP
+                if (ep.Address != System.Net.IPAddress.Any && localIp != null && ep.Address != localIp) continue;
+
+                if (port == ep.Port) port++; //Increment the port
+                else if (ep.Port == port + 1) port += 2; //Increment by 2
+                else if (localIp != null && localIp == ep.Address && ep.Port > port)//If the address is the same and ep.Port is > then port
+                {
+                    //Our port is less than ep.Port
+                    port = ep.Port - 1;
+                    break;
+                }
+
+                //Only look until the max port is reached.
+                if (port > ushort.MaxValue) return -1;
             }
 
             //If we only want even ports and we found an even one return it
             if (even && Binary.IsEven(port) || false == even && Binary.IsOdd(port)) return port;
 
             //We found an even and we wanted odd or vice versa
-            return ++port;
+            //Only increase the port if not ushort.MaxValue
+            return port == ushort.MaxValue ? port : ++port;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="start"></param>
+        /// <param name="even"></param>
+        /// <returns>Returns 0 if any error occurs, otherwise the open port.</returns>
+        public static int TryFindOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true)
+        {
+            try { int port = FindOpenPort(type, start, even); return port == -1 ? 0 : port; }
+            catch { return 0; }
         }
 
         /// <summary>

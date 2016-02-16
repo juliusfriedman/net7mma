@@ -147,5 +147,15 @@ namespace Media.Common.Extensions.IPAddress
             return true;
         }
 
+
+#if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
+        public static System.Net.IPAddress MapToIPv6(this System.Net.IPAddress addr)
+        {
+            if (addr.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) System.Console.WriteLine("Must pass an IPv4 address to MapToIPv6");
+            
+            return System.Net.IPAddress.Parse("::ffff:" + addr.ToString());
+        }
+#endif
+
     }
 }

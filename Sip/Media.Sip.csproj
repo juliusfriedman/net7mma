@@ -43,6 +43,16 @@
     <Compile Include="SipHeaders.cs" />
     <Compile Include="SipMessage.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Common\Media.Common.csproj">
+      <Project>{c64cdaed-c863-454d-bfa6-95685868d054}</Project>
+      <Name>Media.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Http\Media.Http.csproj">
+      <Project>{dbdbfef3-a51c-4423-b2d6-aa9d014bdb9e}</Project>
+      <Name>Media.Http</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

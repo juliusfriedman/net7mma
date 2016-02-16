@@ -99,5 +99,45 @@ namespace Media.Common.Extensions
                 }
             }
         }
+
+        #region Xaramin
+
+        public static bool IsiOS()
+        {
+#if __IOS__
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        public static bool IsWatchOS()
+        {
+#if __WATCHOS__
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        public static bool IsTVOS()
+        {
+#if __TVOS__
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        public static bool IsAndroid()
+        {
+#if __ANDROID__ || __ANDROID_11__
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        #endregion
     }
 }
