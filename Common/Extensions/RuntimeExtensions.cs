@@ -42,9 +42,30 @@ namespace Media.Common.Extensions
     {
         internal static readonly System.Type MonoType = System.Type.GetType("Mono.Runtime");
 
+        internal static readonly System.Type MonoTouchObjCRuntimeType = System.Type.GetType("MonoTouch.ObjCRuntime");
+
+        //To have a Classic property one would need to ensure MonoTouchObjCRuntimeType != null and reflect the Constants.Version field.
+        /*
+         https://developer.xamarin.com/recipes/ios/general/projects/environment_checks/
+         * 
+         Version version = new Version (ObjCRuntime.Constants.Version);
+         if (version > new Version (7,0))
+         {
+           // Code that uses features from Xamarin.iOS 7.0
+         }
+         */
+
+        internal static readonly System.Type AndroidOSType = System.Type.GetType("Android.OS");
+
+        //WatchKit indicates AppleWatch
+
+        //Should be taken into account when setting socket options...
+
         public static bool IsMono { get { return MonoType != null; } }
 
-        //public static bool IsRunningOnMono() { return IsMono; }
+        public static bool IsiOS { get { return MonoTouchObjCRuntimeType != null; } }
+
+        public static bool IsAndroid { get { return AndroidOSType != null; } }
 
         //IsRyuJit - http://stackoverflow.com/questions/22422021/how-do-i-verify-that-ryujit-is-jitting-my-app
 
