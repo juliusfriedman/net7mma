@@ -154,7 +154,12 @@ namespace Media.Containers.BaseMedia
 
         public static bool IsUserDefinedNode(BaseMediaReader reader, Node node)
         {
-            return (ToUTF8FourCharacterCode(node.Identifier) == UserDefined);
+            return IsUserDefinedIdentifier(reader, node.Identifier);
+        }
+
+        public static bool IsUserDefinedIdentifier(BaseMediaReader reader, byte[] identifier, int offset = 0, int count = 4)
+        {
+            return (ToUTF8FourCharacterCode(identifier, offset, count) == UserDefined);
         }
 
         public static Guid GetUniqueIdentifier(BaseMediaReader reader, Node node)
@@ -162,11 +167,11 @@ namespace Media.Containers.BaseMedia
             //Allocate the 16 bytes for the uuid
             byte[] uuidBytes = new byte[BytesPerUUID];
 
-            //If the node is a UUID type and the node contains at least 16 bytes
-            if (IsUserDefinedNode(reader, node) && node.DataSize > BytesPerUUID)
+            //If the node is a UUID type
+            if (IsUserDefinedNode(reader, node))
             {
-                //Read the UUID
-                reader.ReadAt(node.DataOffset, uuidBytes, 0, BytesPerUUID);
+                //Read the UUID from the identifier which comes after the uuid name.
+                Array.Copy(node.Identifier, IdentifierSize, uuidBytes, 0, BytesPerUUID);
             }
             else
             {
@@ -201,7 +206,6 @@ namespace Media.Containers.BaseMedia
                 if (names == null || names.Count() == 0 || names.Contains(ToUTF8FourCharacterCode(box.Identifier)))
                 {
                     yield return box;
-                    continue;
                 }
 
                 //Ensure the TotalSize is correctly set subtract from the count
@@ -284,28 +288,48 @@ namespace Media.Containers.BaseMedia
         public Node ReadNext()
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
-            
-            //Keep the identifier bytes seperate
-            Common.MemorySegment identifier = new Common.MemorySegment(IdentifierSize);
 
             //Keep track of how many bytes used in the length
             int lengthBytesRead = 0;
 
-            //Should also keep the length bytes if exact duplication of a box is required....
+            //Keep the length bytes
+            byte[] lengthBytes = new byte[LengthSize];
 
             //Read the length
-            ulong length = (ulong)ReadLength(this, out lengthBytesRead);
+            ulong length = (ulong)ReadLength(this, out lengthBytesRead, lengthBytes, 0);
 
+            //Keep the identifier bytes
+            byte[] identifier = new byte[IdentifierSize];
+            
             //Read the box identifier
-            int identifierSize = Read(identifier.Array, 0, IdentifierSize);
+            int identifierSize = Read(identifier, 0, IdentifierSize);
+            
+            //If this is a user defined type, then it must be read to access the length and to property get the data offset.
+            //The reason why this is not nested in the check for the extended length is that the identifier should always be kept seperate from the data of the node.
+            if (IsUserDefinedIdentifier(this, identifier))
+            {
+                //Increase the identifier size by 16
+                identifierSize += BytesPerUUID;
 
-            //If at least 4 bytes were read for the length and the length is int.MaxValue there is another word indicating the 64 bit length
+                //Resize the array to 20 bytes
+                Array.Resize(ref identifier, 20);
+
+                //Read the 16 byte uuid which follows
+                Read(identifier, IdentifierSize, BytesPerUUID);
+
+                //The length of the node cannot include the uuid since we just read it, however TotalSize will reflect this correctly.                
+                length -= BytesPerUUID;
+            }
+
+            //If the length == 0 then the size should be limited to the previous parent box length for seeking.
+            //Could keep a instance variable m_ParentRemains := Remaining
+            //Could decrement it for every node encountered while IsParentBox is false.
+            //Otherwise m_ParentRemains := length - MinimumSize
+
+            //If at least 4 bytes were read for the length and the length is int.MaxValue there is another word indicating the last 32 bits of the 64 bit length
             if (lengthBytesRead >= LengthSize && length == int.MaxValue)
             {
-                //Make room for the last word
-                byte[] lengthBytes = new byte[Common.Binary.BytesPerInteger];
-
-                //Read 4 bytes into the identifier
+                //Read 4 bytes into the lengthBytes
                 Read(lengthBytes, 0, LengthSize);
 
                 //These bytes don't count towards the length bytes read depending on who write the file,
@@ -317,7 +341,7 @@ namespace Media.Containers.BaseMedia
             }
 
             //Return the node, the Position is the position of the data in the node.
-            return new Node(this, identifier, identifierSize, lengthBytesRead, Position, (long)(length - MinimumSize), //The length does not include the 8 bytes used for identifier and length
+            return new Node(this, new Common.MemorySegment(identifier), identifierSize, lengthBytesRead, Position, (long)(length - MinimumSize), //The length does not include the 8 bytes used for identifier and length
                 identifierSize + lengthBytesRead >= MinimumSize && length <= (ulong)Remaining);//Complete if enough bytes were read and end is within file size...
         }
 
@@ -332,12 +356,14 @@ namespace Media.Containers.BaseMedia
                 yield return next;
 
                 //Parent boxes contain other boxes so do not skip them, parse right into their data
+                //Could handle long size here also by keeping track of the amount of data in next.
                 if (ParentBoxes.Contains(ToUTF8FourCharacterCode(next.Identifier))) continue;
 
                 //The length field of the node includes the identifier and the 4 bytes indicating the length of the data
-                //The length field itself may actually have more than 4 bytes but IT SEEMS the dataSize is never calulcated using more than 4 bytes, need more example files to verify
+                //The length field itself may actually have more than 4 bytes but IT SEEMS the dataSize is never calulcated using more than 4 bytes of the length, need more example files to verify
+                //This implies that the DataSize can be trusted since the length has been altered by ReadNext() to account for this.                
 
-                ulong dataSize = (ulong)(next.DataSize);// (ulong)(next.DataSize - Common.Binary.Clamp((next.LengthSize + next.IdentifierSize), 0, MinimumSize));
+                ulong dataSize = (ulong)(next.DataSize);
                 
                 //Keep track of how much was skipped
                 ulong skipped = 0, toSkip = 0;
@@ -568,245 +594,41 @@ namespace Media.Containers.BaseMedia
 
             long position = Position;
 
-            int trackId = 0;
-
-            ulong created = 0, modified = 0, duration = 0;
-
-            int width, height;
-
-            bool enabled, inMovie, inPreview;
-
-            byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;
-
             //Get Duration from mdhd, some files have more then one mdhd.
             if (false == m_Duration.HasValue) ParseMovieHeader();
 
-            //For each trak box in the file
-            //TODO Make only a single pass, the data required should always be in the RawData of trakBox
-            //E,g, use trackBox.Data stream and switch on identifer name contained in Data
+            //traf should also be supported.
             foreach (var trakBox in ReadBoxes(Root.Offset, "trak").ToArray())
             {
-                //MAKE ONLY A SINGLE PASS HERE TO REDUCE IO
-                //using (var stream = trakBox.DataStream)
-                //{
-                //    int bytesRead = 0;
+                //Define variables which need to be reset for every track.
 
-                //    long length = 0, streamPosition = stream.Position, streamLength = stream.Length;
+                int trackId = 0;
 
-                //    byte[] identifier;
+                ulong created = 0, modified = 0, duration = 0;
 
-                //    //Note could use RawData from trakBox
-                //    //Would just need a way to ReadLength and Identifier from byte[] rather than Stream.
+                int width = 0, height = 0;
 
-                //    //While there is data in the stream
-                //    while (streamPosition < streamLength)
-                //    {
-                //        //Read the length
-                //        length = ReadLength(stream, out bytesRead);
+                bool enabled = false, inMovie, inPreview;
 
-                //        //Read the identifier
-                //        identifier = ReadIdentifier(stream);
+                byte[] codecIndication = Media.Common.MemorySegment.EmptyBytes;                
 
-                //        //Determine what to do
-                //        switch (ToFourCharacterCode(identifier))
-                //        {
-                //            // Next Node has data
-                //            case "trak": continue;
-                //            case "tkhd":
-                //                {
-                //                    break;
-                //                }
-                //            case "mdhd":
-                //                {
-                //                    break;
-                //                }
-                //            case "stsd":
-                //                {
-                //                    break;
-                //                }
-                //            case "stts":
-                //                {
-                //                    break;
-                //                }
-                //            case "stsz":
-                //                {
-                //                    break;
-                //                }
-                //            case "stco":
-                //                {
-                //                    break;
-                //                }
-                //            case "st64":
-                //                {
-                //                    break;
-                //                }
-                //            case "hdlr":
-                //                {
-                //                    break;
-                //                }
-                //            case "name":
-                //                {
-                //                    break;
-                //                }
-                //            default:
-                //                {
-                //                    streamPosition = stream.Position += length;
-                //                    continue;
-                //                }
-                //        }
-                //    }
-                //}
+                float volume = m_Volume.Value;
 
-                //Should come right after trak header
-                var trakHead = ReadBox("tkhd", trakBox.Offset);
+                int offset = 0, version = 0, flags = 0;
 
-                int offset = 0;
-
-                int version = trakHead.Data[offset++], flags = Common.Binary.Read24(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                offset += 3;
-
-                enabled = ((flags & 1) == flags);
-
-                inMovie = ((flags & 2) == flags);
-
-                inPreview = ((flags & 3) == flags);
-
-                if (version == 0)
-                {
-                    created = Common.Binary.ReadU32(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 4;
-
-                    modified = Common.Binary.ReadU32(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 4;
-                }
-                else
-                {
-                    created = Common.Binary.ReadU64(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 8;
-
-                    modified = Common.Binary.ReadU64(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 8;
-                }
-
-                trackId = Common.Binary.Read32(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                //Skip if not the first active track in the moov header..
-                //if (trackId < NextTrackId) continue;
-
-                //Skip
-                offset += 8;
-
-                //Get Duration
-                if (version == 0)
-                {
-                    duration = Common.Binary.ReadU32(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 4;
-                }
-                else
-                {
-                    duration = Common.Binary.ReadU64(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 8;
-                }
-
-                if (duration == 4294967295L) duration = ulong.MaxValue;
-
-                //Reserved
-                offset += 8;
-
-                int layer = Common.Binary.ReadU16(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                offset += 2;
-
-                int altGroup = Common.Binary.ReadU16(trakHead.Data, offset, BitConverter.IsLittleEndian);
-
-                offset += 2;
-
-                float volume = Common.Binary.ReadU16(trakHead.Data, offset, BitConverter.IsLittleEndian) / 256;
-
-                //Skip int and Matrix
-                offset += 40;
-
-                //Width
-                width = Common.Binary.Read32(trakHead.Data, offset, BitConverter.IsLittleEndian) / ushort.MaxValue;
-
-                offset += 4;
-                //Height
-
-                height = Common.Binary.Read32(trakHead.Data, offset, BitConverter.IsLittleEndian) / ushort.MaxValue;
-
-                offset += 4;
+                byte[] rawData;
 
                 ulong trackTimeScale = m_TimeScale.Value, trackDuration = duration;
 
                 DateTime trackCreated = m_Created.Value, trackModified = m_Modified.Value;
 
-                //Read the mediaHeader (use overload with count to ensure we do not over read)
-                var mediaHeader = ReadBox("mdhd", trakBox.Offset);
-                if (mediaHeader != null)
-                {
-                    offset = 0;
+                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
 
-                    version = mediaHeader.Data[offset++];
+                string name = string.Empty;
 
-                    flags = Common.Binary.Read24(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
+                byte channels = 0, bitDepth = 0;
 
-                    offset += 3;
-
-                    ulong mediaCreated, mediaModified, timescale, mediaduration;
-
-                    if (version == 0)
-                    {
-
-                        mediaCreated = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-
-                        mediaModified = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-
-                        timescale = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-
-                        mediaduration = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-                    }
-                    else
-                    {
-                        mediaCreated = Common.Binary.ReadU64(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 8;
-
-                        mediaModified = Common.Binary.ReadU64(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 8;
-
-                        timescale = Common.Binary.ReadU32(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 8;
-
-                        mediaduration = Common.Binary.ReadU64(mediaHeader.Data, offset, BitConverter.IsLittleEndian);
-                    }
-
-                    trackTimeScale = timescale;
-
-                    trackDuration = mediaduration;
-
-                    trackCreated = IsoBaseDateUtc.AddMilliseconds(mediaCreated * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
-
-                    trackModified = IsoBaseDateUtc.AddMilliseconds(mediaModified * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
-                }
-
-                var sampleToTimeBox = ReadBox("stts", trakBox.Offset);
+                double rate = 0;
 
                 List<Tuple<long, long>> entries = new List<Tuple<long, long>>();
 
@@ -814,309 +636,482 @@ namespace Media.Containers.BaseMedia
 
                 List<int> sampleSizes = new List<int>();
 
-                if (sampleToTimeBox != null)
+                TimeSpan startTime = TimeSpan.Zero;
+
+                //MAKE ONLY A SINGLE PASS HERE TO REDUCE IO
+                using (var stream = trakBox.DataStream)
                 {
-                    //Skip Flags and Version
-                    offset = LengthSize;
+                    int bytesRead = 0;
 
-                    int entryCount = Common.Binary.Read32(sampleToTimeBox.Data, offset, BitConverter.IsLittleEndian);
+                    long length = 0, streamPosition = stream.Position, streamLength = stream.Length;
 
-                    offset += 4;
+                    byte[] identifier;
 
-                    for (int i = 0; i < entryCount; ++i)
+                    //Note could use RawData from trakBox
+                    //Would just need a way to ReadLength and Identifier from byte[] rather than Stream.
+
+                    //This would also work but it would cause a seek
+                    //foreach(var node in ReadBoxes(trakBox.DataOffset, trakBox.DataSize, null))                    
+
+                    //While there is data in the stream
+                    while (streamPosition < streamLength)
                     {
-                        //Sample Count Sample Duration
-                        entries.Add(new Tuple<long, long>(Common.Binary.Read32(sampleToTimeBox.Data, offset, BitConverter.IsLittleEndian),
-                            Common.Binary.Read32(sampleToTimeBox.Data, offset + 4, BitConverter.IsLittleEndian)));
-                        offset += MinimumSize;
-                    }
-                }
+                        //Read the length
+                        length = ReadLength(stream, out bytesRead);
 
-                var sampleToSizeBox = ReadBox("stsz", trakBox.Offset);
+                        streamPosition += bytesRead;
 
-                if (sampleToSizeBox != null)
-                {
-                    //Skip Flags and Version
-                    offset = MinimumSize;
+                        //Read the identifier
+                        identifier = ReadIdentifier(stream);
 
-                    int defaultSize = Common.Binary.Read32(sampleToSizeBox.Data, offset, BitConverter.IsLittleEndian);
+                        bytesRead += IdentifierSize;
 
-                    offset += 4;
+                        streamPosition += IdentifierSize;
 
-                    int count = Common.Binary.Read32(sampleToSizeBox.Data, offset, BitConverter.IsLittleEndian);
+                        length -= MinimumSize;
 
-                    offset += 4;
+                        offset = 0;
 
-                    if (defaultSize == 0)
-                    {
-                        for (int i = 0; i < count; ++i)
+                        string boxName = ToUTF8FourCharacterCode(identifier);
+
+                        //Determine what to do
+                        switch (boxName)
                         {
-                            sampleSizes.Add(Common.Binary.Read32(sampleToSizeBox.Data, offset, BitConverter.IsLittleEndian));
+                            // Next Node has data
+                            case "trak": continue;
+                            case "elst":
+                                {
+                                    rawData = new byte[length];
 
-                            offset += 4;
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    List<Tuple<int, int, float>> edits = new List<Tuple<int, int, float>>();                                    
+
+                                    //Skip Flags and Version
+                                    offset = LengthSize;
+
+                                    int entryCount = Common.Binary.Read32(rawData, offset, BitConverter.IsLittleEndian);
+
+                                    offset += 4;
+
+                                    for (int i = 0; i < entryCount && offset < length; ++i)
+                                    {
+                                        //Edit Duration, MediaTime, Rate
+                                        edits.Add(new Tuple<int, int, float>(Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian),
+                                            Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian),
+                                            Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) / ushort.MaxValue));
+                                    }
+
+                                    if (edits.Count > 0 && edits[0].Item2 > 0)
+                                    {
+                                        startTime = TimeSpan.FromMilliseconds(edits[0].Item2);
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+
+                                }
+                            case "tkhd"://tfhd
+                                {
+
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    version = rawData[offset++];
+                                    
+                                    flags = Common.Binary.Read24(rawData, offset, BitConverter.IsLittleEndian);
+
+                                    offset += 3;
+
+                                    enabled = ((flags & 1) == flags);
+
+                                    inMovie = ((flags & 2) == flags);
+
+                                    inPreview = ((flags & 3) == flags);
+
+                                    if (version == 0)
+                                    {
+                                        created = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        modified = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    }
+                                    else
+                                    {
+                                        created = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        modified = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    }
+
+                                    trackId = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    //Skip if not the first active track in the moov header..
+                                    //if (trackId < NextTrackId) continue;
+
+                                    //Skip
+                                    offset += 4;
+
+                                    //Get Duration
+                                    if (version == 0)
+                                    {
+                                        duration = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    }
+                                    else
+                                    {
+                                        duration = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    }
+
+                                    if (duration == 4294967295L) duration = ulong.MaxValue;
+
+                                    //Reserved
+                                    offset += 8;
+
+                                    //int layer = Common.Binary.ReadU16(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    //int altGroup = Common.Binary.ReadU16(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    offset += 4;
+
+                                    volume = Common.Binary.ReadU16(rawData, ref offset, BitConverter.IsLittleEndian) / 256;
+
+                                    //Skip int and Matrix
+                                    offset += 38;
+
+                                    //Width
+                                    width = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) / ushort.MaxValue;
+                                    
+                                    //Height
+                                    height = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) / ushort.MaxValue;
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "mdhd":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    version = rawData[offset++];
+
+                                    flags = Common.Binary.Read24(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    ulong mediaCreated, mediaModified, timescale, mediaduration;
+
+                                    if (version == 0)
+                                    {
+
+                                        mediaCreated = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        mediaModified = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        timescale = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        mediaduration = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    }
+                                    else
+                                    {
+                                        mediaCreated = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        mediaModified = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        timescale = Common.Binary.ReadU32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                        mediaduration = Common.Binary.ReadU64(rawData, ref offset, BitConverter.IsLittleEndian);
+                                    }
+
+                                    trackTimeScale = timescale;
+
+                                    trackDuration = mediaduration;
+
+                                    trackCreated = IsoBaseDateUtc.AddMilliseconds(mediaCreated * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
+
+                                    trackModified = IsoBaseDateUtc.AddMilliseconds(mediaModified * Media.Common.Extensions.TimeSpan.TimeSpanExtensions.MicrosecondsPerMillisecond);
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "stsd":
+                                {
+                                    //H264
+                                    // stsd/avc1/avcC contains a field 'lengthSizeMinusOne' specifying the length. But the default is 4.
+
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    int sampleDescriptionCount = length > 0 ? Common.Binary.Read32(rawData, LengthSize, BitConverter.IsLittleEndian) : 0;
+
+                                    offset = MinimumSize;
+
+                                    if (sampleDescriptionCount > 0)
+                                    {
+                                        for (int i = 0; i < sampleDescriptionCount; ++i)
+                                        {
+                                            int len = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian) - 4;
+
+                                            var sampleEntry = rawData.Skip(offset).Take(len);
+                                            offset += len;
+
+                                            switch (mediaType)
+                                            {
+                                                case Sdp.MediaType.audio:
+                                                    {
+                                                        //Maybe == mp4a
+                                                        codecIndication = sampleEntry.Take(4).ToArray();
+
+                                                        //32, 16, 16 (dref index)
+                                                        version = Common.Binary.Read16(sampleEntry, 8, BitConverter.IsLittleEndian);
+
+                                                        //Revision 16, Vendor 32
+
+                                                        //ChannelCount 16
+                                                        channels = (byte)Common.Binary.ReadU16(sampleEntry, 20, BitConverter.IsLittleEndian);
+
+                                                        //SampleSize 16 (A 16-bit integer that specifies the number of bits in each uncompressed sound sample. Allowable values are 8 or 16. Formats using more than 16 bits per sample set this field to 16 and use sound description version 1.)
+                                                        bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 22, BitConverter.IsLittleEndian);
+
+                                                        //CompressionId 16
+                                                        var compressionId = sampleEntry.Skip(24).Take(2);
+
+                                                        //Decode to a WaveFormatID (16 bit)
+                                                        int waveFormatId = Common.Binary.Read16(compressionId, 0, BitConverter.IsLittleEndian);
+
+                                                        //The compression ID is set to -2 and redefined sample tables are used (see “Redefined Sample Tables”).
+                                                        if (-2 == waveFormatId)
+                                                        {
+                                                            //var waveAtom = ReadBox("wave", sampleDescriptionBox.Offset);
+                                                            //if (waveAtom != null)
+                                                            //{
+                                                            //    flags = Common.Binary.Read24(waveAtom.Raw, 9, BitConverter.IsLittleEndian);
+                                                            //    //Extrack from flags?
+                                                            //}
+                                                        }//If the formatId is known then use it
+                                                        else if (waveFormatId > 0) codecIndication = compressionId.ToArray();
+
+                                                        //@ 26
+
+                                                        //PktSize 16
+
+                                                        //sr 32
+
+                                                        rate = (double)Common.Binary.ReadU32(sampleEntry, 28, BitConverter.IsLittleEndian) / 65536F;
+
+                                                        //@ 32
+
+                                                        if (version > 1)
+                                                        {
+
+                                                            //36 total
+
+                                                            rate = BitConverter.Int64BitsToDouble(Common.Binary.Read64(sampleEntry, 32, BitConverter.IsLittleEndian));
+                                                            channels = (byte)Common.Binary.ReadU32(sampleEntry, 40, BitConverter.IsLittleEndian);
+
+                                                            //24 More Bytes
+                                                        }
+
+                                                        //else 16 more if version == 1
+                                                        //else 2 more if version == 0
+
+                                                        //@ esds for mp4a
+
+                                                        //http://www.mp4ra.org/object.html
+                                                        // @ +4 +4 +11 == ObjectTypeIndication
+
+                                                        break;
+                                                    }
+                                                case Sdp.MediaType.video:
+                                                    {
+                                                        codecIndication = sampleEntry.Take(4).ToArray();
+
+                                                        //SampleEntry overhead = 8
+                                                        //Version, Revision, Vendor, TemporalQUal, SpacialQual, Width, Height, hRes,vRes, reversed, FrameCount, compressorName, depth, clrTbl, (extensions)
+
+                                                        //Width @ 28
+                                                        width = Common.Binary.ReadU16(sampleEntry, 28, BitConverter.IsLittleEndian);
+                                                        //Height @ 30
+                                                        height = Common.Binary.ReadU16(sampleEntry, 30, BitConverter.IsLittleEndian);
+
+                                                        //hres, vres, reserved = 12
+
+                                                        //FrameCount @ 44 (A 16-bit integer that indicates how many frames of compressed data are stored in each sample. Usually set to 1.)
+
+                                                        //@46
+
+                                                        //30 bytes compressor name (1 byte length) + 1
+
+                                                        //@78
+
+                                                        bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 78, BitConverter.IsLittleEndian);
+
+                                                        //esds box for codec specific data.
+
+                                                        break;
+                                                    }
+                                            }
+
+                                            continue;
+
+                                        }
+
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "stts":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    //Skip Flags and Version
+                                    offset = LengthSize;
+
+                                    int entryCount = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    for (int i = 0; i < entryCount && offset < length; ++i)
+                                    {
+                                        //Sample Count Sample Duration
+                                        entries.Add(new Tuple<long, long>(Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian),
+                                            Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian)));
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "stsz":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    //Skip Flags and Version
+                                    offset = MinimumSize;
+
+                                    int defaultSize = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    int count = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    if (defaultSize == 0)
+                                    {
+                                        for (int i = 0; i < count && offset < length; ++i)
+                                        {
+                                            sampleSizes.Add(Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian));
+                                        }
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "stco":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    //Skip Flags and Version
+                                    offset = LengthSize;
+
+                                    int chunkCount = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    for (int i = 0; i < chunkCount && offset < length; ++i)
+                                    {
+                                        offsets.Add((long)Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian));
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "st64":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    //Skip Flags and Version
+                                    offset = MinimumSize;
+
+                                    int chunkCount = Common.Binary.Read32(rawData, ref offset, BitConverter.IsLittleEndian);
+
+                                    for (int i = 0; i < chunkCount && offset < length; ++i)
+                                    {
+                                        offsets.Add(Common.Binary.Read64(rawData, ref offset, BitConverter.IsLittleEndian));
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "hdlr":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    string comp = ToUTF8FourCharacterCode(rawData, LengthSize), sub = ToUTF8FourCharacterCode(rawData, LengthSize * 2);
+
+                                    switch (sub)
+                                    {
+                                        case "vide": mediaType = Sdp.MediaType.video; break;
+                                        case "soun": mediaType = Sdp.MediaType.audio; break;
+                                        case "text": mediaType = Sdp.MediaType.text; break;
+                                        case "tmcd": mediaType = Sdp.MediaType.timing; break;
+                                        default: break;
+                                    }
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            case "name":
+                                {
+                                    rawData = new byte[length];
+
+                                    stream.Read(rawData, 0, (int)length);
+
+                                    name = Encoding.UTF8.GetString(rawData);
+
+                                    offset = (int)length;
+
+                                    goto default;
+                                }
+                            default:
+                                {
+                                    //If the box was a parent continue parsing
+                                    if (BaseMediaReader.ParentBoxes.Contains(boxName)) continue;
+
+                                    //Determine how much to skip
+                                    long toMove = length - offset;
+
+                                    //Skip anything which remains if the offset was moved or the entire node if nothing was read.
+                                    if (toMove > 0) streamPosition = stream.Position += toMove;
+                                    else streamPosition += length;
+
+                                    continue;
+                                }
                         }
                     }
                 }
 
-                var chunkOffsetsBox = ReadBox("stco", trakBox.Offset);
-
-                if (chunkOffsetsBox == null)
-                {
-                    chunkOffsetsBox = ReadBox("co64", trakBox.Offset);
-
-                    if (chunkOffsetsBox != null)
-                    {
-                        //Skip Flags and Version
-                        offset = MinimumSize;
-
-                        int chunkCount = Common.Binary.Read32(chunkOffsetsBox.Data, offset, BitConverter.IsLittleEndian);
-
-                        offset += 4;
-
-                        for (int i = 0; i < chunkCount; ++i)
-                        {
-                            offsets.Add(Common.Binary.Read64(chunkOffsetsBox.Data, offset, BitConverter.IsLittleEndian));
-
-                            offset += 8;
-                        }
-                    }
-
-                }
-                else
-                {
-                    //Skip Flags and Version
-                    offset = LengthSize;
-
-                    int chunkCount = Common.Binary.Read32(chunkOffsetsBox.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 4;
-
-                    for (int i = 0; i < chunkCount; ++i)
-                    {
-                        offsets.Add((long)Common.Binary.Read32(chunkOffsetsBox.Data, offset, BitConverter.IsLittleEndian));
-
-                        offset += 4;
-                    }
-                }
-
-                TimeSpan calculatedDuration = TimeSpan.FromSeconds(trackDuration / (double)trackTimeScale);
-
-                Sdp.MediaType mediaType = Sdp.MediaType.unknown;
-
-                var hdlr = ReadBox("hdlr", trakBox.Offset);
-
-                string comp = ToUTF8FourCharacterCode(hdlr.Data, LengthSize), sub = ToUTF8FourCharacterCode(hdlr.Data, LengthSize * 2);
-
-                switch (sub)
-                {
-                    case "vide": mediaType = Sdp.MediaType.video; break;
-                    case "soun": mediaType = Sdp.MediaType.audio; break;
-                    case "text": mediaType = Sdp.MediaType.text; break;
-                    case "tmcd": mediaType = Sdp.MediaType.timing; break;
-                    default: break;
-                }
-
-                var nameBox = ReadBox("name", trakBox.Offset);
-
-                string name = string.Empty;
-
-                if (nameBox != null) name = Encoding.UTF8.GetString(nameBox.Data);
+                TimeSpan calculatedDuration = TimeSpan.FromSeconds(trackDuration / (double)trackTimeScale);                
 
                 ulong sampleCount = (ulong)sampleSizes.Count();
 
                 if (sampleCount == 0 && entries.Count > 0) sampleCount = (ulong)entries[0].Item1;
 
-                double rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
-
-                var sampleDescriptionBox = ReadBox("stsd", trakBox.Offset);
-
-                //H264
-                // stsd/avc1/avcC contains a field 'lengthSizeMinusOne' specifying the length. But the default is 4.
-
-                int sampleDescriptionCount = sampleDescriptionBox == null ? 0 : Common.Binary.Read32(sampleDescriptionBox.Data, LengthSize, BitConverter.IsLittleEndian);
-
-                byte channels = 0, bitDepth = 0;
-
-                offset = MinimumSize;
-
-                if (sampleDescriptionCount > 0)
-                {
-                    for (int i = 0; i < sampleDescriptionCount; ++i)
-                    {
-                        int len = Common.Binary.Read32(sampleDescriptionBox.Data, offset, BitConverter.IsLittleEndian) - 4;
-                        offset += 4;
-
-                        var sampleEntry = sampleDescriptionBox.Data.Skip(offset).Take(len);
-                        offset += len;
-
-                        switch (mediaType)
-                        {
-                            case Sdp.MediaType.audio:
-                                {
-                                    //Maybe == mp4a
-                                    codecIndication = sampleEntry.Take(4).ToArray();
-
-                                    //32, 16, 16 (dref index)
-                                    version = Common.Binary.Read16(sampleEntry, 8, BitConverter.IsLittleEndian);
-
-                                    //Revision 16, Vendor 32
-
-                                    //ChannelCount 16
-                                    channels = (byte)Common.Binary.ReadU16(sampleEntry, 20, BitConverter.IsLittleEndian);
-
-                                    //SampleSize 16 (A 16-bit integer that specifies the number of bits in each uncompressed sound sample. Allowable values are 8 or 16. Formats using more than 16 bits per sample set this field to 16 and use sound description version 1.)
-                                    bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 22, BitConverter.IsLittleEndian);
-
-                                    //CompressionId 16
-                                    var compressionId = sampleEntry.Skip(24).Take(2);
-
-                                    //Decode to a WaveFormatID (16 bit)
-                                    int waveFormatId = Common.Binary.Read16(compressionId, 0, BitConverter.IsLittleEndian);
-
-                                    //The compression ID is set to -2 and redefined sample tables are used (see “Redefined Sample Tables”).
-                                    if (-2 == waveFormatId)
-                                    {
-                                        //var waveAtom = ReadBox("wave", sampleDescriptionBox.Offset);
-                                        //if (waveAtom != null)
-                                        //{
-                                        //    flags = Common.Binary.Read24(waveAtom.Raw, 9, BitConverter.IsLittleEndian);
-                                        //    //Extrack from flags?
-                                        //}
-                                    }//If the formatId is known then use it
-                                    else if (waveFormatId > 0) codecIndication = compressionId.ToArray();
-
-                                    //@ 26
-
-                                    //PktSize 16
-
-                                    //sr 32
-
-                                    rate = (double)Common.Binary.ReadU32(sampleEntry, 28, BitConverter.IsLittleEndian) / 65536F;
-
-                                    //@ 32
-
-                                    if (version > 1)
-                                    {
-
-                                        //36 total
-
-                                        rate = BitConverter.Int64BitsToDouble(Common.Binary.Read64(sampleEntry, 32, BitConverter.IsLittleEndian));
-                                        channels = (byte)Common.Binary.ReadU32(sampleEntry, 40, BitConverter.IsLittleEndian);
-
-                                        //24 More Bytes
-                                    }
-
-                                    //else 16 more if version == 1
-                                    //else 2 more if version == 0
-
-                                    //@ esds for mp4a
-
-                                    //http://www.mp4ra.org/object.html
-                                    // @ +4 +4 +11 == ObjectTypeIndication
-
-                                    break;
-                                }
-                            case Sdp.MediaType.video:
-                                {
-                                    codecIndication = sampleEntry.Take(4).ToArray();
-
-                                    //SampleEntry overhead = 8
-                                    //Version, Revision, Vendor, TemporalQUal, SpacialQual, Width, Height, hRes,vRes, reversed, FrameCount, compressorName, depth, clrTbl, (extensions)
-
-                                    //Width @ 28
-                                    width = Common.Binary.ReadU16(sampleEntry, 28, BitConverter.IsLittleEndian);
-                                    //Height @ 30
-                                    height = Common.Binary.ReadU16(sampleEntry, 30, BitConverter.IsLittleEndian);
-
-                                    //hres, vres, reserved = 12
-
-                                    //FrameCount @ 44 (A 16-bit integer that indicates how many frames of compressed data are stored in each sample. Usually set to 1.)
-
-                                    //@46
-
-                                    //30 bytes compressor name (1 byte length) + 1
-
-                                    //@78
-
-                                    bitDepth = (byte)Common.Binary.ReadU16(sampleEntry, 78, BitConverter.IsLittleEndian);
-
-                                    //esds box for codec specific data.
-
-                                    break;
-                                }
-                        }
-
-                        continue;
-
-                    }
-
-                }
-
-
-
-                //Also contains channels and bitDept info
-
-                //byte bitDepth;
-
-                //Check for esds if codecIndication is MP4 or MP4A
-
-                //using(var stream = sampleDescriptionBox.Data)
-                //{
-                //    stream.Position += 20;
-                //    stream.Read(codecIndication, 0, 4);
-
-                //    //if (stream.Length > 24 + 38)
-                //    //{
-                //    //    //There is a Media Sample Description which contains the bit dept and number of channels etc...
-
-                //    //    //https://developer.apple.com/library/Mac/documentation/QuickTime/QTFF/QTFFChap3/qtff3.html#//apple_ref/doc/uid/TP40000939-CH205-74522
-
-                //    //This should be read to get the channels and bitdept for audio and bitdept for video as well as number of components / format
-
-                //    //    stream.Position += 38;
-
-                //    //    byte[] bitd = new byte[2];
-
-                //    //    stream.Read(bitd, 0, 2);
-
-                //    //    bitDepth = (byte)Common.Binary.ReadU16(bitd, 0, BitConverter.IsLittleEndian);
-                //    //}
-                //}
-
-                var elst = ReadBox("elst", trakBox.Offset);
-
-                List<Tuple<int, int, float>> edits = new List<Tuple<int, int, float>>();
-
-                TimeSpan startTime = TimeSpan.Zero;
-
-                if (elst != null)
-                {
-                    //Skip Flags and Version
-                    offset = LengthSize;
-
-                    int entryCount = Common.Binary.Read32(elst.Data, offset, BitConverter.IsLittleEndian);
-
-                    offset += 4;
-
-                    for (int i = 0; i < entryCount; ++i)
-                    {
-                        //Edit Duration, MediaTime, Rate
-                        edits.Add(new Tuple<int, int, float>(Common.Binary.Read32(elst.Data, offset, BitConverter.IsLittleEndian),
-                            Common.Binary.Read32(elst.Data, offset + 4, BitConverter.IsLittleEndian),
-                            Common.Binary.Read32(elst.Data, offset + 8, BitConverter.IsLittleEndian) / ushort.MaxValue));
-
-                        offset += 12;
-                    }
-
-                    if (edits.Count > 0 && edits[0].Item2 > 0)
-                    {
-                        startTime = TimeSpan.FromMilliseconds(edits[0].Item2);
-                    }
-
-                    elst = null;
-                }
+                rate = mediaType == Sdp.MediaType.audio ? trackTimeScale : (double)((double)sampleCount / ((double)trackDuration / trackTimeScale));
 
                 Track createdTrack = new Track(trakBox, name, trackId, trackCreated, trackModified, (long)sampleCount, width, height, startTime, calculatedDuration, rate, mediaType, codecIndication, channels, bitDepth, enabled);
+
+                createdTrack.Volume = volume;
 
                 tracks.Add(createdTrack);
 
