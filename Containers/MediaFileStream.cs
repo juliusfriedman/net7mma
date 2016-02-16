@@ -502,12 +502,12 @@ namespace Media.Container
         /// <param name="count"></param>
         /// <returns></returns>
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
-        public virtual byte[] ReadBytes(int count)
+        public virtual byte[] ReadBytes(long count)
         {
             if (count <= 0) return Media.Common.MemorySegment.EmptyBytes; 
             byte[] result = new byte[count]; 
-            int i = 0; 
-            /*do*/while ((count -= (i += Read(result, i, count))) > 0) ; 
+            long i = 0; 
+            /*do*/while ((count -= (i += Read(result, (int)i, (int)count))) > 0) ; 
             return result;
         }
 

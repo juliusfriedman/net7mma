@@ -189,13 +189,37 @@ namespace Media.Containers.Asf
             yield break;
         }
 
+        //Not very useful since there aren't any rules I can find which state where StreamPropertiesObjects can appear.
+        //public IEnumerable<Node> ReadObjects(long count, long offset, params Guid[] names)
+        //{
+        //    long position = Position;
+
+        //    Position = offset;
+
+        //    foreach (var asfObject in this)
+        //    {
+        //        count -= asfObject.TotalSize;
+
+        //        if (names == null || names.Count() == 0 || names.Contains(new Guid(asfObject.Identifier.Take(IdentifierSize).ToArray())))
+        //        {
+        //            yield return asfObject;
+        //        }
+
+        //        if (count <= 0) break;
+        //    }
+
+        //    Position = position;
+
+        //    yield break;
+        //}
+
         public Node ReadObject(Guid name, long offset = 0)
         {
-            long positionStart = Position;
+            //long positionStart = Position;
 
             Node result = ReadObjects(offset, name).FirstOrDefault();
 
-            Position = positionStart;
+            //Position = positionStart;
 
             return result;
         }

@@ -64,6 +64,7 @@ namespace Media.Containers.Riff
             avih = 1751742049,
             //Extended Header
             dmlh = 1751936356,
+            ds64 = 875983716,
             //File Types
             AVI = 541677121,
             AVIX = 1481201217,
@@ -72,6 +73,7 @@ namespace Media.Containers.Riff
             ON2f = 1714572879,
             AMV = 542526785,
             WAVE = 1163280727,
+            RF64 = 875972178,
             RMID = 1145654610,
             //Types
             LIST = 1414744396,
@@ -214,6 +216,21 @@ namespace Media.Containers.Riff
 
         public static int ToFourCC(byte c0, byte c1, byte c2, byte c3) { return ToFourCC((char)c0, (char)c1, (char)c2, (char)c3); }
 
+        public static bool HasSubType(FourCharacterCode fourCC)
+        {
+            return RiffReader.ParentChunks.Contains(fourCC);
+        }
+
+        public static readonly HashSet<FourCharacterCode> ParentChunks = new HashSet<FourCharacterCode>()
+        {
+            FourCharacterCode.RIFF,
+            FourCharacterCode.RIFX, 
+            FourCharacterCode.RF64, 
+            FourCharacterCode.ON2,
+            FourCharacterCode.odml,
+            FourCharacterCode.LIST,
+        };
+
         public static bool HasSubType(Node chunk)
         {
 
@@ -225,6 +242,7 @@ namespace Media.Containers.Riff
             {
                 case FourCharacterCode.RIFF:
                 case FourCharacterCode.RIFX:
+                case FourCharacterCode.RF64:
                 case FourCharacterCode.ON2:
                 case FourCharacterCode.odml:
                 case FourCharacterCode.LIST:
@@ -238,9 +256,7 @@ namespace Media.Containers.Riff
         {
             if (chunk == null) throw new ArgumentNullException("chunk");
 
-            if (!HasSubType(chunk)) return (FourCharacterCode)ToFourCC(chunk.Identifier[0], chunk.Identifier[1], chunk.Identifier[2], chunk.Identifier[3]);
-
-            return (FourCharacterCode)ToFourCC(chunk.Data[0], chunk.Data[1], chunk.Data[2], chunk.Data[3]);
+            return (FourCharacterCode)(HasSubType(chunk) ? ToFourCC(chunk.Identifier[4], chunk.Identifier[5], chunk.Identifier[6], chunk.Identifier[7]) : ToFourCC(chunk.Identifier[0], chunk.Identifier[1], chunk.Identifier[2], chunk.Identifier[3]));
         }
 
         #endregion        
@@ -263,6 +279,8 @@ namespace Media.Containers.Riff
         {
             return ReadChunks(offset, Array.ConvertAll<FourCharacterCode, int>(names, value => (int)value));
         }
+
+        //Should have count but there is no indication where strh can occur
 
         public IEnumerable<Node> ReadChunks(long offset = 0, params int[] names)
         {
@@ -297,37 +315,97 @@ namespace Media.Containers.Riff
             return result;
         }
 
+        //Typically found in the ds64 chunk.
+        ulong m_DataSize;
+
+        /// <summary>
+        /// Gets the size to use when a node with length == 0xFFFFFFFF is found.
+        /// </summary>
+        public long DataSize
+        {
+            get { return (long)m_DataSize; }
+            internal protected set { m_DataSize = (ulong)value; }
+        }
+
+        //Determined by the first call to ReadNext.
+        bool? m_Needs64BitInfo;
+
+        /// <summary>
+        /// Indicates if the file has a header chunk which has additional information about the data contained.
+        /// </summary>
+        public bool Has64BitHeader
+        {
+            get
+            {
+                //Call Root to call ReadNext which sets m_Needs64BitInfo.Value the first time.
+                if (false == m_Needs64BitInfo.HasValue) return Root != null && m_Needs64BitInfo.Value;
+
+                //Return the known value.
+                return m_Needs64BitInfo.Value;
+            }
+            internal protected set
+            {
+                m_Needs64BitInfo = value;
+            }
+        }
+
         public Node ReadNext()
         {
             if (Remaining <= MinimumSize) throw new System.IO.EndOfStreamException();
-
-            //bool complete = true;
-
-            //byte[] identifier = new byte[IdentifierSize];
-
-            //complete = (IdentifierSize == Read(identifier, 0, IdentifierSize));
             
-            //byte[] lengthBytes = new byte[LengthSize];
+            byte[] identifier = new byte[IdentifierSize];
 
-            //complete = LengthSize == Read(lengthBytes, 0, LengthSize);
+            byte[] lengthBytes = new byte[LengthSize];
 
-            //long length = Common.Binary.Read32(lengthBytes, 0, false == BitConverter.IsLittleEndian);
+            int read = Read(identifier, 0, IdentifierSize);
 
-            //Calculate padded size (to word boundary)
-            //if (0 != (length & 1)) ++length;
+            read += Read(lengthBytes, 0, LengthSize);
 
-            //return new Node(this, identifier, LengthSize, Position, length, length <= Remaining);            
+            ulong length = (ulong)Common.Binary.Read32(lengthBytes, 0, false == BitConverter.IsLittleEndian);
 
-            Common.MemorySegment lot = new Common.MemorySegment(IdentifierSize + LengthSize);
-            //int count = 0; while(0 > (count -= Read(lot.Array, count, lot.Count - count))) { }            
+            int identifierSize = IdentifierSize;
 
-            int read = Read(lot.Array, /*lot.Offset*/0, lot.Count);
+            //Get the fourCC of the node
+            FourCharacterCode fourCC = (FourCharacterCode)Common.Binary.Read32(identifier, 0, false == BitConverter.IsLittleEndian);
 
-            long length = Common.Binary.Read32(lot, IdentifierSize, false == BitConverter.IsLittleEndian);
+            //Determine if 64 bit support is needed by inspecting the first node encountered.
+            if (false == m_Needs64BitInfo.HasValue)
+            {
+                //There may be other nodes to account for also...
+                m_Needs64BitInfo = fourCC == FourCharacterCode.RF64;
+            }
+
+            //Determine if an identifier follows
+            if(RiffReader.HasSubType(fourCC))
+            {
+                //Resize the identifier to make room for the sub type
+                Array.Resize(ref identifier, MinimumSize);
+
+                //Read the sub type
+                read += Read(identifier, IdentifierSize, IdentifierSize);
+
+                //Not usually supposed to read the identifier
+                length -= IdentifierSize;
+
+                //Adjust for the bytes read.
+                identifierSize += IdentifierSize;
+            }
+
+            //If this is a 64 bit entry
+            if (length == uint.MaxValue)
+            {
+                //use the dataSize (0 for the first node, otherwise whatever was found)
+                length = m_DataSize;
+
+                //There are so may ways to handle this it's not funny, this seems to the most documented but probably one of the ugliest.
+                //Not to mention this doesn't really give you compatiblity and doesn't contain a failsafe.
+
+                //If files can be found which still don't work I will adjust this logic as necessary.
+            }
 
             //return a new node,                                             Calculate length as padded size (to word boundary)
-            return new Node(this, lot, IdentifierSize, LengthSize, Position, 0 != (length & 1) ? ++length : length, 
-                read == lot.Count && length <= Remaining); //determine Complete
+            return new Node(this, new Common.MemorySegment(identifier), identifierSize, LengthSize, Position, (long)(0 != (length & 1) ? ++length : length), 
+                read >= MinimumSize && length <= (ulong)Remaining); //determine Complete
         }
 
 
@@ -341,20 +419,54 @@ namespace Media.Containers.Riff
                                
                 yield return next;
 
+                if (m_Needs64BitInfo.Value && //If the file needs information from the ds64 node
+                    //The value must not have been read before and not found to be 0
+                    m_DataSize == 0 && 
+                    //There must be at least 28 bytes in a junk / ds64 chunk
+                    next.DataSize >= 28 &&
+                    //This is the ds64 chunk
+                    FourCharacterCode.ds64 == (FourCharacterCode)Common.Binary.Read32(next.Identifier, 0, false == BitConverter.IsLittleEndian))
+                {
+
+                    m_DataSize = (ulong)Common.Binary.Read64(next.Data, MinimumSize, false == BitConverter.IsLittleEndian);
+
+                    /*
+                     struct DataSize64Chunk // declare DataSize64Chunk structure
+                    {
+                     * next.Identifier[0]
+                    char chunkId[4]; // ‘ds64’
+                     * Not stored
+                    unsigned int32 chunkSize; // 4 byte size of the ‘ds64’ chunk
+                     * next.Data[0]
+                    unsigned int32 riffSizeLow; // low 4 byte size of RF64 block
+                    unsigned int32 riffSizeHigh; // high 4 byte size of RF64 block
+                    unsigned int32 dataSizeLow; // low 4 byte size of data chunk
+                    unsigned int32 dataSizeHigh; // high 4 byte size of data chunk
+                    unsigned int32 sampleCountLow; // low 4 byte sample count of fact chunk
+                    unsigned int32 sampleCountHigh; // high 4 byte sample count of fact chunk
+                    unsigned int32 tableLength; // number of valid entries in array “table”
+                    chunkSize64 table[ ];
+                    };
+                     */
+                }
+
                 //If this is a list parse into the list
-                if (HasSubType(next)) Skip(IdentifierSize);
+                if (HasSubType(next)) continue;
                 //Otherwise skip the data of the chunk
                 else Skip(next.DataSize);
             }
-        }      
+        }        
 
         public override Node Root
         {
             get
             {
                 long position = Position;
-                Node root = ReadChunks(0, FourCharacterCode.RIFF, FourCharacterCode.RIFX, FourCharacterCode.ON2, FourCharacterCode.odml).FirstOrDefault();
-                Position = position;
+                
+                Node root = ReadChunks(0, FourCharacterCode.RIFF, FourCharacterCode.RIFX, FourCharacterCode.RF64, FourCharacterCode.ON2, FourCharacterCode.odml).FirstOrDefault();
+                
+                Position = position;                
+
                 return root;
             }
         }
@@ -618,56 +730,36 @@ namespace Media.Containers.Riff
 
                 int offset = 0;
 
-                m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                m_MicroSecPerFrame = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                offset += 4;
+                m_MaxBytesPerSec = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                m_MaxBytesPerSec = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
-
-                offset += 4;
-
-                m_PaddingGranularity = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                m_PaddingGranularity = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
                 
-                offset += 4;
+                m_Flags = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                m_Flags = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                m_TotalFrames = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                offset += 4;
+                m_InitialFrames = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                m_TotalFrames = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                m_Streams = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                offset += 4;
+                m_SuggestedBufferSize = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                m_InitialFrames = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                m_Width = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                offset += 4;
+                m_Height = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
 
-                m_Streams = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
-
-                offset += 4;
-
-                m_SuggestedBufferSize = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
-
-                offset += 4;
-
-                m_Width = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
-
-                offset += 4;
-
-                m_Height = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
-
-                offset += 4;
-
-                m_Reserved = Common.Binary.Read32(headerChunk.Data, offset, false == BitConverter.IsLittleEndian);
+                m_Reserved = Common.Binary.Read32(headerChunk.Data, ref offset, false == BitConverter.IsLittleEndian);
             }            
         }
 
         /// <summary>
-        /// If <see cref="HasIndex"/> then either the 'idx1' or 'indx' chunk, otherwise the 'avhi' or 'dmlh' chunk.
+        /// If <see cref="HasIndex"/> then either the 'idx1' or 'indx' chunk, otherwise the 'avhi', 'dmlh' or 'ds64' chunk.
         /// </summary>
         public override Node TableOfContents
         {
-            get { return HasIndex ? ReadChunks(Root.Offset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.Offset, FourCharacterCode.avih, FourCharacterCode.dmlh).FirstOrDefault(); }
+            get { return HasIndex ? ReadChunks(Root.Offset, FourCharacterCode.idx1, FourCharacterCode.indx).FirstOrDefault() : ReadChunks(Root.Offset, FourCharacterCode.avih, FourCharacterCode.dmlh, FourCharacterCode.ds64).FirstOrDefault(); }
         }
 
         //Index1Entry
@@ -694,7 +786,7 @@ namespace Media.Containers.Riff
             int trackId = 0;
 
             //strh has all track level info, strn has stream name..
-            foreach (var chunk in ReadChunks(Root.DataOffset, FourCharacterCode.strh).ToArray())
+            foreach (var strhChunk in ReadChunks(Root.Offset, FourCharacterCode.strh).ToArray())
             {
                 int offset = 0, sampleCount = TotalFrames, startTime = 0, timeScale = 0, duration = (int)Duration.TotalMilliseconds, width = Width, height = Height, rate = MicrosecondsPerFrame;
 
@@ -708,7 +800,7 @@ namespace Media.Containers.Riff
 
                 //Expect 56 Bytes
 
-                FourCharacterCode fccType = (FourCharacterCode)Common.Binary.Read32(chunk.Data, offset, false == BitConverter.IsLittleEndian);
+                FourCharacterCode fccType = (FourCharacterCode)Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
@@ -726,7 +818,7 @@ namespace Media.Containers.Riff
                             //avg_frame_rate = timebase
                             mediaType = Sdp.MediaType.video;
 
-                            sampleCount = ReadChunks(Root.DataOffset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.dc.ToString()),
+                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.dc.ToString()),
                                                                   ToFourCC(trackId.ToString("D2") + FourCharacterCode.db.ToString())).Count();
                             break;
                         }
@@ -735,13 +827,13 @@ namespace Media.Containers.Riff
                         {
                             mediaType = Sdp.MediaType.audio;
 
-                            sampleCount = ReadChunks(Root.DataOffset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.wb.ToString())).Count();
+                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.wb.ToString())).Count();
 
                             break;
                         }
                     case FourCharacterCode.txts:
                         {
-                            sampleCount = ReadChunks(Root.DataOffset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.tx.ToString())).Count();
+                            sampleCount = ReadChunks(Root.Offset, ToFourCC(trackId.ToString("D2") + FourCharacterCode.tx.ToString())).Count();
                             mediaType = Sdp.MediaType.text; break;
                         }
                     case FourCharacterCode.data:
@@ -752,33 +844,34 @@ namespace Media.Containers.Riff
                 }
 
                 //fccHandler
-                codecIndication = chunk.Data.Skip(offset).Take(4).ToArray();
+                codecIndication = strhChunk.Data.Skip(offset).Take(4).ToArray();
 
                 offset += 4 + (DWORDSIZE * 3);
 
                 //Scale
-                timeScale = Common.Binary.Read32(chunk.Data, offset, false == BitConverter.IsLittleEndian);
+                timeScale = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
                 //Rate
-                rate = Common.Binary.Read32(chunk.Data, offset, false == BitConverter.IsLittleEndian);
+                rate = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
-                if (!(timeScale > 0 && rate > 0))
+                //Defaults??? Should not be hard coded....
+                if (false == (timeScale > 0 && rate > 0))
                 {
                     rate = 25;
                     timeScale = 1;
                 }
 
                 //Start
-                startTime = Common.Binary.Read32(chunk.Data, offset, false == BitConverter.IsLittleEndian);
+                startTime = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
                 //Length of stream (as defined in rate and timeScale above)
-                duration = Common.Binary.Read32(chunk.Data, offset, false == BitConverter.IsLittleEndian);
+                duration = Common.Binary.Read32(strhChunk.Data, offset, false == BitConverter.IsLittleEndian);
 
                 offset += 4;
 
@@ -796,54 +889,59 @@ namespace Media.Containers.Riff
                 {
                     case Sdp.MediaType.video:
                         {
-                            var strf = ReadChunk(FourCharacterCode.strf, chunk.DataOffset);
-
-                            if (strf != null)
+                            using (var strf = ReadChunk(FourCharacterCode.strf, strhChunk.Offset))
                             {
-                                //BitmapInfoHeader
-                                //Read 32 Width
-                                width = (int)Common.Binary.ReadU32(strf.Data, 4, false == BitConverter.IsLittleEndian);
+                                if (strf != null)
+                                {
+                                    //BitmapInfoHeader
+                                    //Read 32 Width
+                                    width = (int)Common.Binary.ReadU32(strf.Data, 4, false == BitConverter.IsLittleEndian);
 
-                                //Read 32 Height
-                                height = (int)Common.Binary.ReadU32(strf.Data, 8, false == BitConverter.IsLittleEndian);
+                                    //Read 32 Height
+                                    height = (int)Common.Binary.ReadU32(strf.Data, 8, false == BitConverter.IsLittleEndian);
 
-                                //Maybe...
-                                //Read 16 panes 
+                                    //Maybe...
+                                    //Read 16 panes 
 
-                                //Read 16 BitDepth
-                                bitDepth = (byte)(int)Common.Binary.ReadU16(strf.Data, 14, false == BitConverter.IsLittleEndian);
+                                    //Read 16 BitDepth
+                                    bitDepth = (byte)(int)Common.Binary.ReadU16(strf.Data, 14, false == BitConverter.IsLittleEndian);
 
-                                //Read codec
-                                codecIndication = strf.Data.Skip(16).Take(4).ToArray();
+                                    //Read codec
+                                    codecIndication = strf.Data.Skip(16).Take(4).ToArray();
+                                }
                             }
+
                             break;
                         }
                     case Sdp.MediaType.audio:
                         {
                             //Expand Codec Indication based on iD?
 
-                            var strf = ReadChunk(FourCharacterCode.strf, chunk.DataOffset);
-
-                            if (strf != null)
+                            using (var strf = ReadChunk(FourCharacterCode.strf, strhChunk.Offset))
                             {
-                                //WaveFormat (EX) 
-                                codecIndication = strf.Data.Take(2).ToArray();
-                                channels = (byte)Common.Binary.ReadU16(strf.Data, 2, false == BitConverter.IsLittleEndian);
-                                bitDepth = (byte)Common.Binary.ReadU16(strf.Data, 4, false == BitConverter.IsLittleEndian);
+                                if (strf != null)
+                                {
+                                    //WaveFormat (EX) 
+                                    codecIndication = strf.Data.Take(2).ToArray();
+                                    channels = (byte)Common.Binary.ReadU16(strf.Data, 2, false == BitConverter.IsLittleEndian);
+                                    bitDepth = (byte)Common.Binary.ReadU16(strf.Data, 4, false == BitConverter.IsLittleEndian);
+                                }
                             }
+
+                            
                             break;
                         }
                     //text format....
                     default: break;
                 }
 
-                using (var strn = ReadChunk(FourCharacterCode.strn, chunk.DataOffset))
+                using (var strn = ReadChunk(FourCharacterCode.strn, strhChunk.Offset))
                 {
                     if (strn != null) trackName = Encoding.UTF8.GetString(strn.Data, 8, (int)(strn.DataSize - 8));
 
                     //Variable BitRate must also take into account the size of each chunk / nBlockAlign * duration per frame.
 
-                    Track created = new Track(chunk, trackName, ++trackId, Created, Modified, sampleCount, height, width,
+                    Track created = new Track(strhChunk, trackName, ++trackId, Created, Modified, sampleCount, height, width,
                         TimeSpan.FromMilliseconds(startTime / timeScale),
                         mediaType == Sdp.MediaType.audio ?
                             TimeSpan.FromSeconds((double)duration / (double)rate) :

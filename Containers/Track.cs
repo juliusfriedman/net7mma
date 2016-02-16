@@ -86,6 +86,7 @@ namespace Media.Container
             this.Channels = channels;
             this.BitDepth = bitDepth;
             this.Enabled = enabled;
+            //this.Volume = volume;
         }
 
         #region Fields
@@ -124,6 +125,11 @@ namespace Media.Container
         /// Used to adjust the sample which is retrieved next.
         /// </summary>
         public TimeSpan Position;
+
+        /// <summary>
+        /// Used to adjust the volume of the samples when passed to a decoder.
+        /// </summary>
+        public float Volume;
 
         #endregion
 
