@@ -43,8 +43,7 @@ namespace Media.Common.Extensions.NetworkInterface
 
         public static System.Net.NetworkInformation.NetworkInterface GetNetworkInterface(System.Net.IPAddress localAddress)
         {
-            //Determine if the socket is using a multicast address or unicast.
-            bool IsMulticastAddress = Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(localAddress);
+            if (localAddress == null) throw new System.ArgumentNullException();
 
             //Iterate all NetworkInterfaves
             foreach (System.Net.NetworkInformation.NetworkInterface networkInterface in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
@@ -53,7 +52,7 @@ namespace Media.Common.Extensions.NetworkInterface
                 if (networkInterface.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
 
                 //Check for the Multicast Address to be bound on the networkInterface
-                if (IsMulticastAddress)
+                if (Common.Extensions.IPAddress.IPAddressExtensions.IsMulticast(localAddress))
                 {
                     if (false == networkInterface.SupportsMulticast) continue;
 
@@ -149,13 +148,14 @@ namespace Media.Common.Extensions.NetworkInterface
             //If there are no IPInterfaceProperties then try the next interface
             if (interfaceProperties == null) return null;
 
-            //Iterate for each Unicast IP bound to the interface
+            //Iterate for each Multicast IP bound to the interface
             foreach (System.Net.NetworkInformation.MulticastIPAddressInformation multicastIpInfo in interfaceProperties.MulticastAddresses)
             {
                 //If the IP AddresFamily is the same as required then return it.
                 if (multicastIpInfo.Address.AddressFamily == addressFamily) return multicastIpInfo.Address;
             }
 
+            //Indicate no multivast IPAddress was found
             return System.Net.IPAddress.None;
         }
 
@@ -177,12 +177,31 @@ namespace Media.Common.Extensions.NetworkInterface
             //Iterate for each Unicast IP bound to the interface
             foreach (System.Net.NetworkInformation.UnicastIPAddressInformation unicastIpInfo in interfaceProperties.UnicastAddresses)
             {
+                //Get the address
+                System.Net.IPAddress address = unicastIpInfo.Address;
+
+                //Don't use Any and don't use Broadcast.
+                if (address == System.Net.IPAddress.Broadcast
+                    ||
+                    address == System.Net.IPAddress.IPv6Any
+                    ||
+                    address == System.Net.IPAddress.Any) continue;
+
                 //If the IP AddresFamily is the same as required then return it.
-                if (unicastIpInfo.Address.AddressFamily == addressFamily) return unicastIpInfo.Address;
+                if (address.AddressFamily == addressFamily) return address;
             }
 
+            //Indicate no unicast IPAddress was found
             return System.Net.IPAddress.None;
         }
+
+
+#if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
+        //Todo provide workaround for unimplemented functions.
+
+        //Create sockets on a port
+        //If an exception occurs then depening on the exception the port is probably in use
+        //Close the socket
 
         public static System.Net.IPEndPoint[] GetActiveUdpListeners()
         {
@@ -193,11 +212,12 @@ namespace Media.Common.Extensions.NetworkInterface
         {
             return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners();
         }
-
+        
         public static System.Net.NetworkInformation.TcpConnectionInformation[] GetActiveTcpConnections()
         {
             return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
         }
+#endif
     }
 }
 

@@ -3704,6 +3704,12 @@ namespace Media.Rtsp
                         //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
                         int openPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp, 10000, true);
 
+                        if (openPort == -1) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
+                        //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
+                        //{
+                        //    Media.Common.Extensions.Exceptions.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
+                        //}    
+
                         rtpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, clientRtpPort = openPort);
 
                         //Check for muxing of rtp and rtcp on the same physical port
@@ -3715,14 +3721,13 @@ namespace Media.Rtsp
                             //Use the same port
                             clientRtcpPort = clientRtpPort;
                         }
-                        else if (needsRtcp) rtcpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = openPort + 1));
-                        
+                        else if (needsRtcp)
+                        {
+                            //Should probably check for open port again...
 
-                        if (openPort == -1) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
-                        //else if (MaximumUdp.HasValue && openPort > MaximumUdp)
-                        //{
-                        //    Media.Common.Extensions.Exceptions.ExceptionExtensions.CreateAndRaiseException(this, "Found Udp Port > MaximumUdp. Found: " + openPort);
-                        //}    
+                            rtcpTemp = Media.Common.Extensions.Socket.SocketExtensions.ReservePort(SocketType.Dgram, ProtocolType.Udp, ((IPEndPoint)m_RtspSocket.LocalEndPoint).Address, (clientRtcpPort = (openPort == ushort.MaxValue || openPort == 0 ? openPort : openPort + 1)));
+                        }
+                        
                         //Supposedly
                         //WMS Server will complain if there is a RTCP port and no RTCP is allowed.
                         //More then likely only Ross will complain or his shitty software.

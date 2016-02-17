@@ -59,8 +59,16 @@ namespace Media.Common.Extensions.Socket
         /// <param name="even"></param>
         /// <param name="localIp"></param>
         /// <returns>-1 if no open ports were found or the next open port.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
         public static int FindOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true, System.Net.IPAddress localIp = null)
         {
+
+#if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
+
+            //Since apparently the IPGlobalProperties implementation on those platforms doesn't work with the logic below.
+            return ProbeForOpenPort(type, start, even, localIp);
+
+#else
             //As IP would imply either or Only Tcp or Udp please.
             if (type != System.Net.Sockets.ProtocolType.Udp && type != System.Net.Sockets.ProtocolType.Tcp) return -1;
 
@@ -98,7 +106,7 @@ namespace Media.Common.Extensions.Socket
                 if (ep.Address != System.Net.IPAddress.Any && localIp != null && ep.Address != localIp) continue;
 
                 if (port == ep.Port) port++; //Increment the port
-                else if (ep.Port == port + 1) port += 2; //Increment by 2
+                else if (ep.Port == port + 1) port += 2; //Increment by 2, probably not needed. Trying to find a port pair is beyond the scope of this function.
                 else if (localIp != null && localIp == ep.Address && ep.Port > port)//If the address is the same and ep.Port is > then port
                 {
                     //Our port is less than ep.Port
@@ -116,6 +124,7 @@ namespace Media.Common.Extensions.Socket
             //We found an even and we wanted odd or vice versa
             //Only increase the port if not ushort.MaxValue
             return port == ushort.MaxValue ? port : ++port;
+#endif
         }
 
         /// <summary>
@@ -132,12 +141,103 @@ namespace Media.Common.Extensions.Socket
         }
 
         /// <summary>
+        /// Probes for an Open Port without needing a IPGlobalProperties implementation.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="start"></param>
+        /// <param name="even"></param>
+        /// <param name="localIp"></param>
+        /// <returns></returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.Synchronized)]
+        public static int ProbeForOpenPort(System.Net.Sockets.ProtocolType type, int start = 30000, bool even = true, System.Net.IPAddress localIp = null)
+        {
+            if (localIp == null) localIp = GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork); // System.Net.IPAddress.Any should give unused ports across all IP's?
+
+            System.Net.Sockets.Socket working = null;
+
+            //The port is in the valid range.
+            while (start <= ushort.MaxValue)
+            {
+                try
+                {
+                    //Switch on the type
+                    switch (type)
+                    {
+                            //Handle TCP
+                        case System.Net.Sockets.ProtocolType.Tcp:
+                            {
+                                working = new System.Net.Sockets.Socket(localIp.AddressFamily, System.Net.Sockets.SocketType.Stream, type);
+
+                                Media.Common.Extensions.Socket.SocketExtensions.DisableAddressReuse(working);
+
+                                working.Bind(new System.Net.IPEndPoint(localIp, start));
+
+                                goto Done;
+                            }
+                            //Handle UDP
+                        case System.Net.Sockets.ProtocolType.Udp:
+                            {
+                                working = new System.Net.Sockets.Socket(localIp.AddressFamily, System.Net.Sockets.SocketType.Dgram, type);
+
+                                Media.Common.Extensions.Socket.SocketExtensions.DisableAddressReuse(working);
+
+                                working.Bind(new System.Net.IPEndPoint(localIp, start));
+
+                                goto Done;
+                            }
+                            //Don't handle
+                        default: return -1;
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    //Check for the expected error.
+                    if (ex is System.Net.Sockets.SocketException)
+                    {
+                        System.Net.Sockets.SocketException se = (System.Net.Sockets.SocketException)ex;
+
+                        if (se.SocketErrorCode == System.Net.Sockets.SocketError.AddressAlreadyInUse)
+                        {
+                            //Dispose working socket
+                            if (working != null) working.Dispose();
+
+                            //Try next port
+                            ++start;
+
+                            //Ensure even if possible
+                            if (even && Common.Binary.IsOdd(ref start) && start < ushort.MaxValue) ++start;
+
+                            //Iterate again
+                            continue;
+                        }
+
+                    }
+
+                    //Something bad happened
+                    return -1;
+                }
+            }
+
+        Done:
+            //Dispose working socket
+            if (working != null) working.Dispose();
+
+            //Return the port.
+            return start;
+        }
+
+        /// <summary>
         /// Determine the computers first Ipv4 Address 
         /// </summary>
         /// <returns>The First IPV4 Address Found on the Machine</returns>
         public static System.Net.IPAddress GetFirstV4IPAddress()
         {
             return GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetwork);
+        }
+
+        public static System.Net.IPAddress GetFirstV6IPAddress()
+        {
+            return GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily.InterNetworkV6);
         }
 
         public static System.Net.IPAddress GetFirstUnicastIPAddress(System.Net.Sockets.AddressFamily addressFamily)
@@ -164,6 +264,9 @@ namespace Media.Common.Extensions.Socket
         //Should also have a TrySetSocketOption
 
         //Should ensure that the correct options are being set, these are all verified as windows options but Linux or Mac may not have them
+
+        //SetSocketOption_internal should be determined by OperatingSystemExtensions and RuntimeExtensions.
+        //Will need to build a Map of names to values for those platforms and translate.        
 
         internal static void SetTcpOption(System.Net.Sockets.Socket socket, System.Net.Sockets.SocketOptionName name, int value)
         {

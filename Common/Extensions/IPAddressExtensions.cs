@@ -147,7 +147,6 @@ namespace Media.Common.Extensions.IPAddress
             return true;
         }
 
-
 #if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
         public static System.Net.IPAddress MapToIPv6(this System.Net.IPAddress addr)
         {
