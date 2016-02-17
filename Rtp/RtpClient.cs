@@ -250,30 +250,9 @@ namespace Media.Rtp
             //For each MediaDescription in the SessionDescription
             foreach (Media.Sdp.MediaDescription md in sessionDescription.MediaDescriptions)
             {
-                //Make a RtpClient.TransportContext
+                //Make a RtpClient.TransportContext from the MediaDescription being parsed.
                 TransportContext tc = TransportContext.FromMediaDescription(sessionDescription, lastChannel++, lastChannel++, md, rtcpEnabled, remoteSsrc, minimumSequentialRtpPackets, localIp, remoteIp, rtpPort, rtcpPort, connect, existingSocket);
-
-                //Find range info in the SDP
-                var rangeInfo = md.RangeLine;
-
-                //If there is a range directive
-                if (rangeInfo == null)
-                {
-                    //Should only parse once and keep track above and use the results here.
-                    rangeInfo = sessionDescription.RangeLine;
-
-                    if (rangeInfo != null)
-                    {
-                        string type;
-                        Sdp.SessionDescription.TryParseRange(rangeInfo.Parts[0], out type, out tc.m_StartTime, out tc.m_EndTime);
-                    }
-                    //else if (sessionDescription.TimeDescriptions.Count > 0)
-                    //{
-                    //tc.MediaStartTime = TimeSpan.FromMilliseconds();
-                    //tc.MediaEndTime = TimeSpan.FromMilliseconds();
-                    //}
-                }                
-
+               
                 //Try to add the context
                 try
                 {
@@ -1978,7 +1957,7 @@ namespace Media.Rtp
             int packetLength = packet.Length;
 
             //Compressed or no ssrc
-            if (packet.IsCompressed || packetLength < 8)
+            if (packet.IsCompressed || packetLength < Common.Binary.BytesPerLong)
             {
                 OnRtcpPacketReceieved(packet, transportContext);
 
@@ -1995,7 +1974,14 @@ namespace Media.Rtp
             //Raise an event for the rtcp packet received
             OnRtcpPacketReceieved(packet, transportContext);
 
-            //transportContext.HandlePacket(packet);
+            //If the version doesn't match.
+            if (transportContext.Version != packetVersion)
+            {
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket Invalid Version, Found =>" + packetVersion + ", Expected =>" + transportContext.Version);
+
+                //Do nothing else.
+                return;
+            }
 
             //Only if the packet was not addressed to a unique party with the id of 0
             if (partyId != 0 && //AND
@@ -2134,8 +2120,6 @@ namespace Media.Rtp
                 //Attempt to see if this was a rtp packet by using the RtpPayloadType
                 int rtpPayloadType = packet.Header.First16Bits.RtpPayloadType;
 
-                
-
                 if (rtpPayloadType == 13 || (transportContext = GetContextByPayloadType(rtpPayloadType)) != null)
                 {
                     Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket - Incoming RtcpPacket actually was Rtp. Ssrc= " + partyId + " Type=" + rtpPayloadType + " Len=" + packet.Length);
@@ -2165,8 +2149,7 @@ namespace Media.Rtp
             //There is a transportContext
 
             //If there is a collision in the unique identifiers
-            if (transportContext.SynchronizationSourceIdentifier == partyId &&
-                transportContext.Version == packet.Version)
+            if (transportContext.SynchronizationSourceIdentifier == partyId)
             {
                 //Handle it.
                 HandleCollision(transportContext);
@@ -2319,6 +2302,17 @@ namespace Media.Rtp
                 return;
             }
 
+            int packetVersion = packet.Version;
+
+            //If the version doesn't match.
+            if (transportContext.Version != packetVersion)
+            {
+                Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtpPacket Invalid Version, Found =>" + packetVersion + ", Expected =>" + transportContext.Version);
+
+                //Do nothing else.
+                return;
+            }
+
             //Cache the payload type of the packet being handled
             int payloadType = packet.PayloadType;
 
@@ -2332,12 +2326,10 @@ namespace Media.Rtp
             }
 
             //Cache the ssrc
-            int partyId = packet.SynchronizationSourceIdentifier, 
-                packetVersion = packet.Version;
+            int partyId = packet.SynchronizationSourceIdentifier;               
 
             //Check for a collision
-            if (partyId == transportContext.SynchronizationSourceIdentifier && 
-                transportContext.Version == packetVersion)
+            if (partyId == transportContext.SynchronizationSourceIdentifier)
             {
                 //Handle it
                 HandleCollision(transportContext);
@@ -2357,8 +2349,7 @@ namespace Media.Rtp
             //If the packet was not addressed to the context but the context is valid AND the context is NOT in discovery mode.
             if (partyId != transportContext.RemoteSynchronizationSourceIdentifier
                 &&
-                transportContext.IsValid &&
-                packetVersion == transportContext.Version)
+                transportContext.IsValid)
             {
 
                 //Reset the state if not discovering
