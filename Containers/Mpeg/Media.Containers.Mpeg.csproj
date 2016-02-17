@@ -66,6 +66,8 @@
     <Compile Include="StartCodes.cs" />
     <Compile Include="StreamTypes.cs" />
     <Compile Include="TransportStreamReader.cs" />
+    <Compile Include="TransportStreamUnit.cs" />
+    <Compile Include="TransportStreamWriter.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Common\Media.Common.csproj">
