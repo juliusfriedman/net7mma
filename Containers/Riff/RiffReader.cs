@@ -432,6 +432,8 @@ namespace Media.Containers.Riff
 
                     m_DataSize = (ulong)Common.Binary.Read64(next.Data, MinimumSize, false == BitConverter.IsLittleEndian);
 
+                    //if this is found to be == 0 then what?
+
                     /*
                      struct DataSize64Chunk // declare DataSize64Chunk structure
                     {

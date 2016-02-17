@@ -2637,9 +2637,9 @@ a=rtpmap:99 h263-1998/90000");
                             Console.WriteLine("ScramblingControl: " + Media.Containers.Mpeg.TransportStreamReader.GetScramblingControl(reader, tsUnit));
                             Console.WriteLine("ContinuityCounter: " + Media.Containers.Mpeg.TransportStreamReader.GetContinuityCounter(reader, tsUnit));
                             // See section 2.4.3.3 of 13818-1
-                            Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl adaptationFieldControl = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldControl(reader, tsUnit);
+                            Media.Containers.Mpeg.TransportStreamUnit.AdaptationFieldControl adaptationFieldControl = Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldControl(reader, tsUnit);
                             Console.WriteLine("AdaptationFieldControl: " + adaptationFieldControl);
-                            if (adaptationFieldControl >= Media.Containers.Mpeg.TransportStreamReader.AdaptationFieldControl.AdaptationFieldOnly)
+                            if (adaptationFieldControl >= Media.Containers.Mpeg.TransportStreamUnit.AdaptationFieldControl.AdaptationFieldOnly)
                             {
                                 Console.WriteLine("AdaptationField Flags: " + Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldFlags(reader, tsUnit));
                                 Console.WriteLine("AdaptationField Data : " + BitConverter.ToString(Media.Containers.Mpeg.TransportStreamReader.GetAdaptationFieldData(reader, tsUnit)));

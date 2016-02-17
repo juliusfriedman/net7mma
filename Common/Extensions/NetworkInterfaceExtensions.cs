@@ -203,6 +203,8 @@ namespace Media.Common.Extensions.NetworkInterface
         //If an exception occurs then depening on the exception the port is probably in use
         //Close the socket
 
+        See ProbeForOpenPorts
+
         public static System.Net.IPEndPoint[] GetActiveUdpListeners()
         {
             return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners();
