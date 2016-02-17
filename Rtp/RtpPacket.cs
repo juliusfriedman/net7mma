@@ -181,7 +181,7 @@ namespace Media.Rtp
 
                 //return Payload.Skip(nonPayloadOctets).Take(IsComplete ? Payload.Count - (nonPayloadOctets + PaddingOctets) : -1);
 
-                return new Common.MemorySegment(Payload.Array, (Payload.Offset + HeaderOctets), Payload.Count - (nonPayloadOctets + padding));
+                return nonPayloadOctets > Payload.Count ? Payload : new Common.MemorySegment(Payload.Array, (Payload.Offset + nonPayloadOctets), Payload.Count - (nonPayloadOctets + padding));
             }
         }
 

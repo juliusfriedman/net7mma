@@ -238,18 +238,20 @@ namespace Media.Containers.Riff
 
             FourCharacterCode fourCC = (FourCharacterCode)ToFourCC(chunk.Identifier[0], chunk.Identifier[1], chunk.Identifier[2], chunk.Identifier[3]);
 
-            switch(fourCC)
-            {
-                case FourCharacterCode.RIFF:
-                case FourCharacterCode.RIFX:
-                case FourCharacterCode.RF64:
-                case FourCharacterCode.ON2:
-                case FourCharacterCode.odml:
-                case FourCharacterCode.LIST:
-                    return true;
-                default:
-                    return false;
-            }
+            return HasSubType(fourCC);
+
+            //switch(fourCC)
+            //{
+            //    case FourCharacterCode.RIFF:
+            //    case FourCharacterCode.RIFX:
+            //    case FourCharacterCode.RF64:
+            //    case FourCharacterCode.ON2:
+            //    case FourCharacterCode.odml:
+            //    case FourCharacterCode.LIST:
+            //        return true;
+            //    default:
+            //        return false;
+            //}
         }
 
         public static FourCharacterCode GetSubType(Node chunk)

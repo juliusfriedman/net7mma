@@ -235,7 +235,7 @@ namespace Media.Rtp
         /// <param name="incomingEvents"></param>
         /// <param name="rtcpEnabled"></param>
         /// <returns></returns>
-        public static RtpClient FromSessionDescription(Sdp.SessionDescription sessionDescription, Common.MemorySegment sharedMemory = null, bool incomingEvents = true, bool rtcpEnabled = true, Socket existingSocket = null, int? rtpPort = null, int? rtcpPort = null, int remoteSsrc = 0, int minimumSequentialRtpPackets = 2)
+        public static RtpClient FromSessionDescription(Sdp.SessionDescription sessionDescription, Common.MemorySegment sharedMemory = null, bool incomingEvents = true, bool rtcpEnabled = true, Socket existingSocket = null, int? rtpPort = null, int? rtcpPort = null, int remoteSsrc = 0, int minimumSequentialRtpPackets = 2, bool connect = true)
         {
             if (sessionDescription == null) throw new ArgumentNullException("sessionDescription");
 
@@ -247,11 +247,11 @@ namespace Media.Rtp
 
             byte lastChannel = 0;
 
-            bool hasSocket = existingSocket != null;
-
+            //For each MediaDescription in the SessionDescription
             foreach (Media.Sdp.MediaDescription md in sessionDescription.MediaDescriptions)
             {
-                TransportContext tc = TransportContext.FromMediaDescription(sessionDescription, lastChannel++, lastChannel++, md, rtcpEnabled, remoteSsrc, minimumSequentialRtpPackets);
+                //Make a RtpClient.TransportContext
+                TransportContext tc = TransportContext.FromMediaDescription(sessionDescription, lastChannel++, lastChannel++, md, rtcpEnabled, remoteSsrc, minimumSequentialRtpPackets, localIp, remoteIp, rtpPort, rtcpPort, connect, existingSocket);
 
                 //Find range info in the SDP
                 var rangeInfo = md.RangeLine;
@@ -272,25 +272,9 @@ namespace Media.Rtp
                     //tc.MediaStartTime = TimeSpan.FromMilliseconds();
                     //tc.MediaEndTime = TimeSpan.FromMilliseconds();
                     //}
-                }
-
-                //Check for udp if no existing socket was given
-                if (false == hasSocket && string.Compare(md.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
-                {
-                    int localPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp);
-                    tc.Initialize(localIp, remoteIp, localPort++, localPort++, rtpPort ?? md.MediaPort, rtcpPort ?? md.MediaPort + 1);
-                }
-                else if (hasSocket)//If had a socket use it
-                {
-                    tc.Initialize(existingSocket);
-                }
-                else
-                {
-                    tc.Initialize(localIp, remoteIp, rtpPort ?? md.MediaPort);
-                }
+                }                
 
                 //Try to add the context
-
                 try
                 {
                     participant.AddContext(tc);
@@ -316,10 +300,15 @@ namespace Media.Rtp
         {
             #region Statics
 
-            public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2)
+            public static TransportContext FromMediaDescription(Sdp.SessionDescription sessionDescription, byte dataChannel, byte controlChannel, Sdp.MediaDescription mediaDescription, bool rtcpEnabled = true, int remoteSsrc = 0, int minimumSequentialpackets = 2, IPAddress localIp = null, IPAddress remoteIp = null, int? rtpPort = null, int? rtcpPort = null, bool connect = false, Socket existingSocket = null)
             {
-
                 if (mediaDescription == null) throw new ArgumentNullException("mediaDescription");
+
+                if (sessionDescription == null && (localIp == null || remoteIp == null)) throw new InvalidOperationException("Must have a sessionDescription or the localIp and remoteIp cannot be established.");
+
+                if (remoteIp == null) remoteIp = IPAddress.Parse(new Sdp.Lines.SessionConnectionLine(sessionDescription.ConnectionLine).IPAddress);
+
+                if(localIp == null) localIp = Media.Common.Extensions.Socket.SocketExtensions.GetFirstUnicastIPAddress(remoteIp.AddressFamily);
 
                 TransportContext tc = new TransportContext(dataChannel, controlChannel, RFC3550.Random32(Media.Rtcp.SourceDescriptionReport.PayloadType), mediaDescription, rtcpEnabled, remoteSsrc, minimumSequentialpackets);
 
@@ -396,6 +385,28 @@ namespace Media.Rtp
 
                 //rtcp-mux is handled in the Initialize call
 
+                //Handle connect
+                if (connect)
+                {
+                    bool hasSocket = existingSocket != null;
+
+                    //Check for udp if no existing socket was given
+                    if (false == hasSocket && string.Compare(mediaDescription.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
+                    {
+                        int localPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp);
+                        tc.Initialize(localIp, remoteIp, localPort == 0 ? localPort : localPort++, localPort == 0 ? localPort : localPort++, rtpPort ?? mediaDescription.MediaPort, rtcpPort ?? (mediaDescription.MediaPort != 0 ? mediaDescription.MediaPort + 1 : mediaDescription.MediaPort));
+                    }
+                    else if (hasSocket)//If had a socket use it
+                    {
+                        tc.Initialize(existingSocket);
+                    }
+                    else
+                    {
+                        tc.Initialize(localIp, remoteIp, rtpPort ?? mediaDescription.MediaPort);
+                    }
+                }
+
+                //Return the context created
                 return tc;
             }
 
