@@ -194,32 +194,6 @@ namespace Media.Common.Extensions.NetworkInterface
             //Indicate no unicast IPAddress was found
             return System.Net.IPAddress.None;
         }
-
-
-#if __IOS__ || __WATCHOS__ || __TVOS__ || __ANDROID__ || __ANDROID_11__
-        //Todo provide workaround for unimplemented functions.
-
-        //Create sockets on a port
-        //If an exception occurs then depening on the exception the port is probably in use
-        //Close the socket
-
-        See ProbeForOpenPorts
-
-        public static System.Net.IPEndPoint[] GetActiveUdpListeners()
-        {
-            return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners();
-        }
-
-        public static System.Net.IPEndPoint[] GetActiveTcpListeners()
-        {
-            return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners();
-        }
-        
-        public static System.Net.NetworkInformation.TcpConnectionInformation[] GetActiveTcpConnections()
-        {
-            return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
-        }
-#endif
     }
 }
 

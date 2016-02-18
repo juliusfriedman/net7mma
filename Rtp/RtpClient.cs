@@ -372,7 +372,7 @@ namespace Media.Rtp
                     //Check for udp if no existing socket was given
                     if (false == hasSocket && string.Compare(mediaDescription.MediaProtocol, Media.Rtp.RtpClient.RtpAvpProfileIdentifier, true) == 0)
                     {
-                        int localPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp);
+                        int localPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp);
                         tc.Initialize(localIp, remoteIp, localPort == 0 ? localPort : localPort++, localPort == 0 ? localPort : localPort++, rtpPort ?? mediaDescription.MediaPort, rtcpPort ?? (mediaDescription.MediaPort != 0 ? mediaDescription.MediaPort + 1 : mediaDescription.MediaPort));
                     }
                     else if (hasSocket)//If had a socket use it
@@ -2729,7 +2729,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         protected internal void OnRtpPacketSent(RtpPacket packet, TransportContext tc = null)
         {
-            if (IsDisposed || false == IncomingRtpPacketEventsEnabled) return;
+            if (IsDisposed || false == OutgoingRtpPacketEventsEnabled) return;
 
             RtpPacketHandler action = RtpPacketSent;
 
@@ -2753,7 +2753,7 @@ namespace Media.Rtp
         /// <param name="packet">The packet to handle</param>
         internal void OnRtcpPacketSent(RtcpPacket packet, TransportContext tc = null)
         {
-            if (IsDisposed || false == IncomingRtcpPacketEventsEnabled) return;
+            if (IsDisposed || false == OutgoingRtcpPacketEventsEnabled) return;
 
             RtcpPacketHandler action = RtcpPacketSent;
 

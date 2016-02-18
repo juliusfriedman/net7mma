@@ -439,7 +439,7 @@ namespace Media.Rtsp.Server.MediaTypes
                         //Note that when used in a BigEndian system that the Media.Common.Binary.ReadBigEndianInteger should be used.
                         
                         //Read the size in bits of that section
-                        uint auxDataSizeBits = (uint)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, auxDataSizeLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte);
+                        uint auxDataSizeBits = (uint)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, auxDataSizeLength, ref bitOffset, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte);
 
                         if (auxDataSizeBits > 0)
                         {
@@ -558,7 +558,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             }
 
                             //Notes that this should be read out of the Au Headers Section for the Au being parsed
-                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
+                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexLength, ref bitOffset, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexLength;
                         }
                         else if (indexDeltaLength > 0)
                         {
@@ -572,7 +572,7 @@ namespace Media.Rtsp.Server.MediaTypes
                             }
 
                             //Notes that this should be read out of the Au Headers Section for the Au being parsed
-                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexDeltaLength, ref bitOffset, false, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexDeltaLength;
+                            auIndex = (int)Media.Common.Binary.ReadBinaryInteger(rtp.Payload.Array, ref offset, indexDeltaLength, ref bitOffset, 1, Common.Binary.ByteOrder.Big, Media.Common.Binary.BitsPerByte) >> indexDeltaLength;
                         }
 
                         #endregion

@@ -60,6 +60,8 @@
     <Compile Include="..\..\..\Common\Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs">
       <Link>Properties\MediaCLSInternalVisibleToUnitTestsAttribute.cs</Link>
     </Compile>
+    <Compile Include="ContentInterpretationType.cs" />
+    <Compile Include="FramePackingArrangementType.cs" />
     <Compile Include="NalReader.cs" />
     <Compile Include="NalUnitSubType.cs" />
     <Compile Include="NalUnitType.cs" />

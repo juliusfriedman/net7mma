@@ -129,9 +129,14 @@ namespace Media.Containers.Mpeg
         public virtual int UnitOverhead { get; protected set; }
 
         /// <summary>
-        /// Indicates if the units are standard 188 byte length
+        /// Gets a value which indicates if the units are standard 188 byte length
         /// </summary>
         public bool IsStandardTransportStream { get { return UnitOverhead == 0; } }
+
+        /// <summary>
+        /// Gets the size in bytes of each TransportStreamUnit including any header which preceeds the TransportStreamUnit.
+        /// </summary>
+        public int TransportUnitSize { get { return StandardUnitLength + UnitOverhead; } }
 
         ///// <summary>
         ///// Always seeks in different of the offset given and the modulo ofr the TransportStream PacketLength (188)
@@ -192,8 +197,12 @@ namespace Media.Containers.Mpeg
         public Container.Node ReadNext()
         {
             //Read the identifier which will consist of any known UnitOverhead and the DefaultIdentiferSize.
-            byte[] identifier = new byte[IdentiferSize + UnitOverhead];
-            Read(identifier, 0, IdentiferSize + UnitOverhead);
+
+            int identifierSize = IdentiferSize + UnitOverhead;
+
+            byte[] identifier = new byte[identifierSize];
+
+            Read(identifier, 0, identifierSize);
 
             //Check for sync and then if the first unit was read and if not determine the UnitOverhead
             if (identifier[UnitOverhead] != TransportStreamUnit.SyncByte)
@@ -244,7 +253,7 @@ namespace Media.Containers.Mpeg
         public override IEnumerator<Container.Node> GetEnumerator()
         {
             //Ensure a Unit remains
-            while (Remaining >= StandardUnitLength + UnitOverhead)
+            while (Remaining >= TransportUnitSize)
             {
                 //Read a unit
                 Container.Node next = ReadNext();
@@ -371,16 +380,10 @@ namespace Media.Containers.Mpeg
             //Section Length The number of bytes that follow for the syntax section (with CRC value) and/or table data. These bytes must not exceed a value of 1021.
             // section_length field is a 12-bit field that gives the length of the table section beyond this field
             //Since it is carried starting at bit index 12 in the section (the second and third bytes), the actual size of the table section is section_length + 3.
-            ushort sectionLength = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF);
-
-            //Move the offset
-            offset += 2;
+            ushort sectionLength = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x0FFF);
 
             //transport_stream_id	24	16	uimsbf
-            ushort transportStreamId = (ushort)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF);
-
-            //Move the offset;
-            offset += 2;
+            ushort transportStreamId = (ushort)(Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x0FFF);
 
             //Skip reserved, version number and current/next indicator.
             ++offset;
@@ -428,9 +431,7 @@ namespace Media.Containers.Mpeg
 
             TransportStreamUnit.PacketIdentifier pcrPid = (TransportStreamUnit.PacketIdentifier)(Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & TransportStreamUnit.PacketIdentifierMask);
 
-            int infoLength = Common.Binary.ReadU16(node.Data, offset, BitConverter.IsLittleEndian) & 0x0FFF;
-
-            offset += 2;
+            int infoLength = Common.Binary.ReadU16(node.Data, ref offset, BitConverter.IsLittleEndian) & 0x0FFF;
 
             //Determine where to end (don't count the crc)
             int end = (infoLength + 3) - 4;
