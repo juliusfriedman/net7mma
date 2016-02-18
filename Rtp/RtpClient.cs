@@ -1975,7 +1975,7 @@ namespace Media.Rtp
             OnRtcpPacketReceieved(packet, transportContext);
 
             //If the version doesn't match.
-            if (transportContext.Version != packetVersion)
+            if (transportContext != null && transportContext.Version != packetVersion)
             {
                 Media.Common.ILoggingExtensions.Log(Logger, InternalId + "HandleIncomingRtcpPacket Invalid Version, Found =>" + packetVersion + ", Expected =>" + transportContext.Version);
 
@@ -2112,7 +2112,7 @@ namespace Media.Rtp
 
             //Handle Goodbyes with a positive blockcount but no  sourcelist...?
 
-        NoContext:
+        //NoContext:
 
             //If no transportContext could be found
             if (transportContext == null)
@@ -3674,13 +3674,6 @@ namespace Media.Rtp
             //Ensure not sending too large of a packet
             if (packet.Length > transportContext.MaximumPacketSize) Media.Common.Extensions.Exception.ExceptionExtensions.TryRaiseTaggedException(transportContext, "See Tag. The given packet must be smaller than the value in the transportContext.MaximumPacketSize.");
 
-            //If the mediaDescription of the context does not specify the packets payload type AND
-            //if (transportContext.SynchronizationSourceIdentifier == (ssrc ?? packet.SynchronizationSourceIdentifier))
-            //{
-            //    //Throw an exception
-            //    Media.Common.Extensions.Exceptions.ExceptionExtensions.RaiseTaggedException<RtpClient>(this, "Packet from '" + ssrc + "' PayloadType is different then the expected MediaDescription.MediaFormat Expected: '" + transportContext.MediaDescription.MediaFormat + "' Found: '" + packet.PayloadType + "'");
-            //}
-
             //How many bytes were sent
             int sent = 0;
 
@@ -4123,6 +4116,8 @@ namespace Media.Rtp
                         //If there WAS a context
                         if (relevent != null)
                         {
+                            #region Verify FrameLength
+
                             //Verify minimum and maximum packet sizes allowed by context. (taking into account the amount of bytes in the ALF)
                             if (frameLength < relevent.MinimumPacketSize + sessionRequired ||
                                 frameLength > relevent.MaximumPacketSize + sessionRequired)
@@ -4156,7 +4151,11 @@ namespace Media.Rtp
                                 //goto GetRemainingData;
                             }
 
-                            //Use CommonHeaderBits on the data after the Interleaved Frame Header
+                            #endregion
+
+                            #region Verify Packet Headers
+
+                            //Use CommonHeaderBits on the data after the Interleaved Frame Header, probably wastes time and memory, just should check with offsets...
                             using (var common = new Media.RFC3550.CommonHeaderBits(buffer[offset + sessionRequired], buffer[offset + sessionRequired + 1]))
                             {
                                 //Check the version...
@@ -4278,6 +4277,8 @@ namespace Media.Rtp
                             EndUsingHeader:
                                 ;
                             }
+
+                            #endregion
                         }
 
                         //Log state.
