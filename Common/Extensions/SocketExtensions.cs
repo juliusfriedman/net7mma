@@ -214,7 +214,9 @@ namespace Media.Common.Extensions.Socket
                     }
 
                     //Something bad happened
-                    return -1;
+                    start = -1;
+
+                    break;
                 }
             }
 

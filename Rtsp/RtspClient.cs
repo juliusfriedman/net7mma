@@ -3702,7 +3702,7 @@ namespace Media.Rtsp
                         //Could send 0 to have server pick port?                        
 
                         //Should allow this to be given or set as a property MinimumUdpPort, MaximumUdpPort                        
-                        int openPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp, 10000, true);
+                        int openPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 10000, true);
 
                         if (openPort == -1) Media.Common.Extensions.Exception.ExceptionExtensions.RaiseTaggedException(this, "Could not find open Udp Port");
                         //else if (MaximumUdp.HasValue && openPort > MaximumUdp)

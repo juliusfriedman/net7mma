@@ -2,6 +2,8 @@
 
 namespace Media.Containers.Mpeg
 {
+    //Could be IPacket and allow API similar to RtpPackets
+    //Implement Set methods and then worry about that.
     public sealed class TransportStreamUnit
     {
         private TransportStreamUnit() { }
@@ -163,8 +165,9 @@ namespace Media.Containers.Mpeg
 
         #region AdaptationField
 
-        public class AdaptationField
+        public sealed class AdaptationField
         {
+            private AdaptationField() { }
 
             [Flags]
             public enum AdaptationFieldFlags : byte
@@ -274,44 +277,49 @@ namespace Media.Containers.Mpeg
 
         #endregion
 
-        #region AdaptationFieldExtension
+        #region AdaptationFieldExtension        
 
-        public static int AdaptationFieldExtensionLength(byte[] adaptationField)
+        public sealed class AdaptationFieldExtension
         {
-            if (adaptationField == null) throw new ArgumentNullException("adaptationField");
-            return adaptationField[1];
-        }
+            private AdaptationFieldExtension() { }
 
-        //GetAdaptationFieldExtensionData
+            public static int AdaptationFieldExtensionLength(byte[] adaptationField)
+            {
+                if (adaptationField == null) throw new ArgumentNullException("adaptationField");
+                return adaptationField[1];
+            }
 
-        public static bool HasLegalTimeWindow(byte[] adaptationFieldExtension)
-        {
-            if (adaptationFieldExtension == null) throw new ArgumentNullException("adaptationFieldExtension");
-            return ((adaptationFieldExtension[2] & ErrorMask) != 0);
-        }
+            //GetAdaptationFieldExtensionData
 
-        public static bool HasPiecewiseRate(byte[] adaptationFieldExtension)
-        {
-            if (adaptationFieldExtension == null) throw new ArgumentNullException("adaptationFieldExtension");
-            return ((adaptationFieldExtension[2] & PayloadStartUnitMask) != 0);
-        }
+            public static bool HasLegalTimeWindow(byte[] adaptationFieldExtension)
+            {
+                if (adaptationFieldExtension == null) throw new ArgumentNullException("adaptationFieldExtension");
+                return ((adaptationFieldExtension[2] & ErrorMask) != 0);
+            }
 
-        public static bool HasSeamlessSplice(byte[] adaptationFieldExtension)
-        {
-            if (adaptationFieldExtension == null) throw new ArgumentNullException("adaptationFieldExtension");
-            return ((adaptationFieldExtension[2] & PriorityMask) != 0);
-        }
+            public static bool HasPiecewiseRate(byte[] adaptationFieldExtension)
+            {
+                if (adaptationFieldExtension == null) throw new ArgumentNullException("adaptationFieldExtension");
+                return ((adaptationFieldExtension[2] & PayloadStartUnitMask) != 0);
+            }
 
-        public static bool HasAdaptationFieldStuffing(byte[] adaptationFieldExtension, out int length)
-        {
-            //Get the whole extension field's length
-            int fieldLength = adaptationFieldExtension.Length;
-            //Determine the size of the extensions
-            length = AdaptationFieldExtensionLength(adaptationFieldExtension);
-            //The size of the stuffing is equal to the length of the entire extension field - the length of the extension
-            length = fieldLength - length;
-            //Indicate if there was any stuffing
-            return fieldLength < adaptationFieldExtension.Length;
+            public static bool HasSeamlessSplice(byte[] adaptationFieldExtension)
+            {
+                if (adaptationFieldExtension == null) throw new ArgumentNullException("adaptationFieldExtension");
+                return ((adaptationFieldExtension[2] & PriorityMask) != 0);
+            }
+
+            public static bool HasAdaptationFieldStuffing(byte[] adaptationFieldExtension, out int length)
+            {
+                //Get the whole extension field's length
+                int fieldLength = adaptationFieldExtension.Length;
+                //Determine the size of the extensions
+                length = AdaptationFieldExtensionLength(adaptationFieldExtension);
+                //The size of the stuffing is equal to the length of the entire extension field - the length of the extension
+                length = fieldLength - length;
+                //Indicate if there was any stuffing
+                return fieldLength < adaptationFieldExtension.Length;
+            }
         }
 
         #endregion
@@ -366,9 +374,22 @@ namespace Media.Containers.Mpeg
 
         public static bool HasAdaptationField(byte[] header, int offset = 0) { return GetAdaptationFieldControl(header, offset) > AdaptationFieldControl.None; }
 
+        public void SetAdaptationFieldControl(AdaptationFieldControl value, byte[] header, int offset = 0)
+        {
+            //MSB, Must reverse value or implement WriteReverseBinaryInteger.
+            //Common.Binary.WriteBinaryInteger(header, offset, 0, 4, (long)value);
+        }
+
+
         public static bool HasPayload(byte[] header, int offset = 0) { return GetAdaptationFieldControl(header, offset).HasFlag(AdaptationFieldControl.AdaptationFieldAndPayload); }
 
         public static ScramblingControl GetScramblingControl(byte[] header, int offset = 0) { return (ScramblingControl)((header[offset + 3] & ScramblingControlMask) >> 6); }
+
+        public static void SetScramblingControl(ScramblingControl value, byte[] header, int offset = 0)
+        {
+            //MSB, Must reverse value or implement WriteReverseBinaryInteger.
+            //Common.Binary.WriteBinaryInteger(header, offset, 0, 2, (long)value);
+        }
 
         public static int GetContinuityCounter(byte[] header, int offset = 0) { return header[offset + 3] & ContinuityCounterMask; }
     }

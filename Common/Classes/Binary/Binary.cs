@@ -1862,12 +1862,12 @@ namespace Media.Common
         /// <param name="data">The data to read</param>
         /// <param name="byteOffset">The offset in data to read from</param>
         /// <param name="bitOffset">The bit offset to start reading from in byteOffset</param>
-        /// <param name="reverse">Indicates if the <see cref="BitOrder"/> should be reversed in the result</param>
+        ///// <param name="reverse">Indicates if the <see cref="BitOrder"/> should be reversed in the result</param>
         /// <param name="count">The amount of bits to read</param>
         /// <param name="sign">The starting value to use to create the decimal representation</param>
         /// <param name="bitsPerByte">The amount of bits in each byte and the shift used to accumulate the result</param>
         /// <returns>The value calulated</returns>
-        public static long ReadBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, bool reverse = false, int sign = Binary.Ūnus, ByteOrder byteOrder = ByteOrder.Unknown, int bitsPerByte = Binary.BitsPerByte)
+        public static long ReadBinaryInteger(byte[] data, ref int byteOffset, int count, ref int bitOffset, int sign = Binary.Ūnus, ByteOrder byteOrder = ByteOrder.Unknown, int bitsPerByte = Binary.BitsPerByte)
         {
             if (data == null) throw new ArgumentNullException("data");
 

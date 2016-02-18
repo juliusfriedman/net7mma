@@ -1028,11 +1028,11 @@ namespace Media.Rtsp//.Server
 
                 //QuickTime debug
 
-                if (clientRtpPort == 0) clientRtpPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp, 30000, true);                
+                if (clientRtpPort == 0) clientRtpPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 30000, true);                
 
                 if (clientRtcpPort == 0) clientRtcpPort = clientRtpPort + 1;
 
-                if (serverRtpPort == 0) serverRtpPort = Media.Common.Extensions.Socket.SocketExtensions.FindOpenPort(ProtocolType.Udp, 30000, true);
+                if (serverRtpPort == 0) serverRtpPort = Media.Common.Extensions.Socket.SocketExtensions.ProbeForOpenPort(ProtocolType.Udp, 30000, true);
 
                 if (serverRtcpPort == 0) serverRtcpPort = serverRtpPort + 1;
 
